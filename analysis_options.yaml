@@ -1,0 +1,4 @@
+# Formatting and lints for the Dart tools at the root (tool/*.dart); the app has
+# its own file in app/.
+formatter:
+  page_width: 120

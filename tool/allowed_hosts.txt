@@ -1,0 +1,15 @@
+# Every host a URL literal in app/lib may name, one per line, with the reason.
+# `*.example.org` allows the domain and its subdomains; `file:<path>` exempts a
+# file whose URLs are data rather than endpoints. A new line is a reviewed
+# decision: the app must not talk to anything else (no tracker, no analytics).
+lunaway.net            # the project website, linked from the about page (and its privacy page)
+api.lunaway.net        # the Lunaway GraphQL API: sync of places and the remote config
+tiles.openfreemap.org  # basemap style, tiles and fonts (OpenFreeMap, no key, no tracking) until the self-hosted Protomaps style replaces it
+github.com             # the source code link of the about page (AGPL requires offering the source)
+www.openstreetmap.org  # OSM links for a place's coordinates, its source record, and the ODbL copyright page
+maps.apple.com         # directions handed to Apple Plans on iOS and macOS; the app opens the link, it does not fetch it
+www.google.com         # Google Maps link offered in the coordinate formats menu; opened by the user, never fetched
+opendatacommons.org    # the ODbL licence text, linked from the attributions
+www.etalab.gouv.fr     # the Licence Ouverte 2.0 text, linked from the attributions
+openfreemap.org        # basemap attribution link
+www.openmaptiles.org   # basemap schema attribution link required by the OpenMapTiles licence

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "git stash*": "deny",
+      "git checkout .*": "deny",
+      "git checkout -- *": "deny",
+      "git restore .*": "deny",
+      "git reset --hard*": "deny",
+      "git clean*": "deny",
+      "git commit*--no-verify*": "deny",
+      "git push*--no-verify*": "deny",
+      "git push*--force*": "deny",
+      "git push -f *": "deny",
+      "cargo update": "deny"
+    },
+    "read": {
+      ".env": "deny",
+      "backend/.env": "deny",
+      "app/android/key.properties": "deny",
+      "**/*.jks": "deny",
+      "**/*.keystore": "deny",
+      "**/*.p8": "deny",
+      "**/*.p12": "deny"
+    }
+  }
+}

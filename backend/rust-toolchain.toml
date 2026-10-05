@@ -1,0 +1,6 @@
+# Pinned so a clippy gate cannot turn red on its own the day a new stable adds
+# a lint. Move it forward deliberately, in its own commit, with the CI green.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

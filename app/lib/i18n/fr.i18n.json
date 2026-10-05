@@ -1,0 +1,22 @@
+{
+  "appTitle": "Lunaway",
+  "nav": {
+    "map": "Carte",
+    "favorites": "Favoris",
+    "profile": "Profil"
+  },
+  "map": {
+    "placeholder": "La carte des emplacements pour camping-cars et vans arrive bientôt."
+  },
+  "favorites": {
+    "empty": "Les lieux que vous enregistrez apparaîtront ici."
+  },
+  "profile": {
+    "language": "Langue",
+    "noAccountNeeded": "Aucun compte n'est nécessaire pour consulter. Contribuer ne demandera qu'un geste."
+  },
+  "locale": {
+    "en": "English",
+    "fr": "Français"
+  }
+}

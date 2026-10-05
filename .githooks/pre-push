@@ -1,0 +1,81 @@
+#!/bin/sh
+# Lunaway pre-push gate.
+#
+#   1. A production tag (vX.Y.Z, no pre-release suffix) publishes a release.
+#      Pushing one is a maintainer decision: refused unless
+#      LUNAWAY_PROD_TAG_ACK=1 is set for that one push.
+#   2. `dart analyze --fatal-infos` when the pushed range touches the app,
+#      `cargo clippy -D warnings` when it touches the backend, so a red
+#      pipeline is caught before the round trip. LUNAWAY_SKIP_ANALYZE=1 skips
+#      both (the CI runs them anyway).
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 2
+. tool/harness/git/common.sh
+
+remote="$1"
+need_app=0
+need_backend=0
+zero=0000000000000000000000000000000000000000
+empty_tree=$(git hash-object -t tree /dev/null)
+
+# The analyses read the working tree, not the pushed commits. When the tree
+# holds uncommitted changes in an area (another agent's work in progress,
+# say), a local run would judge that work instead of the push: it is skipped
+# with a warning, and the CI analyses the pushed commits themselves.
+tree_dirty() { [ -n "$(git status --porcelain -- "$1" 2>/dev/null)" ]; }
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_ref" ] && continue
+  case "$remote_ref" in
+    refs/tags/v*)
+      tag=${remote_ref#refs/tags/}
+      if printf '%s' "$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?$' && [ "${LUNAWAY_PROD_TAG_ACK:-}" != "1" ]; then
+        warn "BLOCKED: $tag is a PRODUCTION tag; pushing it publishes a release."
+        warn "  Pre-releases are tagged vX.Y.Z-beta.N. For a real release:"
+        warn "  LUNAWAY_PROD_TAG_ACK=1 git push $remote $tag"
+        exit 1
+      fi
+      ;;
+    refs/heads/*)
+      [ "$local_sha" = "$zero" ] && continue
+      # A branch new on the remote is compared with the empty tree: every
+      # file it carries is new there.
+      if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha" 2>/dev/null; then
+        changed=$(git diff --name-only "$empty_tree" "$local_sha")
+      else
+        changed=$(git diff --name-only "$remote_sha" "$local_sha")
+      fi
+      printf '%s\n' "$changed" | grep -qE '^app/' && need_app=1
+      printf '%s\n' "$changed" | grep -qE '^backend/' && need_backend=1
+      ;;
+  esac
+done
+
+[ "${LUNAWAY_SKIP_ANALYZE:-}" = "1" ] && { chain_local_hook pre-push "$@"; exit 0; }
+
+if [ "$need_app" -eq 1 ] && tree_dirty app; then
+  warn "pre-push: app/ has uncommitted changes, so a local analysis would judge the tree, not the push; skipped, the CI analyses the pushed commits."
+elif [ "$need_app" -eq 1 ]; then
+  if [ -z "$DART" ]; then
+    warn "pre-push: no dart toolchain on PATH; analysis skipped, the CI will run it."
+  else
+    ensure_packages >/dev/null || { warn "BLOCKED: pub get failed, the analysis would read a stale resolution."; exit 1; }
+    echo "pre-push: dart analyze --fatal-infos (LUNAWAY_SKIP_ANALYZE=1 to skip)"
+    (cd app && $DART analyze --fatal-infos) || { warn "BLOCKED: the app analysis is not clean."; exit 1; }
+  fi
+fi
+
+if [ "$need_backend" -eq 1 ] && tree_dirty backend; then
+  warn "pre-push: backend/ has uncommitted changes, so a local clippy would judge the tree, not the push; skipped, the CI checks the pushed commits."
+elif [ "$need_backend" -eq 1 ]; then
+  if [ -z "$CARGO" ]; then
+    warn "pre-push: no cargo on PATH; clippy skipped, the CI will run it."
+  else
+    echo "pre-push: cargo fmt --check and clippy -D warnings (LUNAWAY_SKIP_ANALYZE=1 to skip)"
+    (cd backend && cargo fmt --all -- --check) || { warn "BLOCKED: backend formatting; run \`cargo fmt --all\` in backend/."; exit 1; }
+    (cd backend && cargo clippy --locked --workspace --all-targets -- -D warnings) || { warn "BLOCKED: clippy is not clean."; exit 1; }
+  fi
+fi
+
+chain_local_hook pre-push "$@"
+exit 0

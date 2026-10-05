@@ -1,0 +1,108 @@
+# The same gates as tool/check.sh, split in three jobs so a red one says
+# where to look. Every job has a timeout: a job past it is an infrastructure
+# problem to investigate, never a slow build to wait for.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: wiring, dashes, lockfiles
+        run: |
+          sh tool/harness/git/check_harness.sh
+          sh tool/harness/git/check_dashes.sh --all
+          sh tool/harness/git/check_lock.sh HEAD
+      - name: secrets in the pushed range
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
+          sh tool/harness/git/check_secrets.sh "$base" HEAD
+      - name: hook tests
+        run: |
+          python3 tool/harness/hooks/tests/test_guards.py
+          python3 tool/harness/hooks/tests/test_agent_liveness.py
+      - name: workflow lint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
+      - name: format (generated files stay as their generator wrote them)
+        run: |
+          find app/lib app/test app/integration_test tool -name '*.dart' ! -name '*.g.dart' ! -name '*.freezed.dart' -print0 2>/dev/null \
+            | xargs -0 dart format --output=none --set-exit-if-changed
+      - name: translations and structure
+        run: |
+          dart tool/i18n_check.dart
+          dart tool/structure_check.dart
+      - name: generated code is committed and fresh
+        working-directory: app
+        run: |
+          dart run slang
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- lib || { echo "::error::generated code is stale: run slang and build_runner, commit the output"; exit 1; }
+      - name: analyze (dart analyze loads riverpod_lint, flutter analyze does not)
+        working-directory: app
+        run: dart analyze --fatal-infos
+      - name: tests
+        working-directory: app
+        run: flutter test --no-pub
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny
+      - name: format
+        run: cargo fmt --all -- --check
+      - name: structure
+        working-directory: .
+        run: sh tool/structure_rs.sh
+      - name: clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: tests
+        run: cargo nextest run --locked --workspace --all-targets --profile ci
+      - name: licences, sources, advisories
+        run: cargo deny --log-level error check bans licenses sources advisories

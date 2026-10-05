@@ -1,0 +1,19 @@
+[package]
+name = "lunaway-domain"
+description = "Lunaway domain types: the taxonomy of spots, services and activities. Pure, no I/O."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

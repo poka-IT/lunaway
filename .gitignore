@@ -1,0 +1,50 @@
+# Local planning: roadmap and research notes of the maintainer's machine.
+/plan/
+
+# Environment and secrets: never committed (see AGENTS.md, "Secrets").
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties
+*.p8
+*.p12
+*.pem
+*.mobileprovision
+
+# Terms that must never enter the repository; the list itself stays local
+# (tool/harness/git/check_leaks.sh).
+.leak-denylist
+
+# Agents: machine-local settings and worktrees.
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+__pycache__/
+.lunaway-agents-*
+
+# Flutter and Dart (the app has its own app/.gitignore for platform builds).
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec_overrides.yaml
+.fvm/
+coverage/
+
+# Rust
+/backend/target/
+
+# Data downloads and local stores.
+/data/
+*.pmtiles
+*.osm.pbf
+*.mbtiles
+
+# Editors and OS.
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store

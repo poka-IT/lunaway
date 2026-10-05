@@ -1,0 +1,29 @@
+Lunaway is a map of places to stop with a motorhome or a van: service areas, car parks, campsites, water and dump points.
+
+The app is free, with no ads and no trackers. Its code is free software (AGPL licence) and the places database is open data (ODbL licence).
+
+FIND A SPOT
+• Map, list and a detailed page for every place
+• Filters: place type, rating, services, activities, maximum height and length, open all year, online booking
+• "Overnight allowed" filter: every place says whether you can spend the night there
+• Search by town or by name
+• Directions in the navigation app of your choice, share a place
+
+UP TO DATE
+• Date of the last confirmation on every place
+• When you arrive, the app asks whether the place still matches its page
+• Service status: water cut off in winter, dump point out of order
+• Low emission zones on the map
+
+OFFLINE
+Download the map and the places of a region before you leave. Everything then works without a network.
+
+CONTRIBUTE
+• Reviews, ratings and photos
+• Add new places
+• Favourites in folders, history of your visits
+• Vehicle profile: height, length, weight
+Your account is created on first launch, without an email address.
+
+SOURCES
+Places come from OpenStreetMap, DATAtourisme, Atout France and the Lunaway community. Every place shows its sources. LPG prices come from the French public fuel price feed. France is covered in detail, the rest of the world from OpenStreetMap.

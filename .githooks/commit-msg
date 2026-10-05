@@ -1,0 +1,52 @@
+#!/bin/sh
+# Lunaway commit message gate (AGENTS.md, "Git").
+#
+#   type(scope) : sujet          French typography, space before the colon
+#   type(scope): sujet           also accepted
+#   type : sujet
+#   Merge ... / Revert ... / fixup! ... / squash! ...
+#
+# Types: feat fix docs refactor perf test chore ci build style i18n revert.
+# Subject under 100 characters, no em or en dash anywhere, no
+# Co-Authored-By trailer.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 2
+. tool/harness/git/common.sh
+
+msg_file="$1"
+msg=$(grep -v '^#' "$msg_file")
+subject=$(printf '%s\n' "$msg" | sed -n '1p')
+
+fail() {
+  warn "BLOCKED commit message: $1"
+  warn "  subject: $subject"
+  warn "  expected: type(scope) : sujet   (types: feat fix docs refactor perf test chore ci build style i18n revert)"
+  exit 1
+}
+
+case "$subject" in
+  "Merge "*|"Revert "*|"fixup! "*|"squash! "*) ;;
+  *)
+    printf '%s\n' "$subject" | grep -qE '^(feat|fix|docs|refactor|perf|test|chore|ci|build|style|i18n|revert)(\([^)]+\))?!? ?: \S' \
+      || fail "the subject does not follow the convention"
+    ;;
+esac
+
+# Characters, not bytes: a French subject carries accents that weigh two bytes.
+length=$(printf '%s' "$subject" | LC_ALL=C.UTF-8 wc -m 2>/dev/null | tr -d ' ')
+[ -n "$length" ] || length=$(printf '%s' "$subject" | LC_ALL=en_US.UTF-8 wc -m 2>/dev/null | tr -d ' ')
+[ -n "$length" ] || length=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+[ "$length" -le 100 ] || fail "the subject exceeds 100 characters ($length)"
+
+if printf '%s\n' "$msg" | LC_ALL=C grep -q -e "$DASH_PATTERN"; then
+  fail "the message carries an em dash or en dash; use a comma, a colon or parentheses"
+fi
+
+if printf '%s\n' "$msg" | grep -qiE '^Co-Authored-By:'; then
+  fail "no Co-Authored-By trailer in this repository"
+fi
+
+sh tool/harness/git/check_leaks.sh --message "$msg_file" || exit 1
+
+chain_local_hook commit-msg "$@"
+exit 0

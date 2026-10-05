@@ -1,0 +1,29 @@
+Lunaway est une carte des lieux où s'arrêter en camping-car ou en van : aires de services, parkings, campings, points d'eau et de vidange.
+
+L'application est gratuite, sans publicité et sans traqueur. Son code est libre (licence AGPL) et la base des lieux est ouverte (licence ODbL).
+
+TROUVER UN LIEU
+• Carte, liste et fiche détaillée de chaque lieu
+• Filtres : type de lieu, note, services, activités, hauteur et longueur maximales, ouverture à l'année, réservation en ligne
+• Filtre « nuit autorisée » : chaque fiche indique si l'on peut y passer la nuit
+• Recherche par ville ou par nom
+• Itinéraire vers le lieu dans l'application GPS de votre choix, partage d'une fiche
+
+DES INFORMATIONS À JOUR
+• Date de la dernière confirmation sur chaque fiche
+• À l'arrivée, l'application vous demande si le lieu correspond toujours à sa fiche
+• État des services : eau coupée l'hiver, vidange hors service
+• Zones à faibles émissions (ZFE) sur la carte
+
+HORS LIGNE
+Téléchargez la carte et les lieux d'une région avant de partir. Tout fonctionne ensuite sans réseau.
+
+CONTRIBUER
+• Avis, notes et photos
+• Ajout de nouveaux lieux
+• Favoris rangés en dossiers, historique de vos visites
+• Profil du véhicule : hauteur, longueur, poids
+Le compte se crée au premier lancement, sans adresse e-mail.
+
+SOURCES
+Les lieux viennent d'OpenStreetMap, de DATAtourisme, d'Atout France et de la communauté Lunaway. Chaque fiche affiche ses sources. Les prix du GPL viennent du flux public des prix des carburants. La France est couverte en détail, le reste du monde à partir d'OpenStreetMap.

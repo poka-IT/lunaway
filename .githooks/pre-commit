@@ -1,0 +1,70 @@
+#!/bin/sh
+# Lunaway pre-commit gate. Tracked in git and activated by
+# `git config core.hooksPath .githooks`, which the session preflight and
+# tool/setup.sh both do. Every check here is replayed by the CI, so a
+# `--no-verify` only delays the same failure to the pipeline.
+#
+# Kept to a few seconds: dashes, secrets, lockfiles, the harness wiring, the
+# formatting of the staged Dart and Rust files, and the Dart gates when their
+# inputs are staged. Analyses run at push time, the tests in CI and in
+# tool/check.sh.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 2
+. tool/harness/git/common.sh
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+tool/harness/git/check_dashes.sh --cached || exit 1
+tool/harness/git/check_secrets.sh --cached || exit 1
+sh tool/harness/git/check_leaks.sh --cached || exit 1
+tool/harness/git/check_lock.sh --cached || exit 1
+tool/harness/git/check_harness.sh >/dev/null || exit 1
+
+# Generated files are left as their generator wrote them.
+dart_files=$(printf '%s\n' "$staged" | grep '\.dart$' | grep -vE '\.(g|freezed)\.dart$' || true)
+if [ -z "$DART" ]; then
+  [ -n "$dart_files" ] && warn "pre-commit: no dart toolchain on PATH (fvm or dart); format, translation and structure gates skipped, the CI will run them."
+else
+  if [ -n "$dart_files" ]; then
+    # shellcheck disable=SC2086
+    $DART format $dart_files >/dev/null || exit 1
+    # shellcheck disable=SC2086
+    git add $dart_files
+  fi
+  # These gates read files from disk. When the tree holds changes that are
+  # not staged (another agent's work in progress), they run on a snapshot of
+  # the index instead, so they judge the commit and nothing else.
+  gate_dir=.
+  if ! git diff --quiet -- app/lib tool; then
+    rm -r data/tmp/precommit-snapshot 2>/dev/null
+    mkdir -p data/tmp
+    git checkout-index -a -f --prefix=data/tmp/precommit-snapshot/ || exit 1
+    gate_dir=data/tmp/precommit-snapshot
+  fi
+  if printf '%s\n' "$staged" | grep -qE '^app/lib/'; then
+    (cd "$gate_dir" && $DART tool/i18n_check.dart >/dev/null) || { (cd "$gate_dir" && $DART tool/i18n_check.dart); exit 1; }
+  fi
+  if printf '%s\n' "$staged" | grep -qE '^app/lib/.*\.dart$|^tool/(allowed_hosts\.txt|structure_ratchet\.json|structure_check\.dart)$'; then
+    (cd "$gate_dir" && $DART tool/structure_check.dart >/dev/null) || { (cd "$gate_dir" && $DART tool/structure_check.dart); exit 1; }
+  fi
+fi
+
+rs_files=$(printf '%s\n' "$staged" | grep '^backend/.*\.rs$' || true)
+if [ -n "$rs_files" ]; then
+  if [ -z "$CARGO" ]; then
+    warn "pre-commit: no cargo on PATH; rustfmt skipped, the CI will run it."
+  else
+    # rustfmt reads backend/rustfmt.toml from the file's directory upwards.
+    # shellcheck disable=SC2086
+    (cd backend && rustfmt --edition 2024 $(printf '%s\n' "$rs_files" | sed 's#^backend/##')) || exit 1
+    # shellcheck disable=SC2086
+    git add $rs_files
+  fi
+fi
+if printf '%s\n' "$staged" | grep -qE '^backend/|^tool/structure_rs\.sh$'; then
+  sh tool/structure_rs.sh >/dev/null || { sh tool/structure_rs.sh; exit 1; }
+fi
+
+chain_local_hook pre-commit "$@"
+exit 0

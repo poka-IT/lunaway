@@ -1,0 +1,33 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - lib/**/*.g.dart
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+formatter:
+  page_width: 100
+
+linter:
+  rules:
+    # Widgets and providers are documented where the intent is not obvious;
+    # a doc comment on every public member restates names.
+    public_member_api_docs: false
+    # The formatter wraps at page_width (100); this lint assumes 80.
+    lines_longer_than_80_chars: false
+
+# riverpod_lint runs as an analysis_server_plugin, so `fvm flutter analyze`
+# reports it with the rest. Its cost on analysis time is watched as the tree
+# grows (docs/harness.md, "Deliberately out of the gates").
+plugins:
+  riverpod_lint: ^3.1.9

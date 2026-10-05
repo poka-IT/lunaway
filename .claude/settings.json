@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)",
+      "Read(./app/android/key.properties)",
+      "Read(./app/android/**/*.jks)",
+      "Read(./app/android/**/*.keystore)",
+      "Read(./app/ios/**/*.p8)",
+      "Read(./app/ios/**/*.p12)",
+      "Read(./app/ios/**/*.mobileprovision)",
+      "Read(./app/macos/**/*.p12)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/run-py.sh\" \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/bash_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/run-py.sh\" \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/edit_guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/run-py.sh\" \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/post_edit.py\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/run-py.sh\" \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/session_preflight.py\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/run-py.sh\" \"$CLAUDE_PROJECT_DIR/tool/harness/hooks/agent_liveness.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

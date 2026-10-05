@@ -1,0 +1,22 @@
+{
+  "appTitle": "Lunaway",
+  "nav": {
+    "map": "Map",
+    "favorites": "Favorites",
+    "profile": "Profile"
+  },
+  "map": {
+    "placeholder": "The map of motorhome and van spots is coming soon."
+  },
+  "favorites": {
+    "empty": "Your saved spots will appear here."
+  },
+  "profile": {
+    "language": "Language",
+    "noAccountNeeded": "No account needed to browse. Contributing will only take one tap."
+  },
+  "locale": {
+    "en": "English",
+    "fr": "Français"
+  }
+}
