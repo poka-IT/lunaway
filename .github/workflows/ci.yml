@@ -225,7 +225,8 @@ jobs:
       - name: tests
         run: cargo test --locked
       - name: licences, sources, advisories
-        run: cargo deny --log-level error --manifest-path Cargo.toml check --config ../../../../backend/deny.toml bans licenses sources advisories
+        # cargo-deny itself: in `cargo deny --config`, cargo reads the flag.
+        run: cargo-deny --log-level error --config ../../../../backend/deny.toml check bans licenses sources advisories
 
   backend:
     runs-on: ubuntu-latest
