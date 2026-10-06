@@ -189,6 +189,11 @@ enum Enforcement {
         /// Builds every item again, not only those whose cameras changed.
         #[arg(long)]
         full: bool,
+        /// Retires the items gone even when they are more than a tenth of
+        /// them (a country turned off): the guard against an engine without
+        /// its graph is lifted.
+        #[arg(long)]
+        allow_retire: bool,
         /// The routing engine (loopback only).
         #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
         valhalla_url: String,
@@ -1188,7 +1193,11 @@ const MIN_ZONE_SECRET: usize = 32;
 async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::Result<()> {
     use lunaway_db::enforcement as db;
     match action {
-        Enforcement::Build { full, valhalla_url } => {
+        Enforcement::Build {
+            full,
+            allow_retire,
+            valhalla_url,
+        } => {
             let secret =
                 std::env::var("LUNAWAY_ZONE_SECRET").context("LUNAWAY_ZONE_SECRET is not set")?;
             anyhow::ensure!(
@@ -1200,9 +1209,15 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
                 Duration::from_secs(10),
             )
             .context("the routing engine must be a loopback http URL")?;
-            let r = lunaway_ingest::enforcement::build(pool, &engine, secret.as_bytes(), full)
-                .await
-                .context("speed camera build failed")?;
+            let r = lunaway_ingest::enforcement::build(
+                pool,
+                &engine,
+                secret.as_bytes(),
+                full,
+                allow_retire,
+            )
+            .await
+            .context("speed camera build failed")?;
             println!(
                 "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone)",
                 r.cameras, r.merged.matched, r.merged.left_out, r.merged.alone

@@ -318,17 +318,35 @@ impl Routing {
         let shape = route
             .get("geometry")
             .and_then(Value::as_str)
-            .ok_or(RouteError::Malformed("no geometry"))?;
-        let points = polyline::decode(shape).map_err(RouteError::Shape)?;
-        let Some(line) = RouteLine::new(points) else {
-            return Ok(None);
-        };
-        let Some(pieces) = limits::chunks(line.along()) else {
+            .ok_or(RouteError::Malformed("no geometry"))?
+            .to_owned();
+        // Decoding a long shape and encoding its pieces is CPU work: off
+        // the async threads.
+        let prepared = tokio::task::spawn_blocking(move || {
+            let points = polyline::decode(&shape).map_err(RouteError::Shape)?;
+            let mut along = Vec::with_capacity(points.len());
+            let mut total = 0.0;
+            for (i, p) in points.iter().enumerate() {
+                if i > 0 {
+                    total += points[i - 1].distance_m(*p);
+                }
+                along.push(total);
+            }
+            let bodies = limits::chunks(&along).map(|pieces| {
+                pieces
+                    .into_iter()
+                    .map(|(first, last)| (first, limits::trace_body(&points[first..=last])))
+                    .collect::<Vec<_>>()
+            });
+            Ok::<_, RouteError>((points, along, bodies))
+        })
+        .await
+        .map_err(RouteError::Blocking)??;
+        let (points, along, Some(bodies)) = prepared else {
             return Ok(None);
         };
         let mut edges = Vec::new();
-        for (first, last) in pieces {
-            let body = limits::trace_body(&line.points()[first..=last]);
+        for (first, body) in bodies {
             let answer = {
                 let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
                     .await
@@ -342,7 +360,7 @@ impl Routing {
             }
         }
         let spans = tokio::task::spawn_blocking(move || {
-            lunaway_domain::speed::spans(line.points(), line.along(), &edges, vehicle)
+            lunaway_domain::speed::spans(&points, &along, &edges, vehicle)
         })
         .await
         .map_err(RouteError::Blocking)?;

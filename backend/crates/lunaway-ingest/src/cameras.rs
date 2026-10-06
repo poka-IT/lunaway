@@ -5,7 +5,8 @@
 //! licence) and Norway's (NVDB, NLOD). Each list is fetched whole, cached,
 //! and stores its devices with their source; a device the list no longer
 //! gives is retired, unless the list lost more than half of them (a
-//! truncated answer). A device in Switzerland is never stored.
+//! truncated answer). Each list's cameras take the list's country; none
+//! within a kilometre of Switzerland is stored.
 
 use std::time::Duration;
 
@@ -16,7 +17,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, from_utm_north},
+    enforcement::{Device, DeviceKind, from_utm_north, near_country},
 };
 
 use crate::{
@@ -72,15 +73,28 @@ impl CameraList {
 
     /// Its source in the database.
     #[must_use]
-    pub fn source(self) -> SourceId {
-        SourceId::new(match self {
-            Self::France => "securite-routiere",
-            Self::Poland => "pl-canard",
-            Self::Luxembourg => "lu-pch-radars",
-            Self::Catalonia => "cat-sct-radars",
-            Self::Norway => "no-nvdb-atk",
-        })
-        .unwrap_or(SourceId::OSM)
+    pub const fn source(self) -> SourceId {
+        match self {
+            Self::France => SourceId::SECURITE_ROUTIERE,
+            Self::Poland => SourceId::PL_CANARD,
+            Self::Luxembourg => SourceId::LU_PCH_RADARS,
+            Self::Catalonia => SourceId::CAT_SCT_RADARS,
+            Self::Norway => SourceId::NO_NVDB_ATK,
+        }
+    }
+
+    /// The country the list is the authority of: its cameras are that
+    /// country's, wherever the simplified boundaries put a camera near a
+    /// border, the overseas departments of France included.
+    #[must_use]
+    pub const fn country(self) -> &'static str {
+        match self {
+            Self::France => "FR",
+            Self::Poland => "PL",
+            Self::Luxembourg => "LU",
+            Self::Catalonia => "ES",
+            Self::Norway => "NO",
+        }
     }
 
     /// Where it is read.
@@ -228,7 +242,13 @@ fn parse_poland(body: &[u8]) -> Parsed {
         out.rows += 1;
         let fields: Vec<String> = line
             .split(|b| *b == b';')
-            .map(|f| String::from_utf8_lossy(f).trim().to_owned())
+            .map(|f| {
+                encoding_rs::WINDOWS_1250
+                    .decode_without_bom_handling(f)
+                    .0
+                    .trim()
+                    .to_owned()
+            })
             .collect();
         let field = |i: usize| fields.get(i).map(String::as_str).unwrap_or_default();
         let kind_text = field(0);
@@ -439,7 +459,11 @@ fn next_page(body: &[u8]) -> Option<String> {
         .filter(|href| href.starts_with("https://nvdbapiles.atlas.vegvesen.no/"))
 }
 
-async fn get(http: &reqwest::Client, url: &str, norway: bool) -> Result<Vec<u8>, IngestError> {
+/// A list's body, and the date it gives of its last update
+/// (`Last-Modified`), when it gives one.
+type Fetched = (Vec<u8>, Option<DateTime<Utc>>);
+
+async fn get(http: &reqwest::Client, url: &str, norway: bool) -> Result<Fetched, IngestError> {
     let retry = RetryPolicy {
         min_delay: Duration::from_secs(10),
         max_delay: Duration::from_secs(60),
@@ -456,9 +480,25 @@ async fn get(http: &reqwest::Client, url: &str, norway: bool) -> Result<Vec<u8>,
             source,
         })?;
         let response = check_status(url, response).await?;
-        read_capped(url, response, MAX_BYTES).await
+        let updated = response
+            .headers()
+            .get(reqwest::header::LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| DateTime::parse_from_rfc2822(v).ok())
+            .map(|t| t.with_timezone(&Utc));
+        Ok((read_capped(url, response, MAX_BYTES).await?, updated))
     })
     .await
+}
+
+/// What a fetch of a list gave: its body, when it was read, whether from
+/// the cache, and the date it gives of its last update (none from the
+/// cache: the date of an earlier read stays recorded).
+struct Read {
+    body: Vec<u8>,
+    fetched_at: DateTime<Utc>,
+    cached: bool,
+    list_updated_at: Option<DateTime<Utc>>,
 }
 
 /// The list's body, from the network unless `refresh` is false and one is
@@ -468,16 +508,28 @@ async fn fetch(
     cache: &Cache,
     list: CameraList,
     refresh: bool,
-) -> Result<(Vec<u8>, DateTime<Utc>, bool), IngestError> {
+) -> Result<Read, IngestError> {
     if !refresh && let Some(c) = cache.read(list.cache_key()).await? {
-        return Ok((c.bytes, c.fetched_at, true));
+        return Ok(Read {
+            body: c.bytes,
+            fetched_at: c.fetched_at,
+            cached: true,
+            list_updated_at: None,
+        });
     }
-    let body = if list == CameraList::Norway {
+    let (body, list_updated_at) = if list == CameraList::Norway {
         let mut objects = Vec::new();
         let mut url = Some(list.url().to_owned());
-        for _ in 0..MAX_PAGES {
+        for page_number in 0..=MAX_PAGES {
             let Some(u) = url.take() else { break };
-            let page = get(http, &u, true).await?;
+            if page_number == MAX_PAGES {
+                // More pages than any answer had: stop rather than store
+                // a part of the list as the whole of it.
+                return Err(IngestError::Implausible {
+                    what: format!("the Norwegian camera list runs past {MAX_PAGES} pages"),
+                });
+            }
+            let (page, _) = get(http, &u, true).await?;
             let v: serde_json::Value =
                 serde_json::from_slice(&page).map_err(|source| IngestError::Json {
                     what: "Norwegian camera list".into(),
@@ -488,17 +540,24 @@ async fn fetch(
             // NVDB allows 40 calls a second; one a second is plenty.
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
-        serde_json::to_vec(&serde_json::json!({ "objekter": objects })).map_err(|source| {
-            IngestError::Json {
-                what: "Norwegian camera list".into(),
-                source,
-            }
-        })?
+        let joined =
+            serde_json::to_vec(&serde_json::json!({ "objekter": objects })).map_err(|source| {
+                IngestError::Json {
+                    what: "Norwegian camera list".into(),
+                    source,
+                }
+            })?;
+        (joined, None)
     } else {
         get(http, list.url(), false).await?
     };
     let fetched_at = cache.write(list.cache_key(), &body).await?;
-    Ok((body, fetched_at, false))
+    Ok(Read {
+        body,
+        fetched_at,
+        cached: false,
+        list_updated_at,
+    })
 }
 
 /// What an import of a list did.
@@ -514,7 +573,7 @@ pub struct CameraReport {
     pub devices: usize,
     /// Rows left out.
     pub skipped: usize,
-    /// Devices in Switzerland, outside every country, or listed twice, not
+    /// Devices near Switzerland, with an id too long, or listed twice, not
     /// stored.
     pub not_stored: usize,
     /// Devices written: new, changed, or seen again (their read date
@@ -526,6 +585,17 @@ pub struct CameraReport {
     pub retire_refused: bool,
 }
 
+/// Whether a device may be stored: an id the table takes (1 to 64
+/// characters), a position on land, and nowhere within
+/// [`lunaway_domain::enforcement::BORDER_MARGIN_M`] of Switzerland, whose
+/// law covers a database of positions carried in a car; the simplified
+/// boundaries could put a Swiss camera on the wrong side.
+pub(crate) fn storable(d: &Device) -> bool {
+    (1..=64).contains(&d.external_id.chars().count())
+        && lunaway_domain::region::country_at(d.position).is_some()
+        && !near_country(d.position, "CH")
+}
+
 /// A list left alone by the truncation guard when it holds fewer than
 /// half of the devices stored, at 10 stored or more.
 fn truncated(seen: usize, stored: i64) -> bool {
@@ -533,7 +603,24 @@ fn truncated(seen: usize, stored: i64) -> bool {
     stored >= 10 && seen.saturating_mul(2) < stored
 }
 
-/// Stores the devices of `parsed` for `list`, read at `fetched_at`.
+/// What storing a list did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stored {
+    /// Devices stored.
+    pub devices: usize,
+    /// Devices left out: near Switzerland, at sea, an id too long, or
+    /// listed twice.
+    pub not_stored: usize,
+    /// Devices written: new, changed, or seen again.
+    pub written: u64,
+    /// Devices the list no longer gives.
+    pub retired: u64,
+    /// Whether retiring was refused: the list lost more than half.
+    pub retire_refused: bool,
+}
+
+/// Stores the devices of `parsed` for `list`, read at `fetched_at`, the
+/// list last updated at `list_updated_at` by its own account.
 ///
 /// # Errors
 ///
@@ -543,27 +630,30 @@ pub async fn store(
     list: CameraList,
     parsed: &Parsed,
     fetched_at: DateTime<Utc>,
-) -> Result<(usize, usize, u64, u64, bool), IngestError> {
+    list_updated_at: Option<DateTime<Utc>>,
+) -> Result<Stored, IngestError> {
     let source = list.source();
+    let country = list.country();
     // A list that names a camera twice (Catalonia's B-10 at 18,5) keeps
     // the first: one statement cannot write a row twice.
     let mut ids = std::collections::HashSet::new();
-    let placed: Vec<(&Listed, &'static str)> = parsed
+    let placed: Vec<(&Listed, String)> = parsed
         .devices
         .iter()
-        .filter(|l| ids.insert(l.device.external_id.as_str()))
-        .filter_map(|l| {
-            lunaway_domain::region::country_at(l.device.position)
-                .filter(|c| *c != "CH")
-                .map(|c| (l, c))
+        .filter(|l| storable(&l.device) && ids.insert(l.device.external_id.as_str()))
+        .map(|l| {
+            let scope = crate::osm_extract::scope_of(l.device.position, Some(country))
+                .unwrap_or_else(|| country.to_owned());
+            (l, scope)
         })
         .collect();
     let not_stored = parsed.devices.len() - placed.len();
     let rows: Vec<NewDevice<'_>> = placed
         .iter()
-        .map(|(l, country)| NewDevice {
+        .map(|(l, scope)| NewDevice {
             device: &l.device,
             country,
+            scope,
             raw: &l.raw,
         })
         .collect();
@@ -586,8 +676,14 @@ pub async fn store(
         db::retire_missing(pool, &source, &seen, fetched_at).await?
     };
     let live = db::live_count(pool, &source).await?;
-    db::record_read(pool, &source, fetched_at, live).await?;
-    Ok((placed.len(), not_stored, written, retired, refused))
+    db::record_read(pool, &source, fetched_at, live, list_updated_at).await?;
+    Ok(Stored {
+        devices: placed.len(),
+        not_stored,
+        written,
+        retired,
+        retire_refused: refused,
+    })
 }
 
 /// Fetches `list` (from the cache unless `refresh`), reads it and stores
@@ -603,21 +699,26 @@ pub async fn import(
     list: CameraList,
     refresh: bool,
 ) -> Result<CameraReport, IngestError> {
-    let (body, fetched_at, cached) = fetch(http, cache, list, refresh).await?;
-    let parsed = list.parse(&body)?;
-    let (devices, not_stored, written, retired, retire_refused) =
-        store(pool, list, &parsed, fetched_at).await?;
-    tracing::info!(source = %list.source(), devices, written, retired, "cameras stored");
+    let read = fetch(http, cache, list, refresh).await?;
+    let parsed = list.parse(&read.body)?;
+    let s = store(pool, list, &parsed, read.fetched_at, read.list_updated_at).await?;
+    tracing::info!(
+        source = %list.source(),
+        devices = s.devices,
+        written = s.written,
+        retired = s.retired,
+        "cameras stored"
+    );
     Ok(CameraReport {
-        cached,
-        fetched_at,
+        cached: read.cached,
+        fetched_at: read.fetched_at,
         rows: parsed.rows,
-        devices,
+        devices: s.devices,
         skipped: parsed.skipped,
-        not_stored,
-        written,
-        retired,
-        retire_refused,
+        not_stored: s.not_stored,
+        written: s.written,
+        retired: s.retired,
+        retire_refused: s.retire_refused,
     })
 }
 

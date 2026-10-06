@@ -272,10 +272,20 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             avoided,
         } => RouteResult {
             routes: {
-                let limits = st
-                    .routing
-                    .speed_limits(&osrm, speed_vehicle(&request.vehicle))
-                    .await;
+                // Only when asked: each route costs the engine a trace or
+                // more, and up to 3 s.
+                let wanted = ctx
+                    .look_ahead()
+                    .field("routes")
+                    .field("speedLimits")
+                    .exists();
+                let limits = if wanted {
+                    st.routing
+                        .speed_limits(&osrm, speed_vehicle(&request.vehicle))
+                        .await
+                } else {
+                    Vec::new()
+                };
                 routes
                     .iter()
                     .map(|r| RouteSummary {

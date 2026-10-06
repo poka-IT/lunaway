@@ -127,6 +127,7 @@ async fn each_item_is_served_in_the_form_its_country_allows(pool: PgPool) {
         &SourceId::new("securite-routiere").unwrap(),
         read_at,
         3_664,
+        None,
     )
     .await
     .unwrap();
@@ -223,4 +224,59 @@ async fn each_item_is_served_in_the_form_its_country_allows(pool: PgPool) {
     )
     .await;
     assert_eq!(body["errors"][0]["extensions"]["code"], "INVALID_INPUT");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_small_page_gives_every_item_once_and_says_when_more_wait(pool: PgPool) {
+    let line = |lon: f64| vec![p(45.83, lon), p(45.835, lon + 0.01)];
+    let written: Vec<Item> = (0..3)
+        .map(|i| {
+            zone(
+                &format!("securite-routiere/{i}"),
+                "FR",
+                line(1.2 + f64::from(i) * 0.05),
+            )
+        })
+        .collect();
+    db::write_items(&pool, &written, &[]).await.unwrap();
+    let app = lunaway_api::router(ApiState::new(pool.clone(), ApiConfig::default()));
+    let page = |since: Option<String>| {
+        let app = app.clone();
+        async move {
+            let request = Request::post("/graphql")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "query": "query($since: String) { enforcement(since: $since, first: 2) \
+                                  { cursor full hasMore upserts { id } removals } }",
+                        "variables": {"since": since}
+                    })
+                    .to_string(),
+                ))
+                .unwrap();
+            let response = app.oneshot(request).await.unwrap();
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            body["data"]["enforcement"].clone()
+        }
+    };
+    let first = page(None).await;
+    assert_eq!(
+        (&first["full"], &first["hasMore"]),
+        (&json!(true), &json!(true)),
+        "{first}"
+    );
+    let second = page(first["cursor"].as_str().map(str::to_owned)).await;
+    assert_eq!(
+        (&second["full"], &second["hasMore"]),
+        (&json!(false), &json!(false)),
+        "{second}"
+    );
+    let mut seen = ids(&first["upserts"]);
+    seen.extend(ids(&second["upserts"]));
+    let mut expected: Vec<String> = written.iter().map(|i| i.id.to_string()).collect();
+    seen.sort();
+    expected.sort();
+    assert_eq!(seen, expected, "every item once over the pages");
+    assert_eq!(second["removals"], json!([]));
 }

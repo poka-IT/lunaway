@@ -9,9 +9,14 @@
 //!
 //! In a [`Mode::Zones`] country a camera becomes a stretch of road whose
 //! length depends on the road, the camera somewhere inside it: its place
-//! along the zone comes from a keyed hash of the camera's id with a secret
-//! of the server ([`zone_fraction`]), stable from one build to the next (two
-//! builds compared do not reveal it), never at an end.
+//! along the zone comes from a keyed hash of the camera's id, the zone's
+//! length and its direction, with a secret of the server
+//! ([`zone_fraction`]). It stays the same from one build to the next while
+//! the zone keeps its length and direction; a zone that changes either
+//! takes another share, so two versions compared narrow the camera down to
+//! where they overlap, never closer than 15 % of the shorter zone on each
+//! side. The line is drawn with a point every [`ZONE_STEP_M`] from its
+//! start, none of them the road's own vertices ([`zone_cut`]).
 
 use std::{fmt, str::FromStr};
 
@@ -220,6 +225,61 @@ pub fn mode_at(p: Position) -> Mode {
     crate::region::country_at(p).map_or(Mode::Off, |c| rule_of(c).mode)
 }
 
+/// How far around a point the rule of a neighbouring country counts too,
+/// metres. The embedded boundaries are simplified: they strive "to have at
+/// least every settlement and major road on the correct side of the
+/// border" (country-boundaries 1.2.0, README), so a camera near a border
+/// may read on the wrong side of it.
+pub const BORDER_MARGIN_M: f64 = 1_000.0;
+
+/// The form the server may serve where several rules meet: nothing when
+/// one is off, zones when one allows only zones, points otherwise (off
+/// while driving when one says so). This order is about what leaves the
+/// server; the app's order at a border is [`Mode::strictness`].
+#[must_use]
+pub fn served_form(modes: impl IntoIterator<Item = Mode>) -> Mode {
+    let rank = |m: Mode| match m {
+        Mode::Off => 3,
+        Mode::Zones => 2,
+        Mode::OffWhileDriving => 1,
+        Mode::Exact => 0,
+    };
+    modes
+        .into_iter()
+        .max_by_key(|m| rank(*m))
+        .unwrap_or(Mode::Off)
+}
+
+/// The points on a circle of [`BORDER_MARGIN_M`] around `p`, every 45°.
+fn ring(p: Position) -> impl Iterator<Item = Position> {
+    (0..8).filter_map(move |k| toward(p, f64::from(k) * 45.0, BORDER_MARGIN_M))
+}
+
+/// The form the server may serve at `p`: the rule of the country it lies
+/// in, and of every country within [`BORDER_MARGIN_M`] of it; off where no
+/// country holds `p` itself (at sea). The sea around it does not count: a
+/// coastal road keeps its country's rule.
+#[must_use]
+pub fn mode_near(p: Position) -> Mode {
+    let Some(own) = crate::region::country_at(p) else {
+        return Mode::Off;
+    };
+    served_form(
+        std::iter::once(own)
+            .chain(ring(p).filter_map(crate::region::country_at))
+            .map(|c| rule_of(c).mode),
+    )
+}
+
+/// Whether `p` lies in `country`, or within [`BORDER_MARGIN_M`] of it.
+#[must_use]
+pub fn near_country(p: Position, country: &str) -> bool {
+    std::iter::once(p)
+        .chain(ring(p))
+        .filter_map(crate::region::country_at)
+        .any(|c| c.eq_ignore_ascii_case(country))
+}
+
 coded_enum! {
     /// What a camera controls, as the sources describe it.
     DeviceKind {
@@ -272,14 +332,43 @@ pub fn zone_length_m(lengths: ZoneLengths, limit_kmh: Option<u16>) -> u32 {
     }
 }
 
+/// What a zone's share depends on besides its camera: its length, and
+/// which way it runs. A zone whose length or direction changes (a limit
+/// mapped, a direction guessed the other way) takes a share of its own, so
+/// that the old and the new zone do not solve for the camera together.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ZoneFrame {
+    /// The zone's length, metres.
+    pub length_m: u32,
+    /// Whether it runs toward the east (a heading from 0 inclusive to 180
+    /// exclusive degrees).
+    pub eastward: bool,
+}
+
+impl ZoneFrame {
+    /// The frame of a zone of `length_m` driven heading `heading_deg`.
+    #[must_use]
+    pub fn new(length_m: u32, heading_deg: f64) -> Self {
+        Self {
+            length_m,
+            eastward: heading_deg.rem_euclid(360.0) < 180.0,
+        }
+    }
+}
+
 /// Where a zone starts before its camera, as a share of its length: from a
-/// keyed hash of the camera's id and the server's `secret`, between 15 % and
-/// 85 %, the same at every build.
+/// keyed hash of the camera's id, the zone's frame (its length and
+/// direction, [`ZoneFrame`]) and the server's `secret`, between 15 % and
+/// 85 %: the same at every build while the frame stays, another one when it
+/// changes.
 #[must_use]
-pub fn zone_fraction(secret: &[u8], camera: &str) -> f64 {
+pub fn zone_fraction(secret: &[u8], camera: &str, frame: ZoneFrame) -> f64 {
     let mut h = Sha256::new();
     h.update((secret.len() as u64).to_be_bytes());
     h.update(secret);
+    h.update(b"zone-share:");
+    h.update(frame.length_m.to_be_bytes());
+    h.update([u8::from(frame.eastward)]);
     h.update(camera.as_bytes());
     let digest = h.finalize();
     let mut first = [0u8; 8];
@@ -292,13 +381,14 @@ pub fn zone_fraction(secret: &[u8], camera: &str) -> f64 {
     0.15 + 0.7 * unit
 }
 
-/// How far from a camera, and from its place on the road, a zone's line
-/// keeps no vertex of its own, metres: the engine cuts its route where a
-/// location snaps, and that vertex would be the camera's place on the road;
-/// OpenStreetMap often maps a camera as a node of its road. Wider, the
-/// chord left across a bend strays from the road: with 30 m, one zone of
-/// 62 in Limousin passed 50 m from its camera (2026-10-06).
-pub const ZONE_CLEAR_M: f64 = 15.0;
+/// Spacing of a zone's points, metres. A zone is drawn with a point every
+/// so many metres along its road from its start, none of them a vertex of
+/// the road: the engine cuts its route where the camera snaps, and
+/// OpenStreetMap often maps the camera as a node of its road, so a road
+/// vertex kept, or a gap where vertices were removed around the camera,
+/// would mark its place. A chord of 50 m strays at most 18 m from the road
+/// at a right-angled corner.
+pub const ZONE_STEP_M: f64 = 50.0;
 
 /// How far a camera may lie from the route a zone is cut from, metres: a
 /// camera beside the road (OpenStreetMap maps some on the verge) still
@@ -322,11 +412,12 @@ pub fn toward(p: Position, bearing_deg: f64, distance_m: f64) -> Option<Position
 /// The zone of the cameras `cameras` (one, or a section's start and end in
 /// driving order), cut out of `road` (an engine route through them, in
 /// driving order): from `before_m` metres before the first camera's place
-/// on the road to `after_m` after the last's, without a vertex within
-/// [`ZONE_CLEAR_M`] of a camera or of its place on the road. `None` when a camera is not on the road,
-/// they come in the wrong order, or the road does not reach the whole
-/// length on both sides: a zone cut short would put its camera near an
-/// end.
+/// on the road to `after_m` after the last's, a point every
+/// [`ZONE_STEP_M`] from its start and one at its end. `None` when a camera
+/// is not on the road, they come in the wrong order, the road does not
+/// reach the whole length on both sides (a zone cut short would put its
+/// camera near an end), or the stretch drives some road twice
+/// ([`doubles_back`]).
 #[must_use]
 pub fn zone_cut(
     road: &[Position],
@@ -341,24 +432,28 @@ pub fn zone_cut(
         .project_within(*last, ZONE_SNAP_M, start, f64::INFINITY)?
         .along_m;
     let (from, to) = (start - before_m, end + after_m);
-    if from < 0.0 || to > line.length_m() || before_m < 0.0 || after_m < 0.0 {
+    if from < 0.0 || to > line.length_m() || before_m <= 0.0 || after_m <= 0.0 {
         return None;
     }
-    // The cameras, and their places on the road: a camera beside the road
-    // stands up to [`ZONE_SNAP_M`] from where the engine cut its route.
-    let mut clear: Vec<Position> = cameras.to_vec();
-    clear.push(line.point_at(start));
-    clear.push(line.point_at(end));
-    let mut out = vec![line.point_at(from)];
-    out.extend(
+    // The road itself between the ends, to tell a road driven twice.
+    let mut stretch = vec![line.point_at(from)];
+    stretch.extend(
         line.points()
             .iter()
             .zip(line.along())
-            .filter(|(p, s)| {
-                **s > from && **s < to && clear.iter().all(|c| p.distance_m(*c) > ZONE_CLEAR_M)
-            })
+            .filter(|(_, s)| **s > from && **s < to)
             .map(|(p, _)| *p),
     );
+    stretch.push(line.point_at(to));
+    if doubles_back(&stretch) {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut s = from;
+    while s < to {
+        out.push(line.point_at(s));
+        s += ZONE_STEP_M;
+    }
     out.push(line.point_at(to));
     out.dedup();
     (out.len() >= 2).then_some(out)
@@ -512,6 +607,19 @@ mod tests {
         assert_eq!(mode_at(p(40.4168, -3.7038)), Mode::Exact, "Madrid");
         assert_eq!(mode_at(p(45.0, -20.0)), Mode::Off, "the Atlantic");
         assert!(Mode::Off.strictness() > Mode::Zones.strictness());
+        // Near a border, every rule within a kilometre counts: Saint-Julien,
+        // France, 500 m from Geneva; Kehl, Germany, by Strasbourg; a
+        // Biarritz beach road, the sea beside it.
+        assert_eq!(mode_near(p(46.1453, 6.0808)), Mode::Off, "by Switzerland");
+        assert!(near_country(p(46.1453, 6.0808), "CH"));
+        assert_eq!(mode_near(p(48.5705, 7.8055)), Mode::Zones, "by France");
+        assert_eq!(mode_near(p(43.4832, -1.5586)), Mode::Zones, "the coast");
+        assert_eq!(mode_near(p(40.4168, -3.7038)), Mode::Exact, "Madrid");
+        assert_eq!(
+            served_form([Mode::OffWhileDriving, Mode::Zones]),
+            Mode::Zones,
+            "never a point where France's zones meet Germany's rule"
+        );
     }
 
     #[test]
@@ -521,11 +629,17 @@ mod tests {
         assert_eq!(zone_length_m(FRENCH_ZONES, Some(80)), 2_000);
         assert_eq!(zone_length_m(FRENCH_ZONES, Some(50)), 500);
         assert_eq!(zone_length_m(FRENCH_ZONES, None), 2_000);
-        let a = zone_fraction(b"secret", "fr/60004");
-        assert_eq!(a, zone_fraction(b"secret", "fr/60004"), "stable");
-        assert_ne!(a, zone_fraction(b"other", "fr/60004"), "keyed");
+        let rural = ZoneFrame::new(2_000, 90.0);
+        let a = zone_fraction(b"secret", "fr/60004", rural);
+        assert_eq!(a, zone_fraction(b"secret", "fr/60004", rural), "stable");
+        assert_ne!(a, zone_fraction(b"other", "fr/60004", rural), "keyed");
+        assert_eq!(
+            a,
+            zone_fraction(b"secret", "fr/60004", ZoneFrame::new(2_000, 100.0)),
+            "the same frame for a direction a little different"
+        );
         let shares: Vec<f64> = (0..1_000)
-            .map(|i| zone_fraction(b"secret", &format!("fr/{i}")))
+            .map(|i| zone_fraction(b"secret", &format!("fr/{i}"), rural))
             .collect();
         assert!(shares.iter().all(|f| (0.15..=0.85).contains(f)));
         let mean = shares.iter().sum::<f64>() / 1_000.0;
@@ -548,7 +662,45 @@ mod tests {
     }
 
     #[test]
-    fn a_zone_holds_its_camera_inside_and_no_vertex_near_it() {
+    fn two_versions_of_a_zone_do_not_solve_for_its_camera() {
+        // A camera 2 000 m along a straight road; its zone drawn at 2 000 m
+        // (no limit), then at 500 m (a limit of 50 mapped in between). With
+        // one share for both, the starts give it: s = (start2 - start1) /
+        // (2000 - 500), and the camera at start1 + 2000 s.
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        let start = p(45.0, 1.0);
+        let road: Vec<Position> = (0..=60)
+            .map(|i| toward(start, 90.0, f64::from(i) * 100.0).unwrap())
+            .collect();
+        let camera = road[30];
+        let along = |q: Position| q.distance_m(start);
+        let mut misses = 0;
+        for i in 0..200 {
+            let key = format!("securite-routiere/{i}");
+            let zone = |length: u32| {
+                let s = zone_fraction(b"secret", &key, ZoneFrame::new(length, 90.0));
+                let l = f64::from(length);
+                zone_cut(&road, &[camera], s * l, (1.0 - s) * l).unwrap()
+            };
+            let (long, short) = (zone(2_000), zone(500));
+            let (a, b) = (along(long[0]), along(short[0]));
+            let s = (b - a) / 1_500.0;
+            let guess = a + 2_000.0 * s;
+            if (guess - along(camera)).abs() > 50.0 {
+                misses += 1;
+            }
+        }
+        // With one share for both lengths every guess lands on the camera;
+        // with a share per length, within 50 m only when the two shares
+        // differ by less than 0.075 (about one time in five).
+        assert!(
+            misses > 100,
+            "the camera must not follow from two lengths: {misses} of 200 missed"
+        );
+    }
+
+    #[test]
+    fn a_zone_holds_its_camera_inside_drawn_at_even_steps() {
         let p = |lat, lon| Position::new(lat, lon).unwrap();
         // A road heading east, a vertex every 100 m, the camera on the
         // vertex at 2 000 m.
@@ -561,9 +713,12 @@ mod tests {
         let length: f64 = zone.windows(2).map(|w| w[0].distance_m(w[1])).sum();
         assert!((length - 2_000.0).abs() < 2.0, "{length}");
         assert!((zone[0].distance_m(camera) - 600.0).abs() < 1.0);
+        let steps: Vec<f64> = zone.windows(2).map(|w| w[0].distance_m(w[1])).collect();
         assert!(
-            zone.iter().all(|v| v.distance_m(camera) > ZONE_CLEAR_M),
-            "the camera's place on the road is no vertex of the zone"
+            steps[..steps.len() - 1]
+                .iter()
+                .all(|d| (d - ZONE_STEP_M).abs() < 0.5),
+            "every point a step from the last, none of them the road's: {steps:?}"
         );
         let line = crate::routing::RouteLine::new(zone).unwrap();
         assert!(

@@ -188,12 +188,18 @@ async fn a_swiss_camera_is_never_stored_and_a_truncated_list_retires_nothing(poo
     parsed.devices.push(at_sea);
     parsed.devices.push(twice);
     let first = Utc::now() - Duration::days(2);
-    let (stored, not_stored, written, retired, refused) =
-        store(&pool, CameraList::Poland, &parsed, first)
-            .await
-            .unwrap();
+    let updated = Utc::now() - Duration::days(30);
+    let s = store(&pool, CameraList::Poland, &parsed, first, Some(updated))
+        .await
+        .unwrap();
     assert_eq!(
-        (stored, not_stored, written, retired, refused),
+        (
+            s.devices,
+            s.not_stored,
+            s.written,
+            s.retired,
+            s.retire_refused
+        ),
         (20, 3, 20, 0, false),
         "a camera listed twice is stored once"
     );
@@ -210,23 +216,38 @@ async fn a_swiss_camera_is_never_stored_and_a_truncated_list_retires_nothing(poo
             .await
             .unwrap();
     assert_eq!(read.0, 20, "the list's read is recorded with what it held");
+    let list_date = || async {
+        sqlx::query_scalar::<_, Option<chrono::DateTime<Utc>>>(
+            "SELECT list_updated_at FROM enforcement_sources WHERE source_id = 'pl-canard'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    let kept = list_date().await;
+    assert!(kept.is_some(), "the list's own date is recorded");
 
     // Five cameras gone from the list: retired.
     let mut shorter = CameraList::Poland.parse(POLAND).unwrap();
     shorter.devices.truncate(15);
     let second = first + Duration::days(1);
-    let (_, _, _, retired, refused) = store(&pool, CameraList::Poland, &shorter, second)
+    let s = store(&pool, CameraList::Poland, &shorter, second, None)
         .await
         .unwrap();
-    assert_eq!((retired, refused), (5, false));
+    assert_eq!((s.retired, s.retire_refused), (5, false));
+    assert_eq!(
+        list_date().await,
+        kept,
+        "a read that gives no date keeps the list's last known one"
+    );
     assert_eq!(live(&pool, "pl-canard").await, 15);
 
     // A list down to a third of what is stored: a truncated answer.
     shorter.devices.truncate(5);
-    let (_, _, _, retired, refused) = store(&pool, CameraList::Poland, &shorter, Utc::now())
+    let s = store(&pool, CameraList::Poland, &shorter, Utc::now(), None)
         .await
         .unwrap();
-    assert_eq!((retired, refused), (0, true));
+    assert_eq!((s.retired, s.retire_refused), (0, true));
     assert_eq!(
         live(&pool, "pl-canard").await,
         15,

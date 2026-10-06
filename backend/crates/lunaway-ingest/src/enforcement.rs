@@ -34,8 +34,8 @@ use lunaway_db::{
 use lunaway_domain::{
     Position, SourceId,
     enforcement::{
-        Device, DeviceKind, Mode, RULES_VERSION, doubles_back, mode_at, rule_of, toward, zone_cut,
-        zone_fraction, zone_length_m,
+        Device, DeviceKind, FRENCH_ZONES, Mode, RULES_VERSION, ZoneFrame, mode_near, rule_of,
+        served_form, toward, zone_cut, zone_fraction, zone_length_m,
     },
     routing::{corridor::heading, polyline},
 };
@@ -446,7 +446,8 @@ impl Road {
     }
 
     /// The route driven the other way: a route read backwards from the
-    /// camera becomes the road arriving at it.
+    /// camera becomes the road arriving at it. Whether it starts on a
+    /// motorway is not known then (`false`).
     fn reversed(self) -> Self {
         let mut end_m = 0.0;
         let steps = self
@@ -463,7 +464,8 @@ impl Road {
         Self {
             shape,
             steps,
-            ..self
+            distance_m: self.distance_m,
+            motorway_start: false,
         }
     }
 
@@ -543,10 +545,16 @@ async fn ask(
     }
 }
 
-/// Whether every vertex of `line` lies where the API may serve something:
-/// a zone near a border never reaches into a country that is off.
-fn servable(line: &[Position]) -> bool {
-    line.iter().all(|p| mode_at(*p) != Mode::Off)
+/// Whether every point of `line` lies where the API may serve it, within
+/// [`lunaway_domain::enforcement::BORDER_MARGIN_M`] of a border too: a
+/// zone never reaches near a country that is off, a camera's line
+/// (`points`) never near one where only zones may be shown.
+fn servable(line: &[Position], points: bool) -> bool {
+    line.iter().all(|p| match mode_near(*p) {
+        Mode::Off => false,
+        Mode::Zones => !points,
+        Mode::OffWhileDriving | Mode::Exact => true,
+    })
 }
 
 /// The road's heading at the end of `path`, over its last 30 m or so.
@@ -725,30 +733,31 @@ async fn zone(
     p: &Planned,
     secret: &[u8],
 ) -> Result<Asked, IngestError> {
-    let Some(lengths) = rule_of(&p.country).zones else {
-        return Ok(Asked::Unplaced);
-    };
+    // A country of points whose camera stands near a zone country takes
+    // zones of the zone countries' lengths.
+    let lengths = rule_of(&p.country).zones.unwrap_or(FRENCH_ZONES);
     let d = &p.device;
     let end = d.section_end.filter(|e| e.distance_m(d.position) > 50.0);
     let bearing = d
         .bearing_deg
         .or_else(|| end.map(|e| heading(d.position, e).rem_euclid(360.0)));
-    let share = zone_fraction(secret, &p.key);
     // Without a limit, the road the camera is on says which length: the
-    // road ahead is read for the longest.
+    // road ahead is read for the longest, the camera at its start at most.
     let longest = f64::from(
         d.limit_kmh
             .map_or(lengths.motorway_m, |l| zone_length_m(lengths, Some(l))),
     );
-    let need = (1.0 - share) * longest + SLACK_M;
-    let Some((first, b)) = ahead_of(engine, calls, d.position, bearing, need).await? else {
+    let Some((first, b)) = ahead_of(engine, calls, d.position, bearing, longest + SLACK_M).await?
+    else {
         return Ok(Asked::Unplaced);
     };
-    let length = f64::from(match d.limit_kmh {
+    let length = match d.limit_kmh {
         Some(l) => zone_length_m(lengths, Some(l)),
         None if first.motorway_start => lengths.motorway_m,
         None => lengths.rural_m,
-    });
+    };
+    let share = zone_fraction(secret, &p.key, ZoneFrame::new(length, b));
+    let length = f64::from(length);
     let (before, after) = (share * length, (1.0 - share) * length);
     let Some(behind) = reach(engine, calls, d.position, b, before + SLACK_M, false).await? else {
         return Ok(Asked::Unplaced);
@@ -808,7 +817,7 @@ async fn zone(
     };
     let spread = first_point.distance_m(d.position) >= MIN_SPREAD * before
         && last_point.distance_m(*last_camera) >= MIN_SPREAD * after;
-    Ok(if spread && !doubles_back(&line) && servable(&line) {
+    Ok(if spread && servable(&line, false) {
         Asked::Zone(line)
     } else {
         Asked::Unplaced
@@ -884,7 +893,8 @@ pub struct BuildReport {
 }
 
 /// Builds the items from the live devices, the zones through `engine`,
-/// keyed with `secret`; every item again with `full`.
+/// keyed with `secret`; every item again with `full`; retiring more
+/// than a tenth of the items only with `allow_retire`.
 ///
 /// # Errors
 ///
@@ -896,6 +906,7 @@ pub async fn build(
     engine: &impl Engine,
     secret: &[u8],
     full: bool,
+    allow_retire: bool,
 ) -> Result<BuildReport, IngestError> {
     let (planned, merged) = plan(db::live_devices(pool).await?);
     let known = db::item_digests(pool).await?;
@@ -908,8 +919,10 @@ pub async fn build(
     let mut items = Vec::new();
     let mut kept: HashSet<String> = HashSet::new();
     for p in &planned {
-        let mode = rule_of(&p.country).mode;
-        if mode == Mode::Off || mode_at(p.device.position) == Mode::Off {
+        // The rule of the camera's country, and of every country within a
+        // kilometre of it: the boundaries are simplified.
+        let mode = served_form([rule_of(&p.country).mode, mode_near(p.device.position)]);
+        if mode == Mode::Off {
             report.off += 1;
             continue;
         }
@@ -948,7 +961,7 @@ pub async fn build(
                 let line = if d.kind == DeviceKind::Section {
                     section_line(engine, &mut calls, d)
                         .await?
-                        .filter(|l| servable(l))
+                        .filter(|l| servable(l, true))
                 } else {
                     None
                 };
@@ -979,7 +992,8 @@ pub async fn build(
         .collect();
     #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand items")]
     let allowed = MIN_RETIRED_ALLOWED.max((known.len() as f64 * MAX_RETIRED_SHARE) as usize);
-    let gone = if gone.len() > allowed {
+    // An operator who knows why (a country turned off) lifts the guard.
+    let gone = if gone.len() > allowed && !allow_retire {
         tracing::warn!(
             gone = gone.len(),
             live = known.len(),
@@ -1104,5 +1118,74 @@ mod tests {
         assert_eq!(a, item_id(b"secret", "securite-routiere/60004"));
         assert_ne!(a, item_id(b"other", "securite-routiere/60004"));
         assert_ne!(a, item_id(b"secret", "securite-routiere/60005"));
+    }
+
+    /// A route of 3 000 m due east: 1 000 m on the A 20, 500 m on an off
+    /// ramp, 1 000 m on the D 9, 500 m unnamed.
+    fn road() -> Road {
+        let start = Position::new(45.0, 1.0).unwrap();
+        let shape: Vec<Position> = (0..=30)
+            .map(|i| toward(start, 90.0, f64::from(i) * 100.0).unwrap())
+            .collect();
+        let step = |end_m: f64, length_m: f64, names: &[&str], ramp: bool| RoadStep {
+            end_m,
+            length_m,
+            road: RoadId {
+                names: names.iter().map(|n| (*n).to_owned()).collect(),
+                ramp,
+            },
+        };
+        Road {
+            shape,
+            distance_m: 3_000.0,
+            motorway_start: true,
+            steps: vec![
+                step(1_000.0, 1_000.0, &["A 20", "E 09"], false),
+                step(1_500.0, 500.0, &[], true),
+                step(2_500.0, 1_000.0, &["D 9"], false),
+                step(3_000.0, 500.0, &[], false),
+                step(3_000.0, 0.0, &[], false),
+            ],
+        }
+    }
+
+    #[test]
+    fn a_route_is_kept_as_long_as_it_stays_on_the_camera_s_road() {
+        let r = road();
+        let a20 = r.start_road();
+        assert_eq!(a20.names, ["A 20", "E 09"]);
+        assert!(
+            (r.kept(&a20, true) - 1_000.0).abs() < 1e-9,
+            "up to the ramp"
+        );
+        let unnamed = RoadId::default();
+        assert!(
+            (r.kept(&unnamed, true) - 1_000.0).abs() < 1e-9,
+            "an unnamed road still leaves by a ramp"
+        );
+        let d9 = RoadId {
+            names: vec!["D 9".to_owned()],
+            ramp: false,
+        };
+        assert!(
+            (r.kept(&d9, false) - 1_500.0).abs() < 1e-9,
+            "back from the end: the unnamed stretch, then the D 9, up to the ramp"
+        );
+        let back = road().reversed();
+        assert_eq!(back.shape[0], r.shape[30]);
+        assert!(!back.motorway_start);
+        assert_eq!(
+            back.end_road(),
+            a20,
+            "driven the other way, it ends on the A 20"
+        );
+        assert!(
+            (back.kept(&a20, false) - 1_000.0).abs() < 1e-9,
+            "the A 20 before its end, up to the ramp"
+        );
+        let piece = r.between(500.0, 1_000.0);
+        let length: f64 = piece.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        assert!((length - 500.0).abs() < 1.0, "{length}");
+        assert!(piece[0].distance_m(r.shape[5]) < 1.0);
     }
 }

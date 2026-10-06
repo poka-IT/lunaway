@@ -255,11 +255,30 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
             "lunaway_app on {t}"
         );
     }
-    for t in ["enforcement_items", "enforcement_sources"] {
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "enforcement_sources").await,
+        ["SELECT"],
+        "lunaway_app on enforcement_sources: the lists' reads it cites"
+    );
+    for (column, granted) in [
+        ("id", true),
+        ("line", true),
+        ("point", true),
+        ("revision", true),
+        ("device_key", false),
+        ("content_hash", false),
+    ] {
+        let has = sqlx::query_scalar!(
+            r#"SELECT has_column_privilege('lunaway_app', 'enforcement_items', $1, 'SELECT') AS "has!""#,
+            column
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
         assert_eq!(
-            privileges(&pool, "lunaway_app", t).await,
-            ["SELECT"],
-            "lunaway_app on {t}: the API serves the built items, never a camera as a source gives it"
+            has, granted,
+            "the API serves the built items, and never the key that leads to a zone's camera \
+             ({column})"
         );
     }
     assert_eq!(

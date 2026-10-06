@@ -19,7 +19,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, bearing_of},
+    enforcement::{Device, DeviceKind, bearing_of, near_country},
     routing::corridor::heading,
 };
 use osmpbf::{Element as PbfElement, RelMemberType};
@@ -57,10 +57,14 @@ fn tags<'a>(it: impl Iterator<Item = (&'a str, &'a str)>) -> Tags {
     it.map(|(k, v)| (k.to_owned(), v.to_owned())).collect()
 }
 
-/// The leading number of a `maxspeed` (`90`, `90 mph` is left out).
+/// The limit a `maxspeed` gives, km/h (`90`; `90 mph`, `none`, `0` and
+/// values above 150 are left out).
 fn speed(tags: &Tags) -> Option<u16> {
     let v = tags.get("maxspeed")?.trim();
-    (!v.contains("mph")).then(|| v.parse().ok()).flatten()
+    (!v.contains("mph"))
+        .then(|| v.parse::<u16>().ok())
+        .flatten()
+        .filter(|kmh| (5..=150).contains(kmh))
 }
 
 /// What a relation's `enforcement` controls; none for what is not a
@@ -210,7 +214,11 @@ fn build(found: &Found, coords: &HashMap<i64, (f64, f64)>, area: Area) -> Vec<Li
             bearing_deg: bearing,
             limit_kmh: speed(rel_tags),
             road: rel_tags.get("ref").cloned(),
-            section_end: (kind == DeviceKind::Section).then_some(to).flatten(),
+            // A section that ends near Switzerland keeps no end there.
+            section_end: (kind == DeviceKind::Section)
+                .then_some(to)
+                .flatten()
+                .filter(|e| !near_country(*e, "CH")),
             section_length_m: None,
         };
         let raw = serde_json::json!({"type": "relation", "id": id, "tags": rel_tags,
@@ -255,15 +263,16 @@ pub struct OsmCameraReport {
     /// Devices written: new, changed, or seen again (their read date
     /// moves).
     pub written: u64,
-    /// Devices retired in the countries read.
+    /// Devices retired in the scopes read.
     pub retired: u64,
-    /// The countries where retiring was refused (fewer than half seen).
+    /// The scopes where retiring was refused (fewer than half seen).
     pub refused: Vec<String>,
 }
 
 /// Reads the cameras of every extract of `specs` from `mirror` (each
 /// downloaded or read from the cache), stores them, and retires, in each
-/// country the extracts cover, the cameras they no longer hold.
+/// scope the extracts cover (`osm_extract::Coverage`, every scope for a
+/// continent's extract), the cameras they no longer hold.
 ///
 /// # Errors
 ///
@@ -279,7 +288,7 @@ pub async fn import(
 ) -> Result<OsmCameraReport, IngestError> {
     let source = SourceId::OSM;
     let mut seen: Vec<String> = Vec::new();
-    let mut by_country: BTreeMap<String, usize> = BTreeMap::new();
+    let mut by_scope: BTreeMap<String, usize> = BTreeMap::new();
     let mut extracts = Vec::new();
     let mut written = 0;
     let mut latest: Option<DateTime<Utc>> = None;
@@ -299,42 +308,44 @@ pub async fn import(
         let listed = tokio::task::spawn_blocking(move || read(&path, area))
             .await
             .map_err(IngestError::Blocking)??;
-        let placed: Vec<(&Listed, &'static str)> = listed
+        let placed: Vec<(&Listed, &'static str, String)> = listed
             .iter()
+            .filter(|l| crate::cameras::storable(&l.device))
             .filter_map(|l| {
-                lunaway_domain::region::country_at(l.device.position)
-                    .filter(|c| *c != "CH")
-                    .map(|c| (l, c))
+                let country = lunaway_domain::region::country_at(l.device.position)?;
+                let scope = osm_extract::scope_of(l.device.position, Some(country))?;
+                Some((l, country, scope))
             })
             .collect();
         let rows: Vec<NewDevice<'_>> = placed
             .iter()
-            .map(|(l, c)| NewDevice {
+            .map(|(l, country, scope)| NewDevice {
                 device: &l.device,
-                country: c,
+                country,
+                scope,
                 raw: &l.raw,
             })
             .collect();
         written += db::upsert_devices(pool, &source, &rows, file.fetched_at).await?;
-        for (l, c) in &placed {
+        for (l, _, scope) in &placed {
             seen.push(l.device.external_id.clone());
-            *by_country.entry((*c).to_owned()).or_insert(0) += 1;
+            *by_scope.entry(scope.clone()).or_insert(0) += 1;
         }
         extracts.push((spec.name, placed.len()));
     }
-    let covered: Vec<String> = specs
-        .iter()
-        .flat_map(|s| s.covers.iter().map(|c| (*c).to_owned()))
-        .filter(|c| c.len() == 2)
-        .collect();
-    let stored = db::live_counts_by_country(pool, &source).await?;
+    let stored = db::live_counts_by_scope(pool, &source).await?;
+    // A continent's extract covers every scope, those it holds none of
+    // included.
+    let covered: Vec<String> = osm_extract::Coverage::of(specs)
+        .scopes()
+        .unwrap_or_else(|| stored.keys().cloned().collect());
     let (passing, refused): (Vec<String>, Vec<String>) = covered.into_iter().partition(|c| {
         let stored = stored.get(c).copied().unwrap_or(0);
-        let seen = i64::try_from(by_country.get(c).copied().unwrap_or(0)).unwrap_or(i64::MAX);
+        let seen = i64::try_from(by_scope.get(c).copied().unwrap_or(0)).unwrap_or(i64::MAX);
         stored < 10 || seen.saturating_mul(2) >= stored
     });
     for c in &refused {
-        tracing::warn!(country = %c, "fewer than half of the stored cameras seen; none retired");
+        tracing::warn!(scope = %c, "fewer than half of the stored cameras seen; none retired");
     }
     let retired = db::retire_missing_in(
         pool,
@@ -346,7 +357,7 @@ pub async fn import(
     .await?;
     if let Some(at) = latest {
         let live = db::live_count(pool, &source).await?;
-        db::record_read(pool, &source, at, live).await?;
+        db::record_read(pool, &source, at, live, None).await?;
     }
     Ok(OsmCameraReport {
         extracts,

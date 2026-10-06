@@ -601,7 +601,8 @@ impl QueryRoot {
     /// lists the items come from with their last read. At most `first`
     /// items (1000 by default, 2000 at most); `hasMore` asks for the next
     /// page at once. No position is sent. A cursor of another copy of the
-    /// database gets the whole set again (`full`).
+    /// database, or issued for other countries, gets the whole set again
+    /// (`full`).
     #[graphql(complexity = "cost(first, crate::enforcement_query::DEFAULT_PAGE, child_complexity)")]
     async fn enforcement(
         &self,

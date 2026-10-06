@@ -37,6 +37,16 @@ impl SourceId {
     /// FINESS, the register of health establishments, joined to pharmacies
     /// by their FINESS number.
     pub const FINESS: Self = Self(Cow::Borrowed("finess"));
+    /// France's official list of speed cameras (Sécurité routière).
+    pub const SECURITE_ROUTIERE: Self = Self(Cow::Borrowed("securite-routiere"));
+    /// Poland's list of speed cameras (GITD CANARD).
+    pub const PL_CANARD: Self = Self(Cow::Borrowed("pl-canard"));
+    /// Luxembourg's list of speed cameras (Ponts et Chaussées).
+    pub const LU_PCH_RADARS: Self = Self(Cow::Borrowed("lu-pch-radars"));
+    /// Catalonia's list of speed cameras (Servei Català de Trànsit).
+    pub const CAT_SCT_RADARS: Self = Self(Cow::Borrowed("cat-sct-radars"));
+    /// Norway's fixed speed cameras (NVDB, object type 162).
+    pub const NO_NVDB_ATK: Self = Self(Cow::Borrowed("no-nvdb-atk"));
 
     /// A source id, if `id` follows the format.
     ///
@@ -97,6 +107,11 @@ mod tests {
             SourceId::FUEL_PRICES,
             SourceId::LAPOSTE,
             SourceId::FINESS,
+            SourceId::SECURITE_ROUTIERE,
+            SourceId::PL_CANARD,
+            SourceId::LU_PCH_RADARS,
+            SourceId::CAT_SCT_RADARS,
+            SourceId::NO_NVDB_ATK,
         ] {
             assert_eq!(
                 SourceId::new(id.as_str()).unwrap(),

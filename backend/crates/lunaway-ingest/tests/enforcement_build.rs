@@ -16,10 +16,10 @@ use std::{
 };
 
 use chrono::Utc;
-use lunaway_db::enforcement::{self as db, NewDevice};
+use lunaway_db::enforcement::{self as db, ItemKind, NewDevice};
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, ZONE_CLEAR_M},
+    enforcement::{Device, DeviceKind, ZONE_STEP_M},
     routing::{RouteLine, polyline},
 };
 use lunaway_ingest::{
@@ -45,6 +45,9 @@ enum Answer {
     Nothing,
     /// Not reachable.
     Down,
+    /// Along a straight road, its first 900 m on the A 20, the rest on an
+    /// off ramp: every route leaves the camera's road.
+    Ramp,
 }
 
 struct Fake {
@@ -67,7 +70,7 @@ impl Engine for Fake {
         match self.answer {
             Answer::Nothing => return Ok(None),
             Answer::Down => return Err(MatchError::NotLoopback("down".into())),
-            Answer::Straight => {}
+            Answer::Straight | Answer::Ramp => {}
         }
         let points: Vec<Position> = body["locations"]
             .as_array()
@@ -76,12 +79,23 @@ impl Engine for Fake {
             .map(|l| Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap())
             .collect();
         let distance: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        let steps = if self.answer == Answer::Ramp {
+            let named = distance.min(900.0);
+            json!([
+                {"distance": named, "name": "Autoroute", "ref": "A 20",
+                 "maneuver": {"type": "depart"}, "intersections": [{"classes": []}]},
+                {"distance": distance - named, "name": "", "maneuver": {"type": "off ramp"}},
+                {"distance": 0.0, "name": "", "maneuver": {"type": "arrive"}}
+            ])
+        } else {
+            json!([{"distance": distance, "intersections": [{"classes": []}]}])
+        };
         Ok(Some(json!({
             "code": "Ok",
             "routes": [{
                 "geometry": polyline::encode(&points),
                 "distance": distance,
-                "legs": [{"steps": [{"distance": distance, "intersections": [{"classes": []}]}]}],
+                "legs": [{"steps": steps}],
             }],
         })))
     }
@@ -106,9 +120,13 @@ fn device(id: &str, kind: DeviceKind, lat: f64, lon: f64) -> Device {
 async fn seed(pool: &PgPool) -> Device {
     let now = Utc::now();
     let france = CameraList::France.parse(FRANCE).unwrap();
-    store(pool, CameraList::France, &france, now).await.unwrap();
+    store(pool, CameraList::France, &france, now, None)
+        .await
+        .unwrap();
     let poland = CameraList::Poland.parse(POLAND).unwrap();
-    store(pool, CameraList::Poland, &poland, now).await.unwrap();
+    store(pool, CameraList::Poland, &poland, now, None)
+        .await
+        .unwrap();
     let official = &france
         .devices
         .iter()
@@ -138,6 +156,7 @@ async fn seed(pool: &PgPool) -> Device {
         .map(|(d, c)| NewDevice {
             device: d,
             country: c,
+            scope: c,
             raw: &raw,
         })
         .collect();
@@ -174,7 +193,7 @@ async fn devices(pool: &PgPool) -> HashMap<String, Device> {
 async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(pool: PgPool) {
     let enriched = seed(&pool).await;
     let engine = Fake::new(Answer::Straight);
-    let report = build(&pool, &engine, SECRET, false).await.unwrap();
+    let report = build(&pool, &engine, SECRET, false, false).await.unwrap();
     assert_eq!(
         report.merged,
         Merged {
@@ -184,9 +203,18 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         },
         "a French node without an official camera stays out"
     );
-    assert_eq!(report.off, 1, "Morocco is off");
     assert_eq!(report.points, 21, "Poland's 20 and Germany's node");
-    assert_eq!(report.zones + report.unplaced, 90);
+    // Morocco is off, and so is a French camera within a kilometre of a
+    // country the table does not name (Monaco, Andorra); one within a
+    // kilometre of Switzerland was not even stored.
+    let french = db::live_count(&pool, &SourceId::SECURITE_ROUTIERE)
+        .await
+        .unwrap();
+    assert_eq!(
+        i64::try_from(report.zones + report.unplaced + report.off - 1).unwrap(),
+        french,
+        "{report:?}"
+    );
     assert!(report.unplaced <= 2, "{report:?}");
     let built = items(&pool).await;
     let cameras = devices(&pool).await;
@@ -196,13 +224,15 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         let camera = &cameras[key];
         if item.country == "FR" {
             zones += 1;
-            assert_eq!(item.kind, "zone", "{key}");
+            assert_eq!(item.kind, ItemKind::Zone, "{key}");
             assert!(item.point.is_none() && item.bearing_deg.is_none() && item.limit_kmh.is_none());
             let line = item.line.clone().unwrap();
+            let steps: Vec<f64> = line.windows(2).map(|w| w[0].distance_m(w[1])).collect();
             assert!(
-                line.iter()
-                    .all(|v| v.distance_m(camera.position) > ZONE_CLEAR_M),
-                "{key}: no vertex of the zone gives the camera's place"
+                steps[..steps.len() - 1]
+                    .iter()
+                    .all(|d| (d - ZONE_STEP_M).abs() < 0.5),
+                "{key}: drawn at even steps, no vertex of the road kept"
             );
             let road = RouteLine::new(line).unwrap();
             let at = road
@@ -230,7 +260,7 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
             };
             assert_eq!(item.category, category, "{key}");
         } else {
-            assert_eq!(item.kind, "camera", "{key}");
+            assert_eq!(item.kind, ItemKind::Camera, "{key}");
             assert_eq!(item.point, Some(camera.position), "{key}");
             assert_eq!(item.category, camera.kind.code());
         }
@@ -240,7 +270,7 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         .values()
         .find(|i| i.source_ids == ["securite-routiere", "osm"])
         .expect("the node completed its official camera");
-    assert_eq!(osm_on_french.kind, "zone");
+    assert_eq!(osm_on_french.kind, ItemKind::Zone);
     assert!(
         built.contains_key("osm/node/3"),
         "Germany: points, off while driving"
@@ -255,7 +285,7 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
 
     // Nothing changed: nothing built, no engine call.
     let calls = engine.calls.load(Ordering::SeqCst);
-    let again = build(&pool, &engine, SECRET, false).await.unwrap();
+    let again = build(&pool, &engine, SECRET, false, false).await.unwrap();
     assert_eq!(again.written, 0);
     assert_eq!(again.unchanged, report.zones + report.points);
     assert_eq!(engine.calls.load(Ordering::SeqCst), calls);
@@ -266,10 +296,10 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
     poland
         .devices
         .retain(|l| l.device.external_id != "CAN.O.1.012");
-    store(&pool, CameraList::Poland, &poland, Utc::now())
+    store(&pool, CameraList::Poland, &poland, Utc::now(), None)
         .await
         .unwrap();
-    let after = build(&pool, &engine, SECRET, false).await.unwrap();
+    let after = build(&pool, &engine, SECRET, false, false).await.unwrap();
     assert_eq!((after.written, after.retired), (0, 1));
     let changes = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None)
         .await
@@ -282,12 +312,12 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_build_that_would_drop_most_zones_retires_none(pool: PgPool) {
     seed(&pool).await;
-    let first = build(&pool, &Fake::new(Answer::Straight), SECRET, false)
+    let first = build(&pool, &Fake::new(Answer::Straight), SECRET, false, false)
         .await
         .unwrap();
     let live = items(&pool).await.len();
     // A graph on which no zone is found: every zone would go.
-    let report: BuildReport = build(&pool, &Fake::new(Answer::Nothing), SECRET, true)
+    let report: BuildReport = build(&pool, &Fake::new(Answer::Nothing), SECRET, true, false)
         .await
         .unwrap();
     assert_eq!(report.zones, 0);
@@ -298,7 +328,35 @@ async fn a_build_that_would_drop_most_zones_retires_none(pool: PgPool) {
 
     // An engine that does not answer: the build stops and writes nothing.
     let head = db::feed_head(&pool).await.unwrap();
-    let down = build(&pool, &Fake::new(Answer::Down), SECRET, true).await;
+    let down = build(&pool, &Fake::new(Answer::Down), SECRET, true, false).await;
     assert!(matches!(down, Err(IngestError::Engine(_))), "{down:?}");
     assert_eq!(db::feed_head(&pool).await.unwrap(), head);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_zone_keeps_to_its_road_where_a_route_leaves_it(pool: PgPool) {
+    // Five French cameras, and an engine whose every route leaves the A 20
+    // by an off ramp after 900 m: each zone is drawn from several routes,
+    // each kept on the A 20 only.
+    let mut france = CameraList::France.parse(FRANCE).unwrap();
+    france.devices.truncate(5);
+    store(&pool, CameraList::France, &france, Utc::now(), None)
+        .await
+        .unwrap();
+    let engine = Fake::new(Answer::Ramp);
+    let report = build(&pool, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!(report.zones, 5, "{report:?}");
+    assert!(
+        engine.calls.load(Ordering::SeqCst) >= 3 * report.zones,
+        "more than one route a side: {} calls",
+        engine.calls.load(Ordering::SeqCst)
+    );
+    for item in items(&pool).await.values() {
+        let road = RouteLine::new(item.line.clone().unwrap()).unwrap();
+        assert!(
+            (road.length_m() - 2_000.0).abs() < 5.0,
+            "the whole length, from several routes: {} m",
+            road.length_m()
+        );
+    }
 }

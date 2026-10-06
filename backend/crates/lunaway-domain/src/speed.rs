@@ -148,8 +148,10 @@ pub fn default_kmh(country: &str, s: &Stretch) -> Option<u16> {
     }
     Some(match s.class {
         RoadClass::Motorway => 130,
-        _ if separated(s) => 110,
+        // Inside a built-up area 50 holds, separated carriageways or not,
+        // unless a sign says otherwise.
         _ if urban(s) => 50,
+        _ if separated(s) => 110,
         _ => 80,
     })
 }
@@ -166,7 +168,7 @@ pub fn vehicle_ceiling_kmh(country: &str, s: &Stretch, v: Vehicle) -> Option<u16
         return None;
     }
     let motorway = s.class == RoadClass::Motorway;
-    if urban(s) && !motorway && !separated(s) {
+    if urban(s) && !motorway {
         return Some(50);
     }
     // R413-8-1: a motorhome of 3.5 to 12 t without a trailer that takes
@@ -339,6 +341,12 @@ mod tests {
         );
         let ninety = s(RoadClass::Primary, Some(90), 3);
         assert_eq!(kmh("FR", ninety, HEAVY), Some((80, Own)));
+        let town_trunk = s(RoadClass::Trunk, None, 9);
+        assert_eq!(
+            kmh("FR", town_trunk, CAR),
+            Some((50, Default)),
+            "a dual carriageway in town"
+        );
         let single = Stretch {
             oneway: false,
             ..s(RoadClass::Trunk, None, 3)

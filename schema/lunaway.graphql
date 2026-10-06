@@ -644,6 +644,12 @@ type EnforcementSource {
 	"""
 	fetchedAt: DateTime!
 	"""
+	When the list says it was last updated (its `Last-Modified`), to
+	cite with it; null when it does not say, the read date standing for
+	it.
+	"""
+	listUpdatedAt: DateTime
+	"""
 	Cameras it listed then (in every country, served or not).
 	"""
 	cameras: Int!
@@ -2889,7 +2895,8 @@ type Query {
 	lists the items come from with their last read. At most `first`
 	items (1000 by default, 2000 at most); `hasMore` asks for the next
 	page at once. No position is sent. A cursor of another copy of the
-	database gets the whole set again (`full`).
+	database, or issued for other countries, gets the whole set again
+	(`full`).
 	"""
 	enforcement(since: String, countries: [String!], first: Int = 1000): EnforcementDelta!
 	"""

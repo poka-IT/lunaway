@@ -39,6 +39,7 @@ clap = { version = "4.6.7", features = ["derive", "env"] }
 # with, without a lookup service. No dependency of its own.
 country-boundaries = "1.2.0"
 csv = "1.4.0"
+encoding_rs = "0.8.42"
 flate2 = "1.1.10"
 futures-util = { version = "0.3.34", default-features = false }
 getrandom = "0.4.3"

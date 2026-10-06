@@ -4,7 +4,7 @@
 
 use async_graphql::{Enum, SimpleObject};
 use chrono::{DateTime, Utc};
-use lunaway_db::enforcement::{FeedItem, SourceRead};
+use lunaway_db::enforcement::{FeedItem, ItemKind, SourceRead};
 use lunaway_domain::{
     enforcement::{CountryRule, Mode, RULES, RULES_REVIEWED, RULES_VERSION, ZoneLengths},
     routing::polyline,
@@ -182,10 +182,9 @@ impl EnforcementItem {
     pub(crate) fn of(f: &FeedItem) -> Option<Self> {
         Some(Self {
             id: f.id,
-            kind: if f.kind == "zone" {
-                GqlItemKind::Zone
-            } else {
-                GqlItemKind::Camera
+            kind: match f.kind {
+                ItemKind::Zone => GqlItemKind::Zone,
+                ItemKind::Camera => GqlItemKind::Camera,
             },
             category: GqlCategory::of(&f.category)?,
             country: f.country.clone(),
@@ -219,6 +218,10 @@ pub struct EnforcementSource {
     pub url: String,
     /// When the list was last read.
     pub fetched_at: DateTime<Utc>,
+    /// When the list says it was last updated (its `Last-Modified`), to
+    /// cite with it; null when it does not say, the read date standing for
+    /// it.
+    pub list_updated_at: Option<DateTime<Utc>>,
     /// Cameras it listed then (in every country, served or not).
     pub cameras: i32,
 }
@@ -233,6 +236,7 @@ impl From<&SourceRead> for EnforcementSource {
             attribution: s.source.attribution.clone(),
             url: s.source.url.clone(),
             fetched_at: s.fetched_at,
+            list_updated_at: s.list_updated_at,
             cameras: s.devices,
         }
     }

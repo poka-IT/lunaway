@@ -13,8 +13,11 @@ use crate::{DbError, PgPool};
 pub struct NewDevice<'a> {
     /// What the source says, read.
     pub device: &'a Device,
-    /// Its country, by its position.
+    /// Its country: an official list's own, or that of its position.
     pub country: &'a str,
+    /// What an import of extracts retires it by
+    /// (`lunaway_ingest::osm_extract::scope_of`).
+    pub scope: &'a str,
     /// The source's row.
     pub raw: &'a serde_json::Value,
 }
@@ -39,6 +42,7 @@ pub async fn upsert_devices(
             .map(|d| d.device.external_id.as_str())
             .collect();
         let countries: Vec<&str> = batch.iter().map(|d| d.country).collect();
+        let scopes: Vec<&str> = batch.iter().map(|d| d.scope).collect();
         let kinds: Vec<&str> = batch.iter().map(|d| d.device.kind.code()).collect();
         let lats: Vec<f64> = batch.iter().map(|d| d.device.position.lat()).collect();
         let lons: Vec<f64> = batch.iter().map(|d| d.device.position.lon()).collect();
@@ -51,14 +55,15 @@ pub async fn upsert_devices(
         let done = sqlx::query!(
             r#"
             INSERT INTO enforcement_devices AS d
-                (source_id, external_id, country, kind, geom, data, raw, fetched_at)
-            SELECT $1, u.external_id, u.country, u.kind,
+                (source_id, external_id, country, scope, kind, geom, data, raw, fetched_at)
+            SELECT $1, u.external_id, u.country, u.scope, u.kind,
                    ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.data, u.raw, $9
-            FROM UNNEST($2::text[], $3::text[], $4::text[], $5::float8[], $6::float8[],
-                        $7::jsonb[], $8::jsonb[])
-                 AS u(external_id, country, kind, lat, lon, data, raw)
+            FROM UNNEST($2::text[], $3::text[], $10::text[], $4::text[], $5::float8[],
+                        $6::float8[], $7::jsonb[], $8::jsonb[])
+                 AS u(external_id, country, scope, kind, lat, lon, data, raw)
             ON CONFLICT (source_id, external_id) DO UPDATE SET
-                country = EXCLUDED.country, kind = EXCLUDED.kind, geom = EXCLUDED.geom,
+                country = EXCLUDED.country, scope = EXCLUDED.scope, kind = EXCLUDED.kind,
+                geom = EXCLUDED.geom,
                 data = EXCLUDED.data, raw = EXCLUDED.raw, fetched_at = EXCLUDED.fetched_at,
                 changed_at = CASE WHEN d.data IS DISTINCT FROM EXCLUDED.data
                                     OR d.deleted_at IS NOT NULL
@@ -76,6 +81,7 @@ pub async fn upsert_devices(
             &data,
             &raw,
             fetched_at,
+            &scopes as &[&str],
         )
         .execute(pool)
         .await?;
@@ -125,27 +131,27 @@ pub async fn retire_missing(
     .rows_affected())
 }
 
-/// Live devices of `source` by country.
+/// Live devices of `source` by scope.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn live_counts_by_country(
+pub async fn live_counts_by_scope(
     pool: &PgPool,
     source: &SourceId,
 ) -> Result<std::collections::BTreeMap<String, i64>, DbError> {
     let rows = sqlx::query!(
-        r#"SELECT country, count(*) AS "n!" FROM enforcement_devices
-           WHERE source_id = $1 AND deleted_at IS NULL GROUP BY country"#,
+        r#"SELECT scope, count(*) AS "n!" FROM enforcement_devices
+           WHERE source_id = $1 AND deleted_at IS NULL GROUP BY scope"#,
         source.as_str()
     )
     .fetch_all(pool)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.country, r.n)).collect())
+    Ok(rows.into_iter().map(|r| (r.scope, r.n)).collect())
 }
 
-/// Marks as gone the live devices of `source` in `countries` whose id is
-/// not in `seen`; returns how many.
+/// Marks as gone the live devices of `source` in `scopes` whose id is not
+/// in `seen`; returns how many.
 ///
 /// # Errors
 ///
@@ -153,18 +159,18 @@ pub async fn live_counts_by_country(
 pub async fn retire_missing_in(
     pool: &PgPool,
     source: &SourceId,
-    countries: &[String],
+    scopes: &[String],
     seen: &[String],
     at: DateTime<Utc>,
 ) -> Result<u64, DbError> {
     Ok(sqlx::query!(
         r#"
         UPDATE enforcement_devices SET deleted_at = $4, changed_at = now()
-        WHERE source_id = $1 AND deleted_at IS NULL AND country = ANY($2)
+        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)
           AND NOT (external_id = ANY($3))
         "#,
         source.as_str(),
-        countries,
+        scopes,
         seen,
         at,
     )
@@ -262,6 +268,17 @@ impl ItemKind {
             Self::Camera => "camera",
         }
     }
+
+    fn of(code: &str) -> Result<Self, DbError> {
+        match code {
+            "zone" => Ok(Self::Zone),
+            "camera" => Ok(Self::Camera),
+            other => Err(DbError::decode(
+                "enforcement item kind",
+                std::io::Error::other(format!("unknown kind {other}")),
+            )),
+        }
+    }
 }
 
 /// The live items' keys and digests.
@@ -311,7 +328,12 @@ pub async fn write_items(
         .execute(&mut *tx)
         .await?;
     let mut written = 0;
-    for item in items {
+    // In the order of their ids, which nothing outside the server can tie
+    // to a camera: in the order of their keys, the revisions of a full
+    // build would follow the official lists' ids.
+    let mut ordered: Vec<&Item> = items.iter().collect();
+    ordered.sort_by_key(|i| i.id);
+    for item in ordered {
         let line = item.line.as_deref().map(wkt_line);
         let (lat, lon) = item
             .point
@@ -410,8 +432,8 @@ pub struct FeedItem {
     pub revision: i64,
     /// Gone since that revision.
     pub deleted: bool,
-    /// `zone` or `camera`.
-    pub kind: String,
+    /// A zone or a camera.
+    pub kind: ItemKind,
     /// What it covers or controls.
     pub category: String,
     /// Its country.
@@ -493,7 +515,7 @@ pub async fn changed_since(
                 id: r.id,
                 revision: r.revision,
                 deleted: r.deleted,
-                kind: r.kind,
+                kind: ItemKind::of(&r.kind)?,
                 category: r.category,
                 country: r.country,
                 line,
@@ -507,8 +529,9 @@ pub async fn changed_since(
         .collect()
 }
 
-/// Records that `source`'s list was read at `fetched_at` and holds
-/// `devices` live devices.
+/// Records that `source`'s list was read at `fetched_at`, holds `devices`
+/// live devices, and was last updated at `list_updated_at` by its own
+/// account (kept from an earlier read when this one does not say).
 ///
 /// # Errors
 ///
@@ -518,17 +541,21 @@ pub async fn record_read(
     source: &SourceId,
     fetched_at: DateTime<Utc>,
     devices: i64,
+    list_updated_at: Option<DateTime<Utc>>,
 ) -> Result<(), DbError> {
     let devices = i32::try_from(devices).unwrap_or(i32::MAX);
     sqlx::query!(
         r#"
-        INSERT INTO enforcement_sources (source_id, fetched_at, devices) VALUES ($1, $2, $3)
+        INSERT INTO enforcement_sources AS s (source_id, fetched_at, devices, list_updated_at)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (source_id) DO UPDATE SET
-            fetched_at = EXCLUDED.fetched_at, devices = EXCLUDED.devices, updated_at = now()
+            fetched_at = EXCLUDED.fetched_at, devices = EXCLUDED.devices, updated_at = now(),
+            list_updated_at = coalesce(EXCLUDED.list_updated_at, s.list_updated_at)
         "#,
         source.as_str(),
         fetched_at,
         devices,
+        list_updated_at,
     )
     .execute(pool)
     .await?;
@@ -561,6 +588,8 @@ pub struct SourceRead {
     pub fetched_at: DateTime<Utc>,
     /// Its live devices then.
     pub devices: i32,
+    /// When the list says it was last updated, when it says.
+    pub list_updated_at: Option<DateTime<Utc>>,
 }
 
 /// Every camera list read, with its terms, by source id.
@@ -572,7 +601,7 @@ pub async fn source_reads(pool: &PgPool) -> Result<Vec<SourceRead>, DbError> {
     let rows = sqlx::query!(
         r#"
         SELECT s.id, s.name, s.licence, s.licence_url, s.attribution, s.url,
-               r.fetched_at, r.devices
+               r.fetched_at, r.devices, r.list_updated_at
         FROM enforcement_sources r JOIN sources s ON s.id = r.source_id
         ORDER BY s.id
         "#
@@ -592,6 +621,7 @@ pub async fn source_reads(pool: &PgPool) -> Result<Vec<SourceRead>, DbError> {
                 },
                 fetched_at: r.fetched_at,
                 devices: r.devices,
+                list_updated_at: r.list_updated_at,
             })
         })
         .collect()

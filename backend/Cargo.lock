@@ -1867,6 +1867,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "csv",
+ "encoding_rs",
  "flate2",
  "lunaway-db",
  "lunaway-domain",

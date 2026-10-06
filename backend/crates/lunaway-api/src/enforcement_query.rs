@@ -3,14 +3,17 @@
 //! lists the items come from. No position is sent: a phone keeps the set
 //! of the countries it drives in and checks its route itself.
 //!
-//! Every item is checked again against the rule of its country before it
-//! is served: never a point where only zones are allowed, nothing where the
-//! country is off, whatever the table held when the item was built. An
-//! item that fails comes back as a removal.
+//! Every item is checked again against the rules before it is served, of
+//! its country and of every country within a kilometre of its points:
+//! never a point where only zones are allowed, nothing where a country is
+//! off, whatever the table held when the item was built. An item that
+//! fails comes back as a removal.
 //!
-//! A cursor is `n1.<identity>.<revision>`: the copy of the database that
-//! issued it, and the last revision the client holds. A cursor of another
-//! copy, or past the end of the feed, gets the whole set again (`full`).
+//! A cursor is `n2.<identity>.<countries>.<revision>`: the copy of the
+//! database that issued it, a digest of the countries asked, and the last
+//! revision the client holds. A cursor of another copy, of another set of
+//! countries, or past the end of the feed, gets the whole set again
+//! (`full`): a phone that adds a country receives all of it.
 //! The head of the feed and the lists' reads are read at most every five
 //! seconds, and first pages of the whole set at the default size are kept
 //! while the revision stays.
@@ -23,8 +26,10 @@ use std::{
 
 use async_graphql::{Context, Result};
 use chrono::Utc;
+use lunaway_db::enforcement::ItemKind;
 use lunaway_db::enforcement::{self as db, FeedHead, FeedItem};
-use lunaway_domain::enforcement::{Mode, mode_at, rule_of};
+use lunaway_domain::enforcement::{Mode, mode_at, mode_near, rule_of, served_form};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
@@ -33,7 +38,7 @@ use crate::{
     schema::{db as db_share, state},
 };
 
-const CURSOR: &str = "n1.";
+const CURSOR: &str = "n2.";
 /// Items per answer when the client does not say.
 pub(crate) const DEFAULT_PAGE: i32 = 1_000;
 /// Most items in one answer.
@@ -71,13 +76,24 @@ pub(crate) struct EnforcementCache {
     pages: Mutex<HashMap<String, HeldPage>>,
 }
 
-fn parse_cursor(s: &str) -> Result<(String, i64)> {
+/// A cursor read before the database is asked anything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Since {
+    identity: String,
+    countries: String,
+    revision: i64,
+}
+
+fn parse_cursor(s: &str) -> Result<Since> {
     let malformed = || invalid_input("since is not a cursor this API returned");
-    let (identity, revision) = s
-        .strip_prefix(CURSOR)
-        .and_then(|rest| rest.split_once('.'))
-        .ok_or_else(malformed)?;
-    if identity.len() != 40 || !identity.bytes().all(|b| b.is_ascii_hexdigit()) {
+    let mut parts = s.strip_prefix(CURSOR).ok_or_else(malformed)?.split('.');
+    let (Some(identity), Some(countries), Some(revision), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(malformed());
+    };
+    let hex = |t: &str, n: usize| t.len() == n && t.bytes().all(|b| b.is_ascii_hexdigit());
+    if !hex(identity, 40) || !hex(countries, 8) {
         return Err(malformed());
     }
     let revision = revision
@@ -85,17 +101,35 @@ fn parse_cursor(s: &str) -> Result<(String, i64)> {
         .ok()
         .filter(|r| *r >= 0)
         .ok_or_else(malformed)?;
-    Ok((identity.to_ascii_lowercase(), revision))
+    Ok(Since {
+        identity: identity.to_ascii_lowercase(),
+        countries: countries.to_ascii_lowercase(),
+        revision,
+    })
 }
 
-fn cursor(head: &FeedHead, revision: i64) -> String {
-    format!("{CURSOR}{}.{revision}", head.identity)
+/// A digest of the countries asked (`None`: every country), as cursors
+/// carry it.
+fn countries_digest(countries: Option<&[String]>) -> String {
+    let joined = countries.map_or_else(|| "*".to_owned(), |c| c.join(","));
+    Sha256::digest(joined.as_bytes())[..4]
+        .iter()
+        .fold(String::with_capacity(8), |mut s, b| {
+            use std::fmt::Write as _;
+            let _ = write!(s, "{b:02x}");
+            s
+        })
+}
+
+fn cursor(head: &FeedHead, countries: &str, revision: i64) -> String {
+    format!("{CURSOR}{}.{countries}.{revision}", head.identity)
 }
 
 /// Where to read from: `None` for the whole set.
-fn read_after(since: Option<&(String, i64)>, head: &FeedHead) -> Option<i64> {
-    let (identity, revision) = since?;
-    (*identity == head.identity && *revision <= head.revision).then_some(*revision)
+fn read_after(since: Option<&Since>, head: &FeedHead, countries: &str) -> Option<i64> {
+    let s = since?;
+    (s.identity == head.identity && s.countries == countries && s.revision <= head.revision)
+        .then_some(s.revision)
 }
 
 /// The countries asked, upper case, sorted, each once; `None` for all.
@@ -120,18 +154,29 @@ fn countries(asked: Option<Vec<String>>) -> Result<Option<Vec<String>>> {
     Ok(Some(out))
 }
 
-/// Whether the rule of the item's country allows serving it now: never a
-/// point where only zones may be shown, nothing where the country is off,
-/// a point only where its own position's country allows points.
+/// Whether the rules allow serving the item now: nothing where its
+/// country is off; a zone without a point, none of its points in a
+/// country that is off; a camera only where its country, and every country
+/// within a kilometre of its point, allow points, and its line only through
+/// such countries. A point of a line at sea does not count.
 pub(crate) fn allowed(item: &FeedItem) -> bool {
-    match (rule_of(&item.country).mode, item.kind.as_str()) {
-        (Mode::Off, _) => false,
-        (Mode::Zones, "zone") => item.point.is_none(),
-        (Mode::Exact | Mode::OffWhileDriving, "zone") => true,
-        (Mode::Exact | Mode::OffWhileDriving, "camera") => item
-            .point
-            .is_some_and(|p| matches!(mode_at(p), Mode::Exact | Mode::OffWhileDriving)),
-        _ => false,
+    let rule = rule_of(&item.country).mode;
+    let line_through = |ok: fn(Mode) -> bool| {
+        item.line
+            .as_deref()
+            .unwrap_or_default()
+            .iter()
+            .all(|p| lunaway_domain::region::country_at(*p).is_none() || ok(mode_at(*p)))
+    };
+    let points = |m: Mode| matches!(m, Mode::Exact | Mode::OffWhileDriving);
+    match item.kind {
+        _ if rule == Mode::Off => false,
+        ItemKind::Zone => item.point.is_none() && line_through(|m| m != Mode::Off),
+        ItemKind::Camera => {
+            item.point
+                .is_some_and(|p| points(served_form([rule, mode_near(p)])))
+                && line_through(points)
+        }
     }
 }
 
@@ -194,12 +239,13 @@ pub(crate) async fn enforcement(
     }
     let since = since.as_deref().map(parse_cursor).transpose()?;
     let countries = countries(asked)?;
+    let set = countries_digest(countries.as_deref());
     let head = head(ctx).await?;
     let sources = sources(ctx).await?;
     let now = Utc::now();
-    let after = read_after(since.as_ref(), &head);
+    let after = read_after(since.as_ref(), &head, &set);
     let delta = |cursor_at: i64, full, upserts, removals, has_more| EnforcementDelta {
-        cursor: cursor(&head, cursor_at),
+        cursor: cursor(&head, &set, cursor_at),
         full,
         as_of: now,
         rules: EnforcementRules::current(),
@@ -306,12 +352,12 @@ mod tests {
         }
     }
 
-    fn item(kind: &str, country: &str, point: Option<(f64, f64)>) -> FeedItem {
+    fn item(kind: ItemKind, country: &str, point: Option<(f64, f64)>) -> FeedItem {
         FeedItem {
             id: Uuid::nil(),
             revision: 1,
             deleted: false,
-            kind: kind.to_owned(),
+            kind,
             category: "fixed".to_owned(),
             country: country.to_owned(),
             line: None,
@@ -323,43 +369,88 @@ mod tests {
         }
     }
 
+    fn with_line(mut i: FeedItem, line: &[(f64, f64)]) -> FeedItem {
+        i.line = Some(
+            line.iter()
+                .map(|(lat, lon)| Position::new(*lat, *lon).unwrap())
+                .collect(),
+        );
+        i
+    }
+
     #[test]
-    fn a_cursor_is_honoured_only_by_the_copy_that_issued_it() {
+    fn a_cursor_is_honoured_only_by_the_copy_that_issued_it_for_the_same_countries() {
         let h = head();
-        let c = parse_cursor(&cursor(&h, 42)).unwrap();
-        assert_eq!(read_after(Some(&c), &h), Some(42));
+        let all = countries_digest(None);
+        let c = parse_cursor(&cursor(&h, &all, 42)).unwrap();
+        assert_eq!(read_after(Some(&c), &h, &all), Some(42));
         let other = FeedHead {
             identity: "f".repeat(40),
             ..h.clone()
         };
-        assert_eq!(read_after(Some(&c), &other), None);
-        let ahead = parse_cursor(&cursor(&h, 101)).unwrap();
-        assert_eq!(read_after(Some(&ahead), &h), None);
-        for forged in ["n1.42", "e1.0123456789abcdef0123456789abcdef00004000.1", ""] {
+        assert_eq!(read_after(Some(&c), &other, &all), None);
+        let ahead = parse_cursor(&cursor(&h, &all, 101)).unwrap();
+        assert_eq!(read_after(Some(&ahead), &h, &all), None);
+        let france = countries_digest(Some(&["FR".to_owned()]));
+        let france_spain = countries_digest(Some(&["ES".to_owned(), "FR".to_owned()]));
+        let c = parse_cursor(&cursor(&h, &france, 42)).unwrap();
+        assert_eq!(read_after(Some(&c), &h, &france), Some(42));
+        assert_eq!(
+            read_after(Some(&c), &h, &france_spain),
+            None,
+            "a country added: the whole set, Spain's old items with it"
+        );
+        for forged in [
+            "n2.42",
+            "n1.0123456789abcdef0123456789abcdef00004000.1",
+            "n2.0123456789abcdef0123456789abcdef00004000.1",
+            "n2.0123456789abcdef0123456789abcdef00004000.zzzzzzzz.1",
+            "",
+        ] {
             assert!(parse_cursor(forged).is_err(), "{forged}");
         }
     }
 
     #[test]
     fn an_item_is_served_only_in_the_form_its_country_allows() {
-        assert!(allowed(&item("zone", "FR", None)));
+        assert!(allowed(&item(ItemKind::Zone, "FR", None)));
         assert!(
-            !allowed(&item("camera", "FR", Some((48.85, 2.35)))),
+            !allowed(&item(ItemKind::Camera, "FR", Some((48.85, 2.35)))),
             "never a point in France"
         );
-        assert!(allowed(&item("camera", "ES", Some((40.41, -3.70)))));
+        assert!(allowed(&item(ItemKind::Camera, "ES", Some((40.41, -3.70)))));
         assert!(
-            !allowed(&item("camera", "ES", Some((46.95, 7.44)))),
+            !allowed(&item(ItemKind::Camera, "ES", Some((46.95, 7.44)))),
             "a point in Switzerland, whatever its row says"
         );
-        assert!(!allowed(&item("zone", "MA", None)), "Morocco is off");
-        assert!(allowed(&item("camera", "DE", Some((52.52, 13.40)))));
         assert!(
-            !allowed(&item("zone", "XX", None)),
+            !allowed(&item(ItemKind::Camera, "ES", Some((43.3399, -1.7808)))),
+            "a point in Irun, within a kilometre of France"
+        );
+        assert!(
+            !allowed(&with_line(
+                item(ItemKind::Camera, "ES", Some((43.30, -1.85))),
+                &[(43.30, -1.85), (43.37, -1.75)]
+            )),
+            "a section's road that runs into France"
+        );
+        assert!(
+            !allowed(&with_line(
+                item(ItemKind::Zone, "FR", None),
+                &[(46.20, 6.05), (46.20, 6.14)]
+            )),
+            "a zone that runs into Switzerland"
+        );
+        assert!(
+            !allowed(&item(ItemKind::Zone, "MA", None)),
+            "Morocco is off"
+        );
+        assert!(allowed(&item(ItemKind::Camera, "DE", Some((52.52, 13.40)))));
+        assert!(
+            !allowed(&item(ItemKind::Zone, "XX", None)),
             "a country not in the table"
         );
     }
-
     #[test]
     fn countries_are_codes() {
         assert_eq!(

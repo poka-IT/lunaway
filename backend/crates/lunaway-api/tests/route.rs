@@ -722,6 +722,17 @@ async fn a_route_carries_the_speed_limits_of_its_vehicle(pool: PgPool) {
             .any(|s| s["kmh"] == 110 && s["source"] == "DEFAULT")
     );
     assert!(!spans.iter().any(|s| s["source"] == "VEHICLE"));
+
+    // A route asked without its limits costs the engine no trace.
+    let before = traces.lock().unwrap().len();
+    let (_, body) = gql(
+        &app,
+        "query Route($input: RouteInput!) { route(input: $input) { status routes { distanceM } } }",
+        weighing(4.5),
+    )
+    .await;
+    assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+    assert_eq!(traces.lock().unwrap().len(), before);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

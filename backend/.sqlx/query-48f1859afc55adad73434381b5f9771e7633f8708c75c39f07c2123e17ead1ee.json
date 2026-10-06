@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO enforcement_sources AS s (source_id, fetched_at, devices, list_updated_at)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT (source_id) DO UPDATE SET\n            fetched_at = EXCLUDED.fetched_at, devices = EXCLUDED.devices, updated_at = now(),\n            list_updated_at = coalesce(EXCLUDED.list_updated_at, s.list_updated_at)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48f1859afc55adad73434381b5f9771e7633f8708c75c39f07c2123e17ead1ee"
+}
