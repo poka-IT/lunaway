@@ -1885,26 +1885,27 @@ async fn summarize_event(
     kind: ReportKind,
     end_reason: &str,
 ) -> Result<Option<community::CommunityEvent>, DbError> {
+    // Through the view without accounts: the importers' role runs this at
+    // every pass and must not link an account to a time and a place.
     let reports = sqlx::query!(
         r#"
-        SELECT r.account_id, r.kind, r.value_m, r.created_at,
-            a.trust_level >= 1 AS "trusted!"
-        FROM road_event_reports r
-        JOIN accounts a ON a.id = r.account_id
-        WHERE r.event_id = $1 AND r.status = 'active' AND (r.kind = $2 OR r.kind = 'cleared')
-          AND a.banned_at IS NULL
-        ORDER BY r.created_at
+        SELECT reporter AS "reporter!", kind AS "kind!", value_m, created_at AS "created_at!",
+            trusted AS "trusted!"
+        FROM road_event_report_facts
+        WHERE event_id = $1 AND status = 'active' AND (kind = $2 OR kind = 'cleared')
+          AND NOT banned
+        ORDER BY created_at
         "#,
         event_id,
         kind.code(),
     )
     .fetch_all(&mut *w.0)
     .await?;
-    let facts: Vec<ReportFacts<Uuid>> = reports
+    let facts: Vec<ReportFacts<String>> = reports
         .into_iter()
         .filter_map(|r| {
             Some(ReportFacts {
-                account: r.account_id,
+                account: r.reporter,
                 kind: r.kind.parse().ok()?,
                 value_m: r.value_m,
                 created_at: r.created_at,
