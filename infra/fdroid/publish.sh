@@ -231,7 +231,7 @@ rsync -rt --delete --delete-excluded --exclude='/repo/status/' --exclude='/archi
 lunaway_ssh "sudo bash ~/infra/server/install-fdroid.sh $release"
 
 log "reading it back"
-base="https://$LUNAWAY_HOSTNAME/fdroid/repo"
+base="$REPO_URL"
 for file in entry.jar index-v1.jar index-v2.json "${APP_ID}_$code.apk"; do
   remote="$(curl -fsS -m 120 "$base/$file" | shasum -a 256 | awk '{ print $1 }')"
   local_sum="$(shasum -a 256 "$WORK/repo/$file" | awk '{ print $1 }')"

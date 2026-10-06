@@ -23,15 +23,12 @@
 #   LUNAWAY_BACKUP_RECIPIENT  age public key the dumps are encrypted to; its
 #                             private half exists only on the maintainer's Mac
 #                             (written by infra/ops/mac/install.sh)
-#   LUNAWAY_API_HOST, LUNAWAY_WEB_URL, LUNAWAY_STATUS_DOMAIN
-#                             what the status page checks and its public name,
-#                             optional (see docs/deploy.md, "Status page")
-#   LUNAWAY_TILES_URL         the basemap's public base URL the status page
-#                             checks, optional (https://<backend sslip.io name>/tiles
-#                             until DNS exists, then https://tiles.lunaway.net)
+#   LUNAWAY_API_HOST, LUNAWAY_TILES_URL, LUNAWAY_WEB_URL, LUNAWAY_STATUS_DOMAIN,
+#   LUNAWAY_MEDIA_BASE_URL    the public names, optional: the lunaway.net
+#                             names below unless set (docs/deploy.md, "The domain")
 #   LUNAWAY_BACKEND_IPV4/_IPV6/_VOLUME_ID/_TILES_VOLUME_ID,
-#   LUNAWAY_OPS_IPV4/_IPV6/_VOLUME_ID,
-#   LUNAWAY_HOSTNAME          written by provision.sh
+#   LUNAWAY_OPS_IPV4/_IPV6/_VOLUME_ID
+#                             written by provision.sh
 
 LUNAWAY_INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LUNAWAY_REPO_DIR="$(cd "$LUNAWAY_INFRA_DIR/.." && pwd)"
@@ -42,6 +39,16 @@ LUNAWAY_SSH_CONFIG="$LUNAWAY_CONFIG_DIR/ssh_config"
 # shellcheck disable=SC1090
 [ -f "$LUNAWAY_ENV_FILE" ] && . "$LUNAWAY_ENV_FILE"
 
+# The public names every script checks and renders (docs/deploy.md, "The
+# domain"): the API, its photos, the basemap and the website on the backend,
+# the status page on the ops server. They are public, so they live here; the
+# env file may still override one for a test setup.
+: "${LUNAWAY_API_HOST:=api.lunaway.net}"
+: "${LUNAWAY_TILES_URL:=https://tiles.lunaway.net}"
+: "${LUNAWAY_WEB_URL:=https://lunaway.net}"
+: "${LUNAWAY_STATUS_DOMAIN:=status.lunaway.net}"
+: "${LUNAWAY_MEDIA_BASE_URL:=https://$LUNAWAY_API_HOST/media/}"
+
 # Every Hetzner resource of the project is named lunaway-* and labelled
 # project=lunaway,managed-by=claude; the scripts touch nothing else.
 LUNAWAY_NETWORK="lunaway-net"
@@ -49,6 +56,8 @@ LUNAWAY_NETWORK_RANGE="10.42.0.0/16"
 LUNAWAY_SUBNET_RANGE="10.42.0.0/24"
 LUNAWAY_NETWORK_ZONE="eu-central"
 LUNAWAY_BACKEND_PRIVATE_IP="10.42.0.2"
+# Also written as is in infra/files/etc/nftables.conf (the ops server's
+# exemption from the SSH rate limit): change both together.
 LUNAWAY_OPS_PRIVATE_IP="10.42.0.3"
 LUNAWAY_IMAGE="${LUNAWAY_IMAGE:-debian-13}"
 # The admin account on both servers. Root never logs in over SSH.

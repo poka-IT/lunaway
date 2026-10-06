@@ -84,8 +84,8 @@ endpoints:
 
   # The basemap (docs/deploy.md, "Basemap"): the TileJSON names the current
   # build in its tile URLs, and a z14 tile over Paris comes back through
-  # Caddy and pmtiles. __TILES_URL__ is the sslip.io name's /tiles until DNS
-  # exists, then https://tiles.lunaway.net (LUNAWAY_TILES_URL).
+  # Caddy and pmtiles. __TILES_URL__ is https://tiles.lunaway.net
+  # (LUNAWAY_TILES_URL, infra/lib.sh).
   - name: Basemap TileJSON
     group: public
     url: "__TILES_URL__/planet.json"

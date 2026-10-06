@@ -390,7 +390,9 @@ String _$offlineStyleFilesHash() => r'8abcb2846dea1e85f5026a1ecb9817d32ebc05f8';
 /// when it does not (the device is offline, or the host is down: the map
 /// then reads a downloaded pack where there is one). A small TileJSON read,
 /// at launch, on each return to the foreground, every ten minutes online
-/// and every minute offline, only while the app is in the foreground.
+/// and every minute offline, only while the app is in the foreground; and
+/// when the map comes to rest or the guidance moves on with an answer older
+/// than [staleAfter] (see [probeIfStale]).
 // keepAlive: the map and its notice read it for the whole run.
 
 @ProviderFor(BasemapReachability)
@@ -400,7 +402,9 @@ final basemapReachabilityProvider = BasemapReachabilityProvider._();
 /// when it does not (the device is offline, or the host is down: the map
 /// then reads a downloaded pack where there is one). A small TileJSON read,
 /// at launch, on each return to the foreground, every ten minutes online
-/// and every minute offline, only while the app is in the foreground.
+/// and every minute offline, only while the app is in the foreground; and
+/// when the map comes to rest or the guidance moves on with an answer older
+/// than [staleAfter] (see [probeIfStale]).
 // keepAlive: the map and its notice read it for the whole run.
 final class BasemapReachabilityProvider
     extends $NotifierProvider<BasemapReachability, bool?> {
@@ -408,7 +412,9 @@ final class BasemapReachabilityProvider
   /// when it does not (the device is offline, or the host is down: the map
   /// then reads a downloaded pack where there is one). A small TileJSON read,
   /// at launch, on each return to the foreground, every ten minutes online
-  /// and every minute offline, only while the app is in the foreground.
+  /// and every minute offline, only while the app is in the foreground; and
+  /// when the map comes to rest or the guidance moves on with an answer older
+  /// than [staleAfter] (see [probeIfStale]).
   // keepAlive: the map and its notice read it for the whole run.
   BasemapReachabilityProvider._()
     : super(
@@ -438,13 +444,15 @@ final class BasemapReachabilityProvider
 }
 
 String _$basemapReachabilityHash() =>
-    r'b32a2f95194b99f6c123a1d0e9f92cffe8cc6064';
+    r'5229f908c41528dca750658f8b7c306848cba591';
 
 /// Whether the basemap's host answers: null until the first probe, false
 /// when it does not (the device is offline, or the host is down: the map
 /// then reads a downloaded pack where there is one). A small TileJSON read,
 /// at launch, on each return to the foreground, every ten minutes online
-/// and every minute offline, only while the app is in the foreground.
+/// and every minute offline, only while the app is in the foreground; and
+/// when the map comes to rest or the guidance moves on with an answer older
+/// than [staleAfter] (see [probeIfStale]).
 // keepAlive: the map and its notice read it for the whole run.
 
 abstract class _$BasemapReachability extends $Notifier<bool?> {

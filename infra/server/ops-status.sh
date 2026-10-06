@@ -4,12 +4,12 @@
 # infra/deploy-gatus.sh), its probe key for the backend, and Caddy in front
 # of it with automatic TLS.
 #
-#   LUNAWAY_API_HOST            the API's public name (the backend's sslip.io
-#                               name until DNS exists, then api.lunaway.net)
+#   LUNAWAY_API_HOST            the API's public name (api.lunaway.net)
 #   LUNAWAY_WEB_URL             the web app's address, empty while not served
-#   LUNAWAY_TILES_URL           the basemap's public base URL (the sslip.io
-#                               name's /tiles until DNS exists)
+#   LUNAWAY_TILES_URL           the basemap's public base URL
+#                               (https://tiles.lunaway.net)
 #   LUNAWAY_STATUS_HOSTS        names the page answers to, space-separated
+#                               (status.lunaway.net)
 #   LUNAWAY_BACKEND_PRIVATE_IP  where the backend's health probe answers
 . "$(dirname "$0")/common.sh"
 need_root

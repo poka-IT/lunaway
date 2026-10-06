@@ -30,7 +30,6 @@ def render():
     main = open(os.path.join(REPO, "infra", "caddy", "Caddyfile")).read()
     main = main.replace("admin unix//run/caddy/admin.sock", "admin off")
     main = re.sub(r"acme_ca .*", "auto_https off", main)
-    main = main.replace("__SSLIP_HOST__ {", f"http://sslip.test:{PORT} {{").replace("__SSLIP_HOST__", "sslip.test")
     main = main.replace("import /etc/caddy/sites-enabled/*.caddy", f"import {RUN}/lunaway.net.caddy")
     main = main.replace("/srv/data", f"{RUN}/data").replace("/srv/tiles", f"{RUN}/tiles")
     main = main.replace("output file /var/log/caddy/access.log", f"output file {RUN}/access.log")

@@ -153,6 +153,8 @@ class _AddPhotoTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: t.contribute.addPhoto,
+      // The excluded ink's tap, given back to a screen reader.
+      onTap: onTap,
       excludeSemantics: true,
       child: Material(
         color: scheme.surfaceContainerLow,

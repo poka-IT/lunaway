@@ -76,6 +76,16 @@ extension CommunityLabels on Translations {
     };
   }
 
+  /// The other way to the next level, inside a sentence: "Ou bien le
+  /// parrainage d'un membre de niveau 2". The requirement starts with a
+  /// capital where it stands alone in a list.
+  String insteadRequirement(LevelRequirement r) {
+    final text = requirement(r);
+    return _t.account.orInstead(
+      requirement: text.isEmpty ? text : text[0].toLowerCase() + text.substring(1),
+    );
+  }
+
   /// A waiting contribution, in a line.
   String pendingLabel(PendingContribution e, {String? placeName}) {
     final p = e.payload;

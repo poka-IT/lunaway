@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -47,9 +48,9 @@ class NearbyList extends ConsumerWidget {
     final slivers = <Widget>[
       if (header != null) SliverToBoxAdapter(child: header),
       switch (places) {
-        AsyncValue(value: final value?) when value.isEmpty => SliverFillRemaining(
+        AsyncValue(value: final value?) when value.isEmpty => const SliverFillRemaining(
           hasScrollBody: false,
-          child: MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true),
+          child: _EmptyList(),
         ),
         AsyncValue(value: final value?) => SliverList.builder(
           itemCount: value.length,
@@ -82,6 +83,30 @@ class NearbyList extends ConsumerWidget {
   }
 }
 
+/// An empty list: during the first download the places are on their way,
+/// with nothing stored yet the device has to download them, and only then
+/// is it the area or the filters.
+class _EmptyList extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final stored = ref.watch(placeCountProvider).value;
+    // Not counted yet: no message rather than a wrong one.
+    if (stored == null) return const SizedBox.shrink();
+    if (stored == 0) {
+      final running = ref.watch(syncControllerProvider) is SyncRunning;
+      return MessageView(
+        title: running ? t.list.downloading : t.map.noData,
+        hint: running ? t.list.downloadingHint : t.map.noDataHint,
+        compact: true,
+      );
+    }
+    return MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true);
+  }
+}
+
 /// The count line above the list: how many places the area holds, the
 /// number in Fraunces.
 class NearbyCount extends ConsumerWidget {
@@ -92,7 +117,14 @@ class NearbyCount extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final count = ref.watch(nearbyPlacesProvider).value?.length;
+    // Nothing stored yet: no count of "0 places here" over a download.
+    final stored = ref.watch(placeCountProvider).value;
+    final count = stored == 0 ? null : ref.watch(nearbyPlacesProvider).value?.length;
+    // The list is sorted from the user when the map shows them, from the
+    // map's centre otherwise: the title says which.
+    final user = ref.watch(userLocationProvider);
+    final bounds = ref.watch(viewportProvider)?.bounds;
+    final fromUser = user != null && (bounds == null || bounds.contains(user));
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final demo = ref.watch(appConfigProvider).demo;
@@ -104,7 +136,11 @@ class NearbyCount extends ConsumerWidget {
                 TextSpan(text: t.number(count), style: LunaType.number(22, weight: 480)),
                 TextSpan(
                   text:
-                      ' ${count >= NearbyList.limit ? t.map.nearestPlacesLabel(n: count) : t.map.placesHereLabel(n: count)}',
+                      ' ${count < NearbyList.limit
+                          ? t.map.placesHereLabel(n: count)
+                          : fromUser
+                          ? t.map.nearestYouLabel(n: count)
+                          : t.map.nearestCentreLabel(n: count)}',
                   style: theme.textTheme.titleLarge,
                 ),
               ],

@@ -55,7 +55,7 @@ def free_port():
     return port
 
 
-async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, wait, console_dir, geo=None):
+async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, wait, console_dir, geo=None, timezone=None):
     import websockets
 
     async with websockets.connect(ws_url, max_size=100_000_000) as ws:
@@ -74,6 +74,10 @@ async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, w
         })
         await call("Emulation.setLocaleOverride", {"locale": lang})
         await call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-color-scheme", "value": scheme}]})
+        if timezone:
+            # The automatic theme follows the sun, else the device's time
+            # zone: a zone where it is day gives the light theme at night.
+            await call("Emulation.setTimezoneOverride", {"timezoneId": timezone})
         if geo:
             lat, lon = geo
             await call("Browser.grantPermissions", {"permissions": ["geolocation"]})
@@ -172,6 +176,7 @@ def main():
     p.add_argument("--route", default="45.845089,1.286339,Rue Maurice Utrillo",
                    help="lat,lon,name of the destination of the route page")
     p.add_argument("--geo", help="lat,lon: the browser's position")
+    p.add_argument("--timezone", help="an IANA time zone for the browser (the automatic theme follows it)")
     p.add_argument("--wait", type=float, default=12)
     p.add_argument("--langs", default="fr,en")
     p.add_argument("--schemes", default="light,dark")
@@ -217,7 +222,7 @@ def main():
                         frag = PAGES[name]
                         url = args.url + frag.format(place=args.place, poi=args.poi, route=route)
                         path = os.path.join(out, f"{lang}-{vp}-{scheme}-{name}.png")
-                        asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir, geo))
+                        asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir, geo, args.timezone))
     finally:
         proc.terminate()
         proc.wait(timeout=10)

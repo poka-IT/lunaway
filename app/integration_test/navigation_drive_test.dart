@@ -50,8 +50,7 @@ import 'fixtures/drive_routes.dart';
 ///    the route, a new route from where the vehicle is;
 /// 4. the arrival card.
 ///
-///   fvm flutter test integration_test/navigation_drive_test.dart -d emulator-5554 --flavor store \
-///     --dart-define=LUNAWAY_BASEMAP_URL=https://188-245-10-130.sslip.io/tiles
+///   fvm flutter test integration_test/navigation_drive_test.dart -d emulator-5554 --flavor store
 ///
 /// `tool/screens/capture.py --test integration_test/navigation_drive_test.dart`
 /// captures the screen at each `SHOT` line.

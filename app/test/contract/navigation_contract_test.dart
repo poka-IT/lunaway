@@ -69,6 +69,7 @@ void main() {
     'braille_tall',
     'limoges_drive',
     'brive_ussel_en',
+    'aix_marseille_closures',
   ]) {
     // Recorded before the routes carried their speed limits: they answer
     // the request without them.
@@ -86,7 +87,8 @@ void main() {
     });
   }
 
-  test('a route with its speed limits, recorded on 2026-10-06, matches the selection', () {
+  test('a route with its speed limits, recorded on 2026-10-06 (road event fields added empty, '
+      'the API had none then), matches the selection', () {
     final body = jsonDecode(
       File('test/fixtures/navigation/route_a20_limits.json').readAsStringSync(),
     ) as Map<String, dynamic>;

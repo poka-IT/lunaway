@@ -9,6 +9,7 @@ import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// The vehicle the route is computed for, editable in place: the route
@@ -70,14 +71,38 @@ class _RoadbookState extends State<Roadbook> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(t.navigation.preview.roadbook, style: theme.textTheme.titleMedium),
-          trailing: TextButton.icon(
-            onPressed: () => setState(() => _open = !_open),
-            icon: Icon(_open ? AppIcons.zoomOut : AppIcons.chevronDown),
-            label: Text(
-              _open ? t.navigation.preview.roadbookHide : t.navigation.preview.roadbookShow,
+        // The whole line opens and closes the list: a label as long as
+        // "Voir les instructions" never pushes the title out, at any text
+        // size.
+        Semantics(
+          button: true,
+          expanded: _open,
+          child: InkWell(
+            onTap: () => setState(() => _open = !_open),
+            borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(t.navigation.preview.roadbook, style: theme.textTheme.titleMedium),
+                  ),
+                  const SizedBox(width: Space.s),
+                  Flexible(
+                    child: Text(
+                      _open ? t.navigation.preview.roadbookHide : t.navigation.preview.roadbookShow,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.labelLarge?.copyWith(color: scheme.primary),
+                    ),
+                  ),
+                  const SizedBox(width: Space.xs),
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0,
+                    duration: Motion.of(context, Motion.short),
+                    child: Icon(AppIcons.chevronDown, color: scheme.primary),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

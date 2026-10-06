@@ -216,7 +216,10 @@ abstract final class RouteLook {
   static double markRadius(RouteMarkKind kind) => switch (kind) {
     RouteMarkKind.origin => 6,
     RouteMarkKind.destination => 9,
-    RouteMarkKind.place || RouteMarkKind.station => 6,
+    // Places along the way are many: small, so the route stays readable
+    // under them; a station is one picked.
+    RouteMarkKind.place => 4,
+    RouteMarkKind.station => 6,
     _ => 8,
   };
 

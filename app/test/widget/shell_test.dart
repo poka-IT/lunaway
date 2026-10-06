@@ -198,10 +198,68 @@ void main() {
     expect(favourites.dy, greaterThan(map.dy), reason: 'one under the other');
   });
 
+  testWidgets("on its side, the rail grows by the camera cut-out and keeps its labels' room", (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(left: 48);
+    await pumpLunaway(tester, size: tablet);
+    expect(tester.getCenter(find.text('Carte')).dx, closeTo(48 + 92 / 2, 1));
+  });
+
   testWidgets('a desktop width gets the wide rail with the brand', (tester) async {
     await pumpLunaway(tester, size: desktop);
     expect(find.text('Lunaway'), findsOneWidget);
     expect(tester.getCenter(find.text('Carte')).dx, lessThan(240));
+  });
+
+  testWidgets('a screen reader switches tabs from the dock', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpLunaway(tester);
+    tester.semantics.tap(find.semantics.byLabel('Favoris'));
+    await settleShort(tester);
+    expect(find.text('Nouvelle liste'), findsOneWidget, reason: 'the favourites are shown');
+    semantics.dispose();
+  });
+
+  testWidgets('a screen reader switches tabs from the rail', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpLunaway(tester, size: tablet);
+    tester.semantics.tap(find.semantics.byLabel('Favoris'));
+    await settleShort(tester);
+    expect(find.text('Nouvelle liste'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('the system back on another tab returns to the map, not out of the app', (
+    tester,
+  ) async {
+    final exits = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+      call,
+    ) async {
+      if (call.method == 'SystemNavigator.pop') exits.add(call.method);
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await pumpLunaway(tester);
+    await tester.tap(find.text('Favoris'));
+    await settleShort(tester);
+    expect(find.text('Nouvelle liste'), findsOneWidget);
+    final message = const JSONMethodCodec().encodeMethodCall(const MethodCall('popRoute'));
+    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      'flutter/navigation',
+      message,
+      (_) {},
+    );
+    await settleShort(tester);
+    expect(find.text('Nouvelle liste'), findsNothing);
+    expect(find.text('5 lieux ici'), findsOneWidget, reason: 'back on the map');
+    expect(exits, isEmpty);
   });
 
   testWidgets('the destinations are named in the app language', (tester) async {

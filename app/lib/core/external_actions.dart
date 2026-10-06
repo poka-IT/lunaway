@@ -35,6 +35,16 @@ List<String> phoneNumbers(String? raw) => [
       (p.startsWith('+') ? '+' : '') + p.replaceAll(RegExp(r'[^\d]'), ''),
 ];
 
+/// A number of [phoneNumbers] as it reads on paper: a French one in its
+/// national form, by pairs ("04 95 52 01 17"); any other as given.
+String readablePhone(String number) {
+  final national = number.startsWith('+33') && number.length == 12
+      ? '0${number.substring(3)}'
+      : (number.startsWith('0') && number.length == 10 ? number : null);
+  if (national == null) return number;
+  return [for (var i = 0; i < 10; i += 2) national.substring(i, i + 2)].join(' ');
+}
+
 /// What the app hands to other apps: web pages, calls, directions and the
 /// share sheet. Each method builds its link itself or checks it: a value
 /// from the data can never make the app open a file, a custom scheme or a

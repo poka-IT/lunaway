@@ -44,6 +44,12 @@ void main() {
       expect(phoneNumbers(' ; n/a ;'), isEmpty);
       expect(phoneNumbers(null), isEmpty);
     });
+
+    test('a French number reads in its national form by pairs, any other as given', () {
+      expect(readablePhone('+33495520117'), '04 95 52 01 17');
+      expect(readablePhone('0612345678'), '06 12 34 56 78');
+      expect(readablePhone('+41223456789'), '+41223456789');
+    });
   });
 
   group('directions hand a route, not a pin', () {

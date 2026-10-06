@@ -200,16 +200,17 @@ no third-party SDK for analytics, crash reports or ads.
 | Price history of a station | a station's page opens: the station's id and one fuel | nothing | `app/lib/features/poi/data/fuel_feed.dart` |
 | Speed camera data of the guidance | at the start of a guidance and every six hours during it: the country codes the route crosses (worked out on the device by the guidance library) and the delta's cursor; never a position | nothing | `app/lib/features/navigation/data/enforcement_api.dart`, `application/driving_aids.dart` |
 | Road events of the guidance | during guidance, at the start and every three minutes | nothing; the request carries no position | `app/lib/features/navigation/data/road_events_api.dart` |
-| New place, place edit | the user submits | `place_submissions`: the payload, with the position the user confirms in the form (a long press, or the map centre, which after "locate me" is the device's own position), linked to the account and device key | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `backend/crates/lunaway-db/src/submissions.rs` |
+| New place, place edit | the user submits | `place_submissions`: the payload, with the position the user confirms in the form (a long press, or the map centre, which after "locate me", or a launch that opens the map on the user, is the device's own position), linked to the account and device key | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `backend/crates/lunaway-db/src/submissions.rs` |
 | Favourite lists | after the first sync | list names and place ids (`favorite_lists`, `favorite_items`) | `favorites_sync.dart` |
 | Muted authors, sponsorships | the user mutes (sponsoring exists in the API only, the app has no action for it yet) | `muted_authors`, `account_endorsements` | 20261006005548 |
 | Client address | every request | not stored: rate limits count per IPv4 address or IPv6 /64 in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
 | Request line and headers | every request | access log: date, method, path without query string, status, User-Agent and Accept-Language, IP truncated to /16 (IPv4) or /32 (IPv6), photo paths and tile coordinates masked; the file rolls at 50 MiB and rolled files go after 14 days, so the live file can hold older lines; system journal, one month at most; both also sit in Hetzner's 7 daily images of the root disk | `infra/caddy/Caddyfile` (`roll_size`, `roll_keep_for`), `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` |
 
 The device position reaches the server in these cases: as the position
-of a new place, when the user centres the map on themselves ("locate me")
-and adds a place there; as the start of a route (and of each new route of
-a guidance); rounded to about 5 km, for the list of the cheapest fuel when
+of a new place, when the map is centred on the user ("locate me", or a
+launch that opens on them when the position is already allowed) and they
+add a place there; as the start of a route (and of each new route of a
+guidance); rounded to about 5 km, for the list of the cheapest fuel when
 the view cannot be read whole; and indirectly, as the start of the route
 ahead sent for its fuel stations. Search of places runs on the device
 (`app/lib/features/places/data/drift_places_repository.dart`), and a
@@ -248,7 +249,9 @@ and none of these data exist before the first contribution or favourites
 sync. Not declared, with the reason:
 
 - Location, Approximate location: the basemap tiles requested after
-  "locate me" cover the area around the device (zoom 12); nothing is
+  "locate me", or at a launch that opens the map on the user when the
+  position is already allowed, cover the area around the device (zoom 11
+  to 12); nothing is
   stored and the access log keeps the zoom level only. Read as a map
   view; declare Approximate location, processed ephemerally, if Google
   reads it otherwise.

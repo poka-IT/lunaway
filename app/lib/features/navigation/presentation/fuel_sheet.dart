@@ -175,18 +175,31 @@ class _OfferTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(
-        [
-          '${t.litrePrice(offer.priceEur)} · ${t.priceAge(offer.priceUpdatedAt, now)}',
-          '${t.detour(offer.detourM, offer.detourS, units)} · $open',
-          if (offer.detourM >= 100) t.litrePriceWithDetour(effective),
-        ].join('\n'),
+      // The price leads, as on the station's sign; the rest reads under it.
+      subtitle: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: t.litrePrice(offer.priceEur),
+              style: theme.textTheme.titleMedium?.copyWith(color: scheme.onSurface),
+            ),
+            TextSpan(
+              text: [
+                ' · ${t.priceAge(offer.priceUpdatedAt, now)}',
+                '${t.detour(offer.detourM, offer.detourS, units)} · $open',
+                if (offer.detourM >= 100) t.litrePriceWithDetour(effective),
+              ].join('\n'),
+            ),
+          ],
+        ),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: offer.open == StationOpen.closed ? scheme.error : scheme.onSurfaceVariant,
         ),
       ),
       isThreeLine: true,
-      trailing: FilledButton.tonal(onPressed: onAdd, child: Text(t.navigation.fuel.add)),
+      // One station among several: a quiet button, so the prices stay what
+      // the eye compares.
+      trailing: OutlinedButton(onPressed: onAdd, child: Text(t.navigation.fuel.add)),
     );
   }
 }

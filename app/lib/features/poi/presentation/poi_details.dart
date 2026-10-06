@@ -19,6 +19,7 @@ import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/hours_text.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
@@ -238,7 +239,7 @@ class _Body extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(poi.openingHours!, style: theme.textTheme.bodyLarge),
+              Text(readableHours(poi.openingHours!, t), style: theme.textTheme.bodyLarge),
               const SizedBox(height: Space.xxs),
               Text(
                 t.hours.localTime,
@@ -286,7 +287,7 @@ class _Body extends ConsumerWidget {
                 _LinkRow(
                   icon: AppIcons.call,
                   title: t.place.call,
-                  subtitle: phone,
+                  subtitle: readablePhone(phone),
                   onTap: () => run(() => actions.dial(phone)),
                 ),
             ],

@@ -32,6 +32,7 @@ class MapCredit extends ConsumerWidget {
     return Semantics(
       button: true,
       label: t.map.creditLabel,
+      onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -51,6 +52,9 @@ class MapCredit extends ConsumerWidget {
                 child: Text(
                   t.map.credit,
                   style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurface),
+                  // A legal line, not reading matter: at large text sizes
+                  // it would run under the map's buttons.
+                  textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
                 ),
               ),
             ),

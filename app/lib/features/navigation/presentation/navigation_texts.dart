@@ -138,6 +138,48 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
+  /// What a road event does, as a driver reads it: "Route fermée".
+  String roadEventWhat(RoadEventClass c) => switch (c) {
+    RoadEventClass.closure => _t.navigation.roadEvents.classClosure,
+    RoadEventClass.works => _t.navigation.roadEvents.classWorks,
+    RoadEventClass.laneRestriction => _t.navigation.roadEvents.classLaneRestriction,
+    RoadEventClass.vehicleLimit => _t.navigation.roadEvents.classVehicleLimit,
+    RoadEventClass.detour => _t.navigation.roadEvents.classDetour,
+  };
+
+  /// What the reason adds to the class, when it says more: an uncertain
+  /// place, a stale source, a single report.
+  String? roadEventQualifier(RoadEventReason r) => switch (r) {
+    RoadEventReason.unmatched => _t.navigation.roadEvents.reasonUnmatched,
+    RoadEventReason.stale => _t.navigation.roadEvents.reasonStale,
+    RoadEventReason.outsideAssumedHours => _t.navigation.roadEvents.reasonOutsideHours,
+    RoadEventReason.goodsVehiclesOnly => _t.navigation.roadEvents.reasonGoodsVehicles,
+    RoadEventReason.unconfirmed => _t.navigation.roadEvents.reasonUnconfirmed,
+    RoadEventReason.aged => _t.navigation.roadEvents.reasonAged,
+    RoadEventReason.alreadyInside => _t.navigation.roadEvents.reasonInside,
+    RoadEventReason.nearLimit => _t.navigation.roadEvents.reasonNearLimit,
+    RoadEventReason.limitExceeded => _t.navigation.roadEvents.reasonOverLimit,
+    RoadEventReason.closed ||
+    RoadEventReason.laneRestriction ||
+    RoadEventReason.works ||
+    RoadEventReason.detour => null,
+  };
+
+  /// Where road data comes from and how recent it is: "DIR, données de
+  /// 22:37", the day as well when the data is not of [now]'s day.
+  String roadDataSource(String source, DateTime? at, DateTime now) {
+    final local = at?.toLocal();
+    if (local == null) return source;
+    final today = local.year == now.year && local.month == now.month && local.day == now.day;
+    return today
+        ? _t.navigation.guidance.eventSource(source: source, time: clockTime(local))
+        : _t.navigation.guidance.eventSourceOn(
+            source: source,
+            day: dayMonth(local),
+            time: clockTime(local),
+          );
+  }
+
   /// "1,789 €/L": to the tenth of a cent, as stations show it.
   String litrePrice(double euros) =>
       _t.navigation.fuel.price(price: NumberFormat('0.000', _locale).format(euros));

@@ -240,16 +240,13 @@ void main() {
 
   test('a base URL with a path and a trailing slash still gives its GraphQL endpoint', () {
     const config = AppConfig(
-      apiBaseUrl: 'https://188-245-10-130.sslip.io/api/',
+      apiBaseUrl: 'https://staging.example.org/api/',
       demo: false,
       basemapUrl: '',
     );
-    expect(config.graphqlEndpoint.toString(), 'https://188-245-10-130.sslip.io/api/graphql');
-    expect(
-      config.isApiMedia(Uri.parse('https://188-245-10-130.sslip.io/api/media/x/thumb')),
-      isTrue,
-    );
-    expect(config.isApiMedia(Uri.parse('https://188-245-10-130.sslip.io/media/x/thumb')), isFalse);
+    expect(config.graphqlEndpoint.toString(), 'https://staging.example.org/api/graphql');
+    expect(config.isApiMedia(Uri.parse('https://staging.example.org/api/media/x/thumb')), isTrue);
+    expect(config.isApiMedia(Uri.parse('https://staging.example.org/media/x/thumb')), isFalse);
   });
 
   group('an API older than an operation', () {

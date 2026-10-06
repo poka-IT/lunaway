@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Checks the routing of infra/caddy/ (the sslip.io API host and the
-# lunaway.net sites, tiles.lunaway.net included) in the official Caddy image,
-# before the domain is enabled. The configuration is the real one, rewritten
+# Checks the routing of infra/caddy/ (the lunaway.net sites, api. and
+# tiles.lunaway.net included) in the official Caddy image, and that the main
+# Caddyfile alone (the domain not enabled) serves nothing and still
+# validates. The configuration is the real one, rewritten
 # for a test: plain HTTP on port 8080, no admin API, test roots under the
 # scratch directory, which is the containers' only mount (read-only). The
 # basemap routes go to a real `pmtiles serve` (the pinned release, in a second
@@ -131,8 +132,6 @@ head -c 11000000 /dev/zero > "$SCRATCH/body-11mb"
 
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
-    -e "s|__SSLIP_HOST__ {|http://sslip.test:$LISTEN {|" \
-    -e 's|__SSLIP_HOST__|sslip.test|g' \
     -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/lunaway.net.caddy|" \
     -e "s|/srv/data|$W/data|g" \
     -e "s|/srv/tiles|$W/tiles|g" \
@@ -302,26 +301,21 @@ check "media miss" http://api.lunaway.net:8080/media/ab/ffffffff.jpg 404
 # A directory is not a file: a plain 404, never a listing.
 check "media directory not listed" http://api.lunaway.net:8080/media/ab/ 404
 check "no media on the site" http://lunaway.net:8080/media/ab/0123abcd.jpg 404
-check "media on the sslip host" http://sslip.test:8080/media/ab/0123abcd.jpg 200 "immutable"
 check "headers" http://lunaway.net:8080/ 200 "strict-transport-security: max-age=31536000; includeSubDomains"
 check "no server header" http://lunaway.net:8080/ 200 "^x-frame-options: DENY"
 check "www redirect" http://www.lunaway.net:8080/privacy 301 "location: https://lunaway.net/privacy"
 check "api other path" http://api.lunaway.net:8080/admin 404 "content-security-policy: default-src 'none'"
 check "api health proxied" http://api.lunaway.net:8080/health 200 "x-test-upstream: api"
-check "sslip api other path" http://sslip.test:8080/ 404
 
-# The basemap. T is the tiles host, S the sslip.io host's /tiles/ prefix.
+# The basemap, on the tiles host.
 T=http://tiles.lunaway.net:8080
-S=http://sslip.test:8080/tiles
 check "tilejson" "$T/planet.json" 200 "cache-control: public, max-age=3600"
 check "tilejson cors" "$T/planet.json" 200 "access-control-allow-origin: \\*"
-check "tilejson on sslip" "$S/planet.json" 200 "cache-control: public, max-age=3600"
 check "build tile" "$T/planet-$BUILD/0/0/0.mvt" 200 "cache-control: public, max-age=31536000, immutable"
 check "build tile type" "$T/planet-$BUILD/0/0/0.mvt" 200 "content-type: application/x-protobuf"
 check "build tile cors" "$T/planet-$BUILD/0/0/0.mvt" 200 "access-control-allow-origin: \\*"
 # The body depends on Accept-Encoding (below): a shared cache must know.
 check "build tile vary" "$T/planet-$BUILD/0/0/0.mvt" 200 "vary: accept-encoding"
-check "build tile on sslip" "$S/planet-$BUILD/0/0/0.mvt" 200 "immutable"
 check "zoom beyond the build" "$T/planet-$BUILD/1/0/0.mvt" 404 "immutable"
 check "unknown build" "$T/planet-20000101/0/0/0.mvt" 404
 check "current tile" "$T/planet/0/0/0.mvt" 200 "cache-control: public, max-age=86400"
@@ -333,18 +327,16 @@ check "sprite" "$T/sprites/protomaps-v4/light.json" 200 "cache-control: public, 
 check "style" "$T/styles/test.json" 200 "cache-control: public, max-age=3600"
 check "pack" "$T/packs/$PACK" 200 "accept-ranges: bytes"
 check "pack cache" "$T/packs/$PACK" 200 "cache-control: public, max-age=31536000, immutable"
-check "pack on sslip" "$S/packs/$PACK" 200 "immutable"
 check "pack manifest" "$T/packs/manifest.json" 200 "cache-control: public, max-age=300"
 check "pack manifest cors" "$T/packs/manifest.json" 200 "access-control-allow-origin: \\*"
-check "pack manifest on sslip" "$S/packs/manifest.json" 200 "cache-control: public, max-age=300"
 check "pack miss" "$T/packs/fr-bre-20000101-0123abcd.pmtiles" 404
 check "not a pack name" "$T/packs/FR.pmtiles" 404
 check "not a pack file" "$T/packs/manifest.txt" 404
 check "packs not listed" "$T/packs/" 404
 check "tiles host csp" "$T/planet.json" 200 "content-security-policy: default-src 'none'.*sandbox"
 check "tiles host other path" "$T/admin" 404
-check "sslip tiles other path" "$S/admin" 404
-check "sslip health still proxied" http://sslip.test:8080/health 200 "x-test-upstream: api"
+# The basemap lives on its own host only: the API host has no /tiles/.
+check "no basemap on the api host" http://api.lunaway.net:8080/tiles/planet.json 404
 
 # The regional packs of places (docs/region-packs.md), on the API hosts.
 A=http://api.lunaway.net:8080
@@ -352,7 +344,6 @@ check "places pack" "$A/packs/places/$PLACES_PACK" 200 "accept-ranges: bytes"
 check "places pack cache" "$A/packs/places/$PLACES_PACK" 200 "cache-control: public, max-age=31536000, immutable"
 check "places pack cors" "$A/packs/places/$PLACES_PACK" 200 "access-control-allow-origin: https://lunaway.net"
 check "places pack exposes its range headers" "$A/packs/places/$PLACES_PACK" 200 "access-control-expose-headers: .*Content-Range"
-check "places pack on sslip" "http://sslip.test:8080/packs/places/$PLACES_PACK" 200 "immutable"
 check "places pack miss" "$A/packs/places/FR-BRE-4242-ffffffffffff.sqlite.gz" 404
 check "places pack work file" "$A/packs/.work/$PLACES_PACK.partial" 404
 check "places pack work directory" "$A/packs/.work/" 404
@@ -370,8 +361,8 @@ else
   echo "ok   a places pack miss is not cached"
 fi
 
-# The F-Droid repository: on lunaway.net under /fdroid/repo/, and on the
-# sslip.io name for tests before DNS exists.
+# The F-Droid repository: on lunaway.net under /fdroid/repo/, and nowhere
+# else.
 check "fdroid index" "$L/fdroid/repo/index-v1.jar" 200 "cache-control: no-cache"
 check "fdroid index csp" "$L/fdroid/repo/index-v1.jar" 200 "content-security-policy: default-src 'none'; frame-ancestors 'none'; sandbox"
 check "fdroid index v2" "$L/fdroid/repo/index-v2.json" 200 "content-type: application/json"
@@ -379,11 +370,11 @@ check "fdroid diff" "$L/fdroid/repo/diff/1.json" 200 "cache-control: no-cache"
 check "fdroid apk" "$L/fdroid/repo/legal.p2p.lunaway_1.apk" 200 "cache-control: public, max-age=86400"
 check "fdroid apk range" "$L/fdroid/repo/legal.p2p.lunaway_1.apk" 200 "accept-ranges: bytes"
 check "fdroid miss" "$L/fdroid/repo/nope.apk" 404
-check "fdroid repo not listed on sslip" http://sslip.test:8080/fdroid/repo/ 404
+check "fdroid directory not listed" "$L/fdroid/repo/diff/" 404
+check "no fdroid on the api host" http://api.lunaway.net:8080/fdroid/repo/index-v1.jar 404
 check "fdroid bare address" "$L/fdroid/repo" 302 "location: /fdroid/"
 check "fdroid address with a slash" "$L/fdroid/repo/" 302 "location: /fdroid/"
 check "fdroid page still served" "$L/fdroid/" 200 "$NO_SCRIPT"
-check "fdroid on sslip" http://sslip.test:8080/fdroid/repo/index-v1.jar 200 "cache-control: no-cache"
 
 # sent NAME METHOD URL EXPECTED_STATUS [CURL ARGS...]: the status of a
 # request with a method and a body. 200 comes from the stand-in API.
@@ -401,12 +392,11 @@ sent() {
 }
 A=http://api.lunaway.net:8080
 sent "upload of 2 MB routed to the API" POST "$A/upload" 200 -F placeId=x -F file=@"$SCRATCH/body-2mb"
-sent "upload on the sslip host" POST http://sslip.test:8080/upload 200 -F placeId=x -F file=@"$SCRATCH/body-2mb"
 sent "upload preflight routed" OPTIONS "$A/upload" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: POST'
 sent "upload of 11 MB" POST "$A/upload" 413 --data-binary @"$SCRATCH/body-11mb" -H 'Content-Type: multipart/form-data; boundary=x'
 sent "upload by GET" GET "$A/upload" 405
 sent "fdroid repository by POST" POST "$L/fdroid/repo/index-v1.jar" 405 -d x
-sent "fdroid repository by PUT on sslip" PUT http://sslip.test:8080/fdroid/repo/index-v1.jar 405 -d x
+sent "fdroid repository by PUT" PUT "$L/fdroid/repo/index-v1.jar" 405 -d x
 sent "graphql body of 2 MB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-2mb" -H 'Content-Type: application/json'
 sent "graphql body of 60 KB" POST "$A/graphql" 200 --data-binary @"$SCRATCH/body-60kb" -H 'Content-Type: application/json'
 sent "graphql body of 70 KB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-70kb" -H 'Content-Type: application/json'
@@ -415,7 +405,6 @@ sent "poi tile routed to the API" GET "$A/poi/3/13/4149/2815.mvt" 200
 sent "poi TileJSON routed to the API" GET "$A/poi/tiles.json" 200
 sent "poi tile by HEAD" HEAD "$A/poi/3/13/4149/2815.mvt" 200 -I
 sent "poi preflight routed" OPTIONS "$A/poi/3/13/4149/2815.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
-sent "poi on the sslip host" GET http://sslip.test:8080/poi/tiles.json 200
 sent "poi by POST" POST "$A/poi/tiles.json" 405 --data-binary '{}'
 sent "poi with a body over 1 KiB" GET "$A/poi/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
 sent "places pack by POST" POST "$A/packs/places/$PLACES_PACK" 405 --data-binary '{}'
@@ -455,8 +444,6 @@ body() {
 }
 fetch tilejson-tiles "$T/planet.json"
 body tilejson-tiles "json.loads(b)['tiles'] == ['https://tiles.lunaway.net/planet-$BUILD/{z}/{x}/{y}.mvt']"
-fetch tilejson-sslip "$S/planet.json"
-body tilejson-sslip "json.loads(b)['tiles'] == ['https://sslip.test/tiles/planet-$BUILD/{z}/{x}/{y}.mvt']"
 # pmtiles always answers with the gzip stream stored in the archive. A client
 # that accepts gzip gets it as is, encoded once (one gunzip gives the vector
 # tile, not another gzip stream); for a client that does not, Caddy's
@@ -624,6 +611,27 @@ elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$acce
   echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
+  failures=$((failures + 1))
+fi
+
+# The main Caddyfile alone, as on a backend before infra/enable-domain.sh
+# (or after --disable): it adapts with no site at all, so the server answers
+# no name of its own.
+mkdir -p "$SCRATCH/sites-none"
+sed "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/sites-none/*.caddy|" "$INFRA/caddy/Caddyfile" > "$SCRATCH/Caddyfile.bare"
+if [ "$MODE" = docker ]; then
+  docker run --rm -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" caddy adapt --config /w/Caddyfile.bare --adapter caddyfile \
+    > "$SCRATCH/bare.json" 2> "$SCRATCH/bare.log" || true
+else
+  "$SCRATCH/native/caddy" adapt --config "$SCRATCH/Caddyfile.bare" --adapter caddyfile > "$SCRATCH/bare.json" 2> "$SCRATCH/bare.log" || true
+fi
+if python3 -c '
+import json, sys
+c = json.load(open(sys.argv[1]))
+sys.exit(1 if c.get("apps", {}).get("http", {}).get("servers") else 0)' "$SCRATCH/bare.json" 2>/dev/null; then
+  echo "ok   the main Caddyfile alone adapts with no site"
+else
+  echo "FAIL the main Caddyfile alone: $(tail -n 1 "$SCRATCH/bare.log" | cut -c1-160)$(head -c 160 "$SCRATCH/bare.json")"
   failures=$((failures + 1))
 fi
 

@@ -107,7 +107,7 @@ void main() {
 
     test(
       'closed for the whole window',
-      () => expect(say(const [], at(6, 10)), 'Fermé pour les deux prochaines semaines'),
+      () => expect(say(const [], at(6, 10)), 'Fermé pendant les deux semaines à venir'),
     );
 
     test('a span crossing midnight closes the next day', () {

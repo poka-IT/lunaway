@@ -138,6 +138,7 @@ final class RoadEvent {
     this.validTo,
     this.schedule = const RoadEventSchedule(),
     this.roadNumber,
+    this.roadName,
     this.updatedAt,
     this.direction = RoadEventDirection.both,
     this.headingDeg,
@@ -167,6 +168,12 @@ final class RoadEvent {
   final DateTime? validTo;
   final RoadEventSchedule schedule;
   final String? roadNumber;
+
+  /// The road's name (`Tunnel de la Joliette`), when the source gives one.
+  final String? roadName;
+
+  /// The road, as a driver reads it on a sign: its number, else its name.
+  String? get road => roadNumber ?? roadName;
 
   /// When the source last changed it: an open event this old stops
   /// blocking.

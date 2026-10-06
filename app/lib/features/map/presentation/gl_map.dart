@@ -459,13 +459,22 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final c = _controller;
     if (c == null) return null;
     if (!_locationOn && mounted) setState(() => _locationOn = true);
-    try {
-      final position = await c.requestMyLocationLatLng().timeout(const Duration(seconds: 12));
-      return position == null ? null : LatLng(position.latitude, position.longitude);
-    } on Object catch (e) {
-      _log.info('no position: $e');
-      return null;
+    // The native location layer starts with the rebuild that turns it on,
+    // and answers nothing before: asked again until a position comes, for
+    // twelve seconds at most. The first locate of a run (at launch, or the
+    // first touch of the button) otherwise came back empty.
+    final end = DateTime.now().add(const Duration(seconds: 12));
+    while (mounted && DateTime.now().isBefore(end)) {
+      try {
+        final position = await c.requestMyLocationLatLng().timeout(const Duration(seconds: 3));
+        if (position != null) return LatLng(position.latitude, position.longitude);
+      } on Object catch (e) {
+        _log.fine('no position yet: $e');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
+    _log.info('no position within 12 s');
+    return null;
   }
 
   @override

@@ -5,9 +5,8 @@
 # CLI run as the API or as the imports, for an operator). The binary itself arrives with
 # infra/deploy-api.sh; until then the unit is enabled but not started.
 #
-#   LUNAWAY_MEDIA_BASE_URL   public URL of /srv/data/media: the sslip.io name's
-#                            /media/ until DNS exists, then
-#                            https://api.lunaway.net/media/ (infra/configure.sh)
+#   LUNAWAY_MEDIA_BASE_URL   public URL of /srv/data/media,
+#                            https://api.lunaway.net/media/ (infra/lib.sh)
 #
 # The API's own public URL (LUNAWAY_PUBLIC_URL, which the TileJSON of the
 # points of interest names in its tile URLs) is that origin without

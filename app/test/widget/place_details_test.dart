@@ -53,7 +53,29 @@ void main() {
     await openPlace(tester, lakeArea);
     expect(find.text('Nuit autorisée'), findsWidgets);
     expect(find.text('Vous pouvez passer la nuit ici.'), findsOneWidget);
-    expect(find.text('Confirmé il y a 3 mois'), findsOneWidget);
+    expect(find.text('Confirmé par un voyageur il y a 3 mois'), findsOneWidget);
+  });
+
+  testWidgets('in a tablet panel the facts keep room for their longest word', (tester) async {
+    // A 10-inch tablet held upright: the medium layout's wider panel.
+    final app = await pumpLunaway(tester, size: const Size(800, 1280));
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    await settleShort(tester);
+    final tile = find.ancestor(of: find.text('Emplacements'), matching: find.byType(Container));
+    expect(tester.getSize(tile.first).width, greaterThanOrEqualTo(112));
+  });
+
+  testWidgets('a price the sources do not give is said quietly', (tester) async {
+    await openPlace(tester, serviceArea);
+    expect(find.text('Non indiqué'), findsOneWidget);
+  });
+
+  testWidgets('a place no traveller has confirmed says so, whatever its last import', (
+    tester,
+  ) async {
+    await openPlace(tester, dayParking);
+    expect(find.text('Pas encore confirmé par un voyageur'), findsOneWidget);
+    expect(find.textContaining('Mis à jour'), findsNothing);
   });
 
   testWidgets('a place missing after a finished download is said to be gone', (tester) async {
@@ -74,7 +96,7 @@ void main() {
 
   testWidgets('information unconfirmed for over a year is flagged', (tester) async {
     await openPlace(tester, campsite);
-    expect(find.text("Pas confirmé depuis plus d'un an"), findsOneWidget);
+    expect(find.text("Dernière confirmation il y a plus d'un an"), findsOneWidget);
   });
 
   testWidgets('a day-only car park says so plainly, with its height barrier', (tester) async {
@@ -94,7 +116,7 @@ void main() {
     expect(find.text('3 €'), findsOneWidget);
     expect(find.text('25'), findsOneWidget);
     expect(find.text('Ouvert, ferme à 20:00'), findsOneWidget);
-    expect(find.text('Mo-Su 08:00-20:00'), findsOneWidget);
+    expect(find.text('Lun.-dim. 08:00-20:00'), findsOneWidget);
     for (final label in ['Eau potable', 'Vidange eaux grises', 'Vidange cassette', 'Électricité']) {
       expect(inDetails(find.text(label)), findsOneWidget);
     }
@@ -117,9 +139,12 @@ void main() {
       openingValidUntil: testNow.subtract(const Duration(days: 1)).toUtc(),
     );
     await openPlace(tester, stale, places: [stale]);
-    expect(inDetails(find.text('Ouverture inconnue : données à mettre à jour')), findsOneWidget);
+    expect(
+      inDetails(find.text('Ouvert ou fermé ? Mettez à jour les lieux dans Profil.')),
+      findsOneWidget,
+    );
     expect(inDetails(find.textContaining('Fermé')), findsNothing);
-    expect(inDetails(find.text('Mo-Su 08:00-20:00')), findsOneWidget);
+    expect(inDetails(find.text('Lun.-dim. 08:00-20:00')), findsOneWidget);
   });
 
   testWidgets('a classified campsite shows its stars among the facts', (tester) async {
@@ -234,6 +259,30 @@ void main() {
     await tester.tap(find.text('Annuler'));
     await settleShort(tester);
     expect(app.favorites.entries.map((e) => e.listId).toSet(), {trip, 1});
+  });
+
+  testWidgets('a screen reader saves, shares and copies from the place actions', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final app = await openPlace(tester, campsite);
+    tester.semantics.tap(find.semantics.byLabel('Enregistrer'));
+    await settleShort(tester);
+    expect(app.favorites.entries.map((e) => e.placeId), [campsite.id]);
+    tester.semantics.tap(find.semantics.byLabel('Partager'));
+    await settleShort(tester);
+    expect(app.external.shared, hasLength(1));
+    tester.semantics.tap(find.semantics.byLabel('Copier'));
+    await settleShort(tester);
+    expect(find.textContaining('Copié'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('a screen reader reaches "add a photo" beside the photos', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await openPlace(tester, lakeArea);
+    tester.semantics.tap(find.semantics.byLabel('Ajouter une photo'));
+    await settleShort(tester);
+    expect(find.text('Photos : à partir du niveau\u00a01'), findsOneWidget, reason: 'its gate');
+    semantics.dispose();
   });
 
   testWidgets('the lists offered after a save still open once the place is closed', (tester) async {
@@ -372,7 +421,7 @@ void main() {
     expect(find.text('ODbL-1.0'), findsOneWidget);
     expect(find.text('© OpenStreetMap contributors'), findsOneWidget);
     expect(find.text('Atout France'), findsWidgets);
-    expect(find.textContaining('Correspondance 93 %'), findsOneWidget);
+    expect(find.textContaining('Correspondance'), findsNothing, reason: 'an internal score');
     await tester.ensureVisible(find.text('Voir à la source'));
     await tester.pump();
     await tester.tap(find.text('Voir à la source'));
@@ -383,6 +432,6 @@ void main() {
     final app = await pumpLunaway(tester, size: desktop);
     app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('removed'));
     await settleShort(tester);
-    expect(find.text("Ce lieu n'est plus dans les données"), findsOneWidget);
+    expect(find.text("Ce lieu n'est plus sur la carte"), findsOneWidget);
   });
 }

@@ -23,7 +23,11 @@ String syncFailureText(Translations t, SyncFailure failure) => switch (failure) 
 /// failure with a retry, or the invitation to download. Gone once the device
 /// holds places.
 class SyncBanner extends ConsumerWidget {
-  const new({super.key});
+  const new({this.compact = false, super.key});
+
+  /// On a phone, between the chips and the list: a smaller picture, the
+  /// text first.
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -61,12 +65,12 @@ class SyncBanner extends ConsumerWidget {
       constraints: const BoxConstraints(maxWidth: 420),
       child: FloatingSurface(
         radius: LunaTokens.radiusXl,
-        padding: const EdgeInsets.all(Space.xl),
+        padding: EdgeInsets.all(compact ? Space.l : Space.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            NightScene(mood: mood, width: 150),
-            const SizedBox(height: Space.l),
+            NightScene(mood: mood, width: compact ? 96 : 150),
+            SizedBox(height: compact ? Space.s : Space.l),
             Text(title, textAlign: TextAlign.center, style: theme.textTheme.titleLarge),
             const SizedBox(height: Space.xs),
             Text(

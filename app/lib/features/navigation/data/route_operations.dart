@@ -1,4 +1,5 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -23,6 +24,33 @@ fragment RouteWarningFields on RouteWarning {
   place
   name
   externalId
+}
+''';
+
+// The road events a route meets or goes around, with what the screens show
+// of them: the road, the source's words, where and how recent.
+const _roadEventFields = '''
+fragment RouteRoadEventFields on RoadEvent {
+  id
+  class
+  source
+  roadNumber
+  roadName
+  validFrom
+  validTo
+  match
+  mayBlock
+  position { lat lon }
+}
+fragment RoadEventWarningFields on RoadEventWarning {
+  event { ...RouteRoadEventFields }
+  severity
+  reason
+  distanceFromStartM
+  lengthM
+  lat
+  lon
+  dataReadAt
 }
 ''';
 
@@ -52,9 +80,13 @@ query Route(\$input: RouteInput!) {
       hasToll
       hasFerry
       hasMotorway
-      warnings { ...RouteWarningFields }${speedLimits ? '\n      speedLimits { fromM toM kmh source }' : ''}
+      warnings { ...RouteWarningFields }
+      roadEvents { ...RoadEventWarningFields }${speedLimits ? '\n      speedLimits { fromM toM kmh source }' : ''}
     }
     blockers { ...RouteWarningFields }
+    roadEventBlockers { ...RoadEventWarningFields }
+    avoidedRoadEvents { ...RouteRoadEventFields }
+    roadEventSources { id name attribution lastReadAt dataAt staleAfterSeconds fresh }
     recalculations
     reroute {
       vehicle { kind heightM widthM lengthM weightT axleLoadT trailer { lengthM weightT heightM widthM } }
@@ -66,6 +98,7 @@ query Route(\$input: RouteInput!) {
   }
 }
 $_warningFields
+$_roadEventFields
 $_graphFields''';
 
 /// A route for the user's vehicle. One `route` per request: the API refuses
@@ -204,9 +237,21 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
             hasMotorway: r['hasMotorway'] == true,
             warnings: _warnings(r['warnings']),
             speedLimits: _speedLimits(r['speedLimits']),
+            roadEvents: _roadEvents(r['roadEvents']),
           ),
     ],
     blockers: _warnings(json['blockers']),
+    roadEventBlockers: _roadEvents(json['roadEventBlockers']),
+    avoidedRoadEvents: [
+      if (json['avoidedRoadEvents'] case final List<dynamic> list)
+        for (final e in list)
+          if (e is Map<String, dynamic>) ?roadEventFromJson(e),
+    ],
+    roadEventSources: [
+      if (json['roadEventSources'] case final List<dynamic> list)
+        for (final s in list)
+          if (s is Map<String, dynamic> && s['id'] is String) roadEventSourceFromJson(s),
+    ],
     recalculations: (json['recalculations'] as num?)?.toInt() ?? 0,
     applied: AppliedRequest(
       vehicle: VehicleProfile(
@@ -290,6 +335,38 @@ RouteWarning? _warning(Map<String, dynamic> w) {
     place: place,
     name: w['name'] as String?,
     externalId: w['externalId'] as String,
+  );
+}
+
+/// Road events of a reason or weight this app does not know (a newer
+/// server) are dropped, as warnings are.
+List<RouteRoadEvent> _roadEvents(Object? list) => [
+  if (list is List)
+    for (final w in list)
+      if (w is Map<String, dynamic>) ?_roadEvent(w),
+];
+
+RouteRoadEvent? _roadEvent(Map<String, dynamic> w) {
+  final weight = _enum(RoadEventWeight.values, w['severity']);
+  final reason = _enum(RoadEventReason.values, w['reason']);
+  final event = w['event'] is Map<String, dynamic>
+      ? roadEventFromJson(w['event'] as Map<String, dynamic>)
+      : null;
+  final from = w['distanceFromStartM'];
+  final lat = w['lat'];
+  final lon = w['lon'];
+  // One event the app cannot place is left out; the route still stands.
+  if (weight == null || reason == null || event == null) return null;
+  if (from is! num || lat is! num || lon is! num) return null;
+  final dataAt = w['dataReadAt'];
+  return RouteRoadEvent(
+    event: event,
+    weight: weight,
+    reason: reason,
+    distanceFromStartM: from.toDouble(),
+    lengthM: (w['lengthM'] as num?)?.toDouble() ?? 0,
+    position: LatLng(lat.toDouble(), lon.toDouble()),
+    dataAt: dataAt is String ? DateTime.tryParse(dataAt) : null,
   );
 }
 

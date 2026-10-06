@@ -378,6 +378,12 @@ final class FixedReachability extends BasemapReachability {
   @override
   bool? build() => reachable;
 
+  /// Each time the map, at rest, asked whether the answer was still fresh.
+  final List<void> restChecks = [];
+
   @override
   Future<void> probe() async {}
+
+  @override
+  Future<void> probeIfStale() async => restChecks.add(null);
 }

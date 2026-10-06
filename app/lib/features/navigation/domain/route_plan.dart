@@ -1,4 +1,5 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:meta/meta.dart';
@@ -121,6 +122,77 @@ final class RouteWarning {
   int get hashCode => Object.hash(kind, severity, limit, distanceFromStartM, externalId);
 }
 
+/// How a road event weighs on a route (`RoadEventSeverity`).
+enum RoadEventWeight {
+  /// It stops the route: only among the events that stopped every route.
+  blocking,
+
+  /// Passable, worth a look (lanes closed, a closure the server could not
+  /// place for sure).
+  warning,
+
+  /// For information (works beside the road).
+  info,
+}
+
+/// Why a road event weighs as it does (`RoadEventReason`).
+enum RoadEventReason {
+  closed,
+  limitExceeded,
+  nearLimit,
+  laneRestriction,
+  works,
+  detour,
+
+  /// Not placed on the road for sure: it may or may not be on the route.
+  unmatched,
+
+  /// Its source has not been read for too long.
+  stale,
+  outsideAssumedHours,
+  goodsVehiclesOnly,
+
+  /// A single user's report.
+  unconfirmed,
+
+  /// An open record whose last version is old.
+  aged,
+
+  /// The route starts or ends inside it.
+  alreadyInside,
+}
+
+/// A road event met along a route (`RoadEventWarning` of the API).
+@immutable
+final class RouteRoadEvent {
+  const new({
+    required this.event,
+    required this.weight,
+    required this.reason,
+    required this.distanceFromStartM,
+    required this.position,
+    this.lengthM = 0,
+    this.dataAt,
+  });
+
+  final RoadEvent event;
+  final RoadEventWeight weight;
+  final RoadEventReason reason;
+
+  /// Metres from the start of the route where it begins.
+  final double distanceFromStartM;
+
+  /// Metres of the route inside it; 0 for a point.
+  final double lengthM;
+
+  /// Where the route meets it.
+  final LatLng position;
+
+  /// When its source's data was last known current: what the driver is
+  /// told the warning is worth.
+  final DateTime? dataAt;
+}
+
 /// One lane at an intersection.
 @immutable
 final class LaneHint {
@@ -197,6 +269,7 @@ final class RouteOption {
     this.line = const [],
     this.steps = const [],
     this.speedLimits,
+    this.roadEvents = const [],
   });
 
   /// Its index in the OSRM answer; 0 is the recommended one.
@@ -209,6 +282,9 @@ final class RouteOption {
 
   /// Restrictions passed with little margin, in driving order.
   final List<RouteWarning> warnings;
+
+  /// Road events met on the way that do not block it, in driving order.
+  final List<RouteRoadEvent> roadEvents;
 
   /// The shape, in driving order.
   final List<LatLng> line;
@@ -233,6 +309,7 @@ final class RouteOption {
         line: line,
         steps: steps,
         speedLimits: speedLimits,
+        roadEvents: roadEvents,
       );
 }
 
@@ -281,6 +358,9 @@ final class RoutePlan {
     required this.graph,
     required this.disclaimerKey,
     this.osrmJson,
+    this.avoidedRoadEvents = const [],
+    this.roadEventBlockers = const [],
+    this.roadEventSources = const [],
   });
 
   final RouteStatus status;
@@ -303,6 +383,20 @@ final class RoutePlan {
   /// [status] is [RouteStatus.ok].
   final String? osrmJson;
 
+  /// The closures and limits the routes go around ("2 closures avoided").
+  final List<RoadEvent> avoidedRoadEvents;
+
+  /// With [RouteStatus.noSafeRoute]: the road events that stopped every
+  /// route.
+  final List<RouteRoadEvent> roadEventBlockers;
+
+  /// The sources of road events and the age of their data.
+  final List<RoadEventSourceStatus> roadEventSources;
+
+  /// The status of [source], when the answer named it.
+  RoadEventSourceStatus? sourceOf(String source) =>
+      roadEventSources.where((s) => s.id == source).firstOrNull;
+
   RoutePlan withRoutes(List<RouteOption> routes) => RoutePlan(
     status: status,
     routes: routes,
@@ -312,5 +406,8 @@ final class RoutePlan {
     graph: graph,
     disclaimerKey: disclaimerKey,
     osrmJson: osrmJson,
+    avoidedRoadEvents: avoidedRoadEvents,
+    roadEventBlockers: roadEventBlockers,
+    roadEventSources: roadEventSources,
   );
 }

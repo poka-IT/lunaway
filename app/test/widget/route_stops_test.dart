@@ -360,7 +360,7 @@ void main() {
         fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
       );
       await drive(tester, plan, toM: 500);
-      await tester.tap(find.byTooltip('Carburant le moins cher devant'));
+      await tester.tap(find.byTooltip('Carburant le moins cher sur la route'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);
@@ -386,7 +386,7 @@ void main() {
         fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
       );
       await drive(tester, plan, toM: 500);
-      await tester.tap(find.byTooltip('Carburant le moins cher devant'));
+      await tester.tap(find.byTooltip('Carburant le moins cher sur la route'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);

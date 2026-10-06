@@ -13,6 +13,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/data/account_service.dart';
@@ -160,6 +161,8 @@ Future<TestApp> pumpLunaway(
   // The regions the API offers; null for an API without regions (the sync
   // by box of [syncService] runs).
   RegionCatalog? regions,
+  // What the device's location permission says from the start.
+  LocationAccess locationAccess = LocationAccess.granted,
   // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
 }) async {
@@ -192,7 +195,7 @@ Future<TestApp> pumpLunaway(
     extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
-    location: FakeLocationPermissions(),
+    location: FakeLocationPermissions()..current = locationAccess,
     secrets: MemorySecretStore(),
     files: MemoryPendingFiles(),
     api: api,

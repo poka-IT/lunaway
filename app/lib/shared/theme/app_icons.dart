@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:lunaway/features/community/domain/community.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
@@ -37,6 +38,7 @@ abstract final class AppIcons {
   static const IconData hours = PhosphorRegular.clock;
   static const IconData pricePerNight = PhosphorRegular.moonStars;
   static const IconData priceServices = PhosphorRegular.drop;
+  static const IconData free = PhosphorRegular.tag;
   static const IconData height = PhosphorRegular.arrowsVertical;
   static const IconData width = PhosphorRegular.arrowsHorizontal;
   static const IconData length = PhosphorRegular.ruler;
@@ -125,6 +127,13 @@ abstract final class AppIcons {
   static const IconData writeReview = PhosphorRegular.notePencil;
   static const IconData toVerify = PhosphorRegular.sealQuestion;
   static const IconData warning = PhosphorRegular.warning;
+
+  /// A road event on a route: a closure, works, lanes closed.
+  static IconData roadEvent(RoadEventClass c) => switch (c) {
+    .closure || .detour => PhosphorRegular.barricade,
+    .works || .laneRestriction => PhosphorRegular.wrench,
+    .vehicleLimit => PhosphorRegular.arrowsVertical,
+  };
 
   /// A problem met at a place.
   static IconData issue(IssueKind k) => switch (k) {

@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # Deploys map styles or a sprite set to the basemap host (docs/deploy.md,
-# "Basemap"), where tiles.lunaway.net/styles/ and /sprites/ serve them, and
-# the sslip.io name under /tiles/.
+# "Basemap"), where tiles.lunaway.net/styles/ and /sprites/ serve them.
 #
 #   infra/deploy-basemap-assets.sh styles DIR       every DIR/<name>.json becomes /styles/<name>.json
 #   infra/deploy-basemap-assets.sh sprites SET DIR  DIR/<name>[@2x].json|png become /sprites/SET/...
 #
 # Write styles for https://tiles.lunaway.net: on the server that prefix
-# becomes a template action, so each host serves the style with its own
-# address. A sprite set replaces the set of that name as a whole.
+# becomes a template action, which Caddy fills in with the site's base URL.
+# A sprite set replaces the set of that name as a whole.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 require_host

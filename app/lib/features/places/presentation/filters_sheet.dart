@@ -146,13 +146,25 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                 spacing: Space.s,
                 runSpacing: Space.s,
                 children: [
-                  for (final a in Amenity.values)
+                  for (final a in Amenity.offered)
                     _ToggleChip(
                       leading: Icon(AppIcons.amenity(a), size: 20),
                       label: t.amenity(a),
                       selected: _draft.amenities.contains(a),
                       onTap: () => _set(_draft.toggleAmenity(a)),
                     ),
+                ],
+              ),
+              const SizedBox(height: Space.xxl),
+              _Title(t.filters.price, hint: t.filters.freeHint),
+              Wrap(
+                children: [
+                  _ToggleChip(
+                    leading: const Icon(AppIcons.free, size: 20),
+                    label: t.filters.freeOnly,
+                    selected: _draft.freeOnly,
+                    onTap: () => _set(_draft.copyWith(freeOnly: !_draft.freeOnly)),
+                  ),
                 ],
               ),
               const SizedBox(height: Space.xxl),

@@ -12,6 +12,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -23,6 +24,7 @@ import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/road_events_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
@@ -95,6 +97,10 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
           builder: (context, box) {
             const sheet = 0.48;
             final bottom = box.maxHeight * sheet;
+            // Raised to the top, the sheet stops under the back button and
+            // the status bar: neither covers its title.
+            final top = MediaQuery.paddingOf(context).top + 48 + Space.s * 2 + Space.xs;
+            final max = (1 - top / box.maxHeight).clamp(sheet, 0.94);
             return Stack(
               children: [
                 Positioned.fill(
@@ -110,7 +116,7 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
                 DraggableScrollableSheet(
                   initialChildSize: sheet,
                   minChildSize: 0.22,
-                  maxChildSize: 0.94,
+                  maxChildSize: max,
                   snap: true,
                   snapSizes: const [sheet],
                   builder: (context, scroll) => _SheetFrame(
@@ -272,6 +278,14 @@ class _PreviewMap extends ConsumerWidget {
         RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
       for (final b in plan?.blockers ?? const <RouteWarning>[])
         RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
+      // Road events met on the way, and the closures the route goes round:
+      // seen on the map, the detour explains itself.
+      for (final e in selected?.roadEvents ?? const <RouteRoadEvent>[])
+        RouteMapMark(position: e.position, kind: RouteMarkKind.event),
+      for (final e in plan?.roadEventBlockers ?? const <RouteRoadEvent>[])
+        RouteMapMark(position: e.position, kind: RouteMarkKind.blocker),
+      for (final e in plan?.avoidedRoadEvents ?? const <RoadEvent>[])
+        if (e.position case final at?) RouteMapMark(position: at, kind: RouteMarkKind.blocker),
     ];
 
     // Every route in view, so an alternative can be compared and tapped;
@@ -424,6 +438,8 @@ class _Panel extends ConsumerWidget {
           ),
         const SizedBox(height: Space.l),
         _Warnings(route: p.route, units: units, target: target),
+        const SizedBox(height: Space.l),
+        RoadEventsSection(plan: plan, route: p.route, units: units),
         const SizedBox(height: Space.l),
         const VehicleLine(),
         const SizedBox(height: Space.m),
@@ -655,6 +671,7 @@ class _NoSafeRoute extends StatelessWidget {
         Text(t.navigation.states.noSafeHint, style: theme.textTheme.bodyMedium),
         const SizedBox(height: Space.xs),
         for (final b in plan.blockers) WarningTile(warning: b, units: units),
+        if (plan.roadEventBlockers.isNotEmpty) RoadEventBlockers(plan: plan),
         const SizedBox(height: Space.m),
         Text(t.navigation.states.whatToDo, style: theme.textTheme.titleMedium),
         const SizedBox(height: Space.xs),

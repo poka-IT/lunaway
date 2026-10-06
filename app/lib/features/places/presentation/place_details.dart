@@ -17,6 +17,7 @@ import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/presentation/place_surroundings.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/hours_text.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
@@ -358,7 +359,10 @@ class _NightCard extends StatelessWidget {
     final scheme = theme.colorScheme;
     final status = place.overnight;
     final tone = LunaTokens.of(context).nightTone(status);
-    final stale = now.difference(place.freshness).inDays > 365;
+    // Only a traveller's confirmation dates the night: the date the place
+    // last changed in our data says nothing of the place itself.
+    final confirmed = place.lastConfirmedAt;
+    final stale = confirmed != null && now.difference(confirmed).inDays > 365;
     return Container(
       padding: const EdgeInsets.all(Space.l),
       decoration: BoxDecoration(
@@ -391,18 +395,18 @@ class _NightCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                stale ? AppIcons.stale : AppIcons.confirmed,
+                confirmed == null || stale ? AppIcons.stale : AppIcons.confirmed,
                 size: 18,
                 color: scheme.onSurfaceVariant,
               ),
               const SizedBox(width: Space.s),
               Expanded(
                 child: Text(
-                  stale
+                  confirmed == null
+                      ? t.freshness.unconfirmed
+                      : stale
                       ? t.freshness.stale
-                      : place.lastConfirmedAt != null
-                      ? t.freshness.confirmed(when: t.ago(place.lastConfirmedAt!, now))
-                      : t.freshness.updated(when: t.ago(place.updatedAt, now)),
+                      : t.freshness.confirmed(when: t.ago(confirmed, now)),
                   style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
@@ -434,44 +438,47 @@ class _Facts extends StatelessWidget {
     final t = context.t;
     final price = place.priceParkingEur;
     final facts = [
-      (
-        AppIcons.pricePerNight,
-        t.place.pricePerNight,
-        price == null
+      _Fact(
+        icon: AppIcons.pricePerNight,
+        label: t.place.pricePerNight,
+        value: price == null
             ? t.place.priceUnknown
             : price == 0
             ? t.place.priceFree
             : t.euros(price),
+        known: price != null,
       ),
       if (place.priceServicesEur != null)
-        (
-          AppIcons.priceServices,
-          t.place.priceServices,
-          place.priceServicesEur == 0 ? t.place.priceFree : t.euros(place.priceServicesEur!),
+        _Fact(
+          icon: AppIcons.priceServices,
+          label: t.place.priceServices,
+          value: place.priceServicesEur == 0 ? t.place.priceFree : t.euros(place.priceServicesEur!),
         ),
       if (place.maxHeightM != null)
-        (AppIcons.height, t.place.maxHeight, t.metres(place.maxHeightM!)),
-      if (place.capacity != null) (AppIcons.capacity, t.place.capacity, t.number(place.capacity!)),
+        _Fact(icon: AppIcons.height, label: t.place.maxHeight, value: t.metres(place.maxHeightM!)),
+      if (place.capacity != null)
+        _Fact(icon: AppIcons.capacity, label: t.place.capacity, value: t.number(place.capacity!)),
       if (place.stars != null)
-        (AppIcons.classification, t.place.classification, t.place.classStars(n: place.stars!)),
+        _Fact(
+          icon: AppIcons.classification,
+          label: t.place.classification,
+          value: t.place.classStars(n: place.stars!),
+        ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        // As many columns as facts, up to what the width holds: one fact
-        // spans the row rather than sitting alone in a corner.
-        final fit = constraints.maxWidth > 520 ? 4 : (constraints.maxWidth > 300 ? 3 : 2);
+        // As many columns as facts, up to what the width holds with room
+        // for a label's longest word ("Emplacements") at the text size in
+        // use: one fact spans the row rather than sitting alone in a corner,
+        // and no word breaks in the middle in a narrow panel.
+        final tile = MediaQuery.textScalerOf(context).scale(_Fact.minWidth);
+        final fit = ((constraints.maxWidth + Space.s) / (tile + Space.s)).floor().clamp(1, 4);
         final columns = facts.length.clamp(1, fit);
         final width = (constraints.maxWidth - Space.s * (columns - 1)) / columns;
         return Wrap(
           spacing: Space.s,
           runSpacing: Space.s,
-          children: [
-            for (final (icon, label, value) in facts)
-              SizedBox(
-                width: width,
-                child: _Fact(icon: icon, label: label, value: value),
-              ),
-          ],
+          children: [for (final fact in facts) SizedBox(width: width, child: fact)],
         );
       },
     );
@@ -479,11 +486,18 @@ class _Facts extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const new({required this.icon, required this.label, required this.value});
+  const new({required this.icon, required this.label, required this.value, this.known = true});
+
+  /// The narrowest a fact may be at the normal text size.
+  static const minWidth = 112.0;
 
   final IconData icon;
   final String label;
   final String value;
+
+  /// False for a value the sources do not give: said quietly, not in the
+  /// large figures of what is known.
+  final bool known;
 
   @override
   Widget build(BuildContext context) {
@@ -500,7 +514,12 @@ class _Fact extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: scheme.onSurfaceVariant),
           const SizedBox(height: Space.xs),
-          Text(value, style: LunaType.number(19, color: scheme.onSurface)),
+          Text(
+            value,
+            style: known
+                ? LunaType.number(19, color: scheme.onSurface)
+                : theme.textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
           const SizedBox(height: Space.hair),
           Text(
             label,
@@ -565,7 +584,7 @@ class _OpeningHours extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: Space.xxs),
-                Text(place.openingHours!, style: theme.textTheme.bodyMedium),
+                Text(readableHours(place.openingHours!, t), style: theme.textTheme.bodyMedium),
                 const SizedBox(height: Space.xxs),
                 Text(
                   t.hours.localTime,
@@ -744,7 +763,7 @@ class _Contact extends ConsumerWidget {
           _LinkRow(
             icon: AppIcons.call,
             title: t.place.call,
-            subtitle: phone,
+            subtitle: readablePhone(phone),
             onTap: () => run(() => actions.dial(phone)),
           ),
       ],
@@ -790,14 +809,7 @@ class _Sources extends ConsumerWidget {
                   const SizedBox(height: Space.s),
                   Text(s.source.attribution, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: Space.xs),
-                  Text(
-                    [
-                      t.place.fetched(when: t.ago(s.fetchedAt, now)),
-                      if (s.matchScore != null)
-                        t.place.matchScore(score: (s.matchScore! * 100).round()),
-                    ].join(' · '),
-                    style: _muted(context),
-                  ),
+                  Text(t.place.fetched(when: t.ago(s.fetchedAt, now)), style: _muted(context)),
                   if (webLink(s.externalUrl) case final url?) ...[
                     const SizedBox(height: Space.xxs),
                     TextButton.icon(

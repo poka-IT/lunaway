@@ -337,6 +337,107 @@ final class InitialPositionProvider
 
 String _$initialPositionHash() => r'884e07dfdbad8cd36ac154a7522d6bd68c61e432';
 
+/// Where the map was left between runs.
+// keepAlive: a repository over the app-wide database.
+
+@ProviderFor(lastViewStore)
+final lastViewStoreProvider = LastViewStoreProvider._();
+
+/// Where the map was left between runs.
+// keepAlive: a repository over the app-wide database.
+
+final class LastViewStoreProvider
+    extends $FunctionalProvider<LastViewStore, LastViewStore, LastViewStore>
+    with $Provider<LastViewStore> {
+  /// Where the map was left between runs.
+  // keepAlive: a repository over the app-wide database.
+  LastViewStoreProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastViewStoreProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastViewStoreHash();
+
+  @$internal
+  @override
+  $ProviderElement<LastViewStore> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  LastViewStore create(Ref ref) {
+    return lastViewStore(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LastViewStore value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LastViewStore>(value),
+    );
+  }
+}
+
+String _$lastViewStoreHash() => r'8ed3bd4c9a87515efc8f0f616b232006a29fcbcb';
+
+/// The view the previous run left the map on, read in `main` before the
+/// first frame: the map opens there, null on a first launch.
+// keepAlive: a constant of the run.
+
+@ProviderFor(initialView)
+final initialViewProvider = InitialViewProvider._();
+
+/// The view the previous run left the map on, read in `main` before the
+/// first frame: the map opens there, null on a first launch.
+// keepAlive: a constant of the run.
+
+final class InitialViewProvider
+    extends $FunctionalProvider<SavedView?, SavedView?, SavedView?>
+    with $Provider<SavedView?> {
+  /// The view the previous run left the map on, read in `main` before the
+  /// first frame: the map opens there, null on a first launch.
+  // keepAlive: a constant of the run.
+  InitialViewProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'initialViewProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$initialViewHash();
+
+  @$internal
+  @override
+  $ProviderElement<SavedView?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  SavedView? create(Ref ref) {
+    return initialView(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SavedView? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SavedView?>(value),
+    );
+  }
+}
+
+String _$initialViewHash() => r'abd69ee251f63556df03a37d4565c6b8e53c7ea6';
+
 /// The basemap style templates, read from the assets in `main` before the
 /// first frame, so the map never waits on a file to get its style.
 // keepAlive: a constant of the run.

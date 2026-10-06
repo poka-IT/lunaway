@@ -116,6 +116,7 @@ final class SettingsRepository implements SettingsStore {
     'overnight': [for (final o in f.overnight) o.name],
     'amenities': [for (final a in f.amenities) a.name],
     'fitsMyVehicle': f.fitsMyVehicle,
+    'freeOnly': f.freeOnly,
   };
 
   /// Unknown names (an older or newer app) are dropped, never fatal.
@@ -135,9 +136,12 @@ final class SettingsRepository implements SettingsStore {
         },
         amenities: {
           for (final n in (json['amenities'] as List<dynamic>? ?? const []))
-            ?Amenity.values.asNameMap()['$n'],
+            // One the filters no longer offer (LPG) is dropped: kept, it would
+            // narrow the map with no chip to turn it off.
+            ?{for (final a in Amenity.offered) a.name: a}['$n'],
         },
         fitsMyVehicle: json['fitsMyVehicle'] == true,
+        freeOnly: json['freeOnly'] == true,
       );
       // A corrupt value falls back to no filter rather than blocking startup.
       // ignore: avoid_catches_without_on_clauses
