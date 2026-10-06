@@ -559,16 +559,12 @@ void main() {
   });
 
   group('the address of a pack', () {
-    const config = AppConfig(
-      apiBaseUrl: 'https://188-245-10-130.sslip.io',
-      demo: false,
-      basemapUrl: '',
-    );
+    const config = AppConfig(apiBaseUrl: 'https://api.example.org', demo: false, basemapUrl: '');
 
     test('a relative name resolves on the API', () {
       expect(
         placesPackUrl(config, '/packs/places/FR-BRE-12-0123456789ab.sqlite.gz').toString(),
-        'https://188-245-10-130.sslip.io/packs/places/FR-BRE-12-0123456789ab.sqlite.gz',
+        'https://api.example.org/packs/places/FR-BRE-12-0123456789ab.sqlite.gz',
       );
     });
 
@@ -585,7 +581,7 @@ void main() {
         'http://api.lunaway.net/packs/places/ES-3-0123456789ab.sqlite.gz',
         'https://api.lunaway.net:8443/packs/places/ES-3-0123456789ab.sqlite.gz',
         'https://u@api.lunaway.net/packs/places/ES-3-0123456789ab.sqlite.gz',
-        'https://u@188-245-10-130.sslip.io/packs/places/ES-3-0123456789ab.sqlite.gz',
+        'https://u@api.example.org/packs/places/ES-3-0123456789ab.sqlite.gz',
         '/packs/other/ES-3-0123456789ab.sqlite.gz',
         '/packs/places/../index.html',
         '/packs/places/ES-3-0123456789ab.sqlite.gz?x=1',
