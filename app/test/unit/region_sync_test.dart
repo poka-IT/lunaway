@@ -414,6 +414,38 @@ void main() {
       );
     });
 
+    test('what an earlier pack of the region left goes; other regions keep theirs', () async {
+      final packsDir = Directory('${dir.path}/region_packs')..createSync(recursive: true);
+      final stale = File('${packsDir.path}/FR-COR-1-aaaaaaaaaaaa.sqlite.gz.part')
+        ..writeAsBytesSync([1, 2, 3]);
+      final other = File('${packsDir.path}/FR-ARA-1-bbbbbbbbbbbb.sqlite.gz.part')
+        ..writeAsBytesSync([1, 2, 3]);
+      final region = serve('FR-COR', [
+        {...apiPlaces().first, 'id': 'ajaccio'},
+      ]);
+      expect((await service.sync(region)).complete, isTrue);
+      expect(stale.existsSync(), isFalse);
+      expect(other.existsSync(), isTrue);
+    });
+
+    test('a pack of another region is refused: the feed gives the places', () async {
+      final other = serve('FR-PDL', [
+        {...apiPlaces().first, 'id': 'nantes'},
+      ]);
+      // The right digest for a file that holds another region.
+      final region = RegionInfo(
+        code: 'FR-BRE',
+        country: 'FR',
+        name: 'FR-BRE',
+        nameFr: 'FR-BRE',
+        pack: other.pack,
+      );
+      feed.pages[('FR-BRE', null)] = _page([_plain('rennes')], cursor: 'f1');
+      final done = await service.sync(region);
+      expect(done.complete, isTrue);
+      expect(await idsOf('FR-BRE'), ['rennes']);
+    });
+
     test('without packs (the web) the feed from the start, swept at its end', () async {
       service = build(packs: false);
       final region = serve('FR-ARA', [apiPlaces().first]);

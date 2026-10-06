@@ -341,7 +341,7 @@ final class KeptRegionsControllerProvider
 }
 
 String _$keptRegionsControllerHash() =>
-    r'c2e09853f3e40e5eb53d36836fe852068f5ae006';
+    r'9ecd030432ef4599bc974d3f0e9240014bbbdbd4';
 
 /// The regions the user keeps; null until a first choice.
 // keepAlive: the sync and the profile read it for the whole run.

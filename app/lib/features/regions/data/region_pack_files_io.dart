@@ -39,6 +39,7 @@ final class IoRegionPackFiles implements RegionPackFiles {
       throw const PackDownloadException(PackDownloadFailure.server, 'not a pack file name');
     }
     final dir = await _dir();
+    await _dropOlder(dir, name);
     final part = File(p.join(dir.path, '$name.part'));
     final result = await downloader.download(
       url,
@@ -65,6 +66,21 @@ final class IoRegionPackFiles implements RegionPackFiles {
     }
     return raw;
   }
+
+  /// Removes what an earlier pack of the same region left (a download cut
+  /// off before the manifest named a newer one): it would never resume.
+  Future<void> _dropOlder(Directory dir, String name) async {
+    final region = _regionOf.firstMatch(name)?.group(1);
+    if (region == null) return;
+    await for (final e in dir.list()) {
+      final other = p.basename(e.path);
+      if (e is File && other != '$name.part' && _regionOf.firstMatch(other)?.group(1) == region) {
+        await e.delete();
+      }
+    }
+  }
+
+  static final _regionOf = RegExp(r'^([A-Z0-9-]+?)-[0-9]+-[0-9a-f]{12}\.sqlite');
 
   @override
   Future<void> release(String path) async {

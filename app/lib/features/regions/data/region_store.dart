@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/community/domain/community.dart';
+import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -116,6 +117,35 @@ final class DriftRegionStore implements RegionStore {
       old.region.equals(region) |
       old.updatedAt.isSmallerOrEqualValue(updatedAt.millisecondsSinceEpoch);
 
+  /// Refuses an attached pack that is not a pack of [region] in the format
+  /// this app reads: its digest only says the server sent it, not that the
+  /// server built it right.
+  Future<void> _checkPack(String region) async {
+    final tables = await _db
+        .customSelect(
+          "SELECT name FROM pack.sqlite_schema WHERE type = 'table' AND name IN ('pack', 'places')",
+        )
+        .map((r) => r.read<String>('name'))
+        .get();
+    final meta = tables.length < 2
+        ? const <String, String>{}
+        : {
+            for (final r
+                in await _db
+                    .customSelect(
+                      "SELECT key, value FROM pack.pack WHERE key IN ('format', 'region')",
+                    )
+                    .get())
+              r.read<String>('key'): r.read<String>('value'),
+          };
+    if (meta['format'] != RegionPack.supportedFormat || meta['region'] != region) {
+      throw PackDownloadException(
+        PackDownloadFailure.corrupt,
+        'not a ${RegionPack.supportedFormat} pack of $region',
+      );
+    }
+  }
+
   @override
   Future<int> importPack(String region, String path, {required String cursor}) async {
     final generation = (await stateOf(region)).generation + 1;
@@ -124,6 +154,7 @@ final class DriftRegionStore implements RegionStore {
     await _db.customStatement('PRAGMA trusted_schema = OFF');
     await _db.customStatement('ATTACH DATABASE ? AS pack', [path]);
     try {
+      await _checkPack(region);
       return await _db.transaction(() async {
         await _mappings();
         await _db.customStatement(_importSql, [generation, region]);

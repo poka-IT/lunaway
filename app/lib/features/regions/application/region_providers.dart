@@ -101,11 +101,13 @@ class KeptRegionsController extends _$KeptRegionsController {
 
   Future<void> add(Iterable<String> codes) async {
     final now = {...?await future.catchError((Object _) => null), ...codes};
+    if (!ref.mounted) return;
     await choose(now);
   }
 
   Future<void> remove(Iterable<String> codes) async {
     final now = {...?await future.catchError((Object _) => null)}..removeAll(codes);
+    if (!ref.mounted) return;
     await choose(now);
   }
 }
