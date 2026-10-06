@@ -136,6 +136,16 @@ print(t["tiles"][0], "zoom %s-%s" % (t["minzoom"], t["maxzoom"]), "schema", t.ge
       | tr -d '\r' | grep -iE '^cache-control|^access-control-allow-origin|^status' | tr '\n' ' ')"
     echo "poi tile, old version: $(curl -sS -o /dev/null -D - -m 10 "https://$host/poi/1/13/4235/2917.mvt" | tr -d '\r' | grep -i '^cache-control')"
     echo "poi by POST: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST "https://$host/poi/tiles.json")"
+    # Road events (docs/deploy.md, "Road events"): each feed's last read and
+    # freshness, and the size of the full set a phone loads at the start.
+    echo "road event sources: $(curl -sS -m 10 -H 'Content-Type: application/json' \
+      -d '{"query":"{ roadEventSources { id ageSeconds fresh } }"}' "https://$host/graphql" | python3 -c '
+import json, sys
+print(" ".join("%s %s%s" % (s["id"], "never read" if s["ageSeconds"] is None else "%ss" % s["ageSeconds"], "" if s["fresh"] else " STALE")
+               for s in json.load(sys.stdin)["data"]["roadEventSources"]))' 2>&1)"
+    echo "road events, full set: $(curl -sS -o /dev/null -m 30 -H 'Content-Type: application/json' -H 'Accept-Encoding: gzip' \
+      -w 'status %{http_code}, %{size_download} bytes gzip, %{time_total} s' \
+      -d '{"query":"{ roadEvents { cursor upserts { id lines } } }"}' "https://$host/graphql")"
     # Routing (docs/deploy.md, "Routing"): an active graph the engine serves,
     # and the witness route of the status page (a 3.3 m motorhome round the
     # 2.7 m bridge of Rue Maurice Utrillo, Limoges). One route of the quota.

@@ -6,8 +6,8 @@
 #
 # Two groups:
 #   public    what a user meets: the API, its certificate, the web app, the
-#             basemap, the points of interest, routing; checked over HTTPS
-#             like any client
+#             basemap, the points of interest, routing, the road events;
+#             checked over HTTPS like any client
 #   backend   the backend's own facts, read over the private network from
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
@@ -171,6 +171,53 @@ endpoints:
       - "[BODY].data.route.status == OK"
       - "[BODY].data.route.routes[0].distanceM > 1000"
       - "[RESPONSE_TIME] < 15000"
+
+  # Road events (docs/deploy.md, "Road events"). The sources come in a fixed
+  # order, the DIR first and DiaLog second. ageSeconds counts from the last
+  # read that succeeded: the DIR is read every 3 minutes, DiaLog every 15,
+  # so 15 and 45 minutes mean the poller or the feed has failed several runs
+  # in a row. The feed itself answers a page with a cursor.
+  - name: Road events (DIR feed read)
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ roadEventSources { id ageSeconds } }"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].data.roadEventSources[0].id == dir"
+      - "[BODY].data.roadEventSources[0].ageSeconds < 900"
+
+  - name: Road events (DiaLog read)
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ roadEventSources { id ageSeconds } }"
+    interval: 15m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].data.roadEventSources[1].id == dialog"
+      - "[BODY].data.roadEventSources[1].ageSeconds < 2700"
+
+  - name: Road events feed
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ roadEvents(first: 1) { cursor asOf } }"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "has([BODY].data.roadEvents.cursor) == true"
+      - "[RESPONSE_TIME] < 3000"
 
   - name: PostgreSQL
     group: backend

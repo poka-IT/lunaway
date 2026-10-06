@@ -64,5 +64,7 @@ IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/
 IPAddressAllow=localhost
 SocketBindDeny=any
 # The 78 MB export is held whole while it is read.
+# First run on the backend (2026-10-06): 15 s, 86 MiB of anonymous
+# memory at the peak, 6 008 orders, 17 594 restrictions.
 MemoryHigh=768M
 MemoryMax=1G

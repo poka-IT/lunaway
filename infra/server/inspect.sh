@@ -136,6 +136,13 @@ done
 echo "fuel feed age: $(sed -nE 's/.*"fuel_age_s" *: *(-?[0-9]+).*/\1/p' /var/lib/lunaway-status/worker.json 2>/dev/null) s"
 echo "layer: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' points, ' || count(*) filter (where hidden) || ' hidden, version ' || (select max(version) from poi_layer) from pois where deleted_at is null" 2>&1 | head -n 1)"
 echo "cache: $(du -sh /srv/data/ingest/raw/fuel /srv/data/ingest/raw/laposte /srv/data/ingest/raw/finess 2>/dev/null | awk '{ print $2 " " $1 }' | tr '\n' ' ')"
+echo "--- road events"
+for t in lunaway-road-events lunaway-road-events-dialog; do
+  echo "$t: timer $(systemctl is-enabled "$t.timer" 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend "$t.timer" | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value "$t")"
+done
+echo "matching: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(match_quality || ' ' || n, ', ' order by match_quality) from (select match_quality, count(*) n from road_events where ended_at is null group by 1) s" 2>&1 | head -n 1)"
+echo "engine refusals in the last hour: $(journalctl -u lunaway-road-events --since -1h --no-pager -o cat | grep -c 'the routing engine failed')"
+echo "cache: $(du -sh /srv/data/ingest/raw/road-events 2>/dev/null | cut -f1)"
 echo "--- routing"
 echo "valhalla: $(systemctl is-active valhalla), candidate: $(systemctl is-active valhalla-candidate), podman $(podman --version 2>/dev/null | awk '{ print $3 }')"
 echo "image: $(podman image inspect --format '{{.Digest}}' "$(sed -n 's/^Image=//p' /etc/containers/systemd/valhalla.container)" 2>&1 | head -n 1)"

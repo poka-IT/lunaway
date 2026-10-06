@@ -301,6 +301,7 @@ sudo lunaway-admin ingest pois                           # 3 GiB cap for the imp
 sudo lunaway-admin conflate --full
 sudo lunaway-admin stats
 sudo lunaway-admin pois stats                            # the layer of points of interest and its joins
+sudo lunaway-admin road-events stats                     # the road events by source, class and placement
 sudo lunaway-admin migrate                               # starts lunaway-migrate.service
 ```
 
@@ -368,6 +369,9 @@ Mac's nightly job reads.
 | public | POI tile | a z13 tile over Annecy at the old version 1 (the current data, whatever the version) answers 200, more than 1000 bytes, within 3 s |
 | public | Routing | `{ routing { available graph { builtAt } } }` answers `available: true`: an active graph, and the engine answers |
 | public | Witness route | every 15 minutes, a 3.3 m motorhome on Rue Maurice Utrillo in Limoges: `status OK` and more than 1000 m, round the 2.7 m bridge (four routes an hour, against a quota of 30 every ten minutes) |
+| public | Road events (DIR feed read) | `roadEventSources`: the DIR, first in the list, read less than 15 minutes ago |
+| public | Road events (DiaLog read) | DiaLog, second, read less than 45 minutes ago |
+| public | Road events feed | `roadEvents(first: 1)` answers a cursor within 3 s |
 | backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
 | backend | Photo backup | the probe: the encrypted copy of the photos brought up to date less than 26 hours ago |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
@@ -1349,7 +1353,9 @@ built on F-Droid's build server. For the maintainer:
 
 Closures, works and temporary limits from the feeds of
 `docs/data-sources.md` ("Road events"), checked with every route
-(`docs/architecture.md`, "Road events").
+(`docs/architecture.md`, "Road events"). Installed on 2026-10-06 by the
+backend step `pipeline` (the two units and timers below) and the step
+`routing` (the engine's limits).
 
 - `lunaway-road-events.service` and `.timer` (`infra/systemd/`): `lunaway
   road-events poll` every three minutes as `lunaway-ingest`, with
@@ -1360,25 +1366,38 @@ Closures, works and temporary limits from the feeds of
   of it the quarter-second pace between DIR increments). The unit fails
   when a feed failed, after the others ran. A feed that fails is asked
   again at its own pace (DiaLog 15 minutes, the cities hourly, the DIR
-  aggregate after 15 minutes), never at every run.
+  aggregate after 15 minutes), never at every run. First pass on the
+  backend (2026-10-06, 14:10 UTC): 84 s, 33 MiB of anonymous memory at
+  the peak; the DIR aggregate and 36 increments (616 events), DiaLog 439,
+  Toulouse 790, Lyon 354, Charente-Maritime 120, Paris 93 and 115.
 - Quotas: `LUNAWAY_QUOTA_ROAD_REPORT` (per account, 30 a day) and
   `LUNAWAY_QUOTA_ROAD_REPORT_CLIENT` (per client address, 100 a day).
 - `lunaway-road-events-dialog.service` and `.timer`: DiaLog's permanent
   orders weekly into `route_restrictions` (source `dialog`, outside any
-  graph): 6 008 orders, 17 594 restriction lines in 15 s (2026-10-06).
+  graph): 6 008 orders, 17 594 restriction lines in 15 s (2026-10-06,
+  on the backend, 86 MiB of anonymous memory at the peak).
 - The engine's limits on excluded polygons are raised in
   `infra/routing/valhalla.json` (`max_exclude_polygons_vertices` 100 to
   2 000, `max_exclude_polygons_length` 20 000 to 50 000 m): a route around
   closures sends up to 200 rings of 9 points (`routing::MAX_EXCLUSIONS`),
   where 100 vertices allowed 11 and the engine refused the whole request
   beyond. A test of the API reads the file and fails if the two drift
-  apart.
+  apart. Each graph serves the copy of the file put next to it at its
+  install; `infra/configure.sh backend routing` brings a changed file to
+  the graphs on disk and restarts the engine.
+- Matching on the engine: each pass matches the events waiting until the
+  engine refuses one, then stops for that pass. On 2026-10-06 every pass
+  stopped on such a refusal (`400::Insufficient number of locations
+  provided`, `500::leg_shape_index not set for intermediate location`)
+  after 6 to 179 matches; `infra/verify.sh backend` counts the refusals of
+  the last hour.
 - Freshness: `{ roadEventSources { id ageSeconds dataAt fresh } }` is
-  public; the DIR is listed first. `ageSeconds` counts from the last read
+  public; the DIR is listed first, DiaLog second. `ageSeconds` counts from the last read
   that succeeded, news or not: the poller is alive. `fresh` counts from
   `dataAt`, when the data was last current: a publisher that stops makes
   its events warn instead of block. The status page alerts when the DIR
-  has not been read for 15 minutes:
+  has not been read for 15 minutes (`infra/ops/gatus/config.yaml`, with
+DiaLog read in the last 45 minutes and the feed answering a page):
 
 ```yaml
   - name: Road events (DIR feed read)
@@ -1398,8 +1417,8 @@ Closures, works and temporary limits from the feeds of
 
 ```bash
 sudo systemctl start lunaway-road-events            # one pass now
-sudo -u lunaway-ingest /opt/lunaway/current/lunaway road-events stats   # with the ingest env
-sudo -u lunaway-ingest /opt/lunaway/current/lunaway road-events poll --force --only dir
+sudo lunaway-admin road-events stats                 # placement by source and class
+sudo lunaway-admin road-events poll --force --only dir
 ```
 
 ## Security baseline
