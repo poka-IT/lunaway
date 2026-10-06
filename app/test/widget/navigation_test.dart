@@ -462,6 +462,22 @@ void main() {
       );
     });
 
+    testWidgets('a position that stops coming is said, and the next fix clears it', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 200);
+      const lost =
+          'Position indisponible : vérifiez que la localisation de '
+          "l'appareil est activée pour Lunaway.";
+      expect(find.text(lost), findsNothing);
+      feed.fail(StateError('location turned off'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text(lost), findsOneWidget);
+      feed.send(driveFixes(plan.routes.first, toM: 240).last);
+      await settleShort(tester);
+      expect(find.text(lost), findsNothing);
+    });
+
     testWidgets('the voice button turns the voice off', (tester) async {
       final app = await guide(tester, routeFixture('limoges_drive'));
       await tester.tap(find.byTooltip('Couper la voix'));

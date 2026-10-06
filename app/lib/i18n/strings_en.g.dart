@@ -1716,6 +1716,9 @@ class Translations$navigation$guidance$en {
 	/// en: 'Guidance could not start on this device.'
 	String get unavailable => 'Guidance could not start on this device.';
 
+	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
+	String get positionLost => 'Position unavailable: check that the device\'s location is on for Lunaway.';
+
 	/// en: 'Before you set off'
 	String get firstTitle => 'Before you set off';
 
@@ -2302,6 +2305,7 @@ extension on Translations {
 			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.firstTitle' => 'Before you set off',
 			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.voice.rerouting' => 'Recalculating.',

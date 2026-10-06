@@ -453,6 +453,7 @@
       "notificationText": "Le guidage continue écran éteint.",
       "notificationChannel": "Guidage",
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
+      "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris"
     },

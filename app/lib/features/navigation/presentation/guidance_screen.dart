@@ -374,6 +374,8 @@ class _Notices extends ConsumerWidget {
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final alert = session.alert;
     final notices = <Widget>[
+      if (session.positionLost)
+        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
       if (alert != null)
         _Notice(
           icon: switch (alert) {

@@ -3,10 +3,14 @@
          app is in front: geolocator's foreground service, declared by
          geolocator_android with foregroundServiceType="location", started
          only while a route is guided, from the app in the foreground (so no
-         background location permission). The store declaration of this use
-         is in plan/research/22-app-navigation.md. -->
+         background location permission; the Play Console asks for a
+         foreground service declaration of type location). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- The service holds a partial wake lock while it runs (the guidance's
+         enableWakeLock), so the fixes and the voice go on with the screen
+         off; without the permission, acquiring it throws. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <queries>
         <!-- The speech engine the instructions are spoken with. -->
         <intent>

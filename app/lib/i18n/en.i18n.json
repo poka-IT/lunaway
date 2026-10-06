@@ -453,6 +453,7 @@
       "notificationText": "Guidance goes on with the screen off.",
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
+      "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
       "firstTitle": "Before you set off",
       "firstAccept": "I understand"
     },

@@ -842,6 +842,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get notificationText => 'Le guidage continue écran éteint.';
 	@override String get notificationChannel => 'Guidage';
 	@override String get unavailable => 'Le guidage n\'a pas pu démarrer sur cet appareil.';
+	@override String get positionLost => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.';
 	@override String get firstTitle => 'Avant de partir';
 	@override String get firstAccept => 'J\'ai compris';
 }
@@ -1331,6 +1332,7 @@ extension on TranslationsFr {
 			'navigation.guidance.notificationText' => 'Le guidage continue écran éteint.',
 			'navigation.guidance.notificationChannel' => 'Guidage',
 			'navigation.guidance.unavailable' => 'Le guidage n\'a pas pu démarrer sur cet appareil.',
+			'navigation.guidance.positionLost' => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.',
 			'navigation.guidance.firstTitle' => 'Avant de partir',
 			'navigation.guidance.firstAccept' => 'J\'ai compris',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',

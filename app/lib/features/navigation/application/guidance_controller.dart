@@ -117,6 +117,7 @@ final class GuidanceSession {
     this.eventsAsOf,
     this.reroutes = 0,
     this.overview = false,
+    this.positionLost = false,
   });
 
   final RouteTarget target;
@@ -142,6 +143,10 @@ final class GuidanceSession {
   /// The whole route on the map instead of the vehicle.
   final bool overview;
 
+  /// The position stopped coming: location turned off, or its permission
+  /// taken back. The next fix clears it.
+  final bool positionLost;
+
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
 
@@ -166,6 +171,7 @@ final class GuidanceSession {
     DateTime? eventsAsOf,
     int? reroutes,
     bool? overview,
+    bool? positionLost,
   }) => GuidanceSession(
     target: target,
     plan: plan ?? this.plan,
@@ -181,6 +187,7 @@ final class GuidanceSession {
     eventsAsOf: eventsAsOf ?? this.eventsAsOf,
     reroutes: reroutes ?? this.reroutes,
     overview: overview ?? this.overview,
+    positionLost: positionLost ?? this.positionLost,
   );
 }
 
@@ -278,7 +285,7 @@ class GuidanceController extends _$GuidanceController {
     _fixes = ref
         .read(locationFeedProvider)
         .guidance(words.notice)
-        .listen(_onFix, onError: (Object e) => _log.warning('position stream: $e'));
+        .listen(_onFix, onError: _onPositionError);
     unawaited(_pollEvents());
     return true;
   }
@@ -352,12 +359,17 @@ class GuidanceController extends _$GuidanceController {
   @visibleForTesting
   void onFix(Fix fix) => _onFix(fix);
 
+  void _onPositionError(Object e) {
+    _log.warning('position stream: $e');
+    if (ref.mounted && state != null) state = state!.copyWith(positionLost: true);
+  }
+
   void _onFix(Fix fix) {
     final track = _track;
     final s = state;
     if (track == null || s == null || s.phase == GuidancePhase.arrived) return;
     final snap = track.update(fix);
-    var next = s.copyWith(snapshot: snap, lastFix: fix);
+    var next = s.copyWith(snapshot: snap, lastFix: fix, positionLost: false);
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
       // the screen stays on for the arrival card.

@@ -101,6 +101,9 @@ final class FakeLocationFeed implements LocationFeed {
 
   void send(Fix fix) => _fixes.add(fix);
 
+  /// The stream fails, as when location is turned off.
+  void fail(Object error) => _fixes.addError(error);
+
   @override
   Future<Fix?> current() async =>
       position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
