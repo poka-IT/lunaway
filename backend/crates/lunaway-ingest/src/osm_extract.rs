@@ -184,8 +184,10 @@ impl ExtractSpec {
                 .trim_start_matches("https://")
                 .trim_start_matches("http://")
                 .chars()
+                // Letters, digits and dashes only: a dot could make `..`, a
+                // slash another directory of the cache.
                 .map(|c| {
-                    if c.is_ascii_alphanumeric() || c == '.' {
+                    if c.is_ascii_alphanumeric() || c == '-' {
                         c
                     } else {
                         '_'
@@ -944,6 +946,26 @@ mod tests {
             "the decoder leaves a tail"
         );
         assert_eq!(osm_degrees(decoded).to_bits(), printed.to_bits());
+    }
+
+    #[test]
+    fn each_mirror_has_its_own_cache_file() {
+        let france = extract("france").unwrap();
+        assert_eq!(
+            france.cache_key(GEOFABRIK),
+            "osm-extract/france-latest.osm.pbf",
+            "Geofabrik's key is the one production already caches under"
+        );
+        assert_eq!(
+            france.cache_key("https://download.openstreetmap.fr/extracts"),
+            "osm-extract/download_openstreetmap_fr_extracts/france-latest.osm.pbf",
+            "another mirror's France, cut differently, is never read as Geofabrik's"
+        );
+        assert_eq!(
+            france.cache_key("https://.."),
+            "osm-extract/__/france-latest.osm.pbf",
+            "a mirror cannot name a directory outside the cache"
+        );
     }
 
     #[test]

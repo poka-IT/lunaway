@@ -306,7 +306,9 @@ async fn a_point_hidden_by_any_path_reaches_the_moderators(pool: PgPool) {
     );
     refresh(&pool).await;
     assert!(!hidden(&pool, poi).await);
-    // One who finds it gone hides it whatever the answers say.
+    // One who finds it gone hides it whatever the answers say, and the tiles
+    // get a new version at once, without waiting for the publication.
+    let published = pois::layer_version(&pool).await.unwrap().version;
     assert!(
         lunaway_db::moderation::hide_poi(&pool, poi, true, Some("demolished"))
             .await
@@ -316,6 +318,12 @@ async fn a_point_hidden_by_any_path_reaches_the_moderators(pool: PgPool) {
     pois::confirm(&pool, d, poi, true).await.unwrap();
     refresh(&pool).await;
     assert!(hidden(&pool, poi).await, "a moderator's decision holds");
+    let after = pois::layer_version(&pool).await.unwrap();
+    assert_eq!(
+        (after.version, after.pending_since),
+        (published + 1, None),
+        "a point a moderator hides leaves every tile now"
+    );
     assert!(
         !lunaway_db::moderation::hide_poi(&pool, Uuid::now_v7(), true, None)
             .await

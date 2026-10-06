@@ -218,10 +218,19 @@ fn listed(row: &serde_json::Value, key: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// The feed's own clock: its latest price update, any station, any fuel.
-fn feed_clock(rows: &[serde_json::Value]) -> Option<DateTime<Utc>> {
+/// How far past the reader's clock an update may be dated and still count
+/// for the feed's clock. A row mistyped years ahead would otherwise make
+/// every temporary LPG shortage read as definitive; the allowance keeps
+/// dates that are local time marked as UTC (one export dated a price
+/// 14:54:45+00:00 when it was read at 13:24 UTC, 2026-10-06).
+const FUTURE_ALLOWANCE: chrono::Duration = chrono::Duration::hours(3);
+
+/// The feed's own clock: its latest price update, any station, any fuel,
+/// leaving out dates further ahead of `now` than [`FUTURE_ALLOWANCE`].
+fn feed_clock(rows: &[serde_json::Value], now: DateTime<Utc>) -> Option<DateTime<Utc>> {
     rows.iter()
         .flat_map(|row| FUELS.iter().filter_map(move |f| instant(row, f.updated)))
+        .filter(|at| *at <= now + FUTURE_ALLOWANCE)
         .max()
 }
 
@@ -319,7 +328,7 @@ pub fn parse(body: &[u8]) -> Result<ParsedFuel, IngestError> {
         rows: rows.len(),
         ..ParsedFuel::default()
     };
-    let clock = feed_clock(&rows);
+    let clock = feed_clock(&rows, Utc::now());
     let mut seen = BTreeSet::new();
     for raw in rows {
         match station_of(&raw, clock) {
@@ -571,5 +580,23 @@ mod tests {
         );
         assert!(station_of(&serde_json::json!({"id": 0}), None).is_none());
         assert!(station_of(&serde_json::json!({"id": "x"}), None).is_none());
+    }
+
+    #[test]
+    fn a_date_far_ahead_does_not_set_the_feed_s_clock() {
+        let now = DateTime::parse_from_rfc3339("2026-10-06T13:24:00+00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let rows = [
+            serde_json::json!({"id": 1, "gazole_maj": "2026-10-06T13:20:00+00:00"}),
+            serde_json::json!({"id": 2, "sp95_maj": "2026-10-06T14:54:45+00:00"}),
+            serde_json::json!({"id": 3, "gplc_maj": "2062-10-06T13:20:00+00:00"}),
+        ];
+        assert_eq!(
+            feed_clock(&rows, now).map(|t| t.to_rfc3339()),
+            Some("2026-10-06T14:54:45+00:00".to_owned()),
+            "an hour and a half ahead counts, a mistyped year does not: it would make every \
+             temporary LPG shortage read as definitive"
+        );
     }
 }

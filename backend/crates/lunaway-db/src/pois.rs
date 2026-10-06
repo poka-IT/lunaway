@@ -128,6 +128,23 @@ pub async fn publish_layer(
     Ok(v)
 }
 
+/// Moves the tiles' version now, whatever the interval, with what waits:
+/// for a change that must not wait (a moderator's hide).
+///
+/// # Errors
+///
+/// [`DbError`] when the update fails.
+pub async fn publish_layer_now(tx: &mut PoiWriterTx) -> Result<i64, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"
+        UPDATE poi_layer SET version = version + 1, changed_at = now(), pending_since = NULL
+        RETURNING version
+        "#
+    )
+    .fetch_one(tx.conn())
+    .await?)
+}
+
 /// The tiles' version and when it last moved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayerVersion {
@@ -1324,7 +1341,8 @@ pub async fn refresh_community(tx: &mut PoiWriterTx, points: &[Uuid]) -> Result<
         WHERE p.id = s.id
           AND (p.last_confirmed_at IS DISTINCT FROM s.last_there OR p.hidden <> s.hidden)
         RETURNING p.id, (o.hidden <> s.hidden) AS "flipped!", s.hidden AS "hidden!",
-                  (s.by_answers AND NOT s.by_moderator AND NOT s.by_ban) AS "by_answers!"
+                  (s.by_answers AND NOT s.by_moderator AND NOT s.by_ban) AS "by_answers!",
+                  (s.by_moderator OR s.by_ban) AS "by_staff!"
         "#,
         points,
         ANSWER_DAYS,
@@ -1354,7 +1372,12 @@ pub async fn refresh_community(tx: &mut PoiWriterTx, points: &[Uuid]) -> Result<
         .execute(tx.conn())
         .await?;
     }
-    if changed.iter().any(|c| c.flipped) {
+    // A point a moderator hid, or whose author was banned, leaves the
+    // tiles at once: a spammer's machine or a vandal's name must not stay
+    // on every map for the hours the others wait.
+    if changed.iter().any(|c| c.flipped && c.hidden && c.by_staff) {
+        publish_layer_now(tx).await?;
+    } else if changed.iter().any(|c| c.flipped) {
         mark_layer(tx).await?;
     }
     Ok(u64::try_from(changed.len()).unwrap_or(u64::MAX))

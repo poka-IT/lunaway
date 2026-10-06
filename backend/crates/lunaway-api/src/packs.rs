@@ -586,6 +586,16 @@ async fn remove_file(path: &Path) -> Result<(), PackError> {
     }
 }
 
+/// Whether the file `name` is a pack of the region whose prefix (its code
+/// and a dash) is `prefix`: the code is followed by the feed position, all
+/// digits, then a dash. `FR-` also starts `FR-BRE-` and `FR-20R-`, whose
+/// next part is not all digits.
+fn is_pack_of(name: &str, prefix: &str) -> bool {
+    name.strip_prefix(prefix)
+        .and_then(|rest| rest.split_once('-'))
+        .is_some_and(|(seq, _)| !seq.is_empty() && seq.bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// Removes the files of `pack`'s region other than its own and the
 /// previous one.
 async fn remove_older(
@@ -607,12 +617,7 @@ async fn remove_older(
     let mut entries = tokio::fs::read_dir(dir).await.map_err(io)?;
     while let Some(entry) = entries.next_entry().await.map_err(io)? {
         let name = entry.file_name().to_string_lossy().into_owned();
-        // `FR-` would also match `FR-BRE-`: the region is followed by the
-        // feed position, a number.
-        let ours = name
-            .strip_prefix(&prefix)
-            .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()));
-        if ours && !keep.contains(&name.as_str()) {
+        if is_pack_of(&name, &prefix) && !keep.contains(&name.as_str()) {
             remove_file(&entry.path()).await?;
             removed.push(name);
         }
@@ -623,6 +628,18 @@ async fn remove_older(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_region_s_files_are_told_from_those_of_regions_its_code_starts() {
+        assert!(is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.gz", "FR-"));
+        assert!(
+            !is_pack_of("FR-20R-18415-5649afa75e53.sqlite.gz", "FR-"),
+            "Corsica's pack is not France's: rebuilding FR must not delete it"
+        );
+        assert!(!is_pack_of("FR-BRE-18415-4f2777014568.sqlite.gz", "FR-"));
+        assert!(is_pack_of("FR-20R-18415-5649afa75e53.sqlite.gz", "FR-20R-"));
+        assert!(!is_pack_of("FR-20R.sqlite.building", "FR-20R-"));
+    }
 
     #[test]
     fn every_column_reads_a_field_of_the_selection() {
