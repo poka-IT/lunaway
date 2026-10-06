@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM match_pairs WHERE record_a = ANY($1) OR record_b = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eb2573eddf587bbfbd9f1a54b5e8cbe2ab44001583333d7b0524588e563f0bac"
+}

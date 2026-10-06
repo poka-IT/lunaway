@@ -1,0 +1,1165 @@
+{
+  "_doc": [
+    "Conflation test vectors, shared by the Rust backend and the Flutter app so the two scorers cannot drift apart.",
+    "Rust runs them in backend/crates/lunaway-domain/tests/conflation_vectors.rs; the app runs them against its Dart scorer.",
+    "The algorithm is specified in docs/conflation.md; every constant it uses is in `parameters` below, and the Rust test asserts that its constants are these.",
+    "`names`: input name -> normalised name (fold, abbreviations, generic words removed). `phones` and `websites`: input -> normalised value, null when it identifies nothing.",
+    "`cases`: score record `a` against record `b`. `expected` is the decision (merge, review, distinct); `score` is the final score, to be matched within 0.001. Scoring is symmetric: b against a gives the same result.",
+    "A record: `source` (source id: osm, atout-france, community), `kind` (taxonomy code), `name` (null when the source gives none), `lat`, `lon` (WGS 84 degrees), and optionally `accuracyM` (metres of position uncertainty, default 0), `osm` (OSM element the record is or cites, e.g. node/123), `wikidata`, `phone`, `website`, `postcode`, `cityCode` (INSEE code).",
+    "`why` says what the case pins down; `id` is stable, so a failing case can be named in a commit.",
+    "Format version 1. Adding a case or a parameter is compatible; changing a value is a change of the algorithm and goes with both implementations."
+  ],
+  "version": 1,
+  "parameters": {
+    "mergeThreshold": 0.85,
+    "reviewThreshold": 0.6,
+    "weights": {
+      "distance": 0.45,
+      "name": 0.4,
+      "municipality": 0.1
+    },
+    "nameUnknown": 0.5,
+    "accuracyCapM": 500.0,
+    "globalIdFloor": 0.95,
+    "globalIdReachM": 300.0,
+    "localIdFloor": 0.9,
+    "earthRadiusM": 6371008.8,
+    "kindRadiusM": {
+      "motorhome_area": 150.0,
+      "service_area": 60.0,
+      "campsite": 300.0,
+      "parking": 60.0,
+      "nature": 100.0,
+      "rest_area": 150.0,
+      "picnic_area": 100.0,
+      "farm": 300.0,
+      "homestay": 200.0,
+      "off_road": 150.0,
+      "extra_service": 60.0
+    },
+    "kindCompatibility": [
+      [
+        "motorhome_area",
+        "parking",
+        0.9
+      ],
+      [
+        "motorhome_area",
+        "service_area",
+        0.9
+      ],
+      [
+        "motorhome_area",
+        "campsite",
+        0.8
+      ],
+      [
+        "motorhome_area",
+        "rest_area",
+        0.6
+      ],
+      [
+        "motorhome_area",
+        "farm",
+        0.6
+      ],
+      [
+        "service_area",
+        "parking",
+        0.7
+      ],
+      [
+        "service_area",
+        "extra_service",
+        0.7
+      ],
+      [
+        "service_area",
+        "rest_area",
+        0.6
+      ],
+      [
+        "service_area",
+        "campsite",
+        0.5
+      ],
+      [
+        "parking",
+        "rest_area",
+        0.8
+      ],
+      [
+        "parking",
+        "nature",
+        0.6
+      ],
+      [
+        "parking",
+        "picnic_area",
+        0.6
+      ],
+      [
+        "rest_area",
+        "picnic_area",
+        0.8
+      ],
+      [
+        "nature",
+        "picnic_area",
+        0.6
+      ],
+      [
+        "nature",
+        "off_road",
+        0.8
+      ],
+      [
+        "farm",
+        "homestay",
+        0.8
+      ],
+      [
+        "farm",
+        "campsite",
+        0.6
+      ],
+      [
+        "homestay",
+        "campsite",
+        0.4
+      ]
+    ],
+    "genericWords": [
+      "a",
+      "au",
+      "aux",
+      "d",
+      "de",
+      "des",
+      "du",
+      "en",
+      "et",
+      "l",
+      "la",
+      "le",
+      "les",
+      "sur",
+      "sous",
+      "and",
+      "of",
+      "the",
+      "aire",
+      "aires",
+      "area",
+      "camp",
+      "camper",
+      "campers",
+      "camperplaats",
+      "camping",
+      "campings",
+      "campingcar",
+      "campingcars",
+      "car",
+      "cars",
+      "caravan",
+      "caravane",
+      "caravanes",
+      "caravaning",
+      "cc",
+      "motorhome",
+      "motorhomes",
+      "parking",
+      "parkings",
+      "site",
+      "sosta",
+      "stationnement",
+      "stellplatz",
+      "accueil",
+      "communal",
+      "communale",
+      "municipal",
+      "municipale",
+      "municipaux",
+      "naturel",
+      "naturelle",
+      "service",
+      "services"
+    ],
+    "abbreviations": {
+      "st": "saint",
+      "ste": "sainte"
+    },
+    "ligatures": {
+      "æ": "ae",
+      "Æ": "ae",
+      "œ": "oe",
+      "Œ": "oe",
+      "ß": "ss",
+      "ø": "o",
+      "Ø": "o",
+      "đ": "d",
+      "Đ": "d",
+      "ł": "l",
+      "Ł": "l",
+      "ı": "i"
+    },
+    "platformHosts": [
+      "facebook.com",
+      "fb.com",
+      "instagram.com",
+      "google.com",
+      "sites.google.com",
+      "booking.com",
+      "airbnb.fr",
+      "airbnb.com",
+      "tripadvisor.fr",
+      "tripadvisor.com"
+    ]
+  },
+  "names": [
+    {
+      "input": "Aire de camping-car du Lac",
+      "normalized": "lac"
+    },
+    {
+      "input": "AGIS - CAMPING DES VARENNES",
+      "normalized": "agis varennes"
+    },
+    {
+      "input": "Camping Les Châtaigniers",
+      "normalized": "chataigniers"
+    },
+    {
+      "input": "L'Île-d'Yeu (Port)",
+      "normalized": "ile yeu port"
+    },
+    {
+      "input": "Parking St-Malo",
+      "normalized": "saint malo"
+    },
+    {
+      "input": "Aire de Ste-Marie",
+      "normalized": "sainte marie"
+    },
+    {
+      "input": "Camping Le Cœur Vendéen",
+      "normalized": "coeur vendeen"
+    },
+    {
+      "input": "Camping municipal",
+      "normalized": ""
+    },
+    {
+      "input": "Aire naturelle de camping à la ferme",
+      "normalized": "ferme"
+    },
+    {
+      "input": "MÛRS-ÉRIGNÉ ** Camping ***",
+      "normalized": "murs erigne"
+    },
+    {
+      "input": "Straße am Øresund",
+      "normalized": "strasse am oresund"
+    },
+    {
+      "input": "Stellplatz Wohnmobil 2",
+      "normalized": "wohnmobil 2"
+    }
+  ],
+  "phones": [
+    {
+      "input": "02 41 00 00 00",
+      "normalized": "+33241000000"
+    },
+    {
+      "input": "+33 (0)2 41 00 00 00",
+      "normalized": "+33241000000"
+    },
+    {
+      "input": "0033 2.41.00.00.00",
+      "normalized": "+33241000000"
+    },
+    {
+      "input": "+33 2 41 00 00 00; +33 6 00 00 00 00",
+      "normalized": "+33241000000"
+    },
+    {
+      "input": "+49 30 1234567",
+      "normalized": "+49301234567"
+    },
+    {
+      "input": "41 00 00 00",
+      "normalized": null
+    },
+    {
+      "input": "",
+      "normalized": null
+    }
+  ],
+  "websites": [
+    {
+      "input": "http://www.camping-varennes.com",
+      "normalized": "camping-varennes.com"
+    },
+    {
+      "input": "https://www.Camping-Varennes.com/",
+      "normalized": "camping-varennes.com"
+    },
+    {
+      "input": "camping-varennes.com/?utm_source=x#top",
+      "normalized": "camping-varennes.com"
+    },
+    {
+      "input": "https://example.org/campings/12/",
+      "normalized": "example.org/campings/12"
+    },
+    {
+      "input": "https://www.facebook.com/",
+      "normalized": null
+    },
+    {
+      "input": "https://facebook.com/campingdulac",
+      "normalized": "facebook.com/campingdulac"
+    },
+    {
+      "input": "-",
+      "normalized": null
+    }
+  ],
+  "cases": [
+    {
+      "id": "accents-and-case",
+      "why": "Accents and case are folded before comparing.",
+      "expected": "merge",
+      "score": 0.9576,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Châtaigniers",
+        "lat": 47.2184,
+        "lon": -1.5536
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES CHATAIGNIERS",
+        "lat": 47.2189396,
+        "lon": -1.5528056
+      }
+    },
+    {
+      "id": "brand-prefix",
+      "why": "An operator's brand in front of the name does not hide it: token containment.",
+      "expected": "merge",
+      "score": 0.9153,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping des Varennes",
+        "lat": 47.4031,
+        "lon": -0.5612
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "AGIS - CAMPING DES VARENNES",
+        "lat": 47.4041792,
+        "lon": -0.5612
+      }
+    },
+    {
+      "id": "generic-words",
+      "why": "\"Aire de camping-car\" is generic: both names reduce to \"lac\".",
+      "expected": "merge",
+      "score": 0.9694,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car du Lac",
+        "lat": 45.9,
+        "lon": 6.12
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Aire du lac",
+        "lat": 45.9002698,
+        "lon": 6.1197415
+      }
+    },
+    {
+      "id": "abbreviation",
+      "why": "\"Ste\" is expanded to \"sainte\".",
+      "expected": "merge",
+      "score": 0.9829,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de Ste-Marie",
+        "lat": 46.15,
+        "lon": -1.15
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Aire camping-car Sainte Marie",
+        "lat": 46.1497752,
+        "lon": -1.1498702
+      }
+    },
+    {
+      "id": "ligature",
+      "why": "The oe ligature folds to \"oe\".",
+      "expected": "merge",
+      "score": 0.9524,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Le Cœur Vendéen",
+        "lat": 46.67,
+        "lon": -1.43
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LE COEUR VENDEEN",
+        "lat": 46.6708094,
+        "lon": -1.43
+      }
+    },
+    {
+      "id": "typo-goes-to-review",
+      "why": "A one-letter typo keeps a high trigram similarity, not enough to merge alone.",
+      "expected": "review",
+      "score": 0.8128,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Peupliers",
+        "lat": 44.84,
+        "lon": -0.58
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PEUPLIER",
+        "lat": 44.8408993,
+        "lon": -0.58
+      }
+    },
+    {
+      "id": "other-names-side-by-side",
+      "why": "Two campsites next to each other with unrelated names are two places.",
+      "expected": "distinct",
+      "score": 0.5147,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Pins",
+        "lat": 43.55,
+        "lon": 3.95
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LA MER",
+        "lat": 43.5504497,
+        "lon": 3.95
+      }
+    },
+    {
+      "id": "campsite-vs-parking",
+      "why": "A campsite and a car park are never the same spot (kind compatibility 0).",
+      "expected": "distinct",
+      "score": 0.0,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping du Port",
+        "lat": 48.65,
+        "lon": -2.02
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking du Port",
+        "lat": 48.6501799,
+        "lon": -2.02
+      }
+    },
+    {
+      "id": "motorhome-area-vs-parking",
+      "why": "A motorhome area mapped as a car park by another source: compatibility 0.9.",
+      "expected": "merge",
+      "score": 0.8979,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire camping-car de Pornic",
+        "lat": 47.115,
+        "lon": -2.1
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking camping-car Pornic",
+        "lat": 47.1150899,
+        "lon": -2.1
+      }
+    },
+    {
+      "id": "motorhome-area-vs-campsite",
+      "why": "A motorhome area and a campsite with the same name: a person decides.",
+      "expected": "review",
+      "score": 0.7882,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire du Lac",
+        "lat": 45.0,
+        "lon": 4.0
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING DU LAC",
+        "lat": 45.0004497,
+        "lon": 4.0
+      }
+    },
+    {
+      "id": "service-area-vs-campsite",
+      "why": "A dump station named only by generic words next to a campsite stays apart.",
+      "expected": "distinct",
+      "score": 0.3776,
+      "a": {
+        "source": "osm",
+        "kind": "service_area",
+        "name": "Borne camping-car",
+        "lat": 44.0,
+        "lon": 1.0
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING MUNICIPAL",
+        "lat": 44.0003597,
+        "lon": 1.0
+      }
+    },
+    {
+      "id": "farm-vs-homestay",
+      "why": "A farm and a homestay with one name: compatibility 0.8 caps it at review.",
+      "expected": "review",
+      "score": 0.7882,
+      "a": {
+        "source": "community",
+        "kind": "farm",
+        "name": "Ferme des Saules",
+        "lat": 47.9,
+        "lon": 1.9
+      },
+      "b": {
+        "source": "osm",
+        "kind": "homestay",
+        "name": "Ferme des Saules",
+        "lat": 47.9004497,
+        "lon": 1.9
+      }
+    },
+    {
+      "id": "parking-30m",
+      "why": "Car park radius 60 m: at 30 m the distance component is 0.75, still a merge with an equal name.",
+      "expected": "merge",
+      "score": 0.8676,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking de la Plage",
+        "lat": 47.3,
+        "lon": -2.5
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking de la plage",
+        "lat": 47.3002698,
+        "lon": -2.5
+      }
+    },
+    {
+      "id": "parking-40m",
+      "why": "At 40 m the distance component falls to 0.56: review.",
+      "expected": "review",
+      "score": 0.7647,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking de la Plage",
+        "lat": 47.3,
+        "lon": -2.5
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking de la plage",
+        "lat": 47.3003597,
+        "lon": -2.5
+      }
+    },
+    {
+      "id": "parking-beyond-radius",
+      "why": "Beyond 60 m two car parks are two car parks, whatever their names.",
+      "expected": "distinct",
+      "score": 0.4706,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking de la Plage",
+        "lat": 47.3,
+        "lon": -2.5
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking de la plage",
+        "lat": 47.3006295,
+        "lon": -2.5
+      }
+    },
+    {
+      "id": "campsite-150m",
+      "why": "Campsite radius 300 m: at 150 m an equal name still merges.",
+      "expected": "merge",
+      "score": 0.8676,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Oliviers",
+        "lat": 43.7,
+        "lon": 7.2
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES OLIVIERS",
+        "lat": 43.701349,
+        "lon": 7.2
+      }
+    },
+    {
+      "id": "campsite-170m",
+      "why": "At 170 m the same pair drops below the merge threshold.",
+      "expected": "review",
+      "score": 0.83,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Oliviers",
+        "lat": 43.7,
+        "lon": 7.2
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES OLIVIERS",
+        "lat": 43.7015288,
+        "lon": 7.2
+      }
+    },
+    {
+      "id": "campsite-290m",
+      "why": "Near the radius only the name is left: distinct.",
+      "expected": "distinct",
+      "score": 0.5053,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Oliviers",
+        "lat": 43.7,
+        "lon": 7.2
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES OLIVIERS",
+        "lat": 43.702608,
+        "lon": 7.2
+      }
+    },
+    {
+      "id": "geocoded-street-accuracy",
+      "why": "A street-level geocode (250 m) 450 m away: 200 m effective, review.",
+      "expected": "review",
+      "score": 0.7647,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Le Bois Joli",
+        "lat": 45.2,
+        "lon": 5.7
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LE BOIS JOLI",
+        "lat": 45.2040469,
+        "lon": 5.7,
+        "accuracyM": 250
+      }
+    },
+    {
+      "id": "polygon-and-housenumber-accuracy",
+      "why": "A campsite polygon (150 m half diagonal) and a house-number geocode (30 m) 250 m apart: 70 m effective, merge.",
+      "expected": "merge",
+      "score": 0.9712,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Le Bois Joli",
+        "lat": 45.2,
+        "lon": 5.7,
+        "accuracyM": 150
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LE BOIS JOLI",
+        "lat": 45.2017986,
+        "lon": 5.7019144,
+        "accuracyM": 30
+      }
+    },
+    {
+      "id": "accuracy-cap",
+      "why": "An uncertainty is capped at 500 m: 2 km apart with 1500 m claimed stays distinct.",
+      "expected": "distinct",
+      "score": 0.4706,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Le Bois Joli",
+        "lat": 45.2,
+        "lon": 5.7
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LE BOIS JOLI",
+        "lat": 45.2179864,
+        "lon": 5.7,
+        "accuracyM": 1500
+      }
+    },
+    {
+      "id": "shared-wikidata-within-reach",
+      "why": "The same Wikidata item is the same spot within the reach (300 m once both uncertainties are credited), whatever the names.",
+      "expected": "merge",
+      "score": 0.95,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire des Bords de Seine",
+        "lat": 48.85,
+        "lon": 2.35,
+        "wikidata": "Q90"
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Stationnement quai",
+        "lat": 48.8522483,
+        "lon": 2.35,
+        "wikidata": "q90"
+      }
+    },
+    {
+      "id": "shared-wikidata-out-of-reach",
+      "why": "A shared Wikidata item 1 km away is ignored: an item for a lake or a town is shared by spots far apart, and the server only compares records within the reach.",
+      "expected": "distinct",
+      "score": 0.0,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire des Bords de Seine",
+        "lat": 48.85,
+        "lon": 2.35,
+        "wikidata": "Q90"
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Stationnement quai",
+        "lat": 48.8589932,
+        "lon": 2.35,
+        "wikidata": "q90"
+      }
+    },
+    {
+      "id": "shared-wikidata-reach-widened-by-uncertainty",
+      "why": "1290 m apart with 500 m of uncertainty on each side is 290 m effective: within the reach, the shared item merges.",
+      "expected": "merge",
+      "score": 0.95,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire des Bords de Seine",
+        "lat": 48.85,
+        "lon": 2.35,
+        "wikidata": "Q90",
+        "accuracyM": 500
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Stationnement quai",
+        "lat": 48.8616012,
+        "lon": 2.35,
+        "wikidata": "q90",
+        "accuracyM": 500
+      }
+    },
+    {
+      "id": "conflicting-wikidata",
+      "why": "Two different Wikidata items are two spots, even at 10 m with one name.",
+      "expected": "distinct",
+      "score": 0.0,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire du Moulin",
+        "lat": 48.85,
+        "lon": 2.35,
+        "wikidata": "Q1"
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Aire du Moulin",
+        "lat": 48.8500899,
+        "lon": 2.35,
+        "wikidata": "Q2"
+      }
+    },
+    {
+      "id": "shared-osm-element",
+      "why": "A record that cites the OSM element it describes merges with it.",
+      "expected": "merge",
+      "score": 0.95,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": null,
+        "lat": 44.5,
+        "lon": 0.5,
+        "osm": "node/123"
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking de l'église",
+        "lat": 44.5002248,
+        "lon": 0.5,
+        "osm": "node/123"
+      }
+    },
+    {
+      "id": "conflicting-osm-across-sources",
+      "why": "A record of another source citing a different OSM element is another spot, even next door with the same name.",
+      "expected": "distinct",
+      "score": 0.0,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking de l'église",
+        "lat": 44.5,
+        "lon": 0.5,
+        "osm": "node/123"
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": "Parking de l'église",
+        "lat": 44.5002248,
+        "lon": 0.5,
+        "osm": "node/456"
+      }
+    },
+    {
+      "id": "shared-phone",
+      "why": "The same phone number within reach merges names that share nothing.",
+      "expected": "merge",
+      "score": 0.9,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Les Chênes Verts",
+        "lat": 46.2,
+        "lon": 5.2,
+        "phone": "+33 4 74 00 00 00"
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING MUNICIPAL",
+        "lat": 46.2008993,
+        "lon": 5.2,
+        "phone": "04.74.00.00.00"
+      }
+    },
+    {
+      "id": "shared-phone-out-of-reach",
+      "why": "A shared phone 5 km away is a chain or a town hall, not a match.",
+      "expected": "distinct",
+      "score": 0.0143,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Les Chênes Verts",
+        "lat": 46.2,
+        "lon": 5.2,
+        "phone": "+33 4 74 00 00 00"
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING MUNICIPAL",
+        "lat": 46.244966,
+        "lon": 5.2,
+        "phone": "0474000000"
+      }
+    },
+    {
+      "id": "shared-website-across-kinds",
+      "why": "A town website on a campsite and a motorhome area: shared, but the kinds cap it at review.",
+      "expected": "review",
+      "score": 0.72,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping municipal",
+        "lat": 46.2,
+        "lon": 5.2,
+        "website": "https://www.mairie-exemple.fr/"
+      },
+      "b": {
+        "source": "community",
+        "kind": "motorhome_area",
+        "name": "Aire de la mairie",
+        "lat": 46.2007195,
+        "lon": 5.2,
+        "website": "http://mairie-exemple.fr"
+      }
+    },
+    {
+      "id": "same-source-duplicate",
+      "why": "Two OSM records of one spot are a duplicate to report, never merged.",
+      "expected": "review",
+      "score": 0.9994,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping du Gave",
+        "lat": 43.3,
+        "lon": -0.37
+      },
+      "b": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping du Gave",
+        "lat": 43.3000899,
+        "lon": -0.37
+      }
+    },
+    {
+      "id": "same-source-osm-elements",
+      "why": "A campsite mapped as a node and as a way: every OSM record names its own element, which must not separate them; the duplicate goes to review.",
+      "expected": "review",
+      "score": 0.9994,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping du Gave",
+        "lat": 43.3,
+        "lon": -0.37,
+        "osm": "node/11"
+      },
+      "b": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping du Gave",
+        "lat": 43.3000899,
+        "lon": -0.37,
+        "osm": "way/22"
+      }
+    },
+    {
+      "id": "same-source-neighbours",
+      "why": "Two OSM records with other names side by side stay apart.",
+      "expected": "distinct",
+      "score": 0.3971,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking Nord",
+        "lat": 43.3,
+        "lon": -0.37
+      },
+      "b": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking Sud",
+        "lat": 43.3002698,
+        "lon": -0.37
+      }
+    },
+    {
+      "id": "unnamed-pair",
+      "why": "Two unnamed car parks at the same point: the name is unknown (0.5), review at most.",
+      "expected": "review",
+      "score": 0.761,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": null,
+        "lat": 49.0,
+        "lon": 2.0
+      },
+      "b": {
+        "source": "community",
+        "kind": "parking",
+        "name": null,
+        "lat": 49.000045,
+        "lon": 2.0
+      }
+    },
+    {
+      "id": "generic-only-names",
+      "why": "Names made only of generic words are compared in full.",
+      "expected": "merge",
+      "score": 0.9412,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping municipal",
+        "lat": 45.5,
+        "lon": 1.5
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING MUNICIPAL",
+        "lat": 45.5008993,
+        "lon": 1.5
+      }
+    },
+    {
+      "id": "generic-vs-specific",
+      "why": "\"Camping municipal\" against \"Camping de la Gare\": half the words shared, review.",
+      "expected": "review",
+      "score": 0.7059,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping municipal",
+        "lat": 45.5,
+        "lon": 1.5
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING DE LA GARE",
+        "lat": 45.5008993,
+        "lon": 1.5
+      }
+    },
+    {
+      "id": "near-threshold-without-municipality",
+      "why": "Equal names 160 m apart, municipality unknown: just under the merge threshold.",
+      "expected": "review",
+      "score": 0.8494,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Pins",
+        "lat": 44.1,
+        "lon": 4.1
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.1014389,
+        "lon": 4.1
+      }
+    },
+    {
+      "id": "same-postcode-tips-it",
+      "why": "The same pair with one postcode on both sides crosses the merge threshold.",
+      "expected": "merge",
+      "score": 0.8653,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Pins",
+        "lat": 44.1,
+        "lon": 4.1,
+        "postcode": "30100"
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.1014389,
+        "lon": 4.1,
+        "postcode": "30100"
+      }
+    },
+    {
+      "id": "other-postcode",
+      "why": "A different postcode counts against the pair.",
+      "expected": "review",
+      "score": 0.76,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Pins",
+        "lat": 44.1,
+        "lon": 4.1,
+        "postcode": "30100"
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.1014389,
+        "lon": 4.1,
+        "postcode": "30140"
+      }
+    },
+    {
+      "id": "city-code-wins-over-postcode",
+      "why": "When both records have a municipality code, it decides, not the postcode.",
+      "expected": "merge",
+      "score": 0.8653,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Camping Les Pins",
+        "lat": 44.1,
+        "lon": 4.1,
+        "postcode": "30100",
+        "cityCode": "30132"
+      },
+      "b": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.1014389,
+        "lon": 4.1,
+        "postcode": "30140",
+        "cityCode": "30132"
+      }
+    }
+  ]
+}

@@ -82,6 +82,22 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: imresamu/postgis:18-3.6
+        env:
+          POSTGRES_USER: lunaway
+          POSTGRES_PASSWORD: lunaway
+          POSTGRES_DB: lunaway
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U lunaway -d lunaway"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      # Queries compile from the committed .sqlx cache; the tests use the service.
+      SQLX_OFFLINE: "true"
+      DATABASE_URL: postgres://lunaway:lunaway@127.0.0.1:54329/lunaway
     defaults:
       run:
         working-directory: backend

@@ -15,7 +15,7 @@ phase by phase.
         v
  lunaway-api (Rust, axum + async-graphql)
         |
- PostgreSQL 18 + PostGIS  <-  lunaway-ingest workers (OpenStreetMap, French open data, external feeds, ...)
+ PostgreSQL 18 + PostGIS  <-  lunaway-ingest workers (OpenStreetMap, French open data, ...)
         |                          |
  object storage (Garage, S3)       conflation: one place per real spot, every source kept
  static tiles (PMTiles basemap, offline packs)
@@ -28,9 +28,11 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 | crate | role |
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
-| `lunaway-api` | HTTP and GraphQL; thin resolvers over services |
-| `lunaway-db` (planned) | sqlx repositories, migrations |
-| `lunaway-ingest` (planned) | one adapter per source, scheduled, paced |
+| `lunaway-db` | embedded migrations, sqlx repositories |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap, Atout France), paced HTTP client, raw payload cache |
+| `lunaway-conflate` | incremental conflation into places, opening hours windows |
+| `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
+| `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate, stats |
 | `lunaway-auth` (planned) | device keys, passkeys, sessions, trust levels |
 | `lunaway-media` (planned) | photo upload, re-encoding, EXIF location stripped |
 
@@ -98,7 +100,8 @@ supplied the value and which values competed (`Place.sources`,
 later import respects.
 
 Shared test vectors (`schema/conflation-vectors.json`) pin the scoring and
-the decisions; any change to the rules updates them in the same commit.
+the decisions; any change to the rules updates them in the same commit. The
+exact algorithm, constants included, is specified in `docs/conflation.md`.
 
 ## App
 

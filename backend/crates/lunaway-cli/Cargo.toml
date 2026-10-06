@@ -1,0 +1,28 @@
+[package]
+name = "lunaway-cli"
+description = "The `lunaway` command: migrations, imports, conflation and counts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "lunaway"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+lunaway-conflate.workspace = true
+lunaway-db.workspace = true
+lunaway-ingest.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

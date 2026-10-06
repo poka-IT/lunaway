@@ -1,35 +1,259 @@
-//! The GraphQL schema. Resolvers stay thin: the logic lives in the domain and
-//! service layers, so the GraphQL library can be replaced without touching it.
+//! The GraphQL schema. Resolvers stay thin: they check and parse their
+//! arguments, call a repository of `lunaway-db`, and map the rows; the rules
+//! live in the domain and the conflation, so the GraphQL library can be
+//! replaced without touching them.
 
-use async_graphql::{EmptyMutation, EmptySubscription, Enum, Object, Schema};
-use lunaway_domain::PlaceKind;
+use std::sync::Arc;
+
+use async_graphql::{
+    Context, EmptyMutation, EmptySubscription, Object, Result, Schema, SchemaBuilder,
+    dataloader::DataLoader,
+};
+use lunaway_db::{PgPool, places, sources};
+use lunaway_domain::{BBox, PlaceKind, Position};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, SemaphorePermit};
+use uuid::Uuid;
+
+use crate::{
+    config::ApiConfig,
+    error::{internal, invalid_input, resync},
+    guard::DocumentGuard,
+    loaders::PlaceSourcesLoader,
+    rate::RateLimiter,
+    types::{
+        AppConfig, BBoxInput, ChangeSet, GqlPlaceKind, LatLonInput, Place, PlaceConnection,
+        PlaceFilterInput, Source,
+    },
+};
 
 /// The schema served by the API.
 pub type LunawaySchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
 
-/// Bounds every query, so one request cannot make the server walk an
-/// unbounded graph. Raised only with a measured need.
+/// Deepest selection accepted: the deepest legitimate one,
+/// `changes { places { sources { source { id } } } }`, is 5.
 const MAX_DEPTH: usize = 12;
-const MAX_COMPLEXITY: usize = 500;
+/// Cost budget of one request. A full sync page (`changes` with 1000 places
+/// and every field, sources and provenance included) costs about 55 000;
+/// asking for two in one request does not fit.
+pub const MAX_COMPLEXITY: usize = 60_000;
+/// Cost of a root field that queries the database, on top of what it
+/// returns: a page size bounds the rows, not the work (a two-letter search
+/// scans every name), so each such field takes a fixed share of the budget
+/// and a request holds at most 11 of them.
+pub const DB_FIELD_COST: usize = 5_000;
+/// Largest page of `changes`.
+pub const MAX_CHANGES_PAGE: i32 = 1_000;
+/// Largest page of `places`.
+pub const MAX_PLACES_PAGE: i32 = 500;
+/// Most results of `search`.
+pub const MAX_SEARCH_RESULTS: i32 = 50;
+/// Largest viewport of `places`, in square degrees: about 500 km by 500 km
+/// in France. A wider map shows clusters synced through `changes`.
+pub const MAX_PLACES_AREA_DEG2: f64 = 25.0;
+/// Largest region of `changes`, in square degrees: metropolitan France and
+/// Corsica (about 165) fit with room to spare.
+pub const MAX_CHANGES_AREA_DEG2: f64 = 400.0;
+/// Shortest and longest search text, in characters.
+const SEARCH_TEXT_CHARS: std::ops::RangeInclusive<usize> = 2..=100;
 
-/// Builds the schema with its limits.
+/// What the resolvers share.
+pub struct ApiState {
+    /// The database.
+    pub pool: PgPool,
+    /// The policy the app is told about, and the server's limits.
+    pub config: ApiConfig,
+    /// The clients' budgets.
+    pub(crate) rate: Arc<RateLimiter>,
+    /// Cost of the requests running, across clients
+    /// (`Limits::max_cost_in_flight`): what bounds the memory they hold.
+    pub(crate) in_flight: Arc<Semaphore>,
+}
+
+impl ApiState {
+    /// The state over `pool`, with fresh budgets sized by `config`.
+    #[must_use]
+    pub fn new(pool: PgPool, config: ApiConfig) -> Self {
+        let rate = Arc::new(RateLimiter::new(
+            config.limits.rate_burst,
+            config.limits.rate_per_second,
+        ));
+        let in_flight = Arc::new(Semaphore::new(config.limits.max_cost_in_flight));
+        Self {
+            pool,
+            config,
+            rate,
+            in_flight,
+        }
+    }
+}
+
+/// The database share of one request: at most
+/// `Limits::db_queries_per_request` of its fields query at once, so a
+/// request of many aliases waits on itself instead of taking the pool.
+pub(crate) struct RequestDb(pub(crate) Semaphore);
+
+/// The share of `ApiState::in_flight` a request holds once its cost is
+/// known, released when the request ends.
+#[derive(Default)]
+pub(crate) struct CostShare(pub(crate) std::sync::Mutex<Option<OwnedSemaphorePermit>>);
+
+/// The schema's builder with its limits, before any data is attached: what
+/// the SDL export needs.
 #[must_use]
-pub fn build_schema() -> LunawaySchema {
+pub fn schema_builder() -> SchemaBuilder<QueryRoot, EmptyMutation, EmptySubscription> {
     Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
         .limit_depth(MAX_DEPTH)
         .limit_complexity(MAX_COMPLEXITY)
-        .finish()
+        .extension(DocumentGuard)
+}
+
+/// Builds the schema served over `state`.
+#[must_use]
+pub fn build_schema(state: ApiState) -> LunawaySchema {
+    let loader = DataLoader::new(
+        PlaceSourcesLoader {
+            pool: state.pool.clone(),
+        },
+        tokio::spawn,
+    );
+    schema_builder().data(state).data(loader).finish()
+}
+
+fn bbox(input: BBoxInput, max_area: f64) -> Result<BBox> {
+    let b = BBox::new(input.south, input.west, input.north, input.east)
+        .map_err(|e| invalid_input(format!("bbox: {e}")))?;
+    if b.area_deg2() > max_area {
+        return Err(invalid_input(format!(
+            "bbox covers {:.1} square degrees, more than the {max_area} allowed",
+            b.area_deg2()
+        )));
+    }
+    Ok(b)
+}
+
+/// Page size of `places` when the client does not say.
+const DEFAULT_PLACES_PAGE: i32 = 200;
+/// Results of `search` when the client does not say.
+const DEFAULT_SEARCH_RESULTS: i32 = 20;
+
+/// The cost of a list field read from the database: its page size times the
+/// cost of one item, plus [`DB_FIELD_COST`]. An explicit `null` costs as the
+/// default page it falls back to.
+fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
+    usize::try_from(first.unwrap_or(default))
+        .unwrap_or(0)
+        .saturating_mul(child)
+        .saturating_add(DB_FIELD_COST)
+}
+
+fn page(first: i32, max: i32) -> Result<i64> {
+    if (1..=max).contains(&first) {
+        Ok(i64::from(first))
+    } else {
+        Err(invalid_input(format!(
+            "first must be between 1 and {max}, got {first}"
+        )))
+    }
+}
+
+/// A change cursor: `c2.<identity>.<position>`. The identity names the copy
+/// of the database that issued it (`places::FeedHead::identity`: its random
+/// epoch and its own identifier), so a cursor from before a restore is
+/// answered with `RESYNC` instead of skipping changes; so is a cursor past
+/// the end of the feed, which no copy of this feed issued.
+const CHANGES_CURSOR: &str = "c2.";
+/// Cursors issued before the epoch existed.
+const CHANGES_CURSOR_V1: &str = "c1.";
+const PLACES_CURSOR: &str = "p1.";
+
+fn changes_cursor(head: &places::FeedHead, seq: i64) -> String {
+    format!("{CHANGES_CURSOR}{}.{seq}", head.identity())
+}
+
+/// A `since` cursor, read before the database is asked anything.
+#[derive(Debug, PartialEq, Eq)]
+enum Since {
+    /// From the start of the feed.
+    Start,
+    /// After `seq` of the feed named `identity`.
+    After { identity: String, seq: i64 },
+    /// A cursor older than identities: always another copy.
+    Legacy,
+}
+
+fn parse_since(since: Option<&str>) -> Result<Since> {
+    let Some(s) = since else {
+        return Ok(Since::Start);
+    };
+    let malformed = || invalid_input("since is not a cursor this API returned");
+    let position = |n: &str| n.parse::<i64>().ok().filter(|n| *n >= 0);
+    if let Some(seq) = s.strip_prefix(CHANGES_CURSOR_V1) {
+        return position(seq).map(|_| Since::Legacy).ok_or_else(malformed);
+    }
+    let (identity, seq) = s
+        .strip_prefix(CHANGES_CURSOR)
+        .and_then(|rest| rest.split_once('.'))
+        .ok_or_else(malformed)?;
+    if identity.len() != 40 || !identity.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(malformed());
+    }
+    let seq = position(seq).ok_or_else(malformed)?;
+    Ok(Since::After {
+        identity: identity.to_ascii_lowercase(),
+        seq,
+    })
+}
+
+/// The feed position to read after, once the feed's head is known.
+fn since_seq(since: &Since, head: &places::FeedHead) -> Result<i64> {
+    match since {
+        Since::Start => Ok(0),
+        Since::After { identity, seq } if *identity == head.identity() && *seq <= head.last_seq => {
+            Ok(*seq)
+        }
+        Since::After { .. } | Since::Legacy => Err(resync()),
+    }
+}
+
+fn parse_after(after: Option<&str>) -> Result<Option<Uuid>> {
+    after
+        .map(|s| {
+            s.strip_prefix(PLACES_CURSOR)
+                .and_then(|u| Uuid::parse_str(u).ok())
+                .ok_or_else(|| invalid_input("after is not a cursor this API returned"))
+        })
+        .transpose()
+}
+
+fn state<'a>(ctx: &Context<'a>) -> &'a ApiState {
+    ctx.data_unchecked::<ApiState>()
+}
+
+/// The pool, once this request may run one more query.
+async fn db<'a>(ctx: &Context<'a>) -> Result<(&'a PgPool, Option<SemaphorePermit<'a>>)> {
+    let permit = match ctx.data_opt::<RequestDb>() {
+        Some(share) => Some(share.0.acquire().await.map_err(|e| internal(&e))?),
+        None => None,
+    };
+    Ok((&state(ctx).pool, permit))
 }
 
 /// Root of every read.
 #[derive(Debug, Default)]
 pub struct QueryRoot;
 
-#[Object]
+#[Object(name = "Query")]
 impl QueryRoot {
     /// Version of the running API.
     async fn api_version(&self) -> &'static str {
         env!("CARGO_PKG_VERSION")
+    }
+
+    /// The server's policy for the app.
+    async fn config(&self, ctx: &Context<'_>) -> AppConfig {
+        AppConfig {
+            min_app_version: state(ctx).config.min_app_version.clone(),
+        }
     }
 
     /// Every kind of place, in display order.
@@ -40,36 +264,147 @@ impl QueryRoot {
             .map(GqlPlaceKind::from)
             .collect()
     }
-}
 
-// Mirrors `lunaway_domain::PlaceKind`: the `remote` conversion makes the
-// compiler refuse a variant present on one side only.
-/// What a place is.
-#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
-#[graphql(remote = "lunaway_domain::PlaceKind", name = "PlaceKind")]
-pub enum GqlPlaceKind {
-    /// A dedicated motorhome area, with or without services.
-    MotorhomeArea,
-    /// Motorhome services without overnight parking.
-    ServiceArea,
-    /// A campsite.
-    Campsite,
-    /// A general car park that takes motorhomes.
-    Parking,
-    /// A spot in nature, away from any facility.
-    Nature,
-    /// A roadside rest area.
-    RestArea,
-    /// A picnic area.
-    PicnicArea,
-    /// A farm, vineyard or producer that hosts motorhomes.
-    Farm,
-    /// A private host who welcomes travellers on their land.
-    Homestay,
-    /// A spot reachable with a 4x4 only.
-    OffRoad,
-    /// A useful stop that is not a place to stay.
-    ExtraService,
+    /// Every data source, with its licence and attribution.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn sources(&self, ctx: &Context<'_>) -> Result<Vec<Source>> {
+        let (pool, _permit) = db(ctx).await?;
+        let rows = sources::list(pool).await.map_err(|e| internal(&e))?;
+        Ok(rows
+            .into_iter()
+            .map(|s| Source {
+                id: s.id.to_string(),
+                name: s.name,
+                licence: s.licence,
+                attribution: s.attribution,
+                url: s.url,
+            })
+            .collect())
+    }
+
+    /// Syncs a region: the places inside `bbox` created or changed since the
+    /// cursor `since` (null for everything), oldest change first, at most
+    /// `first` (1000 at most), and the places deleted since. A cursor issued
+    /// by another copy of the database (after a restore) is refused with the
+    /// code `RESYNC`: sync again with `since: null`.
+    #[graphql(complexity = "cost(first, MAX_CHANGES_PAGE, child_complexity)")]
+    async fn changes(
+        &self,
+        ctx: &Context<'_>,
+        bbox: BBoxInput,
+        since: Option<String>,
+        #[graphql(default = 1000)] first: Option<i32>,
+    ) -> Result<ChangeSet> {
+        let area = self::bbox(bbox, MAX_CHANGES_AREA_DEG2)?;
+        let first = page(first.unwrap_or(MAX_CHANGES_PAGE), MAX_CHANGES_PAGE)?;
+        let since = parse_since(since.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        let head = places::feed_head(pool).await.map_err(|e| internal(&e))?;
+        let since_seq = since_seq(&since, &head)?;
+        let (changes, has_more) =
+            places::changes(pool, area, since_seq, first, since != Since::Start)
+                .await
+                .map_err(|e| internal(&e))?;
+        let cursor_seq = changes.last().map_or(since_seq, places::Change::seq);
+        let mut out = Vec::new();
+        let mut deleted = Vec::new();
+        for c in changes {
+            match c {
+                places::Change::Upsert(p) => out.push(Place(*p)),
+                places::Change::Delete { id, .. } => deleted.push(id),
+            }
+        }
+        Ok(ChangeSet {
+            places: out,
+            deleted,
+            cursor: changes_cursor(&head, cursor_seq),
+            has_more,
+        })
+    }
+
+    /// The places of a viewport (500 per page at most, viewport area
+    /// bounded), for the web or a device that has not synced yet.
+    #[graphql(complexity = "cost(first, DEFAULT_PLACES_PAGE, child_complexity)")]
+    async fn places(
+        &self,
+        ctx: &Context<'_>,
+        bbox: BBoxInput,
+        filter: Option<PlaceFilterInput>,
+        #[graphql(default = 200)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<PlaceConnection> {
+        let area = self::bbox(bbox, MAX_PLACES_AREA_DEG2)?;
+        let first = page(first.unwrap_or(DEFAULT_PLACES_PAGE), MAX_PLACES_PAGE)?;
+        let after = parse_after(after.as_deref())?;
+        let f = filter.unwrap_or_default();
+        if let Some(h) = f.vehicle_height_m
+            && !(h.is_finite() && h > 0.0)
+        {
+            return Err(invalid_input("vehicleHeightM must be a positive number"));
+        }
+        let filter = places::PlaceFilter {
+            kinds: f.kinds.map(|k| k.into_iter().map(Into::into).collect()),
+            services: f
+                .services
+                .unwrap_or_default()
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            overnight_ok: f.overnight_ok.unwrap_or(false),
+            vehicle_height_m: f.vehicle_height_m,
+        };
+        let (pool, _permit) = db(ctx).await?;
+        let page = places::in_bbox(pool, area, &filter, first, after)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(PlaceConnection {
+            end_cursor: page
+                .nodes
+                .last()
+                .map(|p| format!("{PLACES_CURSOR}{}", p.id)),
+            nodes: page.nodes.into_iter().map(Place).collect(),
+            has_next_page: page.has_next_page,
+            total_count: i32::try_from(page.total_count).unwrap_or(i32::MAX),
+        })
+    }
+
+    /// One place. A place merged into another answers with the place that
+    /// absorbed it (whose id differs); a deleted place answers null.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn place(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<Place>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(places::by_id(pool, id)
+            .await
+            .map_err(|e| internal(&e))?
+            .map(Place))
+    }
+
+    /// Searches names and municipalities, without accents and tolerating a
+    /// typo; the best matches first and, among equal matches, the nearest to
+    /// `near`.
+    #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
+    async fn search(
+        &self,
+        ctx: &Context<'_>,
+        text: String,
+        near: Option<LatLonInput>,
+        #[graphql(default = 20)] first: Option<i32>,
+    ) -> Result<Vec<Place>> {
+        let first = page(first.unwrap_or(DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS)?;
+        let text = text.trim();
+        if !SEARCH_TEXT_CHARS.contains(&text.chars().count()) {
+            return Err(invalid_input("text must hold 2 to 100 characters"));
+        }
+        let near = near
+            .map(|p| Position::new(p.lat, p.lon))
+            .transpose()
+            .map_err(|e| invalid_input(format!("near: {e}")))?;
+        let (pool, _permit) = db(ctx).await?;
+        let rows = places::search(pool, text, near, first)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(rows.into_iter().map(Place).collect())
+    }
 }
 
 const SDL_HEADER: &str =
@@ -78,5 +413,70 @@ const SDL_HEADER: &str =
 /// The content of `schema/lunaway.graphql`: a header, then the schema as SDL.
 #[must_use]
 pub fn sdl_file() -> String {
-    format!("{SDL_HEADER}{}", build_schema().sdl())
+    format!("{SDL_HEADER}{}", schema_builder().finish().sdl())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn code(e: &async_graphql::Error) -> String {
+        e.extensions
+            .as_ref()
+            .and_then(|x| x.get("code"))
+            .map(ToString::to_string)
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn a_cursor_names_the_copy_of_the_feed_that_issued_it() {
+        let head = places::FeedHead {
+            epoch: Uuid::now_v7(),
+            database: 16_384,
+            last_seq: 100,
+        };
+        let against =
+            |s: &str, h: &places::FeedHead| parse_since(Some(s)).and_then(|p| since_seq(&p, h));
+        let cursor = changes_cursor(&head, 42);
+        assert_eq!(against(&cursor, &head).unwrap(), 42);
+        assert_eq!(since_seq(&parse_since(None).unwrap(), &head).unwrap(), 0);
+        let restored = places::FeedHead {
+            epoch: Uuid::now_v7(),
+            ..head
+        };
+        assert_eq!(
+            code(&against(&cursor, &restored).unwrap_err()),
+            "\"RESYNC\"",
+            "a cursor from before a restore must not skip the changes made since the dump"
+        );
+        let other_database = places::FeedHead {
+            database: 16_385,
+            ..head
+        };
+        assert_eq!(
+            code(&against(&cursor, &other_database).unwrap_err()),
+            "\"RESYNC\"",
+            "a restore into a new database changes the identity without any step"
+        );
+        assert_eq!(
+            code(&against(&changes_cursor(&head, 101), &head).unwrap_err()),
+            "\"RESYNC\"",
+            "a cursor past the end of the feed was issued by another copy"
+        );
+        assert_eq!(code(&against("c1.42", &head).unwrap_err()), "\"RESYNC\"");
+        for forged in [
+            "c2.42",
+            "c2.zz.42",
+            &format!("c2.{}.-1", head.identity()),
+            "c1.-4",
+            "p1.x",
+            "",
+        ] {
+            assert_eq!(
+                code(&parse_since(Some(forged)).unwrap_err()),
+                "\"INVALID_INPUT\"",
+                "{forged}"
+            );
+        }
+    }
 }

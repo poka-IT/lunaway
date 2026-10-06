@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO conflation_constraints (id, record_a, record_b, kind, reason)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (record_a, record_b) DO UPDATE\n        SET kind = EXCLUDED.kind, reason = EXCLUDED.reason, created_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cd9fd6fd18cd63936dc2a312b05934666817c4e12706a5940719093d541e6770"
+}

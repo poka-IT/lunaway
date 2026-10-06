@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT record_a, record_b, kind FROM conflation_constraints",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_a",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "conflation_constraints",
+            "name": "record_a"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_b",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "conflation_constraints",
+            "name": "record_b"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "conflation_constraints",
+            "name": "kind"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "974b776a34cde764bca5eaf904b3f15723f12515f745cfadd0a7c552fa45753b"
+}

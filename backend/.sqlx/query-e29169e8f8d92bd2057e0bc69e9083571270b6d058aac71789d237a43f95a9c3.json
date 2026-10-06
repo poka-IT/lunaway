@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records\n        SET deleted_at = $4, needs_conflation = true, changed_at = now()\n        WHERE source_id = $1\n          AND deleted_at IS NULL\n          AND (($2::text IS NULL AND scope IS NULL) OR scope = $2)\n          AND NOT (external_id = ANY($3))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e29169e8f8d92bd2057e0bc69e9083571270b6d058aac71789d237a43f95a9c3"
+}

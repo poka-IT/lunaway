@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM places\n        WHERE deleted_at IS NULL\n          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n          AND ($5::text[] IS NULL OR kind = ANY($5))\n          AND services @> $6::text[]\n          AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))\n          AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "TextArray",
+        "TextArray",
+        "Bool",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5112fa6d35f8d88a16dfbadcbc3ed5dd2a357bf127373bca636f4c91b8ba126e"
+}

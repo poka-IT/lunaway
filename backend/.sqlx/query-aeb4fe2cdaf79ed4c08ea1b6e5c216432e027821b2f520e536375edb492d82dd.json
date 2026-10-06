@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT a.id AS \"a!\", b.id AS \"b!\"\n        FROM source_records a\n        JOIN source_records b\n          ON b.id <> a.id\n         AND b.deleted_at IS NULL\n         AND ST_DWithin(a.geom, b.geom, $2 + least(a.accuracy_m, $3) + $3)\n        WHERE a.id = ANY($1) AND a.deleted_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "b!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "aeb4fe2cdaf79ed4c08ea1b6e5c216432e027821b2f520e536375edb492d82dd"
+}

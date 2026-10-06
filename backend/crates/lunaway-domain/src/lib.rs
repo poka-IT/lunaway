@@ -1,8 +1,17 @@
-//! Lunaway domain types.
+//! Lunaway domain types and rules.
 //!
 //! Pure data and rules, no I/O: the database, the API and the ingestion
 //! adapters depend on this crate, never the other way round.
 
+pub mod conflation;
+pub mod geo;
+pub mod opening;
+pub mod record;
+pub mod source;
 pub mod taxonomy;
 
+pub use geo::{BBox, InvalidBBox, InvalidPosition, Position};
+pub use opening::{OPENING_WINDOW_DAYS, OpeningInterval};
+pub use record::{Address, NormalizedRecord};
+pub use source::{InvalidSourceId, SourceId};
 pub use taxonomy::{Activity, OvernightStatus, PlaceKind, Service, UnknownCode};

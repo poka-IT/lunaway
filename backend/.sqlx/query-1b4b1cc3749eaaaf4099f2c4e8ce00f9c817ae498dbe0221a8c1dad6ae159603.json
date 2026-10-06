@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT sources AS \"sources!\", count(*) AS \"places!\"\n        FROM (\n            SELECT ps.place_id, string_agg(DISTINCT r.source_id, '+' ORDER BY r.source_id) AS sources\n            FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n            JOIN places p ON p.id = ps.place_id AND p.deleted_at IS NULL\n            GROUP BY ps.place_id\n        ) t\n        GROUP BY sources ORDER BY count(*) DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sources!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "places!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "1b4b1cc3749eaaaf4099f2c4e8ce00f9c817ae498dbe0221a8c1dad6ae159603"
+}

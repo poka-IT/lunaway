@@ -14,11 +14,9 @@ decision before it is a technical one.
    `docs/data-sources.md` with the URL and the date read. Three outcomes:
    - open with attribution (ODbL, Licence Ouverte 2.0, CC BY, CC0): ingested
      by the server;
-   - proprietary: ingested only when the maintainer decides it, through a
-     crawler kept in a private repository outside Lunaway that delivers a
-     generic feed (`docs/feeds.md`); the source gets a generic id and display
-     name, its real name never enters this repository, and the decision is
-     recorded in `docs/data-sources.md`;
+   - proprietary: not ingested, unless the producer grants a written
+     licence; the licence is quoted in `docs/data-sources.md` and the source
+     keeps its real name and attribution;
    - unknown: not ingested; ask the producer.
    ODbL inputs make the merged database ODbL: check the export still says so.
 2. **Register it** in the `sources` table (name, licence, attribution text,

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT (ra.source_id = rb.source_id) AS \"same_source!\", count(*) AS \"pairs!\"\n        FROM match_pairs m\n        JOIN source_records ra ON ra.id = m.record_a\n        JOIN source_records rb ON rb.id = m.record_b\n        WHERE m.decision = 'review'\n        GROUP BY 1 ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "same_source!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "pairs!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "2cbb9667b9d097c37e41fd4fc0103dcc5182ae7e11a3d614e1746a784a995519"
+}

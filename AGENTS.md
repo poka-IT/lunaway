@@ -32,10 +32,13 @@ fvm flutter run -d macos                # or chrome, or a device
 fvm flutter test
 fvm dart analyze --fatal-infos          # dart, not flutter: only dart analyze runs riverpod_lint
 # backend, from backend/
+docker compose -f compose.yaml up -d    # local PostGIS, 127.0.0.1:54329
 cargo nextest run --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p lunaway-api                # 127.0.0.1:8484, /health and /graphql
 cargo run -p lunaway-api --bin export-schema   # after a GraphQL change
+cargo run -p lunaway-cli -- migrate     # then ingest osm-extract|atout-france, conflate, stats
+cargo sqlx prepare --workspace -- --all-targets  # after a query change, commit .sqlx/
 # everything, from the root
 tool/check.sh [--quick] [--fix]
 ```
@@ -47,9 +50,11 @@ tool/check.sh [--quick] [--fix]
   (providers) and `presentation/` (screens, widgets); `lib/core/` holds the
   router, layout classes and app wiring; `lib/shared/` the design system;
   `lib/i18n/` the slang sources and their generated code.
-- `backend/`, Cargo workspace: `crates/lunaway-domain` (types and rules, no
-  I/O) and `crates/lunaway-api` (axum + async-graphql). Dependencies point
-  inward: the API depends on the domain, never the reverse.
+- `backend/`, Cargo workspace: `lunaway-domain` (types and rules, no I/O),
+  `lunaway-db` (migrations, sqlx), `lunaway-ingest` (adapters),
+  `lunaway-conflate` (merging into places), `lunaway-api` (axum +
+  async-graphql), `lunaway-cli` (the `lunaway` command). Dependencies point
+  inward to the domain.
 - `schema/lunaway.graphql` is the API contract, exported from the Rust code;
   the app's GraphQL client is generated from it.
 - `tool/` holds the gates and the agent harness, `.githooks/` the tracked git
@@ -66,8 +71,8 @@ explains why, never by `--no-verify`.
 ### Data and privacy
 
 - **Sources are ingested by the server, never fetched by the app.** Every
-  source (open data and external feeds alike) goes through the ingestion workers:
-  paced, resumable, cached, no proxy or IP rotation. The app talks only to
+  source goes through the ingestion workers: paced, resumable, cached, no
+  proxy or IP rotation; proprietary databases are never crawled. The app talks only to
   our hosts; third-party images come through the API's image proxy. Gate:
   `structure_check` rule `allowed-hosts`. Depth:
   `.claude/rules/data-sources.md`.

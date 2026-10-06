@@ -12,17 +12,14 @@ addition of a source end to end.
 
 ## Ingestion happens on the server
 
-Every source is ingested by the backend: open data (OpenStreetMap, French
-public datasets, Wikidata) through the ingestion workers, and external
-community sources through the generic feed importer (`docs/feeds.md`). The
-app never contacts a source directly: it talks to our API only, and images
-come from our media store. Gate: `structure_check` rule `allowed-hosts`.
+Every source is ingested by the backend through the ingestion workers: open
+data (OpenStreetMap, French public datasets, Wikidata) and, later, partner
+data under a written licence. The app never contacts a source directly: it
+talks to our API only. Gate: `structure_check` rule `allowed-hosts`.
 
-An external community source is crawled by a private repository outside
-Lunaway, which delivers a feed. Inside Lunaway it has a generic id and
-display name (`extcom`, "Communauté externe"); its real name never appears in
-this repository, the app or the API. Gate: the local `.leak-denylist`
-(edit guard, pre-commit, commit-msg).
+Proprietary databases (spots, reviews, photos) are never crawled nor
+imported: their reviews and photos belong to their authors, and every value
+Lunaway shows must be credited to its real source.
 
 A source is documented before any line of code: its licence or terms are read
 and quoted in `docs/data-sources.md`, with the maintainer's decision when the

@@ -428,11 +428,14 @@ sudo -u postgres psql -d lunaway_restore -c 'UPDATE sync_epoch SET epoch = gen_r
 ```
 
 A dump puts the change feed back at the dump's position, while devices hold
-cursors from later. Every sync cursor names the epoch it was issued under
-(`c2.<epoch>.<position>`): with a new epoch the API answers those cursors
-with the code `RESYNC` and the app syncs again from scratch. Without this
-step a device would silently skip every change made between the dump and its
-last sync.
+cursors from later. Every sync cursor names the copy of the feed that issued
+it, the epoch and the database's own identifier (`c2.<identity>.<position>`),
+and the API answers a cursor of another copy, or one past the end of the
+feed, with the code `RESYNC`; the app then syncs again from scratch. A
+restore into a new database changes the identifier by itself; the epoch
+covers a restore over the same database (a volume snapshot) and costs one
+statement, so run it every time. Without either, a device would silently
+skip every change made between the backup and its last sync.
 
 `globals-<stamp>.sql.age` holds the roles and their settings, without
 passwords; `infra/server/postgres.sh` sets the passwords again.

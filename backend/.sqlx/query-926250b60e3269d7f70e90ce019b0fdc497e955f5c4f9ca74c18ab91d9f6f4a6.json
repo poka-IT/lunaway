@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE source_records SET needs_conflation = false",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "926250b60e3269d7f70e90ce019b0fdc497e955f5c4f9ca74c18ab91d9f6f4a6"
+}

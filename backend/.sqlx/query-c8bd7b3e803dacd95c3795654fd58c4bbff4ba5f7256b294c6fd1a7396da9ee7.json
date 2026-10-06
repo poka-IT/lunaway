@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sync_epoch SET epoch = gen_random_uuid(), created_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "c8bd7b3e803dacd95c3795654fd58c4bbff4ba5f7256b294c6fd1a7396da9ee7"
+}

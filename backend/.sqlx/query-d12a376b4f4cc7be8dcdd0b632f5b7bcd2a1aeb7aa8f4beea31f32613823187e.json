@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT fetched_at FROM source_records WHERE external_id = 'way/1'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "fetched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d12a376b4f4cc7be8dcdd0b632f5b7bcd2a1aeb7aa8f4beea31f32613823187e"
+}

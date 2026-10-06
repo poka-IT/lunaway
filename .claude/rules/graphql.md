@@ -20,6 +20,21 @@ to end.
   swapped.
 - Every query is bounded: depth and complexity limits in `build_schema`, a
   maximum page size on every list, a maximum area on every viewport query.
+  A root field that queries the database adds `DB_FIELD_COST` to its
+  complexity, whatever it returns. Before async-graphql parses a document,
+  `guard.rs` refuses it by size, by its count of opening brackets anywhere
+  in the text (the parser recurses per level and a stack overflow aborts the
+  process) and by its number of selections with fragments expanded
+  (async-graphql walks every spread without memoisation); keep those checks
+  ahead of any new walk of the document.
+- The endpoint takes one operation per `POST`, as `application/json` only:
+  no batch, no GET, no multipart. Body, response, concurrency, cost in
+  flight, timeout and the per-client budget (a fixed cost per request plus
+  its complexity; IPv4 or IPv6 /64, with a shared budget per IPv6 /48;
+  `X-Forwarded-For` believed only behind the loopback proxy) are
+  `config::Limits`, read from the environment (`.env.example`).
+- Introspection stays enabled in production: the schema is public in the
+  repository, and the same limits bound introspection queries.
 - Lists are paginated with a cursor; a list that cannot grow past a small
   fixed size (a taxonomy) may be returned whole.
 - Nested lists go through a DataLoader: no resolver issues one SQL query per
@@ -28,8 +43,12 @@ to end.
   field that is not public, from the request context, never trusted from an
   argument.
 - Errors the client must act on carry an `extensions.code`
-  (`UNAUTHENTICATED`, `RATE_LIMITED`, `INVALID_INPUT`); internal errors are
-  logged and returned as a generic message.
+  (`UNAUTHENTICATED`, `RATE_LIMITED` with `retryAfterSeconds` and a
+  `Retry-After` header, `INVALID_INPUT`, `RESYNC` for a sync cursor issued
+  by another copy of the database: sync again from `since: null`); internal
+  errors are logged and returned as a generic message with `INTERNAL`. The
+  codes and what the client does are listed in `lunaway-api/src/error.rs`;
+  a new code goes there and here.
 
 ## Evolution
 

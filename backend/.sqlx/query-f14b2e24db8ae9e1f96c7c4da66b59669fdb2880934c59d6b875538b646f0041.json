@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO match_pairs (record_a, record_b, score, decision, reason, components)\n            VALUES ($1, $2, 0.7, 'review', $3, '{}')\n            ON CONFLICT (record_a, record_b) DO UPDATE SET reason = EXCLUDED.reason\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f14b2e24db8ae9e1f96c7c4da66b59669fdb2880934c59d6b875538b646f0041"
+}

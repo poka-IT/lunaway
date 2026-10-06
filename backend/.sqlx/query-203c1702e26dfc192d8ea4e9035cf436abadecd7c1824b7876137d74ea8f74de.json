@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) FILTER (WHERE deleted_at IS NULL) AS \"places!\",\n               count(*) FILTER (WHERE deleted_at IS NOT NULL) AS \"tombstones!\",\n               count(*) FILTER (WHERE deleted_at IS NULL AND opening_hours IS NOT NULL) AS \"oh!\",\n               count(*) FILTER (WHERE deleted_at IS NULL AND opening_hours_parsed) AS \"oh_parsed!\"\n        FROM places\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "places!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "tombstones!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "oh!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "oh_parsed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "203c1702e26dfc192d8ea4e9035cf436abadecd7c1824b7876137d74ea8f74de"
+}

@@ -1,18 +1,22 @@
 [package]
 name = "lunaway-domain"
-description = "Lunaway domain types: the taxonomy of spots, services and activities. Pure, no I/O."
+description = "Lunaway domain types and rules: the taxonomy, normalised records, conflation scoring. Pure, no I/O."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+homepage.workspace = true
 repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+unicode-normalization.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 serde_json.workspace = true
 
 [lints]

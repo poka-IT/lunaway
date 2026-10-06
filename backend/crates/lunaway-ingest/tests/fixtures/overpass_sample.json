@@ -1,0 +1,514 @@
+{
+ "version": 0.6,
+ "generator": "Overpass API 0.7.62.7 375dc00a",
+ "osm3s": {
+  "timestamp_osm_base": "2026-10-05T22:42:50Z",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+ },
+ "elements": [
+  {
+   "type": "node",
+   "id": 13296804728,
+   "lat": 47.3719298,
+   "lon": -0.6848768,
+   "tags": {
+    "amenity": "sanitary_dump_station"
+   }
+  },
+  {
+   "type": "node",
+   "id": 11010688977,
+   "lat": 47.3602511,
+   "lon": -0.6562831,
+   "tags": {
+    "amenity": "sanitary_dump_station",
+    "fee": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9723447513,
+   "lat": 47.3341348,
+   "lon": -0.4361352,
+   "tags": {
+    "operator": "Domaine Belle-Étoile",
+    "tourism": "camp_site"
+   }
+  },
+  {
+   "type": "node",
+   "id": 12875978328,
+   "lat": 47.428549,
+   "lon": -0.6615011,
+   "tags": {
+    "access": "customers",
+    "amenity": "sanitary_dump_station",
+    "fee": "no",
+    "sanitary_dump_station:basin": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 9827293952,
+   "lat": 47.4236221,
+   "lon": -0.551544,
+   "tags": {
+    "access": "yes",
+    "amenity": "sanitary_dump_station",
+    "fee": "no",
+    "panoramax": "69ca8083-2ffb-4a3c-ac93-013b59ec36fb",
+    "power_supply": "no",
+    "sanitary_dump_station:chemical_toilet": "yes",
+    "sanitary_dump_station:grey_water": "yes",
+    "water_point": "yes"
+   }
+  },
+  {
+   "type": "node",
+   "id": 6764023856,
+   "lat": 47.46642,
+   "lon": -0.56576,
+   "tags": {
+    "amenity": "sanitary_dump_station"
+   }
+  },
+  {
+   "type": "way",
+   "id": 565675851,
+   "bounds": {
+    "minlat": 47.3273524,
+    "minlon": -0.6714658,
+    "maxlat": 47.3280649,
+    "maxlon": -0.669668
+   },
+   "tags": {
+    "addr:street": "Rue Jean de Pontoise",
+    "bbq": "no",
+    "cabins": "yes",
+    "capacity": "27",
+    "capacity:caravans": "27",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "river;village",
+    "caravans": "no",
+    "charge": "14.30 EUR",
+    "dog": "leashed",
+    "fee": "yes",
+    "internet_access": "wlan",
+    "internet_access:fee": "no",
+    "maxlength": "9",
+    "name": "Aire Val-du-Layon",
+    "network": "CAMPING-CAR PARK",
+    "operator": "Camping-car Park",
+    "phone": "+33 2 41 78 33 28",
+    "power_supply": "yes",
+    "sanitary_dump_station": "yes",
+    "surface": "grass",
+    "tents": "no",
+    "tourism": "caravan_site",
+    "trailer": "yes",
+    "water_point": "yes",
+    "website": "https://www.campingcarpark.com/en_GB/stay/stopover-site-motorhome/pays-de-la-loire/49-maine-et-loire/val-du-layon#0"
+   }
+  },
+  {
+   "type": "way",
+   "id": 207901408,
+   "bounds": {
+    "minlat": 47.3705978,
+    "minlon": -0.6862055,
+    "maxlat": 47.3719893,
+    "maxlon": -0.6841563
+   },
+   "tags": {
+    "addr:street": "Le Port",
+    "caravans": "yes",
+    "drinking_water": "yes",
+    "name": "Camping municipal du Port",
+    "operator": "Commune de La Possonnière",
+    "phone": "+33 2 41 72 20 75; +33 6 71 78 51 73",
+    "power_supply": "yes",
+    "shower": "yes",
+    "tents": "yes",
+    "toilets": "yes",
+    "tourism": "camp_site",
+    "website": "https://www.la-possonniere.fr/annuaire/services-municipaux/entry-783-camping-du-port.html"
+   }
+  },
+  {
+   "type": "way",
+   "id": 208389371,
+   "bounds": {
+    "minlat": 47.3596146,
+    "minlon": -0.6632032,
+    "maxlat": 47.3620087,
+    "maxlon": -0.6557733
+   },
+   "tags": {
+    "cabins": "yes",
+    "caravans": "yes",
+    "name": "Les Plages de Loire",
+    "operator": "Seasonova",
+    "phone": "+33 2 36 81 00 01",
+    "source": "Bing",
+    "stars": "3",
+    "tents": "yes",
+    "tourism": "camp_site",
+    "website": "https://vacances-seasonova.com/fr/camping/les-plages-de-loire/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 606627468,
+   "bounds": {
+    "minlat": 47.358555,
+    "minlon": -0.4354633,
+    "maxlat": 47.3624449,
+    "maxlon": -0.4316255
+   },
+   "tags": {
+    "access": "customers",
+    "addr:street": "Route de Saint Mathurin",
+    "capacity": "110",
+    "caravans": "yes",
+    "name": "Camping de l'Étang",
+    "phone": "+33 2 41 91 70 61",
+    "stars": "4",
+    "swimming_pool": "yes",
+    "tents": "yes",
+    "tourism": "camp_site",
+    "website": "https://www.campingetang.com/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 765892259,
+   "bounds": {
+    "minlat": 47.4273832,
+    "minlon": -0.6620014,
+    "maxlat": 47.4288893,
+    "maxlon": -0.6597698
+   },
+   "tags": {
+    "access": "customers",
+    "addr:street": "Chemin de la Bradière",
+    "backcountry": "no",
+    "cabins": "yes",
+    "capacity": "28",
+    "capacity:cabins": "1",
+    "capacity:pitches": "27",
+    "caravans": "yes",
+    "email": "contact@campinglabradiere.fr",
+    "internet_access": "wlan",
+    "name": "Camping de la Bradiere",
+    "opening_hours": "week 1-53; Mo-Su 09:00-10:00, 15:00-20:00",
+    "phone": "+33 6 30 20 93 77;+33 2 87 83 33 55",
+    "reservation": "yes",
+    "sanitary_dump_station": "customers",
+    "shower": "yes",
+    "stars": "2",
+    "tents": "yes",
+    "toilets": "yes",
+    "tourism": "camp_site",
+    "website": "https://campinglabradiere.fr/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 193703749,
+   "bounds": {
+    "minlat": 47.4179571,
+    "minlon": -0.6122185,
+    "maxlat": 47.4192986,
+    "maxlon": -0.6107104
+   },
+   "tags": {
+    "capacity": "45",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "river",
+    "charge": "17 EUR",
+    "drinking_water": "yes",
+    "fee": "yes",
+    "internet_access": "wlan",
+    "internet_access:fee": "no",
+    "motor_vehicle": "yes",
+    "name": "Camping de Bouchemaine",
+    "opening_hours": "Apr-Nov",
+    "phone": "+33 2 41 22 21 53",
+    "power_supply": "yes",
+    "power_supply:fee": "no",
+    "sanitary_dump_station": "yes",
+    "shower": "yes",
+    "shower:fee": "no",
+    "surface": "asphalt",
+    "tents": "yes",
+    "tents:capacity": "10",
+    "toilets": "yes",
+    "tourism": "caravan_site",
+    "water_point": "yes",
+    "water_point:fee": "no",
+    "website": "https://www.ville-bouchemaine.fr/aire-de-camping-cars/",
+    "wheelchair": "limited"
+   }
+  },
+  {
+   "type": "way",
+   "id": 49675787,
+   "bounds": {
+    "minlat": 47.4509974,
+    "minlon": -0.5965832,
+    "maxlat": 47.4547284,
+    "maxlon": -0.5944081
+   },
+   "tags": {
+    "addr:city": "Angers",
+    "addr:postcode": "49000",
+    "addr:street": "Avenue du Lac De Maine",
+    "capacity": "168",
+    "internet_access": "yes",
+    "name": "Camping d'Angers Lac de Maine",
+    "phone": "+33 2 41 73 05 03",
+    "tourism": "camp_site",
+    "website": "http://www.camping-angers.fr/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 342746558,
+   "bounds": {
+    "minlat": 47.4230961,
+    "minlon": -0.549693,
+    "maxlat": 47.4246743,
+    "maxlon": -0.5473869
+   },
+   "tags": {
+    "access": "no",
+    "addr:city": "Sainte-Gemmes-sur-Loire",
+    "addr:postcode": "49130",
+    "addr:street": "Levée de l'Authion",
+    "caravans": "no",
+    "name": "Nature Camp Anjou",
+    "operator": "Lodg'ing",
+    "panoramax": "256865a3-05b8-44a6-8948-34cfe870cd52",
+    "phone": "+33 6 70 39 21 91",
+    "source": "Bing",
+    "stars": "2",
+    "tents": "yes",
+    "tourism": "camp_site",
+    "website": "https://lodg-ing.com/nos-nature-camp/hebergement-insolite-angers/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 81338638,
+   "bounds": {
+    "minlat": 47.4244287,
+    "minlon": -0.5307357,
+    "maxlat": 47.4260662,
+    "maxlon": -0.5277808
+   },
+   "tags": {
+    "cabin:rental": "tent",
+    "cabins": "yes",
+    "capacity": "104",
+    "caravans": "yes",
+    "contact:email": "contact.loirevallee@slow-village.fr",
+    "contact:phone": "+33 2 85 35 97 47",
+    "name": "Slow Village Les Ponts-de-Cé",
+    "old_name": "L’Île du Château",
+    "opening_hours": "Mo-Su 09:00-12:30, 14:00-18:00",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2010",
+    "stars": "3",
+    "tents": "yes",
+    "toilets": "yes",
+    "toilets:access": "customers",
+    "tourism": "camp_site",
+    "website": "https://www.slow-village.com/destinations/pays-de-la-loire/les-ponts-de-ce/",
+    "wheelchair": "yes"
+   }
+  },
+  {
+   "type": "way",
+   "id": 152462847,
+   "bounds": {
+    "minlat": 47.4412858,
+    "minlon": -0.409064,
+    "maxlat": 47.4436831,
+    "maxlon": -0.4057029
+   },
+   "tags": {
+    "access": "customers",
+    "addr:street": "Rue du Pont Caroline",
+    "cabin:rental": "tent",
+    "cabins": "yes",
+    "capacity": "128",
+    "caravans": "yes",
+    "contact:facebook": "https://www.facebook.com/people/Camping-Flower-du-Port-Caroline/100026627664437/",
+    "name": "Camping du port Caroline",
+    "phone": "+33 2 41 80 42 18",
+    "stars": "3",
+    "swimming_pool": "yes",
+    "tents": "yes",
+    "tourism": "camp_site",
+    "website": "https://www.campingduportcaroline.fr/"
+   }
+  },
+  {
+   "type": "way",
+   "id": 347935372,
+   "bounds": {
+    "minlat": 47.2892442,
+    "minlon": -2.5374836,
+    "maxlat": 47.2894455,
+    "maxlon": -2.5371358
+   },
+   "tags": {
+    "capacity": "9",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "coast",
+    "description": "Payant de 20h à 9h et limité à 48h",
+    "fee": "yes",
+    "maxstay": "48 hours",
+    "name": "La Vigie",
+    "tourism": "caravan_site"
+   }
+  },
+  {
+   "type": "way",
+   "id": 435157184,
+   "bounds": {
+    "minlat": 47.2982529,
+    "minlon": -2.5201589,
+    "maxlat": 47.2985885,
+    "maxlon": -2.5199564
+   },
+   "tags": {
+    "capacity": "8",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "beach",
+    "charge": "13.50 EUR / night",
+    "fee": "yes",
+    "maxstay": "48 hours",
+    "name": "Kerdavid",
+    "power_supply": "no",
+    "tourism": "caravan_site",
+    "water_point": "yes",
+    "water_point:fee": "no"
+   }
+  },
+  {
+   "type": "way",
+   "id": 435157186,
+   "bounds": {
+    "minlat": 47.2989355,
+    "minlon": -2.5221816,
+    "maxlat": 47.2990535,
+    "maxlon": -2.5216583
+   },
+   "tags": {
+    "cabins": "no",
+    "capacity": "9",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "village",
+    "charge": "13/50 EUR / night",
+    "fee": "yes",
+    "maxstay": "48 hours",
+    "name": "Aire Lingorzé",
+    "power_supply": "no",
+    "sanitary_dump_station": "yes",
+    "sanitary_dump_station:chemical_toilet": "yes",
+    "sanitary_dump_station:grey_water": "yes",
+    "shower": "no",
+    "surface": "asphalt",
+    "tents": "no",
+    "toilets": "no",
+    "tourism": "caravan_site",
+    "water_point": "yes"
+   }
+  },
+  {
+   "type": "way",
+   "id": 1148287312,
+   "bounds": {
+    "minlat": 47.2717217,
+    "minlon": -2.4328616,
+    "maxlat": 47.2720996,
+    "maxlon": -2.4317902
+   },
+   "tags": {
+    "addr:city": "Le Pouliguen",
+    "addr:housenumber": "49",
+    "addr:postcode": "44510",
+    "addr:street": "Avenue de l'Océan",
+    "cabins": "no",
+    "capacity": "26",
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "town",
+    "caravans": "no",
+    "charge": "16 EUR",
+    "fee": "yes",
+    "internet_access": "wlan",
+    "internet_access:fee": "no",
+    "maxstay": "72 hours",
+    "name": "Aire de camping-car Le Pouliguen",
+    "opening_hours": "24/7",
+    "power_supply": "yes",
+    "power_supply:maxcurrent": "16",
+    "sanitary_dump_station": "yes",
+    "seasonal": "no",
+    "shower": "no",
+    "surface": "grass",
+    "tents": "no",
+    "toilets": "no",
+    "tourism": "caravan_site",
+    "water_point": "yes"
+   }
+  },
+  {
+   "type": "way",
+   "id": 1317588157,
+   "bounds": {
+    "minlat": 47.2590922,
+    "minlon": -2.3242468,
+    "maxlat": 47.2597039,
+    "maxlon": -2.3234327
+   },
+   "tags": {
+    "caravan_site": "motorhome_stopover",
+    "caravan_site:type": "beach",
+    "caravans": "no",
+    "fee": "no",
+    "motorhome": "yes",
+    "motorhome:overnight": "yes",
+    "name": "Aire camping-car Pornichet",
+    "name:br": "Leur kirri-kampiñ Pornizhan",
+    "power_supply": "no",
+    "sanitary_dump_station": "no",
+    "surface": "asphalt",
+    "tents": "no",
+    "tourism": "caravan_site",
+    "water_point": "no"
+   }
+  },
+  {
+   "type": "way",
+   "id": 319419555,
+   "bounds": {
+    "minlat": 47.3139764,
+    "minlon": -2.5020508,
+    "maxlat": 47.3141989,
+    "maxlon": -2.5017327
+   },
+   "tags": {
+    "access": "yes",
+    "amenity": "parking",
+    "capacity": "5",
+    "description:fr": "Stationnement Camping-Cars (de Jour)",
+    "fee": "no",
+    "motor_vehicle": "no",
+    "motorhome": "yes",
+    "motorhome:overnight": "no",
+    "parking": "street_side"
+   }
+  }
+ ]
+}

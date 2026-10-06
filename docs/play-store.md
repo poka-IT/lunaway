@@ -96,9 +96,7 @@ Checked on Google's pages on 2026-10-06.
 - No comparison with other apps or brands, no third-party brand without
   permission, no keyword stuffing (Play metadata policy,
   support.google.com/googleplay/android-developer/answer/9898842). The
-  listing, text and images, never names or shows a third-party source's
-  brand: screenshots avoid places that carry the external community
-  source's badge or link.
+  listing, text and images, never names or shows a third-party brand.
 - Images to produce from the finished app: icon 512 x 512 PNG, feature
   graphic 1024 x 500, at least two phone screenshots.
 
@@ -161,9 +159,9 @@ Decisions from the app side (2026-10-06) behind those answers:
     presence check sends the coordinates with a contribution; the server
     keeps only the verdict. Form: Precise location, collected, processed
     ephemerally, optional, purposes app functionality and fraud prevention.
-  - Third-party sources, including an external community source, are
-    ingested by the server; the app talks only to our hosts and gets
-    third-party photos through the API's image proxy. Nothing is shared.
+  - Open data sources (OpenStreetMap, French public datasets) are
+    ingested by the server; the app talks only to our hosts. Nothing is
+    shared.
   - Server logs keep truncated IPs; rate limiting is in memory. No ads, no
     analytics, no crash reporting SDK.
   - Security: encrypted in transit; accounts are created in the app
@@ -197,7 +195,7 @@ each with its evidence (command output, URL, commit).
    `changelogs/<versionCode>.txt`; `images/icon.png` (512 x 512, 32-bit
    PNG); `images/featureGraphic.png` (1024 x 500, no alpha);
    `images/phoneScreenshots/` (2 to 8, 9:16, 1080 px or more on the short
-   side, no external community badge on screen); tablet screenshots in
+   side); tablet screenshots in
    `images/sevenInchScreenshots/` and `images/tenInchScreenshots/` if the
    expanded layout ships.
 8. **Store preconditions**, settled on 2026-10-06 with the app side:
@@ -207,11 +205,9 @@ each with its evidence (command output, URL, commit).
      covers personalised web pages with user profiles and photos, so we do
      not file a mark in class 42; a filing, if ever wanted, covers classes
      9 and 39 only;
-   - places from the external community source appear on every build,
-     Play and App Store included, ingested by the server (maintainer's
-     decision, 2026-10-06). An intellectual property complaint would land on
-     the developer account, which also publishes another app; the
-     maintainer accepted that risk.
+   - Lunaway ingests open data only (OpenStreetMap, French public
+     datasets) plus its own community's contributions; no proprietary
+     database is crawled (decision of 2026-10-06).
 
 ## Release procedure
 

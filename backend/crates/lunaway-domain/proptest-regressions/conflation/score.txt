@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 9df94bd78e54ae30a0bacdf788a6068d425466e8b636128b13ddeb7f89d17c12 # shrinks to a = NormalizedRecord { kind: MotorhomeArea, name: None, position: Position { lat: 47.0, lon: 2.0 }, accuracy_m: 0.0, overnight: Unknown, services: {}, activities: {}, description: None, address: Address { street: None, postcode: None, city: None, country_code: None, city_code: None }, price_parking_eur: None, price_services_eur: None, max_height_m: None, capacity: None, opening_hours: None, website: None, phone: None, stars: None, wikidata: Some("Q3"), osm_ref: None }, b = NormalizedRecord { kind: MotorhomeArea, name: None, position: Position { lat: 47.0, lon: 2.0 }, accuracy_m: 0.0, overnight: Unknown, services: {}, activities: {}, description: None, address: Address { street: None, postcode: None, city: None, country_code: None, city_code: None }, price_parking_eur: None, price_services_eur: None, max_height_m: None, capacity: None, opening_hours: None, website: None, phone: None, stars: None, wikidata: Some("Q3"), osm_ref: None }, same_source = true

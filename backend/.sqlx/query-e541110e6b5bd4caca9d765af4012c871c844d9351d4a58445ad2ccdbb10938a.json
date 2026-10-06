@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO places (id, kind, geom, overnight, services, activities, content_hash)\n            VALUES ($1, $2, ST_SetSRID(ST_MakePoint(2, 47), 4326)::geography, $3, $4, $5, 'x')\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e541110e6b5bd4caca9d765af4012c871c844d9351d4a58445ad2ccdbb10938a"
+}

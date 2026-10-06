@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sync_epoch (singleton) VALUES (false)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "e6c00ef59c2da4f13321878b525d726dce763fc0c1ac0bc3e3663a2bc17761e8"
+}

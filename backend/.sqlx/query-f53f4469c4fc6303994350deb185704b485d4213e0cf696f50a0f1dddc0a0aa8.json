@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT decision, components FROM match_pairs WHERE decision = 'merge' LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "decision",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "match_pairs",
+            "name": "decision"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "components",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "match_pairs",
+            "name": "components"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "f53f4469c4fc6303994350deb185704b485d4213e0cf696f50a0f1dddc0a0aa8"
+}

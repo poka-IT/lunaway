@@ -1,0 +1,35 @@
+[package]
+name = "lunaway-ingest"
+description = "Lunaway ingestion adapters: OpenStreetMap through Overpass, Atout France classified campsites geocoded with the BAN."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+backon.workspace = true
+chrono.workspace = true
+csv.workspace = true
+lunaway-db.workspace = true
+lunaway-domain.workspace = true
+osmpbf.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+sqlx.workspace = true
+axum.workspace = true
+proptest.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

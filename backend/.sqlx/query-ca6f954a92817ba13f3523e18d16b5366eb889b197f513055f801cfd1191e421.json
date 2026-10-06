@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id, p.content_hash, p.updated_seq, ps.record_id AS \"record_id?\"\n        FROM places p LEFT JOIN place_sources ps ON ps.place_id = p.id\n        ORDER BY p.id, ps.record_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "content_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "content_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "updated_seq",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "updated_seq"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "record_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "place_sources",
+            "name": "record_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ca6f954a92817ba13f3523e18d16b5366eb889b197f513055f801cfd1191e421"
+}

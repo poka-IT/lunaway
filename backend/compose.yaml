@@ -1,0 +1,41 @@
+# Local PostgreSQL 18 + PostGIS 3.6 for development and the database tests.
+#
+#   docker compose -f backend/compose.yaml up -d
+#   DATABASE_URL=postgres://lunaway:lunaway@127.0.0.1:54329/lunaway
+#
+# The password is for this loopback-only dev database; never reuse it.
+#
+# Image: imresamu/postgis is published by a maintainer of the official
+# postgis/docker-postgis project and is built for linux/amd64 and linux/arm64.
+# postgis/postgis ships amd64 only, which would run under emulation on an
+# Apple Silicon machine (colima aarch64) and on arm64 CI runners.
+name: lunaway
+
+services:
+  postgres:
+    image: imresamu/postgis:18-3.6
+    environment:
+      POSTGRES_USER: lunaway
+      POSTGRES_PASSWORD: lunaway
+      POSTGRES_DB: lunaway
+    ports:
+      # Loopback only, on a port that does not collide with another local
+      # PostgreSQL (5432 and 5433 are commonly taken).
+      - "127.0.0.1:54329:5432"
+    volumes:
+      # PostgreSQL 18 images keep PGDATA under /var/lib/postgresql/18/docker:
+      # mounting the parent lets a future major version sit next to it.
+      - lunaway-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lunaway -d lunaway"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    # sqlx::test creates one database per test; nextest runs them in
+    # parallel, so the default of 100 connections runs out.
+    command: ["postgres", "-c", "max_connections=300", "-c", "shared_buffers=256MB"]
+    restart: unless-stopped
+
+volumes:
+  lunaway-pgdata:

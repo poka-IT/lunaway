@@ -7,24 +7,50 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 license = "AGPL-3.0-or-later"
+homepage = "https://lunaway.net"
 repository = "https://github.com/poka-IT/lunaway"
 publish = false
 
 [workspace.dependencies]
+lunaway-conflate = { path = "crates/lunaway-conflate" }
+lunaway-db = { path = "crates/lunaway-db" }
 lunaway-domain = { path = "crates/lunaway-domain" }
+lunaway-ingest = { path = "crates/lunaway-ingest" }
 anyhow = "1.0.104"
-async-graphql = "7.2.1"
-async-graphql-axum = "7.2.1"
+# Without the default features: no multipart (uploads written to temporary
+# files), no GraphiQL or Playground pages, no e-mail validator.
+async-graphql = { version = "7.2.1", default-features = false, features = ["dataloader", "uuid", "chrono"] }
 axum = "0.8.9"
+backon = "1.6.0"
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
+chrono-tz = "0.10.4"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+csv = "1.4.0"
+futures-util = { version = "0.3.34", default-features = false }
 http-body-util = "0.1.5"
+# Without `auto-timezone`/`auto-country`: the zone comes from the country code,
+# which avoids embedding a coordinate-to-zone database.
+opening-hours = { version = "2.1.4", default-features = false }
+osmpbf = "0.3.8"
+proptest = "1.11.0"
+# rustls without a bundled crypto provider: the ring provider is installed by
+# lunaway-ingest, so the HTTP client and sqlx share one TLS stack and the
+# build avoids aws-lc-sys (C toolchain, OpenSSL licence terms).
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "http2", "json", "multipart", "form", "charset"] }
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+sha2 = "0.11.0"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "macros", "migrate", "uuid", "chrono", "json"] }
+tempfile = "3.27.0"
 thiserror = "2.0.21"
-tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "signal", "time", "fs", "io-util", "sync"] }
 tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.7.1", features = ["trace"] }
+tower-http = { version = "0.7.1", features = ["trace", "cors", "compression-gzip"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+unicode-normalization = "0.1.25"
+uuid = { version = "1.27.0", features = ["v7", "serde"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
