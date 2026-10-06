@@ -11,6 +11,7 @@ import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
@@ -216,7 +217,8 @@ class _Published extends ConsumerWidget {
         mine.photos.isEmpty &&
         mine.confirmations.isEmpty &&
         mine.issues.isEmpty &&
-        mine.submissions.isEmpty;
+        mine.submissions.isEmpty &&
+        mine.poiConfirmations.isEmpty;
     if (empty) {
       return MessageView(
         mood: SceneMood.saved,
@@ -361,6 +363,40 @@ class _Published extends ConsumerWidget {
                         placeId: c.placeId,
                         made: c,
                       ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (mine.poiConfirmations.isNotEmpty) ...[
+          _heading(
+            context,
+            t.mine.poiConfirmations,
+            hint: _latest(t, mine.poiConfirmations.length, mine.poiConfirmationTotal),
+          ),
+          SectionCard(
+            child: Column(
+              children: [
+                for (final c in mine.poiConfirmations)
+                  ListTile(
+                    leading: Icon(switch (PoiKind.fromCode(c.kind)) {
+                      final k? => PoiLook.category(k.category),
+                      null => AppIcons.confirmed,
+                    }),
+                    // A point gone or hidden since: named by what it was.
+                    title: Text(
+                      c.name ??
+                          switch (PoiKind.fromCode(c.kind)) {
+                            final k? => t.poiKind(k),
+                            null => t.mine.aPoi,
+                          },
+                    ),
+                    subtitle: Text(
+                      '${c.stillThere ? t.poi.stillThere : t.poi.gone} · ${date(c.createdAt)}',
+                    ),
+                    trailing: deleteButton(
+                      () => delete(ContributionKind.deletePoiConfirmation, c.id),
                     ),
                   ),
               ],

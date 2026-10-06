@@ -1919,6 +1919,12 @@ class Translations$mine$en {
 
 	/// en: 'New vending machine'
 	String get newVendingMachine => 'New vending machine';
+
+	/// en: 'Shops and services confirmed'
+	String get poiConfirmations => 'Shops and services confirmed';
+
+	/// en: 'A shop or service'
+	String get aPoi => 'A shop or service';
 }
 
 // Path: outbox
@@ -3971,6 +3977,9 @@ class Translations$outbox$kind$en {
 
 	/// en: 'New vending machine'
 	String get addVendingMachine => 'New vending machine';
+
+	/// en: 'Deletion of an answer about a shop or service'
+	String get deletePoiConfirmation => 'Deletion of an answer about a shop or service';
 }
 
 // Path: outbox.error
@@ -5283,6 +5292,8 @@ extension on Translations {
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',
 			'mine.newVendingMachine' => 'New vending machine',
+			'mine.poiConfirmations' => 'Shops and services confirmed',
+			'mine.aPoi' => 'A shop or service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Deleting a review',
@@ -5301,6 +5312,7 @@ extension on Translations {
 			'outbox.kind.poiThere' => 'Still there: a shop or service',
 			'outbox.kind.poiGone' => 'Gone: a shop or service',
 			'outbox.kind.addVendingMachine' => 'New vending machine',
+			'outbox.kind.deletePoiConfirmation' => 'Deletion of an answer about a shop or service',
 			'outbox.waiting' => 'Waiting for the network',
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
@@ -5526,11 +5538,11 @@ extension on Translations {
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prices checked ${when}',
 			'poi.shortageTemporary' => 'Out of stock for now',
+			_ => null,
+		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'No longer sold',
 			'poi.selfService24h' => 'Pay at pump 24/7',
 			'poi.highway' => 'On a motorway',
-			_ => null,
-		} ?? switch (path) {
 			'poi.lpgYes' => 'Sells LPG',
 			'poi.fuel.diesel' => 'Diesel',
 			'poi.fuel.sp95' => 'Unleaded 95',

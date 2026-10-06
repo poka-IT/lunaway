@@ -972,7 +972,9 @@
     "newPlace": "New place",
     "edit": "Edit",
     "aPlace": "A place",
-    "newVendingMachine": "New vending machine"
+    "newVendingMachine": "New vending machine",
+    "poiConfirmations": "Shops and services confirmed",
+    "aPoi": "A shop or service"
   },
   "outbox": {
     "kind": {
@@ -993,7 +995,8 @@
       "unmute": "Showing an author again",
       "poiThere": "Still there: a shop or service",
       "poiGone": "Gone: a shop or service",
-      "addVendingMachine": "New vending machine"
+      "addVendingMachine": "New vending machine",
+      "deletePoiConfirmation": "Deletion of an answer about a shop or service"
     },
     "waiting": "Waiting for the network",
     "sending": "Sending",

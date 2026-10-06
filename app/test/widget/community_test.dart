@@ -663,6 +663,46 @@ void main() {
       expect(find.text(t.mine.empty), findsOneWidget);
     });
 
+    testWidgets('my answers about shops and services are listed, named, and deletable', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      api.poiConfirmations
+        ..add({
+          'id': '00000000-0000-7000-8000-0000000000a1',
+          'poiId': '00000000-0000-7000-8000-0000000000b1',
+          'stillThere': true,
+          'createdAt': '2026-10-05T18:00:00Z',
+        })
+        ..add({
+          'id': '00000000-0000-7000-8000-0000000000a2',
+          'poiId': '00000000-0000-7000-8000-0000000000b2',
+          'stillThere': false,
+          'createdAt': '2026-10-05T19:00:00Z',
+        });
+      api.poiDetails['00000000-0000-7000-8000-0000000000b1'] = {
+        'name': 'Boulangerie du Lac',
+        'kind': 'BAKERY',
+      };
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      expect(find.text(t.mine.poiConfirmations), findsOneWidget);
+      expect(find.text('Boulangerie du Lac'), findsOneWidget);
+      expect(find.textContaining(t.poi.stillThere), findsOneWidget);
+      // The point is gone since: the answer stays, named generically.
+      expect(find.text(t.mine.aPoi), findsOneWidget);
+      expect(find.textContaining(t.poi.gone), findsOneWidget);
+
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.last('DeletePoiConfirmation'), {'id': '00000000-0000-7000-8000-0000000000a2'});
+      expect(find.text(t.mine.aPoi), findsNothing);
+      expect(find.text('Boulangerie du Lac'), findsOneWidget);
+    });
+
     testWidgets('deleting a confirmation drops the waiting request that may have made it', (
       tester,
     ) async {

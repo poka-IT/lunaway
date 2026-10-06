@@ -107,6 +107,31 @@ final class Confirmation {
   final DateTime createdAt;
 }
 
+/// A "still there?" answer of the account about a point of interest, with
+/// what the point is while it is still served.
+@immutable
+final class PoiConfirmation {
+  const new({
+    required this.id,
+    required this.poiId,
+    required this.stillThere,
+    required this.createdAt,
+    this.name,
+    this.kind,
+  });
+
+  final String id;
+  final String poiId;
+  final bool stillThere;
+  final DateTime createdAt;
+
+  /// The point's name; null when it has none, or is gone or hidden.
+  final String? name;
+
+  /// The point's kind code (`bakery`); null once it is gone or hidden.
+  final String? kind;
+}
+
 /// An issue the account reported.
 @immutable
 final class IssueReport {

@@ -972,7 +972,9 @@
     "newPlace": "Nouveau lieu",
     "edit": "Modification",
     "aPlace": "Un lieu",
-    "newVendingMachine": "Nouveau distributeur"
+    "newVendingMachine": "Nouveau distributeur",
+    "poiConfirmations": "Commerces et services confirmés",
+    "aPoi": "Un commerce ou service"
   },
   "outbox": {
     "kind": {
@@ -993,7 +995,8 @@
       "unmute": "Ne plus masquer un auteur",
       "poiThere": "Toujours là : un commerce ou service",
       "poiGone": "Plus là : un commerce ou service",
-      "addVendingMachine": "Nouveau distributeur"
+      "addVendingMachine": "Nouveau distributeur",
+      "deletePoiConfirmation": "Suppression d'une réponse sur un commerce ou service"
     },
     "waiting": "En attente du réseau",
     "sending": "Envoi en cours",

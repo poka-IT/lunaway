@@ -73,6 +73,10 @@ final class FakeApi {
   /// The "still there?" answers about points of interest.
   final poiConfirmations = <Map<String, Object?>>[];
 
+  /// What `poi` answers for a point an answer is about (`name`, `kind`);
+  /// a point not listed reads as gone.
+  final poiDetails = <String, Map<String, Object?>>{};
+
   /// What the account sent, as `myAccount` lists it.
   final confirmations = <Map<String, Object?>>[];
   final reviews = <Map<String, Object?>>[];
@@ -249,6 +253,7 @@ final class FakeApi {
     'ReportIssue',
     'DeleteIssueReport',
     'ConfirmPoi',
+    'DeletePoiConfirmation',
     'AddVendingMachine',
     'ReportContent',
     'AddPlace',
@@ -475,12 +480,18 @@ final class FakeApi {
       'ReportContent' => {'reportContent': true},
       'AddPlace' => {'addPlace': _submission('CREATE', null)},
       'ConfirmPoi' => () {
-        final c = {'id': _next(), 'poiId': v['poiId'], 'stillThere': v['stillThere']};
+        final c = {
+          'id': _next(),
+          'poiId': v['poiId'],
+          'stillThere': v['stillThere'],
+          'createdAt': testNow.toIso8601String(),
+        };
         poiConfirmations.add(c);
         return {
           'confirmPoi': {'id': c['id']},
         };
       }(),
+      'DeletePoiConfirmation' => {'deletePoiConfirmation': _remove(poiConfirmations, id())},
       'AddVendingMachine' => () {
         if (vendingDuplicateOf case final existing?) {
           throw _Refused('INVALID_INPUT', extensions: {'existingId': existing});
@@ -508,6 +519,12 @@ final class FakeApi {
           'confirmations': {'nodes': confirmations, 'totalCount': confirmations.length},
           'issueReports': {'nodes': issues, 'totalCount': issues.length},
           'placeSubmissions': {'nodes': submissions, 'totalCount': submissions.length},
+          'poiConfirmations': {
+            'nodes': [
+              for (final c in poiConfirmations.reversed) {...c, 'poi': poiDetails[c['poiId']]},
+            ],
+            'totalCount': poiConfirmations.length,
+          },
         },
       },
       'MyFavoriteLists' => {'myFavoriteLists': <Object?>[]},

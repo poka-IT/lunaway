@@ -942,6 +942,8 @@ class _Translations$mine$fr extends Translations$mine$en {
 	@override String get edit => 'Modification';
 	@override String get aPlace => 'Un lieu';
 	@override String get newVendingMachine => 'Nouveau distributeur';
+	@override String get poiConfirmations => 'Commerces et services confirmés';
+	@override String get aPoi => 'Un commerce ou service';
 }
 
 // Path: outbox
@@ -1874,6 +1876,7 @@ class _Translations$outbox$kind$fr extends Translations$outbox$kind$en {
 	@override String get poiThere => 'Toujours là : un commerce ou service';
 	@override String get poiGone => 'Plus là : un commerce ou service';
 	@override String get addVendingMachine => 'Nouveau distributeur';
+	@override String get deletePoiConfirmation => 'Suppression d\'une réponse sur un commerce ou service';
 }
 
 // Path: outbox.error
@@ -2930,6 +2933,8 @@ extension on TranslationsFr {
 			'mine.edit' => 'Modification',
 			'mine.aPlace' => 'Un lieu',
 			'mine.newVendingMachine' => 'Nouveau distributeur',
+			'mine.poiConfirmations' => 'Commerces et services confirmés',
+			'mine.aPoi' => 'Un commerce ou service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Note de ${stars} sur 5',
 			'outbox.kind.review' => 'Avis',
 			'outbox.kind.deleteReview' => 'Suppression d\'un avis',
@@ -2948,6 +2953,7 @@ extension on TranslationsFr {
 			'outbox.kind.poiThere' => 'Toujours là : un commerce ou service',
 			'outbox.kind.poiGone' => 'Plus là : un commerce ou service',
 			'outbox.kind.addVendingMachine' => 'Nouveau distributeur',
+			'outbox.kind.deletePoiConfirmation' => 'Suppression d\'une réponse sur un commerce ou service',
 			'outbox.waiting' => 'En attente du réseau',
 			'outbox.sending' => 'Envoi en cours',
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
@@ -3173,11 +3179,11 @@ extension on TranslationsFr {
 			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prix relevés ${when}',
 			'poi.shortageTemporary' => 'En rupture pour l\'instant',
+			_ => null,
+		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'N\'en vend plus',
 			'poi.selfService24h' => 'Paiement par carte 24 h/24',
 			'poi.highway' => 'Sur autoroute',
-			_ => null,
-		} ?? switch (path) {
 			'poi.lpgYes' => 'Vend du GPL',
 			'poi.fuel.diesel' => 'Gazole',
 			'poi.fuel.sp95' => 'SP95',
