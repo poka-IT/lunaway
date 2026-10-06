@@ -46,6 +46,14 @@ final class PlaceZone {
   /// whose fields read like the place's clock: format it, never convert it.
   DateTime wallClock(DateTime instant) => instant.toUtc().add(offsetAt(instant));
 
+  /// The instant at which the place's clock reads the fields of [wall] (a
+  /// [wallClock] value): the inverse of [wallClock] outside the hour the
+  /// clocks change.
+  DateTime instantOf(DateTime wall) {
+    final fields = DateTime.utc(wall.year, wall.month, wall.day, wall.hour, wall.minute);
+    return fields.subtract(offsetAt(fields.subtract(standardOffset)));
+  }
+
   static DateTime _lastSundayAtOneUtc(int year, int month) {
     final lastDay = DateTime.utc(year, month + 1, 0);
     final back = lastDay.weekday % 7;

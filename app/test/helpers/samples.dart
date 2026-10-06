@@ -3,9 +3,11 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
-/// The moment every widget test lives at: Tuesday 6 October 2026, 10:30,
-/// local time.
-final testNow = DateTime(2026, 10, 6, 10, 30);
+/// The moment every widget test lives at: Tuesday 6 October 2026, 10:30 in
+/// France (08:30 UTC, summer time). An instant rather than a local time: the
+/// app reads a place's hours on the place's own clock, so a test passes on a
+/// machine in any zone (the CI runs in UTC).
+final testNow = DateTime.utc(2026, 10, 6, 8, 30);
 
 const osm = Source(
   id: 'osm',
@@ -23,11 +25,12 @@ const atoutFrance = Source(
   url: 'https://lunaway.net',
 );
 
-/// Every day 08:00 to 20:00 local, over the window that starts the day
-/// before [testNow].
+/// Every day 08:00 to 20:00 in France (06:00 to 18:00 UTC: the window ends
+/// before the clocks change), over the window that starts the day before
+/// [testNow].
 List<OpeningInterval> dailyEightToEight() => [
   for (var d = -1; d < 15; d++)
-    OpeningInterval(DateTime(2026, 10, 6 + d, 8).toUtc(), DateTime(2026, 10, 6 + d, 20).toUtc()),
+    OpeningInterval(DateTime.utc(2026, 10, 6 + d, 6), DateTime.utc(2026, 10, 6 + d, 18)),
 ];
 
 final lakeArea = Place(
@@ -57,7 +60,8 @@ final lakeArea = Place(
   openingHours: 'Mo-Su 08:00-20:00',
   openingHoursParsed: true,
   openingIntervals: dailyEightToEight(),
-  openingValidUntil: DateTime(2026, 10, 19).toUtc(),
+  // Midnight in France at the start of 19 October.
+  openingValidUntil: DateTime.utc(2026, 10, 18, 22),
   website: 'https://lunaway.net/demo',
   phone: '+33 4 00 00 00 00',
   lastConfirmedAt: DateTime.utc(2026, 7),

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -165,6 +166,38 @@ void main() {
         PlaceZone.central.wallClock(DateTime.utc(2026, 1, 10, 23, 30)),
         DateTime.utc(2026, 1, 11, 0, 30),
       );
+    });
+
+    test('finds the instant at which the place reads a wall clock time, in winter and summer', () {
+      const paris = PlaceZone.central;
+      expect(paris.instantOf(DateTime.utc(2026, 1, 11, 0, 30)), DateTime.utc(2026, 1, 10, 23, 30));
+      expect(paris.instantOf(DateTime.utc(2026, 10, 6, 20)), DateTime.utc(2026, 10, 6, 18));
+      expect(
+        PlaceZone.ofCountry('PT').instantOf(DateTime.utc(2026, 7, 1, 8)),
+        DateTime.utc(2026, 7, 1, 7),
+      );
+    });
+  });
+
+  test('the demo hours are on the clock of France, whatever the zone of the machine', () {
+    final t = AppLocale.fr.buildSync();
+    // Tuesday 6 October 2026, 10:30 in France. Each pattern of the demo
+    // hours read then, in France: a zone of the machine leaking into the
+    // intervals (the CI runs in UTC) shifts every one of them.
+    final now = DateTime.utc(2026, 10, 6, 8, 30);
+    final said = {
+      for (final p in demoPlaces(count: 400, now: now))
+        if (openingStateAt(p.openingIntervals, now, validUntil: p.openingValidUntil)
+            case final state?)
+          t.opening(state, now, zone: PlaceZone.central),
+    };
+    expect(said, {
+      'Ouvert maintenant',
+      'Ouvert, ferme à 20:00',
+      'Ouvert, ferme à 18:00',
+      'Ouvert, ferme à 22:00',
+      'Fermé, ouvre vendredi à 18:00',
+      'Ouvert, ferme à 12:00',
     });
   });
 }

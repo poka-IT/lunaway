@@ -1,3 +1,4 @@
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -475,18 +476,23 @@ final List<_Hours> _hours = [
   ),
 ];
 
+/// The demo towns are French: their hours are read on the clock of France,
+/// as the server reads them in each place's zone, never on the clock of the
+/// machine running the demo or the tests.
+const PlaceZone _zone = PlaceZone.central;
+
 /// The UTC intervals of [hours] from the day before [now] over the window.
 List<OpeningInterval> _intervals(_Hours hours, DateTime now) {
-  final local = now.toLocal();
-  final first = DateTime(local.year, local.month, local.day - 1);
+  final wall = _zone.wallClock(now);
+  final first = DateTime.utc(wall.year, wall.month, wall.day - 1);
   final out = <OpeningInterval>[];
   for (var d = 0; d <= openingWindow.inDays + 1; d++) {
-    final day = DateTime(first.year, first.month, first.day + d);
+    final day = DateTime.utc(first.year, first.month, first.day + d);
     for (final (start, end) in hours.week[day.weekday] ?? const <(int, int)>[]) {
       out.add(
         OpeningInterval(
-          DateTime(day.year, day.month, day.day, 0, start).toUtc(),
-          DateTime(day.year, day.month, day.day, 0, end).toUtc(),
+          _zone.instantOf(DateTime.utc(day.year, day.month, day.day, 0, start)),
+          _zone.instantOf(DateTime.utc(day.year, day.month, day.day, 0, end)),
         ),
       );
     }
@@ -494,9 +500,9 @@ List<OpeningInterval> _intervals(_Hours hours, DateTime now) {
   return out;
 }
 
-/// Where the server's window ends: 14 days from local midnight of the day
-/// it computed the intervals.
+/// Where the server's window ends: 14 days from midnight, in the place's
+/// zone, of the day it computed the intervals.
 DateTime _windowEnd(DateTime now) {
-  final local = now.toLocal();
-  return DateTime(local.year, local.month, local.day + openingWindow.inDays).toUtc();
+  final wall = _zone.wallClock(now);
+  return _zone.instantOf(DateTime.utc(wall.year, wall.month, wall.day + openingWindow.inDays));
 }
