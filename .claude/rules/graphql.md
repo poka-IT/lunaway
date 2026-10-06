@@ -30,7 +30,10 @@ to end.
 - The endpoint takes one operation per `POST`, as `application/json` only:
   no batch, no GET, no multipart. Photos go to `POST /upload` (multipart,
   a session of level 1, 10 MB), a separate route that reads the image into
-  memory within its limit and answers with the same error body. Body,
+  memory within its limit and answers with the same error body. The map
+  tiles of the points of interest are `GET /poi/...` (`tiles.rs`), outside
+  GraphQL: charged on the same per-client budget, cached in memory, a few
+  built at once, and their coordinates never logged. Body,
   response, concurrency, cost in flight, timeout and the per-client budget
   (a fixed cost per request plus its complexity; IPv4 or IPv6 /64, with a
   shared budget per IPv6 /48; `X-Forwarded-For` believed only behind the

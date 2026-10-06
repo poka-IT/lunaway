@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO pois (id, source_id, external_id, category, kind, geom, data, raw, fetched_at)\n        VALUES ($1, 'osm', 'node/x', 'groceries', 'castle',\n                ST_SetSRID(ST_MakePoint(5, 45), 4326)::geography, '{}', '{}', now())\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e4f8430e75684a126e5bb9eda5d1c1631ab1e04cd294e2f9b2089886cb3c86cb"
+}

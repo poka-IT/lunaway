@@ -1,0 +1,573 @@
+//! Points of interest from OpenStreetMap (ODbL 1.0, © OpenStreetMap
+//! contributors), read from the same France extract as the places
+//! ([`crate::osm_extract`]).
+//!
+//! # Tag mapping
+//!
+//! The first line that matches decides; an element is one point.
+//!
+//! | OSM | kind |
+//! |---|---|
+//! | `amenity=fuel` | `fuel_station` |
+//! | `amenity=charging_station` | `ev_charging` |
+//! | `amenity=vending_machine` + a food `vending` | `vending_*` ([`vending_kind`]) |
+//! | `amenity=marketplace` | `marketplace` |
+//! | `amenity=drinking_water` | `drinking_water` |
+//! | `amenity=water_point` | `water_point` |
+//! | `amenity=sanitary_dump_station` | `dump_station` |
+//! | `amenity=toilets` | `toilets` |
+//! | `amenity=shower` | `shower` |
+//! | `amenity=pharmacy` | `pharmacy` |
+//! | `amenity=doctors` | `doctor` |
+//! | `amenity=hospital` | `hospital` |
+//! | `amenity=veterinary` | `veterinary` |
+//! | `amenity=atm`, or `amenity=bank` + `atm=yes` | `atm` |
+//! | `amenity=post_office` | `post_office` |
+//! | `amenity=recycling` + `recycling_type=centre` | `recycling_centre` |
+//! | `amenity=car_wash` | `car_wash` |
+//! | `amenity=laundry`, `shop=laundry` | `laundry` |
+//! | `shop=supermarket` | `supermarket` |
+//! | `shop=convenience` | `convenience` |
+//! | `shop=bakery` | `bakery` |
+//! | `shop=butcher` | `butcher` |
+//! | `shop=greengrocer` | `greengrocer` |
+//! | `shop=farm` | `farm_shop` |
+//! | `shop=gas` | `gas_bottles` |
+//! | `shop=car_repair` | `car_repair` |
+//! | `shop=caravan`, `shop=motorhome` | `motorhome_shop` |
+//! | `tourism=information` + `information=office` | `tourist_office` |
+//!
+//! Left out: anything `access=no|private`, a vending machine that sells no
+//! food (drinks, sweets, tickets), opening hours `closed` or `off`, and the
+//! recycling containers, information boards and post boxes the report
+//! leaves aside (`plan/research/05-poi-sources.md`, Recommendation 1).
+//!
+//! Fields: `name`, `brand`, `operator`, `opening_hours`,
+//! `phone`/`contact:phone`, `website`/`contact:website` (web links only),
+//! `addr:*`, `wheelchair`, `check_date` (or `check_date:opening_hours`,
+//! `survey:date`), `vending` (split on `;`), `payment:<method>=yes`,
+//! `fuel:<fuel>=yes` and `fuel:lpg`, `self_service`, `fee`, `seasonal`,
+//! `emergency`; the join keys `ref:FR:prix-carburants`, `ref:FR:LaPoste`,
+//! `ref:FR:FINESS`, `ref:FR:SIRET`.
+
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, NaiveDate, Utc};
+use lunaway_domain::{
+    Position,
+    poi::{PoiKind, PoiRecord, vending_kind},
+};
+
+use crate::{
+    IngestError,
+    osm::{Element, Skip},
+    osm_extract::{self, Selector},
+    web,
+};
+
+/// One point as the adapter produced it, ready to be stored.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FetchedPoi {
+    /// `node/123`, `way/456`.
+    pub external_id: String,
+    /// Its page on openstreetmap.org.
+    pub external_url: Option<String>,
+    /// The normalised content.
+    pub record: PoiRecord,
+    /// The element as Overpass would write it.
+    pub raw: serde_json::Value,
+    /// When the extract was read.
+    pub fetched_at: DateTime<Utc>,
+}
+
+/// What a read produced.
+#[derive(Debug, Default)]
+pub struct ParsedPois {
+    /// One point per element kept.
+    pub points: Vec<FetchedPoi>,
+    /// Elements dropped, with the reason.
+    pub skipped: Vec<(String, Skip)>,
+}
+
+fn tag<'a>(tags: &'a BTreeMap<String, String>, key: &str) -> Option<&'a str> {
+    tags.get(key).map(|v| v.trim()).filter(|v| !v.is_empty())
+}
+
+fn is(tags: &BTreeMap<String, String>, key: &str, value: &str) -> bool {
+    tag(tags, key) == Some(value)
+}
+
+/// Values of a `;`-separated tag, trimmed and lower-cased.
+fn values(raw: &str) -> Vec<String> {
+    raw.split(';')
+        .map(|v| v.trim().to_ascii_lowercase())
+        .filter(|v| !v.is_empty())
+        .collect()
+}
+
+/// The kind of a point, by the table of the module.
+#[must_use]
+pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
+    if let Some(amenity) = tag(tags, "amenity") {
+        let kind = match amenity {
+            "fuel" => Some(PoiKind::FuelStation),
+            "charging_station" => Some(PoiKind::EvCharging),
+            "vending_machine" => {
+                let products = tag(tags, "vending").map(values).unwrap_or_default();
+                let products: Vec<&str> = products.iter().map(String::as_str).collect();
+                let labels: Vec<&str> = ["name", "operator", "brand"]
+                    .iter()
+                    .filter_map(|k| tag(tags, k))
+                    .collect();
+                vending_kind(&products, &labels)
+            }
+            "marketplace" => Some(PoiKind::Marketplace),
+            "drinking_water" => Some(PoiKind::DrinkingWater),
+            "water_point" => Some(PoiKind::WaterPoint),
+            "sanitary_dump_station" => Some(PoiKind::DumpStation),
+            "toilets" => Some(PoiKind::Toilets),
+            "shower" => Some(PoiKind::Shower),
+            "pharmacy" => Some(PoiKind::Pharmacy),
+            "doctors" => Some(PoiKind::Doctor),
+            "hospital" => Some(PoiKind::Hospital),
+            "veterinary" => Some(PoiKind::Veterinary),
+            "atm" => Some(PoiKind::Atm),
+            "bank" if is(tags, "atm", "yes") => Some(PoiKind::Atm),
+            "post_office" => Some(PoiKind::PostOffice),
+            "recycling" if is(tags, "recycling_type", "centre") => Some(PoiKind::RecyclingCentre),
+            "car_wash" => Some(PoiKind::CarWash),
+            "laundry" => Some(PoiKind::Laundry),
+            _ => None,
+        };
+        if kind.is_some() {
+            return kind;
+        }
+    }
+    if let Some(shop) = tag(tags, "shop") {
+        let kind = match shop {
+            "supermarket" => Some(PoiKind::Supermarket),
+            "convenience" => Some(PoiKind::Convenience),
+            "bakery" => Some(PoiKind::Bakery),
+            "butcher" => Some(PoiKind::Butcher),
+            "greengrocer" => Some(PoiKind::Greengrocer),
+            "farm" => Some(PoiKind::FarmShop),
+            "gas" => Some(PoiKind::GasBottles),
+            "laundry" => Some(PoiKind::Laundry),
+            "car_repair" => Some(PoiKind::CarRepair),
+            "caravan" | "motorhome" => Some(PoiKind::MotorhomeShop),
+            _ => None,
+        };
+        if kind.is_some() {
+            return kind;
+        }
+    }
+    (is(tags, "tourism", "information") && is(tags, "information", "office"))
+        .then_some(PoiKind::TouristOffice)
+}
+
+/// Whether the point is closed to the public, or says it never opens.
+fn left_out(tags: &BTreeMap<String, String>) -> bool {
+    matches!(tag(tags, "access"), Some("no" | "private"))
+        || matches!(tag(tags, "opening_hours"), Some("closed" | "off"))
+}
+
+fn yes_no(tags: &BTreeMap<String, String>, key: &str) -> Option<bool> {
+    match tag(tags, key)? {
+        "yes" | "only" | "designated" => Some(true),
+        "no" => Some(false),
+        _ => None,
+    }
+}
+
+/// A date as OSM's `check_date` writes it: `2025-06-14`, or `2025-06` for
+/// the first of the month.
+fn check_date(raw: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(raw, "%Y-%m-%d")
+        .ok()
+        .or_else(|| NaiveDate::parse_from_str(&format!("{raw}-01"), "%Y-%m-%d").ok())
+}
+
+/// The suffixes of the `<prefix><suffix>=yes` keys (`payment:cash=yes`),
+/// at most twelve.
+fn yes_suffixes(tags: &BTreeMap<String, String>, prefix: &str) -> Vec<String> {
+    let from = (
+        std::ops::Bound::Included(prefix),
+        std::ops::Bound::Unbounded,
+    );
+    tags.range::<str, _>(from)
+        .take_while(|(k, _)| k.starts_with(prefix))
+        .filter(|(k, v)| v.trim() == "yes" && !k[prefix.len()..].contains(':'))
+        .map(|(k, _)| k[prefix.len()..].to_owned())
+        .filter(|s| !s.is_empty() && s.len() <= 32)
+        .take(12)
+        .collect()
+}
+
+/// The first value of a reference tag, kept when it has the expected shape
+/// (`len` characters of the allowed set), upper-cased.
+fn reference(
+    raw: Option<&str>,
+    len: std::ops::RangeInclusive<usize>,
+    digits_only: bool,
+) -> Option<String> {
+    let first = raw?.split(';').next()?.trim().to_ascii_uppercase();
+    let ok = len.contains(&first.len())
+        && first.chars().all(|c| {
+            if digits_only {
+                c.is_ascii_digit()
+            } else {
+                c.is_ascii_alphanumeric()
+            }
+        });
+    ok.then_some(first)
+}
+
+/// Maps one element; `Err` says why it is left out.
+///
+/// # Errors
+///
+/// [`Skip`] when the element is not a point the layer reads, or has no
+/// usable coordinates.
+pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
+    let tags = &element.tags;
+    let kind = kind_of(tags).ok_or(Skip::OutOfScope)?;
+    if left_out(tags) {
+        return Err(Skip::OutOfScope);
+    }
+    let position = match (element.lat, element.lon, element.bounds) {
+        (Some(lat), Some(lon), _) => Position::new(lat, lon)?,
+        // The centre of the outline at OSM's own precision (1e-7 degree),
+        // so the stored JSON does not change with a rounding tail.
+        (_, _, Some(b)) => Position::new(
+            ((b.minlat + b.maxlat) / 2.0 * 1e7).round() / 1e7,
+            ((b.minlon + b.maxlon) / 2.0 * 1e7).round() / 1e7,
+        )?,
+        _ => return Err(Skip::NoCoordinates),
+    };
+    let mut r = PoiRecord::new(kind, position);
+    r.name = tag(tags, "name").map(str::to_owned);
+    r.brand = tag(tags, "brand").map(str::to_owned);
+    r.operator = tag(tags, "operator").map(str::to_owned);
+    r.opening_hours = tag(tags, "opening_hours").map(str::to_owned);
+    r.phone = ["phone", "contact:phone", "contact:mobile"]
+        .iter()
+        .find_map(|k| tag(tags, k))
+        .map(str::to_owned);
+    r.website = ["website", "contact:website", "url"]
+        .iter()
+        .find_map(|k| tag(tags, k).and_then(web::website));
+    r.address.street = match (tag(tags, "addr:housenumber"), tag(tags, "addr:street")) {
+        (Some(n), Some(s)) => Some(format!("{n} {s}")),
+        (None, Some(s)) => Some(s.to_owned()),
+        _ => None,
+    };
+    r.address.postcode = tag(tags, "addr:postcode").map(str::to_owned);
+    r.address.city = tag(tags, "addr:city").map(str::to_owned);
+    r.address.country_code = Some(tag(tags, "addr:country").unwrap_or("FR").to_uppercase());
+    r.wheelchair = tag(tags, "wheelchair")
+        .filter(|w| matches!(*w, "yes" | "limited" | "no"))
+        .map(str::to_owned);
+    r.check_date = ["check_date", "check_date:opening_hours", "survey:date"]
+        .iter()
+        .find_map(|k| tag(tags, k).and_then(check_date));
+    if kind.is_vending() {
+        r.products = tag(tags, "vending")
+            .map(values)
+            .unwrap_or_default()
+            .into_iter()
+            .take(12)
+            .collect();
+    }
+    r.payment = yes_suffixes(tags, "payment:");
+    if kind == PoiKind::FuelStation {
+        r.fuels = yes_suffixes(tags, "fuel:");
+        r.lpg = yes_no(tags, "fuel:lpg");
+    }
+    r.self_service = yes_no(tags, "self_service");
+    r.fee = yes_no(tags, "fee");
+    r.seasonal = match tag(tags, "seasonal") {
+        Some("no") => Some(false),
+        Some(_) => Some(true),
+        None => None,
+    };
+    if kind == PoiKind::Hospital {
+        r.emergency = yes_no(tags, "emergency");
+    }
+    r.osm_ref = Some(format!("{}/{}", element.kind, element.id));
+    r.refs.fuel = reference(tag(tags, "ref:FR:prix-carburants"), 5..=9, true)
+        // The feed's ids are numbers: a leading zero is not part of one.
+        .map(|v| v.trim_start_matches('0').to_owned())
+        .filter(|v| !v.is_empty());
+    r.refs.laposte = reference(tag(tags, "ref:FR:LaPoste"), 6..=6, false);
+    r.refs.finess = reference(tag(tags, "ref:FR:FINESS"), 9..=9, false);
+    r.refs.siret = reference(tag(tags, "ref:FR:SIRET"), 14..=14, true);
+    Ok(r)
+}
+
+/// Maps elements (with their raw JSON) onto points.
+pub(crate) fn build(
+    elements: impl IntoIterator<Item = (Element, serde_json::Value)>,
+    fetched_at: DateTime<Utc>,
+) -> ParsedPois {
+    let mut out = ParsedPois::default();
+    for (element, raw) in elements {
+        let id = format!("{}/{}", element.kind, element.id);
+        match map_element(&element) {
+            Ok(record) => out.points.push(FetchedPoi {
+                external_url: Some(format!("https://www.openstreetmap.org/{id}")),
+                external_id: id,
+                record,
+                raw,
+                fetched_at,
+            }),
+            Err(reason) => out.skipped.push((id, reason)),
+        }
+    }
+    out
+}
+
+/// Maps an Overpass answer (`out tags bb`) onto points: the same mapping as
+/// the extract, for a region read through Overpass or a recorded sample.
+///
+/// # Errors
+///
+/// [`IngestError`] when the body is not an Overpass JSON answer.
+pub fn parse(body: &[u8], fetched_at: DateTime<Utc>) -> Result<ParsedPois, IngestError> {
+    Ok(build(crate::osm::parse_response(body)?, fetched_at))
+}
+
+/// The points of interest, by [`kind_of`].
+struct Pois;
+
+/// Values of `amenity` that may make a point.
+const AMENITIES: &[&str] = &[
+    "fuel",
+    "charging_station",
+    "vending_machine",
+    "marketplace",
+    "drinking_water",
+    "water_point",
+    "sanitary_dump_station",
+    "toilets",
+    "shower",
+    "pharmacy",
+    "doctors",
+    "hospital",
+    "veterinary",
+    "atm",
+    "bank",
+    "post_office",
+    "recycling",
+    "car_wash",
+    "laundry",
+];
+
+/// Values of `shop` that make a point.
+const SHOPS: &[&str] = &[
+    "supermarket",
+    "convenience",
+    "bakery",
+    "butcher",
+    "greengrocer",
+    "farm",
+    "gas",
+    "laundry",
+    "car_repair",
+    "caravan",
+    "motorhome",
+];
+
+impl Selector for Pois {
+    fn candidate<'a>(&self, mut tags: impl Iterator<Item = (&'a str, &'a str)>) -> bool {
+        tags.any(|(k, v)| match k {
+            "amenity" => AMENITIES.contains(&v),
+            "shop" => SHOPS.contains(&v),
+            "tourism" => v == "information",
+            _ => false,
+        })
+    }
+
+    fn keep(&self, tags: &BTreeMap<String, String>) -> bool {
+        kind_of(tags).is_some()
+    }
+}
+
+/// Reads the extract at `path` into points. CPU-bound and blocking: run it
+/// on a blocking thread.
+///
+/// # Errors
+///
+/// [`IngestError::Pbf`] when the file is not a readable PBF.
+pub fn read(path: &std::path::Path, fetched_at: DateTime<Utc>) -> Result<ParsedPois, IngestError> {
+    let (elements, outside) = osm_extract::read_selected(path, &Pois)?;
+    let mut parsed = build(elements, fetched_at);
+    parsed
+        .skipped
+        .extend(outside.into_iter().map(|id| (id, Skip::OutsideArea)));
+    Ok(parsed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tags(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn every_kind_is_reachable_from_osm() {
+        let reached: std::collections::BTreeSet<PoiKind> = [
+            vec![("amenity", "fuel")],
+            vec![("amenity", "charging_station")],
+            vec![("amenity", "vending_machine"), ("vending", "pizza")],
+            vec![("amenity", "vending_machine"), ("vending", "bread")],
+            vec![("amenity", "vending_machine"), ("vending", "eggs;cheese")],
+            vec![("amenity", "vending_machine"), ("vending", "eggs")],
+            vec![("amenity", "vending_machine"), ("vending", "ice_cubes")],
+            vec![("amenity", "vending_machine"), ("vending", "food")],
+            vec![("amenity", "marketplace")],
+            vec![("amenity", "drinking_water")],
+            vec![("amenity", "water_point")],
+            vec![("amenity", "sanitary_dump_station")],
+            vec![("amenity", "toilets")],
+            vec![("amenity", "shower")],
+            vec![("amenity", "pharmacy")],
+            vec![("amenity", "doctors")],
+            vec![("amenity", "hospital")],
+            vec![("amenity", "veterinary")],
+            vec![("amenity", "atm")],
+            vec![("amenity", "post_office")],
+            vec![("amenity", "recycling"), ("recycling_type", "centre")],
+            vec![("amenity", "car_wash")],
+            vec![("shop", "laundry")],
+            vec![("shop", "supermarket")],
+            vec![("shop", "convenience")],
+            vec![("shop", "bakery")],
+            vec![("shop", "butcher")],
+            vec![("shop", "greengrocer")],
+            vec![("shop", "farm")],
+            vec![("shop", "gas")],
+            vec![("shop", "car_repair")],
+            vec![("shop", "caravan")],
+            vec![("tourism", "information"), ("information", "office")],
+        ]
+        .iter()
+        .filter_map(|t| kind_of(&tags(t)))
+        .collect();
+        assert_eq!(
+            reached.len(),
+            PoiKind::ALL.len(),
+            "every kind of the domain must come from a tag, or its chip stays empty"
+        );
+    }
+
+    #[test]
+    fn what_the_layer_leaves_out() {
+        let k = |t: &[(&str, &str)]| kind_of(&tags(t));
+        assert_eq!(
+            k(&[("amenity", "vending_machine"), ("vending", "drinks")]),
+            None
+        );
+        assert_eq!(
+            k(&[("amenity", "bank")]),
+            None,
+            "a bank without a cash machine"
+        );
+        assert_eq!(
+            k(&[("amenity", "bank"), ("atm", "yes")]),
+            Some(PoiKind::Atm)
+        );
+        assert_eq!(
+            k(&[("amenity", "recycling"), ("recycling_type", "container")]),
+            None
+        );
+        assert_eq!(
+            k(&[("tourism", "information"), ("information", "board")]),
+            None
+        );
+        assert_eq!(k(&[("amenity", "post_box")]), None);
+        assert_eq!(
+            k(&[("amenity", "fuel"), ("shop", "gas")]),
+            Some(PoiKind::FuelStation),
+            "a fuel station that sells gas bottles is a fuel station"
+        );
+        let element = |t: &[(&str, &str)]| Element {
+            kind: "node".into(),
+            id: 1,
+            lat: Some(47.0),
+            lon: Some(-0.5),
+            bounds: None,
+            tags: tags(t),
+        };
+        assert!(map_element(&element(&[("amenity", "toilets"), ("access", "private")])).is_err());
+        assert!(map_element(&element(&[("shop", "bakery"), ("opening_hours", "closed")])).is_err());
+    }
+
+    #[test]
+    fn fields_and_join_keys_are_read() {
+        let e = Element {
+            kind: "way".into(),
+            id: 42,
+            lat: None,
+            lon: None,
+            bounds: Some(crate::osm::Bounds {
+                minlat: 47.0,
+                minlon: -0.6,
+                maxlat: 47.002,
+                maxlon: -0.598,
+            }),
+            tags: tags(&[
+                ("amenity", "fuel"),
+                ("name", "Total Access"),
+                ("brand", "TotalEnergies"),
+                ("opening_hours", "24/7"),
+                ("fuel:diesel", "yes"),
+                ("fuel:lpg", "yes"),
+                ("fuel:e85", "no"),
+                ("payment:cards", "yes"),
+                ("payment:cash", "no"),
+                ("ref:FR:prix-carburants", "01120009"),
+                ("check_date", "2025-06"),
+                ("website", "javascript:alert(1)"),
+            ]),
+        };
+        let r = map_element(&e).unwrap();
+        assert_eq!(r.kind, PoiKind::FuelStation);
+        assert_eq!(r.position, Position::new(47.001, -0.599).unwrap());
+        assert_eq!(r.fuels, vec!["diesel", "lpg"]);
+        assert_eq!(r.lpg, Some(true));
+        assert_eq!(r.payment, vec!["cards"]);
+        assert_eq!(
+            r.refs.fuel.as_deref(),
+            Some("1120009"),
+            "the feed's ids have no leading zero"
+        );
+        assert_eq!(r.check_date, NaiveDate::from_ymd_opt(2025, 6, 1));
+        assert_eq!(r.website, None, "only web links");
+        assert_eq!(r.osm_ref.as_deref(), Some("way/42"));
+        let post = Element {
+            tags: tags(&[("amenity", "post_office"), ("ref:FR:LaPoste", "13905d")]),
+            ..e.clone()
+        };
+        assert_eq!(
+            map_element(&post).unwrap().refs.laposte.as_deref(),
+            Some("13905D")
+        );
+        let pharmacy = Element {
+            tags: tags(&[
+                ("amenity", "pharmacy"),
+                ("ref:FR:FINESS", "860000017;2A0000123"),
+            ]),
+            ..e
+        };
+        assert_eq!(
+            map_element(&pharmacy).unwrap().refs.finess.as_deref(),
+            Some("860000017"),
+            "the first of a list"
+        );
+    }
+}

@@ -25,6 +25,14 @@ impl SourceId {
     pub const ATOUT_FRANCE: Self = Self(Cow::Borrowed("atout-france"));
     /// Contributions of Lunaway users.
     pub const COMMUNITY: Self = Self(Cow::Borrowed("community"));
+    /// The fuel price feed of the French ministry of the economy, joined to
+    /// fuel stations by their id in the feed.
+    pub const FUEL_PRICES: Self = Self(Cow::Borrowed("prix-carburants"));
+    /// La Poste's opening calendar, joined to post offices by their id.
+    pub const LAPOSTE: Self = Self(Cow::Borrowed("laposte"));
+    /// FINESS, the register of health establishments, joined to pharmacies
+    /// by their FINESS number.
+    pub const FINESS: Self = Self(Cow::Borrowed("finess"));
 
     /// A source id, if `id` follows the format.
     ///
@@ -77,7 +85,14 @@ mod tests {
 
     #[test]
     fn the_known_sources_are_valid_ids() {
-        for id in [SourceId::OSM, SourceId::ATOUT_FRANCE, SourceId::COMMUNITY] {
+        for id in [
+            SourceId::OSM,
+            SourceId::ATOUT_FRANCE,
+            SourceId::COMMUNITY,
+            SourceId::FUEL_PRICES,
+            SourceId::LAPOSTE,
+            SourceId::FINESS,
+        ] {
             assert_eq!(
                 SourceId::new(id.as_str()).unwrap(),
                 id,

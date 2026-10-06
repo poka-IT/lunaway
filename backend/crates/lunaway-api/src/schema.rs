@@ -21,6 +21,10 @@ use crate::{
     guard::DocumentGuard,
     loaders::PlaceSourcesLoader,
     mutation::MutationRoot,
+    poi_query,
+    poi_types::{
+        GqlPoiCategory, GqlPoiKind, NearbyPois, Poi, PoiCategoryInfo, PoiConnection, PoiLayer,
+    },
     quota::QuotaLimiter,
     rate::RateLimiter,
     routing_types::{RouteInput, RouteResult, RoutingInfo},
@@ -386,10 +390,17 @@ impl QueryRoot {
         let first = page(first.unwrap_or(DEFAULT_PLACES_PAGE), MAX_PLACES_PAGE)?;
         let after = parse_after(after.as_deref())?;
         let f = filter.unwrap_or_default();
-        if let Some(h) = f.vehicle_height_m
-            && !(h.is_finite() && h > 0.0)
-        {
-            return Err(invalid_input("vehicleHeightM must be a positive number"));
+        for (name, v) in [
+            ("vehicleHeightM", f.vehicle_height_m),
+            ("vehicleLengthM", f.vehicle_length_m),
+            ("vehicleWidthM", f.vehicle_width_m),
+            ("vehicleWeightT", f.vehicle_weight_t),
+        ] {
+            if let Some(v) = v
+                && !(v.is_finite() && v > 0.0)
+            {
+                return Err(invalid_input(format!("{name} must be a positive number")));
+            }
         }
         let filter = places::PlaceFilter {
             kinds: f.kinds.map(|k| k.into_iter().map(Into::into).collect()),
@@ -401,6 +412,9 @@ impl QueryRoot {
                 .collect(),
             overnight_ok: f.overnight_ok.unwrap_or(false),
             vehicle_height_m: f.vehicle_height_m,
+            vehicle_length_m: f.vehicle_length_m,
+            vehicle_width_m: f.vehicle_width_m,
+            vehicle_weight_t: f.vehicle_weight_t,
         };
         let (pool, _permit) = db(ctx).await?;
         let page = places::in_bbox(pool, area, &filter, first, after)
@@ -480,6 +494,100 @@ impl QueryRoot {
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn routing(&self, ctx: &Context<'_>) -> Result<RoutingInfo> {
         crate::routing_query::routing_info(ctx).await
+    }
+
+    /// The families of points of interest and their kinds, in display
+    /// order: the map's chips.
+    async fn poi_categories(&self) -> Vec<PoiCategoryInfo> {
+        poi_query::categories()
+    }
+
+    /// One point of interest; null when it is gone or hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn poi(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<Poi>> {
+        poi_query::poi(ctx, id).await
+    }
+
+    /// "Around this place": for each category (all six when `categories`
+    /// is absent), the nearest points to the place `placeId`, or to the
+    /// point `at` (give one), nearest first, with their distance; open or
+    /// closed alike (`openNow` says which). Within `radiusM` (20 km at
+    /// most), or the category's default (`poiCategories`); `perCategory`
+    /// points each (1 by default, 10 at most); `kinds` narrows them.
+    #[graphql(
+        complexity = "poi_query::nearby_cost(per_category, categories.as_ref(), child_complexity)"
+    )]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is an argument of the GraphQL field"
+    )]
+    async fn nearby_pois(
+        &self,
+        ctx: &Context<'_>,
+        place_id: Option<Uuid>,
+        at: Option<LatLonInput>,
+        categories: Option<Vec<GqlPoiCategory>>,
+        kinds: Option<Vec<GqlPoiKind>>,
+        #[graphql(default = 1)] per_category: Option<i32>,
+        radius_m: Option<f64>,
+    ) -> Result<Vec<NearbyPois>> {
+        poi_query::nearby(
+            ctx,
+            poi_query::NearbyArgs {
+                place_id,
+                at,
+                categories,
+                kinds,
+                per_category,
+                radius_m,
+            },
+        )
+        .await
+    }
+
+    /// Searches the names and brands of the points of interest, without
+    /// accents, typos tolerated; among equal matches the nearest to `near`
+    /// first. `categories` narrows them.
+    #[graphql(complexity = "cost(first, 20, child_complexity)")]
+    async fn search_pois(
+        &self,
+        ctx: &Context<'_>,
+        text: String,
+        near: Option<LatLonInput>,
+        categories: Option<Vec<GqlPoiCategory>>,
+        #[graphql(default = 20)] first: Option<i32>,
+    ) -> Result<Vec<Poi>> {
+        poi_query::search(ctx, &text, near, categories, first.unwrap_or(20)).await
+    }
+
+    /// The points of interest of an area (4 square degrees at most, about a
+    /// French département per square degree), by id, 1000 per page at
+    /// most: what a device downloads to keep a region offline. The map
+    /// itself reads the tiles (`poiLayer`).
+    #[graphql(complexity = "cost(first, 500, child_complexity)")]
+    async fn pois(
+        &self,
+        ctx: &Context<'_>,
+        bbox: BBoxInput,
+        categories: Option<Vec<GqlPoiCategory>>,
+        #[graphql(default = 500)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<PoiConnection> {
+        poi_query::in_area(
+            ctx,
+            bbox,
+            categories,
+            first.unwrap_or(500),
+            after.as_deref(),
+        )
+        .await
+    }
+
+    /// Where the map tiles of the points of interest are, and their
+    /// version.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn poi_layer(&self, ctx: &Context<'_>) -> Result<PoiLayer> {
+        poi_query::layer(ctx).await
     }
 
     /// The signed-in account's favourite lists, by name, with their places.

@@ -1,0 +1,520 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification\n        FROM places\n        WHERE deleted_at IS NULL\n          AND (lunaway_fold($1) <% search_text OR search_text ~ lunaway_search_phrase($1))\n        ORDER BY\n            CASE WHEN search_text ~ (lunaway_search_phrase($1) || '\\M') THEN 3\n                 WHEN search_text ~ lunaway_search_phrase($1) THEN 2\n                 WHEN (SELECT bool_and(search_text ~ ('\\m' || w))\n                       FROM unnest(lunaway_search_words($1)) AS w) THEN 1\n                 ELSE 0\n            END DESC,\n            round(word_similarity(lunaway_fold($1), search_text)::numeric, 1) DESC,\n            CASE WHEN $2::float8 IS NULL OR $3::float8 IS NULL THEN 0\n                 ELSE ST_Distance(geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)\n            END,\n            word_similarity(lunaway_fold($1), search_text) DESC,\n            id\n        LIMIT $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "overnight",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "overnight"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "services",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "services"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "activities",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "activities"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "street",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "street"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "postcode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "postcode"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "country_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "country_code"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "price_parking_eur",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_parking_eur"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "price_services_eur",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_services_eur"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "max_height_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "max_height_m"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "max_length_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "max_length_m"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "max_width_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "max_width_m"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "max_weight_t",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "max_weight_t"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "capacity",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "capacity"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "opening_hours",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_hours"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "opening_hours_parsed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_hours_parsed"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "opening_intervals",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_intervals"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "opening_intervals_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_intervals_until"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "website",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "website"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "phone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "phone"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "stars",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "stars"
+          }
+        }
+      },
+      {
+        "ordinal": 27,
+        "name": "last_confirmed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "last_confirmed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 28,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 29,
+        "name": "updated_seq",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "updated_seq"
+          }
+        }
+      },
+      {
+        "ordinal": 30,
+        "name": "provenance",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "provenance"
+          }
+        }
+      },
+      {
+        "ordinal": 31,
+        "name": "deleted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 32,
+        "name": "merged_into",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "merged_into"
+          }
+        }
+      },
+      {
+        "ordinal": 33,
+        "name": "municipality",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "municipality"
+          }
+        }
+      },
+      {
+        "ordinal": 34,
+        "name": "descriptions",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "descriptions"
+          }
+        }
+      },
+      {
+        "ordinal": 35,
+        "name": "external_links",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "external_links"
+          }
+        }
+      },
+      {
+        "ordinal": 36,
+        "name": "rating_avg",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "rating_avg"
+          }
+        }
+      },
+      {
+        "ordinal": 37,
+        "name": "rating_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "rating_count"
+          }
+        }
+      },
+      {
+        "ordinal": 38,
+        "name": "review_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "review_count"
+          }
+        }
+      },
+      {
+        "ordinal": 39,
+        "name": "photo_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "photo_count"
+          }
+        }
+      },
+      {
+        "ordinal": 40,
+        "name": "cover_photos",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "cover_photos"
+          }
+        }
+      },
+      {
+        "ordinal": 41,
+        "name": "reported_issues",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "reported_issues"
+          }
+        }
+      },
+      {
+        "ordinal": 42,
+        "name": "verification",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "verification"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "852ff2c30425e42fe99e3cd6e2cac3582a83738d9b3771208ff32789e5a5fd0e"
+}

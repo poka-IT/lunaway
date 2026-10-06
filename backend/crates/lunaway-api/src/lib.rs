@@ -14,12 +14,15 @@ pub mod guard;
 mod http;
 mod loaders;
 pub mod mutation;
+mod poi_query;
+pub mod poi_types;
 mod quota;
 mod rate;
 mod routing;
 mod routing_query;
 pub mod routing_types;
 pub mod schema;
+pub mod tiles;
 pub mod types;
 mod upload;
 
@@ -66,7 +69,7 @@ fn cors(dev: bool) -> CorsLayer {
         .allow_origin(AllowOrigin::predicate(move |origin, _| {
             origin.to_str().is_ok_and(|o| origin_allowed(o, dev))
         }))
-        .allow_methods([Method::POST, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
         .expose_headers([header::RETRY_AFTER])
         .max_age(Duration::from_secs(86_400))
@@ -78,12 +81,13 @@ fn request_span<B>(request: &Request<B>) -> tracing::Span {
     tracing::info_span!(
         "request",
         method = %request.method(),
-        path = %request.uri().path()
+        path = %tiles::loggable_path(request.uri().path())
     )
 }
 
 /// The HTTP router: `/health` for probes, `POST /graphql` for the API,
-/// `POST /upload` for photos. Responses are gzip-compressed when the client
+/// `POST /upload` for photos, `GET /poi/...` for the map tiles of the
+/// points of interest. Responses are gzip-compressed when the client
 /// accepts it: a sync page of 1000 places shrinks about thirteen times.
 pub fn router(state: ApiState) -> Router {
     let limits = state.config.limits;
@@ -99,6 +103,11 @@ pub fn router(state: ApiState) -> Router {
         slots: tokio::sync::Semaphore::new(upload::UPLOADS_AT_ONCE),
     });
     let max_upload = upload.max_body();
+    let tiles = Arc::new(tiles::TileEndpoint::new(
+        state.pool.clone(),
+        state.config.tiles.clone(),
+        Arc::clone(&rate),
+    ));
     let endpoint = Arc::new(http::Endpoint::new(build_schema(state), limits, rate));
     let graphql = post(http::graphql).with_state(endpoint);
     let upload = post(upload::upload)
@@ -108,6 +117,14 @@ pub fn router(state: ApiState) -> Router {
         .route("/health", get(health))
         .route("/graphql", graphql)
         .route("/upload", upload)
+        .route(
+            tiles::TILE_JSON_PATH,
+            get(tiles::tile_json).with_state(Arc::clone(&tiles)),
+        )
+        .route(
+            "/poi/{version}/{z}/{x}/{y}",
+            get(tiles::tile).with_state(tiles),
+        )
         .layer(CompressionLayer::new())
         .layer(cors(dev_cors))
         .layer(TraceLayer::new_for_http().make_span_with(request_span))

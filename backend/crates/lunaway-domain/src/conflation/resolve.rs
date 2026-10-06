@@ -58,6 +58,9 @@ coded_field! {
     PriceParking => "priceParkingEur",
     PriceServices => "priceServicesEur",
     MaxHeight => "maxHeightM",
+    MaxLength => "maxLengthM",
+    MaxWidth => "maxWidthM",
+    MaxWeight => "maxWeightT",
     Capacity => "capacity",
     OpeningHours => "openingHours",
     Website => "website",
@@ -102,7 +105,9 @@ pub fn trust_prior(source: &SourceId, field: Field) -> f64 {
         Field::Description => pick(0.6, 0.5, 0.8),
         Field::Address => pick(0.7, 0.9, 0.6),
         Field::PriceParking | Field::PriceServices => pick(0.6, 0.5, 0.9),
-        Field::MaxHeight => pick(0.9, 0.1, 0.8),
+        Field::MaxHeight | Field::MaxLength | Field::MaxWidth | Field::MaxWeight => {
+            pick(0.9, 0.1, 0.8)
+        }
         Field::Capacity => pick(0.7, 0.9, 0.6),
         Field::OpeningHours => pick(0.8, 0.3, 0.7),
         Field::Website => pick(0.7, 0.8, 0.6),
@@ -151,6 +156,17 @@ pub struct PlaceContent {
     pub price_services_eur: Option<f64>,
     /// Maximum vehicle height, metres.
     pub max_height_m: Option<f64>,
+    /// Maximum vehicle length, metres. Left out of the stored form when
+    /// unknown, like the fields after it, so the digest of a place that
+    /// has none stays what it was before they existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length_m: Option<f64>,
+    /// Maximum vehicle width, metres.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width_m: Option<f64>,
+    /// Maximum vehicle weight, tonnes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_weight_t: Option<f64>,
     /// Pitches.
     pub capacity: Option<u32>,
     /// OSM `opening_hours`.
@@ -373,6 +389,9 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
         |v| render_f64(*v),
     );
     let max_height_m = r.pick(Field::MaxHeight, |x| x.max_height_m, |v| render_f64(*v));
+    let max_length_m = r.pick(Field::MaxLength, |x| x.max_length_m, |v| render_f64(*v));
+    let max_width_m = r.pick(Field::MaxWidth, |x| x.max_width_m, |v| render_f64(*v));
+    let max_weight_t = r.pick(Field::MaxWeight, |x| x.max_weight_t, |v| render_f64(*v));
     let capacity = r.pick(Field::Capacity, |x| x.capacity, ToString::to_string);
     let opening_hours = r.pick(
         Field::OpeningHours,
@@ -404,6 +423,9 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
             price_parking_eur,
             price_services_eur,
             max_height_m,
+            max_length_m,
+            max_width_m,
+            max_weight_t,
             capacity,
             opening_hours,
             website,

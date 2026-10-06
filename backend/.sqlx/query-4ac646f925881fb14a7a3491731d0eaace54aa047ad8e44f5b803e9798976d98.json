@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE poi_confirmations SET status = 'dismissed'\n            WHERE poi_id = $1 AND NOT still_there AND status = 'published'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4ac646f925881fb14a7a3491731d0eaace54aa047ad8e44f5b803e9798976d98"
+}

@@ -176,6 +176,15 @@ pub struct PlaceFilterInput {
     /// Leaves out places whose known maximum height is below this, in
     /// metres; places of unknown height stay.
     pub vehicle_height_m: Option<f64>,
+    /// Leaves out places whose known maximum length is below this, in
+    /// metres; places of unknown length stay.
+    pub vehicle_length_m: Option<f64>,
+    /// Leaves out places whose known maximum width is below this, in
+    /// metres; places of unknown width stay.
+    pub vehicle_width_m: Option<f64>,
+    /// Leaves out places whose known maximum weight is below this, in
+    /// tonnes; places of unknown weight stay.
+    pub vehicle_weight_t: Option<f64>,
 }
 
 /// A data source and its terms.
@@ -401,6 +410,21 @@ impl Place {
     /// Maximum vehicle height, metres.
     async fn max_height_m(&self) -> Option<f64> {
         self.0.max_height_m
+    }
+
+    /// Maximum vehicle length, metres.
+    async fn max_length_m(&self) -> Option<f64> {
+        self.0.max_length_m
+    }
+
+    /// Maximum vehicle width, metres.
+    async fn max_width_m(&self) -> Option<f64> {
+        self.0.max_width_m
+    }
+
+    /// Maximum vehicle weight, tonnes.
+    async fn max_weight_t(&self) -> Option<f64> {
+        self.0.max_weight_t
     }
 
     /// Number of pitches.

@@ -38,6 +38,12 @@ pub struct PlaceRow {
     pub price_services_eur: Option<f64>,
     /// Maximum vehicle height, metres.
     pub max_height_m: Option<f64>,
+    /// Maximum vehicle length, metres.
+    pub max_length_m: Option<f64>,
+    /// Maximum vehicle width, metres.
+    pub max_width_m: Option<f64>,
+    /// Maximum vehicle weight, tonnes.
+    pub max_weight_t: Option<f64>,
     /// Pitches.
     pub capacity: Option<i32>,
     /// OSM `opening_hours`.
@@ -91,6 +97,9 @@ pub(crate) struct PlaceDb {
     pub(crate) price_parking_eur: Option<f64>,
     pub(crate) price_services_eur: Option<f64>,
     pub(crate) max_height_m: Option<f64>,
+    pub(crate) max_length_m: Option<f64>,
+    pub(crate) max_width_m: Option<f64>,
+    pub(crate) max_weight_t: Option<f64>,
     pub(crate) capacity: Option<i32>,
     pub(crate) opening_hours: Option<String>,
     pub(crate) opening_hours_parsed: bool,
@@ -156,6 +165,9 @@ impl TryFrom<PlaceDb> for PlaceRow {
             price_parking_eur: r.price_parking_eur,
             price_services_eur: r.price_services_eur,
             max_height_m: r.max_height_m,
+            max_length_m: r.max_length_m,
+            max_width_m: r.max_width_m,
+            max_weight_t: r.max_weight_t,
             capacity: r.capacity,
             opening_hours: r.opening_hours,
             opening_hours_parsed: r.opening_hours_parsed,
@@ -207,6 +219,12 @@ pub struct PlaceFilter {
     pub overnight_ok: bool,
     /// Leave out places whose known maximum height is below this, metres.
     pub vehicle_height_m: Option<f64>,
+    /// Leave out places whose known maximum length is below this, metres.
+    pub vehicle_length_m: Option<f64>,
+    /// Leave out places whose known maximum width is below this, metres.
+    pub vehicle_width_m: Option<f64>,
+    /// Leave out places whose known maximum weight is below this, tonnes.
+    pub vehicle_weight_t: Option<f64>,
 }
 
 /// One page of the viewport query.
@@ -246,7 +264,8 @@ pub async fn in_bbox(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
+               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
@@ -259,6 +278,9 @@ pub async fn in_bbox(
           AND services @> $6::text[]
           AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))
           AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)
+          AND ($11::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $11)
+          AND ($12::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $12)
+          AND ($13::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $13)
           AND ($9::uuid IS NULL OR id > $9)
         ORDER BY id
         LIMIT $10
@@ -273,6 +295,9 @@ pub async fn in_bbox(
         filter.vehicle_height_m,
         after,
         first + 1,
+        filter.vehicle_length_m,
+        filter.vehicle_width_m,
+        filter.vehicle_weight_t,
     )
     .fetch_all(pool)
     .await?;
@@ -285,6 +310,9 @@ pub async fn in_bbox(
           AND services @> $6::text[]
           AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))
           AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)
+          AND ($9::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $9)
+          AND ($10::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $10)
+          AND ($11::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $11)
         "#,
         bbox.west(),
         bbox.south(),
@@ -294,6 +322,9 @@ pub async fn in_bbox(
         &services,
         filter.overnight_ok,
         filter.vehicle_height_m,
+        filter.vehicle_length_m,
+        filter.vehicle_width_m,
+        filter.vehicle_weight_t,
     )
     .fetch_one(pool)
     .await?;
@@ -354,7 +385,8 @@ pub async fn changes(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
+               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
@@ -413,7 +445,8 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
             r#"
             SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                    overnight, services, activities, description, street, postcode, city,
-                   country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
+                   country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               max_width_m, max_weight_t, capacity,
                    opening_hours, opening_hours_parsed, opening_intervals,
                    opening_intervals_until, website, phone, stars, last_confirmed_at,
                    updated_at, updated_seq, provenance,

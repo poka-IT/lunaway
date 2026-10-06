@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE pois SET deleted_at = $3, changed_at = now()\n        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fefb105232bb25d9c18dc18fb6d769271614004dff8c1a9e5813186ef530f88b"
+}

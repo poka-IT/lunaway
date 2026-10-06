@@ -687,8 +687,6 @@ pub struct ConfirmationRow {
     pub place_id: Uuid,
     /// The answer code.
     pub status: String,
-    /// `present` or `unverified`.
-    pub presence: String,
     /// When.
     pub created_at: DateTime<Utc>,
 }
@@ -705,22 +703,20 @@ pub async fn confirm(
     place: Uuid,
     status: ConfirmationStatus,
     note: Option<&str>,
-    presence: &str,
 ) -> Result<ConfirmationRow, DbError> {
     let mut tx = begin(pool).await?;
     let row = sqlx::query_as!(
         ConfirmationRow,
         r#"
-        INSERT INTO confirmations (id, place_id, account_id, status, note, presence)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, place_id, status, presence, created_at
+        INSERT INTO confirmations (id, place_id, account_id, status, note)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, place_id, status, created_at
         "#,
         Uuid::now_v7(),
         place,
         account,
         status.code(),
         note,
-        presence,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -779,7 +775,7 @@ pub async fn confirmations_of_account(
     let rows = sqlx::query_as!(
         ConfirmationRow,
         r#"
-        SELECT id, place_id, status, presence, created_at FROM confirmations
+        SELECT id, place_id, status, created_at FROM confirmations
         WHERE account_id = $1 AND ($2::uuid IS NULL OR id < $2)
         ORDER BY id DESC LIMIT $3
         "#,

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM poi_refresh_queue RETURNING poi_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_refresh_queue",
+            "name": "poi_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "90f14f97a151d5f231959ee55f7fe5fb80b24e109ddf6e9f05ad84c6f69e22f3"
+}

@@ -151,11 +151,25 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
     .await;
     let sources = body["data"]["sources"].as_array().unwrap();
     let ids: Vec<&str> = sources.iter().map(|s| s["id"].as_str().unwrap()).collect();
-    assert_eq!(ids, ["atout-france", "community", "osm"]);
-    assert_eq!(sources[2]["attribution"], "© OpenStreetMap contributors");
+    assert_eq!(
+        ids,
+        [
+            "atout-france",
+            "community",
+            "finess",
+            "laposte",
+            "osm",
+            "prix-carburants"
+        ]
+    );
+    assert_eq!(sources[4]["attribution"], "© OpenStreetMap contributors");
     assert_eq!(
         sources[1]["licence"], "ODbL 1.0",
         "places added by users join the ODbL database"
+    );
+    assert_eq!(
+        sources[3]["licence"], "ODbL 1.0",
+        "La Poste's calendar is under the same licence as the database"
     );
 }
 
@@ -1059,8 +1073,8 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        3,
-        "OpenStreetMap, Atout France and the community"
+        6,
+        "OpenStreetMap, Atout France, the community, and the three joined to the points"
     );
 }
 

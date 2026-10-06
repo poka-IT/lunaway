@@ -7,6 +7,7 @@ pub mod community;
 pub mod conflation;
 pub mod geo;
 pub mod opening;
+pub mod poi;
 pub mod record;
 pub mod routing;
 pub mod source;

@@ -658,6 +658,18 @@ pub async fn delete_account(
     )
     .execute(&mut *tx)
     .await?;
+    // The "still there?" answers go with the account (ON DELETE CASCADE):
+    // the points they spoke of are counted again.
+    sqlx::query!(
+        r#"
+        INSERT INTO poi_refresh_queue (poi_id)
+        SELECT DISTINCT poi_id FROM poi_confirmations WHERE account_id = $1
+        ON CONFLICT DO NOTHING
+        "#,
+        account,
+    )
+    .execute(&mut *tx)
+    .await?;
     let photos = sqlx::query!(
         "DELETE FROM photos WHERE account_id = $1 RETURNING id, path, thumb_path",
         account
@@ -801,6 +813,19 @@ pub async fn ban(
         UNION SELECT place_id FROM photos WHERE account_id = $1
         UNION SELECT place_id FROM confirmations WHERE account_id = $1
         UNION SELECT place_id FROM issue_reports WHERE account_id = $1
+        ON CONFLICT DO NOTHING
+        "#,
+        account,
+    )
+    .execute(&mut *tx)
+    .await?;
+    // A banned account's "gone" no longer hides a point, and the points
+    // it added are hidden.
+    sqlx::query!(
+        r#"
+        INSERT INTO poi_refresh_queue (poi_id)
+        SELECT poi_id FROM poi_confirmations WHERE account_id = $1
+        UNION SELECT poi_id FROM place_submissions WHERE account_id = $1 AND poi_id IS NOT NULL
         ON CONFLICT DO NOTHING
         "#,
         account,

@@ -327,24 +327,44 @@ fn osm_degrees(decoded: f64) -> f64 {
     (decoded * 1e7).round() / 1e7
 }
 
-/// Whether a tag set may describe something the MVP reads; the full check
-/// is [`osm::kind_of`] on the collected tags.
-fn candidate<'a>(mut tags: impl Iterator<Item = (&'a str, &'a str)>) -> bool {
-    tags.any(|(k, v)| match k {
-        "tourism" => v == "camp_site" || v == "caravan_site",
-        "amenity" => v == "sanitary_dump_station" || v == "parking",
-        _ => false,
-    })
+/// What a read of the extract keeps: a cheap test on the raw tags, run on
+/// every element of the file, then the full test on the collected tags.
+pub(crate) trait Selector: Sync {
+    /// Whether the tags may describe something kept; a false answer skips
+    /// the element without allocating.
+    fn candidate<'a>(&self, tags: impl Iterator<Item = (&'a str, &'a str)>) -> bool;
+    /// Whether the collected tags describe something kept.
+    fn keep(&self, tags: &BTreeMap<String, String>) -> bool;
 }
 
-fn selected<'a>(
+/// The places: motorhome areas, campsites, dump stations, the car parks
+/// and rest areas the place mapping reads ([`osm::kind_of`]).
+struct Places;
+
+impl Selector for Places {
+    fn candidate<'a>(&self, mut tags: impl Iterator<Item = (&'a str, &'a str)>) -> bool {
+        tags.any(|(k, v)| match k {
+            "tourism" => v == "camp_site" || v == "caravan_site",
+            "amenity" => v == "sanitary_dump_station" || v == "parking",
+            "highway" => v == "rest_area" || v == "services",
+            _ => false,
+        })
+    }
+
+    fn keep(&self, tags: &BTreeMap<String, String>) -> bool {
+        osm::kind_of(tags).is_some()
+    }
+}
+
+fn selected<'a, S: Selector>(
+    selector: &S,
     tags: impl Iterator<Item = (&'a str, &'a str)> + Clone,
 ) -> Option<BTreeMap<String, String>> {
-    if !candidate(tags.clone()) {
+    if !selector.candidate(tags.clone()) {
         return None;
     }
     let map: BTreeMap<String, String> = tags.map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
-    osm::kind_of(&map).map(|_| map)
+    selector.keep(&map).then_some(map)
 }
 
 #[derive(Default)]
@@ -377,13 +397,37 @@ fn pbf_err(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
     }
 }
 
-/// Reads the extract at `path` into records. CPU-bound and blocking: run it
-/// on a blocking thread.
+/// Reads the extract at `path` into place records. CPU-bound and blocking:
+/// run it on a blocking thread.
 ///
 /// # Errors
 ///
 /// [`IngestError::Pbf`] when the file is not a readable PBF.
 pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestError> {
+    let (elements, outside) = read_selected(path, &Places)?;
+    let mut parsed = osm::build(elements, fetched_at);
+    parsed
+        .skipped
+        .extend(outside.into_iter().map(|id| (id, Skip::OutsideArea)));
+    Ok(parsed)
+}
+
+/// What a read keeps: the elements with their raw JSON, and the ids of
+/// those outside the imported area.
+pub(crate) type Selection = (Vec<(Element, serde_json::Value)>, Vec<String>);
+
+/// The elements of the extract at `path` that `selector` keeps, inside the
+/// imported area, each with its raw JSON (as Overpass would write it), and
+/// the ids of those outside the area. Ways and relations are placed at the
+/// centre of their bounding box. CPU-bound and blocking.
+///
+/// # Errors
+///
+/// [`IngestError::Pbf`] when the file is not a readable PBF.
+pub(crate) fn read_selected<S: Selector>(
+    path: &Path,
+    selector: &S,
+) -> Result<Selection, IngestError> {
     // Pass 1: the tagged elements.
     let found = reader(path)?
         .par_map_reduce(
@@ -391,7 +435,7 @@ pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestErro
                 let mut s = Selected::default();
                 match element {
                     PbfElement::Node(n) => {
-                        if let Some(tags) = selected(n.tags()) {
+                        if let Some(tags) = selected(selector, n.tags()) {
                             s.nodes.push((
                                 n.id(),
                                 osm_degrees(n.lat()),
@@ -401,7 +445,7 @@ pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestErro
                         }
                     }
                     PbfElement::DenseNode(n) => {
-                        if let Some(tags) = selected(n.tags()) {
+                        if let Some(tags) = selected(selector, n.tags()) {
                             s.nodes.push((
                                 n.id(),
                                 osm_degrees(n.lat()),
@@ -411,12 +455,12 @@ pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestErro
                         }
                     }
                     PbfElement::Way(w) => {
-                        if let Some(tags) = selected(w.tags()) {
+                        if let Some(tags) = selected(selector, w.tags()) {
                             s.ways.push((w.id(), w.refs().collect(), tags));
                         }
                     }
                     PbfElement::Relation(r) => {
-                        if let Some(tags) = selected(r.tags()) {
+                        if let Some(tags) = selected(selector, r.tags()) {
                             let ways = r
                                 .members()
                                 .filter(|m| m.member_type == RelMemberType::Way)
@@ -545,11 +589,7 @@ pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestErro
             (e, raw)
         })
         .collect();
-    let mut parsed = osm::build(with_raw, fetched_at);
-    parsed
-        .skipped
-        .extend(outside.into_iter().map(|id| (id, Skip::OutsideArea)));
-    Ok(parsed)
+    Ok((with_raw, outside))
 }
 
 /// The bounding box of the nodes `refs`, `None` when none has coordinates.
@@ -636,13 +676,15 @@ mod tests {
     #[test]
     fn only_selected_tags_are_collected() {
         let camp = [("tourism", "camp_site"), ("name", "X")];
-        assert!(selected(camp.iter().copied()).is_some());
+        assert!(selected(&Places, camp.iter().copied()).is_some());
         let bench = [("amenity", "bench")];
-        assert!(selected(bench.iter().copied()).is_none());
+        assert!(selected(&Places, bench.iter().copied()).is_none());
         let car_park = [("amenity", "parking")];
         assert!(
-            selected(car_park.iter().copied()).is_none(),
-            "a car park without motorhome=yes|designated is out of scope"
+            selected(&Places, car_park.iter().copied()).is_none(),
+            "a car park without motorhome or caravan access is out of scope"
         );
+        let rest = [("highway", "rest_area")];
+        assert!(selected(&Places, rest.iter().copied()).is_some());
     }
 }

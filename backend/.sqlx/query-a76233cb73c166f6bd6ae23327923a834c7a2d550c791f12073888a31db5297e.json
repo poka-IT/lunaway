@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) FILTER (WHERE opening_hours IS NOT NULL) AS \"hours!\",\n               count(*) FILTER (WHERE opening_hours_parsed) AS \"parsed!\",\n               count(*) FILTER (WHERE opening_source = 'laposte') AS \"laposte_hours!\",\n               count(*) FILTER (WHERE fuel_ref IS NOT NULL) AS \"fuel!\",\n               count(*) FILTER (WHERE fuel_ref IS NOT NULL AND EXISTS (\n                   SELECT 1 FROM poi_join_records j WHERE j.source_id = 'prix-carburants'\n                     AND j.ref = pois.fuel_ref AND j.deleted_at IS NULL)) AS \"fuel_found!\",\n               count(*) FILTER (WHERE laposte_ref IS NOT NULL) AS \"laposte!\",\n               count(*) FILTER (WHERE laposte_ref IS NOT NULL AND EXISTS (\n                   SELECT 1 FROM poi_join_records j WHERE j.source_id = 'laposte'\n                     AND j.ref = pois.laposte_ref AND j.deleted_at IS NULL)) AS \"laposte_found!\",\n               count(*) FILTER (WHERE finess_ref IS NOT NULL) AS \"finess!\",\n               count(*) FILTER (WHERE finess_ref IS NOT NULL AND EXISTS (\n                   SELECT 1 FROM poi_join_records j WHERE j.source_id = 'finess'\n                     AND j.ref = pois.finess_ref AND j.deleted_at IS NULL)) AS \"finess_found!\",\n               count(*) FILTER (WHERE hidden) AS \"hidden!\"\n        FROM pois WHERE deleted_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hours!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "parsed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "laposte_hours!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "fuel!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "fuel_found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "laposte!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "laposte_found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "finess!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "finess_found!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "hidden!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "a76233cb73c166f6bd6ae23327923a834c7a2d550c791f12073888a31db5297e"
+}

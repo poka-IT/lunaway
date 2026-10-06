@@ -4,13 +4,14 @@
 //! catalogue: places change through submissions the conflation worker
 //! applies.
 
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, ErrorExtensions, Object, Result};
 use chrono::{NaiveDate, Utc};
 use lunaway_auth::{DevicePublicKey, Locale, RecoveryCode, challenge_message};
 use lunaway_db::{
     accounts::{self, Endorsement},
     community::{self as contributions, ReportOutcome, ReviewWrite},
     lists::{self, ListRefusal},
+    pois,
     submissions::{self, NewSubmission, Submitted, Withdrawal},
 };
 use lunaway_domain::{
@@ -18,12 +19,11 @@ use lunaway_domain::{
     community::{
         NOTE_MAX_CHARS, REVIEW_TEXT_CHARS, ReviewStatus,
         moderation::{TextFlag, check_text},
-        presence,
         pseudonym::normalize_pseudonym,
         submission::{self as rules, LocalizedDescription, NewPlace, PlacePatch},
         trust::Action as Level,
     },
-    is_language_tag,
+    is_language_tag, poi as poi_rules,
 };
 use uuid::Uuid;
 
@@ -33,10 +33,11 @@ use crate::{
     community_types::{
         Account, AuthChallenge, Confirmation, FavoriteList, FavoriteListInput,
         GqlConfirmationStatus, GqlIssueKind, GqlReportReason, GqlReportTarget, GqlVehicleKind,
-        IssueReport, NewPlaceInput, PlaceDetailsInput, PlaceSubmission, PresenceInput,
-        RecoveryCodeResult, Review, SignInResult,
+        IssueReport, NewPlaceInput, PlaceDetailsInput, PlaceSubmission, RecoveryCodeResult, Review,
+        SignInResult,
     },
     error::{forbidden, internal, invalid_input, not_found, quota_spent, unauthenticated},
+    poi_types::{NewVendingMachineInput, PoiConfirmation},
     quota::{Action, Subject},
     schema::{DB_FIELD_COST, db, state},
 };
@@ -44,6 +45,10 @@ use crate::{
 /// Root of every write.
 #[derive(Debug, Default)]
 pub struct MutationRoot;
+
+/// How close a vending machine of the same kind makes a new one a
+/// duplicate, metres: GPS on a phone is within about 10 m outdoors.
+const DUPLICATE_RADIUS_M: f64 = 25.0;
 
 fn client(ctx: &Context<'_>) -> Subject {
     Subject::Client(
@@ -598,9 +603,8 @@ impl MutationRoot {
             .ok_or_else(|| not_found("review"))
     }
 
-    /// Answers "is it still there?". A position (`presence`) is reduced to
-    /// a verdict (within 300 m or not) and never stored. `CLOSED` and
-    /// `CHANGED` open a check for moderators. Level 0.
+    /// Answers "is it still there?"; no position is sent or kept.
+    /// `CLOSED` and `CHANGED` open a check for moderators. Level 0.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn confirm(
         &self,
@@ -608,27 +612,17 @@ impl MutationRoot {
         place_id: Uuid,
         status: GqlConfirmationStatus,
         note: Option<String>,
-        presence: Option<PresenceInput>,
     ) -> Result<Confirmation> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Basic).await?;
         let note = self::note(note)?;
         account_quota(ctx, &viewer, Action::Confirmation, "confirmations")?;
         let place = live_place(ctx, place_id).await?;
-        let at = presence.and_then(|p| Position::new(p.lat, p.lon).ok());
-        let verdict = presence::verdict(place.position, at, presence.and_then(|p| p.accuracy_m));
         let row = {
             let (pool, _permit) = db(ctx).await?;
-            contributions::confirm(
-                pool,
-                viewer.id(),
-                place.id,
-                status.into(),
-                note.as_deref(),
-                verdict.code(),
-            )
-            .await
-            .map_err(|e| internal(&e))?
+            contributions::confirm(pool, viewer.id(), place.id, status.into(), note.as_deref())
+                .await
+                .map_err(|e| internal(&e))?
         };
         auth::after_contribution(ctx, &viewer).await;
         Confirmation::try_from(row)
@@ -644,6 +638,116 @@ impl MutationRoot {
             .map_err(|e| internal(&e))?
             .map(|_| true)
             .ok_or_else(|| not_found("confirmation"))
+    }
+
+    /// Answers "still there?" about a point of interest (a vending
+    /// machine, a fountain, a shop), shown or hidden. Level 0, counted with
+    /// the place confirmations. Three accounts of level 1 and up saying it
+    /// is gone hide it and send it to the moderators; a "still there" of an
+    /// account of level 1 and up after them shows it again. Applied by the
+    /// server within seconds.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn confirm_poi(
+        &self,
+        ctx: &Context<'_>,
+        poi_id: Uuid,
+        still_there: bool,
+    ) -> Result<PoiConfirmation> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::Basic).await?;
+        account_quota(ctx, &viewer, Action::Confirmation, "confirmations")?;
+        let (id, created_at) = {
+            let (pool, _permit) = db(ctx).await?;
+            // A hidden point can be answered: whoever finds it brings it
+            // back.
+            if !pois::exists(pool, poi_id).await.map_err(|e| internal(&e))? {
+                return Err(not_found("point of interest"));
+            }
+            pois::confirm(pool, viewer.id(), poi_id, still_there)
+                .await
+                .map_err(|e| internal(&e))?
+        };
+        auth::after_contribution(ctx, &viewer).await;
+        Ok(PoiConfirmation {
+            id,
+            poi_id,
+            still_there,
+            created_at,
+        })
+    }
+
+    /// Deletes one of the caller's "still there?" answers about a point.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn delete_poi_confirmation(&self, ctx: &Context<'_>, id: Uuid) -> Result<bool> {
+        let viewer = auth::require(ctx).await?;
+        let (pool, _permit) = db(ctx).await?;
+        pois::delete_confirmation(pool, viewer.id(), id)
+            .await
+            .map_err(|e| internal(&e))?
+            .then_some(true)
+            .ok_or_else(|| not_found("confirmation"))
+    }
+
+    /// Adds a vending machine where it stands: a pizza, bread or farm
+    /// products machine, in two gestures. Level 1; counted with the new
+    /// places and edits. It joins the points of interest under the ODbL
+    /// as the community's, within seconds; a name or operator the
+    /// automatic rules flag waits for a moderator. A machine of the same
+    /// kind within 25 m is refused (`INVALID_INPUT` with `existingId`):
+    /// confirm that one instead.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn add_vending_machine(
+        &self,
+        ctx: &Context<'_>,
+        input: NewVendingMachineInput,
+    ) -> Result<PlaceSubmission> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::AddPoi).await?;
+        let position = Position::new(input.lat, input.lon)
+            .map_err(|e| invalid_input(format!("position: {e}")))?;
+        let machine = poi_rules::validate_vending(&poi_rules::NewVendingMachine {
+            kind: input.kind.into(),
+            position,
+            name: input.name,
+            operator: input.operator,
+            brand: input.brand,
+            products: input.products.unwrap_or_default(),
+            payment: input.payment.unwrap_or_default(),
+            always_open: input.always_open.unwrap_or(false),
+        })
+        .map_err(|e| invalid_input(e.to_string()))?;
+        account_quota(ctx, &viewer, Action::Submission, "new places and edits")?;
+        let mut flags: Vec<TextFlag> = [&machine.name, &machine.operator, &machine.brand]
+            .into_iter()
+            .flatten()
+            .flat_map(|t| check_text(t))
+            .collect();
+        flags.sort();
+        flags.dedup();
+        let held = held_for(&flags);
+        let (pool, _permit) = db(ctx).await?;
+        if let Some(existing) = pois::vending_near(pool, position, machine.kind, DUPLICATE_RADIUS_M)
+            .await
+            .map_err(|e| internal(&e))?
+        {
+            return Err(
+                invalid_input("a vending machine of this kind is mapped within 25 m")
+                    .extend_with(|_, x| x.set("existingId", existing.to_string())),
+            );
+        }
+        let row = submissions::submit(
+            pool,
+            NewSubmission {
+                account: viewer.id(),
+                device_key: viewer.device_key_id,
+                what: Submitted::Poi(&machine),
+                accepted: held.is_none(),
+                held_for: held.as_deref(),
+            },
+        )
+        .await
+        .map_err(|e| internal(&e))?;
+        Ok(row.into())
     }
 
     /// Reports a problem met at a place (a night ban, a broken service, no

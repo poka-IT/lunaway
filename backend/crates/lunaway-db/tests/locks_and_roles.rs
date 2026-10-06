@@ -263,7 +263,7 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        3,
+        6,
         "the API reads the sources"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
@@ -311,6 +311,9 @@ async fn the_api_role_runs_an_account_from_creation_to_deletion(pool: PgPool) {
         price_parking_eur: None,
         price_services_eur: None,
         max_height_m: None,
+        max_length_m: None,
+        max_width_m: None,
+        max_weight_t: None,
         capacity: None,
         opening_hours: None,
         website: None,
@@ -446,13 +449,17 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "muted_authors",
         "favorite_lists",
         "content_reports",
-        "moderation_queue",
     ] {
         assert!(
             privileges(&pool, "lunaway_ingest", t).await.is_empty(),
             "lunaway_ingest on {t}"
         );
     }
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "moderation_queue").await,
+        ["INSERT"],
+        "the worker opens the check of a point it hides, and decides nothing"
+    );
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     insert(&ingest, "way/1").await;
     let a = records::id_of(&ingest, &SourceId::OSM, "way/1")

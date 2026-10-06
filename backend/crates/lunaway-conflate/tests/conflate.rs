@@ -744,6 +744,71 @@ fn planning_a_country_where_half_the_places_vanish_stays_fast() {
     );
 }
 
+#[test]
+fn a_record_placed_only_at_its_town_makes_no_place_of_its_own() {
+    use lunaway_conflate::{PlanInput, plan};
+    use lunaway_db::conflation::PlaceState;
+    use lunaway_domain::conflation::MergeEdge;
+    let mut town = stored(1, &SourceId::ATOUT_FRANCE);
+    town.record.position_approximate = true;
+    let alone = stored(2, &SourceId::OSM);
+    let mut merged_town = stored(3, &SourceId::ATOUT_FRANCE);
+    merged_town.record.position_approximate = true;
+    let merged_osm = stored(4, &SourceId::OSM);
+    let merged_osm_position = merged_osm.record.position;
+    let edges = vec![MergeEdge {
+        a: merged_town.id,
+        b: merged_osm.id,
+        score: 0.9,
+    }];
+    // The town-placed record had a place of its own before the rule.
+    let old = Uuid::now_v7();
+    let current = std::collections::BTreeMap::from([(town.id, old)]);
+    let states = std::collections::BTreeMap::from([(
+        old,
+        PlaceState {
+            id: old,
+            content_hash: String::new(),
+            deleted: false,
+        },
+    )]);
+    let input = PlanInput {
+        records: vec![town.clone(), alone, merged_town.clone(), merged_osm],
+        edges,
+        constraints: Vec::new(),
+        current,
+        states,
+        today: day(2),
+    };
+    let out = plan(&input).unwrap();
+    assert_eq!(out.held_back, 1, "the town-placed record alone");
+    assert_eq!(out.writes.len(), 2, "the OSM place, and the merged pair");
+    let merged = out
+        .writes
+        .iter()
+        .find(|w| {
+            out.links
+                .iter()
+                .any(|(r, p, _)| *r == merged_town.id && *p == w.id)
+        })
+        .unwrap();
+    assert_eq!(
+        merged.content.position, merged_osm_position,
+        "a merged pair takes OSM's position"
+    );
+    assert!(
+        !out.links.iter().any(|(r, _, _)| *r == town.id),
+        "the held record is linked to no place"
+    );
+    assert!(out.relink_records.contains(&town.id), "its old link goes");
+    assert_eq!(
+        out.tombstones,
+        vec![(old, None)],
+        "the place it had becomes a tombstone"
+    );
+    assert!(out.links.iter().any(|(r, _, _)| *r == merged_town.id));
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_scoring_leaves_the_async_runtime_free(pool: PgPool) {
     // 1500 campsites 5 m apart: some 240 000 pairs within reach, seconds of
@@ -1132,5 +1197,139 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
     assert!(
         applied,
         "a submission is applied within seconds of the API's NOTIFY, not at the next period"
+    );
+}
+
+const POIS: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/osm_poi_sample.json");
+const FUEL: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/fuel_export_sample.json");
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
+    use lunaway_db::{
+        pois,
+        submissions::{self, NewSubmission, Submitted},
+    };
+    use lunaway_domain::poi::{NewVendingMachine, PoiKind};
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+
+    // The importers, with the import role alone.
+    let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
+    let points = lunaway_ingest::poi_osm::parse(POIS, at).unwrap().points;
+    lunaway_ingest::store::store_pois(&ingest, &SourceId::OSM, &points)
+        .await
+        .unwrap();
+    let stations = lunaway_ingest::fuel::parse(FUEL).unwrap();
+    let data: Vec<serde_json::Value> = stations
+        .stations
+        .iter()
+        .map(|s| serde_json::to_value(&s.station).unwrap())
+        .collect();
+    let rows: Vec<pois::NewJoin<'_>> = stations
+        .stations
+        .iter()
+        .zip(&data)
+        .map(|(s, d)| pois::NewJoin {
+            key: &s.key,
+            data: d,
+            raw: &s.raw,
+            fetched_at: at,
+        })
+        .collect();
+    lunaway_ingest::store::store_joins(&ingest, &SourceId::FUEL_PRICES, &rows)
+        .await
+        .unwrap();
+
+    // The community, with the API's role: a vending machine and three
+    // "gone" answers about a point.
+    let author = account(&app, 1).await;
+    lunaway_db::accounts::set_granted_level(&pool, author, 1)
+        .await
+        .unwrap();
+    let device: Uuid = sqlx::query_scalar!("SELECT id FROM device_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let machine = NewVendingMachine {
+        kind: PoiKind::VendingPizza,
+        position: Position::new(46.0, 5.0).unwrap(),
+        name: None,
+        operator: None,
+        brand: None,
+        products: Vec::new(),
+        payment: Vec::new(),
+        always_open: true,
+    };
+    submissions::submit(
+        &app,
+        NewSubmission {
+            account: author,
+            device_key: device,
+            what: Submitted::Poi(&machine),
+            accepted: true,
+            held_for: None,
+        },
+    )
+    .await
+    .unwrap();
+    let poi = sqlx::query_scalar!("SELECT id FROM pois WHERE external_id = 'node/812029833'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    for n in 2..=4 {
+        let a = account(&app, n).await;
+        sqlx::query!("UPDATE accounts SET trust_level = 1 WHERE id = $1", a)
+            .execute(&pool)
+            .await
+            .unwrap();
+        pois::confirm(&app, a, poi, false).await.unwrap();
+    }
+
+    // The worker, with the import role alone.
+    let stats = run(&ingest, day(2)).await.unwrap();
+    assert_eq!(stats.poi_community.vending_added, 1);
+    assert!(
+        stats.poi_hours.evaluated > 0,
+        "the points' hours, under the import role"
+    );
+    assert!(
+        !pois::is_live(&app, poi).await.unwrap(),
+        "hidden by the worker"
+    );
+    let checks = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM moderation_queue WHERE kind = 'poi_check'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(checks, 1, "the import role opens the check it must");
+
+    // A moderator (the API's role) shows it again; the API reads it all.
+    assert!(
+        lunaway_db::moderation::hide_poi(&app, poi, false, None)
+            .await
+            .unwrap()
+    );
+    run(&ingest, day(2)).await.unwrap();
+    let back = pois::by_id(&app, poi).await.unwrap().unwrap();
+    assert_eq!(back.record.refs.laposte.as_deref(), Some("00001A"));
+    let around = pois::nearby(
+        &app,
+        Position::new(45.96, 5.36).unwrap(),
+        &[lunaway_domain::poi::PoiCategory::Health],
+        &[5_000.0],
+        None,
+        3,
+    )
+    .await
+    .unwrap();
+    assert!(!around.is_empty());
+    let tile = pois::tile(&app, 13, 4217, 2915, 4_000).await.unwrap();
+    assert!(!tile.is_empty(), "the API builds tiles with its own role");
+    assert!(
+        !pois::search(&app, "amberieu", None, None, 5)
+            .await
+            .unwrap()
+            .is_empty()
     );
 }

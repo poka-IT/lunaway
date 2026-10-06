@@ -1,0 +1,566 @@
+{
+ "_doc": "OpenStreetMap elements (ODbL 1.0, (c) OpenStreetMap contributors) as Overpass writes them with out tags bb, recorded from the Geofabrik France extract of 2026-10-05 by lunaway ingest pois: every point of the layer around the centre of Amberieu-en-Bugey, the fuel stations, post offices and pharmacies that the fuel, La Poste and FINESS samples name, and the vending machines around Saumur.",
+ "elements": [
+  {
+   "id": 25214698,
+   "lat": 49.0821952,
+   "lon": 2.069417,
+   "tags": {
+    "name": "Total Access",
+    "shop": "convenience;gas",
+    "brand": "Total Access",
+    "source": "stations.gpl.online.fr",
+    "amenity": "fuel",
+    "vending": "fuel",
+    "fuel:e10": "yes",
+    "fuel:e85": "yes",
+    "fuel:lpg": "yes",
+    "operator": "Total",
+    "mapillary": "308884223942875",
+    "fuel:diesel": "yes",
+    "survey:date": "2017-02-08",
+    "opening_hours": "24/7",
+    "brand:wikidata": "Q154037",
+    "compressed_air": "yes",
+    "fuel:octane_98": "yes",
+    "brand:wikipedia": "fr:Total (entreprise)",
+    "vending_machine": "fuel",
+    "ref:FR:prix-carburants": "95650002"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812029833,
+   "lat": 45.9596555,
+   "lon": 5.358168,
+   "tags": {
+    "atm": "yes",
+    "name": "Ambérieu en Bugey",
+    "note": "situation : 38 RUE ALEXANDRE BERARD - BP 602",
+    "brand": "La Poste",
+    "source": "survey;LaPoste - 2021-04",
+    "amenity": "post_office",
+    "website": "https://localiser.laposte.fr/ain/amberieu-en-bugey/amberieu-en-bugey-010040",
+    "operator": "La Poste",
+    "wheelchair": "yes",
+    "contact:city": "Ambérieu-en-Bugey",
+    "ref:FR:SIRET": "35600000062549",
+    "contact:phone": "3631",
+    "opening_hours": "Mo-Fr 09:00-12:00,14:00-18:00; Sa 09:00-12:00; PH off; 2024 May 20 off",
+    "change_machine": "yes",
+    "contact:street": "Rue Alexandre Bérard",
+    "ref:FR:LaPoste": "00001A",
+    "brand:wikipedia": "fr:La Poste (entreprise française)",
+    "contact:postcode": "01500",
+    "stamping_machine": "yes",
+    "operator:wikidata": "Q373724",
+    "operator:wikipedia": "fr:La Poste (entreprise française)",
+    "contact:housenumber": "38"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132364,
+   "lat": 45.9604005,
+   "lon": 5.3580752,
+   "tags": {
+    "atm": "yes",
+    "name": "Crédit Agricole",
+    "brand": "Crédit Agricole",
+    "email": "amberieuenbugey@ca-centrest.fr",
+    "phone": "+33 4 74 35 07 78",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2010",
+    "amenity": "bank",
+    "website": "https://www.credit-agricole.fr/particulier/agence/centre-est/amberieu-en-bugey-1506.html",
+    "operator": "Crédit Agricole",
+    "opening_hours": "Tu-Fr 08:30-12:00,14:00-18:00; Sa 08:30-13:00",
+    "brand:wikidata": "Q590952",
+    "brand:wikipedia": "fr:Crédit agricole"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132374,
+   "lat": 45.9628196,
+   "lon": 5.3569554,
+   "tags": {
+    "name": "Pavillon du tourisme",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2010",
+    "tourism": "information",
+    "information": "office"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132379,
+   "lat": 45.9615153,
+   "lon": 5.3570751,
+   "tags": {
+    "atm": "yes",
+    "name": "SG",
+    "brand": "SG",
+    "phone": "+33 4 74 34 08 59",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre;mise à jour : 2010",
+    "amenity": "bank",
+    "website": "https://agences.sg.fr/banque-assurance/particulier/agence-amberieu-en-bugey-id3000302285",
+    "operator": "Société Générale",
+    "ref:FR:SIRET": "55212022226257",
+    "opening_hours": "Tu-Fr 08:45-12:15; Sa 08:45-12:30",
+    "brand:wikidata": "Q270363"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132418,
+   "lat": 45.9603202,
+   "lon": 5.3576672,
+   "tags": {
+    "atm": "yes",
+    "name": "Caisse d'Épargne",
+    "brand": "Caisse d'Épargne",
+    "phone": "+33 4 87 68 00 00",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre;mise à jour : 2010",
+    "amenity": "bank",
+    "website": "https://www.agences.caisse-epargne.fr/banque-assurance/amberieu-ville-id13825030331",
+    "operator": "Caisse d'Épargne",
+    "ref:FR:SIRET": "38400602903237",
+    "opening_hours": "Tu-Fr 09:15-12:30,13:30-18:00; Sa 08:45-12:30",
+    "brand:wikidata": "Q1547738",
+    "brand:wikipedia": "en:Groupe Caisse d'Épargne"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132425,
+   "lat": 45.9620743,
+   "lon": 5.356674,
+   "tags": {
+    "atm": "yes",
+    "name": "Banque Populaire",
+    "brand": "Banque Populaire",
+    "phone": "+33 4 74 38 91 70",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre;mise à jour : 2010",
+    "amenity": "bank",
+    "website": "https://agences.banquepopulaire.fr/banque-assurance/agence-amberieu-en-bugey-id1080700067",
+    "operator": "Banque Populaire",
+    "opening_hours": "Tu-We,Fr 08:30-12:05,13:30-18:00; Th 08:30-12:05,14:30-18:00; Sa 08:30-12:20",
+    "brand:wikidata": "Q846647",
+    "brand:wikipedia": "en:Banque Populaire du Maroc"
+   },
+   "type": "node"
+  },
+  {
+   "id": 812132433,
+   "lat": 45.9615334,
+   "lon": 5.3587505,
+   "tags": {
+    "name": "Carrefour Market",
+    "shop": "supermarket",
+    "brand": "Carrefour Market",
+    "phone": "+33 4 74 38 50 19",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2010",
+    "website": "https://www.carrefour.fr/magasin/market-amberieu-en-bugey",
+    "operator": "Carrefour",
+    "opening_hours": "Mo-Sa 08:30-20:00; Su 08:30-12:30",
+    "brand:wikidata": "Q2689639",
+    "brand:wikipedia": "fr:Carrefour Market"
+   },
+   "type": "node"
+  },
+  {
+   "id": 813711375,
+   "lat": 45.95991,
+   "lon": 5.3578443,
+   "tags": {
+    "atm": "yes",
+    "name": "CIC",
+    "brand": "CIC",
+    "email": "18038@cic.fr",
+    "phone": "+33 4 37 63 27 92",
+    "amenity": "bank",
+    "website": "https://www.cic.fr:443/fr/agence/particuliers/10096/18038/00/000",
+    "operator": "CIC",
+    "contact:city": "Ambérieu-en-Bugey",
+    "opening_hours": "Tu 09:00-12:30,14:15-18:00; We-Fr 09:00-12:30,13:30-18:00; Sa 09:00-12:30",
+    "brand:wikidata": "Q746525",
+    "contact:street": "Rue Alexandre Bérard",
+    "brand:wikipedia": "en:Crédit Industriel et Commercial",
+    "contact:postcode": "01500",
+    "contact:housenumber": "13"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687393888,
+   "lat": 45.9589797,
+   "lon": 5.3573292,
+   "tags": {
+    "name": "Au Boeuf Charolais",
+    "shop": "butcher",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2012",
+    "ref:FR:SIRET": "41256896600011"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687393891,
+   "lat": 45.9585594,
+   "lon": 5.3587066,
+   "tags": {
+    "name": "Boucherie-Charcuterie-Traiteur Morard",
+    "shop": "butcher",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2012",
+    "contact:city": "Ambérieu-en-Bugey",
+    "opening_hours": "Mo-We,Fr 08:00-13:00,15:00-19:00; Th 08:00-13:00; Sa 08:00-13:00,15:00-18:00",
+    "contact:street": "Rue Aimé Vingtrinier",
+    "contact:postcode": "01500",
+    "contact:housenumber": "1"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687393915,
+   "lat": 45.9588702,
+   "lon": 5.3582775,
+   "tags": {
+    "name": "Pharmacie du Champ de Mars",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2012;Celtipharm - 10/2014",
+    "amenity": "pharmacy",
+    "alt_name": "Pharmacie Pasqualini",
+    "dispensing": "yes",
+    "healthcare": "pharmacy",
+    "ref:FR:SIRET": "89393998300019",
+    "ref:FR:FINESS": "010002285"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687420784,
+   "lat": 45.960456,
+   "lon": 5.3580576,
+   "tags": {
+    "name": "Maison Bochard",
+    "shop": "bakery"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687420790,
+   "lat": 45.961167,
+   "lon": 5.3572337,
+   "tags": {
+    "name": "Pharmacie Vollenweider",
+    "source": "Celtipharm - 10/2014",
+    "amenity": "pharmacy",
+    "dispensing": "yes",
+    "healthcare": "pharmacy",
+    "ref:FR:SIRET": "89248882600025",
+    "ref:FR:FINESS": "010002301"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1860566260,
+   "lat": 43.6504008,
+   "lon": 3.5451865,
+   "tags": {
+    "atm": "yes",
+    "bar": "yes",
+    "hgv": "yes",
+    "name": "Intermarché",
+    "shop": "convenience;gas",
+    "brand": "Intermarché",
+    "source": "Ministère de l'Economie, de l'Industrie et du Numérique - 03/2020",
+    "amenity": "fuel",
+    "vending": "fuel",
+    "car_wash": "yes",
+    "fuel:e10": "yes",
+    "fuel:e85": "yes",
+    "fuel:lpg": "no",
+    "motorcar": "yes",
+    "automated": "no",
+    "hgv:lanes": "yes",
+    "motorcycle": "yes",
+    "wheelchair": "yes",
+    "fuel:diesel": "yes",
+    "self_service": "yes",
+    "opening_hours": "24/7",
+    "brand:wikidata": "Q3153200",
+    "compressed_air": "yes",
+    "fuel:octane_85": "yes",
+    "fuel:octane_95": "no",
+    "fuel:octane_98": "yes",
+    "brand:wikipedia": "fr:Intermarché",
+    "vending_machine": "fuel",
+    "payment:credit_cards": "yes",
+    "ref:FR:prix-carburants": "34150003"
+   },
+   "type": "node"
+  },
+  {
+   "id": 2923743424,
+   "lat": 46.0029978,
+   "lon": 4.7511633,
+   "tags": {
+    "name": "Beauregard",
+    "phone": "+33 4 74 60 76 61",
+    "source": "data.gouv.fr:LaPoste - 01/2013",
+    "amenity": "post_office",
+    "website": "https://localiser.laposte.fr/ain/beauregard/beauregard-mairie-010300",
+    "operator": "La Poste",
+    "wheelchair": "no",
+    "post_office": "post_annex",
+    "addr:postcode": "01480",
+    "opening_hours": "Mo-Tu,Th-Fr 08:30-12:30,13:30-17:30; We 08:30-12:00; PH off; 2024 May 20 off",
+    "ref:FR:LaPoste": "00013A",
+    "operator:wikidata": "Q373724"
+   },
+   "type": "node"
+  },
+  {
+   "id": 3933512163,
+   "lat": 45.91221,
+   "lon": 5.8084795,
+   "tags": {
+    "phone": "+33450564460",
+    "amenity": "post_office",
+    "website": "https://localiser.laposte.fr/ain/anglefort/anglefort-the-lixir-010100",
+    "operator": "La Poste",
+    "wheelchair": "no",
+    "post_office": "post_partner",
+    "addr:postcode": "01350",
+    "opening_hours": "Tu-Fr 08:45-12:00,16:00-19:30; Sa 08:45-12:00,13:30-17:00; PH off; 2024 Jan 06 off",
+    "ref:FR:LaPoste": "00004A",
+    "operator:wikidata": "Q373724"
+   },
+   "type": "node"
+  },
+  {
+   "id": 4579791695,
+   "lat": 45.9592132,
+   "lon": 5.3583607,
+   "tags": {
+    "name": "Boulangerie Randot",
+    "shop": "bakery",
+    "ref:FR:SIRET": "85179267100014"
+   },
+   "type": "node"
+  },
+  {
+   "id": 5499300276,
+   "lat": 45.9767494,
+   "lon": 5.6005584,
+   "tags": {
+    "name": "Pharmacie Vallée",
+    "source": "Celtipharm - 10/2014",
+    "amenity": "pharmacy",
+    "dispensing": "yes",
+    "healthcare": "pharmacy",
+    "ref:FR:SIRET": "81775704000024",
+    "ref:FR:FINESS": "010003887"
+   },
+   "type": "node"
+  },
+  {
+   "id": 8112367954,
+   "lat": 44.9339338,
+   "lon": 6.7325927,
+   "tags": {
+    "hgv": "yes",
+    "name": "Station Service E.Leclerc",
+    "note": "merci de placer au bon emplacement",
+    "brand": "E.Leclerc",
+    "source": "Ministère de l'Economie, de l'Industrie et du Numérique - 03/2020",
+    "amenity": "fuel",
+    "vending": "fuel",
+    "fuel:e10": "yes",
+    "fuel:e85": "yes",
+    "fuel:lpg": "no",
+    "motorcar": "yes",
+    "hgv:lanes": "yes",
+    "motorcycle": "yes",
+    "wheelchair": "yes",
+    "fuel:diesel": "yes",
+    "self_service": "yes",
+    "opening_hours": "24/7",
+    "brand:wikidata": "Q1273376",
+    "changing_table": "no",
+    "compressed_air": "yes",
+    "fuel:octane_85": "yes",
+    "fuel:octane_95": "no",
+    "fuel:octane_98": "yes",
+    "vending_machine": "fuel",
+    "payment:credit_cards": "yes",
+    "ref:FR:prix-carburants": "5100009"
+   },
+   "type": "node"
+  },
+  {
+   "id": 8440180524,
+   "lat": 47.2379518,
+   "lon": -0.1024916,
+   "tags": {
+    "amenity": "vending_machine",
+    "vending": "bread",
+    "operator": "Boulangeries des Tuffeaux",
+    "check_date": "2025-05-02",
+    "payment:coins": "only"
+   },
+   "type": "node"
+  },
+  {
+   "id": 9335262066,
+   "lat": 47.2691247,
+   "lon": -0.07164,
+   "tags": {
+    "indoor": "yes",
+    "amenity": "vending_machine",
+    "vending": "food",
+    "check_date": "2025-04-19",
+    "description": "distributeur de pain"
+   },
+   "type": "node"
+  },
+  {
+   "id": 11794224624,
+   "lat": 47.2677844,
+   "lon": -0.0695968,
+   "tags": {
+    "phone": "+33 6 30 60 51 47;+33 7 88 45 96 79",
+    "amenity": "vending_machine",
+    "vending": "pizza",
+    "website": "https://pizza-suzon.fr/",
+    "operator": "Pizza Suzon",
+    "check_date": "2025-06-11",
+    "currency:EUR": "yes",
+    "opening_hours": "24/7",
+    "diet:vegetarian": "no",
+    "payment:debit_cards": "no",
+    "payment:credit_cards": "yes"
+   },
+   "type": "node"
+  },
+  {
+   "id": 13876531423,
+   "lat": 45.9583885,
+   "lon": 5.3563486,
+   "tags": {
+    "name": "France Pare-brise",
+    "shop": "car_repair",
+    "brand": "France Pare-Brise",
+    "email": "amberieuenbugey@reseau-franceparebrise.fr",
+    "phone": "+33 4 81 50 01 35",
+    "website": "https://centre.franceparebrise.fr/reparation-pare-brise/auvergne-rhone-alpes/ain/amberieu-en-bugey/amberieu-en-bugey",
+    "brand:short": "FPB",
+    "opening_hours": "Mo-Fr 09:00-12:30,13:30-18:00; Sa 09:00-12:00; Su off",
+    "brand:wikidata": "Q63335107"
+   },
+   "type": "node"
+  },
+  {
+   "id": 13876541825,
+   "lat": 45.9583832,
+   "lon": 5.356514,
+   "tags": {
+    "shop": "laundry",
+    "self_service": "yes"
+   },
+   "type": "node"
+  },
+  {
+   "id": 116147677,
+   "tags": {
+    "name": "Intermarché",
+    "shop": "gas",
+    "wall": "no",
+    "brand": "Intermarché",
+    "layer": "1",
+    "source": "Ministère de l'Economie, de l'Industrie et du Numérique - 03/2020",
+    "amenity": "fuel",
+    "covered": "yes",
+    "vending": "fuel",
+    "building": "yes",
+    "fuel:e10": "yes",
+    "fuel:lpg": "yes",
+    "operator": "Groupement des Mousquetaires",
+    "addr:city": "Saint-Sever",
+    "hgv:lanes": "yes",
+    "addr:street": "Avenue Mont-de-Marsan",
+    "fuel:diesel": "yes",
+    "addr:postcode": "40500",
+    "opening_hours": "24/7",
+    "brand:wikidata": "Q3153200",
+    "compressed_air": "yes",
+    "fuel:octane_95": "yes",
+    "brand:wikipedia": "fr:Intermarché",
+    "vending_machine": "fuel",
+    "ref:FR:prix-carburants": "40500002"
+   },
+   "type": "way",
+   "bounds": {
+    "maxlat": 43.77396,
+    "maxlon": -0.567269,
+    "minlat": 43.773816,
+    "minlon": -0.567402
+   }
+  },
+  {
+   "id": 774861327,
+   "tags": {
+    "name": "Station Esso",
+    "shop": "convenience",
+    "brand": "Esso",
+    "source": "Ministère de l'Economie, de l'Industrie et du Numérique - 03/2020",
+    "address": "Aire du Centre de la France - accessible dans les 2 sens",
+    "amenity": "fuel",
+    "toilets": "yes",
+    "vending": "fuel",
+    "fuel:e10": "yes",
+    "fuel:lpg": "yes",
+    "operator": "Esso",
+    "hgv:lanes": "yes",
+    "check_date": "2025-04-04",
+    "wheelchair": "yes",
+    "fuel:diesel": "yes",
+    "addr:postcode": "18200",
+    "opening_hours": "24/7",
+    "brand:wikidata": "Q867662",
+    "compressed_air": "yes",
+    "fuel:octane_98": "yes",
+    "brand:wikipedia": "fr:Esso (marque)",
+    "vending_machine": "fuel",
+    "ref:FR:prix-carburants": "18200011"
+   },
+   "type": "way",
+   "bounds": {
+    "maxlat": 46.752373,
+    "maxlon": 2.415849,
+    "minlat": 46.752019,
+    "minlon": 2.415386
+   }
+  },
+  {
+   "id": 783373535,
+   "tags": {
+    "source": "Ministère de l'Economie, de l'Industrie et du Numérique - 03/2020",
+    "amenity": "fuel",
+    "building": "yes",
+    "fuel:e10": "yes",
+    "operator": "Carrefour",
+    "mapillary": "328710491931848",
+    "fuel:diesel": "yes",
+    "survey:date": "2018-06-17",
+    "opening_hours": "24/7",
+    "fuel:octane_98": "yes",
+    "ref:FR:prix-carburants": "1500001"
+   },
+   "type": "way",
+   "bounds": {
+    "maxlat": 45.9624404,
+    "maxlon": 5.3591289,
+    "minlat": 45.9623638,
+    "minlon": 5.3590161
+   }
+  }
+ ]
+}

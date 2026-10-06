@@ -831,43 +831,59 @@ async fn the_change_feed_carries_the_community_summary_once_the_worker_ran(pool:
         json!({"id": place}),
     )
     .await;
-    let at = sqlx::query!(
-        r#"SELECT ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!" FROM places WHERE id = $1"#,
-        place
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    let near = gql(
+    let confirmed = gql(
         &app,
         Some(&bob),
-        r"mutation($id: UUID!, $lat: Float!, $lon: Float!) {
-            confirm(placeId: $id, status: STILL_OK, presence: {lat: $lat, lon: $lon, accuracyM: 12}) { presence }
-          }",
-        json!({"id": place, "lat": at.lat + 0.001, "lon": at.lon}),
+        r"mutation($id: UUID!) { confirm(placeId: $id, status: STILL_OK) { status createdAt } }",
+        json!({"id": place}),
     )
     .await;
-    assert_eq!(ok(&near)["confirm"]["presence"], "PRESENT", "111 m away");
-    let far = gql(
+    assert_eq!(ok(&confirmed)["confirm"]["status"], "STILL_OK");
+    let with_position = gql(
         &app,
         Some(&alice),
         r"mutation($id: UUID!) {
-            confirm(placeId: $id, status: STILL_OK, presence: {lat: 48.85, lon: 2.35}) { presence }
+            confirm(placeId: $id, status: STILL_OK, presence: {lat: 48.85, lon: 2.35}) { status }
           }",
         json!({"id": place}),
     )
     .await;
-    assert_eq!(ok(&far)["confirm"]["presence"], "UNVERIFIED");
+    assert_eq!(
+        code(&with_position),
+        "INVALID_INPUT",
+        "a confirmation takes no position any more: the argument is gone from the contract"
+    );
+    let asked = gql(
+        &app,
+        Some(&alice),
+        r"mutation($id: UUID!) { confirm(placeId: $id, status: STILL_OK) { presence } }",
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(
+        code(&asked),
+        "INVALID_INPUT",
+        "nor does it answer a verdict"
+    );
+    let alice_confirms = gql(
+        &app,
+        Some(&alice),
+        r"mutation($id: UUID!) { confirm(placeId: $id, status: STILL_OK) { status } }",
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(ok(&alice_confirms)["confirm"]["status"], "STILL_OK");
     let position = sqlx::query_scalar!(
         r#"SELECT count(*) AS "n!" FROM information_schema.columns
-           WHERE table_name = 'confirmations' AND column_name IN ('lat', 'lon', 'geom', 'position')"#
+           WHERE table_name = 'confirmations'
+             AND column_name IN ('lat', 'lon', 'geom', 'position', 'presence')"#
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     assert_eq!(
         position, 0,
-        "a confirmation keeps the verdict, never the position"
+        "a confirmation keeps neither a position nor anything derived from one"
     );
     let issue = gql(
         &app,
@@ -1926,4 +1942,165 @@ async fn a_hidden_photo_withdrawn_by_its_author_still_counts_when_rejected(pool:
         removals, 1,
         "withdrawing a hidden photo does not escape the removal count"
     );
+}
+
+const ADD_VENDING: &str = r#"
+mutation($lat: Float!, $lon: Float!, $name: String) {
+  addVendingMachine(input: {lat: $lat, lon: $lon, kind: VENDING_PIZZA, name: $name,
+                            payment: ["cards"], alwaysOpen: true}) {
+    id kind status poiId
+  }
+}"#;
+
+const CONFIRM_POI: &str = r"
+mutation($id: UUID!, $there: Boolean!) {
+  confirmPoi(poiId: $id, stillThere: $there) { id poiId stillThere }
+}";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_vending_machine_added_in_two_gestures_is_confirmed_or_hidden(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let mut strict = config(media.path());
+    strict.trust = Thresholds::default();
+    let app_strict = app(&pool, strict);
+    let (newcomer, _) = sign_in(&app_strict, &Device::new(9)).await;
+    let at = json!({"lat": 47.2678, "lon": -0.0696, "name": "Pizza Suzon"});
+    let refused = gql(&app_strict, Some(&newcomer), ADD_VENDING, at.clone()).await;
+    assert_eq!(code(&refused), "FORBIDDEN", "level 1 adds a point");
+    assert_eq!(refused["errors"][0]["extensions"]["requiredLevel"], 1);
+
+    let app = app(&pool, config(media.path()));
+    let (alice, _) = sign_in(&app, &Device::new(1)).await;
+    let added = gql(&app, Some(&alice), ADD_VENDING, at.clone()).await;
+    let s = &ok(&added)["addVendingMachine"];
+    assert_eq!(s["kind"], "POI");
+    assert_eq!(s["status"], "ACCEPTED");
+    assert_eq!(s["poiId"], Value::Null, "the worker writes it");
+    let stats = work(&pool).await;
+    assert_eq!(stats.poi_community.vending_added, 1);
+    let mine = gql(
+        &app,
+        Some(&alice),
+        "{ myAccount { placeSubmissions { nodes { kind status poiId } } } }",
+        json!({}),
+    )
+    .await;
+    let sub = &ok(&mine)["myAccount"]["placeSubmissions"]["nodes"][0];
+    assert_eq!(sub["status"], "APPLIED");
+    let poi = sub["poiId"].as_str().unwrap().to_owned();
+    let shown = gql(
+        &app,
+        None,
+        "query($id: UUID!) { poi(id: $id) { kind name alwaysOpen payment products sources { sourceId } } }",
+        json!({"id": poi}),
+    )
+    .await;
+    assert_eq!(
+        ok(&shown)["poi"],
+        json!({
+            "kind": "VENDING_PIZZA", "name": "Pizza Suzon", "alwaysOpen": true,
+            "payment": ["cards"], "products": ["pizza"],
+            "sources": [{"sourceId": "community"}]
+        })
+    );
+
+    let twice = gql(&app, Some(&alice), ADD_VENDING, at.clone()).await;
+    assert_eq!(code(&twice), "INVALID_INPUT");
+    assert_eq!(
+        twice["errors"][0]["extensions"]["existingId"], poi,
+        "the app offers to confirm the machine already there"
+    );
+    let not_vending = gql(
+        &app,
+        Some(&alice),
+        r"mutation { addVendingMachine(input: {lat: 47.0, lon: -0.5, kind: BAKERY}) { id } }",
+        json!({}),
+    )
+    .await;
+    assert_eq!(code(&not_vending), "INVALID_INPUT");
+
+    let near =
+        r"{ nearbyPois(at: {lat: 47.2678, lon: -0.0696}, categories: [VENDING]) { pois { id } } }";
+    let shown_near = gql(&app, None, near, json!({})).await;
+    assert_eq!(ok(&shown_near)["nearbyPois"][0]["pois"][0]["id"], poi);
+    // The tile of z14 that holds it: lon -0.0696, lat 47.2678.
+    let tile_uri = |v: i64| format!("/poi/{v}/14/8188/5744.mvt");
+    let version = |body: &Value| ok(body)["poiLayer"]["version"].as_i64().unwrap();
+    let v = version(&gql(&app, None, "{ poiLayer { version } }", json!({})).await);
+    let (status, _) = send(&app, Request::get(tile_uri(v)).body(Body::empty()).unwrap()).await;
+    assert_eq!(status, StatusCode::OK, "the machine is on its tile");
+
+    // Three accounts say it is gone: hidden, and queued for a moderator.
+    for n in 2..=4 {
+        let (t, _) = sign_in(&app, &Device::new(n)).await;
+        let answer = gql(
+            &app,
+            Some(&t),
+            CONFIRM_POI,
+            json!({"id": poi, "there": false}),
+        )
+        .await;
+        assert_eq!(ok(&answer)["confirmPoi"]["stillThere"], false);
+    }
+    let layer_before = gql(&app, None, "{ poiLayer { version } }", json!({})).await;
+    work(&pool).await;
+    let hidden = gql(
+        &app,
+        None,
+        "query($id: UUID!) { poi(id: $id) { id } }",
+        json!({"id": poi}),
+    )
+    .await;
+    assert_eq!(ok(&hidden)["poi"], Value::Null);
+    let hidden_near = gql(&app, None, near, json!({})).await;
+    assert_eq!(
+        ok(&hidden_near)["nearbyPois"][0]["pois"],
+        json!([]),
+        "a hidden point is not around anything"
+    );
+    let v = version(&gql(&app, None, "{ poiLayer { version } }", json!({})).await);
+    let (status, _) = send(&app, Request::get(tile_uri(v)).body(Body::empty()).unwrap()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "nor on any tile");
+    let layer_after = gql(&app, None, "{ poiLayer { version } }", json!({})).await;
+    assert!(
+        ok(&layer_after)["poiLayer"]["version"].as_i64()
+            > ok(&layer_before)["poiLayer"]["version"].as_i64(),
+        "the tiles that showed it get a new URL"
+    );
+    let queue = lunaway_db::moderation::open(&pool, 10).await.unwrap();
+    let check = queue
+        .iter()
+        .find(|e| e.kind == "poi_check")
+        .expect("a check");
+    assert!(check.excerpt.as_deref().unwrap().contains("Pizza Suzon"));
+
+    // A moderator finds it there: the "gone" answers are set aside.
+    lunaway_db::moderation::decide(
+        &pool,
+        check.id,
+        lunaway_db::moderation::Decision::Approve,
+        Some("seen on 6 October"),
+    )
+    .await
+    .unwrap();
+    work(&pool).await;
+    let back = gql(
+        &app,
+        None,
+        "query($id: UUID!) { poi(id: $id) { id } }",
+        json!({"id": poi}),
+    )
+    .await;
+    assert_eq!(ok(&back)["poi"]["id"], poi);
+
+    let unknown = gql(
+        &app,
+        Some(&alice),
+        CONFIRM_POI,
+        json!({"id": "0192a0e6-0000-7000-8000-000000000000", "there": true}),
+    )
+    .await;
+    assert_eq!(code(&unknown), "NOT_FOUND");
+    let anonymous = gql(&app, None, CONFIRM_POI, json!({"id": poi, "there": true})).await;
+    assert_eq!(code(&anonymous), "UNAUTHENTICATED");
 }

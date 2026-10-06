@@ -118,19 +118,6 @@ pub enum GqlVerification {
     ToVerify,
 }
 
-/// What the server concluded from the position sent with a confirmation.
-#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
-#[graphql(
-    remote = "lunaway_domain::community::presence::Presence",
-    name = "Presence"
-)]
-pub enum GqlPresence {
-    /// Within 300 m of the place.
-    Present,
-    /// No position, or one too far or too vague.
-    Unverified,
-}
-
 /// Where a contribution stands.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(
@@ -400,8 +387,6 @@ pub struct Confirmation {
     pub place_id: Uuid,
     /// The answer.
     pub status: GqlConfirmationStatus,
-    /// What the server concluded from the position sent, if any.
-    pub presence: GqlPresence,
     /// When.
     pub created_at: DateTime<Utc>,
 }
@@ -417,11 +402,6 @@ impl TryFrom<ConfirmationRow> for Confirmation {
             status: r
                 .status
                 .parse::<lunaway_domain::community::ConfirmationStatus>()
-                .map_err(decode)?
-                .into(),
-            presence: r
-                .presence
-                .parse::<lunaway_domain::community::presence::Presence>()
                 .map_err(decode)?
                 .into(),
             created_at: r.created_at,
@@ -466,6 +446,8 @@ pub enum SubmissionKind {
     Create,
     /// A change to a place.
     Edit,
+    /// A new point of interest (a vending machine).
+    Poi,
 }
 
 /// Where a submission stands.
@@ -494,6 +476,9 @@ pub struct PlaceSubmission {
     /// The place edited, or the place a new one became (null until the
     /// server placed it).
     pub place_id: Option<Uuid>,
+    /// The point of interest a new vending machine became (null until the
+    /// server wrote it).
+    pub poi_id: Option<Uuid>,
     /// Where it stands.
     pub status: SubmissionStatus,
     /// When it was sent.
@@ -506,12 +491,13 @@ impl From<SubmissionRow> for PlaceSubmission {
     fn from(r: SubmissionRow) -> Self {
         Self {
             id: r.id,
-            kind: if r.kind == "create" {
-                SubmissionKind::Create
-            } else {
-                SubmissionKind::Edit
+            kind: match r.kind.as_str() {
+                "create" => SubmissionKind::Create,
+                "poi" => SubmissionKind::Poi,
+                _ => SubmissionKind::Edit,
             },
             place_id: r.place_id,
+            poi_id: r.poi_id,
             status: match r.status.as_str() {
                 "proposed" => SubmissionStatus::Proposed,
                 "accepted" => SubmissionStatus::Accepted,
@@ -952,18 +938,6 @@ pub struct RecoveryCodeResult {
     /// The code to write down (groups of four, a check symbol at the end);
     /// it replaces any earlier one.
     pub code: String,
-}
-
-/// A position sent with a confirmation, reduced to a verdict and never
-/// stored.
-#[derive(InputObject, Debug, Clone, Copy)]
-pub struct PresenceInput {
-    /// Latitude, degrees.
-    pub lat: f64,
-    /// Longitude, degrees.
-    pub lon: f64,
-    /// The device's horizontal accuracy, metres.
-    pub accuracy_m: Option<f64>,
 }
 
 /// A description in one language.

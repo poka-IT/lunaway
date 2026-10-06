@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE pois SET opening_window_start = NULL WHERE laposte_ref = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c64932a3bea899cab1af0eaa90e43ca8ec1e67286f4ecd063893f1fea1c80fc7"
+}

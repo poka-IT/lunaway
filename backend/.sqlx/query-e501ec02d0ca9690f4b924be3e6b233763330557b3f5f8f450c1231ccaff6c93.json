@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM poi_confirmations WHERE id = $1 AND account_id = $2 RETURNING poi_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_confirmations",
+            "name": "poi_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e501ec02d0ca9690f4b924be3e6b233763330557b3f5f8f450c1231ccaff6c93"
+}

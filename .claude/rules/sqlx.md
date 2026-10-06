@@ -49,7 +49,13 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   only with one writer of `places` at a time, and an import beside a
   conflation would otherwise lock the same rows in opposite orders. Functions
   that write places take a `WriterTx`, so a write outside the lock does not
-  compile.
+  compile. The points of interest have their own writers' lock
+  (`pois::begin_poi_writer`, `PoiWriterTx`): their importers, the fuel
+  poller and the worker write them. A writer that changed what a tile
+  shows moves the tiles' version (`poi_layer`): the worker in the same
+  transaction, an import or the hours refresh once at its end
+  (`pois::bump_layer_now`), so a run of many batches makes devices fetch
+  their tiles once.
 - Timestamps are `TIMESTAMPTZ`; identifiers are UUID v7 generated in Rust.
 
 ## Tests

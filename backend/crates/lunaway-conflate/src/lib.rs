@@ -25,7 +25,10 @@
 //!    whose window passed.
 //!
 //! Steps 0, 1 to 6, and 7 are three writer transactions, so a write of the
-//! API never waits for a whole conflation.
+//! API never waits for a whole conflation. The points of interest follow
+//! ([`pois`]): the vending machines users added and their "still there?"
+//! answers, then the opening intervals whose window is not today's, under
+//! the POI writers' lock.
 //!
 //! Grouping a whole component again makes the result independent of the
 //! history: an incremental run lands where a full rebuild would, and a run
@@ -36,6 +39,7 @@
 //! a country) run on blocking threads, as pure functions of what was read.
 
 pub mod opening;
+pub mod pois;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -97,12 +101,18 @@ pub struct RunStats {
     pub tombstoned: usize,
     /// Contradictory human constraints left unapplied.
     pub conflicts: usize,
+    /// Groups held back because their position is only a municipality's.
+    pub held_back: usize,
     /// Places whose opening intervals moved to today's window.
     pub opening_refreshed: usize,
     /// Community submissions written into records (new places, edits).
     pub submissions_applied: u64,
     /// Places whose community summary changed.
     pub community_refreshed: u64,
+    /// The points of interest's community step.
+    pub poi_community: pois::CommunityStats,
+    /// The points of interest's opening hours.
+    pub poi_hours: pois::HoursStats,
 }
 
 /// Runs `f` on a blocking thread: CPU work over a millisecond must not hold
@@ -152,6 +162,11 @@ pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateEr
     let to_refresh: Vec<Uuid> = to_refresh.into_iter().collect();
     stats.community_refreshed = summary::refresh(&mut tx, &to_refresh).await?;
     tx.commit().await?;
+
+    // The points of interest, under their own lock: what the community
+    // added or answered, then the hours whose window is not today's.
+    stats.poi_community = pois::community(pool).await?;
+    stats.poi_hours = pois::refresh_hours(pool, today).await?;
     tracing::info!(?stats, "conflation done");
     Ok(stats)
 }
@@ -304,6 +319,7 @@ async fn conflate(
     };
     let plan = blocking(move || plan(&input)).await??;
     stats.conflicts = plan.conflicts;
+    stats.held_back = plan.held_back;
     stats.created = plan.created;
     stats.updated = plan.updated;
     stats.unchanged = plan.unchanged;
@@ -395,6 +411,8 @@ pub struct Plan {
     pub unchanged: usize,
     /// Contradictory human constraints left unapplied.
     pub conflicts: usize,
+    /// Groups placed only at a municipality's point, given no place.
+    pub held_back: usize,
 }
 
 /// Groups `input`'s records and resolves each group into a place: a pure
@@ -423,12 +441,31 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
     groups.sort_by(|x, y| y.len().cmp(&x.len()).then(x[0].cmp(&y[0])));
     let records_by_id: BTreeMap<Uuid, &StoredRecord> = live.iter().map(|r| (r.id, *r)).collect();
     let mut claimed: BTreeSet<Uuid> = BTreeSet::new();
-    let mut place_of_group: Vec<Uuid> = Vec::with_capacity(groups.len());
+    let mut place_of_group: Vec<Option<Uuid>> = Vec::with_capacity(groups.len());
     let mut group_of_record: HashMap<Uuid, usize> = HashMap::with_capacity(live.len());
     for (gi, g) in groups.iter().enumerate() {
-        let mut counts: BTreeMap<Uuid, usize> = BTreeMap::new();
         for r in *g {
             group_of_record.insert(*r, gi);
+        }
+        // A group placed only at a municipality's point is held back: on
+        // 2026-10-06, 195 of the 225 Atout France campsites placed so had a
+        // campsite of a close name mapped in OSM in the same commune, a few
+        // kilometres from the town hall, too far for the conflation to see
+        // the pair. Shown, they would be duplicates; held, the record still
+        // enriches the place it merges with once an edit or a better
+        // position brings it close enough.
+        let approximate_only = g.iter().all(|r| {
+            records_by_id
+                .get(r)
+                .is_some_and(|x| x.record.position_approximate)
+        });
+        if approximate_only {
+            place_of_group.push(None);
+            out.held_back += 1;
+            continue;
+        }
+        let mut counts: BTreeMap<Uuid, usize> = BTreeMap::new();
+        for r in *g {
             if let Some(p) = input.current.get(r) {
                 *counts.entry(*p).or_default() += 1;
             }
@@ -441,7 +478,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         options.sort_by(|x, y| y.0.cmp(&x.0).then(x.1.cmp(&y.1)));
         let place = options.first().map_or_else(Uuid::now_v7, |(_, p)| *p);
         claimed.insert(place);
-        place_of_group.push(place);
+        place_of_group.push(Some(place));
     }
 
     out.relink_records = input
@@ -451,7 +488,11 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         .map(|r| r.id)
         .collect();
     for (gi, g) in groups.iter().enumerate() {
-        let place = place_of_group[gi];
+        let Some(place) = place_of_group[gi] else {
+            // Held back: its records lose any place they had.
+            out.relink_records.extend(g.iter().copied());
+            continue;
+        };
         let members: Vec<&StoredRecord> = g
             .iter()
             .filter_map(|id| records_by_id.get(id).copied())
@@ -509,12 +550,11 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         if claimed.contains(old) {
             continue;
         }
-        if let Some(gi) = group_of_record.get(record) {
-            *heirs
-                .entry(*old)
-                .or_default()
-                .entry(place_of_group[*gi])
-                .or_default() += 1;
+        if let Some(heir) = group_of_record
+            .get(record)
+            .and_then(|gi| place_of_group[*gi])
+        {
+            *heirs.entry(*old).or_default().entry(heir).or_default() += 1;
         }
     }
     for old in old_places.difference(&claimed) {

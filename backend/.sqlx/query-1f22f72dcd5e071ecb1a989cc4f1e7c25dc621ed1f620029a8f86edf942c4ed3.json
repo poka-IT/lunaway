@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE poi_confirmations SET created_at = now() - interval '400 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1f22f72dcd5e071ecb1a989cc4f1e7c25dc621ed1f620029a8f86edf942c4ed3"
+}

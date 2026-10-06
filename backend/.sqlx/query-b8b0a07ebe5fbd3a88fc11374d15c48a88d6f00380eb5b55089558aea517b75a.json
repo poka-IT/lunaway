@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT k AS \"k!\" FROM (\n            SELECT CASE $1\n                WHEN 'prix-carburants' THEN fuel_ref\n                WHEN 'laposte' THEN laposte_ref\n                WHEN 'finess' THEN finess_ref\n            END AS k\n            FROM pois WHERE deleted_at IS NULL\n        ) keys\n        WHERE k IS NOT NULL\n        ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "k!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b8b0a07ebe5fbd3a88fc11374d15c48a88d6f00380eb5b55089558aea517b75a"
+}

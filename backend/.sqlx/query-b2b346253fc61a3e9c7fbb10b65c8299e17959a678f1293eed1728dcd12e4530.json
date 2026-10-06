@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT opening_hours_parsed, opening_intervals, opening_intervals_until,\n                  opening_source, opening_tile FROM pois WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "opening_hours_parsed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_hours_parsed"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "opening_intervals",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "opening_intervals_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals_until"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "opening_source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_source"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "opening_tile",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_tile"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b2b346253fc61a3e9c7fbb10b65c8299e17959a678f1293eed1728dcd12e4530"
+}

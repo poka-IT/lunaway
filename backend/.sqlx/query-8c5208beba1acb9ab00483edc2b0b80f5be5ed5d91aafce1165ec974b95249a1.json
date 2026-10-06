@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH bounds AS (\n                SELECT ST_TileEnvelope($1, $2, $3) AS merc,\n                       ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $4), 4326) AS geo\n            ),\n            features AS (\n                SELECT p.id::text AS id, p.category, p.kind, p.name,\n                       CASE WHEN p.always_open THEN true END AS \"alwaysOpen\",\n                       CASE WHEN NOT p.always_open THEN p.opening_tile END AS hours,\n                       CASE WHEN NOT p.always_open AND p.opening_tile IS NOT NULL\n                            THEN floor(extract(epoch FROM p.opening_intervals_until) / 60)::bigint\n                       END AS \"hoursUntil\",\n                       CASE WHEN coalesce((f.data -> 'tile' ->> 'lpg')::boolean,\n                                          (p.data ->> 'lpg')::boolean)\n                            THEN true END AS lpg,\n                       CASE WHEN (h.data -> 'tile' ->> 'closed')::boolean THEN true END\n                           AS \"maybeClosed\",\n                       ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)\n                           AS geom\n                FROM pois p\n                CROSS JOIN bounds b\n                LEFT JOIN poi_join_records f ON f.source_id = 'prix-carburants'\n                     AND f.ref = p.fuel_ref AND f.deleted_at IS NULL\n                LEFT JOIN poi_join_records h ON h.source_id = 'finess'\n                     AND h.ref = p.finess_ref AND h.deleted_at IS NULL\n                WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo\n                ORDER BY p.id\n                LIMIT $7\n            )\n            SELECT coalesce(ST_AsMVT(features, 'pois', $5, 'geom'), ''::bytea) AS \"mvt!\"\n            FROM features\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "Int4",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8c5208beba1acb9ab00483edc2b0b80f5be5ed5d91aafce1165ec974b95249a1"
+}

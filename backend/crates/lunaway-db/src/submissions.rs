@@ -20,6 +20,7 @@ use chrono::{DateTime, Utc};
 use lunaway_domain::{
     NormalizedRecord, PlaceKind, Position, SourceId,
     community::submission::{self, NewPlace, PlacePatch},
+    poi::NewVendingMachine,
 };
 use uuid::Uuid;
 
@@ -34,10 +35,12 @@ use crate::{
 pub struct SubmissionRow {
     /// Its id.
     pub id: Uuid,
-    /// `create` or `edit`.
+    /// `create`, `edit`, or `poi` for a vending machine.
     pub kind: String,
     /// The place an edit targets, or the place a creation became.
     pub place_id: Option<Uuid>,
+    /// The point of interest a vending machine became.
+    pub poi_id: Option<Uuid>,
     /// `proposed`, `accepted`, `applied`, `rejected` or `withdrawn`.
     pub status: String,
     /// What it says.
@@ -69,6 +72,8 @@ pub struct NewSubmission<'a> {
 pub enum Submitted<'a> {
     /// A new place.
     Create(&'a NewPlace),
+    /// A new vending machine, written as a point of interest.
+    Poi(&'a NewVendingMachine),
     /// An edit of a live place.
     Edit {
         /// The place.
@@ -96,6 +101,11 @@ pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow
             Some(place),
             serde_json::to_value(patch).map_err(|e| DbError::decode("submission", e))?,
         ),
+        Submitted::Poi(v) => (
+            "poi",
+            None,
+            serde_json::to_value(v).map_err(|e| DbError::decode("submission", e))?,
+        ),
     };
     let status = if s.accepted { "accepted" } else { "proposed" };
     let mut tx = pool.begin().await?;
@@ -104,7 +114,7 @@ pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow
         r#"
         INSERT INTO place_submissions (id, account_id, device_key_id, kind, place_id, payload, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, kind, place_id, status, payload, created_at, applied_at
+        RETURNING id, kind, place_id, poi_id, status, payload, created_at, applied_at
         "#,
         Uuid::now_v7(),
         s.account,
@@ -205,7 +215,7 @@ pub async fn submissions_of_account(
     let mut rows = sqlx::query_as!(
         SubmissionRow,
         r#"
-        SELECT id, kind, place_id, status, payload, created_at, applied_at
+        SELECT id, kind, place_id, poi_id, status, payload, created_at, applied_at
         FROM place_submissions
         WHERE account_id = $1 AND ($2::uuid IS NULL OR id < $2)
         ORDER BY id DESC LIMIT $3
@@ -240,7 +250,10 @@ pub async fn submissions_of_account(
 pub async fn submission(pool: &PgPool, id: Uuid) -> Result<Option<SubmissionRow>, DbError> {
     Ok(sqlx::query_as!(
         SubmissionRow,
-        "SELECT id, kind, place_id, status, payload, created_at, applied_at FROM place_submissions WHERE id = $1",
+        r#"
+        SELECT id, kind, place_id, poi_id, status, payload, created_at, applied_at
+        FROM place_submissions WHERE id = $1
+        "#,
         id
     )
     .fetch_optional(pool)
@@ -270,7 +283,7 @@ pub async fn apply_accepted(tx: &mut WriterTx) -> Result<ApplyStats, DbError> {
     let pending = sqlx::query!(
         r#"
         SELECT id, kind, place_id, payload, created_at FROM place_submissions
-        WHERE status = 'accepted' ORDER BY id FOR UPDATE
+        WHERE status = 'accepted' AND kind IN ('create', 'edit') ORDER BY id FOR UPDATE
         "#
     )
     .fetch_all(tx.conn())

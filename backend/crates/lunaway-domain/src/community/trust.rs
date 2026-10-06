@@ -213,6 +213,8 @@ pub enum Action {
     Review,
     /// A photo.
     Photo,
+    /// A point of interest (a vending machine) added on the map.
+    AddPoi,
     /// Sponsoring a new account.
     Sponsor,
     /// A new place.
@@ -229,7 +231,7 @@ impl Action {
     pub const fn required_level(self) -> u8 {
         match self {
             Self::Basic => 0,
-            Self::Review | Self::Photo => 1,
+            Self::Review | Self::Photo | Self::AddPoi => 1,
             Self::Sponsor | Self::AddPlace => 2,
             Self::EditPlaceDirectly => 3,
             Self::Nominate => 4,

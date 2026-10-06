@@ -247,6 +247,24 @@ type ChangeSet {
 }
 
 """
+What FINESS says of a health establishment, when it lists it as closed.
+"""
+type ClosureReport {
+	"""
+	The source (`finess`).
+	"""
+	sourceId: String!
+	"""
+	The closure date it gives.
+	"""
+	closedOn: NaiveDate
+	"""
+	When Lunaway read it.
+	"""
+	fetchedAt: DateTime!
+}
+
+"""
 A confirmation the account gave.
 """
 type Confirmation {
@@ -262,10 +280,6 @@ type Confirmation {
 	The answer.
 	"""
 	status: ConfirmationStatus!
-	"""
-	What the server concluded from the position sent, if any.
-	"""
-	presence: Presence!
 	"""
 	When.
 	"""
@@ -474,6 +488,126 @@ type FieldProvenance {
 	Differing values from other sources.
 	"""
 	alternatives: [AlternativeValue!]!
+}
+
+"""
+What the French fuel price feed says of a station.
+"""
+type FuelInfo {
+	"""
+	Prices, one per fuel sold.
+	"""
+	prices: [FuelPrice!]!
+	"""
+	Fuels it is out of.
+	"""
+	shortages: [FuelShortage!]!
+	"""
+	Whether it sells LPG (it may be out of it for now: see
+	`shortages`).
+	"""
+	sellsLpg: Boolean!
+	"""
+	Services as the feed names them, in French (`Laverie`, `Vente de gaz
+	domestique (Butane, Propane)`).
+	"""
+	services: [String!]!
+	"""
+	A card machine sells fuel day and night ("automate CB 24/24").
+	"""
+	selfService24h: Boolean!
+	"""
+	On a motorway.
+	"""
+	highway: Boolean!
+	"""
+	When Lunaway read the feed (every 15 minutes).
+	"""
+	fetchedAt: DateTime!
+	"""
+	`prix-carburants`.
+	"""
+	sourceId: String!
+}
+
+"""
+A fuel of the French price feed.
+"""
+enum FuelKind {
+	"""
+	Diesel (Gazole).
+	"""
+	DIESEL
+	"""
+	Unleaded 95.
+	"""
+	SP95
+	"""
+	Unleaded 95 with up to 10 % ethanol.
+	"""
+	E10
+	"""
+	Unleaded 98.
+	"""
+	SP98
+	"""
+	Superethanol.
+	"""
+	E85
+	"""
+	LPG for vehicles (GPLc).
+	"""
+	LPG
+}
+
+"""
+A price of the fuel feed.
+"""
+type FuelPrice {
+	"""
+	The fuel.
+	"""
+	fuel: FuelKind!
+	"""
+	Euros per litre.
+	"""
+	priceEur: Float!
+	"""
+	When the station last updated it.
+	"""
+	updatedAt: DateTime!
+}
+
+"""
+A fuel a station is out of.
+"""
+type FuelShortage {
+	"""
+	The fuel.
+	"""
+	fuel: FuelKind!
+	"""
+	For now or for good.
+	"""
+	kind: FuelShortageKind!
+	"""
+	Since when, if the feed says.
+	"""
+	since: DateTime
+}
+
+"""
+How a station is out of a fuel.
+"""
+enum FuelShortageKind {
+	"""
+	For now: the station usually sells it.
+	"""
+	TEMPORARY
+	"""
+	For good: the station stopped selling it.
+	"""
+	DEFINITIVE
 }
 
 """
@@ -700,15 +834,37 @@ type Mutation {
 	"""
 	deleteReview(id: UUID!): Boolean!
 	"""
-	Answers "is it still there?". A position (`presence`) is reduced to
-	a verdict (within 300 m or not) and never stored. `CLOSED` and
-	`CHANGED` open a check for moderators. Level 0.
+	Answers "is it still there?"; no position is sent or kept.
+	`CLOSED` and `CHANGED` open a check for moderators. Level 0.
 	"""
-	confirm(placeId: UUID!, status: ConfirmationStatus!, note: String, presence: PresenceInput): Confirmation!
+	confirm(placeId: UUID!, status: ConfirmationStatus!, note: String): Confirmation!
 	"""
 	Deletes one of the caller's confirmations.
 	"""
 	deleteConfirmation(id: UUID!): Boolean!
+	"""
+	Answers "still there?" about a point of interest (a vending
+	machine, a fountain, a shop), shown or hidden. Level 0, counted with
+	the place confirmations. Three accounts of level 1 and up saying it
+	is gone hide it and send it to the moderators; a "still there" of an
+	account of level 1 and up after them shows it again. Applied by the
+	server within seconds.
+	"""
+	confirmPoi(poiId: UUID!, stillThere: Boolean!): PoiConfirmation!
+	"""
+	Deletes one of the caller's "still there?" answers about a point.
+	"""
+	deletePoiConfirmation(id: UUID!): Boolean!
+	"""
+	Adds a vending machine where it stands: a pizza, bread or farm
+	products machine, in two gestures. Level 1; counted with the new
+	places and edits. It joins the points of interest under the ODbL
+	as the community's, within seconds; a name or operator the
+	automatic rules flag waits for a moderator. A machine of the same
+	kind within 25 m is refused (`INVALID_INPUT` with `existingId`):
+	confirm that one instead.
+	"""
+	addVendingMachine(input: NewVendingMachineInput!): PlaceSubmission!
 	"""
 	Reports a problem met at a place (a night ban, a broken service, no
 	access, a danger); the note goes to moderators only. Level 0; 50
@@ -817,6 +973,25 @@ Format: %Y-%m-%d
 scalar NaiveDate
 
 """
+The points nearest a place, for one category.
+"""
+type NearbyPois {
+	"""
+	The category.
+	"""
+	category: PoiCategory!
+	"""
+	How far the search looked, metres.
+	"""
+	radiusM: Float!
+	"""
+	The nearest points, nearest first; empty when none is within
+	`radiusM`.
+	"""
+	pois: [Poi!]!
+}
+
+"""
 A new place.
 """
 input NewPlaceInput {
@@ -839,6 +1014,50 @@ input NewPlaceInput {
 }
 
 """
+A vending machine a user adds: where it stands and what it sells.
+"""
+input NewVendingMachineInput {
+	"""
+	Latitude, degrees.
+	"""
+	lat: Float!
+	"""
+	Longitude, degrees.
+	"""
+	lon: Float!
+	"""
+	A vending kind (`VENDING_PIZZA`, `VENDING_BREAD`, ...).
+	"""
+	kind: PoiKind!
+	"""
+	Its name, if it shows one.
+	"""
+	name: String
+	"""
+	Who runs it.
+	"""
+	operator: String
+	"""
+	Its brand.
+	"""
+	brand: String
+	"""
+	What else it sells, as OpenStreetMap's `vending` values (`pizza`,
+	`bread`, `eggs`, `cheese`, `ice_cubes`).
+	"""
+	products: [String!]
+	"""
+	Payment methods (`cash`, `coins`, `notes`, `cards`, `contactless`,
+	`app`).
+	"""
+	payment: [String!]
+	"""
+	Open day and night, as most machines are.
+	"""
+	alwaysOpen: Boolean
+}
+
+"""
 The level after the account's, and what it still needs.
 """
 type NextLevel {
@@ -855,6 +1074,43 @@ type NextLevel {
 	for level 1).
 	"""
 	instead: LevelRequirement
+}
+
+"""
+The state of a point at a time, from its intervals.
+"""
+type OpenNow {
+	"""
+	Open, closed or unknown.
+	"""
+	state: OpenStateKind!
+	"""
+	When an open point closes, within the known window.
+	"""
+	closesAt: DateTime
+	"""
+	When a closed point opens next, within the known window.
+	"""
+	opensAt: DateTime
+}
+
+"""
+Whether a point is open.
+"""
+enum OpenStateKind {
+	"""
+	Open now.
+	"""
+	OPEN
+	"""
+	Closed now.
+	"""
+	CLOSED
+	"""
+	Nothing known: no hours, hours that do not read, or a time past the
+	computed window.
+	"""
+	UNKNOWN
 }
 
 """
@@ -1025,6 +1281,18 @@ type Place {
 	Maximum vehicle height, metres.
 	"""
 	maxHeightM: Float
+	"""
+	Maximum vehicle length, metres.
+	"""
+	maxLengthM: Float
+	"""
+	Maximum vehicle width, metres.
+	"""
+	maxWidthM: Float
+	"""
+	Maximum vehicle weight, tonnes.
+	"""
+	maxWeightT: Float
 	"""
 	Number of pitches.
 	"""
@@ -1243,6 +1511,21 @@ input PlaceFilter {
 	metres; places of unknown height stay.
 	"""
 	vehicleHeightM: Float
+	"""
+	Leaves out places whose known maximum length is below this, in
+	metres; places of unknown length stay.
+	"""
+	vehicleLengthM: Float
+	"""
+	Leaves out places whose known maximum width is below this, in
+	metres; places of unknown width stay.
+	"""
+	vehicleWidthM: Float
+	"""
+	Leaves out places whose known maximum weight is below this, in
+	tonnes; places of unknown weight stay.
+	"""
+	vehicleWeightT: Float
 }
 
 """
@@ -1340,6 +1623,11 @@ type PlaceSubmission {
 	"""
 	placeId: UUID
 	"""
+	The point of interest a new vending machine became (null until the
+	server wrote it).
+	"""
+	poiId: UUID
+	"""
 	Where it stands.
 	"""
 	status: SubmissionStatus!
@@ -1375,37 +1663,469 @@ type PlaceSubmissionConnection {
 	totalCount: Int!
 }
 
-"""
-What the server concluded from the position sent with a confirmation.
-"""
-enum Presence {
+type Poi {
 	"""
-	Within 300 m of the place.
+	Stable identifier.
 	"""
-	PRESENT
+	id: UUID!
 	"""
-	No position, or one too far or too vague.
+	Its family.
 	"""
-	UNVERIFIED
-}
-
-"""
-A position sent with a confirmation, reduced to a verdict and never
-stored.
-"""
-input PresenceInput {
+	category: PoiCategory!
 	"""
-	Latitude, degrees.
+	What it is.
+	"""
+	kind: PoiKind!
+	"""
+	Its name; null when the source gives none (show the kind instead:
+	"Distributeur de pizzas").
+	"""
+	name: String
+	"""
+	Its brand.
+	"""
+	brand: String
+	"""
+	Who runs it.
+	"""
+	operator: String
+	"""
+	Latitude.
 	"""
 	lat: Float!
 	"""
-	Longitude, degrees.
+	Longitude.
 	"""
 	lon: Float!
 	"""
-	The device's horizontal accuracy, metres.
+	Straight-line distance from the place or point asked about, metres;
+	null outside `nearbyPois` and a search with `near`.
 	"""
-	accuracyM: Float
+	distanceM: Float
+	"""
+	Its postal address, when the source gives one.
+	"""
+	address: Address
+	"""
+	Phone number as the source writes it.
+	"""
+	phone: String
+	"""
+	Website.
+	"""
+	website: String
+	"""
+	Opening hours in the OpenStreetMap syntax, as the source wrote them:
+	shown as text when `openingHoursParsed` is false.
+	"""
+	openingHours: String
+	"""
+	Whether the hours could be read (from the text, or from La Poste's
+	calendar).
+	"""
+	openingHoursParsed: Boolean!
+	"""
+	Open day and night (`24/7`).
+	"""
+	alwaysOpen: Boolean!
+	"""
+	Open intervals in UTC over the 14 days from local midnight of the day
+	they were computed (La Poste's own calendar for a post office that
+	has one); null when nothing is known. Before
+	`openingIntervalsUntil`, a time in no interval is closed.
+	"""
+	openingIntervals: [OpeningInterval!]
+	"""
+	End of the window the intervals cover.
+	"""
+	openingIntervalsUntil: DateTime
+	"""
+	Whether it is open at `at` (now by default), and until or from when:
+	the same reading of the intervals the app makes offline.
+	"""
+	openNow(at: DateTime): OpenNow!
+	"""
+	What a vending machine sells, as tagged (`pizza`, `bread`, `eggs`).
+	"""
+	products: [String!]!
+	"""
+	Payment methods accepted (`cash`, `cards`, `contactless`).
+	"""
+	payment: [String!]!
+	"""
+	Fuels sold, as OpenStreetMap names them (`diesel`, `e10`, `lpg`).
+	"""
+	fuels: [String!]!
+	"""
+	Whether LPG is sold, from the price feed when the station is in it,
+	from OpenStreetMap otherwise; null when nobody says.
+	"""
+	lpg: Boolean
+	"""
+	What the French fuel price feed says of the station.
+	"""
+	fuel: FuelInfo
+	"""
+	Set when FINESS lists the establishment as closed: show it as
+	"maybe closed" (a pharmacy that changed owner may get a new number).
+	"""
+	reportedClosed: ClosureReport
+	"""
+	Self-service.
+	"""
+	selfService: Boolean
+	"""
+	Whether it charges a fee.
+	"""
+	fee: Boolean
+	"""
+	Open only part of the year (a fountain cut off in winter).
+	"""
+	seasonal: Boolean
+	"""
+	A hospital with an emergency department.
+	"""
+	emergency: Boolean
+	"""
+	Wheelchair access as OpenStreetMap says it (`yes`, `limited`, `no`).
+	"""
+	wheelchair: String
+	"""
+	The last date someone checked it on the ground (OpenStreetMap's
+	`check_date`).
+	"""
+	checkedOn: NaiveDate
+	"""
+	The last time a Lunaway user said it is still there.
+	"""
+	lastConfirmedAt: DateTime
+	"""
+	Its own source first, then the sources joined to it.
+	"""
+	sources: [PoiSourceRef!]!
+	"""
+	For each field shown, the source that supplied it.
+	"""
+	provenance: [PoiFieldSource!]!
+	"""
+	La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
+	`Agence postale communale`), for a post office in its calendar.
+	"""
+	postOfficeKind: String
+}
+
+"""
+The family of a point of interest, one map chip each.
+"""
+enum PoiCategory {
+	"""
+	Food shopping: supermarkets, bakeries, markets, farm shops.
+	"""
+	GROCERIES
+	"""
+	Vending machines selling food: pizza, bread, farm products.
+	"""
+	VENDING
+	"""
+	Water and sanitation: drinking water, dump stations, toilets,
+	showers.
+	"""
+	WATER
+	"""
+	Fuel and energy: fuel stations (with LPG), charging, gas bottles.
+	"""
+	FUEL
+	"""
+	Health: pharmacies, doctors, hospitals, vets.
+	"""
+	HEALTH
+	"""
+	Services: laundries, cash machines, post offices, tourist offices,
+	recycling centres, garages, vehicle washes.
+	"""
+	SERVICES
+}
+
+"""
+A category and its kinds, in display order.
+"""
+type PoiCategoryInfo {
+	"""
+	The category.
+	"""
+	category: PoiCategory!
+	"""
+	Its kinds.
+	"""
+	kinds: [PoiKind!]!
+	"""
+	How far `nearbyPois` looks for it by default, metres.
+	"""
+	defaultRadiusM: Float!
+}
+
+"""
+A "still there?" answer about a point.
+"""
+type PoiConfirmation {
+	"""
+	Stable identifier.
+	"""
+	id: UUID!
+	"""
+	The point.
+	"""
+	poiId: UUID!
+	"""
+	The answer.
+	"""
+	stillThere: Boolean!
+	"""
+	When.
+	"""
+	createdAt: DateTime!
+}
+
+"""
+One page of the points of an area.
+"""
+type PoiConnection {
+	"""
+	The points, by id.
+	"""
+	nodes: [Poi!]!
+	"""
+	Pass it as `after` for the next page.
+	"""
+	endCursor: String
+	"""
+	Whether another page follows.
+	"""
+	hasNextPage: Boolean!
+}
+
+"""
+Which source supplied a field of a point.
+"""
+type PoiFieldSource {
+	"""
+	The field, as in this schema (`openingIntervals`, `fuel`, `lpg`,
+	`reportedClosed`); `position` stands for `lat` and `lon`.
+	"""
+	field: String!
+	"""
+	The source of the value shown.
+	"""
+	sourceId: String!
+	"""
+	When that source was read.
+	"""
+	fetchedAt: DateTime!
+}
+
+"""
+What a point of interest is.
+"""
+enum PoiKind {
+	"""
+	A supermarket.
+	"""
+	SUPERMARKET
+	"""
+	A convenience store.
+	"""
+	CONVENIENCE
+	"""
+	A bakery.
+	"""
+	BAKERY
+	"""
+	A butcher.
+	"""
+	BUTCHER
+	"""
+	A greengrocer.
+	"""
+	GREENGROCER
+	"""
+	Sale at the farm.
+	"""
+	FARM_SHOP
+	"""
+	A market; its days are in its opening hours.
+	"""
+	MARKETPLACE
+	"""
+	A pizza vending machine.
+	"""
+	VENDING_PIZZA
+	"""
+	A bread vending machine.
+	"""
+	VENDING_BREAD
+	"""
+	A vending machine of farm products.
+	"""
+	VENDING_FARM_PRODUCTS
+	"""
+	A vending machine of eggs or milk.
+	"""
+	VENDING_EGGS_MILK
+	"""
+	An ice cube vending machine.
+	"""
+	VENDING_ICE
+	"""
+	Another food vending machine.
+	"""
+	VENDING_OTHER
+	"""
+	Drinking water.
+	"""
+	DRINKING_WATER
+	"""
+	A water point to fill a tank.
+	"""
+	WATER_POINT
+	"""
+	A dump station.
+	"""
+	DUMP_STATION
+	"""
+	Public toilets.
+	"""
+	TOILETS
+	"""
+	Showers.
+	"""
+	SHOWER
+	"""
+	A fuel station.
+	"""
+	FUEL_STATION
+	"""
+	A charging station for electric vehicles.
+	"""
+	EV_CHARGING
+	"""
+	Gas bottles for sale or exchange.
+	"""
+	GAS_BOTTLES
+	"""
+	A pharmacy.
+	"""
+	PHARMACY
+	"""
+	A doctor's practice.
+	"""
+	DOCTOR
+	"""
+	A hospital.
+	"""
+	HOSPITAL
+	"""
+	A vet.
+	"""
+	VETERINARY
+	"""
+	A laundry.
+	"""
+	LAUNDRY
+	"""
+	A cash machine.
+	"""
+	ATM
+	"""
+	A post office or a post partner.
+	"""
+	POST_OFFICE
+	"""
+	A tourist office.
+	"""
+	TOURIST_OFFICE
+	"""
+	A recycling centre (déchèterie).
+	"""
+	RECYCLING_CENTRE
+	"""
+	A garage.
+	"""
+	CAR_REPAIR
+	"""
+	A vehicle wash.
+	"""
+	CAR_WASH
+	"""
+	A caravan or motorhome dealer and workshop.
+	"""
+	MOTORHOME_SHOP
+}
+
+"""
+The map layer of the points of interest: vector tiles at
+`tilesUrl` (a TileJSON at `tileJsonUrl`).
+"""
+type PoiLayer {
+	"""
+	Increases with every change of what a tile shows; part of the tile
+	URLs, so a tile is cached for good.
+	"""
+	version: Int!
+	"""
+	When the layer last changed.
+	"""
+	updatedAt: DateTime!
+	"""
+	The tile URL template (`{z}/{x}/{y}`).
+	"""
+	tilesUrl: String!
+	"""
+	The TileJSON, which names the current tiles: what a map style points
+	at.
+	"""
+	tileJsonUrl: String!
+	"""
+	Lowest zoom served: clusters per category and grid cell below
+	`pointMinZoom` (layer `poi_clusters`, properties `category`,
+	`count`).
+	"""
+	minZoom: Int!
+	"""
+	Zoom from which every point is in the tiles (layer `pois`).
+	"""
+	pointMinZoom: Int!
+	"""
+	Highest zoom served; the map draws the tiles of this zoom beyond.
+	"""
+	maxZoom: Int!
+	"""
+	Text to show on the map with the layer.
+	"""
+	attribution: String!
+}
+
+"""
+A source of a point: its own, or one joined to it by an identifier.
+"""
+type PoiSourceRef {
+	"""
+	The source (`osm`, `community`, `prix-carburants`, `laposte`,
+	`finess`); its name, licence and attribution are in
+	`Query.sources`.
+	"""
+	sourceId: String!
+	"""
+	The point's identifier there.
+	"""
+	externalId: String!
+	"""
+	Its page there, when it has one.
+	"""
+	externalUrl: String
+	"""
+	When Lunaway read it.
+	"""
+	fetchedAt: DateTime!
 }
 
 type Query {
@@ -1469,6 +2189,42 @@ type Query {
 	route request and the typical vehicles to offer.
 	"""
 	routing: RoutingInfo!
+	"""
+	The families of points of interest and their kinds, in display
+	order: the map's chips.
+	"""
+	poiCategories: [PoiCategoryInfo!]!
+	"""
+	One point of interest; null when it is gone or hidden.
+	"""
+	poi(id: UUID!): Poi
+	"""
+	"Around this place": for each category (all six when `categories`
+	is absent), the nearest points to the place `placeId`, or to the
+	point `at` (give one), nearest first, with their distance; open or
+	closed alike (`openNow` says which). Within `radiusM` (20 km at
+	most), or the category's default (`poiCategories`); `perCategory`
+	points each (1 by default, 10 at most); `kinds` narrows them.
+	"""
+	nearbyPois(placeId: UUID, at: LatLonInput, categories: [PoiCategory!], kinds: [PoiKind!], perCategory: Int = 1, radiusM: Float): [NearbyPois!]!
+	"""
+	Searches the names and brands of the points of interest, without
+	accents, typos tolerated; among equal matches the nearest to `near`
+	first. `categories` narrows them.
+	"""
+	searchPois(text: String!, near: LatLonInput, categories: [PoiCategory!], first: Int = 20): [Poi!]!
+	"""
+	The points of interest of an area (4 square degrees at most, about a
+	French département per square degree), by id, 1000 per page at
+	most: what a device downloads to keep a region offline. The map
+	itself reads the tiles (`poiLayer`).
+	"""
+	pois(bbox: BBoxInput!, categories: [PoiCategory!], first: Int = 500, after: String): PoiConnection!
+	"""
+	Where the map tiles of the points of interest are, and their
+	version.
+	"""
+	poiLayer: PoiLayer!
 	"""
 	The signed-in account's favourite lists, by name, with their places.
 	"""
@@ -2280,6 +3036,10 @@ enum SubmissionKind {
 	A change to a place.
 	"""
 	EDIT
+	"""
+	A new point of interest (a vending machine).
+	"""
+	POI
 }
 
 """

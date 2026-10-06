@@ -10,6 +10,7 @@ pub mod lists;
 pub mod moderation;
 pub mod municipalities;
 pub mod places;
+pub mod pois;
 pub mod records;
 pub mod routing;
 pub mod search;

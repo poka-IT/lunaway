@@ -26,9 +26,10 @@ use crate::{
 pub struct QueueEntry {
     /// Its id.
     pub id: Uuid,
-    /// `held_review`, `reported_content`, `place_proposal`, `place_check`.
+    /// `held_review`, `reported_content`, `place_proposal`, `place_check`,
+    /// `poi_check`.
     pub kind: String,
-    /// `review`, `photo`, `place`, `submission`.
+    /// `review`, `photo`, `place`, `submission`, `poi`.
     pub target_type: String,
     /// The target.
     pub target_id: Uuid,
@@ -65,6 +66,8 @@ pub async fn open(pool: &PgPool, limit: i64) -> Result<Vec<QueueEntry>, DbError>
                                            FROM place_submissions s WHERE s.id = q.target_id)
                    WHEN 'place' THEN (SELECT coalesce(p.name, p.kind) FROM places p
                                       WHERE p.id = q.target_id)
+                   WHEN 'poi' THEN (SELECT coalesce(p.name, p.kind) || ' (' || p.external_id || ')'
+                                    FROM pois p WHERE p.id = q.target_id)
                END AS excerpt
         FROM moderation_queue q
         WHERE q.status = 'open'
@@ -75,6 +78,74 @@ pub async fn open(pool: &PgPool, limit: i64) -> Result<Vec<QueueEntry>, DbError>
     )
     .fetch_all(pool)
     .await?)
+}
+
+/// Hides a point (`hidden`) or shows it again, for a moderator: a hidden
+/// point stays hidden whatever the answers say; shown again, its "gone"
+/// answers are set aside. The worker applies it at its next run.
+async fn set_poi_hidden(
+    conn: &mut sqlx::PgConnection,
+    poi: Uuid,
+    hidden: bool,
+    note: Option<&str>,
+) -> Result<(), DbError> {
+    if hidden {
+        sqlx::query!(
+            "INSERT INTO poi_moderation (poi_id, note) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            poi,
+            note,
+        )
+        .execute(&mut *conn)
+        .await?;
+    } else {
+        sqlx::query!("DELETE FROM poi_moderation WHERE poi_id = $1", poi)
+            .execute(&mut *conn)
+            .await?;
+        sqlx::query!(
+            r#"
+            UPDATE poi_confirmations SET status = 'dismissed'
+            WHERE poi_id = $1 AND NOT still_there AND status = 'published'
+            "#,
+            poi
+        )
+        .execute(&mut *conn)
+        .await?;
+    }
+    sqlx::query!(
+        "INSERT INTO poi_refresh_queue (poi_id) VALUES ($1) ON CONFLICT DO NOTHING",
+        poi
+    )
+    .execute(&mut *conn)
+    .await?;
+    notify_worker(conn).await
+}
+
+/// Hides the point `poi` (`hidden`) or shows it again, outside the queue:
+/// `lunaway moderation hide-poi` and `show-poi`. `false` when no point has
+/// this id.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn hide_poi(
+    pool: &PgPool,
+    poi: Uuid,
+    hidden: bool,
+    note: Option<&str>,
+) -> Result<bool, DbError> {
+    let mut tx = pool.begin().await?;
+    let exists = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM pois WHERE id = $1) AS "e!""#,
+        poi
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if !exists {
+        return Ok(false);
+    }
+    set_poi_hidden(&mut tx, poi, hidden, note).await?;
+    tx.commit().await?;
+    Ok(true)
 }
 
 /// A moderator's decision.
@@ -185,6 +256,10 @@ pub async fn decide(
             if approve {
                 notify_worker(&mut tx).await?;
             }
+            (None, None)
+        }
+        "poi" => {
+            set_poi_hidden(&mut tx, entry.target_id, !approve, note).await?;
             (None, None)
         }
         _ => (None, None),

@@ -1,10 +1,8 @@
 //! What the community contributes and the rules around it: the codes of
 //! contributions, the automatic moderation of text, pseudonyms, trust
-//! levels and presence checks. Pure rules; the API and the database apply
-//! them.
+//! levels. Pure rules; the API and the database apply them.
 
 pub mod moderation;
-pub mod presence;
 pub mod pseudonym;
 pub mod submission;
 pub mod trust;

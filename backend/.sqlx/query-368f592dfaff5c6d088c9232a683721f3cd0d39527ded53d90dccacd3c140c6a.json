@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE place_submissions SET status = $2, poi_id = $3, applied_at = now(),\n                   decided_at = coalesce(decided_at, now())\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "368f592dfaff5c6d088c9232a683721f3cd0d39527ded53d90dccacd3c140c6a"
+}

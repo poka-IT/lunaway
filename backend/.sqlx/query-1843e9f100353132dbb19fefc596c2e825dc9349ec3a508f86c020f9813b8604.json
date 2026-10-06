@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE poi_join_records SET deleted_at = $3, changed_at = now()\n        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (ref = ANY($2))\n        RETURNING ref AS key, data ? 'tile' AS \"on_tile!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "ref"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "on_tile!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "1843e9f100353132dbb19fefc596c2e825dc9349ec3a508f86c020f9813b8604"
+}

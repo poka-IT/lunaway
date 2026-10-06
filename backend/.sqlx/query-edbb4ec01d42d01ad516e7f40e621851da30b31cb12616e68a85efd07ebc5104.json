@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE pois SET opening_window_start = NULL\n                WHERE laposte_ref = ANY($1) AND deleted_at IS NULL\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "edbb4ec01d42d01ad516e7f40e621851da30b31cb12616e68a85efd07ebc5104"
+}

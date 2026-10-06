@@ -44,7 +44,23 @@ async fn clear_flags(pool: &PgPool) {
 async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
     let s = sources::list(&pool).await.unwrap();
     let ids: Vec<&str> = s.iter().map(|s| s.id.as_str()).collect();
-    assert_eq!(ids, ["atout-france", "community", "osm"]);
+    assert_eq!(
+        ids,
+        [
+            "atout-france",
+            "community",
+            "finess",
+            "laposte",
+            "osm",
+            "prix-carburants"
+        ]
+    );
+    for joined in [SourceId::FUEL_PRICES, SourceId::LAPOSTE, SourceId::FINESS] {
+        assert!(
+            ids.contains(&joined.as_str()),
+            "{joined}: a source joined to the points is credited like any other"
+        );
+    }
     let community = s.iter().find(|s| s.id == SourceId::COMMUNITY).unwrap();
     assert_eq!(
         (community.licence.as_str(), community.attribution.as_str()),

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"n!\" FROM pois\n           WHERE deleted_at IS NULL\n             AND geom::geometry && ST_Transform(ST_TileEnvelope(10, $1, $2), 4326)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2262a186b2691891de46bcb9af647e801cc034b4ac196272d93b5248a3db5065"
+}

@@ -6,13 +6,17 @@
 
 pub mod atout_france;
 pub mod cache;
+pub mod finess;
+pub mod fuel;
 pub mod geocode;
 pub mod graph_check;
 pub mod http;
 pub mod ign;
+pub mod laposte;
 pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
+pub mod poi_osm;
 pub mod routing;
 pub mod run;
 pub mod store;

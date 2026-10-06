@@ -137,14 +137,15 @@ fn prices_read_only_what_is_unambiguous() {
 }
 
 #[test]
-fn a_motorhome_car_park_is_a_parking_with_an_unknown_overnight_status() {
+fn a_motorhome_car_park_takes_its_night_from_its_tags() {
     let (p, _) = osm_records();
     let x = &find(&p.records, "way/319419555").record;
     assert_eq!(x.kind, PlaceKind::Parking);
     assert_eq!(
         x.overnight,
-        OvernightStatus::Unknown,
-        "motorhome=yes says nothing of the night"
+        OvernightStatus::DayOnly,
+        "motorhome=yes says nothing of the night, motorhome:overnight=no does \
+         (\"Stationnement Camping-Cars (de Jour)\")"
     );
     assert_eq!(x.capacity, None, "a car park's capacity counts cars");
 }

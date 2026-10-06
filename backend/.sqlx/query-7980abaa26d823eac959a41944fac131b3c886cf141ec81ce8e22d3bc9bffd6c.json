@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id, p.source_id, p.opening_hours,\n               p.data -> 'address' ->> 'country_code' AS country_code,\n               ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n               j.data AS \"laposte?\"\n        FROM pois p\n        LEFT JOIN poi_join_records j\n          ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL\n        WHERE p.deleted_at IS NULL\n          AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)\n          AND p.opening_window_start IS DISTINCT FROM $1\n        ORDER BY p.id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "opening_hours",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_hours"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "country_code",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "laposte?",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "7980abaa26d823eac959a41944fac131b3c886cf141ec81ce8e22d3bc9bffd6c"
+}

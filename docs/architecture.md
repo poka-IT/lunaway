@@ -29,8 +29,8 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap, Atout France), paced HTTP client, raw payload cache |
-| `lunaway-conflate` | incremental conflation into places, opening hours windows |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, the fuel price feed, La Poste, FINESS), paced HTTP client, raw payload cache |
+| `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
 | `lunaway-auth` | device keys (ES256 over P-256), session tokens, recovery codes (argon2id), generated pseudonyms; passkeys later |
@@ -64,6 +64,45 @@ size and viewport area.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
 - `changes`: a monotonic cursor the app syncs from.
+- `pois`: the points of interest around the places (shops, food vending
+  machines, water and sanitation, fuel and energy, health, services), one
+  source each, never conflated with the places; `poi_join_records`: what
+  the fuel price feed, La Poste's calendar and FINESS say of a point,
+  joined by an identifier its record carries; `poi_layer`: the version of
+  the map tiles; `poi_confirmations` and `poi_refresh_queue`: the
+  community's "still there?" answers and the points the worker recomputes.
+
+## Points of interest
+
+The "around me" layer (`plan/research/05-poi-sources.md`): what a
+traveller looks for near a place to stop, in six categories (groceries,
+vending machines, water, fuel, health, services).
+
+- **Sources.** OpenStreetMap, read from the same daily France extract as
+  the places (`lunaway ingest pois`, about 323 000 points). Values of other
+  open sources are joined only by an identifier the OpenStreetMap element
+  carries, never by distance or name: fuel prices, LPG and shortages every
+  15 minutes (`ref:FR:prix-carburants`), La Poste's day-by-day opening
+  calendar daily (`ref:FR:LaPoste`), FINESS closures monthly
+  (`ref:FR:FINESS`). Each value is credited per field
+  (`Poi.provenance`).
+- **Hours.** As for places: the worker evaluates `opening_hours` (or La
+  Poste's calendar) into UTC intervals over 14 days, every day; the app
+  compares the time offline (`Poi.openNow` gives the same reading).
+- **Map.** Vector tiles built by PostGIS (`ST_AsMVT`) at
+  `GET /poi/{version}/{z}/{x}/{y}.mvt`, described by `GET /poi/tiles.json`:
+  every point from zoom 13 (id, category, kind, name, hours in a compact
+  form, LPG, "maybe closed"), clusters per category and grid cell from
+  zoom 6 to 12. The version in the URL moves with every change a tile
+  would show, so a tile is cached for good; the API keeps recent tiles in
+  memory and builds a few at a time.
+- **Details and offline.** GraphQL: `poi(id)`, `nearbyPois` (the nearest
+  per category around a place or a point), `searchPois`, and `pois(bbox)`
+  pages for a device to keep a region offline.
+- **Community.** `confirmPoi` ("still there?"; three accounts of level 1
+  and up saying "gone" hide a point and send it to the moderators) and
+  `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
+  the worker writes as a point of the `community` source, ODbL).
 
 ## Conflation
 
@@ -154,7 +193,8 @@ Anti-abuse measures:
 
 - `https://lunaway.net`: the web app (Flutter web build) and the project
   pages (privacy policy, account deletion request).
-- `https://api.lunaway.net`: the GraphQL API (`/graphql`) and `/health`.
+- `https://api.lunaway.net`: the GraphQL API (`/graphql`), `/health`, and
+  the map tiles of the points of interest (`/poi/...`).
 - One Hetzner Cloud server in the EU, Debian 13, hardened (cloud firewall and
   nftables, key-only SSH, fail2ban, automatic security updates), Caddy for
   TLS, PostgreSQL + PostGIS on a separate data volume. Provisioning and

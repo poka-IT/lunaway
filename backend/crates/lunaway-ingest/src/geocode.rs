@@ -262,6 +262,126 @@ pub async fn geocode(
     Ok(out)
 }
 
+/// A point of interest of the Géoplateforme's `poi` index (IGN BD TOPO
+/// toponyms): a campsite, a hotel, a town hall.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Toponym {
+    /// Its names.
+    pub names: Vec<String>,
+    /// Its categories (`camping`, `zone d'activité ou d'intérêt`).
+    pub categories: Vec<String>,
+    /// Latitude.
+    pub lat: f64,
+    /// Longitude.
+    pub lon: f64,
+    /// The service's score.
+    pub score: f64,
+    /// INSEE code of its municipality.
+    pub city_code: Option<String>,
+}
+
+/// Strings of a JSON value that is a string or an array of strings.
+fn strings(v: Option<&serde_json::Value>) -> Vec<String> {
+    match v {
+        Some(serde_json::Value::String(s)) => vec![s.clone()],
+        Some(serde_json::Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_owned))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// Reads a `poi` search answer (GeoJSON).
+///
+/// # Errors
+///
+/// [`IngestError::Json`] when the answer is not a feature collection.
+pub fn parse_toponyms(body: &[u8]) -> Result<Vec<Toponym>, IngestError> {
+    let v: serde_json::Value =
+        serde_json::from_slice(body).map_err(|source| IngestError::Json {
+            what: "géoplateforme poi answer".into(),
+            source,
+        })?;
+    let Some(features) = v.get("features").and_then(serde_json::Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    Ok(features
+        .iter()
+        .filter_map(|f| {
+            let coords = f.pointer("/geometry/coordinates")?.as_array()?;
+            let (lon, lat) = (coords.first()?.as_f64()?, coords.get(1)?.as_f64()?);
+            let p = f.get("properties")?;
+            Some(Toponym {
+                names: strings(p.get("name")),
+                categories: strings(p.get("category")),
+                lat,
+                lon,
+                score: p
+                    .get("score")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0),
+                city_code: strings(p.get("citycode")).into_iter().next(),
+            })
+        })
+        .collect())
+}
+
+/// Searches the Géoplateforme's points of interest for `name` in `postcode`,
+/// from the cache when the same search was made before and `refresh` is
+/// false. One request; the caller paces a series.
+///
+/// # Errors
+///
+/// [`IngestError`] when the service keeps failing or answers something that
+/// is not GeoJSON.
+pub async fn search_toponyms(
+    http: &reqwest::Client,
+    cache: &Cache,
+    config: &GeocoderConfig,
+    name: &str,
+    postcode: &str,
+    refresh: bool,
+) -> Result<(Vec<Toponym>, bool), IngestError> {
+    let base = format!("{}/search", config.url.trim_end_matches('/'));
+    let key = format!(
+        "geopf-poi/{}.json",
+        short_hash(format!("{name}\n{postcode}").as_bytes())
+    );
+    if !refresh && let Some(c) = cache.read(&key).await? {
+        return Ok((parse_toponyms(&c.bytes)?, true));
+    }
+    let mut url = reqwest::Url::parse(&base).map_err(|error| {
+        tracing::error!(%error, url = %base, "the geocoder's URL does not parse");
+        IngestError::UntrustedUrl {
+            url: base.clone(),
+            reason: "not a URL",
+        }
+    })?;
+    url.query_pairs_mut()
+        .append_pair("q", name)
+        .append_pair("index", "poi")
+        .append_pair("postcode", postcode)
+        .append_pair("limit", "5");
+    let body = with_retry("géoplateforme poi", config.retry, || async {
+        let response = http
+            .get(url.clone())
+            .send()
+            .await
+            .map_err(|source| IngestError::Http {
+                url: base.clone(),
+                source,
+            })?;
+        let response = check_status(&base, response).await?;
+        let bytes = read_capped(&base, response, 1024 * 1024).await?;
+        parse_toponyms(&bytes)?;
+        Ok(bytes)
+    })
+    .await?;
+    cache.write(&key, &body).await?;
+    Ok((parse_toponyms(&body)?, false))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,184 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id AS \"id!\", p.source_id AS \"source_id!\", p.external_id AS \"external_id!\",\n               p.external_url, p.data AS \"data!\", p.opening_hours_parsed AS \"opening_hours_parsed!\",\n               p.always_open AS \"always_open!\", p.opening_intervals, p.opening_intervals_until,\n               p.opening_source, p.last_confirmed_at, p.fetched_at AS \"fetched_at!\",\n               p.changed_at AS \"changed_at!\", p.distance_m\n        FROM UNNEST($3::text[], $4::float8[]) AS c(category, radius)\n        CROSS JOIN LATERAL (\n            SELECT q.*, ST_Distance(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)\n                       AS distance_m\n            FROM pois q\n            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.category = c.category\n              AND ($5::text[] IS NULL OR q.kind = ANY($5))\n              AND ST_DWithin(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, c.radius)\n            ORDER BY q.geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, q.id\n            LIMIT $6\n        ) p\n        ORDER BY array_position($3, c.category), p.distance_m, p.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "external_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "external_url"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "data!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "opening_hours_parsed!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_hours_parsed"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "always_open!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "always_open"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "opening_intervals",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "opening_intervals_until",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals_until"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "opening_source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_source"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "last_confirmed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "last_confirmed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "fetched_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "fetched_at"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "changed_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "changed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "distance_m",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Float8",
+        "TextArray",
+        "Float8Array",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "d2a7e36023eab7fbddc60d9734ef884ba6258c79a3ddfb6336b9fa79c28a62ef"
+}

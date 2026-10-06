@@ -30,6 +30,8 @@ pub struct OsmRegionReport {
     pub skipped: usize,
     /// Dump stations folded into their site.
     pub attached_dump_stations: usize,
+    /// Pitches folded into their site.
+    pub folded_pitches: usize,
     /// What the store did.
     pub store: StoreReport,
 }
@@ -72,6 +74,7 @@ pub async fn osm_regions(
             records: parsed.records.len(),
             skipped: parsed.skipped.len(),
             attached_dump_stations: parsed.attached_dump_stations,
+            folded_pitches: parsed.folded_pitches,
             store,
         });
         if !cached && i + 1 < regions.len() {
@@ -92,6 +95,8 @@ pub struct OsmExtractReport {
     pub skipped: usize,
     /// Dump stations folded into their site.
     pub attached_dump_stations: usize,
+    /// Pitches folded into their site.
+    pub folded_pitches: usize,
     /// What the store did.
     pub store: StoreReport,
 }
@@ -123,6 +128,58 @@ pub async fn osm_extract(
         records: parsed.records.len(),
         skipped: parsed.skipped.len(),
         attached_dump_stations: parsed.attached_dump_stations,
+        folded_pitches: parsed.folded_pitches,
+        store,
+    })
+}
+
+/// What the import of the points of interest did.
+#[derive(Debug, Clone)]
+pub struct PoiExtractReport {
+    /// Whether the extract was already downloaded.
+    pub cached: bool,
+    /// Points mapped.
+    pub points: usize,
+    /// Points by kind.
+    pub by_kind: std::collections::BTreeMap<lunaway_domain::poi::PoiKind, usize>,
+    /// Elements outside the imported area or left out by the mapping.
+    pub skipped: usize,
+    /// What the store did.
+    pub store: crate::store::StoreReport,
+}
+
+/// Imports the points of interest from a country extract (the one the
+/// places import downloads, read from the cache unless `refresh`), as the
+/// whole OpenStreetMap part of the layer. Their hours are evaluated by the
+/// worker afterwards.
+///
+/// # Errors
+///
+/// [`IngestError`] when the download, the read or a write fails.
+pub async fn pois_extract(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    cache: &Cache,
+    url: &str,
+    refresh: bool,
+) -> Result<PoiExtractReport, IngestError> {
+    let extract = osm_extract::fetch(http, cache, url, RetryPolicy::PATIENT, refresh).await?;
+    let path = extract.path.clone();
+    let fetched_at = extract.fetched_at;
+    tracing::info!(path = %path.display(), "reading the extract for points of interest");
+    let parsed = tokio::task::spawn_blocking(move || crate::poi_osm::read(&path, fetched_at))
+        .await
+        .map_err(IngestError::Blocking)??;
+    let mut by_kind = std::collections::BTreeMap::new();
+    for p in &parsed.points {
+        *by_kind.entry(p.record.kind).or_insert(0) += 1;
+    }
+    let store = crate::store::store_pois(pool, &SourceId::OSM, &parsed.points).await?;
+    Ok(PoiExtractReport {
+        cached: extract.cached,
+        points: parsed.points.len(),
+        by_kind,
+        skipped: parsed.skipped.len(),
         store,
     })
 }
@@ -140,12 +197,28 @@ pub struct AtoutFranceReport {
     pub overseas: usize,
     /// Rows listed twice.
     pub duplicates: usize,
-    /// Campsites the geocoder could not place well enough.
+    /// Campsites the first geocoding pass could not place well enough.
     pub drops: atout_france::GeocodeDrops,
+    /// What the second pass placed of them.
+    pub second_pass: SecondPassReport,
     /// Records stored.
     pub records: usize,
     /// What the store did.
     pub store: StoreReport,
+}
+
+/// What the second geocoding pass placed, of the campsites the first one
+/// dropped.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SecondPassReport {
+    /// Placed by their address without a locality marker or road number.
+    pub by_address: usize,
+    /// Placed by a campsite toponym of the same name (IGN BD TOPO).
+    pub by_toponym: usize,
+    /// Placed at their municipality, flagged approximate.
+    pub by_municipality: usize,
+    /// Still without a position: not stored.
+    pub still_dropped: usize,
 }
 
 /// Where Atout France and the geocoder are.
@@ -207,7 +280,26 @@ pub async fn atout_france(
     let parsed = atout_france::parse_csv(&csv.body)?;
     let queries = atout_france::address_queries(&parsed.campsites);
     let geocoded = geocode::geocode(http, cache, &config.geocoder, &queries, refresh).await?;
-    let (records, drops) = atout_france::to_records(&parsed.campsites, &geocoded, csv.fetched_at);
+    let (mut records, drops) =
+        atout_france::to_records(&parsed.campsites, &geocoded, csv.fetched_at);
+    let placed: std::collections::BTreeSet<&str> =
+        records.iter().map(|r| r.external_id.as_str()).collect();
+    let dropped: Vec<&atout_france::Campsite> = parsed
+        .campsites
+        .iter()
+        .filter(|c| !placed.contains(c.external_id.as_str()))
+        .collect();
+    let (more, second_pass) = atout_france_second_pass(
+        http,
+        cache,
+        config,
+        &dropped,
+        &geocoded,
+        csv.fetched_at,
+        refresh,
+    )
+    .await?;
+    records.extend(more);
     let store = store_complete(pool, &SourceId::ATOUT_FRANCE, None, &records).await?;
     Ok(AtoutFranceReport {
         cached: csv.cached,
@@ -216,9 +308,127 @@ pub async fn atout_france(
         overseas: parsed.overseas,
         duplicates: parsed.duplicates,
         drops,
+        second_pass,
         records: records.len(),
         store,
     })
+}
+
+/// Pause between two searches of the Géoplateforme's points of interest:
+/// one a second, the pace its CSV endpoint announces, far below the fair
+/// use its terms set.
+const TOPONYM_PACE: Duration = Duration::from_secs(1);
+
+/// The second pass over the campsites the first one dropped: the simplified
+/// address, then a campsite toponym of the same name, then the
+/// municipality (approximate). See [`atout_france::simplify_address`].
+async fn atout_france_second_pass(
+    http: &reqwest::Client,
+    cache: &Cache,
+    config: &AtoutFranceConfig,
+    dropped: &[&atout_france::Campsite],
+    first_pass: &[geocode::Geocoded],
+    fetched_at: chrono::DateTime<chrono::Utc>,
+    refresh: bool,
+) -> Result<(Vec<crate::FetchedRecord>, SecondPassReport), IngestError> {
+    let mut report = SecondPassReport::default();
+    let mut records = Vec::new();
+    // 1. The address without what the BAN cannot read.
+    let queries: Vec<geocode::AddressQuery> = dropped
+        .iter()
+        .filter_map(|c| {
+            atout_france::simplify_address(&c.address).map(|address| geocode::AddressQuery {
+                key: c.external_id.clone(),
+                address,
+                postcode: c.postcode.clone(),
+                city: c.city.clone(),
+            })
+        })
+        .collect();
+    let simplified = if queries.is_empty() {
+        Vec::new()
+    } else {
+        geocode::geocode(http, cache, &config.geocoder, &queries, refresh).await?
+    };
+    let by_key: std::collections::BTreeMap<&str, &geocode::Geocoded> =
+        simplified.iter().map(|g| (g.key.as_str(), g)).collect();
+    let mut left = Vec::new();
+    for c in dropped {
+        match by_key
+            .get(c.external_id.as_str())
+            .and_then(|g| atout_france::placement_of(g, Some("simplified_address")))
+        {
+            Some(p) => {
+                records.push(atout_france::record_of(c, p, fetched_at));
+                report.by_address += 1;
+            }
+            None => left.push(*c),
+        }
+    }
+    // 2. A campsite toponym of the same name.
+    let mut still = Vec::new();
+    for (i, c) in left.iter().enumerate() {
+        let (hits, cached) =
+            geocode::search_toponyms(http, cache, &config.geocoder, &c.name, &c.postcode, refresh)
+                .await?;
+        match atout_france::toponym_placement(c, &hits) {
+            Some(p) => {
+                records.push(atout_france::record_of(c, p, fetched_at));
+                report.by_toponym += 1;
+            }
+            None => still.push(*c),
+        }
+        if !cached && i + 1 < left.len() {
+            tokio::time::sleep(TOPONYM_PACE).await;
+        }
+    }
+    // 3. The municipality, flagged approximate: the first pass's own answer
+    // when it found the town, otherwise a search for the town alone.
+    let first: std::collections::BTreeMap<&str, &geocode::Geocoded> =
+        first_pass.iter().map(|g| (g.key.as_str(), g)).collect();
+    let mut towns = Vec::new();
+    for c in still {
+        match first
+            .get(c.external_id.as_str())
+            .and_then(|g| atout_france::municipality_placement(g))
+        {
+            Some(p) => {
+                records.push(atout_france::record_of(c, p, fetched_at));
+                report.by_municipality += 1;
+            }
+            None => towns.push(c),
+        }
+    }
+    let town_queries: Vec<geocode::AddressQuery> = towns
+        .iter()
+        .map(|c| geocode::AddressQuery {
+            key: c.external_id.clone(),
+            address: String::new(),
+            postcode: c.postcode.clone(),
+            city: c.city.clone(),
+        })
+        .collect();
+    let town_answers = if town_queries.is_empty() {
+        Vec::new()
+    } else {
+        geocode::geocode(http, cache, &config.geocoder, &town_queries, refresh).await?
+    };
+    let by_town: std::collections::BTreeMap<&str, &geocode::Geocoded> =
+        town_answers.iter().map(|g| (g.key.as_str(), g)).collect();
+    for c in towns {
+        match by_town
+            .get(c.external_id.as_str())
+            .and_then(|g| atout_france::municipality_placement(g))
+        {
+            Some(p) => {
+                records.push(atout_france::record_of(c, p, fetched_at));
+                report.by_municipality += 1;
+            }
+            None => report.still_dropped += 1,
+        }
+    }
+    tracing::info!(?report, "atout france second geocoding pass");
+    Ok((records, report))
 }
 
 /// What an import of the communes did.

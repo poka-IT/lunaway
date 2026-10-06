@@ -233,6 +233,127 @@ fn extract() -> Vec<u8> {
     file
 }
 
+/// Bytes of an extract holding `nodes` and `ways` only.
+fn file_of(s: &Strings, nodes: &[Vec<u8>], ways: &[Vec<u8>]) -> Vec<u8> {
+    let group = |field: u64, items: &[Vec<u8>]| {
+        let mut g = Vec::new();
+        for item in items {
+            bytes_field(&mut g, field, item);
+        }
+        g
+    };
+    let mut table = Vec::new();
+    for string in &s.0 {
+        bytes_field(&mut table, 1, string.as_bytes());
+    }
+    let mut block = Vec::new();
+    bytes_field(&mut block, 1, &table);
+    bytes_field(&mut block, 2, &group(1, nodes));
+    bytes_field(&mut block, 2, &group(3, ways));
+    let mut header_block = Vec::new();
+    bytes_field(&mut header_block, 4, b"OsmSchema-V0.6");
+    let mut file = blob("OSMHeader", &header_block);
+    file.extend(blob("OSMData", &block));
+    file
+}
+
+#[test]
+fn the_points_of_interest_come_from_the_same_extract() {
+    use lunaway_domain::poi::PoiKind;
+    let mut s = Strings(vec![String::new()]);
+    let mut nodes = vec![
+        node(
+            &mut s,
+            1,
+            47.47,
+            -0.55,
+            &[("shop", "bakery"), ("name", "Ma Petite Mie")],
+        ),
+        node(&mut s, 2, 47.471, -0.551, &[("amenity", "bench")]),
+        node(
+            &mut s,
+            3,
+            47.472,
+            -0.552,
+            &[("amenity", "vending_machine"), ("vending", "drinks")],
+        ),
+        node(
+            &mut s,
+            4,
+            47.473,
+            -0.553,
+            &[("amenity", "vending_machine"), ("vending", "food;pizza")],
+        ),
+        node(
+            &mut s,
+            5,
+            47.474,
+            -0.554,
+            &[("amenity", "toilets"), ("access", "private")],
+        ),
+        node(&mut s, 6, -21.1, 55.5, &[("amenity", "pharmacy")]),
+        // A camp site is a place, not a point of interest.
+        node(&mut s, 7, 47.475, -0.555, &[("tourism", "camp_site")]),
+    ];
+    for (id, lat, lon) in [
+        (10, 47.48, -0.56),
+        (11, 47.48, -0.558),
+        (12, 47.482, -0.558),
+        (13, 47.482, -0.56),
+    ] {
+        nodes.push(node(&mut s, id, lat, lon, &[]));
+    }
+    let ways = [way(
+        &mut s,
+        100,
+        &[10, 11, 12, 13, 10],
+        &[
+            ("shop", "supermarket"),
+            ("name", "Super U"),
+            ("brand", "Super U"),
+        ],
+    )];
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pois.osm.pbf");
+    std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 4, 20, 0, 0).unwrap();
+    let parsed = lunaway_ingest::poi_osm::read(&path, at).unwrap();
+    let got: Vec<(&str, PoiKind)> = parsed
+        .points
+        .iter()
+        .map(|p| (p.external_id.as_str(), p.record.kind))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("node/1", PoiKind::Bakery),
+            ("node/4", PoiKind::VendingPizza),
+            ("way/100", PoiKind::Supermarket)
+        ],
+        "a bench, a drinks machine, private toilets and a camp site are not points of the layer"
+    );
+    let skipped: Vec<&str> = parsed.skipped.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(
+        skipped.contains(&"node/5"),
+        "private toilets are read and left out"
+    );
+    assert!(
+        skipped.contains(&"node/6"),
+        "the overseas pharmacy is outside the imported area"
+    );
+    let shop = &parsed.points[2];
+    assert_eq!(shop.record.brand.as_deref(), Some("Super U"));
+    assert_eq!(
+        (shop.record.position.lat(), shop.record.position.lon()),
+        (47.481, -0.559),
+        "a way is placed at the centre of its outline"
+    );
+    assert_eq!(
+        shop.external_url.as_deref(),
+        Some("https://www.openstreetmap.org/way/100")
+    );
+}
+
 #[test]
 fn an_extract_maps_like_an_overpass_answer() {
     let dir = tempfile::tempdir().unwrap();

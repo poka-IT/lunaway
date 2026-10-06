@@ -1,0 +1,114 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT q.id, q.kind, q.target_type, q.target_id, q.account_id, q.reason, q.created_at,\n               (SELECT count(*) FROM content_reports c\n                WHERE c.target_type = q.target_type AND c.target_id = q.target_id\n                  AND c.dismissed_at IS NULL) AS \"reports!\",\n               CASE q.target_type\n                   WHEN 'review' THEN (SELECT left(r.body, 300) FROM reviews r WHERE r.id = q.target_id)\n                   WHEN 'photo' THEN (SELECT p.path FROM photos p WHERE p.id = q.target_id)\n                   WHEN 'submission' THEN (SELECT left(s.payload::text, 300)\n                                           FROM place_submissions s WHERE s.id = q.target_id)\n                   WHEN 'place' THEN (SELECT coalesce(p.name, p.kind) FROM places p\n                                      WHERE p.id = q.target_id)\n                   WHEN 'poi' THEN (SELECT coalesce(p.name, p.kind) || ' (' || p.external_id || ')'\n                                    FROM pois p WHERE p.id = q.target_id)\n               END AS excerpt\n        FROM moderation_queue q\n        WHERE q.status = 'open'\n        ORDER BY q.created_at, q.id\n        LIMIT $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "target_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "target_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "target_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "target_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "reports!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "excerpt",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "cfe7ec5fea27522ac87a0378ccd959a2b2696950496f559d8bfeeaebf0e85457"
+}

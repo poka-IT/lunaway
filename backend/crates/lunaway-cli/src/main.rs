@@ -6,12 +6,19 @@
 //! lunaway ingest osm-extract [--url URL] [--refresh]
 //! lunaway ingest atout-france [--refresh]
 //! lunaway ingest municipalities [--url URL] [--refresh]
+//! lunaway ingest pois [--url URL] [--refresh]
+//! lunaway ingest fuel [--refresh]
+//! lunaway ingest laposte [--refresh]
+//! lunaway ingest finess [--refresh]
+//! lunaway pois hours
+//! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]]
 //! lunaway stats
 //! lunaway moderation list [--limit 50]
 //! lunaway moderation approve|reject <entry-id> [--note TEXT]
 //! lunaway moderation ban <account-id> --reason TEXT
 //! lunaway moderation dismiss-issues <place-id>
+//! lunaway moderation hide-poi|show-poi <poi-id> [--note TEXT]
 //! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
 //! lunaway accounts set-level <account-id> <level>
 //! lunaway routing fetch-ign [--refresh]
@@ -98,6 +105,11 @@ enum Command {
     },
     /// Prints the counts of records, places, merges and the review queue.
     Stats,
+    /// The layer of points of interest around the places.
+    Pois {
+        #[command(subcommand)]
+        action: Pois,
+    },
     /// Works the moderation queue (with the API's database role).
     Moderation {
         #[command(subcommand)]
@@ -191,6 +203,15 @@ struct BuildInfo {
 }
 
 #[derive(Subcommand)]
+enum Pois {
+    /// Evaluates the opening intervals whose window is not today's (the
+    /// worker does it at each run; this runs it now).
+    Hours,
+    /// Prints the counts of the layer and of its joins.
+    Stats,
+}
+
+#[derive(Subcommand)]
 enum Moderation {
     /// Prints the open entries, oldest first.
     List {
@@ -228,6 +249,20 @@ enum Moderation {
     DismissIssues {
         /// The place.
         place: Uuid,
+    },
+    /// Hides a point of interest (spam, gone for good) whatever the
+    /// community answers, until `show-poi`.
+    HidePoi {
+        /// The point.
+        poi: Uuid,
+        /// Why, kept with the decision.
+        #[arg(long)]
+        note: Option<String>,
+    },
+    /// Shows a point of interest again, setting its "gone" answers aside.
+    ShowPoi {
+        /// The point.
+        poi: Uuid,
     },
 }
 
@@ -290,6 +325,41 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// The points of interest (shops, vending machines, water, fuel,
+    /// health, services) from the France extract the places import
+    /// downloads, then their opening hours.
+    Pois {
+        /// Extract to download when it is not cached.
+        #[arg(long, default_value = osm_extract::FRANCE_EXTRACT_URL)]
+        url: String,
+        /// Downloads the extract again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// The French fuel price feed (prices, LPG, shortages, services),
+    /// joined to the fuel stations by their id in the feed. Meant to run
+    /// every 15 minutes with `--refresh`, the pace at which the feed is
+    /// published.
+    Fuel {
+        /// Asks the feed again instead of reading the last answer.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// La Poste's opening calendar for the next two weeks, joined to the
+    /// post offices by their id, then their opening hours. Daily.
+    Laposte {
+        /// Asks La Poste again instead of reading today's pages.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// FINESS's monthly snapshot, for the pharmacies and health
+    /// establishments the points carry a number of (closures). Monthly,
+    /// after the points import.
+    Finess {
+        /// Downloads the snapshot again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+    },
     /// The French communes (contours administratifs, data.gouv.fr), then
     /// the commune of every place.
     Municipalities {
@@ -300,6 +370,23 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+}
+
+/// Prints what a store of joined rows did.
+fn print_join_store(s: &lunaway_ingest::store::JoinStoreReport) {
+    println!(
+        "stored: {} inserted, {} changed, {} unchanged, {} retired, {} changed on the map{}",
+        s.upsert.upsert.inserted,
+        s.upsert.upsert.changed,
+        s.upsert.upsert.unchanged,
+        s.retired,
+        s.upsert.tile_changes,
+        if s.retire_refused {
+            " (retiring refused: truncated?)"
+        } else {
+            ""
+        }
+    );
 }
 
 /// Fails when an import refused to retire records, naming the slices: the
@@ -422,6 +509,7 @@ async fn main() -> anyhow::Result<()> {
                         "dump stations folded into their site: {}",
                         r.attached_dump_stations
                     );
+                    println!("pitches folded into their site: {}", r.folded_pitches);
                     println!(
                         "elements skipped (outside the area, no coordinates): {}",
                         r.skipped
@@ -445,6 +533,142 @@ async fn main() -> anyhow::Result<()> {
                     );
                     check_retirement(if r.store.retire_refused {
                         &["osm extract"]
+                    } else {
+                        &[]
+                    })?;
+                }
+                Source::Pois { url, refresh } => {
+                    let r = run::pois_extract(&pool, &client, &cache, &url, refresh)
+                        .await
+                        .context("points of interest import failed")?;
+                    println!("points mapped: {}", r.points);
+                    for (kind, n) in &r.by_kind {
+                        println!(
+                            "  {:<12} {:<22} {:>7}",
+                            kind.category().code(),
+                            kind.code(),
+                            n
+                        );
+                    }
+                    println!(
+                        "elements skipped (outside the area, left out): {}",
+                        r.skipped
+                    );
+                    println!(
+                        "stored: {} inserted, {} changed, {} unchanged, {} retired{}{}",
+                        r.store.upsert.inserted,
+                        r.store.upsert.changed,
+                        r.store.upsert.unchanged,
+                        r.store.retired,
+                        if r.store.retire_refused {
+                            " (retiring refused: truncated?)"
+                        } else {
+                            ""
+                        },
+                        if r.cached {
+                            ", extract from the cache"
+                        } else {
+                            ""
+                        }
+                    );
+                    let h = lunaway_conflate::pois::refresh_hours(
+                        &pool,
+                        lunaway_conflate::opening::today_in_france(),
+                    )
+                    .await
+                    .context("opening hours of the points failed")?;
+                    println!(
+                        "opening hours evaluated: {} ({} from La Poste), {} changed on the map",
+                        h.evaluated, h.from_laposte, h.changed
+                    );
+                    check_retirement(if r.store.retire_refused {
+                        &["points of interest"]
+                    } else {
+                        &[]
+                    })?;
+                }
+                Source::Fuel { refresh } => {
+                    let r = lunaway_ingest::fuel::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &lunaway_ingest::fuel::FuelConfig::default(),
+                        refresh,
+                    )
+                    .await
+                    .context("fuel price import failed")?;
+                    println!(
+                        "stations: {} of {} rows ({} skipped), {} selling LPG, feed of {}{}",
+                        r.stations,
+                        r.rows,
+                        r.skipped,
+                        r.lpg,
+                        r.fetched_at,
+                        if r.cached { ", from the cache" } else { "" }
+                    );
+                    print_join_store(&r.store);
+                    check_retirement(if r.store.retire_refused {
+                        &["fuel prices"]
+                    } else {
+                        &[]
+                    })?;
+                }
+                Source::Laposte { refresh } => {
+                    let today = lunaway_conflate::opening::today_in_france();
+                    let r = lunaway_ingest::laposte::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &lunaway_ingest::laposte::LaPosteConfig::default(),
+                        today,
+                        refresh,
+                    )
+                    .await
+                    .context("la poste import failed")?;
+                    println!(
+                        "sites: {} from {} lines in {} pages ({} lines skipped){}",
+                        r.sites,
+                        r.lines,
+                        r.pages,
+                        r.skipped_lines,
+                        if r.cached { ", from the cache" } else { "" }
+                    );
+                    print_join_store(&r.store);
+                    let h = lunaway_conflate::pois::refresh_hours(&pool, today)
+                        .await
+                        .context("opening hours of the points failed")?;
+                    println!(
+                        "opening hours evaluated: {} ({} from La Poste), {} changed on the map",
+                        h.evaluated, h.from_laposte, h.changed
+                    );
+                    check_retirement(if r.store.retire_refused {
+                        &["la poste"]
+                    } else {
+                        &[]
+                    })?;
+                }
+                Source::Finess { refresh } => {
+                    let r = lunaway_ingest::finess::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &lunaway_ingest::finess::FinessConfig::default(),
+                        refresh,
+                    )
+                    .await
+                    .context("finess import failed")?;
+                    println!(
+                        "{}: {} numbers wanted, {} structures read, {} kept, {} closed{}",
+                        r.file,
+                        r.wanted,
+                        r.structures,
+                        r.kept,
+                        r.closed,
+                        if r.cached { ", from the cache" } else { "" }
+                    );
+                    print_join_store(&r.store);
+                    check_retirement(if r.store.retire_refused {
+                        &["finess"]
                     } else {
                         &[]
                     })?;
@@ -482,8 +706,16 @@ async fn main() -> anyhow::Result<()> {
                         r.other_kinds, r.overseas, r.duplicates
                     );
                     println!(
-                        "geocoding dropped: {} not found, {} low score, {} municipality only",
+                        "first geocoding pass dropped: {} not found, {} low score, {} municipality only",
                         r.drops.not_found, r.drops.low_score, r.drops.municipality_only
+                    );
+                    println!(
+                        "second pass placed: {} by a simplified address, {} by a campsite toponym, \
+                         {} at their municipality (approximate); {} still dropped",
+                        r.second_pass.by_address,
+                        r.second_pass.by_toponym,
+                        r.second_pass.by_municipality,
+                        r.second_pass.still_dropped
                     );
                     println!(
                         "records stored: {} ({} inserted, {} changed, {} unchanged, {} retired{}){}",
@@ -549,10 +781,24 @@ async fn main() -> anyhow::Result<()> {
                 "community: {} submissions applied, {} summaries changed",
                 s.submissions_applied, s.community_refreshed
             );
+            println!(
+                "points of interest: {} vending machines added, {} community states changed, \
+                 {} hours evaluated ({} changed on the map)",
+                s.poi_community.vending_added,
+                s.poi_community.refreshed,
+                s.poi_hours.evaluated,
+                s.poi_hours.changed
+            );
             if s.conflicts > 0 {
                 println!(
                     "contradictory human constraints left unapplied: {}",
                     s.conflicts
+                );
+            }
+            if s.held_back > 0 {
+                println!(
+                    "groups held back, placed only at their municipality: {}",
+                    s.held_back
                 );
             }
         }
@@ -592,6 +838,49 @@ async fn main() -> anyhow::Result<()> {
                 s.opening_hours.0, s.opening_hours.1
             );
         }
+        Command::Pois { action } => match action {
+            Pois::Hours => {
+                let h = lunaway_conflate::pois::refresh_hours(
+                    &pool,
+                    lunaway_conflate::opening::today_in_france(),
+                )
+                .await
+                .context("opening hours of the points failed")?;
+                println!(
+                    "opening hours evaluated: {} ({} from La Poste), {} changed on the map",
+                    h.evaluated, h.from_laposte, h.changed
+                );
+            }
+            Pois::Stats => {
+                let s = lunaway_db::pois::layer_stats(&pool).await?;
+                let v = lunaway_db::pois::layer_version(&pool).await?;
+                println!("tiles version {} (moved {})", v.version, v.changed_at);
+                println!("source        category   kind                    points");
+                let mut total = 0;
+                for (source, category, kind, n) in &s.by_kind {
+                    println!("{source:<13} {category:<10} {kind:<22} {n:>7}");
+                    total += n;
+                }
+                println!("total {total:>49}");
+                println!(
+                    "opening hours: {} points, {} parsed, {} from La Poste",
+                    s.hours.0, s.hours.1, s.hours.2
+                );
+                println!(
+                    "fuel feed id: {} points, {} found in the feed",
+                    s.fuel_joined.0, s.fuel_joined.1
+                );
+                println!(
+                    "La Poste id: {} points, {} found in the calendar",
+                    s.laposte_joined.0, s.laposte_joined.1
+                );
+                println!(
+                    "FINESS number: {} points, {} found in FINESS",
+                    s.finess_joined.0, s.finess_joined.1
+                );
+                println!("hidden by the community: {}", s.hidden);
+            }
+        },
         Command::Moderation { action } => {
             let media = lunaway_media::MediaStore::new(cli.media_dir);
             moderation(&pool, &media, action).await?;
@@ -885,6 +1174,20 @@ async fn moderation(
         Moderation::DismissIssues { place } => {
             let n = lunaway_db::moderation::dismiss_issues(pool, place).await?;
             println!("{n} issue reports dismissed at {place}");
+            return Ok(());
+        }
+        Moderation::HidePoi { poi, note } => {
+            if !lunaway_db::moderation::hide_poi(pool, poi, true, note.as_deref()).await? {
+                anyhow::bail!("no point of interest {poi}");
+            }
+            println!("point {poi} hidden; the worker applies it within seconds");
+            return Ok(());
+        }
+        Moderation::ShowPoi { poi } => {
+            if !lunaway_db::moderation::hide_poi(pool, poi, false, None).await? {
+                anyhow::bail!("no point of interest {poi}");
+            }
+            println!("point {poi} shown again; the worker applies it within seconds");
             return Ok(());
         }
     };

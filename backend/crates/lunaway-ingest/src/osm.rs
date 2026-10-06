@@ -13,7 +13,24 @@
 //! | `tourism=caravan_site` | `motorhome_area`, overnight `allowed`; `campsite` when the site says it is one (below) |
 //! | `amenity=sanitary_dump_station`, alone | `service_area`; next to a site, its services go to the site |
 //! | `amenity=parking` + `motorhome=designated` | `parking`, overnight `tolerated` |
-//! | `amenity=parking` + `motorhome=yes` | `parking`, overnight `unknown` |
+//! | `amenity=parking` + `motorhome=yes`, or `caravan=yes\|designated` | `parking`, overnight `unknown` |
+//! | `highway=rest_area`, `highway=services` | `rest_area`, overnight `unknown` |
+//!
+//! A car park or rest area tagged `motorhome=no` is left out, and so is one
+//! tagged `access=no|private` unless `motorhome` or `caravan` lets them in
+//! (the specific key overrides the general one). The overnight status is unknown unless a tag says it
+//! ([`overnight_of`]): `motorhome:overnight` or `overnight` (`yes` allowed,
+//! `no` day only), a `maxstay` shorter than a night (`2 hours`,
+//! `load-unload`) day only. These win over the kind's default, so a motorhome
+//! area tagged `motorhome:overnight=no` is a day stop.
+//!
+//! A campsite or motorhome area that is a pitch of another site is not a
+//! place: `camp_site=pitch`, or a node (or a way under 30 m across) inside
+//! the bounding box of a larger site with no name, a pitch number for a
+//! name (`S33`, `Z109`, `12`) or the larger site's name. It is folded into that
+//! site like a dump station, its tags kept in the site's raw payload
+//! (`plan/research/08c-backend-fixes.md` found 185 such records making 503
+//! review pairs). `tourism=camp_pitch` is never read.
 //!
 //! A `caravan_site` is a campsite when `caravan_site` says `campsite` or
 //! `camp_site`, or when it has `stars`, takes tents (`tents=yes`), or has both
@@ -30,7 +47,9 @@
 //!
 //! Other fields: `fee=no` is a price of 0; `charge` gives the price when it
 //! reads `<amount> EUR|€` per night or per day; `maxheight` in metres or feet
-//! and inches; capacity from `capacity:motorhome`, `capacity:caravans`, then
+//! and inches; `maxlength`, `maxwidth` and `maxweight` (or
+//! `maxweightrating`) read as the routing reads them, implausible values
+//! dropped; capacity from `capacity:motorhome`, `capacity:caravans`, then
 //! (sites only, a car park's `capacity` counts cars) `capacity:pitches` and
 //! `capacity`; `opening_hours`; `website`/`contact:website`/`url`;
 //! `phone`/`contact:phone`/`contact:mobile`; `addr:*`; `description:fr` or
@@ -43,7 +62,16 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use lunaway_domain::{
     InvalidPosition, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service,
-    UNDETERMINED_LANGUAGE, is_language_tag,
+    UNDETERMINED_LANGUAGE,
+    conflation::normalize::fold,
+    is_language_tag,
+    routing::{
+        RestrictionKind,
+        tags::{
+            self as routing_tags, PLAUSIBLE_LENGTH_M, PLAUSIBLE_VEHICLE_LENGTH_M,
+            PLAUSIBLE_WEIGHT_T,
+        },
+    },
 };
 use serde::Deserialize;
 
@@ -134,7 +162,9 @@ pub fn region(code: &str) -> Option<Region> {
 const SELECTORS: &str = r#"  nwr["tourism"="caravan_site"](area.r);
   nwr["tourism"="camp_site"](area.r);
   nwr["amenity"="sanitary_dump_station"](area.r);
-  nwr["amenity"="parking"]["motorhome"~"^(yes|designated)$"](area.r);"#;
+  nwr["amenity"="parking"]["motorhome"~"^(yes|designated)$"](area.r);
+  nwr["amenity"="parking"]["caravan"~"^(yes|designated)$"](area.r);
+  nwr["highway"~"^(rest_area|services)$"](area.r);"#;
 
 /// The Overpass QL query for one region. `out tags bb` returns the
 /// coordinates of nodes and the bounding box of ways and relations, from
@@ -260,7 +290,7 @@ pub(crate) struct Bounds {
 }
 
 /// An OSM element as the mapping reads it, whatever the transport.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Element {
     #[serde(rename = "type")]
     pub(crate) kind: String,
@@ -275,7 +305,9 @@ pub(crate) struct Element {
 /// The elements of an Overpass answer, each typed and with its raw JSON.
 /// The JSON tree is read once and its elements moved out of it, so a large
 /// answer is held twice at most (bytes and tree), not four times.
-fn parse_response(body: &[u8]) -> Result<Vec<(Element, serde_json::Value)>, IngestError> {
+pub(crate) fn parse_response(
+    body: &[u8],
+) -> Result<Vec<(Element, serde_json::Value)>, IngestError> {
     let json_err = |source| IngestError::Json {
         what: "overpass answer".into(),
         source,
@@ -329,6 +361,8 @@ pub struct Parsed {
     pub skipped: Vec<(String, Skip)>,
     /// Dump stations folded into the site they stand in.
     pub attached_dump_stations: usize,
+    /// Pitches folded into the site they belong to.
+    pub folded_pitches: usize,
 }
 
 struct Mapped {
@@ -378,6 +412,9 @@ pub(crate) fn build(
         }
     }
 
+    let (mut sites, folded) = fold_pitches(sites);
+    out.folded_pitches = folded;
+
     for station in stations {
         match host_site(&sites, &station) {
             Some(i) => {
@@ -385,14 +422,7 @@ pub(crate) fn build(
                 host.record
                     .services
                     .extend(station.record.services.iter().copied());
-                if let Some(obj) = host.raw.as_object_mut() {
-                    let attached = obj
-                        .entry("_attached")
-                        .or_insert_with(|| serde_json::Value::Array(Vec::new()));
-                    if let Some(list) = attached.as_array_mut() {
-                        list.push(station.raw);
-                    }
-                }
+                attach_raw(&mut host.raw, station.raw);
                 out.attached_dump_stations += 1;
             }
             None => sites.push(station),
@@ -410,6 +440,102 @@ pub(crate) fn build(
         })
         .collect();
     out
+}
+
+/// Largest half-diagonal, in metres, of a way that may be a pitch: a
+/// pitch is a few metres across, a small site some tens.
+const PITCH_MAX_M: f64 = 15.0;
+
+/// Whether a name reads as a pitch number: up to three letters, an
+/// optional space or hyphen, one to four digits, an optional letter
+/// (`S33`, `Z109`, `A-12`, `12b`).
+fn is_pitch_code(name: &str) -> bool {
+    let n = name.trim();
+    let letters = n.chars().take_while(char::is_ascii_alphabetic).count();
+    if letters > 3 {
+        return false;
+    }
+    let rest = n[letters..].trim_start_matches([' ', '-']);
+    let digits = rest.chars().take_while(char::is_ascii_digit).count();
+    let tail = &rest[digits..];
+    (1..=4).contains(&digits)
+        && (tail.is_empty() || (tail.len() == 1 && tail.chars().all(|c| c.is_ascii_alphabetic())))
+}
+
+/// Whether `m` looks like a pitch of a site named `host_name`: no name, a
+/// pitch number, or the site's own name.
+fn pitch_like(m: &Mapped, host_name: Option<&str>) -> bool {
+    match m.record.name.as_deref() {
+        None => true,
+        Some(name) => is_pitch_code(name) || host_name.is_some_and(|h| fold(h) == fold(name)),
+    }
+}
+
+/// The larger site whose footprint holds the small site `i`, if `i` reads as
+/// one of its pitches.
+fn pitch_host(sites: &[Mapped], i: usize) -> Option<usize> {
+    let pitch = &sites[i];
+    let small = pitch.bounds.is_none() || pitch.record.accuracy_m <= PITCH_MAX_M;
+    let site_kind = |k: PlaceKind| matches!(k, PlaceKind::Campsite | PlaceKind::MotorhomeArea);
+    if !small || !site_kind(pitch.record.kind) {
+        return None;
+    }
+    let p = pitch.record.position;
+    sites
+        .iter()
+        .enumerate()
+        .filter(|(j, s)| {
+            *j != i
+                && site_kind(s.record.kind)
+                && s.record.accuracy_m > pitch.record.accuracy_m.max(PITCH_MAX_M)
+                && s.bounds.is_some_and(|b| within_bounds(b, p, 0.0))
+                && pitch_like(pitch, s.record.name.as_deref())
+        })
+        // The smallest footprint that holds it: a pitch of a site inside a
+        // larger holiday park belongs to the site.
+        .min_by(|(_, a), (_, b)| {
+            a.record
+                .accuracy_m
+                .total_cmp(&b.record.accuracy_m)
+                .then(a.id.cmp(&b.id))
+        })
+        .map(|(j, _)| j)
+}
+
+/// Folds every pitch into its site: its services join the site's, its raw
+/// payload goes under the site's `_attached`. Returns the sites left and
+/// how many pitches were folded.
+fn fold_pitches(sites: Vec<Mapped>) -> (Vec<Mapped>, usize) {
+    let hosts: Vec<Option<usize>> = (0..sites.len()).map(|i| pitch_host(&sites, i)).collect();
+    // A pitch's host is never itself a pitch: a host is larger than
+    // `PITCH_MAX_M`, a pitch smaller.
+    let mut slots: Vec<Option<Mapped>> = sites.into_iter().map(Some).collect();
+    let mut folded = 0;
+    for (i, host) in hosts.iter().enumerate() {
+        let Some(h) = *host else { continue };
+        let Some(pitch) = slots[i].take() else {
+            continue;
+        };
+        if let Some(site) = slots[h].as_mut() {
+            site.record
+                .services
+                .extend(pitch.record.services.iter().copied());
+            attach_raw(&mut site.raw, pitch.raw);
+            folded += 1;
+        }
+    }
+    (slots.into_iter().flatten().collect(), folded)
+}
+
+fn attach_raw(host: &mut serde_json::Value, raw: serde_json::Value) {
+    if let Some(obj) = host.as_object_mut() {
+        let attached = obj
+            .entry("_attached")
+            .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+        if let Some(list) = attached.as_array_mut() {
+            list.push(raw);
+        }
+    }
 }
 
 /// Metres around a site's footprint within which a dump station still
@@ -500,7 +626,21 @@ fn descriptions_of(tags: &BTreeMap<String, String>) -> BTreeMap<String, String> 
     out
 }
 
+/// Whether the tags close the spot to motorhomes or to the public.
+///
+/// The specific key overrides the general one, as OSM reads them:
+/// `access=no` with `motorhome=designated` is a car park for motorhomes
+/// only, kept.
+fn closed_to_motorhomes(tags: &BTreeMap<String, String>) -> bool {
+    let let_in = one_of(tags, "motorhome", &["yes", "designated"])
+        || one_of(tags, "caravan", &["yes", "designated"]);
+    one_of(tags, "motorhome", &["no"]) || (!let_in && one_of(tags, "access", &["no", "private"]))
+}
+
 pub(crate) fn kind_of(tags: &BTreeMap<String, String>) -> Option<PlaceKind> {
+    if one_of(tags, "camp_site", &["pitch"]) {
+        return None;
+    }
     match (tag(tags, "tourism"), tag(tags, "amenity")) {
         (Some("caravan_site"), _) => {
             let says_campsite = one_of(tags, "caravan_site", &["campsite", "camp_site"]);
@@ -517,8 +657,17 @@ pub(crate) fn kind_of(tags: &BTreeMap<String, String>) -> Option<PlaceKind> {
         }
         (Some("camp_site"), _) => Some(PlaceKind::Campsite),
         (_, Some("sanitary_dump_station")) => Some(PlaceKind::ServiceArea),
-        (_, Some("parking")) if one_of(tags, "motorhome", &["yes", "designated"]) => {
+        (_, Some("parking"))
+            if (one_of(tags, "motorhome", &["yes", "designated"])
+                || one_of(tags, "caravan", &["yes", "designated"]))
+                && !closed_to_motorhomes(tags) =>
+        {
             Some(PlaceKind::Parking)
+        }
+        // After the sites: an area tagged both a motorhome area and a rest
+        // area is the motorhome area.
+        _ if one_of(tags, "highway", &["rest_area", "services"]) => {
+            (!closed_to_motorhomes(tags)).then_some(PlaceKind::RestArea)
         }
         _ => None,
     }
@@ -631,6 +780,67 @@ fn locate(element: &Element) -> Result<(Position, f64, Option<Bounds>), Skip> {
     Ok((centre, half_diagonal, Some(b)))
 }
 
+/// Whether a night may be spent at a spot of `kind`: what a tag says
+/// first, then the kind's default. Conservative: a car park or a rest area
+/// is unknown unless a tag says otherwise; `motorhome=designated` makes a
+/// car park tolerated, the reading of the MVP kept since.
+#[must_use]
+pub fn overnight_of(kind: PlaceKind, tags: &BTreeMap<String, String>) -> OvernightStatus {
+    // Every spot read here takes motorhomes by day: one whose night is
+    // refused is a day stop, which says more than "forbidden".
+    let said = |key: &str| match tag(tags, key) {
+        Some("yes" | "designated") => Some(OvernightStatus::Allowed),
+        Some("no") => Some(OvernightStatus::DayOnly),
+        _ => None,
+    };
+    if let Some(o) = said("motorhome:overnight").or_else(|| said("overnight")) {
+        return o;
+    }
+    if tag(tags, "maxstay").is_some_and(shorter_than_a_night) {
+        return OvernightStatus::DayOnly;
+    }
+    match kind {
+        PlaceKind::Campsite | PlaceKind::MotorhomeArea => OvernightStatus::Allowed,
+        PlaceKind::Parking if one_of(tags, "motorhome", &["designated"]) => {
+            OvernightStatus::Tolerated
+        }
+        _ => OvernightStatus::Unknown,
+    }
+}
+
+/// Whether a `maxstay` value forbids a night: a number of minutes or of
+/// hours under twelve, or `load-unload`. Days, `unlimited`, `no` and
+/// anything unread leave the night unknown.
+fn shorter_than_a_night(raw: &str) -> bool {
+    let v = raw.trim().to_ascii_lowercase();
+    if v == "load-unload" {
+        return true;
+    }
+    let mut parts = v.split_whitespace();
+    let (Some(n), Some(unit)) = (parts.next(), parts.next()) else {
+        return false;
+    };
+    let Ok(n) = n.replace(',', ".").parse::<f64>() else {
+        return false;
+    };
+    match unit {
+        "minute" | "minutes" | "min" => n > 0.0 && n < 720.0,
+        "hour" | "hours" | "h" => n > 0.0 && n < 12.0,
+        _ => false,
+    }
+}
+
+/// A vehicle limit as the routing reads it, kept only within `plausible`.
+fn limit(
+    tags: &BTreeMap<String, String>,
+    kind: RestrictionKind,
+    plausible: &std::ops::RangeInclusive<f64>,
+) -> Option<f64> {
+    routing_tags::plausible(routing_tags::read_limit(tags, kind), plausible)
+        .limit()
+        .map(|v| (v * 100.0).round() / 100.0)
+}
+
 fn map_element(element: &Element) -> Result<(NormalizedRecord, Option<Bounds>), Skip> {
     let tags = &element.tags;
     let kind = kind_of(tags).ok_or(Skip::OutOfScope)?;
@@ -638,13 +848,7 @@ fn map_element(element: &Element) -> Result<(NormalizedRecord, Option<Bounds>), 
     let mut r = NormalizedRecord::new(kind, position);
     r.accuracy_m = accuracy_m;
     r.name = tag(tags, "name").map(str::to_owned);
-    r.overnight = match kind {
-        PlaceKind::Campsite | PlaceKind::MotorhomeArea => OvernightStatus::Allowed,
-        PlaceKind::Parking if one_of(tags, "motorhome", &["designated"]) => {
-            OvernightStatus::Tolerated
-        }
-        _ => OvernightStatus::Unknown,
-    };
+    r.overnight = overnight_of(kind, tags);
     r.services = services_of(tags, kind).into_iter().collect();
     let price = if one_of(tags, "fee", &["no"]) {
         Some(0.0)
@@ -657,6 +861,13 @@ fn map_element(element: &Element) -> Result<(NormalizedRecord, Option<Bounds>), 
         r.price_parking_eur = price;
     }
     r.max_height_m = tag(tags, "maxheight").and_then(parse_maxheight);
+    r.max_length_m = limit(
+        tags,
+        RestrictionKind::MaxLength,
+        &PLAUSIBLE_VEHICLE_LENGTH_M,
+    );
+    r.max_width_m = limit(tags, RestrictionKind::MaxWidth, &PLAUSIBLE_LENGTH_M);
+    r.max_weight_t = limit(tags, RestrictionKind::MaxWeight, &PLAUSIBLE_WEIGHT_T);
     let capacity_keys: &[&str] = if kind == PlaceKind::Parking {
         &["capacity:motorhome", "capacity:caravans"]
     } else {
@@ -836,6 +1047,251 @@ mod tests {
             k(&[("amenity", "parking"), ("motorhome", "designated")]),
             Some(PlaceKind::Parking)
         );
+    }
+
+    #[test]
+    fn overnight_is_unknown_unless_a_tag_says_it() {
+        let o = |kind, t: &[(&str, &str)]| overnight_of(kind, &tags(t));
+        assert_eq!(
+            o(PlaceKind::RestArea, &[("highway", "rest_area")]),
+            OvernightStatus::Unknown
+        );
+        assert_eq!(
+            o(
+                PlaceKind::Parking,
+                &[("amenity", "parking"), ("caravan", "yes")]
+            ),
+            OvernightStatus::Unknown
+        );
+        assert_eq!(
+            o(
+                PlaceKind::Parking,
+                &[("amenity", "parking"), ("motorhome", "designated")]
+            ),
+            OvernightStatus::Tolerated
+        );
+        assert_eq!(
+            o(PlaceKind::RestArea, &[("motorhome:overnight", "yes")]),
+            OvernightStatus::Allowed
+        );
+        assert_eq!(
+            o(
+                PlaceKind::Parking,
+                &[("motorhome", "designated"), ("overnight", "no")]
+            ),
+            OvernightStatus::DayOnly,
+            "an explicit tag wins over the kind's default"
+        );
+        assert_eq!(
+            o(PlaceKind::MotorhomeArea, &[("motorhome:overnight", "no")]),
+            OvernightStatus::DayOnly,
+            "a spot open to motorhomes whose night is refused is a day stop"
+        );
+        for short in ["2 hours", "1.5 hours", "30 minutes", "load-unload"] {
+            assert_eq!(
+                o(PlaceKind::Parking, &[("maxstay", short)]),
+                OvernightStatus::DayOnly,
+                "{short}"
+            );
+        }
+        for long in [
+            "unlimited",
+            "no",
+            "2 days",
+            "24 hours",
+            "1440 minutes",
+            "whatever",
+        ] {
+            assert_eq!(
+                o(PlaceKind::Parking, &[("maxstay", long)]),
+                OvernightStatus::Unknown,
+                "{long}"
+            );
+        }
+    }
+
+    #[test]
+    fn new_spots_and_their_exclusions() {
+        let k = |t: &[(&str, &str)]| kind_of(&tags(t));
+        assert_eq!(k(&[("highway", "rest_area")]), Some(PlaceKind::RestArea));
+        assert_eq!(k(&[("highway", "services")]), Some(PlaceKind::RestArea));
+        assert_eq!(k(&[("highway", "rest_area"), ("motorhome", "no")]), None);
+        assert_eq!(k(&[("highway", "services"), ("access", "private")]), None);
+        assert_eq!(
+            k(&[("amenity", "parking"), ("caravan", "yes")]),
+            Some(PlaceKind::Parking)
+        );
+        assert_eq!(
+            k(&[
+                ("amenity", "parking"),
+                ("caravan", "yes"),
+                ("motorhome", "no")
+            ]),
+            None
+        );
+        assert_eq!(
+            k(&[
+                ("amenity", "parking"),
+                ("motorhome", "designated"),
+                ("access", "no")
+            ]),
+            Some(PlaceKind::Parking),
+            "the specific key wins: a car park for motorhomes only"
+        );
+        assert_eq!(
+            k(&[("amenity", "parking"), ("access", "private")]),
+            None,
+            "nothing lets motorhomes in"
+        );
+        assert_eq!(
+            k(&[("tourism", "caravan_site"), ("highway", "rest_area")]),
+            Some(PlaceKind::MotorhomeArea),
+            "a motorhome area that is also a rest area is the motorhome area"
+        );
+        assert_eq!(
+            k(&[
+                ("tourism", "caravan_site"),
+                ("highway", "rest_area"),
+                ("access", "no")
+            ]),
+            Some(PlaceKind::MotorhomeArea),
+            "and an access tag on it does not drop it"
+        );
+        assert_eq!(k(&[("tourism", "camp_site"), ("camp_site", "pitch")]), None);
+        assert_eq!(k(&[("tourism", "camp_pitch")]), None);
+    }
+
+    #[test]
+    fn vehicle_limits_read_as_the_routing_reads_them() {
+        let e = Element {
+            kind: "way".into(),
+            id: 7,
+            lat: Some(47.0),
+            lon: Some(-0.5),
+            bounds: None,
+            tags: tags(&[
+                ("amenity", "parking"),
+                ("motorhome", "designated"),
+                ("maxlength", "8 m"),
+                ("maxwidth", "2,55"),
+                ("maxweightrating", "3.5"),
+                ("maxweight", "12"),
+            ]),
+        };
+        let r = map_element(&e).unwrap().0;
+        assert_eq!(r.max_length_m, Some(8.0));
+        assert_eq!(r.max_width_m, Some(2.55));
+        assert_eq!(
+            r.max_weight_t,
+            Some(3.5),
+            "the lowest of maxweight and maxweightrating"
+        );
+        let implausible = Element {
+            tags: tags(&[
+                ("amenity", "parking"),
+                ("motorhome", "yes"),
+                ("maxweight", "120"),
+            ]),
+            ..e
+        };
+        assert_eq!(map_element(&implausible).unwrap().0.max_weight_t, None);
+    }
+
+    #[test]
+    fn pitches_inside_a_site_are_folded_into_it() {
+        let node = |id: i64, lat: f64, lon: f64, t: &[(&str, &str)]| {
+            let e = Element {
+                kind: "node".into(),
+                id,
+                lat: Some(lat),
+                lon: Some(lon),
+                bounds: None,
+                tags: tags(t),
+            };
+            let raw = serde_json::json!({"type": "node", "id": id});
+            (e, raw)
+        };
+        let site = Element {
+            kind: "way".into(),
+            id: 1,
+            lat: None,
+            lon: None,
+            bounds: Some(Bounds {
+                minlat: 47.000,
+                minlon: -0.502,
+                maxlat: 47.004,
+                maxlon: -0.498,
+            }),
+            tags: tags(&[("tourism", "camp_site"), ("name", "Camping des Pins")]),
+        };
+        let elements = vec![
+            (site, serde_json::json!({"type": "way", "id": 1})),
+            node(
+                2,
+                47.001,
+                -0.501,
+                &[
+                    ("tourism", "caravan_site"),
+                    ("name", "S33"),
+                    ("power_supply", "yes"),
+                ],
+            ),
+            node(3, 47.002, -0.500, &[("tourism", "camp_site")]),
+            node(
+                4,
+                47.003,
+                -0.499,
+                &[("tourism", "camp_site"), ("name", "camping des pins")],
+            ),
+            node(
+                5,
+                47.002,
+                -0.501,
+                &[("tourism", "caravan_site"), ("name", "Aire du Moulin")],
+            ),
+            node(
+                6,
+                47.200,
+                -0.500,
+                &[("tourism", "caravan_site"), ("name", "Z109")],
+            ),
+        ];
+        let parsed = build(elements, Utc::now());
+        let ids: Vec<&str> = parsed
+            .records
+            .iter()
+            .map(|r| r.external_id.as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            ["way/1", "node/5", "node/6"],
+            "a pitch number, no name or the site's own name inside its outline is a pitch; \
+             another name, or a pitch number outside any site, stays a place"
+        );
+        assert_eq!(parsed.folded_pitches, 3);
+        let host = &parsed.records[0];
+        assert!(
+            host.record.services.contains(&Service::Electricity),
+            "a pitch's services are the site's"
+        );
+        assert_eq!(host.raw["_attached"].as_array().map(Vec::len), Some(3));
+    }
+
+    #[test]
+    fn pitch_codes_are_told_from_names() {
+        for code in ["S33", "Z109", "12", "A-12", "12b", "AB 7"] {
+            assert!(is_pitch_code(code), "{code}");
+        }
+        for name in [
+            "Camping du Lac",
+            "Aire 2000 plus",
+            "Les Pins",
+            "ABCD12",
+            "12345",
+            "",
+        ] {
+            assert!(!is_pitch_code(name), "{name}");
+        }
     }
 
     #[test]

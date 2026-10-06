@@ -447,10 +447,10 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
              capacity, opening_hours, opening_hours_parsed, opening_intervals,
              opening_window_start, website, phone, stars, provenance, content_hash,
              opening_intervals_until, descriptions, external_links, municipality,
-             municipality_code)
+             municipality_code, max_length_m, max_width_m, max_weight_t)
         SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
-               $26, $27, $28, $29, m.name, m.code
+               $26, $27, $28, $29, m.name, m.code, $30, $31, $32
         FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true
         -- Ends the SELECT before ON CONFLICT: the parser would otherwise
         -- read the conflict clause as part of the join.
@@ -463,6 +463,8 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             country_code = EXCLUDED.country_code, price_parking_eur = EXCLUDED.price_parking_eur,
             price_services_eur = EXCLUDED.price_services_eur,
             max_height_m = EXCLUDED.max_height_m, capacity = EXCLUDED.capacity,
+            max_length_m = EXCLUDED.max_length_m, max_width_m = EXCLUDED.max_width_m,
+            max_weight_t = EXCLUDED.max_weight_t,
             opening_hours = EXCLUDED.opening_hours,
             opening_hours_parsed = EXCLUDED.opening_hours_parsed,
             opening_intervals = EXCLUDED.opening_intervals,
@@ -505,6 +507,9 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         p.opening.until,
         descriptions,
         links,
+        c.max_length_m,
+        c.max_width_m,
+        c.max_weight_t,
     )
     .execute(tx.conn())
     .await?;

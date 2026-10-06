@@ -1,0 +1,846 @@
+{
+ "schemaVersion": "v1.0.0",
+ "generatedAt": "2026-10-01T02:07:19.019914580Z",
+ "gco": [
+  {
+   "pmSmsseId": "403",
+   "typeGco": "003",
+   "pmejDuGco": [],
+   "egeDuGco": []
+  }
+ ],
+ "gcc": [
+  {
+   "gccId": "1",
+   "nomGcc": "21-52 Côte d'Or-Haute-Marne",
+   "typeGcc": "001",
+   "numFinessGcc": "49824516535",
+   "engagement": [],
+   "evenement": [
+    {
+     "evenementId": "732817",
+     "dateEnregistrement": "2026-07-07 13:04:04",
+     "dateEvenement": "2017-01-01",
+     "etatObjet1": "003",
+     "identifiantObjet1": "1",
+     "identifiantObjet2": null,
+     "systemeMaitre": "01",
+     "typeObjet1": "GR",
+     "typeObjet2": null,
+     "codeEvenement": "003"
+    }
+   ],
+   "pmejDuGcc": [
+    {
+     "pmSmsseId": "15052",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "15159",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "15163",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "15165",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "45502",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "45503",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "45505",
+     "typeRoleEntiteGroupe": "M"
+    },
+    {
+     "pmSmsseId": "15155",
+     "typeRoleEntiteGroupe": "S"
+    },
+    {
+     "pmSmsseId": "15156",
+     "typeRoleEntiteGroupe": "M"
+    }
+   ],
+   "egeDuGcc": [],
+   "etatObjet": "A",
+   "dateDerniereMaj": "1900-01-01 00:00:00"
+  }
+ ],
+ "pmej": [
+  {
+   "informationsGeneralesPMEJ": {
+    "pmSmsseId": "5",
+    "codeApe": "86.10Z",
+    "complementAdressePmSmsse": null,
+    "dateCreation": "2001-01-01",
+    "dateFermeture": "2019-03-03",
+    "denominationLonguePmSmsse": "SARL CENTRE MEDICAL DE DIALYSE REGINA",
+    "denominationPm": "SARL CTRE MEDICAL DE DIALYSE REGINA",
+    "numFinessPm": "010000206",
+    "fonctionPublique": null,
+    "categorieentiteGeographiqueExercice": null,
+    "siren": "546920075",
+    "statutJuridique": "72",
+    "typeGroupeGco": null,
+    "typePersonneMorale": "01"
+   },
+   "adresse": [
+    {
+     "usageAdresse": "02",
+     "numeroVoie": "54",
+     "typeVoie": "R",
+     "libelleVoie": "GEORGES GIRERD",
+     "complementVoie": null,
+     "complementPointGeographique": null,
+     "lieuDit": null,
+     "cogCommune": "01034",
+     "ligneAcheminement": "BELLEY",
+     "ligneUne": null,
+     "ligneDeux": null,
+     "ligneTrois": null,
+     "ligneQuatre": "54 RUE GEORGES GIRERD",
+     "ligneCinq": null,
+     "ligneSix": null,
+     "codePostal": "01300",
+     "coordonneesGeographique": {
+      "coordonneeX": "5.684769",
+      "coordonneeY": "45.761585",
+      "directionLatitude": "6521545.08",
+      "directionLongitude": "908642.19",
+      "cleInInteropBAN": "01034_0400_00054",
+      "scoreBAN": "0.9637236363636362"
+     }
+    }
+   ],
+   "contact": [
+    {
+     "typeContact": {
+      "roleContact": "01"
+     },
+     "telecom": {
+      "telephone": "0479817580",
+      "telecopie": "0479817589",
+      "courriel": null
+     }
+    }
+   ],
+   "engagement": [],
+   "evenement": [
+    {
+     "evenementId": "5",
+     "dateEnregistrement": "2026-07-07 12:22:32",
+     "dateEvenement": "2001-01-01",
+     "etatObjet1": "001",
+     "identifiantObjet1": "5",
+     "identifiantObjet2": null,
+     "systemeMaitre": "01",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "001"
+    },
+    {
+     "evenementId": "2106",
+     "dateEnregistrement": "2026-07-07 12:22:32",
+     "dateEvenement": "2019-03-03",
+     "etatObjet1": "005",
+     "identifiantObjet1": "5",
+     "identifiantObjet2": null,
+     "systemeMaitre": "01",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "005"
+    }
+   ],
+   "ege": [
+    {
+     "informationsGeneralesEGE": {
+      "egeId": "106",
+      "complementDenominationEg": null,
+      "dateFermeture": "2005-11-17",
+      "dateOuverture": "2003-05-14",
+      "datePremiereAutorisation": "2003-05-14",
+      "nomEgeCourt": "UNITE DIALYSE SITE CH BELLEY",
+      "nomEgeLong": "UNITE DIALYSE SITE DU CH DE BELLEY",
+      "numeroEducationNationale": null,
+      "numeroReferenceExterne": null,
+      "numFinessEge": "010002699",
+      "espic": [
+       "0"
+      ],
+      "siret": "54692007500043"
+     },
+     "categorieentiteGeographiqueExercice": "141",
+     "modefixationtarifaire": "07",
+     "typeBudget": [
+      "01"
+     ],
+     "adresse": [
+      {
+       "usageAdresse": "03",
+       "numeroVoie": "52",
+       "typeVoie": "R",
+       "libelleVoie": "GEORGES GIRERD",
+       "complementVoie": null,
+       "complementPointGeographique": null,
+       "lieuDit": "BP 139",
+       "cogCommune": "01034",
+       "ligneAcheminement": "BELLEY",
+       "ligneUne": null,
+       "ligneDeux": null,
+       "ligneTrois": null,
+       "ligneQuatre": "52 RUE GEORGES GIRERD",
+       "ligneCinq": null,
+       "ligneSix": null,
+       "codePostal": "01300",
+       "coordonneesGeographique": {
+        "coordonneeX": "5.684769",
+        "coordonneeY": "45.761585",
+        "directionLatitude": "6521545.08",
+        "directionLongitude": "908642.19",
+        "cleInInteropBAN": "01034_0400_00052",
+        "scoreBAN": "0.9637236363636362"
+       }
+      }
+     ],
+     "contact": [],
+     "engagement": [],
+     "evenement": [
+      {
+       "evenementId": "142233",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2003-05-14",
+       "etatObjet1": "003",
+       "identifiantObjet1": "106",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "003"
+      },
+      {
+       "evenementId": "152103",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2005-11-17",
+       "etatObjet1": "100",
+       "identifiantObjet1": "106",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "005"
+      },
+      {
+       "evenementId": "155651",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2003-05-14",
+       "etatObjet1": "007",
+       "identifiantObjet1": "106",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "007"
+      }
+     ],
+     "roleEge": [],
+     "etatObjet": "I",
+     "dateDerniereMaj": "2005-11-17 00:00:00"
+    },
+    {
+     "informationsGeneralesEGE": {
+      "egeId": "109",
+      "complementDenominationEg": null,
+      "dateFermeture": "2005-09-07",
+      "dateOuverture": "2005-05-11",
+      "datePremiereAutorisation": "2005-05-11",
+      "nomEgeCourt": "UNITE AUTODIALYSE SITE CH BELLEY",
+      "nomEgeLong": "UNITE AUTODIALYSE SITE CH BELLEY",
+      "numeroEducationNationale": null,
+      "numeroReferenceExterne": null,
+      "numFinessEge": "010002749",
+      "espic": [
+       "0"
+      ],
+      "siret": null
+     },
+     "categorieentiteGeographiqueExercice": "146",
+     "modefixationtarifaire": "07",
+     "typeBudget": [
+      "01"
+     ],
+     "adresse": [
+      {
+       "usageAdresse": "03",
+       "numeroVoie": "54",
+       "typeVoie": "R",
+       "libelleVoie": "GEORGES GIRERD",
+       "complementVoie": null,
+       "complementPointGeographique": null,
+       "lieuDit": null,
+       "cogCommune": "01034",
+       "ligneAcheminement": "BELLEY",
+       "ligneUne": null,
+       "ligneDeux": null,
+       "ligneTrois": null,
+       "ligneQuatre": "54 RUE GEORGES GIRERD",
+       "ligneCinq": null,
+       "ligneSix": null,
+       "codePostal": "01300",
+       "coordonneesGeographique": {
+        "coordonneeX": "5.684769",
+        "coordonneeY": "45.761585",
+        "directionLatitude": "6521545.08",
+        "directionLongitude": "908642.19",
+        "cleInInteropBAN": "01034_0400_00054",
+        "scoreBAN": "0.9637236363636362"
+       }
+      }
+     ],
+     "contact": [
+      {
+       "typeContact": {
+        "roleContact": "01"
+       },
+       "telecom": {
+        "telephone": "0479817580",
+        "telecopie": "0479817589",
+        "courriel": null
+       }
+      }
+     ],
+     "engagement": [],
+     "evenement": [
+      {
+       "evenementId": "142236",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2005-05-11",
+       "etatObjet1": "003",
+       "identifiantObjet1": "109",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "003"
+      },
+      {
+       "evenementId": "152104",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2005-09-07",
+       "etatObjet1": "101",
+       "identifiantObjet1": "109",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "005"
+      },
+      {
+       "evenementId": "155654",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2005-05-11",
+       "etatObjet1": "007",
+       "identifiantObjet1": "109",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "007"
+      }
+     ],
+     "roleEge": [],
+     "etatObjet": "I",
+     "dateDerniereMaj": "2005-09-07 00:00:00"
+    }
+   ],
+   "etatObjet": "I",
+   "dateDerniereMaj": "2019-03-04 00:00:00"
+  },
+  {
+   "informationsGeneralesPMEJ": {
+    "pmSmsseId": "145",
+    "codeApe": "47.73Z",
+    "complementAdressePmSmsse": null,
+    "dateCreation": "1942-08-10",
+    "dateFermeture": null,
+    "denominationLonguePmSmsse": "NOUVELLE PHARMACIE DU CHAMP DE MARS",
+    "denominationPm": "NOUVELLE PHARMACIE DU CHAMP DE MARS",
+    "numFinessPm": "010002277",
+    "fonctionPublique": null,
+    "categorieentiteGeographiqueExercice": null,
+    "siren": "893939983",
+    "statutJuridique": "91",
+    "typeGroupeGco": null,
+    "typePersonneMorale": "01"
+   },
+   "adresse": [
+    {
+     "usageAdresse": "02",
+     "numeroVoie": "9",
+     "typeVoie": null,
+     "libelleVoie": "Rue Alexandre Bérard",
+     "complementVoie": null,
+     "complementPointGeographique": null,
+     "lieuDit": null,
+     "cogCommune": "01004",
+     "ligneAcheminement": "Ambérieu-en-Bugey",
+     "ligneUne": "NOUVELLE PHARMACIE DU CHAMP DE MARS",
+     "ligneDeux": null,
+     "ligneTrois": null,
+     "ligneQuatre": "9 Rue Alexandre Bérard",
+     "ligneCinq": null,
+     "ligneSix": "01500 Ambérieu-en-Bugey",
+     "codePostal": "01500",
+     "coordonneesGeographique": {
+      "coordonneeX": "882630.01",
+      "coordonneeY": "6542638.96",
+      "directionLatitude": "45.958916",
+      "directionLongitude": "5.358366",
+      "cleInInteropBAN": "01004_0040_00009",
+      "scoreBAN": "0.973232727272727"
+     }
+    }
+   ],
+   "contact": [
+    {
+     "typeContact": {
+      "roleContact": "01"
+     },
+     "telecom": {
+      "telephone": "0474380226",
+      "telecopie": "0474382135",
+      "courriel": null
+     }
+    }
+   ],
+   "engagement": [],
+   "evenement": [
+    {
+     "evenementId": "145",
+     "dateEnregistrement": "2026-07-07 12:22:32",
+     "dateEvenement": "1942-08-10",
+     "etatObjet1": "001",
+     "identifiantObjet1": "145",
+     "identifiantObjet2": null,
+     "systemeMaitre": "01",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "001"
+    },
+    {
+     "evenementId": "3382191",
+     "dateEnregistrement": "2026-07-16 10:12:55",
+     "dateEvenement": "1942-08-10",
+     "etatObjet1": "034",
+     "identifiantObjet1": "145",
+     "identifiantObjet2": null,
+     "systemeMaitre": "04",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "034"
+    }
+   ],
+   "ege": [
+    {
+     "informationsGeneralesEGE": {
+      "egeId": "83",
+      "complementDenominationEg": null,
+      "dateFermeture": null,
+      "dateOuverture": "1942-08-10",
+      "datePremiereAutorisation": "1942-08-10",
+      "nomEgeCourt": "NOUVELLE PHARMACIE DU CHAMP DE MARS",
+      "nomEgeLong": "NOUVELLE PHARMACIE DU CHAMP DE MARS",
+      "numeroEducationNationale": null,
+      "numeroReferenceExterne": "01#000066",
+      "numFinessEge": "010002285",
+      "espic": null,
+      "siret": "89393998300019"
+     },
+     "categorieentiteGeographiqueExercice": "620",
+     "modefixationtarifaire": "01",
+     "typeBudget": [
+      "01"
+     ],
+     "adresse": [
+      {
+       "usageAdresse": "03",
+       "numeroVoie": "9",
+       "typeVoie": null,
+       "libelleVoie": "Rue Alexandre Bérard",
+       "complementVoie": null,
+       "complementPointGeographique": null,
+       "lieuDit": null,
+       "cogCommune": "01004",
+       "ligneAcheminement": "Ambérieu-en-Bugey",
+       "ligneUne": null,
+       "ligneDeux": null,
+       "ligneTrois": null,
+       "ligneQuatre": "9 Rue Alexandre Bérard",
+       "ligneCinq": null,
+       "ligneSix": "01500 Ambérieu-en-Bugey",
+       "codePostal": "01500",
+       "coordonneesGeographique": {
+        "coordonneeX": "882630.01",
+        "coordonneeY": "6542638.96",
+        "directionLatitude": "45.958916",
+        "directionLongitude": "5.358366",
+        "cleInInteropBAN": "01004_0040_00009",
+        "scoreBAN": "0.973232727272727"
+       }
+      }
+     ],
+     "contact": [
+      {
+       "typeContact": {
+        "roleContact": "01"
+       },
+       "telecom": {
+        "telephone": "0474380226",
+        "telecopie": "0474382135",
+        "courriel": null
+       }
+      }
+     ],
+     "engagement": [],
+     "evenement": [
+      {
+       "evenementId": "3382192",
+       "dateEnregistrement": "2026-07-16 10:12:55",
+       "dateEvenement": "1942-08-10",
+       "etatObjet1": "035",
+       "identifiantObjet1": "83",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "035"
+      },
+      {
+       "evenementId": "3382193",
+       "dateEnregistrement": "2026-07-16 10:12:55",
+       "dateEvenement": "2026-02-01",
+       "etatObjet1": "036",
+       "identifiantObjet1": "83",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "036"
+      },
+      {
+       "evenementId": "142210",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "1942-08-10",
+       "etatObjet1": "003",
+       "identifiantObjet1": "83",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "003"
+      },
+      {
+       "evenementId": "155628",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "1942-08-10",
+       "etatObjet1": "007",
+       "identifiantObjet1": "83",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "007"
+      }
+     ],
+     "roleEge": [],
+     "etatObjet": "A",
+     "dateDerniereMaj": "2026-07-16 10:12:55"
+    }
+   ],
+   "etatObjet": "A",
+   "dateDerniereMaj": "2026-07-16 10:12:55"
+  },
+  {
+   "informationsGeneralesPMEJ": {
+    "pmSmsseId": "217",
+    "codeApe": "47.73Z",
+    "complementAdressePmSmsse": null,
+    "dateCreation": "2017-04-03",
+    "dateFermeture": "2026-09-28",
+    "denominationLonguePmSmsse": "PHARMACIE VALLEE",
+    "denominationPm": "PHARMACIE VALLEE",
+    "numFinessPm": "010003861",
+    "fonctionPublique": null,
+    "categorieentiteGeographiqueExercice": null,
+    "siren": "817757040",
+    "statutJuridique": "72",
+    "typeGroupeGco": null,
+    "typePersonneMorale": "01"
+   },
+   "adresse": [
+    {
+     "usageAdresse": "02",
+     "numeroVoie": "2",
+     "typeVoie": null,
+     "libelleVoie": "Rue Joseph Viallaz",
+     "complementVoie": null,
+     "complementPointGeographique": null,
+     "lieuDit": null,
+     "cogCommune": "01185",
+     "ligneAcheminement": "Plateau d'Hauteville",
+     "ligneUne": "PHARMACIE VALLEE",
+     "ligneDeux": null,
+     "ligneTrois": null,
+     "ligneQuatre": "2 Rue Joseph Viallaz",
+     "ligneCinq": null,
+     "ligneSix": "01110 Plateau d'Hauteville",
+     "codePostal": "01110",
+     "coordonneesGeographique": {
+      "coordonneeX": "901318.05",
+      "coordonneeY": "6545214.54",
+      "directionLatitude": "45.976814",
+      "directionLongitude": "5.60062",
+      "cleInInteropBAN": "01185_0320_00002",
+      "scoreBAN": "0.960183636363636"
+     }
+    }
+   ],
+   "contact": [
+    {
+     "typeContact": {
+      "roleContact": "01"
+     },
+     "telecom": {
+      "telephone": "0474353007",
+      "telecopie": null,
+      "courriel": null
+     }
+    }
+   ],
+   "engagement": [],
+   "evenement": [
+    {
+     "evenementId": "217",
+     "dateEnregistrement": "2026-07-07 12:22:32",
+     "dateEvenement": "2017-04-03",
+     "etatObjet1": "001",
+     "identifiantObjet1": "217",
+     "identifiantObjet2": null,
+     "systemeMaitre": "01",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "001"
+    },
+    {
+     "evenementId": "3382383",
+     "dateEnregistrement": "2026-07-16 10:13:12",
+     "dateEvenement": "2017-04-03",
+     "etatObjet1": "034",
+     "identifiantObjet1": "217",
+     "identifiantObjet2": null,
+     "systemeMaitre": "04",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "034"
+    },
+    {
+     "evenementId": "3591807",
+     "dateEnregistrement": "2026-09-18 23:01:18",
+     "dateEvenement": "2026-09-28",
+     "etatObjet1": "004",
+     "identifiantObjet1": "217",
+     "identifiantObjet2": null,
+     "systemeMaitre": "04",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "005"
+    },
+    {
+     "evenementId": "3594650",
+     "dateEnregistrement": "2026-09-28 23:10:58",
+     "dateEvenement": "2018-02-12",
+     "etatObjet1": "004",
+     "identifiantObjet1": "217",
+     "identifiantObjet2": null,
+     "systemeMaitre": "04",
+     "typeObjet1": "PM",
+     "typeObjet2": null,
+     "codeEvenement": "005"
+    }
+   ],
+   "ege": [
+    {
+     "informationsGeneralesEGE": {
+      "egeId": "170",
+      "complementDenominationEg": null,
+      "dateFermeture": "2026-09-28",
+      "dateOuverture": "2017-04-03",
+      "datePremiereAutorisation": "2017-04-03",
+      "nomEgeCourt": "PHARMACIE FREDERIC VALLEE",
+      "nomEgeLong": "PHARMACIE FREDERIC VALLEE",
+      "numeroEducationNationale": null,
+      "numeroReferenceExterne": "01#000389",
+      "numFinessEge": "010003887",
+      "espic": null,
+      "siret": "81775704000024"
+     },
+     "categorieentiteGeographiqueExercice": "620",
+     "modefixationtarifaire": "01",
+     "typeBudget": [
+      "01"
+     ],
+     "adresse": [
+      {
+       "usageAdresse": "03",
+       "numeroVoie": "2",
+       "typeVoie": null,
+       "libelleVoie": "Rue Joseph Viallaz",
+       "complementVoie": null,
+       "complementPointGeographique": null,
+       "lieuDit": null,
+       "cogCommune": "01185",
+       "ligneAcheminement": "Plateau d'Hauteville",
+       "ligneUne": null,
+       "ligneDeux": null,
+       "ligneTrois": null,
+       "ligneQuatre": "2 Rue Joseph Viallaz",
+       "ligneCinq": null,
+       "ligneSix": "01110 Plateau d'Hauteville",
+       "codePostal": "01110",
+       "coordonneesGeographique": {
+        "coordonneeX": "901318.05",
+        "coordonneeY": "6545214.54",
+        "directionLatitude": "45.976814",
+        "directionLongitude": "5.60062",
+        "cleInInteropBAN": "01185_0320_00002",
+        "scoreBAN": "0.960183636363636"
+       }
+      }
+     ],
+     "contact": [
+      {
+       "typeContact": {
+        "roleContact": "01"
+       },
+       "telecom": {
+        "telephone": "0474353007",
+        "telecopie": null,
+        "courriel": null
+       }
+      }
+     ],
+     "engagement": [],
+     "evenement": [
+      {
+       "evenementId": "142297",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2017-04-03",
+       "etatObjet1": "003",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "003"
+      },
+      {
+       "evenementId": "155715",
+       "dateEnregistrement": "2023-03-15 11:21:01",
+       "dateEvenement": "2017-04-03",
+       "etatObjet1": "007",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "01",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "007"
+      },
+      {
+       "evenementId": "3382384",
+       "dateEnregistrement": "2026-07-16 10:13:12",
+       "dateEvenement": "2017-04-03",
+       "etatObjet1": "035",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "035"
+      },
+      {
+       "evenementId": "3382385",
+       "dateEnregistrement": "2026-07-16 10:13:12",
+       "dateEvenement": "2018-02-12",
+       "etatObjet1": "036",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "036"
+      },
+      {
+       "evenementId": "3591808",
+       "dateEnregistrement": "2026-09-18 23:01:19",
+       "dateEvenement": "2026-09-28",
+       "etatObjet1": "005",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "005"
+      },
+      {
+       "evenementId": "3594653",
+       "dateEnregistrement": "2026-09-28 23:10:59",
+       "dateEvenement": "2016-02-11",
+       "etatObjet1": "036",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "036"
+      },
+      {
+       "evenementId": "3594654",
+       "dateEnregistrement": "2026-09-28 23:10:59",
+       "dateEvenement": "2018-02-12",
+       "etatObjet1": "005",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "005"
+      },
+      {
+       "evenementId": "3595462",
+       "dateEnregistrement": "2026-09-30 23:11:27",
+       "dateEvenement": "2018-02-12",
+       "etatObjet1": "036",
+       "identifiantObjet1": "170",
+       "identifiantObjet2": null,
+       "systemeMaitre": "04",
+       "typeObjet1": "EG",
+       "typeObjet2": null,
+       "codeEvenement": "036"
+      }
+     ],
+     "roleEge": [],
+     "etatObjet": "I",
+     "dateDerniereMaj": "2026-09-30 23:11:27"
+    }
+   ],
+   "etatObjet": "I",
+   "dateDerniereMaj": "2026-09-30 23:11:26"
+  }
+ ]
+}

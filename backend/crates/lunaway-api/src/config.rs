@@ -25,6 +25,8 @@ pub struct ApiConfig {
     pub media: MediaConfig,
     /// The routing engine behind `Query.route`.
     pub routing: RoutingConfig,
+    /// The map tiles of the points of interest.
+    pub tiles: TilesConfig,
 }
 
 impl Default for ApiConfig {
@@ -38,6 +40,62 @@ impl Default for ApiConfig {
             trust: Thresholds::default(),
             media: MediaConfig::default(),
             routing: RoutingConfig::default(),
+            tiles: TilesConfig::default(),
+        }
+    }
+}
+
+/// The vector tiles of the points of interest (`GET /poi/...`): where the
+/// API says they are, and how much work they may take.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TilesConfig {
+    /// The API's public URL, without a trailing slash, which the TileJSON
+    /// names in its tile URLs (`LUNAWAY_PUBLIC_URL`, default
+    /// `https://api.lunaway.net`).
+    pub public_url: String,
+    /// Bytes of tiles kept in memory, the oldest evicted first
+    /// (`LUNAWAY_POI_TILE_CACHE_MB`, 64 MiB): the same tiles of a city are
+    /// asked by every device that looks at it.
+    pub cache_bytes: usize,
+    /// Tiles built at once by the database (`LUNAWAY_POI_TILE_CONCURRENCY`,
+    /// 4): a tile of a dense city takes tens of milliseconds, a cluster
+    /// tile of a whole region a few hundred.
+    pub concurrency: usize,
+    /// Most points in one tile (`LUNAWAY_POI_TILE_MAX_FEATURES`, 4000): the
+    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06.
+    pub max_features: i64,
+}
+
+impl Default for TilesConfig {
+    fn default() -> Self {
+        Self {
+            public_url: "https://api.lunaway.net".to_owned(),
+            cache_bytes: 64 * 1024 * 1024,
+            concurrency: 4,
+            max_features: 4_000,
+        }
+    }
+}
+
+impl TilesConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let num = |key: &str| lookup(key).and_then(|v| v.trim().parse::<usize>().ok());
+        Self {
+            public_url: lookup("LUNAWAY_PUBLIC_URL")
+                .map(|u| u.trim().trim_end_matches('/').to_owned())
+                .filter(|u| u.starts_with("https://") || u.starts_with("http://"))
+                .unwrap_or(d.public_url),
+            cache_bytes: num("LUNAWAY_POI_TILE_CACHE_MB")
+                .filter(|n| *n <= 4_096)
+                .map_or(d.cache_bytes, |mb| mb * 1024 * 1024),
+            concurrency: num("LUNAWAY_POI_TILE_CONCURRENCY")
+                .filter(|n| (1..=64).contains(n))
+                .unwrap_or(d.concurrency),
+            max_features: num("LUNAWAY_POI_TILE_MAX_FEATURES")
+                .and_then(|n| i64::try_from(n).ok())
+                .filter(|n| (100..=50_000).contains(n))
+                .unwrap_or(d.max_features),
         }
     }
 }
@@ -512,6 +570,7 @@ impl ApiConfig {
             trust: thresholds_from_lookup(&lookup),
             media: MediaConfig::from_lookup(&lookup),
             routing: RoutingConfig::from_lookup(&lookup),
+            tiles: TilesConfig::from_lookup(&lookup),
         }
     }
 

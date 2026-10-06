@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM poi_confirmations WHERE created_at < now() - make_interval(days => $1)\n        RETURNING poi_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_confirmations",
+            "name": "poi_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e22e0b32525e3d5148003f91abdd350742fb00d6cfcc8c149d31ce5fa7f86526"
+}

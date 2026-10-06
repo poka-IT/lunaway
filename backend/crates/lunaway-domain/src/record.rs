@@ -66,6 +66,11 @@ pub struct NormalizedRecord {
     /// address, 0 for a point mapped on the spot.
     #[serde(default)]
     pub accuracy_m: f64,
+    /// The position is only the municipality's (a geocoder that found the
+    /// town and not the address): good enough to list the spot, not to
+    /// drive to it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub position_approximate: bool,
     /// Whether a night may be spent there, `Unknown` when the source does not
     /// say.
     #[serde(default = "unknown_overnight")]
@@ -95,6 +100,15 @@ pub struct NormalizedRecord {
     /// Maximum vehicle height, in metres.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_height_m: Option<f64>,
+    /// Maximum vehicle length, in metres.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length_m: Option<f64>,
+    /// Maximum vehicle width, in metres.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width_m: Option<f64>,
+    /// Maximum vehicle weight, in tonnes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_weight_t: Option<f64>,
     /// Number of motorhome pitches (or of pitches, for a campsite).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capacity: Option<u32>,
@@ -150,6 +164,7 @@ impl NormalizedRecord {
             name: None,
             position,
             accuracy_m: 0.0,
+            position_approximate: false,
             overnight: OvernightStatus::Unknown,
             services: BTreeSet::new(),
             activities: BTreeSet::new(),
@@ -158,6 +173,9 @@ impl NormalizedRecord {
             price_parking_eur: None,
             price_services_eur: None,
             max_height_m: None,
+            max_length_m: None,
+            max_width_m: None,
+            max_weight_t: None,
             capacity: None,
             opening_hours: None,
             website: None,

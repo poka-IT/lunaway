@@ -107,12 +107,22 @@ The result depends on the input only, never on its order. A record's match
 score in its place is the best accepted edge touching it (1 for a
 `must_link`).
 
+A group whose records are all placed only at their municipality (an Atout
+France campsite the geocoder could not place better, flagged
+`position_approximate`) makes no place: its point is the town hall's, a few
+kilometres from the campsite, too far for the score to pair it with the
+campsite OpenStreetMap maps (195 of 225 such groups had one of a close name
+in the same commune on 2026-10-06). Held back, the record still enriches
+the place it merges with once a better position or a human merge brings
+it close.
+
 ## 4. Field values
 
 Each field of a place comes from the record ranked first for that field: by
 the trust prior of its source for the field (`trust_prior` in
 `resolve.rs`), then the most recent fetch, then the source id and external
-id. OpenStreetMap leads on position, height limits and opening hours;
+id. OpenStreetMap leads on position, vehicle limits (height, length, width,
+weight) and opening hours;
 Atout France on the classification, the pitches and the postal address; the
 community on what visitors know (overnight status, services, prices). The
 other sources' differing values stay visible as alternatives

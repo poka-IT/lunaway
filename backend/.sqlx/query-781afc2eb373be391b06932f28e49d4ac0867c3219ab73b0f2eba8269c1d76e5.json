@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id AS \"poi!\", j.source_id AS \"source_id!\", j.ref AS \"key!\", j.data AS \"data!\",\n               j.fetched_at AS \"fetched_at!\"\n        FROM pois p\n        JOIN poi_join_records j\n          ON j.deleted_at IS NULL AND j.source_id = 'prix-carburants' AND j.ref = p.fuel_ref\n        WHERE p.id = ANY($1)\n        UNION ALL\n        SELECT p.id, j.source_id, j.ref, j.data, j.fetched_at\n        FROM pois p\n        JOIN poi_join_records j\n          ON j.deleted_at IS NULL AND j.source_id = 'laposte' AND j.ref = p.laposte_ref\n        WHERE p.id = ANY($1)\n        UNION ALL\n        SELECT p.id, j.source_id, j.ref, j.data, j.fetched_at\n        FROM pois p\n        JOIN poi_join_records j\n          ON j.deleted_at IS NULL AND j.source_id = 'finess' AND j.ref = p.finess_ref\n        WHERE p.id = ANY($1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "data!",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "fetched_at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "781afc2eb373be391b06932f28e49d4ac0867c3219ab73b0f2eba8269c1d76e5"
+}

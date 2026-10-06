@@ -35,6 +35,9 @@ fn content(kind: PlaceKind, name: &str, lat: f64, lon: f64) -> PlaceContent {
         price_parking_eur: None,
         price_services_eur: None,
         max_height_m: None,
+        max_length_m: None,
+        max_width_m: None,
+        max_weight_t: None,
         capacity: None,
         opening_hours: None,
         website: None,
@@ -93,9 +96,12 @@ async fn the_viewport_filters_and_pages(pool: PgPool) {
     b.services = vec![Service::DrinkingWater, Service::Electricity];
     b.overnight = OvernightStatus::Allowed;
     b.max_height_m = Some(3.5);
+    b.max_length_m = Some(8.0);
     let b = put(&pool, &b).await;
     let mut c = content(PlaceKind::Parking, "Parking C", 47.42, -0.62);
     c.max_height_m = Some(2.0);
+    c.max_width_m = Some(2.2);
+    c.max_weight_t = Some(3.5);
     c.services = vec![Service::DrinkingWater];
     c.overnight = OvernightStatus::Tolerated;
     let c = put(&pool, &c).await;
@@ -169,6 +175,40 @@ async fn the_viewport_filters_and_pages(pool: PgPool) {
         .await,
         [a, b],
         "a 2.0 m limit excludes a 2.5 m vehicle; an unknown limit does not"
+    );
+    assert_eq!(
+        ids(PlaceFilter {
+            vehicle_length_m: Some(9.0),
+            ..all.clone()
+        })
+        .await,
+        [a, c],
+        "an 8 m limit excludes a 9 m vehicle; an unknown length does not"
+    );
+    assert_eq!(
+        ids(PlaceFilter {
+            vehicle_width_m: Some(2.35),
+            vehicle_weight_t: Some(3.0),
+            ..all.clone()
+        })
+        .await,
+        [a, b],
+        "a 2.2 m width excludes a 2.35 m vehicle, whatever its weight"
+    );
+    assert_eq!(
+        ids(PlaceFilter {
+            vehicle_weight_t: Some(4.5),
+            ..all.clone()
+        })
+        .await,
+        [a, b],
+        "a 3.5 t limit excludes a 4.5 t vehicle"
+    );
+    let read = places::by_id(&pool, b).await.unwrap().unwrap();
+    assert_eq!(
+        (read.max_length_m, read.max_width_m, read.max_weight_t),
+        (Some(8.0), None, None),
+        "the limits a place states are read back"
     );
 }
 
