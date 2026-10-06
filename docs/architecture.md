@@ -66,6 +66,14 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   merged into it and their records, which keep a `taken_down_at` that
   every later import and conflation respects; the API's role then deletes
   the community's content (`docs/deploy.md`, "Taking a place down").
+  `takedown_cells` keeps no position: the keyed hashes
+  (`LUNAWAY_TAKEDOWN_SECRET`, held by the import role only) of the H3
+  cells around where the place stood (`lunaway_domain::takedown`). The
+  conflation holds in `place_holds`, for a moderator, any group that would
+  become a new place or move a live one into those cells; a release is
+  journaled in `place_hold_releases`. Each takedown is also written to a
+  journal outside the database, which `lunaway takedowns replay` applies
+  again after a restore.
 - `place_submissions`: new places and edits, kept as revisions. The
   conflation worker (`lunaway conflate --watch`, woken by the API through
   `NOTIFY`) writes each accepted one into a record of the `community` source
@@ -84,7 +92,8 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   machines, water and sanitation, fuel and energy, health, services), one
   source each, never conflated with the places; `poi_join_records`: what
   the fuel price feed, La Poste's calendar and FINESS say of a point,
-  joined by an identifier its record carries; `poi_layer`: the version of
+  joined by an identifier its record carries, written only when it changed
+  and dated through `lunaway_read_at` (target `joins`) like the records; `poi_layer`: the version of
   the map tiles; `poi_confirmations` and `poi_refresh_queue`: the
   community's "still there?" answers and the points the worker recomputes.
 

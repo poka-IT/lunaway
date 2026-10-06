@@ -768,6 +768,31 @@ async fn along(
     Ok(None)
 }
 
+/// The zone of `p` ([`zone`]), asked again without its direction when the
+/// direction leads to none. A zone carries no direction (`zone_sides`):
+/// the direction only helps to find the camera's road, and
+/// OpenStreetMap's `direction` of a camera, merged into an official one
+/// that has none, is often the way the camera faces or the other
+/// carriageway's. On 2026-10-06 the first full build with OpenStreetMap's
+/// cameras retired 217 French zones; the same 217 cameras on the same
+/// graph got 215 zones with no OpenStreetMap camera, 215 with its road
+/// name only, 206 with its limit only, and 25 with its direction only
+/// (`plan/research/34-backend-retraits.md`).
+async fn zone_any_way(
+    engine: &impl Engine,
+    calls: &mut Calls,
+    p: &Planned,
+    secret: &[u8],
+) -> Result<Asked, IngestError> {
+    let asked = zone(engine, calls, p, secret).await?;
+    if !matches!(asked, Asked::Unplaced) || p.device.bearing_deg.is_none() {
+        return Ok(asked);
+    }
+    let mut without = p.clone();
+    without.device.bearing_deg = None;
+    zone(engine, calls, &without, secret).await
+}
+
 /// The zone of `p`: its road from before the camera to after it (and a
 /// section's end), cut to the zone's length around it.
 async fn zone(
@@ -991,7 +1016,7 @@ pub async fn build(
         }
         let d = &p.device;
         let item = match mode {
-            Mode::Zones => match zone(engine, &mut calls, p, secret).await? {
+            Mode::Zones => match zone_any_way(engine, &mut calls, p, secret).await? {
                 Asked::Zone(line) => Item {
                     id: item_id(secret, &p.key),
                     device_key: p.key.clone(),

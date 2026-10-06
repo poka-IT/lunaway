@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id FROM places p\n        WHERE p.taken_down_at IS NOT NULL\n          AND (EXISTS (SELECT 1 FROM reviews WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM photos WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM confirmations WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM issue_reports WHERE place_id = p.id))\n        ORDER BY p.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "326126073769604a59272e3d98f0b3e4ddf2d068fdc6070ed8193a9e4492b688"
+}

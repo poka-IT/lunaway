@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places WHERE id = ANY($1) AND taken_down_at IS NULL\n        UNION\n        SELECT ST_Y(geom::geometry), ST_X(geom::geometry)\n        FROM source_records\n        WHERE id = ANY($2) AND taken_down_at IS NULL\n          AND (data->>'position_approximate')::boolean IS NOT TRUE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "436ed12297f4cd738b45c332235fcb45e0e4eabaddf31cbfa9eed9ddd6c879df"
+}

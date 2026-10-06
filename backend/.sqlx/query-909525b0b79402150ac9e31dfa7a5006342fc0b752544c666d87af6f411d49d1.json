@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT j.ref AS \"station_ref!\", j.data AS \"data!\", j.fetched_at AS \"fetched_at!\",\n               ST_Y(j.geom::geometry) AS \"lat!\", ST_X(j.geom::geometry) AS \"lon!\",\n               ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)\n                   AS \"distance_m?\",\n               p.id AS \"poi_id?\", p.source_id AS \"poi_source_id?\", p.name AS \"poi_name?\",\n               p.brand AS \"poi_brand?\",\n               p.always_open AS \"always_open?\", p.opening_intervals AS \"opening_intervals?\",\n               p.opening_intervals_until AS \"opening_intervals_until?\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $5\n            LIMIT 1\n        ) price\n        LEFT JOIN LATERAL (\n            SELECT id, source_id, name, brand, always_open, opening_intervals,\n                   opening_intervals_until\n            FROM pois\n            WHERE fuel_ref = j.ref AND deleted_at IS NULL AND NOT hidden\n            ORDER BY id\n            LIMIT 1\n        ) p ON true\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND ST_DWithin(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4)\n        ORDER BY EXISTS (\n                     SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                     WHERE s ->> 'fuel' = $1),\n                 price.eur,\n                 ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography),\n                 j.ref\n        LIMIT $6\n        ",
+  "query": "\n        SELECT j.ref AS \"station_ref!\", j.data AS \"data!\",\n               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)\n                   AS \"fetched_at!\",\n               ST_Y(j.geom::geometry) AS \"lat!\", ST_X(j.geom::geometry) AS \"lon!\",\n               ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)\n                   AS \"distance_m?\",\n               p.id AS \"poi_id?\", p.source_id AS \"poi_source_id?\", p.name AS \"poi_name?\",\n               p.brand AS \"poi_brand?\",\n               p.always_open AS \"always_open?\", p.opening_intervals AS \"opening_intervals?\",\n               p.opening_intervals_until AS \"opening_intervals_until?\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $5\n            LIMIT 1\n        ) price\n        LEFT JOIN LATERAL (\n            SELECT id, source_id, name, brand, always_open, opening_intervals,\n                   opening_intervals_until\n            FROM pois\n            WHERE fuel_ref = j.ref AND deleted_at IS NULL AND NOT hidden\n            ORDER BY id\n            LIMIT 1\n        ) p ON true\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND ST_DWithin(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4)\n        ORDER BY EXISTS (\n                     SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                     WHERE s ->> 'fuel' = $1),\n                 price.eur,\n                 ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography),\n                 j.ref\n        LIMIT $6\n        ",
   "describe": {
     "columns": [
       {
@@ -29,12 +29,7 @@
         "ordinal": 2,
         "name": "fetched_at!",
         "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "poi_join_records",
-            "name": "fetched_at"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 3,
@@ -145,7 +140,7 @@
     "nullable": [
       false,
       false,
-      false,
+      null,
       null,
       null,
       null,
@@ -158,5 +153,5 @@
       true
     ]
   },
-  "hash": "bf982ef26d905a80a65c8337ca63284ca0cbda91e1c30797fce8c8bdb63b3fef"
+  "hash": "909525b0b79402150ac9e31dfa7a5006342fc0b752544c666d87af6f411d49d1"
 }

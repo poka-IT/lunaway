@@ -24,6 +24,11 @@
 //!    the places that absorbed another, and of those showing an issue
 //!    whose window passed.
 //!
+//! A group that would become a new place, or move a live place, inside
+//! the cells of a place taken down is held for a moderator instead of
+//! written (`lunaway_db::holds`); the key that hashes a position into a
+//! cell comes with the run, and without it nothing is held.
+//!
 //! Steps 0, 1 to 6, and 7 are three writer transactions, so a write of the
 //! API never waits for a whole conflation. The points of interest follow
 //! ([`pois`]): the vending machines users added and their "still there?"
@@ -40,6 +45,7 @@
 
 pub mod opening;
 pub mod pois;
+pub mod takedown;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -50,7 +56,8 @@ use lunaway_db::{
     conflation::{
         self as store, OpeningEval, PairRow, PlaceState, PlaceWrite, StoredRecord, WriterTx,
     },
-    submissions, summary,
+    holds::{self, HoldKind, NewHold},
+    submissions, summary, takedowns,
 };
 use lunaway_domain::{
     SourceId,
@@ -59,6 +66,7 @@ use lunaway_domain::{
         LocalizedText, MatchCandidate, MergeEdge, PlaceContent, cluster, resolve,
         score::{ACCURACY_CAP_M, MAX_KIND_RADIUS_M, score},
     },
+    takedown::{Exclusion, TakedownKey},
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -103,6 +111,13 @@ pub struct RunStats {
     pub conflicts: usize,
     /// Groups held back because their position is only a municipality's.
     pub held_back: usize,
+    /// Groups held near a place taken down: a new place, or a live place
+    /// moving into its cells.
+    pub held_near_takedown: usize,
+    /// Of them, holds new to the moderation queue.
+    pub new_holds: u64,
+    /// Records of holds a moderator released, flagged again.
+    pub released_records: u64,
     /// Places whose opening intervals moved to today's window.
     pub opening_refreshed: usize,
     /// Community submissions written into records (new places, edits).
@@ -126,13 +141,19 @@ async fn blocking<T: Send + 'static>(
 }
 
 /// Runs the conflation for the records flagged in `pool`. `now` anchors the
-/// opening-hours windows: each place's starts on its own local date.
+/// opening-hours windows: each place's starts on its own local date. With
+/// `key` (the takedown secret), a new or moving place inside a takedown's
+/// cells is held; without it, none is.
 ///
 /// # Errors
 ///
 /// [`ConflateError`] when the database fails; the transaction is rolled back
 /// and the flags stay, so the next run retries.
-pub async fn run(pool: &PgPool, now: DateTime<Utc>) -> Result<RunStats, ConflateError> {
+pub async fn run(
+    pool: &PgPool,
+    now: DateTime<Utc>,
+    key: Option<&TakedownKey>,
+) -> Result<RunStats, ConflateError> {
     let mut stats = RunStats::default();
     // Three short writer transactions rather than one: the API writes
     // `place_submissions` (a withdrawal, a deletion) and the refresh queue,
@@ -143,10 +164,25 @@ pub async fn run(pool: &PgPool, now: DateTime<Utc>) -> Result<RunStats, Conflate
     stats.submissions_applied = applied.created + applied.edited;
 
     let mut tx = store::begin_writer(pool).await?;
+    stats.released_records = holds::requeue_released(&mut tx).await?;
     let dirty = store::dirty(&mut tx).await?;
     stats.dirty = dirty.len();
     if !dirty.is_empty() {
-        let changed = conflate(&mut tx, &dirty, now, &mut stats).await?;
+        let exclusion = match key {
+            Some(k) if takedowns::is_takedown_key(&mut tx, k).await? => {
+                let cells = takedowns::exclusion_cells(&mut tx).await?;
+                (!cells.is_empty()).then(|| Exclusion::new(k.clone(), cells))
+            }
+            Some(_) => {
+                tracing::error!(
+                    "LUNAWAY_TAKEDOWN_SECRET is not the secret the takedowns were made with: \
+                     no place is held near a place taken down"
+                );
+                None
+            }
+            None => None,
+        };
+        let changed = conflate(&mut tx, &dirty, now, exclusion, &mut stats).await?;
         store::clear_dirty(&mut tx, &dirty).await?;
         submissions::link_created_places(&mut tx).await?;
         let mut queued = changed.heirs;
@@ -187,11 +223,12 @@ pub async fn watch(
     every: std::time::Duration,
     poi_layer_every: std::time::Duration,
     now: impl Fn() -> DateTime<Utc>,
+    key: Option<&TakedownKey>,
 ) -> Result<(), ConflateError> {
     let mut listener = WorkListener::connect(pool).await?;
     let settle = std::time::Duration::from_millis(300);
     loop {
-        if let Err(error) = run(pool, now()).await {
+        if let Err(error) = run(pool, now(), key).await {
             tracing::error!(%error, "conflation run failed; next attempt later");
         }
         if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
@@ -253,6 +290,7 @@ async fn conflate(
     tx: &mut WriterTx,
     dirty: &[Uuid],
     now: DateTime<Utc>,
+    exclusion: Option<Exclusion>,
     stats: &mut RunStats,
 ) -> Result<Changed, ConflateError> {
     // 2. Score the flagged records against everything within reach.
@@ -315,6 +353,14 @@ async fn conflate(
         .into_iter()
         .map(|s| (s.id, s))
         .collect();
+    let released: BTreeSet<Uuid> = if exclusion.is_some() {
+        holds::released_among(tx, &affected_ids)
+            .await?
+            .into_iter()
+            .collect()
+    } else {
+        BTreeSet::new()
+    };
     let input = PlanInput {
         records,
         edges,
@@ -322,10 +368,13 @@ async fn conflate(
         current,
         states,
         now,
+        exclusion,
+        released,
     };
     let plan = blocking(move || plan(&input)).await??;
     stats.conflicts = plan.conflicts;
     stats.held_back = plan.held_back;
+    stats.held_near_takedown = plan.holds.len();
     stats.created = plan.created;
     stats.updated = plan.updated;
     stats.unchanged = plan.unchanged;
@@ -347,6 +396,7 @@ async fn conflate(
         .await?;
     }
     store::relink(tx, &plan.relink_records, &plan.links).await?;
+    stats.new_holds = holds::record(tx, &plan.holds).await?;
     let mut heirs = Vec::new();
     for (old, heir) in &plan.tombstones {
         if store::tombstone(tx, *old, *heir).await? {
@@ -376,6 +426,12 @@ pub struct PlanInput {
     /// The instant of the run, which gives each place the first day of its
     /// opening-hours window.
     pub now: DateTime<Utc>,
+    /// The takedowns' cells and the key that hashes a position into one;
+    /// `None` holds nothing.
+    pub exclusion: Option<Exclusion>,
+    /// Records of the set a moderator released from a hold: a group that
+    /// holds one is written wherever it stands.
+    pub released: BTreeSet<Uuid>,
 }
 
 /// A place to write.
@@ -420,6 +476,9 @@ pub struct Plan {
     pub conflicts: usize,
     /// Groups placed only at a municipality's point, given no place.
     pub held_back: usize,
+    /// Groups held near a place taken down, given no place (a new one) or
+    /// left as they were (a move).
+    pub holds: Vec<NewHold>,
 }
 
 /// Groups `input`'s records and resolves each group into a place: a pure
@@ -494,6 +553,11 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         .filter(|r| r.deleted)
         .map(|r| r.id)
         .collect();
+    // Groups held near a place taken down, and the live places their
+    // records still describe: a held group changes no place, so it is no
+    // heir and none of those places becomes a tombstone because of it.
+    let mut held: BTreeSet<usize> = BTreeSet::new();
+    let mut kept_live: BTreeSet<Uuid> = BTreeSet::new();
     for (gi, g) in groups.iter().enumerate() {
         let Some(place) = place_of_group[gi] else {
             // Held back: its records lose any place they had.
@@ -524,6 +588,31 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         if resolved.content.address.country_code.is_none() {
             resolved.content.address.country_code =
                 lunaway_domain::region::country_at(resolved.content.position).map(str::to_owned);
+        }
+        if let Some(kind) = held_near_takedown(input, place, g, &resolved.content) {
+            held.insert(gi);
+            for r in *g {
+                let Some(cur) = input.current.get(r) else {
+                    continue;
+                };
+                let live = input.states.get(cur).is_some_and(|s| !s.deleted);
+                let own = kind == HoldKind::Move && *cur == place;
+                if own || (live && !claimed.contains(cur)) {
+                    // The moved place, or a live place no other group
+                    // takes: it keeps this record, as it was.
+                    kept_live.insert(*cur);
+                } else {
+                    // A tombstone (one a new place would have revived), or
+                    // a place another group takes: the record leaves it.
+                    out.relink_records.push(*r);
+                }
+            }
+            out.holds.push(NewHold {
+                kind,
+                place: (kind == HoldKind::Move).then_some(place),
+                records: g.to_vec(),
+            });
+            continue;
         }
         let group_links: Vec<(Uuid, Uuid, Option<f64>)> = g
             .iter()
@@ -567,12 +656,16 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         }
         if let Some(heir) = group_of_record
             .get(record)
+            .filter(|gi| !held.contains(*gi))
             .and_then(|gi| place_of_group[*gi])
         {
             *heirs.entry(*old).or_default().entry(heir).or_default() += 1;
         }
     }
-    for old in old_places.difference(&claimed) {
+    for old in old_places
+        .difference(&claimed)
+        .filter(|p| !kept_live.contains(*p))
+    {
         let heir = heirs.get(old).and_then(|h| {
             h.iter()
                 .max_by(|x, y| x.1.cmp(y.1).then(y.0.cmp(x.0)))
@@ -581,6 +674,34 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
         out.tombstones.push((*old, heir));
     }
     Ok(out)
+}
+
+/// Whether the group `g`, resolved into `content` for `place`, is held near
+/// a place taken down, and why: it lands inside a takedown's cells as a new
+/// place (or a tombstone coming back), or moves a live place into one of
+/// them, from outside or from another cell (a neighbour's element dragged
+/// onto the spot). A live place that stays in its cell (a neighbour the
+/// takedown left, edited) is not held, nor a group a moderator released.
+fn held_near_takedown(
+    input: &PlanInput,
+    place: Uuid,
+    g: &[Uuid],
+    content: &PlaceContent,
+) -> Option<HoldKind> {
+    let ex = input.exclusion.as_ref()?;
+    if !ex.covers(content.position) || g.iter().any(|r| input.released.contains(r)) {
+        return None;
+    }
+    match input.states.get(&place).filter(|s| !s.deleted) {
+        None => Some(HoldKind::Create),
+        Some(s)
+            if s.position
+                .is_some_and(|old| ex.covers(old) && ex.same_cell(old, content.position)) =>
+        {
+            None
+        }
+        Some(_) => Some(HoldKind::Move),
+    }
 }
 
 /// The dirty records plus everything joined to them by a merge decision, a

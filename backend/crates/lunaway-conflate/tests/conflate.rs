@@ -20,6 +20,17 @@ const ATOUT_CSV: &[u8] =
 const BAN_ANSWER: &[u8] =
     include_bytes!("../../lunaway-ingest/tests/fixtures/ban_answer_sample.csv");
 
+// A place taken down keeps a zone where nothing new goes live unseen, and
+// the journal outside the database brings its takedown back after a
+// restore. Kept under tests/conflate/, where cargo makes no binary of it.
+#[path = "conflate/takedown_zone.rs"]
+mod takedown_zone;
+
+/// The takedown secret of the tests.
+fn test_key() -> lunaway_domain::takedown::TakedownKey {
+    lunaway_domain::takedown::TakedownKey::new(&[42; 32]).unwrap()
+}
+
 /// Noon UTC of 2026-11-`d`: the same date in Paris, where the places are.
 fn at(d: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 11, d, 12, 0, 0).unwrap()
@@ -91,7 +102,7 @@ const PORT_AF: &str = "49170:la-possonniere:camping-municipal-du-port";
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_campsite_listed_by_both_sources_becomes_one_place_with_two_sources(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         stats.dirty, 29,
         "19 OSM and 10 geocoded Atout France records"
@@ -166,7 +177,7 @@ async fn a_campsite_listed_by_both_sources_becomes_one_place_with_two_sources(po
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_motorhome_area_and_a_campsite_of_one_name_wait_for_a_person(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let stopover = place_of(&pool, &SourceId::OSM, "way/193703749").await;
     let campsite = place_of(
         &pool,
@@ -187,15 +198,15 @@ async fn a_motorhome_area_and_a_campsite_of_one_name_wait_for_a_person(pool: PgP
 #[sqlx::test(migrations = "../../migrations")]
 async fn running_again_changes_nothing(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let before = snapshot(&pool).await;
-    let again = run(&pool, at(2)).await.unwrap();
+    let again = run(&pool, at(2), None).await.unwrap();
     assert_eq!(again, RunStats::default(), "nothing flagged, nothing to do");
     assert_eq!(snapshot(&pool).await, before);
 
     // Re-importing the same payloads flags nothing either.
     ingest_fixtures(&pool).await;
-    assert_eq!(run(&pool, at(2)).await.unwrap(), RunStats::default());
+    assert_eq!(run(&pool, at(2), None).await.unwrap(), RunStats::default());
     assert_eq!(snapshot(&pool).await, before);
 }
 
@@ -206,11 +217,11 @@ async fn a_full_rebuild_lands_where_the_incremental_runs_did(pool: PgPool) {
     store_complete(&pool, &SourceId::OSM, Some("FR-PDL"), &osm_records())
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     store_complete(&pool, &SourceId::ATOUT_FRANCE, None, &atout_records())
         .await
         .unwrap();
-    let second = run(&pool, at(2)).await.unwrap();
+    let second = run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         second.updated, 6,
         "six OSM places gain an Atout France source"
@@ -218,7 +229,7 @@ async fn a_full_rebuild_lands_where_the_incremental_runs_did(pool: PgPool) {
     let incremental = snapshot(&pool).await;
 
     records::mark_all_dirty(&pool).await.unwrap();
-    let rebuild = run(&pool, at(2)).await.unwrap();
+    let rebuild = run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         (rebuild.created, rebuild.updated, rebuild.tombstoned),
         (0, 0, 0)
@@ -263,7 +274,7 @@ async fn two_neighbouring_spots_stay_two_places(pool: PgPool) {
     store_complete(&pool, &SourceId::ATOUT_FRANCE, None, &af)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let pins = place_of(&pool, &SourceId::OSM, "way/1").await;
     let mer = place_of(&pool, &SourceId::OSM, "way/2").await;
     assert_ne!(pins, mer);
@@ -286,7 +297,7 @@ async fn two_records_of_one_source_are_never_merged(pool: PgPool) {
     store_complete(&pool, &SourceId::OSM, None, &osm)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     assert_ne!(
         place_of(&pool, &SourceId::OSM, "node/1").await,
         place_of(&pool, &SourceId::OSM, "node/2").await
@@ -304,7 +315,7 @@ async fn two_records_of_one_source_are_never_merged(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_cannot_link_splits_a_merge_and_every_later_import_respects_it(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let merged = place_of(&pool, &SourceId::OSM, PORT_OSM).await;
     let osm = record_id(&pool, &SourceId::OSM, PORT_OSM).await;
     let af = record_id(&pool, &SourceId::ATOUT_FRANCE, PORT_AF).await;
@@ -318,7 +329,7 @@ async fn a_cannot_link_splits_a_merge_and_every_later_import_respects_it(pool: P
     )
     .await
     .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         (stats.updated, stats.created),
         (1, 1),
@@ -335,7 +346,7 @@ async fn a_cannot_link_splits_a_merge_and_every_later_import_respects_it(pool: P
     // A re-import and a full rebuild do not undo the human decision.
     ingest_fixtures(&pool).await;
     records::mark_all_dirty(&pool).await.unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     assert_ne!(
         place_of(&pool, &SourceId::OSM, PORT_OSM).await,
         place_of(&pool, &SourceId::ATOUT_FRANCE, PORT_AF).await
@@ -345,7 +356,7 @@ async fn a_cannot_link_splits_a_merge_and_every_later_import_respects_it(pool: P
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_must_link_merges_a_review_pair_and_leaves_a_redirect(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let stopover = record_id(&pool, &SourceId::OSM, "way/193703749").await;
     let campsite = record_id(
         &pool,
@@ -363,7 +374,7 @@ async fn a_must_link_merges_a_review_pair_and_leaves_a_redirect(pool: PgPool) {
     records::set_constraint(&pool, stopover, campsite, ConstraintKind::MustLink, None)
         .await
         .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(stats.tombstoned, 1);
     let place = place_of(&pool, &SourceId::OSM, "way/193703749").await;
     assert_eq!(
@@ -395,7 +406,7 @@ async fn a_must_link_merges_a_review_pair_and_leaves_a_redirect(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_changed_record_rewrites_only_its_place(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let before = snapshot(&pool).await;
     let place = place_of(&pool, &SourceId::OSM, PORT_OSM).await;
 
@@ -408,7 +419,7 @@ async fn a_changed_record_rewrites_only_its_place(pool: PgPool) {
     store_complete(&pool, &SourceId::ATOUT_FRANCE, None, &af)
         .await
         .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!((stats.dirty, stats.updated, stats.created), (1, 1, 0));
     assert_eq!(
         places::by_id(&pool, place).await.unwrap().unwrap().capacity,
@@ -435,7 +446,7 @@ async fn a_changed_record_rewrites_only_its_place(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_record_the_source_drops_leaves_its_place(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let merged = place_of(&pool, &SourceId::OSM, PORT_OSM).await;
     let alone = place_of(&pool, &SourceId::OSM, "way/347935372").await;
     let cursor = places::last_seq(&pool).await.unwrap();
@@ -448,7 +459,7 @@ async fn a_record_the_source_drops_leaves_its_place(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(report.retired, 2);
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!((stats.updated, stats.tombstoned), (1, 1));
 
     let left = places::sources_of(&pool, &[merged]).await.unwrap();
@@ -499,7 +510,7 @@ async fn opening_intervals_are_computed_and_refreshed_daily(pool: PgPool) {
     store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let place = place_of(&pool, &SourceId::OSM, "node/9").await;
     let row = places::by_id(&pool, place).await.unwrap().unwrap();
     assert!(row.opening_hours_parsed);
@@ -510,7 +521,7 @@ async fn opening_intervals_are_computed_and_refreshed_daily(pool: PgPool) {
         Utc.with_ymd_and_hms(2026, 11, 2, 7, 0, 0).unwrap()
     );
 
-    let next = run(&pool, at(3)).await.unwrap();
+    let next = run(&pool, at(3), None).await.unwrap();
     assert_eq!(next.opening_refreshed, 1);
     let row2 = places::by_id(&pool, place).await.unwrap().unwrap();
     assert_eq!(
@@ -527,7 +538,7 @@ async fn opening_intervals_are_computed_and_refreshed_daily(pool: PgPool) {
         "fourteen days from local midnight on 3 November"
     );
     assert_eq!(
-        run(&pool, at(3)).await.unwrap().opening_refreshed,
+        run(&pool, at(3), None).await.unwrap().opening_refreshed,
         0,
         "once a day"
     );
@@ -541,7 +552,7 @@ async fn intervals_computed_before_their_window_end_was_stored_get_it_the_same_d
     store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let place = place_of(&pool, &SourceId::OSM, "node/9").await;
     // What a place written before the column existed looks like.
     sqlx::query!("UPDATE places SET opening_intervals_until = NULL")
@@ -549,7 +560,7 @@ async fn intervals_computed_before_their_window_end_was_stored_get_it_the_same_d
         .await
         .unwrap();
     let before = places::by_id(&pool, place).await.unwrap().unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(stats.opening_refreshed, 1);
     let after = places::by_id(&pool, place).await.unwrap().unwrap();
     assert_eq!(
@@ -577,7 +588,7 @@ async fn a_campsite_mapped_twice_in_osm_waits_for_a_person(pool: PgPool) {
     )
     .await
     .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         stats.reviews, 1,
         "two different OSM elements of one spot are a duplicate to review, not two spots"
@@ -630,7 +641,7 @@ async fn a_shared_wikidata_item_merges_up_to_the_edge_of_the_reach(pool: PgPool)
     )
     .await
     .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     assert_eq!(
         place_of(&pool, &SourceId::OSM, "way/1").await,
         place_of(&pool, &SourceId::ATOUT_FRANCE, "x:1").await,
@@ -657,7 +668,7 @@ async fn the_pipeline_runs_with_the_import_role_alone(pool: PgPool) {
         .await
         .unwrap();
     ingest_fixtures(&ingest).await;
-    let stats = run(&ingest, at(2)).await.unwrap();
+    let stats = run(&ingest, at(2), None).await.unwrap();
     assert_eq!(
         (stats.created, stats.merges),
         (23, 6),
@@ -719,6 +730,7 @@ fn planning_a_country_where_half_the_places_vanish_stays_fast() {
                     id: *p,
                     content_hash: String::new(),
                     deleted: false,
+                    position: None,
                 },
             )
         })
@@ -730,6 +742,8 @@ fn planning_a_country_where_half_the_places_vanish_stays_fast() {
         current,
         states,
         now: at(2),
+        exclusion: None,
+        released: std::collections::BTreeSet::new(),
     };
     let started = std::time::Instant::now();
     let out = plan(&input).unwrap();
@@ -771,6 +785,7 @@ fn a_record_placed_only_at_its_town_makes_no_place_of_its_own() {
             id: old,
             content_hash: String::new(),
             deleted: false,
+            position: None,
         },
     )]);
     let input = PlanInput {
@@ -780,6 +795,8 @@ fn a_record_placed_only_at_its_town_makes_no_place_of_its_own() {
         current,
         states,
         now: at(2),
+        exclusion: None,
+        released: std::collections::BTreeSet::new(),
     };
     let out = plan(&input).unwrap();
     assert_eq!(out.held_back, 1, "the town-placed record alone");
@@ -839,7 +856,7 @@ async fn the_scoring_leaves_the_async_runtime_free(pool: PgPool) {
         worst
     });
     let started = std::time::Instant::now();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     let took = started.elapsed();
     done.store(true, std::sync::atomic::Ordering::Relaxed);
     let worst = ticker.await.unwrap();
@@ -898,7 +915,7 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
     use lunaway_db::submissions::{self, NewSubmission, Submitted};
     use lunaway_domain::community::submission::{NewPlace, PlacePatch};
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     let author = account(&app, 1).await;
@@ -942,7 +959,7 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
         .await
         .unwrap();
     }
-    let stats = run(&ingest, at(2)).await.unwrap();
+    let stats = run(&ingest, at(2), None).await.unwrap();
     assert_eq!(
         (stats.submissions_applied, stats.created),
         (2, 1),
@@ -956,7 +973,7 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
         Some(3.5),
         "the edit gives a height where OpenStreetMap had none"
     );
-    let second = run(&ingest, at(2)).await.unwrap();
+    let second = run(&ingest, at(2), None).await.unwrap();
     assert_eq!(
         (
             second.submissions_applied,
@@ -971,7 +988,7 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
 #[sqlx::test(migrations = "../../migrations")]
 async fn contributions_follow_a_place_merged_into_another(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let a = place_named(&pool, "Aire Val-du-Layon").await;
     let b = place_named(&pool, "Nature Camp Anjou").await;
@@ -982,7 +999,7 @@ async fn contributions_follow_a_place_merged_into_another(pool: PgPool) {
     lunaway_db::community::rate(&app, rater_b, b, 4)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     // A person states the two are one spot: one place absorbs the other.
     let rec = |place: Uuid| {
         let pool = pool.clone();
@@ -1005,7 +1022,7 @@ async fn contributions_follow_a_place_merged_into_another(pool: PgPool) {
     )
     .await
     .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(stats.tombstoned, 1);
     let heir = places::by_id(&pool, a).await.unwrap().unwrap();
     assert_eq!(heir.id, places::by_id(&pool, b).await.unwrap().unwrap().id);
@@ -1019,7 +1036,7 @@ async fn contributions_follow_a_place_merged_into_another(pool: PgPool) {
     lunaway_db::community::rate(&app, absorbed_rater, heir.id, 5)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let heir = places::by_id(&pool, heir.id).await.unwrap().unwrap();
     assert_eq!(heir.community.rating_count, 2);
     let expected = if heir.id == a {
@@ -1060,7 +1077,7 @@ async fn a_community_place_is_verified_once_an_open_source_lists_it(pool: PgPool
     )
     .await
     .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let place = submissions::submission(&pool, sent.id)
         .await
         .unwrap()
@@ -1088,7 +1105,7 @@ async fn a_community_place_is_verified_once_an_open_source_lists_it(pool: PgPool
     )
     .await
     .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let row = places::by_id(&pool, place).await.unwrap().unwrap();
     assert_eq!(row.id, place);
     assert_eq!(
@@ -1118,7 +1135,7 @@ async fn a_place_without_an_address_takes_the_country_of_its_position(pool: PgPo
     )
     .await
     .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let (country, region): (Option<String>, Option<String>) =
         sqlx::query_as("SELECT country_code, region FROM places")
             .fetch_one(&pool)
@@ -1134,7 +1151,7 @@ async fn a_place_without_an_address_takes_the_country_of_its_position(pool: PgPo
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_issue_leaves_the_card_once_its_window_has_passed(pool: PgPool) {
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let reporter = account(&app, 1).await;
     lunaway_db::accounts::set_granted_level(&app, reporter, 1)
@@ -1150,7 +1167,7 @@ async fn an_issue_leaves_the_card_once_its_window_has_passed(pool: PgPool) {
     )
     .await
     .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let row = places::by_id(&pool, port).await.unwrap().unwrap();
     assert_eq!(row.community.reported_issues.len(), 1);
     // A month passes: the report and the date the card shows grow old.
@@ -1170,7 +1187,7 @@ async fn an_issue_leaves_the_card_once_its_window_has_passed(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    let stats = run(&pool, at(2)).await.unwrap();
+    let stats = run(&pool, at(2), None).await.unwrap();
     assert_eq!(stats.community_refreshed, 1);
     let row = places::by_id(&pool, port).await.unwrap().unwrap();
     assert!(
@@ -1191,6 +1208,7 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
             std::time::Duration::from_secs(600),
             std::time::Duration::ZERO,
             || at(2),
+            None,
         )
         .await
     });
@@ -1328,7 +1346,7 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
     }
 
     // The worker, with the import role alone.
-    let stats = run(&ingest, at(2)).await.unwrap();
+    let stats = run(&ingest, at(2), None).await.unwrap();
     assert_eq!(stats.poi_community.vending_added, 1);
     assert!(
         stats.poi_hours.evaluated > 0,
@@ -1352,7 +1370,7 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
             .await
             .unwrap()
     );
-    run(&ingest, at(2)).await.unwrap();
+    run(&ingest, at(2), None).await.unwrap();
     let back = pois::by_id(&app, poi).await.unwrap().unwrap();
     assert_eq!(back.record.refs.laposte.as_deref(), Some("00001A"));
     let around = pois::nearby(
@@ -1425,7 +1443,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         community::{ConfirmationStatus, IssueKind, submission::PlacePatch},
     };
     ingest_fixtures(&pool).await;
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     let names = ["Aire Val-du-Layon", "Nature Camp Anjou"];
@@ -1449,7 +1467,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     records::set_constraint(&pool, record_a, record_b, ConstraintKind::MustLink, None)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let heir = places::by_id(&pool, a).await.unwrap().unwrap().id;
     let absorbed = if heir == a { b } else { a };
 
@@ -1482,7 +1500,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     store_complete(&pool, &source, scope, &without)
         .await
         .unwrap();
-    run(&pool, at(2)).await.unwrap();
+    run(&pool, at(2), None).await.unwrap();
     let still_linked: i64 = sqlx::query_scalar!(
         r#"SELECT count(*) AS "n!" FROM place_sources WHERE record_id = $1"#,
         dropped
@@ -1568,7 +1586,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         )
         .await
         .unwrap();
-        run(&pool, at(2)).await.unwrap();
+        run(&pool, at(2), None).await.unwrap();
     }
     let live_before = live_places(&pool).await;
     let cursor = places::last_seq(&pool).await.unwrap();
@@ -1681,7 +1699,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     .unwrap();
     let mut tx = begin_writer(&ingest).await.unwrap();
     assert_eq!(
-        takedowns::take_down(&mut tx, heir, "court order 2026-123", false)
+        takedowns::take_down(&mut tx, heir, "court order 2026-123", false, &test_key())
             .await
             .unwrap(),
         takedowns::TakeDown::Unconflated(1),
@@ -1715,7 +1733,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         "the community's step waits for the catalogue's"
     );
     let mut as_api = begin_writer(&app).await.unwrap();
-    let refused = takedowns::take_down(&mut as_api, heir, "forged", false).await;
+    let refused = takedowns::take_down(&mut as_api, heir, "forged", false, &test_key()).await;
     assert!(
         matches!(&refused, Err(lunaway_db::DbError::Query(e))
             if e.as_database_error().and_then(|d| d.code()).as_deref() == Some("42501")),
@@ -1724,11 +1742,15 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     drop(as_api);
 
     let mut tx = begin_writer(&ingest).await.unwrap();
-    let takedowns::TakeDown::Done(done) =
-        takedowns::take_down(&mut tx, absorbed, "court order 2026-123", false)
-            .await
-            .unwrap()
-    else {
+    let takedowns::TakeDown::Done(done) = takedowns::take_down(
+        &mut tx,
+        absorbed,
+        "court order 2026-123",
+        false,
+        &test_key(),
+    )
+    .await
+    .unwrap() else {
         panic!("the place is taken down");
     };
     tx.commit().await.unwrap();
@@ -1873,7 +1895,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             .unwrap()
             .unwrap();
     let mut tx = begin_writer(&ingest).await.unwrap();
-    takedowns::take_down(&mut tx, heir, "second request", false)
+    takedowns::take_down(&mut tx, heir, "second request", false, &test_key())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -1894,7 +1916,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     // a full conflation follows.
     ingest_fixtures(&ingest).await;
     records::mark_all_dirty(&ingest).await.unwrap();
-    run(&ingest, at(3)).await.unwrap();
+    run(&ingest, at(3), None).await.unwrap();
     assert_emptied(&pool, &emptied).await;
     for name in names {
         let back: i64 = sqlx::query_scalar!(

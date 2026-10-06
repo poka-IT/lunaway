@@ -1143,7 +1143,9 @@ impl MutationRoot {
     /// by the conflation with what other sources say of the same spot,
     /// within seconds; a place only the community describes is `TO_VERIFY`
     /// until two other accounts confirm it. A name or description that
-    /// trips the automatic rules waits for a moderator. Level 2.
+    /// trips the automatic rules waits for a moderator, and so does a place
+    /// within a few hundred metres of a spot taken down for good (applied,
+    /// with `placeId` null until a moderator releases it). Level 2.
     /// `idempotencyKey` as for `confirm`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn add_place(

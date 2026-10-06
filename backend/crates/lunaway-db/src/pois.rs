@@ -491,6 +491,15 @@ pub struct JoinStats {
 /// to evaluate; the caller marks the layer when a row's tile part
 /// changed ([`JoinStats::tile_changes`]).
 ///
+/// A row whose data and raw payload did not change is left as it is, its
+/// date too, unless `date_every_row`: a run that read its source whole
+/// dates that read once instead ([`crate::records::mark_read`] with
+/// [`crate::records::ReadTarget::Joins`]), and the queries that serve a
+/// joined row's date read it through `lunaway_read_at`. A run whose read
+/// looks truncated dates no read, so it writes the date of every row it
+/// saw (`date_every_row`): the fuel feed's date is shown to users as the
+/// freshness of its prices.
+///
 /// # Errors
 ///
 /// [`DbError`] when a statement fails; the batches already written stay.
@@ -498,6 +507,7 @@ pub async fn upsert_joins(
     pool: &PgPool,
     source: &SourceId,
     rows: &[NewJoin<'_>],
+    date_every_row: bool,
 ) -> Result<JoinStats, DbError> {
     let mut stats = JoinStats::default();
     for batch in rows.chunks(BATCH) {
@@ -525,6 +535,8 @@ pub async fn upsert_joins(
                         WHEN j.data IS DISTINCT FROM EXCLUDED.data OR j.deleted_at IS NOT NULL
                         THEN now() ELSE j.changed_at END,
                     deleted_at = NULL
+                WHERE j.data IS DISTINCT FROM EXCLUDED.data OR j.raw IS DISTINCT FROM EXCLUDED.raw
+                   OR j.deleted_at IS NOT NULL OR $6
                 RETURNING ref, data -> 'tile' AS tile, (xmax = 0) AS inserted,
                           (changed_at = now()) AS touched
             )
@@ -538,12 +550,15 @@ pub async fn upsert_joins(
             &data,
             &raws,
             &fetched,
+            date_every_row,
         )
         .fetch_all(tx.conn())
         .await?;
         let mut changed = Vec::new();
         let mut tile_changes = 0;
+        let mut returned = 0_u64;
         for w in written {
+            returned += 1;
             if w.inserted {
                 stats.upsert.inserted += 1;
             } else if w.touched {
@@ -558,6 +573,10 @@ pub async fn upsert_joins(
                 tile_changes += 1;
             }
         }
+        // The rows left as they were return nothing.
+        stats.upsert.unchanged += u64::try_from(batch.len())
+            .unwrap_or(u64::MAX)
+            .saturating_sub(returned);
         if *source == SourceId::LAPOSTE && !changed.is_empty() {
             sqlx::query!(
                 r#"
@@ -592,8 +611,9 @@ pub async fn live_join_count(pool: &PgPool, source: &SourceId) -> Result<i64, Db
 
 /// Marks as deleted the live joined rows of `source` whose key is not in
 /// `seen`, and has the points of a retired La Poste id evaluated again.
-/// Returns how many, and whether one of them showed on a tile (the caller
-/// then marks the layer).
+/// A retired row keeps the date of the last read that held it. Returns how
+/// many, and whether one of them showed on a tile (the caller then marks
+/// the layer).
 ///
 /// # Errors
 ///
@@ -607,7 +627,8 @@ pub async fn retire_missing_joins(
     let mut tx = begin_poi_writer(pool).await?;
     let gone = sqlx::query!(
         r#"
-        UPDATE poi_join_records SET deleted_at = $3, changed_at = now()
+        UPDATE poi_join_records SET deleted_at = $3, changed_at = now(),
+            fetched_at = lunaway_read_at('joins', source_id, NULL, fetched_at, NULL)
         WHERE source_id = $1 AND deleted_at IS NULL AND NOT (ref = ANY($2))
         RETURNING ref AS key, data ? 'tile' AS "on_tile!"
         "#,
@@ -797,7 +818,7 @@ pub struct JoinedRow {
     pub key: String,
     /// The adapter's reading.
     pub data: serde_json::Value,
-    /// When the source was read.
+    /// When the source was last read (`lunaway_read_at`).
     pub fetched_at: DateTime<Utc>,
 }
 
@@ -916,19 +937,22 @@ pub async fn attach_joins(pool: &PgPool, points: &mut [PoiRow]) -> Result<(), Db
     let joined = sqlx::query!(
         r#"
         SELECT p.id AS "poi!", j.source_id AS "source_id!", j.ref AS "key!", j.data AS "data!",
-               j.fetched_at AS "fetched_at!"
+               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)
+                   AS "fetched_at!"
         FROM pois p
         JOIN poi_join_records j
           ON j.deleted_at IS NULL AND j.source_id = 'prix-carburants' AND j.ref = p.fuel_ref
         WHERE p.id = ANY($1)
         UNION ALL
-        SELECT p.id, j.source_id, j.ref, j.data, j.fetched_at
+        SELECT p.id, j.source_id, j.ref, j.data,
+               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)
         FROM pois p
         JOIN poi_join_records j
           ON j.deleted_at IS NULL AND j.source_id = 'laposte' AND j.ref = p.laposte_ref
         WHERE p.id = ANY($1)
         UNION ALL
-        SELECT p.id, j.source_id, j.ref, j.data, j.fetched_at
+        SELECT p.id, j.source_id, j.ref, j.data,
+               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)
         FROM pois p
         JOIN poi_join_records j
           ON j.deleted_at IS NULL AND j.source_id = 'finess' AND j.ref = p.finess_ref

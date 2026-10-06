@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE source_records SET needs_conflation = true WHERE source_id = 'community'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "819858320bac8df9f9ed56154646b60f19d93dd92a4362c90978f1233fb545e2"
+}

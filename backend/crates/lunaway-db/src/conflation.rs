@@ -347,7 +347,7 @@ pub async fn records_of_places(
 }
 
 /// What the conflation needs to know of an existing place.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlaceState {
     /// Its id.
     pub id: Uuid,
@@ -355,6 +355,9 @@ pub struct PlaceState {
     pub content_hash: String,
     /// Whether it is a tombstone.
     pub deleted: bool,
+    /// Where it is shown, for a live place: a place that moves into a
+    /// takedown's cells is held, one already there is not.
+    pub position: Option<Position>,
 }
 
 /// The state of the places `ids`.
@@ -364,19 +367,32 @@ pub struct PlaceState {
 /// [`DbError`] when the query fails.
 pub async fn place_states(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<PlaceState>, DbError> {
     let rows = sqlx::query!(
-        r#"SELECT id, content_hash, deleted_at IS NOT NULL AS "deleted!" FROM places WHERE id = ANY($1)"#,
+        r#"
+        SELECT id, content_hash, deleted_at IS NOT NULL AS "deleted!",
+               ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!"
+        FROM places WHERE id = ANY($1)
+        "#,
         ids,
     )
     .fetch_all(tx.conn())
     .await?;
-    Ok(rows
-        .into_iter()
-        .map(|r| PlaceState {
-            id: r.id,
-            content_hash: r.content_hash,
-            deleted: r.deleted,
+    rows.into_iter()
+        .map(|r| {
+            Ok(PlaceState {
+                id: r.id,
+                content_hash: r.content_hash,
+                deleted: r.deleted,
+                position: if r.deleted {
+                    None
+                } else {
+                    Some(
+                        Position::new(r.lat, r.lon)
+                            .map_err(|e| DbError::decode("place position", e))?,
+                    )
+                },
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// Opening hours evaluated for a place.

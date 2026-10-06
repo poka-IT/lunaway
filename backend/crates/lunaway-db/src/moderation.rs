@@ -13,6 +13,7 @@
 //! | place proposal | accepted, applied by the worker | rejected |
 //! | place check (closed or changed) | closed | closed |
 //! | road report (a community road event two accounts confirmed) | kept | ended, its reports removed |
+//! | place hold (a new or moved place near a place taken down) | released and journaled, written by the worker | stays held |
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -28,9 +29,10 @@ pub struct QueueEntry {
     /// Its id.
     pub id: Uuid,
     /// `held_review`, `reported_content`, `place_proposal`, `place_check`,
-    /// `poi_check`.
+    /// `poi_check`, `road_report`, `place_hold`.
     pub kind: String,
-    /// `review`, `photo`, `place`, `submission`, `poi`.
+    /// `review`, `photo`, `place`, `submission`, `poi`, `road_event`,
+    /// `place_hold`.
     pub target_type: String,
     /// The target.
     pub target_id: Uuid,
@@ -41,7 +43,8 @@ pub struct QueueEntry {
     /// Distinct reporters, for a reported target.
     pub reports: i64,
     /// What the target says: a review's text, a photo's path, a proposal's
-    /// JSON, a place's name.
+    /// JSON, a place's name, the records of a held group (source, id,
+    /// kind, name; never a position).
     pub excerpt: Option<String>,
     /// When it entered the queue.
     pub created_at: DateTime<Utc>,
@@ -69,6 +72,14 @@ pub async fn open(pool: &PgPool, limit: i64) -> Result<Vec<QueueEntry>, DbError>
                                       WHERE p.id = q.target_id)
                    WHEN 'poi' THEN (SELECT coalesce(p.name, p.kind) || ' (' || p.external_id || ')'
                                     FROM pois p WHERE p.id = q.target_id)
+                   WHEN 'place_hold' THEN (
+                       SELECT left(h.kind || coalesce(' of place ' || h.place_id::text, '') || ': '
+                                   || string_agg(r.source_id || ' ' || r.external_id || ' '
+                                                 || r.kind || coalesce(' ' || r.name, ''), '; '
+                                                 ORDER BY r.id), 300)
+                       FROM place_holds h JOIN source_records r ON r.id = ANY(h.records)
+                       WHERE h.id = q.target_id
+                       GROUP BY h.kind, h.place_id)
                END AS excerpt
         FROM moderation_queue q
         WHERE q.status = 'open'
@@ -261,6 +272,33 @@ pub async fn decide(
         }
         "poi" => {
             set_poi_hidden(&mut tx, entry.target_id, !approve, note).await?;
+            (None, None)
+        }
+        "place_hold" => {
+            // A release is journaled with its note and never rewritten; the
+            // worker writes the place at its next run. A rejected hold
+            // stays held.
+            let decided = sqlx::query_scalar!(
+                r#"
+                UPDATE place_holds SET status = $2, decided_at = now()
+                WHERE id = $1 AND status = 'held'
+                RETURNING id
+                "#,
+                entry.target_id,
+                if approve { "released" } else { "rejected" },
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+            if approve && decided.is_some() {
+                sqlx::query!(
+                    "INSERT INTO place_hold_releases (hold_id, note) VALUES ($1, $2)",
+                    entry.target_id,
+                    note,
+                )
+                .execute(&mut *tx)
+                .await?;
+                notify_worker(&mut tx).await?;
+            }
             (None, None)
         }
         "road_event" => {

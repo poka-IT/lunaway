@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO moderation_queue (id, kind, target_type, target_id, account_id, reason)\n            SELECT $1, 'place_hold', 'place_hold', $2,\n                   (SELECT s.account_id FROM place_submissions s\n                    JOIN source_records r ON r.id = s.record_id\n                    WHERE s.record_id = ANY($3) AND r.source_id = $4\n                    ORDER BY s.id LIMIT 1),\n                   $5\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "UuidArray",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f56e816162890410a44ee7cf5dc9d7a245ab340eb5c610992d3f646c2489590e"
+}

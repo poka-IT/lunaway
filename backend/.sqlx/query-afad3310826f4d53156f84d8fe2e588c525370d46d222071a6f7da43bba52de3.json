@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, content_hash, deleted_at IS NOT NULL AS \"deleted!\" FROM places WHERE id = ANY($1)",
+  "query": "\n        SELECT id, content_hash, deleted_at IS NOT NULL AS \"deleted!\",\n               ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places WHERE id = ANY($1)\n        ",
   "describe": {
     "columns": [
       {
@@ -30,6 +30,18 @@
         "name": "deleted!",
         "type_info": "Bool",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -40,8 +52,10 @@
     "nullable": [
       false,
       false,
+      null,
+      null,
       null
     ]
   },
-  "hash": "6354174e0bcb97ed1089c929f97fa210ed73f9f2df7692bea3a839ee00473676"
+  "hash": "afad3310826f4d53156f84d8fe2e588c525370d46d222071a6f7da43bba52de3"
 }

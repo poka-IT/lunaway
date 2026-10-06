@@ -298,6 +298,22 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         "the API's role cannot take a place down: a leak of its credentials must not empty \
          the catalogue"
     );
+    assert!(
+        privileges(&pool, "lunaway_app", "takedown_cells")
+            .await
+            .is_empty(),
+        "the API never sees the takedowns' cells, nor holds the secret that reads them"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_holds").await,
+        ["SELECT"],
+        "the moderators read the holds and decide them, column by column"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_hold_releases").await,
+        ["SELECT", "INSERT"],
+        "a release is journaled and never rewritten"
+    );
     insert(&pool, "way/1").await;
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
@@ -446,11 +462,18 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
             "lunaway_ingest on {t}: a camera gone is a tombstone the feed reports"
         );
     }
-    assert_eq!(
-        privileges(&pool, "lunaway_ingest", "sources").await,
-        ["SELECT"],
-        "lunaway_ingest on sources: written by migrations only"
-    );
+    for t in ["sources", "sync_epoch"] {
+        assert_eq!(
+            privileges(&pool, "lunaway_ingest", t).await,
+            ["SELECT"],
+            "lunaway_ingest on {t}: written by migrations and restores only; the pack builder \
+             names the feed's copy"
+        );
+    }
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    lunaway_db::places::feed_head(&ingest)
+        .await
+        .expect("the pack builder reads the feed's identity with the import role");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "source_reads").await,
         ["SELECT", "INSERT", "UPDATE"],
@@ -460,6 +483,32 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         privileges(&pool, "lunaway_ingest", "place_takedowns").await,
         ["SELECT", "INSERT"],
         "the catalogue's writer logs a takedown and never rewrites one"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "takedown_cells").await,
+        ["SELECT", "INSERT"],
+        "a takedown's zone is added to, never rewritten nor removed"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_holds").await,
+        ["SELECT", "INSERT"],
+        "the worker writes a hold's records, column by column, never its decision"
+    );
+    let decides: bool = sqlx::query_scalar!(
+        r#"SELECT has_column_privilege('lunaway_ingest', 'place_holds', 'status', 'UPDATE') AS "has!""#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!decides, "a release is the moderators' decision");
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_hold_releases").await,
+        ["SELECT"],
+        "the worker reads the journal of releases and writes none"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "takedown_key").await,
+        ["SELECT", "INSERT"]
     );
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "conflation_constraints").await,
@@ -502,7 +551,6 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         );
     }
     for t in [
-        "sync_epoch",
         "_sqlx_migrations",
         "sessions",
         "device_keys",

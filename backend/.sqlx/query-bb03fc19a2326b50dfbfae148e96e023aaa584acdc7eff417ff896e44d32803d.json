@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH due AS (\n            UPDATE place_holds h SET requeued_at = now()\n            WHERE h.status = 'released' AND h.requeued_at IS NULL\n              AND EXISTS (SELECT 1 FROM place_hold_releases r WHERE r.hold_id = h.id)\n            RETURNING h.records\n        )\n        UPDATE source_records SET needs_conflation = true\n        WHERE id IN (SELECT unnest(records) FROM due) AND taken_down_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "bb03fc19a2326b50dfbfae148e96e023aaa584acdc7eff417ff896e44d32803d"
+}

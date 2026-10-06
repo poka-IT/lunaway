@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT key_check FROM takedown_key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_check",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "takedown_key",
+            "name": "key_check"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bc9c9483a19cd2d38706e5794fb6297371bee491313b2a8c7d951e019df285aa"
+}

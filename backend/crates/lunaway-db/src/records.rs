@@ -211,6 +211,9 @@ pub enum ReadTarget {
     Records,
     /// `pois`, the points of interest.
     Pois,
+    /// `poi_join_records`, what other sources say of the points (a fuel
+    /// station's prices, a post office's days), read whole at each run.
+    Joins,
 }
 
 impl ReadTarget {
@@ -218,6 +221,7 @@ impl ReadTarget {
         match self {
             Self::Records => "records",
             Self::Pois => "pois",
+            Self::Joins => "joins",
         }
     }
 }

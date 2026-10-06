@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT xmin::text AS \"v!\" FROM poi_join_records ORDER BY ref",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d513410c1099e47bdcb23849352e35a59555adf23ed9cab8fcdfd29dc7222c07"
+}

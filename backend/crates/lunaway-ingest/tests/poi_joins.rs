@@ -683,3 +683,116 @@ async fn an_unchanged_import_writes_no_point_and_still_dates_its_read(pool: PgPo
         "the point was in the second read, and a client sees that date"
     );
 }
+
+/// The fuel feed polled again unchanged writes no row, yet every station
+/// shows the date of that poll, which users read as the freshness of the
+/// prices; a changed price rewrites its station only; a poll that looks
+/// truncated dates the stations it saw, and only those.
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_unchanged_fuel_poll_writes_no_row_and_dates_every_station(pool: PgPool) {
+    let new_price = fuel_body(
+        |row| {
+            row["gazole_prix"] = 2.199.into();
+            row["gazole_maj"] = "2026-10-06T12:00:00+00:00".into();
+        },
+        40_500_002,
+    );
+    let rows: Vec<serde_json::Value> = serde_json::from_slice(FUEL).unwrap();
+    let truncated = serde_json::to_vec(&rows[..2]).unwrap();
+    let seen_when_truncated: Vec<String> = rows[..2]
+        .iter()
+        .map(|r| r["id"].as_i64().unwrap().to_string())
+        .collect();
+    let (_, addr) = serve(vec![FUEL.to_vec(), FUEL.to_vec(), new_price, truncated]).await;
+    let client = http::client_allowing_plain_http().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let config = fuel::FuelConfig {
+        url: format!("http://{addr}/exports/json"),
+        retry: FAST,
+    };
+    let versions = || async {
+        sqlx::query_scalar!(r#"SELECT xmin::text AS "v!" FROM poi_join_records ORDER BY ref"#)
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+    };
+    let shown = || async {
+        let refs: Vec<String> =
+            sqlx::query_scalar!("SELECT ref FROM poi_join_records ORDER BY ref")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        let mut stations = lunaway_db::fuel::by_refs(&pool, &refs).await.unwrap();
+        stations.sort_by(|a, b| a.station_ref.cmp(&b.station_ref));
+        stations
+            .into_iter()
+            .map(|s| (s.station_ref, s.fetched_at.timestamp_micros()))
+            .collect::<Vec<_>>()
+    };
+    let first = fuel::import(&pool, &client, &cache, &config, true)
+        .await
+        .unwrap();
+    let written = versions().await;
+    assert_eq!(written.len(), 5);
+
+    let second = fuel::import(&pool, &client, &cache, &config, true)
+        .await
+        .unwrap();
+    assert!(second.fetched_at > first.fetched_at);
+    let u = second.store.upsert.upsert;
+    assert_eq!((u.inserted, u.changed, u.unchanged), (0, 0, 5));
+    assert_eq!(
+        versions().await,
+        written,
+        "the same feed read again writes no row: 96 polls a day rewrote the table each time"
+    );
+    assert!(
+        shown()
+            .await
+            .iter()
+            .all(|(_, at)| *at == second.fetched_at.timestamp_micros()),
+        "every station shows the poll that read it, not the one that last changed it"
+    );
+
+    let third = fuel::import(&pool, &client, &cache, &config, true)
+        .await
+        .unwrap();
+    assert_eq!(third.store.upsert.upsert.changed, 1);
+    let rewritten = versions()
+        .await
+        .iter()
+        .zip(&written)
+        .filter(|(a, b)| a != b)
+        .count();
+    assert_eq!(
+        rewritten, 1,
+        "only the station whose price moved is written"
+    );
+    assert!(
+        shown()
+            .await
+            .iter()
+            .all(|(_, at)| *at == third.fetched_at.timestamp_micros())
+    );
+
+    let fourth = fuel::import(&pool, &client, &cache, &config, true)
+        .await
+        .unwrap();
+    assert!(
+        fourth.store.retire_refused,
+        "2 stations of 5 look truncated"
+    );
+    for (station, at) in shown().await {
+        let expected = if seen_when_truncated.contains(&station) {
+            fourth.fetched_at
+        } else {
+            third.fetched_at
+        };
+        assert_eq!(
+            at,
+            expected.timestamp_micros(),
+            "station {station}: a truncated read dates what it saw, nothing more"
+        );
+    }
+}

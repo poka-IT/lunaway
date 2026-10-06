@@ -45,7 +45,8 @@ pub struct FuelStationRow {
     pub station_ref: String,
     /// What the feed says of it.
     pub station: FuelStation,
-    /// When Lunaway read the feed.
+    /// When Lunaway last read the feed (`lunaway_read_at`: a poll writes
+    /// only the stations that changed and dates its read once).
     pub fetched_at: DateTime<Utc>,
     /// Where the feed puts it.
     pub position: Position,
@@ -135,7 +136,9 @@ pub async fn near(
     let rows = sqlx::query_as!(
         StationDb,
         r#"
-        SELECT j.ref AS "station_ref!", j.data AS "data!", j.fetched_at AS "fetched_at!",
+        SELECT j.ref AS "station_ref!", j.data AS "data!",
+               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)
+                   AS "fetched_at!",
                ST_Y(j.geom::geometry) AS "lat!", ST_X(j.geom::geometry) AS "lon!",
                ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)
                    AS "distance_m?",
@@ -244,7 +247,9 @@ pub async fn by_refs(pool: &PgPool, refs: &[String]) -> Result<Vec<FuelStationRo
     let rows = sqlx::query_as!(
         StationDb,
         r#"
-        SELECT j.ref AS "station_ref!", j.data AS "data!", j.fetched_at AS "fetched_at!",
+        SELECT j.ref AS "station_ref!", j.data AS "data!",
+               lunaway_read_at('joins', j.source_id, NULL, j.fetched_at, j.deleted_at)
+                   AS "fetched_at!",
                ST_Y(j.geom::geometry) AS "lat!", ST_X(j.geom::geometry) AS "lon!",
                NULL::double precision AS "distance_m?",
                p.id AS "poi_id?", p.source_id AS "poi_source_id?", p.name AS "poi_name?",

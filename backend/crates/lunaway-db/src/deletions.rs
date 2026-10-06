@@ -16,22 +16,21 @@
 
 use std::{
     collections::BTreeSet,
-    io::{Read as _, Seek as _, SeekFrom, Write as _},
     path::{Path, PathBuf},
 };
 
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     DbError, PgPool,
     accounts::{self, DeletedAccount},
+    day_files::{DayFiles, IoAt},
 };
 
-/// The prefix and suffix of a day's file.
+/// The prefix of a day's file.
 const PREFIX: &str = "accounts-";
-const SUFFIX: &str = ".jsonl";
 
 /// Why the journal could not be written or read.
 #[derive(Debug, thiserror::Error)]
@@ -101,12 +100,13 @@ pub struct DeletionJournal {
 }
 
 /// The day a file name stands for, if it is one of the journal's.
-fn day_of(name: &str) -> Option<NaiveDate> {
-    let digits = name.strip_prefix(PREFIX)?.strip_suffix(SUFFIX)?;
-    if digits.len() != 8 || !digits.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    NaiveDate::parse_from_str(digits, "%Y%m%d").ok()
+#[cfg(test)]
+fn day_of(name: &str) -> Option<chrono::NaiveDate> {
+    crate::day_files::day_of(PREFIX, name)
+}
+
+fn io((path, source): IoAt) -> JournalError {
+    JournalError::Io { path, source }
 }
 
 impl DeletionJournal {
@@ -122,10 +122,10 @@ impl DeletionJournal {
         &self.dir
     }
 
-    fn io(path: &Path) -> impl FnOnce(std::io::Error) -> JournalError + '_ {
-        move |source| JournalError::Io {
-            path: path.to_owned(),
-            source,
+    fn files(&self) -> DayFiles<'_> {
+        DayFiles {
+            dir: &self.dir,
+            prefix: PREFIX,
         }
     }
 
@@ -138,40 +138,7 @@ impl DeletionJournal {
     /// [`JournalError`] when the directory or today's file cannot be
     /// opened for writing.
     pub fn check_writable(&self, now: DateTime<Utc>) -> Result<(), JournalError> {
-        self.open_day(now).map(drop)
-    }
-
-    /// The day's file of `at`, opened to append, the directory created
-    /// (owner and group) when missing; a new file and its entry in the
-    /// directory are synced, so the first deletion of a day survives a
-    /// crash.
-    fn open_day(&self, at: DateTime<Utc>) -> Result<(std::fs::File, PathBuf), JournalError> {
-        let mut builder = std::fs::DirBuilder::new();
-        builder.recursive(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::DirBuilderExt as _;
-            builder.mode(0o750);
-        }
-        builder.create(&self.dir).map_err(Self::io(&self.dir))?;
-        let path = self
-            .dir
-            .join(format!("{PREFIX}{}{SUFFIX}", at.format("%Y%m%d")));
-        let new = !path.exists();
-        let mut options = std::fs::OpenOptions::new();
-        options.read(true).append(true).create(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt as _;
-            options.mode(0o640);
-        }
-        let file = options.open(&path).map_err(Self::io(&path))?;
-        if new {
-            std::fs::File::open(&self.dir)
-                .and_then(|d| d.sync_all())
-                .map_err(Self::io(&self.dir))?;
-        }
-        Ok((file, path))
+        self.files().open_day(now).map(drop).map_err(io)
     }
 
     /// Appends the deletion of `account` at `at` to the day's file and
@@ -188,26 +155,7 @@ impl DeletionJournal {
             deleted_at: at,
         })
         .map_err(JournalError::Encode)?;
-        let (mut file, path) = self.open_day(at)?;
-        let empty = file.metadata().map_err(Self::io(&path))?.len() == 0;
-        let cut = if empty {
-            false
-        } else {
-            file.seek(SeekFrom::End(-1)).map_err(Self::io(&path))?;
-            let mut last = [0_u8; 1];
-            file.read_exact(&mut last).map_err(Self::io(&path))?;
-            last[0] != b'\n'
-        };
-        let line = if cut {
-            format!("\n{entry}\n")
-        } else {
-            format!("{entry}\n")
-        };
-        // One write of a short line in append mode: two writers (the API
-        // and an operator's command) never interleave inside a line.
-        file.write_all(line.as_bytes()).map_err(Self::io(&path))?;
-        file.sync_data().map_err(Self::io(&path))?;
-        Ok(())
+        self.files().append(&entry, at).map_err(io)
     }
 
     /// [`Self::record_blocking`] on a blocking thread: the sync waits for
@@ -261,22 +209,9 @@ impl DeletionJournal {
     }
 
     /// The day files, oldest first.
-    fn days(&self) -> Result<Vec<(NaiveDate, PathBuf)>, JournalError> {
-        let mut out = Vec::new();
-        let dir = match std::fs::read_dir(&self.dir) {
-            Ok(d) => d,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(out),
-            Err(e) => return Err(Self::io(&self.dir)(e)),
-        };
-        for item in dir {
-            let item = item.map_err(Self::io(&self.dir))?;
-            let name = item.file_name();
-            if let Some(day) = name.to_str().and_then(day_of) {
-                out.push((day, item.path()));
-            }
-        }
-        out.sort();
-        Ok(out)
+    #[cfg(test)]
+    fn days(&self) -> Result<Vec<(chrono::NaiveDate, PathBuf)>, JournalError> {
+        self.files().days().map_err(io)
     }
 
     /// Every deletion written. A directory that does not exist is an empty
@@ -286,15 +221,15 @@ impl DeletionJournal {
     ///
     /// [`JournalError`] when the directory or a file cannot be read.
     pub fn read(&self) -> Result<Journal, JournalError> {
-        let mut journal = Journal::default();
-        for (_, path) in self.days()? {
-            let text = std::fs::read_to_string(&path).map_err(Self::io(&path))?;
-            journal.files += 1;
-            for line in text.lines().filter(|l| !l.trim().is_empty()) {
-                match serde_json::from_str::<Entry>(line) {
-                    Ok(e) => journal.entries.push(e),
-                    Err(_) => journal.unreadable += 1,
-                }
+        let (lines, files) = self.files().lines().map_err(io)?;
+        let mut journal = Journal {
+            files,
+            ..Journal::default()
+        };
+        for line in lines {
+            match serde_json::from_str::<Entry>(&line) {
+                Ok(e) => journal.entries.push(e),
+                Err(_) => journal.unreadable += 1,
             }
         }
         Ok(journal)
@@ -312,15 +247,7 @@ impl DeletionJournal {
     /// [`JournalError`] when the directory cannot be listed or a file
     /// removed.
     pub fn prune(&self, keep: Duration, now: DateTime<Utc>) -> Result<usize, JournalError> {
-        let horizon = (now - keep).date_naive();
-        let mut removed = 0;
-        for (day, path) in self.days()? {
-            if day <= horizon {
-                std::fs::remove_file(&path).map_err(Self::io(&path))?;
-                removed += 1;
-            }
-        }
-        Ok(removed)
+        self.files().prune(keep, now).map_err(io)
     }
 }
 
@@ -414,6 +341,10 @@ pub async fn replay(
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write as _;
+
+    use chrono::NaiveDate;
+
     use super::*;
 
     fn at(day: u32, hour: u32) -> DateTime<Utc> {

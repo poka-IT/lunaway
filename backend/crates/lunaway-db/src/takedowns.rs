@@ -14,10 +14,19 @@
 //! reviews, photos, confirmations and issue reports of the emptied place,
 //! which accepts no new one, are deleted. The API's role cannot start a
 //! takedown: a leak of its credentials must not empty the catalogue.
+//!
+//! Before the positions go, [`take_down`] keeps the keyed hashes of the
+//! cells around them (`takedown_cells`, `lunaway_domain::takedown`): the
+//! conflation holds for a moderator any new place, or any place moving,
+//! into those cells ([`crate::holds`]), so the spot listed again by another
+//! account, element or source does not go live unseen.
+
+use std::collections::BTreeSet;
 
 use lunaway_domain::{
-    PlaceKind,
+    PlaceKind, Position,
     conflation::score::{MAX_KIND_RADIUS_M, kind_radius_m},
+    takedown::{CellHash, TakedownKey},
 };
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -89,6 +98,9 @@ pub enum TakeDown {
     /// Records near the place wait for the conflation (this many): one of
     /// them could become the place again, so nothing was done.
     Unconflated(i64),
+    /// The secret is not the one the earlier takedowns were made with: its
+    /// cells would match none of theirs, so nothing was done.
+    OtherKey,
     /// Done.
     Done(TakenDown),
 }
@@ -105,6 +117,11 @@ pub struct TakenDown {
     pub places: u64,
     /// Records emptied.
     pub records: u64,
+    /// The place, then the places merged into it.
+    pub family: Vec<Uuid>,
+    /// The hashes of the cells around the positions it emptied, stored in
+    /// `takedown_cells` (none when it ran again on what was emptied).
+    pub cells: Vec<CellHash>,
 }
 
 /// What [`purge_community`] did.
@@ -154,7 +171,8 @@ async fn end_of_merges(conn: &mut PgConnection, id: Uuid) -> Result<Option<Uuid>
     .await?)
 }
 
-/// `place` and every place merged into it, however many merges ago.
+/// `place` and every place merged into it, however many merges ago,
+/// `place` first.
 async fn family(conn: &mut PgConnection, place: Uuid) -> Result<Vec<Uuid>, DbError> {
     Ok(sqlx::query_scalar!(
         r#"
@@ -162,7 +180,7 @@ async fn family(conn: &mut PgConnection, place: Uuid) -> Result<Vec<Uuid>, DbErr
             SELECT $1::uuid
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
         )
-        SELECT id AS "id!" FROM family
+        SELECT id AS "id!" FROM family ORDER BY id <> $1, id
         "#,
         place
     )
@@ -303,11 +321,183 @@ pub async fn preview(pool: &PgPool, place: Uuid) -> Result<Option<Preview>, DbEr
     }))
 }
 
-/// Takes `place` down, merges followed: empties it, the places merged into
-/// it and their records (and the nearby retired records [`Preview`] lists,
-/// when `with_nearby`), and logs it with `reason`; the first reason stays
-/// when it runs again, which empties what was missed. Refused while
-/// records near the place wait for the conflation.
+/// Where `place` stands, merges followed: `None` when there is no such
+/// place.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Standing {
+    /// The place it ends at, merges followed.
+    pub root: Uuid,
+    /// Whether that place is taken down.
+    pub taken_down: bool,
+    /// The root and every place merged into it, which a takedown of the
+    /// root empties.
+    pub family: Vec<Uuid>,
+}
+
+/// Where `place` stands, merges followed: what the replay of the journal
+/// checks before it takes a place down again.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails.
+pub async fn standing(pool: &PgPool, place: Uuid) -> Result<Option<Standing>, DbError> {
+    let mut conn = pool.acquire().await?;
+    let Some(root) = end_of_merges(&mut conn, place).await? else {
+        return Ok(None);
+    };
+    let taken_down = sqlx::query_scalar!(
+        r#"SELECT taken_down_at IS NOT NULL AS "taken!" FROM places WHERE id = $1"#,
+        root
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    let family = family(&mut conn, root).await?;
+    Ok(Some(Standing {
+        root,
+        taken_down,
+        family,
+    }))
+}
+
+/// The positions about to be emptied: the places of `family` and the
+/// records `records` not emptied yet, without the records placed at their
+/// commune only (a town hall is nobody's home).
+async fn positions_of(
+    conn: &mut PgConnection,
+    family: &[Uuid],
+    records: &[Uuid],
+) -> Result<Vec<Position>, DbError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!"
+        FROM places WHERE id = ANY($1) AND taken_down_at IS NULL
+        UNION
+        SELECT ST_Y(geom::geometry), ST_X(geom::geometry)
+        FROM source_records
+        WHERE id = ANY($2) AND taken_down_at IS NULL
+          AND (data->>'position_approximate')::boolean IS NOT TRUE
+        "#,
+        family,
+        records,
+    )
+    .fetch_all(conn)
+    .await?;
+    rows.into_iter()
+        .map(|r| Position::new(r.lat, r.lon).map_err(|e| DbError::decode("position", e)))
+        .collect()
+}
+
+/// Stores `cells` as the exclusion zone of `place`; those already there
+/// stay. Returns how many were new.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn insert_cells(
+    tx: &mut WriterTx,
+    place: Uuid,
+    cells: &[CellHash],
+) -> Result<u64, DbError> {
+    let bytes: Vec<Vec<u8>> = cells.iter().map(|c| c.as_bytes().to_vec()).collect();
+    let done = sqlx::query!(
+        r#"
+        INSERT INTO takedown_cells (cell, place_id)
+        SELECT c, $2 FROM UNNEST($1::bytea[]) AS c
+        ON CONFLICT DO NOTHING
+        "#,
+        &bytes,
+        place,
+    )
+    .execute(tx.conn())
+    .await?;
+    Ok(done.rows_affected())
+}
+
+/// Whether `key` is the secret the takedowns were made with: `true` when
+/// it is, or when no takedown stored a check value yet (`record` stores
+/// it then, in the transaction).
+async fn same_key(tx: &mut WriterTx, key: &TakedownKey, record: bool) -> Result<bool, DbError> {
+    let check = key.check().as_bytes().to_vec();
+    let stored = sqlx::query_scalar!("SELECT key_check FROM takedown_key")
+        .fetch_optional(tx.conn())
+        .await?;
+    match stored {
+        Some(s) => Ok(s == check),
+        None => {
+            if record {
+                sqlx::query!(
+                    "INSERT INTO takedown_key (key_check) VALUES ($1) ON CONFLICT DO NOTHING",
+                    check
+                )
+                .execute(tx.conn())
+                .await?;
+            }
+            Ok(true)
+        }
+    }
+}
+
+/// Whether `key` is the secret the takedowns were made with (or none was
+/// made yet): the conflation holds nothing under another one, and says so.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn is_takedown_key(tx: &mut WriterTx, key: &TakedownKey) -> Result<bool, DbError> {
+    same_key(tx, key, false).await
+}
+
+/// Like [`is_takedown_key`], storing `key`'s check value when none is
+/// stored yet: the replay of the journal does, so a later worker under
+/// another secret is told apart even when nothing was taken down again.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn adopt_key(tx: &mut WriterTx, key: &TakedownKey) -> Result<bool, DbError> {
+    same_key(tx, key, true).await
+}
+
+/// `place`'s family as the writer transaction sees it, `place` first.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn family_in(tx: &mut WriterTx, place: Uuid) -> Result<Vec<Uuid>, DbError> {
+    family(tx.conn(), place).await
+}
+
+/// Every cell of every takedown's zone, for the conflation to check its
+/// new and moved places against.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails or a stored cell is not 32 bytes.
+pub async fn exclusion_cells(tx: &mut WriterTx) -> Result<Vec<CellHash>, DbError> {
+    let rows = sqlx::query_scalar!(r#"SELECT DISTINCT cell AS "cell!" FROM takedown_cells"#)
+        .fetch_all(tx.conn())
+        .await?;
+    rows.iter()
+        .map(|b| {
+            CellHash::from_slice(b).ok_or_else(|| {
+                DbError::decode(
+                    "takedown cell",
+                    lunaway_domain::UnknownCode {
+                        kind: "CellHash",
+                        code: format!("{} bytes", b.len()),
+                    },
+                )
+            })
+        })
+        .collect()
+}
+
+/// Takes `place` down, merges followed: keeps the hashes of the cells
+/// around its positions and its records' (`key`), empties it, the places
+/// merged into it and their records (and the nearby retired records
+/// [`Preview`] lists, when `with_nearby`), and logs it with `reason`; the
+/// first reason stays when it runs again, which empties what was missed.
+/// Refused while records near the place wait for the conflation.
 ///
 /// # Errors
 ///
@@ -318,10 +508,14 @@ pub async fn take_down(
     place: Uuid,
     reason: &str,
     with_nearby: bool,
+    key: &TakedownKey,
 ) -> Result<TakeDown, DbError> {
     let Some(root) = end_of_merges(tx.conn(), place).await? else {
         return Ok(TakeDown::NoPlace);
     };
+    if !same_key(tx, key, true).await? {
+        return Ok(TakeDown::OtherKey);
+    }
     let family = family(tx.conn(), root).await?;
     let waiting = unconflated_near(tx.conn(), &family).await?;
     if waiting > 0 {
@@ -339,6 +533,16 @@ pub async fn take_down(
                 .map(|n| n.id),
         );
     }
+    // The cells go in before the positions go: the zone is made of where
+    // the place and its records stood.
+    let cells: Vec<CellHash> = positions_of(tx.conn(), &family, &records)
+        .await?
+        .into_iter()
+        .flat_map(|p| key.zone(p))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    insert_cells(tx, root, &cells).await?;
     empty(tx.conn(), &family, &records).await?;
     sqlx::query!(
         r#"
@@ -355,6 +559,8 @@ pub async fn take_down(
         region,
         places: u64::try_from(family.len()).unwrap_or(u64::MAX),
         records: u64::try_from(records.len()).unwrap_or(u64::MAX),
+        family,
+        cells,
     }))
 }
 
@@ -442,6 +648,29 @@ async fn empty(conn: &mut PgConnection, family: &[Uuid], records: &[Uuid]) -> Re
     .execute(&mut *conn)
     .await?;
     Ok(())
+}
+
+/// The places taken down whose reviews, photos, answers or issue reports
+/// are still there: the second step was not run, or a restore brought the
+/// content back. Readable by both roles.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn unpurged(pool: &PgPool) -> Result<Vec<Uuid>, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"
+        SELECT p.id FROM places p
+        WHERE p.taken_down_at IS NOT NULL
+          AND (EXISTS (SELECT 1 FROM reviews WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM photos WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM confirmations WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM issue_reports WHERE place_id = p.id))
+        ORDER BY p.id
+        "#
+    )
+    .fetch_all(pool)
+    .await?)
 }
 
 /// Deletes the community's content of `place` (merges followed) and of the

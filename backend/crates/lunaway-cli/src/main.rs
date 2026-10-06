@@ -13,6 +13,9 @@
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
+//! lunaway conflate --take-down <place> --reason TEXT [--reason-code CODE] [--with-nearby] [--yes]
+//! lunaway takedowns import < FILE
+//! lunaway takedowns replay [--dry-run] [--allow-empty]
 //! lunaway stats
 //! lunaway packs build --dir DIR [--region FR-BRE]...
 //! lunaway packs list
@@ -23,6 +26,8 @@
 //! lunaway moderation hide-poi|show-poi <poi-id> [--note TEXT]
 //! lunaway moderation confirmations <place-id> [--limit 50]
 //! lunaway moderation remove-confirmation <confirmation-id>
+//! lunaway moderation take-down <place-id> [--yes]
+//! lunaway moderation purge-taken-down [--yes]
 //! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
 //! lunaway accounts set-level <account-id> <level>
 //! lunaway accounts find <pseudonym>
@@ -51,6 +56,14 @@
 //! `LUNAWAY_DELETION_JOURNAL` first, as the API does, and `accounts
 //! replay-deletions` reads it after a restore (docs/deploy.md, "Backups
 //! and restore").
+//!
+//! The takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) keys the cells of each
+//! takedown's exclusion zone: the conflation holds a new or moving place in
+//! them, `conflate --take-down` and `takedowns replay` refuse to run
+//! without it. `conflate --take-down` writes each takedown to the journal
+//! under `LUNAWAY_TAKEDOWN_JOURNAL` before it commits, and `takedowns
+//! replay` (import role) then `moderation purge-taken-down` (API role)
+//! apply it again after a restore.
 //!
 //! The `routing` commands build and publish the motorhome routing graph
 //! (docs/deploy.md, "Routing"): `fetch-ign`, `prepare` and `test-routes`
@@ -106,6 +119,11 @@ struct Cli {
     /// restore.
     #[arg(long, env = "LUNAWAY_DELETION_JOURNAL", default_value_os_t = default_data_dir().join("account-deletions"))]
     deletion_journal: PathBuf,
+    /// Directory of the takedown journal, outside the database: `conflate
+    /// --take-down` writes to it, `takedowns replay` reads it after a
+    /// restore.
+    #[arg(long, env = "LUNAWAY_TAKEDOWN_JOURNAL", default_value_os_t = default_data_dir().join("place-takedowns"))]
+    takedown_journal: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -146,10 +164,14 @@ enum Command {
         /// again (both printed). Without `--yes`, prints what it touches.
         #[arg(long, value_name = "PLACE", conflicts_with_all = ["full", "watch"], requires = "reason")]
         take_down: Option<Uuid>,
-        /// Why, logged with the takedown: the kind of request and its
-        /// reference, never the requester's personal data.
+        /// Why, logged with the takedown in the database: the kind of
+        /// request and its reference, never the requester's personal data.
         #[arg(long, requires = "take_down")]
         reason: Option<String>,
+        /// The kind of request, the only word of it the journal outside the
+        /// database keeps: private-home, gdpr, court-order or other.
+        #[arg(long, requires = "take_down", default_value = "other")]
+        reason_code: lunaway_domain::takedown::TakedownCode,
         /// Takes it down for real.
         #[arg(long, requires = "take_down")]
         yes: bool,
@@ -171,6 +193,12 @@ enum Command {
     Pois {
         #[command(subcommand)]
         action: Pois,
+    },
+    /// The takedown journal (with the import role): after a restore, takes
+    /// down again what the restored database brought back.
+    Takedowns {
+        #[command(subcommand)]
+        action: Takedowns,
     },
     /// Works the moderation queue (with the API's database role).
     Moderation {
@@ -349,6 +377,31 @@ enum Pois {
 }
 
 #[derive(Subcommand)]
+enum Takedowns {
+    /// Writes into the takedown journal, each in the day it was made, the
+    /// takedowns read from standard input: the lines of the journal's
+    /// off-site copy, decrypted. After the loss of the data volume, before
+    /// `replay`.
+    Import,
+    /// After a restore, puts back the cells of every journaled takedown,
+    /// conflates what waits, and takes down again every journaled place
+    /// the restored database holds alive. Then `moderation
+    /// purge-taken-down --yes` (the API's role) deletes their community
+    /// content. Run both before the API and the worker serve the restored
+    /// database.
+    Replay {
+        /// Says what it would take down, writing nothing.
+        #[arg(long)]
+        dry_run: bool,
+        /// Accepts a journal that names no takedown; otherwise refused,
+        /// since a journal not put back after the loss of the data volume
+        /// would bring takedowns back.
+        #[arg(long)]
+        allow_empty: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Moderation {
     /// Prints the open entries, oldest first.
     List {
@@ -435,6 +488,14 @@ enum Moderation {
     TakeDown {
         /// The place; a place merged into another names the other.
         place: Uuid,
+        /// Deletes for real.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// After `takedowns replay`: the second step of every place taken down
+    /// whose community content is still there (a restore brought it back).
+    /// Without `--yes`, prints how many.
+    PurgeTakenDown {
         /// Deletes for real.
         #[arg(long)]
         yes: bool,
@@ -996,18 +1057,30 @@ async fn main() -> anyhow::Result<()> {
         Command::Conflate {
             take_down: Some(place),
             reason,
+            reason_code,
             yes,
             with_nearby,
             ..
         } => {
+            let journal = journal_dir(cli.takedown_journal)
+                .map(lunaway_db::takedown_journal::TakedownJournal::new);
             take_down(
                 &pool,
-                place,
-                reason.as_deref().unwrap_or_default(),
+                journal.as_ref(),
+                lunaway_conflate::takedown::Request {
+                    place,
+                    reason: reason.as_deref().unwrap_or_default(),
+                    code: reason_code,
+                    with_nearby,
+                },
                 yes,
-                with_nearby,
             )
             .await?;
+        }
+        Command::Takedowns { action } => {
+            let journal = journal_dir(cli.takedown_journal)
+                .map(lunaway_db::takedown_journal::TakedownJournal::new);
+            takedowns(&pool, journal.as_ref(), action).await?;
         }
         Command::Conflate {
             full,
@@ -1021,6 +1094,7 @@ async fn main() -> anyhow::Result<()> {
                 let n = lunaway_db::records::mark_all_dirty(&pool).await?;
                 println!("{n} records flagged for a full rebuild");
             }
+            let key = takedown_key_or_warn()?;
             if watch {
                 tracing::info!(every_secs, "conflation worker started");
                 lunaway_conflate::watch(
@@ -1028,12 +1102,13 @@ async fn main() -> anyhow::Result<()> {
                     Duration::from_secs(every_secs.max(1)),
                     poi_layer_every,
                     chrono::Utc::now,
+                    key.as_ref(),
                 )
                 .await
                 .context("the conflation worker cannot listen")?;
                 return Ok(());
             }
-            let s = lunaway_conflate::run(&pool, chrono::Utc::now())
+            let s = lunaway_conflate::run(&pool, chrono::Utc::now(), key.as_ref())
                 .await
                 .context("conflation failed")?;
             if let Some(v) = lunaway_conflate::pois::publish_layer(&pool, poi_layer_every)
@@ -1080,6 +1155,12 @@ async fn main() -> anyhow::Result<()> {
                     s.held_back
                 );
             }
+            if s.held_near_takedown > 0 {
+                println!(
+                    "groups held near a place taken down: {} ({} new in the moderation queue)",
+                    s.held_near_takedown, s.new_holds
+                );
+            }
         }
         Command::Packs { action } => packs::run(&pool, action).await?,
         Command::Stats => {
@@ -1118,6 +1199,13 @@ async fn main() -> anyhow::Result<()> {
                     "places taken down whose community content is still there: {} \
                      (`moderation take-down <place> --yes`)",
                     s.takedowns_unpurged
+                );
+            }
+            if s.holds_open > 0 {
+                println!(
+                    "places held near a place taken down, waiting for a moderator: {} \
+                     (`moderation list`)",
+                    s.holds_open
                 );
             }
             println!(
@@ -1737,6 +1825,9 @@ async fn moderation(
         Moderation::TakeDown { place, yes } => {
             return purge_taken_down(pool, media, place, yes).await;
         }
+        Moderation::PurgeTakenDown { yes } => {
+            return purge_every_taken_down(pool, media, yes).await;
+        }
         Moderation::RemoveConfirmation { confirmation } => {
             let Some(place) =
                 lunaway_db::moderation::remove_confirmation(pool, confirmation).await?
@@ -1807,25 +1898,59 @@ fn print_preview(asked: Uuid, p: &lunaway_db::takedowns::Preview) {
     }
 }
 
+/// The takedown secret from `LUNAWAY_TAKEDOWN_SECRET`; `None` when unset.
+/// A value that is not UTF-8 is an error, never taken for an unset one.
+fn takedown_key() -> anyhow::Result<Option<lunaway_domain::takedown::TakedownKey>> {
+    let value = match std::env::var("LUNAWAY_TAKEDOWN_SECRET") {
+        Ok(v) => Some(v),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(std::env::VarError::NotUnicode(_)) => {
+            anyhow::bail!("LUNAWAY_TAKEDOWN_SECRET is not UTF-8")
+        }
+    };
+    lunaway_domain::takedown::TakedownKey::from_env_value(value.as_deref())
+        .context("LUNAWAY_TAKEDOWN_SECRET")
+}
+
+/// [`takedown_key`] for the conflation, which runs without it and says so
+/// once: nothing is held near the places taken down.
+fn takedown_key_or_warn() -> anyhow::Result<Option<lunaway_domain::takedown::TakedownKey>> {
+    let key = takedown_key()?;
+    if key.is_none() {
+        tracing::warn!(
+            "LUNAWAY_TAKEDOWN_SECRET is not set: no place is held near a place taken down"
+        );
+    }
+    Ok(key)
+}
+
+/// [`takedown_key`] for a takedown or its replay, which refuse to run
+/// without it: the positions go, and the zone cannot be made later.
+fn takedown_key_required() -> anyhow::Result<lunaway_domain::takedown::TakedownKey> {
+    takedown_key()?.context(
+        "LUNAWAY_TAKEDOWN_SECRET is not set: a takedown keeps the hashes of the cells around \
+         the place, keyed by it, and cannot make them once the positions are gone \
+         (docs/deploy.md, \"Private settings\")",
+    )
+}
+
 /// `conflate --take-down`: the catalogue's step of a takedown, under the
 /// writers' lock with the importers' role, after a conflation of what
-/// waits (a record not read yet could become the place again).
+/// waits (a record not read yet could become the place again), journaled
+/// outside the database before it commits.
 async fn take_down(
     pool: &lunaway_db::PgPool,
-    place: Uuid,
-    reason: &str,
+    journal: Option<&lunaway_db::takedown_journal::TakedownJournal>,
+    request: lunaway_conflate::takedown::Request<'_>,
     yes: bool,
-    with_nearby: bool,
 ) -> anyhow::Result<()> {
-    use lunaway_db::{
-        conflation::begin_writer,
-        takedowns::{self, TakeDown},
-    };
-    let reason = reason.trim();
+    use lunaway_db::takedowns::{self, TakeDown};
+    let reason = request.reason.trim();
     anyhow::ensure!(
         !reason.is_empty() && reason.chars().count() <= 500,
         "--reason takes 1 to 500 characters"
     );
+    let place = request.place;
     let Some(p) = takedowns::preview(pool, place).await? else {
         anyhow::bail!("no place {place}");
     };
@@ -1834,21 +1959,37 @@ async fn take_down(
         println!("not taken down: run again with --yes to empty it for good");
         return Ok(());
     }
-    lunaway_conflate::run(pool, chrono::Utc::now())
-        .await
-        .context("the conflation before the takedown failed")?;
-    let mut tx = begin_writer(pool).await?;
-    let done = match takedowns::take_down(&mut tx, place, reason, with_nearby).await? {
+    let key = takedown_key_required()?;
+    let journal = journal.context(
+        "LUNAWAY_TAKEDOWN_JOURNAL is off: a takedown must be journaled outside the database \
+         (--takedown-journal DIR)",
+    )?;
+    let done = match lunaway_conflate::takedown::take_down(
+        pool,
+        &key,
+        journal,
+        lunaway_conflate::takedown::Request { reason, ..request },
+        chrono::Utc::now(),
+    )
+    .await?
+    {
         TakeDown::Done(done) => done,
         TakeDown::NoPlace => anyhow::bail!("place {place} disappeared meanwhile"),
         TakeDown::Unconflated(n) => anyhow::bail!(
             "{n} records near the place arrived since the conflation; nothing done, run again"
         ),
+        TakeDown::OtherKey => anyhow::bail!(
+            "LUNAWAY_TAKEDOWN_SECRET is not the secret the earlier takedowns were made with: \
+             nothing done; put the right one back (its encrypted copy is in the backups)"
+        ),
     };
-    tx.commit().await?;
     println!(
-        "{} taken down: {} places and {} records emptied; the change feed tells every device",
-        done.place, done.places, done.records
+        "{} taken down: {} places and {} records emptied, {} cells around it kept as hashes; \
+         the change feed tells every device",
+        done.place,
+        done.places,
+        done.records,
+        done.cells.len()
     );
     println!(
         "next, at once (its photos stay served until then): \
@@ -1857,6 +1998,92 @@ async fn take_down(
     );
     if let Some(region) = done.region {
         println!("then: lunaway packs build --region {region} --takedown");
+    }
+    Ok(())
+}
+
+/// `takedowns import` and `takedowns replay`.
+async fn takedowns(
+    pool: &lunaway_db::PgPool,
+    journal: Option<&lunaway_db::takedown_journal::TakedownJournal>,
+    action: Takedowns,
+) -> anyhow::Result<()> {
+    let journal = journal.context(
+        "LUNAWAY_TAKEDOWN_JOURNAL is off: name the journal's directory (--takedown-journal DIR)",
+    )?;
+    match action {
+        Takedowns::Import => {
+            let lines = tokio::task::spawn_blocking(|| {
+                let mut lines = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut lines).map(|_| lines)
+            })
+            .await?
+            .context("reading the takedowns from standard input")?;
+            let copy = journal.clone();
+            let imported =
+                tokio::task::spawn_blocking(move || copy.import_blocking(&lines)).await??;
+            println!(
+                "journal {}: {} takedowns written into their days, {} unreadable lines",
+                journal.dir().display(),
+                imported.written,
+                imported.unreadable
+            );
+        }
+        Takedowns::Replay {
+            dry_run,
+            allow_empty,
+        } => {
+            let key = takedown_key_required()?;
+            let r = lunaway_conflate::takedown::replay(
+                pool,
+                &key,
+                journal,
+                dry_run,
+                allow_empty,
+                chrono::Utc::now(),
+            )
+            .await?;
+            println!(
+                "journal {}: {} takedowns, {} unreadable lines; {} places already taken down, \
+                 {} not in this database",
+                journal.dir().display(),
+                r.takedowns,
+                r.unreadable,
+                r.already,
+                r.absent
+            );
+            if dry_run {
+                println!(
+                    "would take down again (nothing written: dry run): {}",
+                    r.would_take_down.len()
+                );
+                for p in &r.would_take_down {
+                    println!("  {p}");
+                }
+            } else {
+                println!(
+                    "cells put back: {}; places taken down again: {}",
+                    r.cells,
+                    r.taken_down.len()
+                );
+                for d in &r.taken_down {
+                    println!("  {} ({} places, {} records)", d.place, d.places, d.records);
+                    if let Some(region) = &d.region {
+                        println!("  then: lunaway packs build --region {region} --takedown");
+                    }
+                }
+                if !r.taken_down.is_empty() {
+                    println!("next, at once: lunaway moderation purge-taken-down --yes");
+                }
+            }
+            for (id, stranger) in &r.to_check {
+                println!(
+                    "{id} is merged with {stranger} in this database, which the journal does not \
+                     name: nothing done; check them and take the spot down by hand \
+                     (lunaway conflate --take-down)"
+                );
+            }
+        }
     }
     Ok(())
 }
@@ -1903,6 +2130,46 @@ async fn purge_taken_down(
             remove_files(media, &orphan_files).await
         }
     }
+}
+
+/// `moderation purge-taken-down`: the community's step of every place
+/// taken down whose content is still there, after a restore and
+/// `takedowns replay`.
+async fn purge_every_taken_down(
+    pool: &lunaway_db::PgPool,
+    media: &lunaway_media::MediaStore,
+    yes: bool,
+) -> anyhow::Result<()> {
+    use lunaway_db::takedowns::{self, Purge};
+    let places = takedowns::unpurged(pool).await?;
+    println!(
+        "places taken down whose community content is still there: {}",
+        places.len()
+    );
+    if !yes {
+        if !places.is_empty() {
+            println!("nothing deleted: run again with --yes");
+        }
+        return Ok(());
+    }
+    for place in places {
+        if let Purge::Done {
+            place,
+            reviews,
+            photos,
+            confirmations,
+            issue_reports,
+            orphan_files,
+        } = takedowns::purge_community(pool, place).await?
+        {
+            println!(
+                "{place}: {reviews} reviews, {photos} photos, {confirmations} confirmations and \
+                 {issue_reports} issue reports deleted"
+            );
+            remove_files(media, &orphan_files).await?;
+        }
+    }
+    Ok(())
 }
 
 fn print_summary(s: &lunaway_db::accounts::AccountSummary) {

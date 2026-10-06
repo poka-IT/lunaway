@@ -6,9 +6,11 @@
 pub mod accounts;
 pub mod community;
 pub mod conflation;
+mod day_files;
 pub mod deletions;
 pub mod enforcement;
 pub mod fuel;
+pub mod holds;
 pub mod idempotency;
 pub mod lists;
 pub mod moderation;
@@ -24,6 +26,7 @@ pub mod sources;
 pub mod stats;
 pub mod submissions;
 pub mod summary;
+pub mod takedown_journal;
 pub mod takedowns;
 
 use std::time::Duration;

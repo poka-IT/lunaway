@@ -46,6 +46,10 @@ getrandom = "0.4.3"
 # HMAC-SHA-256 of the sign-in challenges, so the server keeps no state for
 # a challenge until it is answered.
 hmac = "0.13.0"
+# The H3 grid of the exclusion cells around a place taken down
+# (lunaway_domain::takedown): pure Rust, BSD-3-Clause, without its `std`
+# feature, which only adds a hasher seeded at build time.
+h3o = { version = "0.11.0", default-features = false }
 http-body-util = "0.1.5"
 # Decoders of the formats a photo may arrive in, nothing else: the app
 # converts HEIC on the device.

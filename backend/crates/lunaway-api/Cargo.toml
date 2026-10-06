@@ -19,12 +19,6 @@ autotests = false
 name = "integration"
 path = "tests/main.rs"
 
-# Its own binary: infra/routing/e2e.sh selects it by name on the build
-# server (`-E 'binary(route_e2e)'`), and every test in it is ignored.
-[[test]]
-name = "route_e2e"
-path = "tests/route_e2e.rs"
-
 [dependencies]
 anyhow.workspace = true
 async-graphql.workspace = true

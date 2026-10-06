@@ -42,19 +42,41 @@ pub const REDIRECT_HOSTS: &[&str] = &[
     "data.laposte.fr",
 ];
 
-/// Follows a redirect to the host first asked or to [`REDIRECT_HOSTS`], at
-/// most [`MAX_REDIRECTS`] times; any other redirect is returned as the
-/// answer, which the caller refuses as a non-success status.
+/// Mirrors a source sends some of its files to, as (host first asked,
+/// mirror): reached only through a redirect from that source, never from
+/// another one. Geofabrik sends its largest extracts (Germany, 4.9 GB on
+/// 2026-10-06) to the GWDG's mirror of its own download tree
+/// (`https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/`).
+pub const MIRRORS: &[(&str, &str)] = &[("download.geofabrik.de", "ftp5.gwdg.de")];
+
+/// Whether a redirect of a request first sent to `first` may go to `next`:
+/// within the host first asked, to a source's host ([`REDIRECT_HOSTS`]), or
+/// to a mirror of the host first asked ([`MIRRORS`]).
+#[must_use]
+pub fn redirect_allowed(first: Option<&str>, next: &str) -> bool {
+    let same = |a: &str, b: &str| a.eq_ignore_ascii_case(b);
+    first.is_some_and(|f| same(f, next))
+        || REDIRECT_HOSTS.iter().any(|h| same(h, next))
+        || first.is_some_and(|f| {
+            MIRRORS
+                .iter()
+                .any(|(source, mirror)| same(source, f) && same(mirror, next))
+        })
+}
+
+/// Follows a redirect [`redirect_allowed`] lets through, at most
+/// [`MAX_REDIRECTS`] times; any other redirect is returned as the answer,
+/// which the caller refuses as a non-success status.
 fn redirect_policy() -> reqwest::redirect::Policy {
     reqwest::redirect::Policy::custom(|attempt| {
         if attempt.previous().len() > MAX_REDIRECTS {
             return attempt.error("too many redirects");
         }
         let first = attempt.previous().first().and_then(|u| u.host_str());
-        let allowed = attempt.url().host_str().is_some_and(|next| {
-            first.is_some_and(|f| f.eq_ignore_ascii_case(next))
-                || REDIRECT_HOSTS.iter().any(|h| h.eq_ignore_ascii_case(next))
-        });
+        let allowed = attempt
+            .url()
+            .host_str()
+            .is_some_and(|next| redirect_allowed(first, next));
         if allowed {
             attempt.follow()
         } else {
@@ -66,7 +88,8 @@ fn redirect_policy() -> reqwest::redirect::Policy {
 /// Builds the shared client. It speaks HTTPS only, redirects included, so
 /// a source or a link in its metadata cannot downgrade a request to plain
 /// HTTP, and follows redirects only to the sources' hosts
-/// ([`REDIRECT_HOSTS`]) or within the host first asked.
+/// ([`REDIRECT_HOSTS`]), to a mirror of the source first asked
+/// ([`MIRRORS`]) or within the host first asked.
 ///
 /// # Errors
 ///
@@ -326,6 +349,38 @@ fn readable(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_mirror_is_reached_only_from_its_own_source() {
+        assert!(
+            redirect_allowed(Some("download.geofabrik.de"), "ftp5.gwdg.de"),
+            "Geofabrik sends its largest extracts to the GWDG mirror"
+        );
+        assert!(redirect_allowed(
+            Some("DOWNLOAD.geofabrik.de"),
+            "FTP5.gwdg.de"
+        ));
+        for first in [
+            Some("www.data.gouv.fr"),
+            Some("download.openstreetmap.fr"),
+            Some("ftp5.gwdg.de.evil.example"),
+            None,
+        ] {
+            assert!(
+                !redirect_allowed(first, "ftp5.gwdg.de"),
+                "a redirect from {first:?} does not reach the mirror: it is not an open target"
+            );
+        }
+        assert!(!redirect_allowed(
+            Some("download.geofabrik.de"),
+            "ftp.gwdg.de"
+        ));
+        assert!(redirect_allowed(
+            Some("www.data.gouv.fr"),
+            "static.data.gouv.fr"
+        ));
+        assert!(redirect_allowed(Some("ftp5.gwdg.de"), "ftp5.gwdg.de"));
+    }
 
     #[test]
     fn the_user_agent_names_the_project_and_its_site() {

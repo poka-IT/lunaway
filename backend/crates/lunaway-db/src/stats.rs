@@ -68,6 +68,8 @@ pub struct Stats {
     /// Places taken down that still hold reviews, photos, confirmations or
     /// issue reports: the second step of their takedown was not run.
     pub takedowns_unpurged: i64,
+    /// Groups held near a place taken down, waiting for a moderator.
+    pub holds_open: i64,
 }
 
 /// Reads the counts.
@@ -161,7 +163,9 @@ pub async fn read(pool: &PgPool) -> Result<Stats, DbError> {
     )
     .fetch_one(pool)
     .await?;
+    let holds_open = crate::holds::open_count(pool).await?;
     Ok(Stats {
+        holds_open,
         sources,
         places: totals.places,
         tombstones: totals.tombstones,

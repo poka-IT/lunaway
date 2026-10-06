@@ -24,6 +24,9 @@ chrono.workspace = true
 # The named periods of the road events (night, day) are hours in France.
 chrono-tz.workspace = true
 country-boundaries.workspace = true
+# The cells of a takedown's exclusion zone, and their keyed hashes.
+h3o.workspace = true
+hmac.workspace = true
 serde.workspace = true
 # The keyed hash that places a camera inside its danger zone.
 sha2.workspace = true

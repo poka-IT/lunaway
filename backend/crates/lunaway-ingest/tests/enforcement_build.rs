@@ -48,6 +48,9 @@ enum Answer {
     /// Along a straight road, its first 900 m on the A 20, the rest on an
     /// off ramp: every route leaves the camera's road.
     Ramp,
+    /// Along a straight road one may drive eastward only: no route toward
+    /// the west.
+    EastOnly,
 }
 
 struct Fake {
@@ -70,7 +73,7 @@ impl Engine for Fake {
         match self.answer {
             Answer::Nothing => return Ok(None),
             Answer::Down => return Err(MatchError::NotLoopback("down".into())),
-            Answer::Straight | Answer::Ramp => {}
+            Answer::Straight | Answer::Ramp | Answer::EastOnly => {}
         }
         let points: Vec<Position> = body["locations"]
             .as_array()
@@ -78,6 +81,12 @@ impl Engine for Fake {
             .iter()
             .map(|l| Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap())
             .collect();
+        if self.answer == Answer::EastOnly
+            && let (Some(a), Some(b)) = (points.first(), points.last())
+            && b.lon() < a.lon() - 1e-6
+        {
+            return Ok(None);
+        }
         let distance: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
         let steps = if self.answer == Answer::Ramp {
             let named = distance.min(900.0);
@@ -359,4 +368,60 @@ async fn a_zone_keeps_to_its_road_where_a_route_leaves_it(pool: PgPool) {
             road.length_m()
         );
     }
+}
+
+/// An official camera without a direction, completed by an OpenStreetMap
+/// node that gives it the wrong one (the way the camera faces, toward the
+/// west, on a road driven eastward only): the zone is asked again without
+/// the direction, which a zone does not carry. The first full build with
+/// OpenStreetMap's cameras retired 217 French zones this way (2026-10-06).
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_direction_that_leads_nowhere_does_not_cost_a_camera_its_zone(pool: PgPool) {
+    let now = Utc::now();
+    let france = CameraList::France.parse(FRANCE).unwrap();
+    store(&pool, CameraList::France, &france, now, None)
+        .await
+        .unwrap();
+    let official = &france
+        .devices
+        .iter()
+        .find(|l| l.device.kind == DeviceKind::Fixed)
+        .unwrap()
+        .device;
+    let mut facing = device(
+        "node/9",
+        DeviceKind::Fixed,
+        official.position.lat() + 0.000_2,
+        official.position.lon(),
+    );
+    facing.bearing_deg = Some(270.0);
+    let raw = json!({});
+    db::upsert_devices(
+        &pool,
+        &SourceId::OSM,
+        &[NewDevice {
+            device: &facing,
+            country: "FR",
+            scope: "FR",
+            raw: &raw,
+        }],
+        now,
+    )
+    .await
+    .unwrap();
+    let key = format!("securite-routiere/{}", official.external_id);
+    assert_eq!(
+        devices(&pool).await[&key].bearing_deg,
+        None,
+        "the official list gives no direction"
+    );
+    build(&pool, &Fake::new(Answer::EastOnly), SECRET, true, true)
+        .await
+        .unwrap();
+    let built = items(&pool).await;
+    assert_eq!(
+        built.get(&key).map(|i| i.kind),
+        Some(ItemKind::Zone),
+        "the camera keeps its zone though the direction OpenStreetMap gave it leads nowhere"
+    );
 }

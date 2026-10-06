@@ -89,9 +89,13 @@ async fn seeded(pool: &PgPool) {
     .execute(pool)
     .await
     .unwrap();
-    lunaway_conflate::run(pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
-        .await
-        .unwrap();
+    lunaway_conflate::run(
+        pool,
+        Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap(),
+        None,
+    )
+    .await
+    .unwrap();
 }
 
 const PLACE: &str = "id name kind lat lon services region updatedAt \
@@ -243,9 +247,13 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    lunaway_conflate::run(&pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
-        .await
-        .unwrap();
+    lunaway_conflate::run(
+        &pool,
+        Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap(),
+        None,
+    )
+    .await
+    .unwrap();
     let next = gql(
         &app,
         &changes_query(),

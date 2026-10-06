@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ref FROM poi_join_records ORDER BY ref",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ref",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "ref"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e970c8ab9f7bbd504aa037f473745114b0f316f50ee313470b3ba9ebb1240cc2"
+}

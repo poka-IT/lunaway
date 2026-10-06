@@ -75,9 +75,13 @@ async fn seeded(pool: &PgPool) {
     store_complete(pool, &SourceId::ATOUT_FRANCE, None, &af)
         .await
         .unwrap();
-    lunaway_conflate::run(pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
-        .await
-        .unwrap();
+    lunaway_conflate::run(
+        pool,
+        Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap(),
+        None,
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -264,9 +268,13 @@ async fn a_region_syncs_page_by_page_and_then_receives_deletions(pool: PgPool) {
     store_complete(&pool, &SourceId::OSM, Some("FR-PDL"), &records)
         .await
         .unwrap();
-    lunaway_conflate::run(&pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
-        .await
-        .unwrap();
+    lunaway_conflate::run(
+        &pool,
+        Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap(),
+        None,
+    )
+    .await
+    .unwrap();
     let after = gql(&app, CHANGES, json!({"bbox": pdl(), "since": since})).await;
     let deleted = after["data"]["changes"]["deleted"].as_array().unwrap();
     assert_eq!(deleted.len(), 1);

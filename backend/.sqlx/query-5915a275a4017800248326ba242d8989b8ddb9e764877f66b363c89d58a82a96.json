@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT cell AS \"cell!\" FROM takedown_cells",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cell!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "takedown_cells",
+            "name": "cell"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5915a275a4017800248326ba242d8989b8ddb9e764877f66b363c89d58a82a96"
+}

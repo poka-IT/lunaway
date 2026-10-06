@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO takedown_cells (cell, place_id)\n        SELECT c, $2 FROM UNNEST($1::bytea[]) AS c\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "ByteaArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "41af4613c08b34541a1b4d385aaaded8d2e6bb24e17155bca303a0bbbeec3091"
+}

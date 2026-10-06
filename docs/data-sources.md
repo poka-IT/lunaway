@@ -35,6 +35,7 @@ for more than an hour stops the import.
 | host | for | terms as read |
 |---|---|---|
 | `download.geofabrik.de` (default) or `download.openstreetmap.fr` | the extracts of France (daily) and of the 23 other European countries (weekly, in six groups from Monday to Saturday) (24 files, 27.8 GB on 2026-10-06), each resumed with `If-Range`; a run started again within 20 hours reads the files it already downloaded. Each mirror has its own place in the cache: OpenStreetMap France's France file reaches further across the borders than Geofabrik's | ODbL data (the OpenStreetMap row above) |
+| `ftp5.gwdg.de`, reached only through a redirect from `download.geofabrik.de` (`lunaway_ingest::http::MIRRORS`) | the Geofabrik extracts Geofabrik sends there (Germany, 4.9 GB, on 2026-10-06), under `/pub/misc/openstreetmap/download.geofabrik.de/`: the same files, by the same `-latest` names, resumed with `If-Range` on their `Last-Modified` | the mirror server of GWDG (computing centre of Göttingen University and the Max Planck Society): "a large variety of project mirrors ... serve users from all over the world" (front page of `ftp5.gwdg.de`, read 2026-10-07), no further terms stated; the data is Geofabrik's, ODbL (the OpenStreetMap row above) |
 | `overpass-api.de` | OSM by region, when the extract is not used | "users are expected to send a maximum of about 10000 requests per day and keep their download volume below about 1 GB per day" (Overpass API documentation, "Commons", read 2026-10-06); 13 queries a day is far below. The same page asks applications serving non-mappers not to use the public instances as a live backend: Lunaway queries it from the server at import time only, never from the app |
 | `www.data.gouv.fr` | the Atout France dataset's metadata | Etalab platform, open API |
 | `data.classement.atout-france.fr` (also accepted: `static.data.gouv.fr`, `object.files.data.gouv.fr`, `www.data.gouv.fr`) | the Atout France CSV, at the location the metadata gives; any other host is refused | Licence Ouverte |
@@ -171,11 +172,14 @@ community mirrors the first adapter tried in turn are no longer defaults.
 ## The routing graph
 
 The motorhome routing graph is derived from OpenStreetMap (ODbL) and IGN
-BD TOPO (Licence Ouverte 2.0): it is built weekly on a GitHub-hosted runner
-(`.github/workflows/routing-graph.yml`), which downloads the France extract
-from `download.geofabrik.de` and the restricted sections from
-`data.geopf.fr` as above, then published as the assets of the release
-`routing-graph` of the public repository. The backend downloads it from
+BD TOPO (Licence Ouverte 2.0, France only): it is built weekly on a
+throwaway Hetzner server driven by the maintainer's Mac
+(`infra/ops/mac-routing/`, `infra/routing/europe-build.sh`), which downloads
+the dated extracts of the 25 countries of `infra/routing/europe-extracts.txt`
+(the European import and Morocco) from `download.geofabrik.de`, three at a
+time and each checked against its MD5, and the restricted sections from
+`data.geopf.fr` as above; the Mac signs it and publishes it as the assets of
+the release `routing-graph` of the public repository. The backend downloads it from
 `github.com` (redirected to GitHub's asset host) and checks it against the
 signed sums before serving it (`docs/deploy.md`, "Routing"). The app shows,
 with every route, "© OpenStreetMap contributors", "IGN, BD TOPO" and the

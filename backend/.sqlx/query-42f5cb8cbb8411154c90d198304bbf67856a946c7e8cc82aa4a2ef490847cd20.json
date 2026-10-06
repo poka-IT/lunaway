@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE poi_join_records SET deleted_at = $3, changed_at = now()\n        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (ref = ANY($2))\n        RETURNING ref AS key, data ? 'tile' AS \"on_tile!\"\n        ",
+  "query": "\n        UPDATE poi_join_records SET deleted_at = $3, changed_at = now(),\n            fetched_at = lunaway_read_at('joins', source_id, NULL, fetched_at, NULL)\n        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (ref = ANY($2))\n        RETURNING ref AS key, data ? 'tile' AS \"on_tile!\"\n        ",
   "describe": {
     "columns": [
       {
@@ -33,5 +33,5 @@
       null
     ]
   },
-  "hash": "1843e9f100353132dbb19fefc596c2e825dc9349ec3a508f86c020f9813b8604"
+  "hash": "42f5cb8cbb8411154c90d198304bbf67856a946c7e8cc82aa4a2ef490847cd20"
 }

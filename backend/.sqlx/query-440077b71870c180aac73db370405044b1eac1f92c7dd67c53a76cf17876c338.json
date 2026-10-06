@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT r AS \"r!\" FROM place_holds h, unnest(h.records) AS r\n        WHERE h.status = 'released' AND h.records && $1::uuid[] AND r = ANY($1)\n          AND EXISTS (SELECT 1 FROM place_hold_releases x WHERE x.hold_id = h.id)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "r!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "440077b71870c180aac73db370405044b1eac1f92c7dd67c53a76cf17876c338"
+}

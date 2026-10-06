@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id FROM source_records r\n        JOIN place_sources ps ON ps.record_id = r.id\n        JOIN places p ON p.id = ps.place_id AND p.deleted_at IS NULL\n        WHERE r.source_id = $1 AND r.external_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "04dab0d861bd4ea12ef18b256c78d9c78eef7018fcbf17e272655c3f80190bf5"
+}

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT has_column_privilege('lunaway_ingest', 'place_holds', 'status', 'UPDATE') AS \"has!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "has!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b28492dcc74633072412a611992564c51435304136659dca396df3655ff59706"
+}

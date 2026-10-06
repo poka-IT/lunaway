@@ -677,8 +677,9 @@ async fn build_locked(
 
 /// What a pack depends on besides its places: its format, the fields it
 /// holds and the photos' public URL its cover photos name. A new format, a
-/// field added or a URL moved (sslip.io to api.lunaway.net) rebuilds every
-/// pack, changed region or not.
+/// field added or a URL moved (the photos' host changing, as it did to
+/// `https://api.lunaway.net/media/`) rebuilds every pack, changed region or
+/// not.
 fn fingerprint(config: &ApiConfig) -> String {
     let digest = Sha256::digest(
         format!("{FORMAT}\n{PLACE_SELECTION}\n{}", config.media.base_url).as_bytes(),

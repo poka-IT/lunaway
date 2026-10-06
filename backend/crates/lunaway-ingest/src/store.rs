@@ -434,8 +434,11 @@ pub struct JoinStoreReport {
 }
 
 /// Stores `rows` as the complete content of the joined `source`: rows are
-/// inserted or updated, and the stored rows the fetch did not contain are
-/// retired, unless the fetch looks truncated ([`RETIRE_GUARD_PERCENT`]).
+/// inserted or updated (only those that changed), the stored rows the fetch
+/// did not contain are retired, and the read is dated once in
+/// `source_reads`, unless the fetch looks truncated
+/// ([`RETIRE_GUARD_PERCENT`]): then nothing is retired and every row seen
+/// is dated, so no date a client sees goes past what was read.
 ///
 /// # Errors
 ///
@@ -446,8 +449,9 @@ pub async fn store_joins(
     rows: &[lunaway_db::pois::NewJoin<'_>],
 ) -> Result<JoinStoreReport, IngestError> {
     let before = lunaway_db::pois::live_join_count(pool, source).await?;
-    let upsert = lunaway_db::pois::upsert_joins(pool, source, rows).await?;
-    if truncated(rows.len(), before) {
+    let partial = truncated(rows.len(), before);
+    let upsert = lunaway_db::pois::upsert_joins(pool, source, rows, partial).await?;
+    if partial {
         if upsert.tile_changes > 0 {
             lunaway_db::pois::mark_layer_now(pool).await?;
         }
@@ -471,6 +475,13 @@ pub async fn store_joins(
         .unwrap_or_else(chrono::Utc::now);
     let (retired, retired_on_tile) =
         lunaway_db::pois::retire_missing_joins(pool, source, &seen, at).await?;
+    records::mark_read(
+        pool,
+        ReadTarget::Joins,
+        source,
+        &[(WHOLE_SOURCE.to_owned(), at)],
+    )
+    .await?;
     if upsert.tile_changes > 0 || retired_on_tile {
         lunaway_db::pois::mark_layer_now(pool).await?;
     }

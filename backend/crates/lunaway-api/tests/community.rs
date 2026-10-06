@@ -183,9 +183,13 @@ async fn seeded(pool: &PgPool) {
 /// A run of the worker, then the points layer's publication, which the
 /// worker makes at most every few hours and the tests at once.
 async fn work(pool: &PgPool) -> lunaway_conflate::RunStats {
-    let stats = lunaway_conflate::run(pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
-        .await
-        .unwrap();
+    let stats = lunaway_conflate::run(
+        pool,
+        Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap(),
+        None,
+    )
+    .await
+    .unwrap();
     lunaway_conflate::pois::publish_layer(pool, std::time::Duration::ZERO)
         .await
         .unwrap();
@@ -2807,4 +2811,95 @@ async fn an_operator_finds_deletes_and_cleans_up_after_an_account(pool: PgPool) 
             .unwrap(),
         None
     );
+}
+
+/// A place added on a spot taken down, under the takedown secret: the
+/// submission is applied, the place waits for a moderator with its author
+/// named, and goes live once released.
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_place_added_on_a_spot_taken_down_waits_for_a_moderator(pool: PgPool) {
+    use lunaway_db::moderation::{self, Decision};
+    use lunaway_domain::takedown::{TakedownCode, TakedownKey};
+    seeded(&pool).await;
+    let key = TakedownKey::new(&[9; 32]).unwrap();
+    let port = place_named(&pool, "Camping municipal du Port").await;
+    let spot = sqlx::query!(
+        r#"SELECT ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!" FROM places WHERE id = $1"#,
+        port
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let journal = tempfile::tempdir().unwrap();
+    let done = lunaway_conflate::takedown::take_down(
+        &pool,
+        &key,
+        &lunaway_db::takedown_journal::TakedownJournal::new(journal.path()),
+        lunaway_conflate::takedown::Request {
+            place: port,
+            reason: "private home, ticket 3",
+            code: TakedownCode::PrivateHome,
+            with_nearby: false,
+        },
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(done, lunaway_db::takedowns::TakeDown::Done(_)));
+
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (author, author_id) = sign_in(&app, &Device::new(1)).await;
+    lunaway_db::accounts::set_granted_level(&pool, author_id, 2)
+        .await
+        .unwrap();
+    let add = r#"mutation($lat: Float!, $lon: Float!) {
+      addPlace(input: {kind: CAMPSITE, lat: $lat, lon: $lon, details: {name: "Camping du Port"}})
+      { status } }"#;
+    let sent = gql(
+        &app,
+        Some(&author),
+        add,
+        json!({"lat": spot.lat + 0.0002, "lon": spot.lon}),
+    )
+    .await;
+    assert_eq!(ok(&sent)["addPlace"]["status"], "ACCEPTED");
+    let at = Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap();
+    let stats = lunaway_conflate::run(&pool, at, Some(&key)).await.unwrap();
+    assert_eq!(
+        (
+            stats.submissions_applied,
+            stats.created,
+            stats.held_near_takedown
+        ),
+        (1, 0, 1),
+        "a spot taken down does not come back through the community"
+    );
+    let mine = "{ myAccount { placeSubmissions { nodes { status placeId } } } }";
+    let s = gql(&app, Some(&author), mine, json!({})).await;
+    assert_eq!(
+        ok(&s)["myAccount"]["placeSubmissions"]["nodes"][0],
+        json!({"status": "APPLIED", "placeId": null})
+    );
+    let entry = moderation::open(&pool, 50)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|e| e.kind == "place_hold")
+        .expect("held for a moderator, never dropped");
+    assert_eq!(entry.reason, lunaway_db::holds::REASON);
+    assert_eq!(entry.account_id, Some(author_id));
+
+    moderation::decide(
+        &pool,
+        entry.id,
+        Decision::Approve,
+        Some("campsite reopened"),
+    )
+    .await
+    .unwrap();
+    lunaway_conflate::run(&pool, at, Some(&key)).await.unwrap();
+    let s = gql(&app, Some(&author), mine, json!({})).await;
+    let place = &ok(&s)["myAccount"]["placeSubmissions"]["nodes"][0]["placeId"];
+    assert!(place.is_string(), "released, the place goes live: {s}");
 }

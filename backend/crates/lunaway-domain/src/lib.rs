@@ -16,6 +16,7 @@ pub mod road_events;
 pub mod routing;
 pub mod source;
 pub mod speed;
+pub mod takedown;
 pub mod taxonomy;
 
 pub use geo::{BBox, InvalidBBox, InvalidPosition, Position};
