@@ -1,0 +1,4 @@
+msrv = "1.99"
+# Tests state their preconditions with unwrap/expect; production code may not.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

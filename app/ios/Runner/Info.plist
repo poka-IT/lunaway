@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It leaves your device only if you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It leaves your device only if you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and guides you along a route you start. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Lunaway uses the camera when you take a photo of a place, or of your recovery card to read its code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -84,6 +84,11 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

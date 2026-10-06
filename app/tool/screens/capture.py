@@ -1,8 +1,9 @@
 """Screenshots of the real app, through the screens tour test.
 
-Runs integration_test/screens_tour_test.dart on a device, against an API
-(`--api`, real data) or in demo mode (the default), and captures the screen
-each time the test prints a `SHOT <name>` line:
+Runs integration_test/screens_tour_test.dart (or the test given by `--test`,
+such as integration_test/navigation_drive_test.dart) on a device, against an
+API (`--api`, real data) or in demo mode (the default), and captures the
+screen each time the test prints a `SHOT <name>` line:
 
 - macOS: a window of the given content size, title bar cropped, so 540x960
   gives a 1080x1920 image on a Retina screen (the phone store format). The
@@ -78,7 +79,8 @@ def main():
     p.add_argument(
         "--test",
         default="integration_test/screens_tour_test.dart",
-        help="the tour to run (integration_test/community_tour_test.dart: the account and contributions)",
+        help="the tour to run, which prints the SHOT lines (integration_test/community_tour_test.dart: "
+        "the account and contributions; integration_test/navigation_drive_test.dart: the guidance)",
     )
     p.add_argument(
         "--define",

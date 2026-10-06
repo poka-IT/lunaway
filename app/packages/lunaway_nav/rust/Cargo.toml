@@ -1,0 +1,60 @@
+[package]
+name = "lunaway_nav"
+description = "Turn-by-turn guidance for the Lunaway app: Ferrostar's navigation core over the routes of the Lunaway API, and the check of the remaining route against road events, bridged to Dart by flutter_rust_bridge."
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "AGPL-3.0-or-later"
+homepage = "https://lunaway.net"
+repository = "https://github.com/poka-IT/lunaway"
+publish = false
+
+# Its own workspace: the crate is built by the app's build hook, apart from
+# the backend workspace whose domain crate it reuses.
+[workspace]
+
+[lib]
+# cdylib for Android and the host tests, staticlib for iOS (the build hook
+# picks), lib for the integration tests.
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[dependencies]
+# The navigation core only: no UniFFI binding (default feature), no network.
+ferrostar = { version = "=0.57.0", default-features = false, features = ["std"] }
+flutter_rust_bridge = "=2.13.0"
+# The server's corridor rule (which restrictions a route really drives
+# through), so the phone checks its remaining route the same way.
+lunaway-domain = { path = "../../../../backend/crates/lunaway-domain" }
+serde = "1.0.229"
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+# Cargo.lock keeps libc at 0.2.189: 0.2.190 declares the dyld functions for
+# macOS only, and backtrace 0.3.76 (through allo-isolate, which
+# flutter_rust_bridge uses) then fails to compile for iOS. Move libc on
+# once a backtrace release builds against it: `cargo update -p libc`, then
+# an iOS simulator build.
+
+[lints.rust]
+# The generated bridge (src/frb_generated.rs) is FFI glue and needs unsafe;
+# it is the only module allowed to.
+unsafe_code = "deny"
+missing_docs = "warn"
+rust_2018_idioms = { level = "deny", priority = -1 }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+[lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+dbg_macro = "deny"
+todo = "deny"
+
+[profile.release]
+# Small and fast on a phone; the bridge runs a few calls a second.
+lto = true
+codegen-units = 1
+strip = "debuginfo"

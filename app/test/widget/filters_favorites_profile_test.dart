@@ -10,6 +10,7 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
+import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/pump.dart';
@@ -35,6 +36,11 @@ Future<void> showInProfile(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pump();
 }
+
+/// The editor's own list: the last scrollable of the screen may be one of
+/// its text fields, depending on how far its lazy list has built.
+Finder get editorList =>
+    find.descendant(of: find.byType(VehicleEditor), matching: find.byType(Scrollable)).first;
 
 void main() {
   group('filters', () {
@@ -106,7 +112,7 @@ void main() {
       await tester.scrollUntilVisible(
         find.widgetWithText(TextFormField, 'Hauteur'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: editorList,
       );
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '2,40');
       await tester.tap(find.text('Enregistrer').last);
@@ -129,7 +135,7 @@ void main() {
       await tester.scrollUntilVisible(
         find.widgetWithText(TextFormField, 'Hauteur'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: editorList,
       );
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '29');
       await tester.tap(find.text('Enregistrer').last);
@@ -146,7 +152,7 @@ void main() {
       await showInProfile(tester, find.text('Décrire mon véhicule'));
       await tester.tap(find.text('Décrire mon véhicule'));
       await settleShort(tester);
-      final scroll = find.byType(Scrollable).last;
+      final scroll = editorList;
       await tester.scrollUntilVisible(
         find.widgetWithText(ChoiceChip, 'Gazole'),
         200,

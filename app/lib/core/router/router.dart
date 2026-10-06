@@ -5,6 +5,7 @@ import 'package:lunaway/features/account/presentation/contributions_screen.dart'
 import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/offline/presentation/offline_maps_screen.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
@@ -59,6 +60,8 @@ GoRouter router(Ref ref) {
           ),
         ],
       ),
+      // The route preview and the guidance take the whole window.
+      ...navigationRoutes(),
     ],
   );
   ref.onDispose(router.dispose);

@@ -35,6 +35,9 @@ GENERATED = [
     (re.compile(r"\.graphql\.dart$"), "run `fvm dart run build_runner build` in app/ instead of editing the output"),
     (re.compile(r"^app/pubspec\.lock$"), "run `fvm flutter pub get` (or `pub add`/`pub upgrade <pkg>`) in app/"),
     (re.compile(r"^backend/Cargo\.lock$"), "let cargo write it (`cargo update -p <crate>`, `cargo build`)"),
+    (re.compile(r"^app/packages/[^/]+/rust/Cargo\.lock$"), "let cargo write it (`cargo update -p <crate>`, `cargo build`)"),
+    (re.compile(r"^app/packages/lunaway_nav/(lib/src/rust/|rust/src/frb_generated\.rs$)"),
+     "edit rust/src/api/, then run app/packages/lunaway_nav/tool/generate.sh"),
     (re.compile(r"^backend/\.sqlx/"), "run `cargo sqlx prepare --workspace` in backend/"),
     (re.compile(r"^schema/lunaway\.graphql$"), "run `cargo run -p lunaway-api --bin export-schema` in backend/"),
 ]

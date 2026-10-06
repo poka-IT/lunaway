@@ -115,6 +115,8 @@ abstract final class PhosphorRegular {
   static const slidersHorizontal = IconData(0xe434, fontFamily: 'PhosphorRegular');
   static const smileyAngry = IconData(0xec62, fontFamily: 'PhosphorRegular');
   static const snowflake = IconData(0xe5aa, fontFamily: 'PhosphorRegular');
+  static const speakerHigh = IconData(0xe44a, fontFamily: 'PhosphorRegular');
+  static const speakerSlash = IconData(0xe45a, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
   static const stack = IconData(0xe466, fontFamily: 'PhosphorRegular');
   static const star = IconData(0xe46a, fontFamily: 'PhosphorRegular');

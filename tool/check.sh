@@ -31,6 +31,9 @@ run() {
 }
 in_app() { (cd app && "$@"); }
 in_backend() { (cd backend && "$@"); }
+# The app's guidance crate: a workspace of its own, built into the app by
+# its build hook.
+in_nav() { (cd app/packages/lunaway_nav/rust && "$@"); }
 
 # Generated code is committed; regenerating must not change it. Compares a
 # digest of every generated file before and after the generators run.
@@ -97,6 +100,11 @@ else
   # dart, not flutter: only `dart analyze` loads the riverpod_lint plugin.
   run "dart analyze" in_app $DART analyze --fatal-infos
   if [ "$QUICK" -eq 0 ]; then
+    # The bridge tests load the guidance crate built for this machine; they
+    # skip without it.
+    if [ -n "$CARGO" ]; then
+      run "guidance library" in_nav cargo build --locked --release
+    fi
     run "flutter test" in_app $FLUTTER test --no-pub
   fi
 fi
@@ -116,6 +124,21 @@ else
     run "cargo deny" in_backend cargo deny --log-level error check bans licenses sources advisories
   else
     echo "==> cargo deny: skipped (cargo install cargo-deny --locked); the CI runs it"
+  fi
+  if [ "$FIX" -eq 1 ]; then
+    run "cargo fmt guidance" in_nav cargo fmt
+  else
+    run "cargo fmt guidance" in_nav cargo fmt -- --check
+  fi
+  run "clippy guidance" in_nav cargo clippy --locked --all-targets -- -D warnings
+  if command -v cargo-deny >/dev/null 2>&1; then
+    run "cargo deny guidance" cargo deny --manifest-path app/packages/lunaway_nav/rust/Cargo.toml \
+      --config backend/deny.toml --log-level error check bans licenses sources advisories
+  else
+    echo "==> cargo deny guidance: skipped (cargo install cargo-deny --locked)"
+  fi
+  if [ "$QUICK" -eq 0 ]; then
+    run "cargo test guidance" in_nav cargo test --locked
   fi
   if [ "$QUICK" -eq 0 ]; then
     # The database tests need the compose database (backend/compose.yaml).

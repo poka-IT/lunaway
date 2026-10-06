@@ -62,6 +62,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$place$en place = Translations$place$en.internal(_root);
 	late final Translations$hours$en hours = Translations$hours$en.internal(_root);
 	late final Translations$directions$en directions = Translations$directions$en.internal(_root);
+	late final Translations$navigation$en navigation = Translations$navigation$en.internal(_root);
 	late final Translations$list$en list = Translations$list$en.internal(_root);
 	late final Translations$favorites$en favorites = Translations$favorites$en.internal(_root);
 	late final Translations$vehicle$en vehicle = Translations$vehicle$en.internal(_root);
@@ -587,8 +588,8 @@ class Translations$location$en {
 	/// en: 'Show your position?'
 	String get rationaleTitle => 'Show your position?';
 
-	/// en: 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.'
-	String get rationale => 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.';
+	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway's server, which keeps nothing of it.'
+	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway\'s server, which keeps nothing of it.';
 
 	/// en: 'Continue'
 	String get allow => 'Continue';
@@ -980,8 +981,8 @@ class Translations$directions$en {
 	/// en: 'Directions with'
 	String get title => 'Directions with';
 
-	/// en: 'Lunaway hands the trip to your navigation app.'
-	String get hint => 'Lunaway hands the trip to your navigation app.';
+	/// en: 'Choose who guides you. Only Lunaway's guidance knows your vehicle's size.'
+	String get hint => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.';
 
 	/// en: 'Always use this app'
 	String get remember => 'Always use this app';
@@ -989,14 +990,11 @@ class Translations$directions$en {
 	/// en: 'You can change it in Profile'
 	String get rememberHint => 'You can change it in Profile';
 
-	/// en: 'No navigation app is installed.'
-	String get noApp => 'No navigation app is installed.';
-
 	/// en: 'Directions'
 	String get settingTitle => 'Directions';
 
-	/// en: 'The app your trips go to'
-	String get settingHint => 'The app your trips go to';
+	/// en: 'Who guides you when you tap Directions'
+	String get settingHint => 'Who guides you when you tap Directions';
 
 	/// en: 'Ask each time'
 	String get askEachTime => 'Ask each time';
@@ -1021,6 +1019,25 @@ class Translations$directions$en {
 
 	/// en: 'OpenStreetMap (browser)'
 	String get openStreetMap => 'OpenStreetMap (browser)';
+}
+
+// Path: navigation
+class Translations$navigation$en {
+	Translations$navigation$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$navigation$entry$en entry = Translations$navigation$entry$en.internal(_root);
+	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
+	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
+	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
+	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
+	late final Translations$navigation$warning$en warning = Translations$navigation$warning$en.internal(_root);
+	late final Translations$navigation$guidance$en guidance = Translations$navigation$guidance$en.internal(_root);
+	late final Translations$navigation$voice$en voice = Translations$navigation$voice$en.internal(_root);
+	late final Translations$navigation$units$en units = Translations$navigation$units$en.internal(_root);
+	late final Translations$navigation$settings$en settings = Translations$navigation$settings$en.internal(_root);
 }
 
 // Path: list
@@ -1116,11 +1133,11 @@ class Translations$vehicle$en {
 	/// en: 'My vehicle'
 	String get title => 'My vehicle';
 
-	/// en: 'Its size filters out the places it does not fit. It stays on this device.'
-	String get why => 'Its size filters out the places it does not fit. It stays on this device.';
+	/// en: 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.'
+	String get why => 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.';
 
-	/// en: 'To keep only the places it fits, give at least its height. It stays on this device.'
-	String get whyHeight => 'To keep only the places it fits, give at least its height. It stays on this device.';
+	/// en: 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.'
+	String get whyHeight => 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.';
 
 	/// en: 'Describe your vehicle to hide the places it does not fit.'
 	String get none => 'Describe your vehicle to hide the places it does not fit.';
@@ -1174,8 +1191,8 @@ class Translations$vehicle$en {
 	/// en: 'Between $min and $max $unit'
 	String outOfRange({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}';
 
-	/// en: 'The built-in route planner, coming later, will take all these dimensions into account.'
-	String get navigationLater => 'The built-in route planner, coming later, will take all these dimensions into account.';
+	/// en: 'Lunaway's guidance takes all these dimensions into account.'
+	String get navigationLater => 'Lunaway\'s guidance takes all these dimensions into account.';
 
 	/// en: 'Save'
 	String get save => 'Save';
@@ -2720,6 +2737,666 @@ class Translations$place$reviewVehicle$en {
 	String get other => 'Other vehicle';
 }
 
+// Path: navigation.entry
+class Translations$navigation$entry$en {
+	Translations$navigation$entry$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Lunaway guidance'
+	String get lunaway => 'Lunaway guidance';
+
+	/// en: 'A route computed for your vehicle's size'
+	String get lunawayHint => 'A route computed for your vehicle\'s size';
+
+	/// en: 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.'
+	String get vehicleMissing => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.';
+
+	/// en: 'Other apps'
+	String get others => 'Other apps';
+}
+
+// Path: navigation.preview
+class Translations$navigation$preview$en {
+	Translations$navigation$preview$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'To $name'
+	String titleTo({required Object name}) => 'To ${name}';
+
+	/// en: 'To this point'
+	String get titlePoint => 'To this point';
+
+	/// en: 'Computing a route for your vehicle'
+	String get computing => 'Computing a route for your vehicle';
+
+	/// en: 'Start'
+	String get start => 'Start';
+
+	/// en: 'Turn-by-turn guidance starts from a phone.'
+	String get phoneOnly => 'Turn-by-turn guidance starts from a phone.';
+
+	/// en: 'Recommended'
+	String get recommended => 'Recommended';
+
+	/// en: 'Alternative $n'
+	String alternative({required Object n}) => 'Alternative ${n}';
+
+	/// en: 'Toll'
+	String get toll => 'Toll';
+
+	/// en: 'Ferry'
+	String get ferry => 'Ferry';
+
+	/// en: 'Motorway'
+	String get motorway => 'Motorway';
+
+	/// en: 'No limit close to your vehicle's size on this route.'
+	String get noWarnings => 'No limit close to your vehicle\'s size on this route.';
+
+	/// en: '(one) {1 limit to watch} (other) {$n limits to watch}'
+	String warnings({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '1 limit to watch',
+		other: '${n} limits to watch',
+	);
+
+	/// en: 'Your vehicle'
+	String get vehicle => 'Your vehicle';
+
+	/// en: '$vehicle, towing'
+	String vehicleTowing({required Object vehicle}) => '${vehicle}, towing';
+
+	/// en: 'Edit'
+	String get editVehicle => 'Edit';
+
+	/// en: 'Avoid'
+	String get avoid => 'Avoid';
+
+	/// en: 'Tolls'
+	String get avoidTolls => 'Tolls';
+
+	/// en: 'Motorways'
+	String get avoidMotorways => 'Motorways';
+
+	/// en: 'Ferries'
+	String get avoidFerries => 'Ferries';
+
+	/// en: 'Unpaved'
+	String get avoidUnpaved => 'Unpaved';
+
+	/// en: 'Turn by turn'
+	String get roadbook => 'Turn by turn';
+
+	/// en: 'Show the turns'
+	String get roadbookShow => 'Show the turns';
+
+	/// en: 'Hide the turns'
+	String get roadbookHide => 'Hide the turns';
+
+	/// en: 'Road data of $date'
+	String dataOf({required Object date}) => 'Road data of ${date}';
+
+	/// en: '© OpenStreetMap contributors'
+	String get attributionOsm => '© OpenStreetMap contributors';
+
+	/// en: 'IGN, BD TOPO, edition of $date'
+	String attributionIgn({required Object date}) => 'IGN, BD TOPO, edition of ${date}';
+
+	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
+	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
+
+	/// en: 'Open in another app'
+	String get otherApps => 'Open in another app';
+
+	/// en: 'Back'
+	String get back => 'Back';
+}
+
+// Path: navigation.stops
+class Translations$navigation$stops$en {
+	Translations$navigation$stops$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Stops'
+	String get title => 'Stops';
+
+	/// en: 'Add a stop'
+	String get add => 'Add a stop';
+
+	/// en: 'Add a stop · +$minutes min'
+	String addCost({required Object minutes}) => 'Add a stop · +${minutes} min';
+
+	/// en: 'Add a stop · no detour'
+	String get addFree => 'Add a stop · no detour';
+
+	/// en: 'Add a stop · working out the detour'
+	String get quoting => 'Add a stop · working out the detour';
+
+	/// en: 'No route through this point for your vehicle.'
+	String get noRoute => 'No route through this point for your vehicle.';
+
+	/// en: 'Five stops at most.'
+	String get full => 'Five stops at most.';
+
+	/// en: 'Go there directly'
+	String get goDirectly => 'Go there directly';
+
+	/// en: 'See the details'
+	String get openCard => 'See the details';
+
+	/// en: 'Point on the map'
+	String get point => 'Point on the map';
+
+	/// en: 'Remove the stop'
+	String get remove => 'Remove the stop';
+
+	/// en: 'Drag to change the order'
+	String get reorder => 'Drag to change the order';
+
+	/// en: 'Stop added'
+	String get added => 'Stop added';
+
+	/// en: 'Stop removed'
+	String get removed => 'Stop removed';
+
+	/// en: 'Stops reordered'
+	String get moved => 'Stops reordered';
+
+	/// en: 'New destination'
+	String get destinationChanged => 'New destination';
+
+	/// en: 'The route could not be changed.'
+	String get failed => 'The route could not be changed.';
+
+	/// en: 'The detour could not be worked out.'
+	String get noQuote => 'The detour could not be worked out.';
+
+	/// en: 'No network to work out the detour.'
+	String get offline => 'No network to work out the detour.';
+}
+
+// Path: navigation.fuel
+class Translations$navigation$fuel$en {
+	Translations$navigation$fuel$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fuel'
+	String get action => 'Fuel';
+
+	/// en: 'Cheapest fuel ahead'
+	String get nextCheap => 'Cheapest fuel ahead';
+
+	/// en: 'Fuel along the route'
+	String get title => 'Fuel along the route';
+
+	/// en: '$price €/L'
+	String price({required Object price}) => '${price} €/L';
+
+	/// en: '$price €/L counting the detour'
+	String withDetour({required Object price}) => '${price} €/L counting the detour';
+
+	/// en: '+$distance · +$minutes min'
+	String detour({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min';
+
+	/// en: 'on the route'
+	String get onRoute => 'on the route';
+
+	/// en: 'Open'
+	String get open => 'Open';
+
+	/// en: 'Closed'
+	String get closed => 'Closed';
+
+	/// en: 'Hours unknown'
+	String get unknownHours => 'Hours unknown';
+
+	/// en: 'Add'
+	String get add => 'Add';
+
+	/// en: 'Fuel station'
+	String get station => 'Fuel station';
+
+	/// en: 'No station selling this fuel near the route.'
+	String get empty => 'No station selling this fuel near the route.';
+
+	/// en: 'The stations could not be loaded.'
+	String get failed => 'The stations could not be loaded.';
+
+	/// en: 'Detours estimated from the distance to the route.'
+	String get estimated => 'Detours estimated from the distance to the route.';
+
+	/// en: 'Prices: Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)'
+	String get attribution => 'Prices: Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)';
+
+	/// en: '$n min ago'
+	String minutesAgo({required Object n}) => '${n} min ago';
+
+	/// en: '$n h ago'
+	String hoursAgo({required Object n}) => '${n} h ago';
+
+	/// en: '$n d ago'
+	String daysAgo({required Object n}) => '${n} d ago';
+}
+
+// Path: navigation.states
+class Translations$navigation$states$en {
+	Translations$navigation$states$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'What do you drive?'
+	String get vehicleTitle => 'What do you drive?';
+
+	/// en: 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.'
+	String get vehicleHint => 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.';
+
+	/// en: 'Missing: $list'
+	String vehicleMissing({required Object list}) => 'Missing: ${list}';
+
+	/// en: 'Out of the accepted range: $list'
+	String vehicleOutOfBounds({required Object list}) => 'Out of the accepted range: ${list}';
+
+	late final Translations$navigation$states$dimension$en dimension = Translations$navigation$states$dimension$en.internal(_root);
+
+	/// en: 'Describe my vehicle'
+	String get describeVehicle => 'Describe my vehicle';
+
+	/// en: 'Where are you?'
+	String get originTitle => 'Where are you?';
+
+	/// en: 'Lunaway needs your position to compute the route.'
+	String get originHint => 'Lunaway needs your position to compute the route.';
+
+	/// en: 'Locate me'
+	String get locate => 'Locate me';
+
+	/// en: 'No connection'
+	String get offlineTitle => 'No connection';
+
+	/// en: 'Routes are computed on Lunaway's server. Try again once connected.'
+	String get offlineHint => 'Routes are computed on Lunaway\'s server. Try again once connected.';
+
+	/// en: 'Too many routes asked'
+	String get rateLimitedTitle => 'Too many routes asked';
+
+	/// en: 'Try again in $seconds s.'
+	String rateLimitedHint({required Object seconds}) => 'Try again in ${seconds} s.';
+
+	/// en: 'Routing is down'
+	String get unavailableTitle => 'Routing is down';
+
+	/// en: 'The route service is stopped for now. Try again later.'
+	String get unavailableHint => 'The route service is stopped for now. Try again later.';
+
+	/// en: 'No route here'
+	String get refusedTitle => 'No route here';
+
+	/// en: 'Routes cover France for now.'
+	String get refusedHint => 'Routes cover France for now.';
+
+	/// en: 'No safe route for your vehicle'
+	String get noSafeTitle => 'No safe route for your vehicle';
+
+	/// en: 'Every possible road meets a limit your vehicle exceeds:'
+	String get noSafeHint => 'Every possible road meets a limit your vehicle exceeds:';
+
+	/// en: 'What you can do'
+	String get whatToDo => 'What you can do';
+
+	/// en: 'Check the figures you gave: $height high, $weight.'
+	String checkVehicle({required Object height, required Object weight}) => 'Check the figures you gave: ${height} high, ${weight}.';
+
+	/// en: 'Pick a destination before the obstacle: long-press the map.'
+	String get pickOtherPoint => 'Pick a destination before the obstacle: long-press the map.';
+
+	/// en: 'No road leads there'
+	String get noRouteTitle => 'No road leads there';
+
+	/// en: 'The point may be on a private road, or on an island without a ferry.'
+	String get noRouteHint => 'The point may be on a private road, or on an island without a ferry.';
+
+	/// en: 'Unpaved roads are avoided: allow them if the destination is on a track.'
+	String get allowUnpaved => 'Unpaved roads are avoided: allow them if the destination is on a track.';
+
+	/// en: 'Too far from a road'
+	String get offNetworkTitle => 'Too far from a road';
+
+	/// en: 'Pick a destination on a road.'
+	String get offNetworkHint => 'Pick a destination on a road.';
+}
+
+// Path: navigation.warning
+class Translations$navigation$warning$en {
+	Translations$navigation$warning$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$navigation$warning$lowClearance$en lowClearance = Translations$navigation$warning$lowClearance$en.internal(_root);
+
+	/// en: 'Low clearance, height unknown'
+	String get unknownClearance => 'Low clearance, height unknown';
+
+	/// en: 'Narrow passage $limit'
+	String narrow({required Object limit}) => 'Narrow passage ${limit}';
+
+	/// en: 'Length limit $limit'
+	String tooLong({required Object limit}) => 'Length limit ${limit}';
+
+	/// en: 'Weight limit $limit'
+	String tooHeavy({required Object limit}) => 'Weight limit ${limit}';
+
+	/// en: 'Axle load limit $limit'
+	String axleLoad({required Object limit}) => 'Axle load limit ${limit}';
+
+	/// en: 'No motorhomes'
+	String get motorhomeBan => 'No motorhomes';
+
+	/// en: 'No trailers'
+	String get trailerBan => 'No trailers';
+
+	/// en: 'Goods vehicle weight limit $limit'
+	String goodsVehicleWeight({required Object limit}) => 'Goods vehicle weight limit ${limit}';
+
+	/// en: 'your vehicle: $value'
+	String yours({required Object value}) => 'your vehicle: ${value}';
+
+	/// en: '$distance from the start'
+	String fromStart({required Object distance}) => '${distance} from the start';
+
+	/// en: 'in $distance'
+	String ahead({required Object distance}) => 'in ${distance}';
+
+	/// en: 'sources disagree, the lower figure applies'
+	String get disputed => 'sources disagree, the lower figure applies';
+
+	/// en: 'for heavy goods vehicles, check the signs'
+	String get goodsOnly => 'for heavy goods vehicles, check the signs';
+
+	/// en: 'OpenStreetMap'
+	String get osm => 'OpenStreetMap';
+
+	/// en: 'IGN BD TOPO'
+	String get ign => 'IGN BD TOPO';
+
+	/// en: 'Lunaway report'
+	String get community => 'Lunaway report';
+
+	/// en: 'Traffic order (DiaLog)'
+	String get dialog => 'Traffic order (DiaLog)';
+}
+
+// Path: navigation.guidance
+class Translations$navigation$guidance$en {
+	Translations$navigation$guidance$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Then'
+	String get then => 'Then';
+
+	/// en: 'Arrive $time'
+	String arrival({required Object time}) => 'Arrive ${time}';
+
+	/// en: 'Off the route'
+	String get offRoute => 'Off the route';
+
+	/// en: 'Finding a new route'
+	String get rerouting => 'Finding a new route';
+
+	/// en: 'New route'
+	String get rerouted => 'New route';
+
+	/// en: 'New route, $minutes min longer'
+	String reroutedLonger({required Object minutes}) => 'New route, ${minutes} min longer';
+
+	/// en: 'No network for a new route: head back to the route'
+	String get rerouteOffline => 'No network for a new route: head back to the route';
+
+	/// en: 'No new route found: head back to the route'
+	String get rerouteFailed => 'No new route found: head back to the route';
+
+	/// en: 'Road closed in $distance: finding another way'
+	String closureAhead({required Object distance}) => 'Road closed in ${distance}: finding another way';
+
+	/// en: 'Road closed in $distance: no other way'
+	String noDetour({required Object distance}) => 'Road closed in ${distance}: no other way';
+
+	/// en: 'Works in $distance'
+	String eventAhead({required Object distance}) => 'Works in ${distance}';
+
+	/// en: 'Road closed in $distance'
+	String eventClosure({required Object distance}) => 'Road closed in ${distance}';
+
+	/// en: 'Size limited by roadworks in $distance'
+	String eventLimit({required Object distance}) => 'Size limited by roadworks in ${distance}';
+
+	/// en: '$source, data of $time'
+	String eventSource({required Object source, required Object time}) => '${source}, data of ${time}';
+
+	/// en: '$source, data of $day at $time'
+	String eventSourceOn({required Object source, required Object day, required Object time}) => '${source}, data of ${day} at ${time}';
+
+	/// en: 'Road closed in $distance: no network to look for another way'
+	String closureOffline({required Object distance}) => 'Road closed in ${distance}: no network to look for another way';
+
+	/// en: 'Road closed in $distance: no other way yet'
+	String closureFailed({required Object distance}) => 'Road closed in ${distance}: no other way yet';
+
+	/// en: 'Turn the voice on'
+	String get voiceOn => 'Turn the voice on';
+
+	/// en: 'Turn the voice off'
+	String get voiceOff => 'Turn the voice off';
+
+	/// en: 'Whole route'
+	String get overview => 'Whole route';
+
+	/// en: 'Back to the vehicle'
+	String get recenter => 'Back to the vehicle';
+
+	/// en: 'End'
+	String get end => 'End';
+
+	/// en: 'End the guidance?'
+	String get endTitle => 'End the guidance?';
+
+	/// en: 'End'
+	String get endConfirm => 'End';
+
+	/// en: 'Keep going'
+	String get endKeep => 'Keep going';
+
+	/// en: 'You have arrived'
+	String get arrivedTitle => 'You have arrived';
+
+	/// en: 'Done'
+	String get done => 'Done';
+
+	/// en: 'Speed'
+	String get speed => 'Speed';
+
+	/// en: 'Limit'
+	String get limit => 'Limit';
+
+	/// en: 'No $language voice on this device: instructions on screen only.'
+	String noVoice({required Object language}) => 'No ${language} voice on this device: instructions on screen only.';
+
+	/// en: 'The $language voice is not downloaded yet.'
+	String missingVoice({required Object language}) => 'The ${language} voice is not downloaded yet.';
+
+	/// en: 'Install'
+	String get installVoice => 'Install';
+
+	/// en: 'Settings, Accessibility, Spoken Content, Voices'
+	String get voiceSettingsIos => 'Settings, Accessibility, Spoken Content, Voices';
+
+	/// en: 'Lunaway is guiding you'
+	String get notificationTitle => 'Lunaway is guiding you';
+
+	/// en: 'Guidance goes on with the screen off.'
+	String get notificationText => 'Guidance goes on with the screen off.';
+
+	/// en: 'Guidance'
+	String get notificationChannel => 'Guidance';
+
+	/// en: 'Guidance could not start on this device.'
+	String get unavailable => 'Guidance could not start on this device.';
+
+	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
+	String get positionLost => 'Position unavailable: check that the device\'s location is on for Lunaway.';
+
+	/// en: 'Before you set off'
+	String get firstTitle => 'Before you set off';
+
+	/// en: 'I understand'
+	String get firstAccept => 'I understand';
+
+	/// en: 'Danger zone in $distance'
+	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
+
+	/// en: 'Danger zone'
+	String get inDangerZone => 'Danger zone';
+}
+
+// Path: navigation.voice
+class Translations$navigation$voice$en {
+	Translations$navigation$voice$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Recalculating.'
+	String get rerouting => 'Recalculating.';
+
+	/// en: 'New route.'
+	String get rerouted => 'New route.';
+
+	/// en: '(one) {New route, one minute longer.} (other) {New route, $minutes minutes longer.}'
+	String reroutedLonger({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes,
+		one: 'New route, one minute longer.',
+		other: 'New route, ${minutes} minutes longer.',
+	);
+
+	/// en: 'Road closed in $distance. Finding another way.'
+	String closureAhead({required Object distance}) => 'Road closed in ${distance}. Finding another way.';
+
+	/// en: 'Road closed in $distance. There is no other way.'
+	String noDetour({required Object distance}) => 'Road closed in ${distance}. There is no other way.';
+
+	/// en: 'Caution, low clearance of $height in $distance.'
+	String clearance({required Object height, required Object distance}) => 'Caution, low clearance of ${height} in ${distance}.';
+
+	/// en: 'Caution, low clearance of unknown height in $distance.'
+	String unknownClearance({required Object distance}) => 'Caution, low clearance of unknown height in ${distance}.';
+
+	/// en: 'Caution, narrow passage of $width in $distance.'
+	String narrow({required Object width, required Object distance}) => 'Caution, narrow passage of ${width} in ${distance}.';
+
+	/// en: 'Caution, $what in $distance.'
+	String limit({required Object what, required Object distance}) => 'Caution, ${what} in ${distance}.';
+
+	/// en: 'You have arrived.'
+	String get arrived => 'You have arrived.';
+
+	/// en: '$n metres'
+	String metres({required Object n}) => '${n} metres';
+
+	/// en: '(one) {$n kilometre} (other) {$n kilometres}'
+	String kilometres({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${n} kilometre',
+		other: '${n} kilometres',
+	);
+
+	/// en: '$n feet'
+	String feet({required Object n}) => '${n} feet';
+
+	/// en: '(one) {$n mile} (other) {$n miles}'
+	String miles({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${n} mile',
+		other: '${n} miles',
+	);
+
+	/// en: '$metres.$cm metres'
+	String size({required Object metres, required Object cm}) => '${metres}.${cm} metres';
+
+	/// en: '$metres metres'
+	String sizeWhole({required Object metres}) => '${metres} metres';
+}
+
+// Path: navigation.units
+class Translations$navigation$units$en {
+	Translations$navigation$units$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$n ft'
+	String ft({required Object n}) => '${n} ft';
+
+	/// en: '$n mi'
+	String mi({required Object n}) => '${n} mi';
+
+	/// en: 'km/h'
+	String get kmh => 'km/h';
+
+	/// en: 'mph'
+	String get mph => 'mph';
+
+	/// en: '$h h $m min'
+	String hoursMinutes({required Object h, required Object m}) => '${h} h ${m} min';
+
+	/// en: '$m min'
+	String minutes({required Object m}) => '${m} min';
+}
+
+// Path: navigation.settings
+class Translations$navigation$settings$en {
+	Translations$navigation$settings$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Guidance'
+	String get title => 'Guidance';
+
+	/// en: 'Avoid by default'
+	String get avoidTitle => 'Avoid by default';
+
+	/// en: 'Spoken instructions'
+	String get voice => 'Spoken instructions';
+
+	/// en: 'With the phone's own voice'
+	String get voiceHint => 'With the phone\'s own voice';
+
+	/// en: 'Distances'
+	String get units => 'Distances';
+
+	/// en: 'Kilometres'
+	String get metric => 'Kilometres';
+
+	/// en: 'Miles'
+	String get imperial => 'Miles';
+}
+
 // Path: vehicle.types
 class Translations$vehicle$types$en {
 	Translations$vehicle$types$en.internal(this._root);
@@ -3377,6 +4054,54 @@ class Translations$poi$cheapest$en {
 	String get error => 'The stations\' prices could not be read.';
 }
 
+// Path: navigation.states.dimension
+class Translations$navigation$states$dimension$en {
+	Translations$navigation$states$dimension$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'height'
+	String get height => 'height';
+
+	/// en: 'width'
+	String get width => 'width';
+
+	/// en: 'length'
+	String get length => 'length';
+
+	/// en: 'weight'
+	String get weight => 'weight';
+}
+
+// Path: navigation.warning.lowClearance
+class Translations$navigation$warning$lowClearance$en {
+	Translations$navigation$warning$lowClearance$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Low bridge $limit'
+	String underpass({required Object limit}) => 'Low bridge ${limit}';
+
+	/// en: 'Tunnel $limit'
+	String tunnel({required Object limit}) => 'Tunnel ${limit}';
+
+	/// en: 'Archway $limit'
+	String buildingPassage({required Object limit}) => 'Archway ${limit}';
+
+	/// en: 'Bridge $limit'
+	String bridge({required Object limit}) => 'Bridge ${limit}';
+
+	/// en: 'Height bar $limit'
+	String barrier({required Object limit}) => 'Height bar ${limit}';
+
+	/// en: 'Height limit $limit'
+	String road({required Object limit}) => 'Height limit ${limit}';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -3509,7 +4234,7 @@ extension on Translations {
 			'sync.resuming' => ({required Object count}) => 'Downloading: ${count} places',
 			'sync.resume' => 'Resume',
 			'location.rationaleTitle' => 'Show your position?',
-			'location.rationale' => 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.',
+			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway\'s server, which keeps nothing of it.',
 			'location.allow' => 'Continue',
 			'location.notNow' => 'Not now',
 			'location.deniedTitle' => 'Position turned off for Lunaway',
@@ -3622,12 +4347,11 @@ extension on Translations {
 			'hours.stale' => 'Opening unknown: data to update',
 			'hours.localTime' => 'Local time of the place',
 			'directions.title' => 'Directions with',
-			'directions.hint' => 'Lunaway hands the trip to your navigation app.',
+			'directions.hint' => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
 			'directions.rememberHint' => 'You can change it in Profile',
-			'directions.noApp' => 'No navigation app is installed.',
 			'directions.settingTitle' => 'Directions',
-			'directions.settingHint' => 'The app your trips go to',
+			'directions.settingHint' => 'Who guides you when you tap Directions',
 			'directions.askEachTime' => 'Ask each time',
 			'directions.appleMaps' => 'Apple Maps',
 			'directions.googleMaps' => 'Google Maps',
@@ -3636,6 +4360,201 @@ extension on Translations {
 			'directions.organicMaps' => 'Organic Maps',
 			'directions.magicEarth' => 'Magic Earth',
 			'directions.openStreetMap' => 'OpenStreetMap (browser)',
+			'navigation.entry.lunaway' => 'Lunaway guidance',
+			'navigation.entry.lunawayHint' => 'A route computed for your vehicle\'s size',
+			'navigation.entry.vehicleMissing' => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.',
+			'navigation.entry.others' => 'Other apps',
+			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
+			'navigation.preview.titlePoint' => 'To this point',
+			'navigation.preview.computing' => 'Computing a route for your vehicle',
+			'navigation.preview.start' => 'Start',
+			'navigation.preview.phoneOnly' => 'Turn-by-turn guidance starts from a phone.',
+			'navigation.preview.recommended' => 'Recommended',
+			'navigation.preview.alternative' => ({required Object n}) => 'Alternative ${n}',
+			'navigation.preview.toll' => 'Toll',
+			'navigation.preview.ferry' => 'Ferry',
+			'navigation.preview.motorway' => 'Motorway',
+			'navigation.preview.noWarnings' => 'No limit close to your vehicle\'s size on this route.',
+			'navigation.preview.warnings' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '1 limit to watch', other: '${n} limits to watch', ), 
+			'navigation.preview.vehicle' => 'Your vehicle',
+			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
+			'navigation.preview.editVehicle' => 'Edit',
+			'navigation.preview.avoid' => 'Avoid',
+			'navigation.preview.avoidTolls' => 'Tolls',
+			'navigation.preview.avoidMotorways' => 'Motorways',
+			'navigation.preview.avoidFerries' => 'Ferries',
+			'navigation.preview.avoidUnpaved' => 'Unpaved',
+			'navigation.preview.roadbook' => 'Turn by turn',
+			'navigation.preview.roadbookShow' => 'Show the turns',
+			'navigation.preview.roadbookHide' => 'Hide the turns',
+			'navigation.preview.dataOf' => ({required Object date}) => 'Road data of ${date}',
+			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
+			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, edition of ${date}',
+			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
+			'navigation.preview.otherApps' => 'Open in another app',
+			'navigation.preview.back' => 'Back',
+			'navigation.stops.title' => 'Stops',
+			'navigation.stops.add' => 'Add a stop',
+			'navigation.stops.addCost' => ({required Object minutes}) => 'Add a stop · +${minutes} min',
+			'navigation.stops.addFree' => 'Add a stop · no detour',
+			'navigation.stops.quoting' => 'Add a stop · working out the detour',
+			'navigation.stops.noRoute' => 'No route through this point for your vehicle.',
+			'navigation.stops.full' => 'Five stops at most.',
+			'navigation.stops.goDirectly' => 'Go there directly',
+			'navigation.stops.openCard' => 'See the details',
+			'navigation.stops.point' => 'Point on the map',
+			'navigation.stops.remove' => 'Remove the stop',
+			'navigation.stops.reorder' => 'Drag to change the order',
+			'navigation.stops.added' => 'Stop added',
+			'navigation.stops.removed' => 'Stop removed',
+			'navigation.stops.moved' => 'Stops reordered',
+			'navigation.stops.destinationChanged' => 'New destination',
+			'navigation.stops.failed' => 'The route could not be changed.',
+			'navigation.stops.noQuote' => 'The detour could not be worked out.',
+			'navigation.stops.offline' => 'No network to work out the detour.',
+			'navigation.fuel.action' => 'Fuel',
+			'navigation.fuel.nextCheap' => 'Cheapest fuel ahead',
+			'navigation.fuel.title' => 'Fuel along the route',
+			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
+			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L counting the detour',
+			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
+			'navigation.fuel.onRoute' => 'on the route',
+			'navigation.fuel.open' => 'Open',
+			'navigation.fuel.closed' => 'Closed',
+			'navigation.fuel.unknownHours' => 'Hours unknown',
+			'navigation.fuel.add' => 'Add',
+			'navigation.fuel.station' => 'Fuel station',
+			'navigation.fuel.empty' => 'No station selling this fuel near the route.',
+			'navigation.fuel.failed' => 'The stations could not be loaded.',
+			'navigation.fuel.estimated' => 'Detours estimated from the distance to the route.',
+			'navigation.fuel.attribution' => 'Prices: Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)',
+			'navigation.fuel.minutesAgo' => ({required Object n}) => '${n} min ago',
+			'navigation.fuel.hoursAgo' => ({required Object n}) => '${n} h ago',
+			'navigation.fuel.daysAgo' => ({required Object n}) => '${n} d ago',
+			'navigation.states.vehicleTitle' => 'What do you drive?',
+			'navigation.states.vehicleHint' => 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.',
+			'navigation.states.vehicleMissing' => ({required Object list}) => 'Missing: ${list}',
+			'navigation.states.vehicleOutOfBounds' => ({required Object list}) => 'Out of the accepted range: ${list}',
+			'navigation.states.dimension.height' => 'height',
+			'navigation.states.dimension.width' => 'width',
+			'navigation.states.dimension.length' => 'length',
+			'navigation.states.dimension.weight' => 'weight',
+			'navigation.states.describeVehicle' => 'Describe my vehicle',
+			'navigation.states.originTitle' => 'Where are you?',
+			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
+			'navigation.states.locate' => 'Locate me',
+			'navigation.states.offlineTitle' => 'No connection',
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Try again once connected.',
+			'navigation.states.rateLimitedTitle' => 'Too many routes asked',
+			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
+			'navigation.states.unavailableTitle' => 'Routing is down',
+			'navigation.states.unavailableHint' => 'The route service is stopped for now. Try again later.',
+			'navigation.states.refusedTitle' => 'No route here',
+			'navigation.states.refusedHint' => 'Routes cover France for now.',
+			'navigation.states.noSafeTitle' => 'No safe route for your vehicle',
+			'navigation.states.noSafeHint' => 'Every possible road meets a limit your vehicle exceeds:',
+			'navigation.states.whatToDo' => 'What you can do',
+			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Check the figures you gave: ${height} high, ${weight}.',
+			'navigation.states.pickOtherPoint' => 'Pick a destination before the obstacle: long-press the map.',
+			'navigation.states.noRouteTitle' => 'No road leads there',
+			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
+			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
+			'navigation.states.offNetworkTitle' => 'Too far from a road',
+			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
+			'navigation.warning.lowClearance.underpass' => ({required Object limit}) => 'Low bridge ${limit}',
+			'navigation.warning.lowClearance.tunnel' => ({required Object limit}) => 'Tunnel ${limit}',
+			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Archway ${limit}',
+			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Bridge ${limit}',
+			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
+			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
+			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
+			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
+			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
+			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
+			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
+			'navigation.warning.motorhomeBan' => 'No motorhomes',
+			'navigation.warning.trailerBan' => 'No trailers',
+			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
+			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
+			'navigation.warning.fromStart' => ({required Object distance}) => '${distance} from the start',
+			'navigation.warning.ahead' => ({required Object distance}) => 'in ${distance}',
+			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
+			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
+			'navigation.warning.osm' => 'OpenStreetMap',
+			'navigation.warning.ign' => 'IGN BD TOPO',
+			'navigation.warning.community' => 'Lunaway report',
+			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
+			'navigation.guidance.then' => 'Then',
+			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
+			'navigation.guidance.offRoute' => 'Off the route',
+			'navigation.guidance.rerouting' => 'Finding a new route',
+			'navigation.guidance.rerouted' => 'New route',
+			'navigation.guidance.reroutedLonger' => ({required Object minutes}) => 'New route, ${minutes} min longer',
+			'navigation.guidance.rerouteOffline' => 'No network for a new route: head back to the route',
+			'navigation.guidance.rerouteFailed' => 'No new route found: head back to the route',
+			'navigation.guidance.closureAhead' => ({required Object distance}) => 'Road closed in ${distance}: finding another way',
+			'navigation.guidance.noDetour' => ({required Object distance}) => 'Road closed in ${distance}: no other way',
+			'navigation.guidance.eventAhead' => ({required Object distance}) => 'Works in ${distance}',
+			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Road closed in ${distance}',
+			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Size limited by roadworks in ${distance}',
+			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, data of ${time}',
+			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, data of ${day} at ${time}',
+			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
+			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
+			'navigation.guidance.voiceOn' => 'Turn the voice on',
+			'navigation.guidance.voiceOff' => 'Turn the voice off',
+			'navigation.guidance.overview' => 'Whole route',
+			'navigation.guidance.recenter' => 'Back to the vehicle',
+			'navigation.guidance.end' => 'End',
+			'navigation.guidance.endTitle' => 'End the guidance?',
+			'navigation.guidance.endConfirm' => 'End',
+			'navigation.guidance.endKeep' => 'Keep going',
+			'navigation.guidance.arrivedTitle' => 'You have arrived',
+			'navigation.guidance.done' => 'Done',
+			'navigation.guidance.speed' => 'Speed',
+			'navigation.guidance.limit' => 'Limit',
+			'navigation.guidance.noVoice' => ({required Object language}) => 'No ${language} voice on this device: instructions on screen only.',
+			'navigation.guidance.missingVoice' => ({required Object language}) => 'The ${language} voice is not downloaded yet.',
+			'navigation.guidance.installVoice' => 'Install',
+			'navigation.guidance.voiceSettingsIos' => 'Settings, Accessibility, Spoken Content, Voices',
+			'navigation.guidance.notificationTitle' => 'Lunaway is guiding you',
+			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
+			'navigation.guidance.notificationChannel' => 'Guidance',
+			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
+			'navigation.guidance.firstTitle' => 'Before you set off',
+			'navigation.guidance.firstAccept' => 'I understand',
+			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
+			'navigation.guidance.inDangerZone' => 'Danger zone',
+			'navigation.voice.rerouting' => 'Recalculating.',
+			'navigation.voice.rerouted' => 'New route.',
+			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
+			'navigation.voice.closureAhead' => ({required Object distance}) => 'Road closed in ${distance}. Finding another way.',
+			'navigation.voice.noDetour' => ({required Object distance}) => 'Road closed in ${distance}. There is no other way.',
+			'navigation.voice.clearance' => ({required Object height, required Object distance}) => 'Caution, low clearance of ${height} in ${distance}.',
+			'navigation.voice.unknownClearance' => ({required Object distance}) => 'Caution, low clearance of unknown height in ${distance}.',
+			'navigation.voice.narrow' => ({required Object width, required Object distance}) => 'Caution, narrow passage of ${width} in ${distance}.',
+			'navigation.voice.limit' => ({required Object what, required Object distance}) => 'Caution, ${what} in ${distance}.',
+			'navigation.voice.arrived' => 'You have arrived.',
+			'navigation.voice.metres' => ({required Object n}) => '${n} metres',
+			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} kilometre', other: '${n} kilometres', ), 
+			'navigation.voice.feet' => ({required Object n}) => '${n} feet',
+			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} mile', other: '${n} miles', ), 
+			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres}.${cm} metres',
+			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} metres',
+			'navigation.units.ft' => ({required Object n}) => '${n} ft',
+			'navigation.units.mi' => ({required Object n}) => '${n} mi',
+			'navigation.units.kmh' => 'km/h',
+			'navigation.units.mph' => 'mph',
+			'navigation.units.hoursMinutes' => ({required Object h, required Object m}) => '${h} h ${m} min',
+			'navigation.units.minutes' => ({required Object m}) => '${m} min',
+			'navigation.settings.title' => 'Guidance',
+			'navigation.settings.avoidTitle' => 'Avoid by default',
+			'navigation.settings.voice' => 'Spoken instructions',
+			'navigation.settings.voiceHint' => 'With the phone\'s own voice',
+			'navigation.settings.units' => 'Distances',
+			'navigation.settings.metric' => 'Kilometres',
+			'navigation.settings.imperial' => 'Miles',
 			'list.title' => 'Places around',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -3657,8 +4576,8 @@ extension on Translations {
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} place', other: '${n} places', ), 
 			'favorites.error' => 'Your favourites could not be read.',
 			'vehicle.title' => 'My vehicle',
-			'vehicle.why' => 'Its size filters out the places it does not fit. It stays on this device.',
-			'vehicle.whyHeight' => 'To keep only the places it fits, give at least its height. It stays on this device.',
+			'vehicle.why' => 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.',
+			'vehicle.whyHeight' => 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it does not fit.',
 			'vehicle.add' => 'Describe my vehicle',
 			'vehicle.edit' => 'Edit',
@@ -3683,7 +4602,7 @@ extension on Translations {
 			'vehicle.lengthShort' => ({required Object value}) => 'L ${value}',
 			'vehicle.notANumber' => 'A number, for example 2.90',
 			'vehicle.outOfRange' => ({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}',
-			'vehicle.navigationLater' => 'The built-in route planner, coming later, will take all these dimensions into account.',
+			'vehicle.navigationLater' => 'Lunaway\'s guidance takes all these dimensions into account.',
 			'vehicle.save' => 'Save',
 			'vehicle.clear' => 'Clear',
 			'vehicle.fuelTitle' => 'Fuel',
@@ -3703,6 +4622,8 @@ extension on Translations {
 			'profile.themeAutoHint' => 'Light by day, dark after sunset where you are.',
 			'profile.themeLightHint' => 'Always light, day and night.',
 			'profile.themeDarkHint' => 'Always dark, easy on the eyes at night.',
+			_ => null,
+		} ?? switch (path) {
 			'profile.offline' => 'Offline data',
 			'profile.placesOnDevice' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place on this device', other: 'places on this device', ), 
 			'profile.offlineSize' => ({required Object size}) => 'Storage used: ${size}',
@@ -3897,8 +4818,6 @@ extension on Translations {
 			'mine.submission.rejected' => 'Refused',
 			'mine.submission.withdrawn' => 'Withdrawn',
 			'mine.newPlace' => 'New place',
-			_ => null,
-		} ?? switch (path) {
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',
 			'mine.newVendingMachine' => 'New vending machine',
@@ -4217,6 +5136,8 @@ extension on Translations {
 			'offlineMaps.desktopTitle' => 'Offline maps are on the phone',
 			'offlineMaps.desktop' => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.',
 			'offlineMaps.unreadable' => 'The offline maps of this device could not be read.',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.none' => 'No region on this device yet.',
 			'offlineMaps.used' => ({required Object size}) => 'Space used: ${size}',
 			'offlineMaps.downloads' => 'Downloading',

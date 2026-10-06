@@ -155,6 +155,7 @@ Future<TestApp> pumpLunaway(
   MemoryPackFiles? packFiles,
   bool? reachable = true,
   http.Client? httpClient,
+  // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
