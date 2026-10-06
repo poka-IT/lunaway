@@ -150,9 +150,13 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
     )
     .await;
     let sources = body["data"]["sources"].as_array().unwrap();
-    assert_eq!(sources.len(), 2);
-    assert_eq!(sources[1]["id"], "osm");
-    assert_eq!(sources[1]["attribution"], "© OpenStreetMap contributors");
+    let ids: Vec<&str> = sources.iter().map(|s| s["id"].as_str().unwrap()).collect();
+    assert_eq!(ids, ["atout-france", "community", "osm"]);
+    assert_eq!(sources[2]["attribution"], "© OpenStreetMap contributors");
+    assert_eq!(
+        sources[1]["licence"], "ODbL 1.0",
+        "places added by users join the ODbL database"
+    );
 }
 
 const CHANGES: &str = r"
@@ -1053,7 +1057,11 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     blocker.rollback().await.unwrap();
     let (status, _, body) = request.await.unwrap();
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["data"]["c"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        body["data"]["c"].as_array().unwrap().len(),
+        3,
+        "OpenStreetMap, Atout France and the community"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

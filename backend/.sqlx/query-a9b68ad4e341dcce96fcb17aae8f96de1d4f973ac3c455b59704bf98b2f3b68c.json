@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE accounts\n            SET active_days = active_days + 1,\n                last_active_on = (now() AT TIME ZONE 'UTC')::date\n            WHERE id = $1 AND last_active_on < (now() AT TIME ZONE 'UTC')::date\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a9b68ad4e341dcce96fcb17aae8f96de1d4f973ac3c455b59704bf98b2f3b68c"
+}

@@ -67,6 +67,11 @@ macro_rules! coded_enum {
     };
 }
 
+// The community codes (confirmation statuses, issue kinds) follow the same
+// rule; the macro names `fmt`, `FromStr`, serde's derives and
+// `UnknownCode`, which a user module imports.
+pub(crate) use coded_enum;
+
 coded_enum! {
     /// What a place is. Whether a night may be spent there is a separate
     /// fact, [`OvernightStatus`], because a car park can be either.

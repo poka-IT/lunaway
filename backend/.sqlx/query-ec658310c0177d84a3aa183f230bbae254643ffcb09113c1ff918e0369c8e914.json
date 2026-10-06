@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO source_records (id, source_id, external_id, kind, geom, data, raw, fetched_at)\n            VALUES ($1, 'community', 'x', 'parking', ST_SetSRID(ST_MakePoint(2, 47), 4326)::geography,\n                    '{}', '{}', now())\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ec658310c0177d84a3aa183f230bbae254643ffcb09113c1ff918e0369c8e914"
+}

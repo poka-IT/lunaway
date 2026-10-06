@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"trusted!\", count(*) FILTER (WHERE a.trust_level >= 2) AS \"senior!\"\n        FROM content_reports c JOIN accounts a ON a.id = c.reporter_id\n        WHERE c.target_type = $1 AND c.target_id = $2 AND a.trust_level >= 1\n          AND a.banned_at IS NULL AND c.dismissed_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "trusted!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "senior!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a52ed90b2ec6320982fc8ee53d6e0daf833bbf206f291d9d3ce3e40292227b0b"
+}

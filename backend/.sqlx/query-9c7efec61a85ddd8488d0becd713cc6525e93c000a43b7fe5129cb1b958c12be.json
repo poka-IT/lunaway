@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE place_submissions s SET place_id = ps.place_id\n        FROM place_sources ps\n        WHERE ps.record_id = s.record_id AND s.kind = 'create'\n          AND s.place_id IS DISTINCT FROM ps.place_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "9c7efec61a85ddd8488d0becd713cc6525e93c000a43b7fe5129cb1b958c12be"
+}

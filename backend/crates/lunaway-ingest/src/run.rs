@@ -11,6 +11,7 @@ use crate::{
     cache::Cache,
     geocode::{self, GeocoderConfig},
     http::RetryPolicy,
+    municipalities,
     osm::{self, OverpassConfig, Region},
     osm_extract,
     store::{StoreReport, store_complete, store_whole_source},
@@ -217,5 +218,59 @@ pub async fn atout_france(
         drops,
         records: records.len(),
         store,
+    })
+}
+
+/// What an import of the communes did.
+#[derive(Debug, Clone, Copy)]
+pub struct MunicipalitiesReport {
+    /// Whether the file came from the cache.
+    pub cached: bool,
+    /// Communes stored.
+    pub municipalities: u64,
+    /// Municipal districts left out.
+    pub districts: usize,
+    /// Features without a usable code, name or polygon.
+    pub skipped: usize,
+    /// Live places whose commune changed (each takes a new position in the
+    /// change feed).
+    pub places_changed: u64,
+}
+
+/// Imports the communes and gives every live place the one that covers it,
+/// in one writer transaction.
+///
+/// # Errors
+///
+/// [`IngestError`] when the download, the file or the database fails;
+/// nothing is stored then.
+pub async fn municipalities(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    cache: &Cache,
+    url: &str,
+    refresh: bool,
+) -> Result<MunicipalitiesReport, IngestError> {
+    let download = municipalities::fetch(http, cache, url, refresh).await?;
+    let (cached, fetched_at) = (download.cached, download.fetched_at);
+    let parsed = tokio::task::spawn_blocking(move || municipalities::parse(&download.body))
+        .await
+        .map_err(IngestError::Blocking)??;
+    let mut tx = lunaway_db::conflation::begin_writer(pool).await?;
+    let stats =
+        lunaway_db::municipalities::replace_all(&mut tx, &parsed.municipalities, fetched_at)
+            .await?;
+    tx.commit().await?;
+    tracing::info!(
+        communes = stats.municipalities,
+        places_changed = stats.places_changed,
+        "communes stored"
+    );
+    Ok(MunicipalitiesReport {
+        cached,
+        municipalities: stats.municipalities,
+        districts: parsed.districts,
+        skipped: parsed.skipped,
+        places_changed: stats.places_changed,
     })
 }

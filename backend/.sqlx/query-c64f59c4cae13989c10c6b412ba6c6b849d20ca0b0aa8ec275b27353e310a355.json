@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO photos (id, place_id, account_id, status, path, thumb_path, width, height,\n                            thumb_width, thumb_height, thumbhash)\n        VALUES ($1, $2, $3, 'published', $4, $5, $6, $7, $8, $9, $10)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c64f59c4cae13989c10c6b412ba6c6b849d20ca0b0aa8ec275b27353e310a355"
+}

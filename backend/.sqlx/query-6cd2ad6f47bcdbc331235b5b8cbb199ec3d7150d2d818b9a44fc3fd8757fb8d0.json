@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT r.id FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n        WHERE ps.place_id = $1 AND r.deleted_at IS NULL AND r.id <> $2\n        ORDER BY r.id LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6cd2ad6f47bcdbc331235b5b8cbb199ec3d7150d2d818b9a44fc3fd8757fb8d0"
+}

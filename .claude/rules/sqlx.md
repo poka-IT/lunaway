@@ -18,10 +18,15 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
 - A migration is safe on a populated table: add a nullable column, backfill,
   then constrain; create indexes `CONCURRENTLY` in their own migration when
   the table is large.
-- Grants are part of the schema (`*_roles_and_grants.sql`): the API connects
-  as `lunaway_app` (SELECT on what it serves), the importers and the
-  conflation as `lunaway_ingest` (no DELETE on records or places: a gone
-  one is a tombstone the change feed reports). A migration that creates a
+- Grants are part of the schema (`*_roles_and_grants.sql`, and each later
+  migration for its tables): the API connects as `lunaway_app` (SELECT on
+  the catalogue it serves; it writes accounts and contributions, never a
+  record or a place), the importers and the conflation worker as
+  `lunaway_ingest` (no DELETE on records or places: a gone one is a
+  tombstone the change feed reports). A new place or an edit is a
+  `place_submissions` row the worker turns into a `community` record; a
+  contribution that changes what a place shows queues it in
+  `place_refresh_queue` for the worker. A migration that creates a
   table or a sequence grants it to the roles that need it, nothing more; the
   tests in `lunaway-db/tests/locks_and_roles.rs` and the role-scoped
   pipeline and API tests fail otherwise.

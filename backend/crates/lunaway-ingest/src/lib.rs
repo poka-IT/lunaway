@@ -8,6 +8,7 @@ pub mod atout_france;
 pub mod cache;
 pub mod geocode;
 pub mod http;
+pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
 pub mod run;
@@ -155,6 +156,15 @@ pub enum IngestError {
     /// A blocking task panicked or was cancelled.
     #[error("blocking task failed")]
     Blocking(#[source] tokio::task::JoinError),
+    /// A compressed payload does not inflate.
+    #[error("{what} is not readable gzip")]
+    Inflate {
+        /// The payload.
+        what: String,
+        /// The cause.
+        #[source]
+        source: std::io::Error,
+    },
     /// The cache directory or one of its files failed.
     #[error("cache file {path}")]
     Cache {

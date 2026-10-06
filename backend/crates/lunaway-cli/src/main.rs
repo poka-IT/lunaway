@@ -5,9 +5,22 @@
 //! lunaway ingest osm [--region FR-BRE]... [--refresh]
 //! lunaway ingest osm-extract [--url URL] [--refresh]
 //! lunaway ingest atout-france [--refresh]
-//! lunaway conflate [--full]
+//! lunaway ingest municipalities [--url URL] [--refresh]
+//! lunaway conflate [--full] [--watch [--every-secs 300]]
 //! lunaway stats
+//! lunaway moderation list [--limit 50]
+//! lunaway moderation approve|reject <entry-id> [--note TEXT]
+//! lunaway moderation ban <account-id> --reason TEXT
+//! lunaway moderation dismiss-issues <place-id>
+//! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
+//! lunaway accounts set-level <account-id> <level>
 //! ```
+//!
+//! The imports and the conflation run with the import role
+//! (`lunaway_ingest`); `moderation` and `accounts` write accounts and
+//! contributions, so they run with the API's role (`lunaway_app`), whose
+//! `DATABASE_URL` the API uses, and remove photo files under
+//! `LUNAWAY_MEDIA_DIR` like the API, so they run as the API's user.
 //!
 //! `DATABASE_URL` points at the database. Raw payloads are cached under
 //! `LUNAWAY_DATA_DIR/raw` (default: the repository's gitignored `data/`), so
@@ -28,6 +41,7 @@ use lunaway_ingest::{
     osm_extract, run,
 };
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "lunaway", version, about = "Lunaway data operations")]
@@ -38,6 +52,10 @@ struct Cli {
     /// Directory of the raw payload cache and other local data.
     #[arg(long, env = "LUNAWAY_DATA_DIR", default_value_os_t = default_data_dir())]
     data_dir: PathBuf,
+    /// Root of the photo files (the API's `LUNAWAY_MEDIA_DIR`), from which
+    /// moderation removes the files of removed photos.
+    #[arg(long, env = "LUNAWAY_MEDIA_DIR", default_value_os_t = default_data_dir().join("media"))]
+    media_dir: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -51,14 +69,96 @@ enum Command {
         #[command(subcommand)]
         source: Source,
     },
-    /// Merges the records changed since the last run into places.
+    /// Merges the records changed since the last run into places, applies
+    /// the community's submissions and recomputes the community summaries.
     Conflate {
         /// Reconsiders every record, not only the changed ones.
         #[arg(long)]
         full: bool,
+        /// Keeps running: a run whenever the API signals work, and at least
+        /// every `--every-secs`.
+        #[arg(long)]
+        watch: bool,
+        /// Longest pause between two runs of `--watch`, seconds.
+        #[arg(long, default_value_t = 300)]
+        every_secs: u64,
     },
     /// Prints the counts of records, places, merges and the review queue.
     Stats,
+    /// Works the moderation queue (with the API's database role).
+    Moderation {
+        #[command(subcommand)]
+        action: Moderation,
+    },
+    /// Account administration (with the API's database role).
+    Accounts {
+        #[command(subcommand)]
+        action: Accounts,
+    },
+}
+
+#[derive(Subcommand)]
+enum Moderation {
+    /// Prints the open entries, oldest first.
+    List {
+        /// Entries printed at most.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Publishes held or reported content, or accepts a place proposal.
+    Approve {
+        /// The entry.
+        id: Uuid,
+        /// Why, kept with the decision.
+        #[arg(long)]
+        note: Option<String>,
+    },
+    /// Removes held or reported content, or refuses a place proposal.
+    Reject {
+        /// The entry.
+        id: Uuid,
+        /// Why, kept with the decision.
+        #[arg(long)]
+        note: Option<String>,
+    },
+    /// Bans an account: sessions ended, sign-in refused, reviews and photos
+    /// removed (their files deleted), issue reports dismissed.
+    Ban {
+        /// The account.
+        account: Uuid,
+        /// Why, kept with the ban.
+        #[arg(long)]
+        reason: String,
+    },
+    /// Dismisses every issue reported at a place (a false night ban or
+    /// danger), so the change feed stops carrying them.
+    DismissIssues {
+        /// The place.
+        place: Uuid,
+    },
+}
+
+#[derive(Subcommand)]
+enum Accounts {
+    /// Creates an account without a device, at a granted level, and prints
+    /// its recovery code: the store reviewers sign in with it.
+    CreateDemo {
+        /// The level granted.
+        #[arg(long, default_value_t = 2, value_parser = clap::value_parser!(i16).range(0..=4))]
+        level: i16,
+        /// Its pseudonym; generated when absent.
+        #[arg(long)]
+        pseudonym: Option<String>,
+    },
+    /// Sets the level the administration grants an account (4 for a
+    /// moderator, 0 to withdraw a grant).
+    SetLevel {
+        /// The account.
+        account: Uuid,
+        /// The level.
+        #[arg(value_parser = clap::value_parser!(i16).range(0..=4))]
+        level: i16,
+    },
 }
 
 #[derive(Subcommand)]
@@ -94,6 +194,16 @@ enum Source {
     /// Atout France's classified campsites, geocoded with the BAN.
     AtoutFrance {
         /// Downloads the CSV and geocodes again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// The French communes (contours administratifs, data.gouv.fr), then
+    /// the commune of every place.
+    Municipalities {
+        /// File to download.
+        #[arg(long, default_value = lunaway_ingest::municipalities::COMMUNES_URL)]
+        url: String,
+        /// Downloads the file again instead of reading the cache.
         #[arg(long)]
         refresh: bool,
     },
@@ -242,6 +352,23 @@ async fn main() -> anyhow::Result<()> {
                         &[]
                     })?;
                 }
+                Source::Municipalities { url, refresh } => {
+                    let r = run::municipalities(&pool, &client, &cache, &url, refresh)
+                        .await
+                        .context("communes import failed")?;
+                    println!(
+                        "communes stored: {} ({} municipal districts left out, {} unusable){}",
+                        r.municipalities,
+                        r.districts,
+                        r.skipped,
+                        if r.cached {
+                            ", file from the cache"
+                        } else {
+                            ""
+                        }
+                    );
+                    println!("places whose commune changed: {}", r.places_changed);
+                }
                 Source::AtoutFrance { refresh } => {
                     let r = run::atout_france(
                         &pool,
@@ -283,10 +410,25 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Command::Conflate { full } => {
+        Command::Conflate {
+            full,
+            watch,
+            every_secs,
+        } => {
             if full {
                 let n = lunaway_db::records::mark_all_dirty(&pool).await?;
                 println!("{n} records flagged for a full rebuild");
+            }
+            if watch {
+                tracing::info!(every_secs, "conflation worker started");
+                lunaway_conflate::watch(
+                    &pool,
+                    Duration::from_secs(every_secs.max(1)),
+                    lunaway_conflate::opening::today_in_france,
+                )
+                .await
+                .context("the conflation worker cannot listen")?;
+                return Ok(());
             }
             let today = lunaway_conflate::opening::today_in_france();
             let s = lunaway_conflate::run(&pool, today)
@@ -305,6 +447,10 @@ async fn main() -> anyhow::Result<()> {
             println!(
                 "opening hours moved to today's window: {}",
                 s.opening_refreshed
+            );
+            println!(
+                "community: {} submissions applied, {} summaries changed",
+                s.submissions_applied, s.community_refreshed
             );
             if s.conflicts > 0 {
                 println!(
@@ -348,6 +494,140 @@ async fn main() -> anyhow::Result<()> {
                 "opening hours: {} places, {} parsed",
                 s.opening_hours.0, s.opening_hours.1
             );
+        }
+        Command::Moderation { action } => {
+            let media = lunaway_media::MediaStore::new(cli.media_dir);
+            moderation(&pool, &media, action).await?;
+        }
+        Command::Accounts { action } => accounts(&pool, action).await?,
+    }
+    Ok(())
+}
+
+/// Removes photo files no published or hidden photo shows any more. Every
+/// file is tried; a missing one is reported (a wrong `LUNAWAY_MEDIA_DIR`
+/// would leave the real ones served), and any failure fails the command
+/// after the others were tried.
+async fn remove_files(media: &lunaway_media::MediaStore, files: &[String]) -> anyhow::Result<()> {
+    let (mut removed, mut missing, mut failed) = (0, 0, 0);
+    for f in files {
+        match media.remove(f).await {
+            Ok(true) => removed += 1,
+            Ok(false) => {
+                missing += 1;
+                eprintln!("not found under {}: {f}", media.root().display());
+            }
+            Err(error) => {
+                failed += 1;
+                eprintln!("cannot remove {f}: {error}");
+            }
+        }
+    }
+    if !files.is_empty() {
+        println!("photo files: {removed} removed, {missing} not found, {failed} failed");
+    }
+    anyhow::ensure!(
+        failed == 0,
+        "{failed} photo files could not be removed: they are still served"
+    );
+    Ok(())
+}
+
+async fn moderation(
+    pool: &lunaway_db::PgPool,
+    media: &lunaway_media::MediaStore,
+    action: Moderation,
+) -> anyhow::Result<()> {
+    use lunaway_db::moderation::{Decided, Decision, decide, open};
+    let (id, decision, note) = match action {
+        Moderation::List { limit } => {
+            let entries = open(pool, limit.clamp(1, 1_000)).await?;
+            if entries.is_empty() {
+                println!("the queue is empty");
+            }
+            for e in entries {
+                println!(
+                    "{}  {}  {} {}  reports: {}  since {}",
+                    e.id,
+                    e.kind,
+                    e.target_type,
+                    e.target_id,
+                    e.reports,
+                    e.created_at.format("%Y-%m-%d %H:%M")
+                );
+                println!(
+                    "    author: {}  why: {}",
+                    e.account_id
+                        .map_or_else(|| "none".to_owned(), |a| a.to_string()),
+                    e.reason
+                );
+                if let Some(x) = e.excerpt {
+                    println!("    {}", x.replace('\n', " "));
+                }
+            }
+            return Ok(());
+        }
+        Moderation::Approve { id, note } => (id, Decision::Approve, note),
+        Moderation::Reject { id, note } => (id, Decision::Reject, note),
+        Moderation::Ban { account, reason } => {
+            let files = lunaway_db::accounts::ban(pool, account, &reason)
+                .await?
+                .with_context(|| format!("no account {account}"))?;
+            println!(
+                "account {account} banned: sessions ended, reviews and photos removed, \
+                 issue reports dismissed"
+            );
+            return remove_files(media, &files).await;
+        }
+        Moderation::DismissIssues { place } => {
+            let n = lunaway_db::moderation::dismiss_issues(pool, place).await?;
+            println!("{n} issue reports dismissed at {place}");
+            return Ok(());
+        }
+    };
+    match decide(pool, id, decision, note.as_deref()).await? {
+        Decided::NotFound => anyhow::bail!("no open entry {id}"),
+        Decided::Done { kind, files, .. } => {
+            let verb = if decision == Decision::Approve {
+                "approved"
+            } else {
+                "rejected"
+            };
+            println!("{kind} {id} {verb}");
+            remove_files(media, &files).await?;
+        }
+    }
+    Ok(())
+}
+
+async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result<()> {
+    match action {
+        Accounts::CreateDemo { level, pseudonym } => {
+            let pseudonym = match pseudonym {
+                Some(p) => lunaway_domain::community::pseudonym::normalize_pseudonym(&p)
+                    .map_err(|e| anyhow::anyhow!("pseudonym: {e}"))?,
+                None => lunaway_auth::generate_pseudonym(lunaway_auth::Locale::En)?,
+            };
+            let code = lunaway_auth::RecoveryCode::generate()?;
+            let display = code.display();
+            let hash = tokio::task::spawn_blocking(move || code.hash()).await??;
+            let account = lunaway_db::accounts::create_granted(pool, &pseudonym, level, &hash)
+                .await
+                .context("cannot create the demo account")?;
+            println!("account: {} ({})", account.id, account.pseudonym);
+            println!("level: {level}");
+            println!("recovery code: {display}");
+            println!(
+                "sign in from the app with this code (account recovery); it stays valid \
+                 until a new one is created"
+            );
+        }
+        Accounts::SetLevel { account, level } => {
+            anyhow::ensure!(
+                lunaway_db::accounts::set_granted_level(pool, account, level).await?,
+                "no account {account}"
+            );
+            println!("account {account}: level {level} granted");
         }
     }
     Ok(())

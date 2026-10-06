@@ -193,8 +193,36 @@ async fn privileges(pool: &PgPool, role: &str, table: &str) -> Vec<&'static str>
     out
 }
 
+/// The tables the API writes: accounts and every contribution.
+const COMMUNITY_TABLES: [&str; 15] = [
+    "accounts",
+    "device_keys",
+    "sessions",
+    "recovery_codes",
+    "account_endorsements",
+    "muted_authors",
+    "reviews",
+    "photos",
+    "confirmations",
+    "issue_reports",
+    "content_reports",
+    "moderation_queue",
+    "favorite_lists",
+    "favorite_items",
+    "place_submissions",
+];
+
+fn denied(result: Result<sqlx::postgres::PgQueryResult, sqlx::Error>, why: &str) {
+    let denied = result.expect_err(why);
+    assert_eq!(
+        denied.as_database_error().and_then(|e| e.code()).as_deref(),
+        Some("42501"),
+        "{why}: {denied}"
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
-async fn the_api_role_reads_what_it_serves_and_writes_nothing(pool: PgPool) {
+async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool) {
     for t in [
         "sources",
         "source_records",
@@ -205,32 +233,147 @@ async fn the_api_role_reads_what_it_serves_and_writes_nothing(pool: PgPool) {
         assert_eq!(
             privileges(&pool, "lunaway_app", t).await,
             ["SELECT"],
-            "lunaway_app on {t}"
+            "lunaway_app on {t}: the API reads the catalogue and writes none of it"
         );
     }
-    for t in ["match_pairs", "conflation_constraints", "_sqlx_migrations"] {
+    for t in [
+        "match_pairs",
+        "conflation_constraints",
+        "municipalities",
+        "_sqlx_migrations",
+    ] {
         assert!(
             privileges(&pool, "lunaway_app", t).await.is_empty(),
             "lunaway_app on {t}: the API serves nothing from it"
         );
     }
+    for t in COMMUNITY_TABLES {
+        assert_eq!(
+            privileges(&pool, "lunaway_app", t).await,
+            ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            "lunaway_app on {t}"
+        );
+    }
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_refresh_queue").await,
+        ["INSERT"],
+        "the API queues a place for the worker and reads nothing back"
+    );
     insert(&pool, "way/1").await;
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        2,
+        3,
         "the API reads the sources"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
-    let write = sqlx::query!("UPDATE source_records SET needs_conflation = false")
-        .execute(&app)
-        .await;
-    let denied = write.unwrap_err();
-    assert_eq!(
-        denied.as_database_error().and_then(|e| e.code()).as_deref(),
-        Some("42501"),
-        "an API compromise must not rewrite the catalogue: {denied}"
+    denied(
+        sqlx::query!("UPDATE source_records SET needs_conflation = false")
+            .execute(&app)
+            .await,
+        "an API compromise must not rewrite the catalogue",
     );
+    denied(
+        sqlx::query!(
+            r#"
+            INSERT INTO source_records (id, source_id, external_id, kind, geom, data, raw, fetched_at)
+            VALUES ($1, 'community', 'x', 'parking', ST_SetSRID(ST_MakePoint(2, 47), 4326)::geography,
+                    '{}', '{}', now())
+            "#,
+            uuid::Uuid::now_v7()
+        )
+        .execute(&app)
+        .await,
+        "not even a community record: submissions go through the worker",
+    );
+    denied(
+        sqlx::query!("UPDATE places SET name = 'x'")
+            .execute(&app)
+            .await,
+        "the API never writes a place",
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_api_role_runs_an_account_from_creation_to_deletion(pool: PgPool) {
+    use lunaway_db::{accounts, community, conflation::PlaceWrite, lists};
+    // A place to contribute to, written by the conflation's path.
+    let place = uuid::Uuid::now_v7();
+    let content = lunaway_domain::conflation::PlaceContent {
+        name: Some("Aire du Lac".into()),
+        kind: PlaceKind::MotorhomeArea,
+        position: Position::new(45.9, 6.1).unwrap(),
+        overnight: lunaway_domain::OvernightStatus::Allowed,
+        services: Vec::new(),
+        activities: Vec::new(),
+        description: None,
+        address: lunaway_domain::Address::default(),
+        price_parking_eur: None,
+        price_services_eur: None,
+        max_height_m: None,
+        capacity: None,
+        opening_hours: None,
+        website: None,
+        phone: None,
+        stars: None,
+    };
+    let opening = conflation::OpeningEval {
+        parsed: false,
+        intervals: None,
+        until: None,
+        window_start: None,
+    };
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    conflation::upsert_place(
+        &mut tx,
+        PlaceWrite {
+            id: place,
+            content: &content,
+            provenance: &[],
+            opening: &opening,
+            descriptions: &[],
+            external_links: &[],
+            content_hash: "h",
+        },
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let (account, _) = accounts::create_with_key(
+        &app,
+        accounts::NewAccount {
+            pseudonym: "Hérisson du Vercors",
+            thumbprint: &"t".repeat(43),
+            public_key: &[4; 65],
+            session_hash: &[1; 32],
+            session_ttl_secs: 3_600.0,
+        },
+    )
+    .await
+    .unwrap();
+    community::rate(&app, account.id, place, 4).await.unwrap();
+    community::rate(&app, account.id, place, 5)
+        .await
+        .expect("queueing a place already queued needs no more than INSERT");
+    let list = lists::create(&app, account.id, "Été")
+        .await
+        .unwrap()
+        .unwrap();
+    lists::add(&app, account.id, list, &[place])
+        .await
+        .unwrap()
+        .unwrap();
+    accounts::set_recovery_code(&app, account.id, &[7; 32])
+        .await
+        .unwrap();
+    let deleted = accounts::delete_account(&app, account.id).await.unwrap();
+    assert!(
+        deleted.is_some(),
+        "the API role deletes an account and what hangs on it"
+    );
+    assert!(accounts::account(&app, account.id).await.unwrap().is_none());
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -242,21 +385,69 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
             "lunaway_ingest on {t}: a gone place is a tombstone the feed reports, never a DELETE"
         );
     }
-    for t in ["place_sources", "match_pairs"] {
+    for t in ["place_sources", "match_pairs", "municipalities"] {
         assert_eq!(
             privileges(&pool, "lunaway_ingest", t).await,
             ["SELECT", "INSERT", "UPDATE", "DELETE"],
             "lunaway_ingest on {t}"
         );
     }
-    for t in ["sources", "conflation_constraints"] {
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "sources").await,
+        ["SELECT"],
+        "lunaway_ingest on sources: written by migrations only"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "conflation_constraints").await,
+        ["SELECT", "INSERT"],
+        "the worker ties an edit to its place; it never rewrites a human decision"
+    );
+    for t in ["reviews", "photos", "confirmations", "issue_reports"] {
         assert_eq!(
             privileges(&pool, "lunaway_ingest", t).await,
             ["SELECT"],
-            "lunaway_ingest on {t}: written by migrations and by moderation only"
+            "lunaway_ingest on {t}: read for the community summary"
         );
     }
-    for t in ["sync_epoch", "_sqlx_migrations"] {
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_submissions").await,
+        ["SELECT", "UPDATE"]
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_refresh_queue").await,
+        ["SELECT", "INSERT", "DELETE"],
+        "the worker takes the queue, and queues for its summary step what a conflation changed"
+    );
+    for (column, granted) in [
+        ("id", true),
+        ("banned_at", true),
+        ("trust_level", true),
+        ("pseudonym", false),
+        ("moderation_removals", false),
+    ] {
+        let has = sqlx::query_scalar!(
+            r#"SELECT has_column_privilege('lunaway_ingest', 'accounts', $1, 'SELECT') AS "has!""#,
+            column
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            has, granted,
+            "the worker sees which accounts are banned and their level, nothing else ({column})"
+        );
+    }
+    for t in [
+        "sync_epoch",
+        "_sqlx_migrations",
+        "sessions",
+        "device_keys",
+        "recovery_codes",
+        "muted_authors",
+        "favorite_lists",
+        "content_reports",
+        "moderation_queue",
+    ] {
         assert!(
             privileges(&pool, "lunaway_ingest", t).await.is_empty(),
             "lunaway_ingest on {t}"
@@ -281,7 +472,10 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         None,
     )
     .await;
-    assert!(constraint.is_err(), "an import cannot write a constraint");
+    assert!(
+        constraint.is_err(),
+        "an import cannot replace a human decision on a pair"
+    );
 }
 
 #[tokio::test]

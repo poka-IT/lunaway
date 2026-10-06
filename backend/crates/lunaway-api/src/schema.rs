@@ -6,19 +6,22 @@
 use std::sync::Arc;
 
 use async_graphql::{
-    Context, EmptyMutation, EmptySubscription, Object, Result, Schema, SchemaBuilder,
-    dataloader::DataLoader,
+    Context, EmptySubscription, Object, Result, Schema, SchemaBuilder, dataloader::DataLoader,
 };
-use lunaway_db::{PgPool, places, sources};
+use lunaway_db::{PgPool, places, search, sources};
 use lunaway_domain::{BBox, PlaceKind, Position};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, SemaphorePermit};
 use uuid::Uuid;
 
 use crate::{
+    auth::{self, Challenges},
+    community_types::{Account, FavoriteList},
     config::ApiConfig,
     error::{internal, invalid_input, resync},
     guard::DocumentGuard,
     loaders::PlaceSourcesLoader,
+    mutation::MutationRoot,
+    quota::QuotaLimiter,
     rate::RateLimiter,
     types::{
         AppConfig, BBoxInput, ChangeSet, GqlPlaceKind, LatLonInput, Place, PlaceConnection,
@@ -27,15 +30,18 @@ use crate::{
 };
 
 /// The schema served by the API.
-pub type LunawaySchema = Schema<QueryRoot, EmptyMutation, EmptySubscription>;
+pub type LunawaySchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 /// Deepest selection accepted: the deepest legitimate one,
 /// `changes { places { sources { source { id } } } }`, is 5.
 const MAX_DEPTH: usize = 12;
-/// Cost budget of one request. A full sync page (`changes` with 1000 places
-/// and every field, sources and provenance included) costs about 55 000;
-/// asking for two in one request does not fit.
-pub const MAX_COMPLEXITY: usize = 60_000;
+/// Cost budget of one request. The app's sync page (`changes` with 1000
+/// places and every field it stores, sources, provenance, descriptions,
+/// ratings and links included) costs 67 000 (`tests/budget.rs`), with room
+/// for the other feed fields (cover photos, counts, issues, verification,
+/// municipality: about 82 000 with all of them); two pages in one request
+/// do not fit.
+pub const MAX_COMPLEXITY: usize = 90_000;
 /// Cost of a root field that queries the database, on top of what it
 /// returns: a page size bounds the rows, not the work (a two-letter search
 /// scans every name), so each such field takes a fixed share of the budget
@@ -67,6 +73,14 @@ pub struct ApiState {
     /// Cost of the requests running, across clients
     /// (`Limits::max_cost_in_flight`): what bounds the memory they hold.
     pub(crate) in_flight: Arc<Semaphore>,
+    /// Per-account and per-client quotas of actions.
+    pub(crate) quotas: Arc<QuotaLimiter>,
+    /// Sign-in challenges handed out.
+    pub(crate) challenges: Arc<Challenges>,
+    /// The photo files.
+    pub(crate) media: Arc<lunaway_media::MediaStore>,
+    /// Photos processed at once (`MediaConfig::workers`).
+    pub(crate) media_workers: Arc<Semaphore>,
 }
 
 impl ApiState {
@@ -78,11 +92,28 @@ impl ApiState {
             config.limits.rate_per_second,
         ));
         let in_flight = Arc::new(Semaphore::new(config.limits.max_cost_in_flight));
+        let quotas = Arc::new(QuotaLimiter::new(config.quotas));
+        // A key from the system's random source; without one no sign-in
+        // could work, and the process cannot serve its purpose.
+        #[allow(
+            clippy::expect_used,
+            reason = "the API cannot sign anyone in without a random source"
+        )]
+        let challenges = Arc::new(
+            Challenges::new(config.auth.challenge_ttl, config.auth.max_challenges)
+                .expect("the system random source must supply a challenge key"),
+        );
+        let media = Arc::new(lunaway_media::MediaStore::new(config.media.dir.clone()));
+        let media_workers = Arc::new(Semaphore::new(config.media.workers));
         Self {
             pool,
             config,
             rate,
             in_flight,
+            quotas,
+            challenges,
+            media,
+            media_workers,
         }
     }
 }
@@ -100,8 +131,8 @@ pub(crate) struct CostShare(pub(crate) std::sync::Mutex<Option<OwnedSemaphorePer
 /// The schema's builder with its limits, before any data is attached: what
 /// the SDL export needs.
 #[must_use]
-pub fn schema_builder() -> SchemaBuilder<QueryRoot, EmptyMutation, EmptySubscription> {
-    Schema::build(QueryRoot, EmptyMutation, EmptySubscription)
+pub fn schema_builder() -> SchemaBuilder<QueryRoot, MutationRoot, EmptySubscription> {
+    Schema::build(QueryRoot, MutationRoot, EmptySubscription)
         .limit_depth(MAX_DEPTH)
         .limit_complexity(MAX_COMPLEXITY)
         .extension(DocumentGuard)
@@ -139,7 +170,7 @@ const DEFAULT_SEARCH_RESULTS: i32 = 20;
 /// The cost of a list field read from the database: its page size times the
 /// cost of one item, plus [`DB_FIELD_COST`]. An explicit `null` costs as the
 /// default page it falls back to.
-fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
+pub(crate) fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
     usize::try_from(first.unwrap_or(default))
         .unwrap_or(0)
         .saturating_mul(child)
@@ -225,12 +256,12 @@ fn parse_after(after: Option<&str>) -> Result<Option<Uuid>> {
         .transpose()
 }
 
-fn state<'a>(ctx: &Context<'a>) -> &'a ApiState {
+pub(crate) fn state<'a>(ctx: &Context<'a>) -> &'a ApiState {
     ctx.data_unchecked::<ApiState>()
 }
 
 /// The pool, once this request may run one more query.
-async fn db<'a>(ctx: &Context<'a>) -> Result<(&'a PgPool, Option<SemaphorePermit<'a>>)> {
+pub(crate) async fn db<'a>(ctx: &Context<'a>) -> Result<(&'a PgPool, Option<SemaphorePermit<'a>>)> {
     let permit = match ctx.data_opt::<RequestDb>() {
         Some(share) => Some(share.0.acquire().await.map_err(|e| internal(&e))?),
         None => None,
@@ -379,9 +410,9 @@ impl QueryRoot {
             .map(Place))
     }
 
-    /// Searches names and municipalities, without accents and tolerating a
-    /// typo; the best matches first and, among equal matches, the nearest to
-    /// `near`.
+    /// Searches names, address cities and municipalities, without accents:
+    /// whole words first, then word prefixes, then typo-tolerant matches;
+    /// among equal matches, the nearest to `near` first.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,
@@ -400,10 +431,31 @@ impl QueryRoot {
             .transpose()
             .map_err(|e| invalid_input(format!("near: {e}")))?;
         let (pool, _permit) = db(ctx).await?;
-        let rows = places::search(pool, text, near, first)
+        let rows = search::search(pool, text, near, first)
             .await
             .map_err(|e| internal(&e))?;
         Ok(rows.into_iter().map(Place).collect())
+    }
+
+    /// The signed-in account, with its level and what the next one needs.
+    /// `UNAUTHENTICATED` without a valid session.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn my_account(&self, ctx: &Context<'_>) -> Result<Account> {
+        let viewer = auth::require(ctx).await?;
+        Account::load(ctx, viewer).await
+    }
+
+    /// The signed-in account's favourite lists, by name, with their places.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn my_favorite_lists(&self, ctx: &Context<'_>) -> Result<Vec<FavoriteList>> {
+        let viewer = auth::require(ctx).await?;
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::lists::lists(pool, viewer.id())
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(Into::into)
+            .collect())
     }
 }
 

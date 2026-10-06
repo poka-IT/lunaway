@@ -34,13 +34,16 @@
 //! (sites only, a car park's `capacity` counts cars) `capacity:pitches` and
 //! `capacity`; `opening_hours`; `website`/`contact:website`/`url`;
 //! `phone`/`contact:phone`/`contact:mobile`; `addr:*`; `description:fr` or
-//! `description`; `stars`; `wikidata`.
+//! `description`; `stars`; `wikidata`; `wikipedia`. Every description is
+//! also kept by language: `description:<lang>` under its BCP 47 tag,
+//! `description` as undetermined (`und`).
 
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use lunaway_domain::{
     InvalidPosition, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service,
+    UNDETERMINED_LANGUAGE, is_language_tag,
 };
 use serde::Deserialize;
 
@@ -473,6 +476,30 @@ fn first_tag<'a>(tags: &'a BTreeMap<String, String>, keys: &[&str]) -> Option<&'
     keys.iter().find_map(|k| tag(tags, k))
 }
 
+/// `description` (language undetermined) and every `description:<lang>`
+/// whose suffix is a language tag (not `description:payment`).
+fn descriptions_of(tags: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    if let Some(d) = tag(tags, "description") {
+        out.insert(UNDETERMINED_LANGUAGE.to_owned(), d.to_owned());
+    }
+    let from = (
+        std::ops::Bound::Included("description:"),
+        std::ops::Bound::Unbounded,
+    );
+    for (key, _) in tags.range::<str, _>(from) {
+        let Some(lang) = key.strip_prefix("description:") else {
+            break;
+        };
+        if is_language_tag(lang)
+            && let Some(d) = tag(tags, key)
+        {
+            out.insert(lang.to_owned(), d.to_owned());
+        }
+    }
+    out
+}
+
 pub(crate) fn kind_of(tags: &BTreeMap<String, String>) -> Option<PlaceKind> {
     match (tag(tags, "tourism"), tag(tags, "amenity")) {
         (Some("caravan_site"), _) => {
@@ -648,7 +675,9 @@ fn map_element(element: &Element) -> Result<(NormalizedRecord, Option<Bounds>), 
     r.phone = first_tag(tags, &["phone", "contact:phone", "contact:mobile"]).map(str::to_owned);
     r.description = first_tag(tags, &["description:fr", "description"]).map(str::to_owned);
     r.stars = tag(tags, "stars").and_then(parse_stars);
+    r.descriptions = descriptions_of(tags);
     r.wikidata = tag(tags, "wikidata").map(str::to_owned);
+    r.wikipedia = tag(tags, "wikipedia").map(str::to_owned);
     r.osm_ref = Some(format!("{}/{}", element.kind, element.id));
     r.address.street = match (tag(tags, "addr:housenumber"), tag(tags, "addr:street")) {
         (Some(n), Some(s)) => Some(format!("{n} {s}")),
@@ -667,6 +696,30 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
+
+    #[test]
+    fn descriptions_are_kept_by_language() {
+        let tags: BTreeMap<String, String> = [
+            ("description", "Au bord du lac"),
+            ("description:en", "By the lake"),
+            ("description:payment", "cash only"),
+            ("description:de", " "),
+            ("descriptions", "not a description key"),
+            ("name", "Aire du lac"),
+        ]
+        .iter()
+        .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+        .collect();
+        let got = descriptions_of(&tags);
+        assert_eq!(
+            got.into_iter().collect::<Vec<_>>(),
+            [
+                ("en".to_owned(), "By the lake".to_owned()),
+                ("und".to_owned(), "Au bord du lac".to_owned())
+            ],
+            "a key that is not a language, or an empty value, is no description"
+        );
+    }
 
     #[test]
     fn charges_read_only_unambiguous_prices() {

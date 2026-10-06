@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                DELETE FROM moderation_queue\n                WHERE target_id = $1 AND kind = 'held_review' AND status = 'open'\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa105e7aa5b4674dd80f7da02316ca1f0cc8761a59ea79365bb8c3bdd27de271"
+}

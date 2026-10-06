@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE favorite_lists SET name = $3, updated_at = now() WHERE id = $1 AND account_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cab936b79e7a04bcd81011d29fac3c3af5c19a59d090a9171eaa22ffba4aad68"
+}

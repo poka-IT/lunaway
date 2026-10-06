@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE accounts SET trust_level = $2 WHERE id = $1 AND trust_level <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad526363996dd2215f1c3f07da77d611bd6bd6aaf8aa8b9e49000d9a9d9a04b1"
+}

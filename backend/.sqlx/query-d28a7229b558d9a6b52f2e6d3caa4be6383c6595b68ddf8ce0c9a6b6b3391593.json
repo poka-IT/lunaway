@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE place_submissions SET status = 'withdrawn', decided_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d28a7229b558d9a6b52f2e6d3caa4be6383c6595b68ddf8ce0c9a6b6b3391593"
+}

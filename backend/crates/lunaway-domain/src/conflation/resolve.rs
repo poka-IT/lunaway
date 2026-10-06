@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Activity, OvernightStatus, PlaceKind, Service,
     geo::Position,
-    record::{Address, NormalizedRecord},
+    record::{Address, NormalizedRecord, UNDETERMINED_LANGUAGE, is_language_tag},
     source::SourceId,
 };
 
@@ -120,6 +120,8 @@ pub struct Contribution<'a> {
     pub external_id: &'a str,
     /// When the source was read.
     pub fetched_at: DateTime<Utc>,
+    /// Page of the record at the source (`https://www.openstreetmap.org/way/1`).
+    pub external_url: Option<&'a str>,
     /// What it says.
     pub record: &'a NormalizedRecord,
 }
@@ -181,6 +183,31 @@ pub struct FieldProvenance {
     pub alternatives: Vec<AlternativeValue>,
 }
 
+/// A description in one language, with the source that wrote it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizedText {
+    /// BCP 47 tag, [`UNDETERMINED_LANGUAGE`] when the source does not say.
+    pub lang: String,
+    /// The text.
+    pub text: String,
+    /// The source that wrote it.
+    pub source_id: SourceId,
+}
+
+/// A page about the place elsewhere: its record at a source, its Wikidata
+/// item, its Wikipedia article.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalLink {
+    /// The source that gave the link.
+    pub source_id: SourceId,
+    /// An `https` (or `http`) URL.
+    pub url: String,
+    /// A short neutral label (`OpenStreetMap`, `Wikidata`, `Wikipedia`).
+    pub label: String,
+}
+
 /// A place with its values and their provenance.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedPlace {
@@ -188,6 +215,11 @@ pub struct ResolvedPlace {
     pub content: PlaceContent,
     /// One entry per field that has a value, in [`Field::ALL`] order.
     pub provenance: Vec<FieldProvenance>,
+    /// Every description of every source, the source most trusted for
+    /// descriptions first, one entry per language and text.
+    pub descriptions: Vec<LocalizedText>,
+    /// Links to the place's pages elsewhere, one per URL.
+    pub external_links: Vec<ExternalLink>,
 }
 
 fn rank(field: Field, x: &Contribution<'_>, y: &Contribution<'_>) -> Ordering {
@@ -357,6 +389,8 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
 
     let mut provenance = r.provenance;
     provenance.sort_by_key(|p| Field::ALL.iter().position(|f| f.api_name() == p.field));
+    let descriptions = descriptions(contributions);
+    let external_links = external_links(contributions);
     Some(ResolvedPlace {
         content: PlaceContent {
             name,
@@ -377,7 +411,148 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
             stars,
         },
         provenance,
+        descriptions,
+        external_links,
     })
+}
+
+/// Longest description kept, in characters: OpenStreetMap allows 255, a
+/// contributor 2000.
+const MAX_DESCRIPTION_CHARS: usize = 2_000;
+
+/// Every description, the source most trusted for descriptions first, then
+/// by language; the same text in the same language is kept once. A record
+/// stored before descriptions were kept by language gives its single
+/// description as undetermined.
+fn descriptions(contributions: &[Contribution<'_>]) -> Vec<LocalizedText> {
+    let mut ranked: Vec<&Contribution<'_>> = contributions.iter().collect();
+    ranked.sort_by(|x, y| rank(Field::Description, x, y));
+    let mut out: Vec<LocalizedText> = Vec::new();
+    for c in ranked {
+        let legacy = c
+            .record
+            .description
+            .as_ref()
+            .filter(|_| c.record.descriptions.is_empty())
+            .map(|d| (UNDETERMINED_LANGUAGE, d));
+        let texts = c
+            .record
+            .descriptions
+            .iter()
+            .map(|(l, t)| (l.as_str(), t))
+            .chain(legacy);
+        for (lang, text) in texts {
+            let text = text.trim();
+            if text.is_empty() || !is_language_tag(lang) {
+                continue;
+            }
+            let text: String = text.chars().take(MAX_DESCRIPTION_CHARS).collect();
+            if out.iter().any(|d| d.lang == lang && d.text == text) {
+                continue;
+            }
+            out.push(LocalizedText {
+                lang: lang.to_owned(),
+                text,
+                source_id: c.source.clone(),
+            });
+        }
+    }
+    out
+}
+
+/// The label of a source's own record page.
+fn source_label(source: &SourceId) -> String {
+    if *source == SourceId::OSM {
+        "OpenStreetMap".to_owned()
+    } else if *source == SourceId::ATOUT_FRANCE {
+        "Atout France".to_owned()
+    } else if *source == SourceId::COMMUNITY {
+        "Lunaway".to_owned()
+    } else {
+        source.as_str().to_owned()
+    }
+}
+
+/// Whether `url` is a plain web link: `https://` or `http://`, then a host.
+fn is_web_url(url: &str) -> bool {
+    ["https://", "http://"].iter().any(|scheme| {
+        url.get(..scheme.len())
+            .is_some_and(|p| p.eq_ignore_ascii_case(scheme))
+            && url.len() > scheme.len()
+            && !url.chars().any(char::is_whitespace)
+    })
+}
+
+/// Percent-encodes a Wikipedia title for a URL path, spaces as underscores.
+fn encode_title(title: &str) -> String {
+    let mut out = String::with_capacity(title.len());
+    for b in title.trim().replace(' ', "_").bytes() {
+        if b.is_ascii_alphanumeric() || b"_-.~()!,:'".contains(&b) {
+            out.push(char::from(b));
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// The URL of an OpenStreetMap `wikipedia` value (`fr:Lac d'Annecy`).
+#[must_use]
+pub fn wikipedia_url(value: &str) -> Option<String> {
+    let (lang, title) = value.split_once(':')?;
+    let lang = lang.trim();
+    let valid_lang = (2..=12).contains(&lang.len())
+        && lang.bytes().all(|b| b.is_ascii_lowercase() || b == b'-')
+        && !lang.starts_with('-');
+    let title = title.trim();
+    (valid_lang && !title.is_empty() && title.len() <= 255)
+        .then(|| format!("https://{lang}.wikipedia.org/wiki/{}", encode_title(title)))
+}
+
+/// Links to the place elsewhere: each record's page at its source, then the
+/// Wikidata items and Wikipedia articles the records cite, one per URL.
+fn external_links(contributions: &[Contribution<'_>]) -> Vec<ExternalLink> {
+    let mut ordered: Vec<&Contribution<'_>> = contributions.iter().collect();
+    ordered.sort_by(|x, y| {
+        x.source
+            .cmp(y.source)
+            .then(x.external_id.cmp(y.external_id))
+    });
+    let mut out: Vec<ExternalLink> = Vec::new();
+    let mut push = |source: &SourceId, url: String, label: &str| {
+        if is_web_url(&url) && !out.iter().any(|l| l.url == url) {
+            out.push(ExternalLink {
+                source_id: source.clone(),
+                url,
+                label: label.to_owned(),
+            });
+        }
+    };
+    for c in &ordered {
+        if let Some(url) = c.external_url {
+            push(c.source, url.trim().to_owned(), &source_label(c.source));
+        }
+    }
+    for c in &ordered {
+        if let Some(q) = c
+            .record
+            .wikidata
+            .as_deref()
+            .and_then(super::normalize::normalize_wikidata)
+        {
+            push(
+                c.source,
+                format!("https://www.wikidata.org/wiki/{q}"),
+                "Wikidata",
+            );
+        }
+    }
+    for c in &ordered {
+        if let Some(url) = c.record.wikipedia.as_deref().and_then(wikipedia_url) {
+            push(c.source, url, "Wikipedia");
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -433,12 +608,14 @@ mod tests {
                 source: &SourceId::OSM,
                 external_id: "way/1",
                 fetched_at: at(5),
+                external_url: None,
                 record: &o,
             },
             Contribution {
                 source: &SourceId::ATOUT_FRANCE,
                 external_id: "49610:varennes",
                 fetched_at: at(5),
+                external_url: None,
                 record: &a,
             },
         ];
@@ -510,12 +687,14 @@ mod tests {
                 source: &SourceId::OSM,
                 external_id: "node/1",
                 fetched_at: at(1),
+                external_url: None,
                 record: &old,
             },
             Contribution {
                 source: &SourceId::OSM,
                 external_id: "node/2",
                 fetched_at: at(4),
+                external_url: None,
                 record: &new,
             },
         ];
@@ -530,12 +709,14 @@ mod tests {
             source: &SourceId::OSM,
             external_id: "way/1",
             fetched_at: at(5),
+            external_url: None,
             record: &o,
         };
         let y = Contribution {
             source: &SourceId::ATOUT_FRANCE,
             external_id: "k",
             fetched_at: at(5),
+            external_url: None,
             record: &a,
         };
         assert_eq!(resolve(&[x, y]), resolve(&[y, x]));
@@ -549,6 +730,7 @@ mod tests {
             source: &SourceId::OSM,
             external_id: "n",
             fetched_at: at(1),
+            external_url: None,
             record: &o,
         }])
         .unwrap();
@@ -559,6 +741,120 @@ mod tests {
     #[test]
     fn nothing_to_resolve() {
         assert!(resolve(&[]).is_none());
+    }
+
+    #[test]
+    fn descriptions_keep_every_language_and_their_source() {
+        let mut o = osm_campsite();
+        o.description = Some("Au bord de la Loire".into());
+        o.descriptions = [
+            ("und".to_owned(), "Au bord de la Loire".to_owned()),
+            ("en".to_owned(), "On the Loire".to_owned()),
+            ("payment".to_owned(), "cash".to_owned()),
+        ]
+        .into();
+        let mut c = osm_campsite();
+        c.descriptions = [("fr".to_owned(), "Calme, ombragé".to_owned())].into();
+        let mut legacy = atout_campsite();
+        legacy.description = Some("Classé trois étoiles".into());
+        let place = resolve(&[
+            Contribution {
+                source: &SourceId::OSM,
+                external_id: "way/1",
+                fetched_at: at(5),
+                external_url: Some("https://www.openstreetmap.org/way/1"),
+                record: &o,
+            },
+            Contribution {
+                source: &SourceId::COMMUNITY,
+                external_id: "submission/1",
+                fetched_at: at(5),
+                external_url: None,
+                record: &c,
+            },
+            Contribution {
+                source: &SourceId::ATOUT_FRANCE,
+                external_id: "k",
+                fetched_at: at(5),
+                external_url: None,
+                record: &legacy,
+            },
+        ])
+        .unwrap();
+        let got: Vec<(&str, &str, &str)> = place
+            .descriptions
+            .iter()
+            .map(|d| (d.lang.as_str(), d.text.as_str(), d.source_id.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("fr", "Calme, ombragé", "community"),
+                ("en", "On the Loire", "osm"),
+                ("und", "Au bord de la Loire", "osm"),
+                ("und", "Classé trois étoiles", "atout-france"),
+            ],
+            "the community leads on descriptions, a key that is not a language is dropped, \
+             and a record stored before descriptions by language still gives its text"
+        );
+    }
+
+    #[test]
+    fn links_point_to_the_records_and_the_items_they_cite() {
+        let mut o = osm_campsite();
+        o.wikidata = Some("q42".into());
+        o.wikipedia = Some("fr:Lac d'Annecy".into());
+        let mut a = atout_campsite();
+        a.wikidata = Some("Q42".into());
+        let place = resolve(&[
+            Contribution {
+                source: &SourceId::ATOUT_FRANCE,
+                external_id: "k",
+                fetched_at: at(5),
+                external_url: Some("javascript:alert(1)"),
+                record: &a,
+            },
+            Contribution {
+                source: &SourceId::OSM,
+                external_id: "way/1",
+                fetched_at: at(5),
+                external_url: Some("https://www.openstreetmap.org/way/1"),
+                record: &o,
+            },
+        ])
+        .unwrap();
+        let got: Vec<(&str, &str, &str)> = place
+            .external_links
+            .iter()
+            .map(|l| (l.source_id.as_str(), l.url.as_str(), l.label.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (
+                    "osm",
+                    "https://www.openstreetmap.org/way/1",
+                    "OpenStreetMap"
+                ),
+                (
+                    "atout-france",
+                    "https://www.wikidata.org/wiki/Q42",
+                    "Wikidata"
+                ),
+                (
+                    "osm",
+                    "https://fr.wikipedia.org/wiki/Lac_d'Annecy",
+                    "Wikipedia"
+                ),
+            ],
+            "web links only, one per URL"
+        );
+        assert_eq!(
+            wikipedia_url("en:AC/DC Lane?x#y"),
+            Some("https://en.wikipedia.org/wiki/AC%2FDC_Lane%3Fx%23y".to_owned())
+        );
+        assert_eq!(wikipedia_url("no colon"), None);
+        assert_eq!(wikipedia_url("FR:Title"), None);
     }
 
     #[test]

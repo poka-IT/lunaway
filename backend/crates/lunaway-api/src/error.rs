@@ -6,6 +6,9 @@
 //! | `INVALID_INPUT` | fixes the request: a page too large, a box too wide, a malformed cursor, a document too large or too complex |
 //! | `RATE_LIMITED` | waits `extensions.retryAfterSeconds` (also the `Retry-After` header) and tries again |
 //! | `RESYNC` | drops its cursor and syncs again from scratch (`since: null`) |
+//! | `UNAUTHENTICATED` | signs in again (`authChallenge`, `signIn`): no session, or an expired or unknown one, on a field that needs an account; with `extensions.reason` `FRESH_SIGN_IN`, the action needs a session opened in the last ten minutes, so the device signs in again and retries |
+//! | `FORBIDDEN` | does not offer the action: the account's level is below `extensions.requiredLevel` (its level is `extensions.level`), or the account is banned |
+//! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's |
 //! | `INTERNAL` | tries again later; the server logged the cause |
 
 use std::time::Duration;
@@ -20,6 +23,59 @@ pub(crate) const RATE_LIMITED: &str = "RATE_LIMITED";
 pub(crate) const RESYNC: &str = "RESYNC";
 /// The server failed.
 pub(crate) const INTERNAL: &str = "INTERNAL";
+/// No valid session on a field that needs one.
+pub(crate) const UNAUTHENTICATED: &str = "UNAUTHENTICATED";
+/// The account may not do this.
+pub(crate) const FORBIDDEN: &str = "FORBIDDEN";
+/// The target does not exist, or is not the caller's.
+pub(crate) const NOT_FOUND: &str = "NOT_FOUND";
+
+/// No session, or one the server does not know.
+pub(crate) fn unauthenticated() -> Error {
+    Error::new("sign in first: this needs a valid session")
+        .extend_with(|_, e| e.set("code", UNAUTHENTICATED))
+}
+
+/// The action needs a session opened by a recent signed sign-in.
+pub(crate) fn fresh_sign_in() -> Error {
+    Error::new("this action needs a recent sign-in: sign in again with the device key, then retry")
+        .extend_with(|_, e| {
+            e.set("code", UNAUTHENTICATED);
+            e.set("reason", "FRESH_SIGN_IN");
+        })
+}
+
+/// The account's level is below what the action needs.
+pub(crate) fn level_too_low(required: u8, level: u8) -> Error {
+    Error::new(format!(
+        "this needs trust level {required}; the account is at level {level}"
+    ))
+    .extend_with(move |_, e| {
+        e.set("code", FORBIDDEN);
+        e.set("requiredLevel", i32::from(required));
+        e.set("level", i32::from(level));
+    })
+}
+
+/// The account may not do this (banned, or another rule).
+pub(crate) fn forbidden(message: impl Into<String>) -> Error {
+    Error::new(message.into()).extend_with(|_, e| e.set("code", FORBIDDEN))
+}
+
+/// The target does not exist or belongs to someone else.
+pub(crate) fn not_found(what: &str) -> Error {
+    Error::new(format!("no such {what}")).extend_with(|_, e| e.set("code", NOT_FOUND))
+}
+
+/// A per-account or per-client quota is spent: the same shape as the cost
+/// budget's refusal, so the client waits `retryAfterSeconds`.
+pub(crate) fn quota_spent(what: &str, wait: Duration) -> Error {
+    let seconds = retry_after_seconds(wait);
+    Error::new(format!("too many {what}; wait and try again")).extend_with(move |_, e| {
+        e.set("code", RATE_LIMITED);
+        e.set("retryAfterSeconds", seconds);
+    })
+}
 
 /// The client sent something the API refuses: a page too large, a box too
 /// wide, a malformed cursor.

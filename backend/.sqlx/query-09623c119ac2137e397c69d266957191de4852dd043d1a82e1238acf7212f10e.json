@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT EXISTS (\n            SELECT 1 FROM reviews\n            WHERE account_id = $1 AND place_id <> $2 AND lower(body) = lower($3)\n              AND updated_at > now() - interval '30 days'\n        ) AS \"e!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "e!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "09623c119ac2137e397c69d266957191de4852dd043d1a82e1238acf7212f10e"
+}

@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE chain(id, deleted, next, depth) AS (\n            SELECT id, deleted_at IS NOT NULL, merged_into, 0 FROM places WHERE id = $1\n            UNION ALL\n            SELECT p.id, p.deleted_at IS NOT NULL, p.merged_into, c.depth + 1\n            FROM chain c JOIN places p ON p.id = c.next\n            WHERE c.deleted AND c.depth < 8\n        )\n        SELECT c.id AS \"id!\", p.kind, ST_Y(p.geom::geometry) AS \"lat!\",\n               ST_X(p.geom::geometry) AS \"lon!\"\n        FROM chain c JOIN places p ON p.id = c.id\n        WHERE NOT c.deleted\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "f53a0850ffd4fe67697240d650d14278ba4c1a92aa1223bd9133b1cfcf8d1e7e"
+}

@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id FROM places p\n        WHERE p.id = ANY($1) AND p.deleted_at IS NULL\n          AND (p.verification = 'to_verify' OR EXISTS (\n                SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n                WHERE ps.place_id = p.id AND r.source_id = $2))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0a5ccb6d41ab2c4e83869a094877e1128979ec59fe17be629098518b84815ce9"
+}

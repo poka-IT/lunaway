@@ -24,6 +24,7 @@ use tokio::sync::Semaphore;
 
 use crate::{
     LunawaySchema,
+    auth::{Credentials, ViewerCell},
     client::ClientKey,
     config::Limits,
     error::{INTERNAL, INVALID_INPUT, RATE_LIMITED, retry_after_seconds},
@@ -62,7 +63,7 @@ struct Body {
     operation_name: Option<String>,
 }
 
-fn error_body(code: &str, message: &str, retry_after: Option<u64>) -> Vec<u8> {
+pub(crate) fn error_body(code: &str, message: &str, retry_after: Option<u64>) -> Vec<u8> {
     let mut extensions = serde_json::json!({ "code": code });
     if let Some(seconds) = retry_after {
         extensions["retryAfterSeconds"] = seconds.into();
@@ -75,7 +76,7 @@ fn error_body(code: &str, message: &str, retry_after: Option<u64>) -> Vec<u8> {
     .into_bytes()
 }
 
-fn json(status: StatusCode, body: Vec<u8>) -> Response {
+pub(crate) fn json(status: StatusCode, body: Vec<u8>) -> Response {
     (
         status,
         [(
@@ -87,11 +88,11 @@ fn json(status: StatusCode, body: Vec<u8>) -> Response {
         .into_response()
 }
 
-fn refuse(status: StatusCode, code: &str, message: &str) -> Response {
+pub(crate) fn refuse(status: StatusCode, code: &str, message: &str) -> Response {
     json(status, error_body(code, message, None))
 }
 
-fn wait_response(status: StatusCode, message: &str, wait: Duration) -> Response {
+pub(crate) fn wait_response(status: StatusCode, message: &str, wait: Duration) -> Response {
     let seconds = retry_after_seconds(wait);
     let mut response = json(status, error_body(RATE_LIMITED, message, Some(seconds)));
     response
@@ -110,7 +111,7 @@ fn is_json(headers: &HeaderMap) -> bool {
 
 /// Whether reading the body failed on the size limit rather than the
 /// connection.
-fn over_limit(error: &axum::Error) -> bool {
+pub(crate) fn over_limit(error: &axum::Error) -> bool {
     let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(error);
     while let Some(c) = cause {
         if c.is::<http_body_util::LengthLimitError>() {
@@ -129,6 +130,7 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
         .ok()
         .map(|c| c.0);
     let key = ClientKey::from_request(peer, &parts.headers);
+    let credentials = Credentials::from_headers(&parts.headers);
     let limits = endpoint.limits;
     if !is_json(&parts.headers) {
         return refuse(
@@ -198,6 +200,8 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
 
     let mut request = async_graphql::Request::new(body.query)
         .data(key)
+        .data(credentials)
+        .data(ViewerCell::default())
         .data(RequestDb(Semaphore::new(limits.db_queries_per_request)))
         .data(CostShare::default());
     if let Some(variables) = body.variables {

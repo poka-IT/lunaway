@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO account_endorsements (account_id, kind, by_account_id)\n        SELECT id, $2, $3 FROM accounts WHERE id = $1\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "122ecdfb85616bae9e6015beab284004f3a37d8b8dd2a134e1c0f35e6a569da5"
+}

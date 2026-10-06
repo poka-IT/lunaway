@@ -6,9 +6,12 @@
 //! `Query.config` answers, `LUNAWAY_DEV_CORS=1` opens the API to pages
 //! served from this machine. The limits (`LUNAWAY_MAX_*`, `LUNAWAY_RATE_*`,
 //! `LUNAWAY_DB_*`) and their defaults are listed in `.env.example` and
-//! documented on `lunaway_api::Limits`.
+//! documented on `lunaway_api::Limits`; so are the quotas
+//! (`LUNAWAY_QUOTA_*`), the trust thresholds (`LUNAWAY_TL*`), the sessions
+//! (`LUNAWAY_SESSION_DAYS`) and the photos (`LUNAWAY_MEDIA_DIR`,
+//! `LUNAWAY_MEDIA_BASE_URL`, `LUNAWAY_MAX_UPLOAD_BYTES`).
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Context;
 use lunaway_api::{ApiConfig, ApiState};
@@ -30,7 +33,15 @@ async fn main() -> anyhow::Result<()> {
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL is not set")?;
     let config = ApiConfig::from_env();
     let limits = config.limits;
-    tracing::info!(dev_cors = config.dev_cors, ?limits, "configuration read");
+    tracing::info!(
+        dev_cors = config.dev_cors,
+        ?limits,
+        quotas = ?config.quotas,
+        trust = ?config.trust,
+        media_dir = %config.media.dir.display(),
+        media_base_url = %config.media.base_url,
+        "configuration read"
+    );
     let pool = lunaway_db::connect_with(
         &database_url,
         PoolConfig {
@@ -41,6 +52,19 @@ async fn main() -> anyhow::Result<()> {
     )
     .await
     .context("cannot reach the database")?;
+
+    // Expired sessions are never used again; dropping them hourly keeps the
+    // table to the live ones.
+    let purge_pool = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(3_600)).await;
+            match lunaway_db::accounts::purge_expired_sessions(&purge_pool).await {
+                Ok(n) => tracing::info!(sessions = n, "expired sessions dropped"),
+                Err(error) => tracing::error!(%error, "cannot drop expired sessions"),
+            }
+        }
+    });
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

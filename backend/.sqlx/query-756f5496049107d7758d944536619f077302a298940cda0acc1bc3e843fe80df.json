@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH computed AS (\n            SELECT p.id, m.name, m.code\n            FROM places p\n            LEFT JOIN LATERAL (\n                SELECT name, code FROM municipalities mm\n                WHERE ST_Covers(mm.geom, p.geom::geometry)\n                ORDER BY code LIMIT 1\n            ) m ON true\n            WHERE p.deleted_at IS NULL\n        )\n        UPDATE places p\n        SET municipality = c.name, municipality_code = c.code,\n            updated_at = now(), updated_seq = nextval('place_change_seq')\n        FROM computed c\n        WHERE p.id = c.id\n          AND (p.municipality IS DISTINCT FROM c.name\n               OR p.municipality_code IS DISTINCT FROM c.code)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "756f5496049107d7758d944536619f077302a298940cda0acc1bc3e843fe80df"
+}

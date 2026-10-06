@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO favorite_items (list_id, place_id)\n            SELECT DISTINCT $1::uuid, live.id\n            FROM places p\n            JOIN places live ON live.id = CASE WHEN p.deleted_at IS NULL THEN p.id\n                                               ELSE p.merged_into END\n            WHERE p.id = ANY($2) AND live.deleted_at IS NULL\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "94e6a67e594a1ee8c87121c00163821e44efab06638b98e30535f51acf230507"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO favorite_items (list_id, place_id)\n        SELECT $1, p.id FROM places p WHERE p.id = ANY($2)\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ed305035836d4cf564b14e5159c7c062d4f6bd432a0671adb68e1e7ea7212990"
+}

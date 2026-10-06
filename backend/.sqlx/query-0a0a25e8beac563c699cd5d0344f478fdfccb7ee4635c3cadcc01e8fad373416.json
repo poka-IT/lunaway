@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO content_reports (id, target_type, target_id, reporter_id, reason, note)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        ON CONFLICT (target_type, target_id, reporter_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a0a25e8beac563c699cd5d0344f478fdfccb7ee4635c3cadcc01e8fad373416"
+}

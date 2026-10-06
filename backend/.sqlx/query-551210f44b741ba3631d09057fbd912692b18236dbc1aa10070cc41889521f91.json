@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT q.id FROM moderation_queue q JOIN reviews r ON r.id = q.target_id\n         WHERE q.kind = 'held_review' AND r.body LIKE '%example.com%'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "moderation_queue",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "551210f44b741ba3631d09057fbd912692b18236dbc1aa10070cc41889521f91"
+}

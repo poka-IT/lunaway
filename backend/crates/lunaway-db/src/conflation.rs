@@ -7,7 +7,9 @@ use chrono::{DateTime, NaiveDate, Utc};
 use futures_util::TryStreamExt;
 use lunaway_domain::{
     NormalizedRecord, OpeningInterval, Position, SourceId,
-    conflation::{ConstraintKind, FieldProvenance, MatchScore, PlaceContent},
+    conflation::{
+        ConstraintKind, ExternalLink, FieldProvenance, LocalizedText, MatchScore, PlaceContent,
+    },
 };
 use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
@@ -29,7 +31,7 @@ impl std::fmt::Debug for WriterTx {
 }
 
 impl WriterTx {
-    fn conn(&mut self) -> &mut PgConnection {
+    pub(crate) fn conn(&mut self) -> &mut PgConnection {
         &mut self.0
     }
 
@@ -119,6 +121,8 @@ pub struct StoredRecord {
     pub source_id: SourceId,
     /// Its id in the source.
     pub external_id: String,
+    /// Its page at the source.
+    pub external_url: Option<String>,
     /// When it was read.
     pub fetched_at: DateTime<Utc>,
     /// Whether the source no longer lists it.
@@ -135,7 +139,8 @@ pub struct StoredRecord {
 pub async fn records(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<StoredRecord>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT id, source_id, external_id, fetched_at, deleted_at IS NOT NULL AS "deleted!", data
+        SELECT id, source_id, external_id, external_url, fetched_at,
+               deleted_at IS NOT NULL AS "deleted!", data
         FROM source_records WHERE id = ANY($1) ORDER BY id
         "#,
         ids,
@@ -149,6 +154,7 @@ pub async fn records(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<StoredRecord
                 source_id: SourceId::new(&r.source_id)
                     .map_err(|e| DbError::decode("source id", e))?,
                 external_id: r.external_id,
+                external_url: r.external_url,
                 fetched_at: r.fetched_at,
                 deleted: r.deleted,
                 record: serde_json::from_value(r.data).map_err(|e| DbError::decode("record", e))?,
@@ -392,6 +398,10 @@ pub struct PlaceWrite<'a> {
     pub provenance: &'a [FieldProvenance],
     /// Evaluated opening hours.
     pub opening: &'a OpeningEval,
+    /// Every description, by language.
+    pub descriptions: &'a [LocalizedText],
+    /// Pages about the place elsewhere.
+    pub external_links: &'a [ExternalLink],
     /// Digest of content and records.
     pub content_hash: &'a str,
 }
@@ -405,7 +415,9 @@ fn intervals_json(o: &OpeningEval) -> Result<Option<serde_json::Value>, DbError>
 }
 
 /// Inserts or rewrites a place, taking the next position in the change feed
-/// and clearing any tombstone.
+/// and clearing any tombstone. The place takes the name of the commune that
+/// covers its point, when the communes are loaded. The community summary is
+/// left as it is: the worker computes it from the contributions.
 ///
 /// # Errors
 ///
@@ -416,19 +428,33 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
     let activities: Vec<String> = c.activities.iter().map(|s| s.code().to_owned()).collect();
     let provenance =
         serde_json::to_value(p.provenance).map_err(|e| DbError::decode("provenance", e))?;
+    let descriptions =
+        serde_json::to_value(p.descriptions).map_err(|e| DbError::decode("descriptions", e))?;
+    let links =
+        serde_json::to_value(p.external_links).map_err(|e| DbError::decode("external links", e))?;
     let capacity = c.capacity.and_then(|v| i32::try_from(v).ok());
     let stars = c.stars.map(i16::from);
     sqlx::query!(
         r#"
+        WITH m AS (
+            SELECT code, name FROM municipalities
+            WHERE ST_Covers(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326))
+            ORDER BY code LIMIT 1
+        )
         INSERT INTO places
             (id, kind, name, geom, overnight, services, activities, description, street,
              postcode, city, country_code, price_parking_eur, price_services_eur, max_height_m,
              capacity, opening_hours, opening_hours_parsed, opening_intervals,
              opening_window_start, website, phone, stars, provenance, content_hash,
-             opening_intervals_until)
-        VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
-                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
-                $26, $27)
+             opening_intervals_until, descriptions, external_links, municipality,
+             municipality_code)
+        SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
+               $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
+               $26, $27, $28, $29, m.name, m.code
+        FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true
+        -- Ends the SELECT before ON CONFLICT: the parser would otherwise
+        -- read the conflict clause as part of the join.
+        WHERE true
         ON CONFLICT (id) DO UPDATE SET
             kind = EXCLUDED.kind, name = EXCLUDED.name, geom = EXCLUDED.geom,
             overnight = EXCLUDED.overnight, services = EXCLUDED.services,
@@ -444,6 +470,9 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             opening_window_start = EXCLUDED.opening_window_start,
             website = EXCLUDED.website, phone = EXCLUDED.phone, stars = EXCLUDED.stars,
             provenance = EXCLUDED.provenance, content_hash = EXCLUDED.content_hash,
+            descriptions = EXCLUDED.descriptions, external_links = EXCLUDED.external_links,
+            municipality = EXCLUDED.municipality,
+            municipality_code = EXCLUDED.municipality_code,
             updated_at = now(), updated_seq = nextval('place_change_seq'),
             deleted_at = NULL, merged_into = NULL
         "#,
@@ -474,6 +503,8 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         provenance,
         p.content_hash,
         p.opening.until,
+        descriptions,
+        links,
     )
     .execute(tx.conn())
     .await?;

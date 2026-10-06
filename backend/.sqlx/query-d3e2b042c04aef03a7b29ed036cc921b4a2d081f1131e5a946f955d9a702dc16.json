@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE place_submissions SET status = $2, decided_at = now()\n                WHERE id = $1 AND status = 'proposed'\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d3e2b042c04aef03a7b29ed036cc921b4a2d081f1131e5a946f955d9a702dc16"
+}

@@ -13,10 +13,13 @@ publish.workspace = true
 anyhow.workspace = true
 async-graphql.workspace = true
 axum.workspace = true
+base64.workspace = true
 chrono.workspace = true
 http-body-util.workspace = true
+lunaway-auth.workspace = true
 lunaway-db.workspace = true
 lunaway-domain.workspace = true
+lunaway-media.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -28,7 +31,9 @@ uuid.workspace = true
 [dev-dependencies]
 lunaway-conflate.workspace = true
 lunaway-ingest.workspace = true
+p256.workspace = true
 sqlx.workspace = true
+tempfile.workspace = true
 tower.workspace = true
 
 [lints]

@@ -1,0 +1,103 @@
+# Insults and slurs, French and English, matched as whole words (or whole
+# word sequences) on folded text: lower case, accents removed, punctuation
+# as spaces. A text holding one is held for a moderator; a pseudonym
+# holding one is refused.
+#
+# Kept short on purpose. A word that is also an ordinary word or a place
+# name in French, English, Spanish or Italian is left out, because whole-word
+# matching cannot tell the two apart: "retard" (a delay in French), "con"
+# (Spanish "with"), "negro" (Spanish and Italian "black"), "batard" (a
+# bread), "tapette" (a fly swatter), "raton" (a raccoon), "chink" (an
+# English idiom), "mongol". Entries are written folded, one per line.
+
+# French
+connard
+connards
+connasse
+connasses
+salope
+salopes
+salaud
+salauds
+encule
+encules
+enculee
+enculees
+enfoire
+enfoires
+enfoiree
+pouffiasse
+pouffiasses
+pute
+putes
+fils de pute
+trou du cul
+ducon
+nique ta mere
+ntm
+pede
+pedes
+tafiole
+tarlouze
+gouine
+gouines
+travelo
+travelos
+negre
+negres
+negresse
+bougnoule
+bougnoules
+youpin
+youpins
+bicot
+bicots
+bamboula
+chinetoque
+chintok
+sale juif
+sale arabe
+sale negre
+sous race
+sac a merde
+
+# English
+asshole
+assholes
+bitch
+bitches
+cunt
+cunts
+motherfucker
+motherfuckers
+fuck you
+faggot
+faggots
+nigger
+niggers
+nigga
+niggas
+dickhead
+dickheads
+wanker
+wankers
+twat
+twats
+slut
+sluts
+whore
+whores
+kike
+kikes
+spic
+spics
+paki
+pakis
+gook
+gooks
+wetback
+wetbacks
+tranny
+retarded
+kill yourself
+kys

@@ -12,26 +12,43 @@ repository = "https://github.com/poka-IT/lunaway"
 publish = false
 
 [workspace.dependencies]
+lunaway-auth = { path = "crates/lunaway-auth" }
 lunaway-conflate = { path = "crates/lunaway-conflate" }
 lunaway-db = { path = "crates/lunaway-db" }
 lunaway-domain = { path = "crates/lunaway-domain" }
 lunaway-ingest = { path = "crates/lunaway-ingest" }
+lunaway-media = { path = "crates/lunaway-media" }
 anyhow = "1.0.104"
+# argon2id for the recovery codes, through `hash_password_into` only: no
+# PHC strings, so no password-hash crate.
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc"] }
 # Without the default features: no multipart (uploads written to temporary
 # files), no GraphiQL or Playground pages, no e-mail validator.
 async-graphql = { version = "7.2.1", default-features = false, features = ["dataloader", "uuid", "chrono"] }
-axum = "0.8.9"
+# `multipart` for the photo upload (`POST /upload`) only.
+axum = { version = "0.8.9", features = ["multipart"] }
 backon = "1.6.0"
+base64 = "0.22.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
 chrono-tz = "0.10.4"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 csv = "1.4.0"
+flate2 = "1.1.10"
 futures-util = { version = "0.3.34", default-features = false }
+getrandom = "0.4.3"
+# HMAC-SHA-256 of the sign-in challenges, so the server keeps no state for
+# a challenge until it is answered.
+hmac = "0.13.0"
 http-body-util = "0.1.5"
+# Decoders of the formats a photo may arrive in, nothing else: the app
+# converts HEIC on the device.
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 # Without `auto-timezone`/`auto-country`: the zone comes from the country code,
 # which avoids embedding a coordinate-to-zone database.
 opening-hours = { version = "2.1.4", default-features = false }
 osmpbf = "0.3.8"
+# ECDSA P-256 (ES256) verification of the device keys.
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "std"] }
 proptest = "1.11.0"
 # rustls without a bundled crypto provider: the ring provider is installed by
 # lunaway-ingest, so the HTTP client and sqlx share one TLS stack and the
@@ -44,6 +61,7 @@ sha2 = "0.11.0"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "macros", "migrate", "uuid", "chrono", "json"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
+thumbhash = "0.1.0"
 tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "signal", "time", "fs", "io-util", "sync"] }
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.7.1", features = ["trace", "cors", "compression-gzip"] }
@@ -51,6 +69,9 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 unicode-normalization = "0.1.25"
 uuid = { version = "1.27.0", features = ["v7", "serde"] }
+# Lossy WebP through libwebp (vendored C, built by `cc`); the `image`
+# conversions are not needed.
+webp = { version = "0.3.1", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

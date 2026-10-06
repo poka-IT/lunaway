@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT moderation_removals FROM accounts a JOIN sessions s ON s.account_id = a.id\n         WHERE s.token_hash = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "moderation_removals",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "moderation_removals"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1097f35d88d2e2e3b935c4dae64da1e330c84fbebd4f44bbec477888fcfddf82"
+}

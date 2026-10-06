@@ -1,8 +1,10 @@
 //! Lunaway conflation over the database: records of several sources that
 //! describe one spot become one place, incrementally.
 //!
-//! A run, in one transaction under the writers' lock:
+//! A run, under the writers' lock:
 //!
+//! 0. writes the accepted community submissions (new places, edits) into
+//!    records of the `community` source, flagged like any changed record;
 //! 1. takes the records flagged since the last run (new, changed, retired,
 //!    or under a new human constraint);
 //! 2. scores each of them against the live records within reach (the
@@ -15,7 +17,15 @@
 //! 5. resolves each place's fields and writes only the places whose content
 //!    or records changed; places left without records become tombstones
 //!    pointing to the place that absorbed them;
-//! 6. refreshes the opening intervals whose window is not today's.
+//! 6. refreshes the opening intervals whose window is not today's;
+//! 7. recomputes the community summary (ratings, photos, issues,
+//!    verification) of the places the API queued, of the places holding a
+//!    community record or waiting for verification that the run wrote, of
+//!    the places that absorbed another, and of those showing an issue
+//!    whose window passed.
+//!
+//! Steps 0, 1 to 6, and 7 are three writer transactions, so a write of the
+//! API never waits for a whole conflation.
 //!
 //! Grouping a whole component again makes the result independent of the
 //! history: an incremental run lands where a full rebuild would, and a run
@@ -32,15 +42,17 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use chrono::NaiveDate;
 use lunaway_db::{
     DbError, PgPool,
+    community::WorkListener,
     conflation::{
         self as store, OpeningEval, PairRow, PlaceState, PlaceWrite, StoredRecord, WriterTx,
     },
+    submissions, summary,
 };
 use lunaway_domain::{
     SourceId,
     conflation::{
-        Constraint, ConstraintKind, Contribution, Decision, FieldProvenance, MatchCandidate,
-        MergeEdge, PlaceContent, cluster, resolve,
+        Constraint, ConstraintKind, Contribution, Decision, ExternalLink, FieldProvenance,
+        LocalizedText, MatchCandidate, MergeEdge, PlaceContent, cluster, resolve,
         score::{ACCURACY_CAP_M, MAX_KIND_RADIUS_M, score},
     },
 };
@@ -87,6 +99,10 @@ pub struct RunStats {
     pub conflicts: usize,
     /// Places whose opening intervals moved to today's window.
     pub opening_refreshed: usize,
+    /// Community submissions written into records (new places, edits).
+    pub submissions_applied: u64,
+    /// Places whose community summary changed.
+    pub community_refreshed: u64,
 }
 
 /// Runs `f` on a blocking thread: CPU work over a millisecond must not hold
@@ -107,18 +123,67 @@ async fn blocking<T: Send + 'static>(
 /// [`ConflateError`] when the database fails; the transaction is rolled back
 /// and the flags stay, so the next run retries.
 pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateError> {
-    let mut tx = store::begin_writer(pool).await?;
     let mut stats = RunStats::default();
+    // Three short writer transactions rather than one: the API writes
+    // `place_submissions` (a withdrawal, a deletion) and the refresh queue,
+    // and must not wait for a whole conflation behind locks on those rows.
+    let mut tx = store::begin_writer(pool).await?;
+    let applied = submissions::apply_accepted(&mut tx).await?;
+    tx.commit().await?;
+    stats.submissions_applied = applied.created + applied.edited;
+
+    let mut tx = store::begin_writer(pool).await?;
     let dirty = store::dirty(&mut tx).await?;
     stats.dirty = dirty.len();
     if !dirty.is_empty() {
-        conflate(&mut tx, &dirty, today, &mut stats).await?;
+        let changed = conflate(&mut tx, &dirty, today, &mut stats).await?;
         store::clear_dirty(&mut tx, &dirty).await?;
+        submissions::link_created_places(&mut tx).await?;
+        let mut queued = changed.heirs;
+        queued.extend(submissions::places_to_verify(&mut tx, &changed.written).await?);
+        summary::queue(&mut tx, &queued).await?;
     }
     stats.opening_refreshed = refresh_opening(&mut tx, today).await?;
     tx.commit().await?;
+
+    let mut tx = store::begin_writer(pool).await?;
+    let mut to_refresh: BTreeSet<Uuid> = summary::take_queue(&mut tx).await?.into_iter().collect();
+    to_refresh.extend(summary::with_expired_issues(&mut tx).await?);
+    let to_refresh: Vec<Uuid> = to_refresh.into_iter().collect();
+    stats.community_refreshed = summary::refresh(&mut tx, &to_refresh).await?;
+    tx.commit().await?;
     tracing::info!(?stats, "conflation done");
     Ok(stats)
+}
+
+/// Runs the conflation whenever the API signals work (a contribution, a
+/// submission, a moderation decision), and at least every `every` for the
+/// imports and the daily opening hours. `today` gives the local date of
+/// each run. Errors are logged and the loop goes on after `every`: a
+/// database restart must not stop the worker.
+///
+/// # Errors
+///
+/// [`ConflateError`] only when the first connection to listen fails.
+pub async fn watch(
+    pool: &PgPool,
+    every: std::time::Duration,
+    today: impl Fn() -> NaiveDate,
+) -> Result<(), ConflateError> {
+    let mut listener = WorkListener::connect(pool).await?;
+    let settle = std::time::Duration::from_millis(300);
+    loop {
+        if let Err(error) = run(pool, today()).await {
+            tracing::error!(%error, "conflation run failed; next attempt later");
+        }
+        match listener.wait(every, settle).await {
+            Ok(woken) => tracing::debug!(woken, "conflation worker wakes"),
+            Err(error) => {
+                tracing::error!(%error, "listening for work failed");
+                tokio::time::sleep(every).await;
+            }
+        }
+    }
 }
 
 /// The pairs worth storing among `candidate_pairs`, and how many were
@@ -153,12 +218,22 @@ fn score_pairs(
     (kept, scored, merges, reviews)
 }
 
+/// The places a conflation step changed that the community summary may
+/// depend on.
+struct Changed {
+    /// Places that absorbed a tombstoned one.
+    heirs: Vec<Uuid>,
+    /// Places written.
+    written: Vec<Uuid>,
+}
+
+/// Conflates the records `dirty`.
 async fn conflate(
     tx: &mut WriterTx,
     dirty: &[Uuid],
     today: NaiveDate,
     stats: &mut RunStats,
-) -> Result<(), ConflateError> {
+) -> Result<Changed, ConflateError> {
     // 2. Score the flagged records against everything within reach.
     let dirty_records = store::records(tx, dirty).await?;
     let live_dirty: Vec<Uuid> = dirty_records
@@ -242,18 +317,25 @@ async fn conflate(
                 content: &w.content,
                 provenance: &w.provenance,
                 opening: &w.opening,
+                descriptions: &w.descriptions,
+                external_links: &w.external_links,
                 content_hash: &w.hash,
             },
         )
         .await?;
     }
     store::relink(tx, &plan.relink_records, &plan.links).await?;
+    let mut heirs = Vec::new();
     for (old, heir) in &plan.tombstones {
         if store::tombstone(tx, *old, *heir).await? {
             stats.tombstoned += 1;
+            heirs.extend(*heir);
         }
     }
-    Ok(())
+    Ok(Changed {
+        heirs,
+        written: plan.writes.iter().map(|w| w.id).collect(),
+    })
 }
 
 /// What the grouping of a set of records starts from.
@@ -284,6 +366,10 @@ pub struct PlannedPlace {
     pub provenance: Vec<FieldProvenance>,
     /// Evaluated opening hours.
     pub opening: OpeningEval,
+    /// Every description, by language.
+    pub descriptions: Vec<LocalizedText>,
+    /// Pages about the place elsewhere.
+    pub external_links: Vec<ExternalLink>,
     /// Digest of content and records.
     pub hash: String,
 }
@@ -376,6 +462,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
                 source: &r.source_id,
                 external_id: &r.external_id,
                 fetched_at: r.fetched_at,
+                external_url: r.external_url.as_deref(),
                 record: &r.record,
             })
             .collect();
@@ -386,7 +473,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
             .iter()
             .map(|r| (*r, place, clustering.link_score.get(r).copied()))
             .collect();
-        let hash = digest(&resolved.content, &resolved.provenance, &group_links)?;
+        let hash = digest(&resolved, &group_links)?;
         match input.states.get(&place) {
             Some(s) if !s.deleted && s.content_hash == hash => {
                 out.unchanged += 1;
@@ -408,6 +495,8 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
             content: resolved.content,
             provenance: resolved.provenance,
             opening,
+            descriptions: resolved.descriptions,
+            external_links: resolved.external_links,
             hash,
         });
     }
@@ -472,16 +561,22 @@ async fn component_closure(
     Ok(all)
 }
 
-/// Digest of what a client sees of a place: its values, their provenance
-/// and its records with their scores.
+/// Digest of what a client sees of a place: its values, their provenance,
+/// its descriptions and links, and its records with their scores.
 fn digest(
-    content: &PlaceContent,
-    provenance: &[FieldProvenance],
+    resolved: &lunaway_domain::conflation::ResolvedPlace,
     links: &[(Uuid, Uuid, Option<f64>)],
 ) -> Result<String, ConflateError> {
     let mut sorted: Vec<(Uuid, Option<f64>)> = links.iter().map(|l| (l.0, l.2)).collect();
     sorted.sort_by_key(|l| l.0);
-    let json = serde_json::to_vec(&(content, provenance, sorted)).map_err(ConflateError::Digest)?;
+    let json = serde_json::to_vec(&(
+        &resolved.content,
+        &resolved.provenance,
+        &resolved.descriptions,
+        &resolved.external_links,
+        sorted,
+    ))
+    .map_err(ConflateError::Digest)?;
     Ok(Sha256::digest(&json)
         .iter()
         .map(|b| format!("{b:02x}"))

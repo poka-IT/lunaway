@@ -1,6 +1,8 @@
 //! Runtime configuration of the API, read from the environment.
 
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
+
+use lunaway_domain::community::trust::Thresholds;
 
 /// What the app is told about the server's policy (`Query.config`), and how
 /// the server protects itself.
@@ -13,6 +15,14 @@ pub struct ApiConfig {
     pub dev_cors: bool,
     /// Bounds on requests, clients and the database.
     pub limits: Limits,
+    /// Sessions and sign-in challenges.
+    pub auth: AuthConfig,
+    /// What each account and each client may do per period.
+    pub quotas: Quotas,
+    /// The numbers behind the trust levels.
+    pub trust: Thresholds,
+    /// Where photos go and how they are served.
+    pub media: MediaConfig,
 }
 
 impl Default for ApiConfig {
@@ -21,7 +31,225 @@ impl Default for ApiConfig {
             min_app_version: "0.1.0".to_owned(),
             dev_cors: false,
             limits: Limits::default(),
+            auth: AuthConfig::default(),
+            quotas: Quotas::default(),
+            trust: Thresholds::default(),
+            media: MediaConfig::default(),
         }
+    }
+}
+
+/// Sessions and sign-in challenges.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AuthConfig {
+    /// How long a session lives without use; each use pushes it back
+    /// (`LUNAWAY_SESSION_DAYS`, 60).
+    pub session_ttl: Duration,
+    /// How long a sign-in challenge may be answered (five minutes).
+    pub challenge_ttl: Duration,
+    /// Answered challenges remembered at once (until they expire), all
+    /// clients together: past it, sign-ins wait for old ones to expire
+    /// (`LUNAWAY_MAX_CHALLENGES`). Handing a challenge out stores nothing.
+    pub max_challenges: usize,
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            session_ttl: Duration::from_secs(60 * 86_400),
+            challenge_ttl: Duration::from_secs(300),
+            max_challenges: 1_000_000,
+        }
+    }
+}
+
+/// A number of uses per period: a bucket of `count` that refills over
+/// `period`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Quota {
+    /// Uses allowed at once.
+    pub count: u32,
+    /// Time to regain them all.
+    pub period: Duration,
+}
+
+impl Quota {
+    const fn per(count: u32, seconds: u64) -> Self {
+        Self {
+            count,
+            period: Duration::from_secs(seconds),
+        }
+    }
+}
+
+const MINUTE: u64 = 60;
+const HOUR: u64 = 3_600;
+const DAY: u64 = 86_400;
+
+/// What a client (an address) or an account may do per period, on top of
+/// the cost budget. The state stays in memory, keyed by account id or by
+/// the client key; no address is stored. Each is read from
+/// `LUNAWAY_QUOTA_<NAME>` as `<count>/<seconds>`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Quotas {
+    /// Sign-in challenges per client (`CHALLENGE`).
+    pub challenge: Quota,
+    /// Sign-ins per client (`SIGN_IN`): 10 a minute.
+    pub sign_in: Quota,
+    /// Accounts created per client (`ACCOUNT_CREATION`): 5 an hour.
+    pub account_creation: Quota,
+    /// Recovery code attempts per client (`RECOVERY`): 5 an hour.
+    pub recovery: Quota,
+    /// Ratings per account (`RATING`).
+    pub rating: Quota,
+    /// Written reviews per account (`REVIEW`): 20 a day.
+    pub review: Quota,
+    /// Photos per account (`PHOTO`): 30 a day.
+    pub photo: Quota,
+    /// Content and issue reports per account (`REPORT`): 50 a day.
+    pub report: Quota,
+    /// Confirmations per account (`CONFIRMATION`).
+    pub confirmation: Quota,
+    /// New places and edits per account (`SUBMISSION`).
+    pub submission: Quota,
+    /// Changes to favourite lists per account (`LIST`).
+    pub list: Quota,
+    /// Other account changes (profile, recovery code, mutes, devices) per
+    /// account (`ACCOUNT`).
+    pub account: Quota,
+    /// Accounts a level-2 account sponsors, or a level-4 account nominates
+    /// (`ENDORSEMENT`): each sponsorship makes a level-1 account at once.
+    pub endorsement: Quota,
+}
+
+impl Default for Quotas {
+    fn default() -> Self {
+        Self {
+            challenge: Quota::per(30, MINUTE),
+            sign_in: Quota::per(10, MINUTE),
+            account_creation: Quota::per(5, HOUR),
+            recovery: Quota::per(5, HOUR),
+            rating: Quota::per(200, DAY),
+            review: Quota::per(20, DAY),
+            photo: Quota::per(30, DAY),
+            report: Quota::per(50, DAY),
+            confirmation: Quota::per(200, DAY),
+            submission: Quota::per(30, DAY),
+            list: Quota::per(2_000, DAY),
+            account: Quota::per(100, DAY),
+            endorsement: Quota::per(5, DAY),
+        }
+    }
+}
+
+impl Quotas {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let read = |name: &str, default: Quota| {
+            lookup(&format!("LUNAWAY_QUOTA_{name}"))
+                .and_then(|v| {
+                    let (count, seconds) = v.trim().split_once('/')?;
+                    let count = count.trim().parse::<u32>().ok().filter(|n| *n > 0)?;
+                    let seconds = seconds.trim().parse::<u64>().ok().filter(|n| *n > 0)?;
+                    Some(Quota::per(count, seconds))
+                })
+                .unwrap_or(default)
+        };
+        Self {
+            challenge: read("CHALLENGE", d.challenge),
+            sign_in: read("SIGN_IN", d.sign_in),
+            account_creation: read("ACCOUNT_CREATION", d.account_creation),
+            recovery: read("RECOVERY", d.recovery),
+            rating: read("RATING", d.rating),
+            review: read("REVIEW", d.review),
+            photo: read("PHOTO", d.photo),
+            report: read("REPORT", d.report),
+            confirmation: read("CONFIRMATION", d.confirmation),
+            submission: read("SUBMISSION", d.submission),
+            list: read("LIST", d.list),
+            account: read("ACCOUNT", d.account),
+            endorsement: read("ENDORSEMENT", d.endorsement),
+        }
+    }
+}
+
+/// Where photos are stored and from where they are served.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaConfig {
+    /// Root of the content-addressed files (`LUNAWAY_MEDIA_DIR`; default
+    /// the repository's `data/media`; production `/srv/data/media`, which
+    /// Caddy serves under `/media/`).
+    pub dir: PathBuf,
+    /// Public URL of that root, ending with `/`
+    /// (`LUNAWAY_MEDIA_BASE_URL`, default `https://api.lunaway.net/media/`).
+    pub base_url: String,
+    /// Photos processed at once: decoding holds up to a few hundred
+    /// megabytes (`LUNAWAY_MEDIA_WORKERS`, 2).
+    pub workers: usize,
+    /// Largest upload body, bytes (`LUNAWAY_MAX_UPLOAD_BYTES`, 10 MiB);
+    /// Caddy allows the same on `/upload` only.
+    pub max_upload_bytes: usize,
+}
+
+impl Default for MediaConfig {
+    fn default() -> Self {
+        Self {
+            dir: PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data/media")),
+            base_url: "https://api.lunaway.net/media/".to_owned(),
+            workers: 2,
+            max_upload_bytes: 10 * 1024 * 1024,
+        }
+    }
+}
+
+impl MediaConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let text = |key: &str| {
+            lookup(key)
+                .map(|v| v.trim().to_owned())
+                .filter(|v| !v.is_empty())
+        };
+        let base_url = text("LUNAWAY_MEDIA_BASE_URL")
+            .filter(|u| u.starts_with("https://") || u.starts_with("http://"))
+            .map_or(d.base_url, |u| {
+                if u.ends_with('/') { u } else { format!("{u}/") }
+            });
+        Self {
+            dir: text("LUNAWAY_MEDIA_DIR").map_or(d.dir, PathBuf::from),
+            base_url,
+            workers: text("LUNAWAY_MEDIA_WORKERS")
+                .and_then(|v| v.parse::<usize>().ok())
+                .filter(|n| (1..=16).contains(n))
+                .unwrap_or(d.workers),
+            max_upload_bytes: text("LUNAWAY_MAX_UPLOAD_BYTES")
+                .and_then(|v| v.parse::<usize>().ok())
+                .filter(|n| *n > 0)
+                .unwrap_or(d.max_upload_bytes),
+        }
+    }
+
+    /// The public URL of a file stored at `relative`.
+    #[must_use]
+    pub fn url(&self, relative: &str) -> String {
+        format!("{}{relative}", self.base_url)
+    }
+}
+
+fn thresholds_from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Thresholds {
+    let d = Thresholds::default();
+    let num = |key: &str, default: u32| {
+        lookup(key)
+            .and_then(|v| v.trim().parse::<u32>().ok())
+            .unwrap_or(default)
+    };
+    Thresholds {
+        tl1_min_age_days: num("LUNAWAY_TL1_MIN_AGE_DAYS", d.tl1_min_age_days),
+        tl1_min_confirmations: num("LUNAWAY_TL1_MIN_CONFIRMATIONS", d.tl1_min_confirmations),
+        tl2_min_age_days: num("LUNAWAY_TL2_MIN_AGE_DAYS", d.tl2_min_age_days),
+        tl2_min_contributions: num("LUNAWAY_TL2_MIN_CONTRIBUTIONS", d.tl2_min_contributions),
+        tl3_min_active_days: num("LUNAWAY_TL3_MIN_ACTIVE_DAYS", d.tl3_min_active_days),
+        tl3_min_contributions: num("LUNAWAY_TL3_MIN_CONTRIBUTIONS", d.tl3_min_contributions),
     }
 }
 
@@ -30,10 +258,12 @@ impl Default for ApiConfig {
 /// sends a viewport query per pan, the search a query per keystroke after a
 /// debounce) and stop one client from taking the server.
 ///
-/// Costs are the query complexity of `schema.rs`: a full sync page is about
-/// 55 000, a viewport of 500 places about 29 000, a search about 6 000, and
-/// every request pays 1 000 to start. The shape limits (depth, complexity,
-/// page sizes) are part of the schema and live there.
+/// Costs are the query complexity of `schema.rs`: the app's sync page is
+/// 67 000 (with descriptions, ratings and links; measured by
+/// `tests/budget.rs`), a viewport of 500 places about 29 000, a search
+/// about 6 000, a place's photos and first reviews about 15 000, and every
+/// request pays 1 000 to start. The shape limits (depth, complexity, page
+/// sizes) are part of the schema and live there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
     /// Largest request body, bytes (`LUNAWAY_MAX_BODY_BYTES`).
@@ -66,7 +296,8 @@ pub struct Limits {
     /// Server-side limit of one statement (`LUNAWAY_DB_STATEMENT_TIMEOUT_MS`).
     pub db_statement_timeout: Duration,
     /// Cost a client may spend at once (`LUNAWAY_RATE_BURST`): two full
-    /// syncs of France back to back, with room for the map.
+    /// syncs of France back to back (16 pages of 68 000 each), with room
+    /// for the app to select the other feed fields and for the map.
     pub rate_burst: u64,
     /// Cost a client regains per second (`LUNAWAY_RATE_PER_SECOND`): a
     /// viewport query per second with search beside it.
@@ -80,13 +311,13 @@ impl Default for Limits {
             max_response_bytes: 8 * 1024 * 1024,
             max_concurrent_requests: 64,
             queue_wait: Duration::from_secs(2),
-            max_cost_in_flight: 300_000,
+            max_cost_in_flight: 400_000,
             request_timeout: Duration::from_secs(20),
             db_queries_per_request: 2,
             db_pool_size: 16,
             db_acquire_timeout: Duration::from_secs(5),
             db_statement_timeout: Duration::from_secs(5),
-            rate_burst: 2_000_000,
+            rate_burst: 3_000_000,
             rate_per_second: 40_000,
         }
     }
@@ -154,10 +385,28 @@ impl ApiConfig {
             .map(|v| v.trim().to_owned())
             .filter(|v| !v.is_empty())
             .unwrap_or(default.min_app_version);
+        let auth_default = AuthConfig::default();
+        let auth = AuthConfig {
+            session_ttl: lookup("LUNAWAY_SESSION_DAYS")
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|d| (1..=365).contains(d))
+                .map_or(auth_default.session_ttl, |d| {
+                    Duration::from_secs(d * 86_400)
+                }),
+            max_challenges: lookup("LUNAWAY_MAX_CHALLENGES")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| *n > 0)
+                .unwrap_or(auth_default.max_challenges),
+            ..auth_default
+        };
         Self {
             min_app_version,
             dev_cors: lookup("LUNAWAY_DEV_CORS").is_some_and(|v| v.trim() == "1"),
             limits: Limits::from_lookup(&lookup),
+            auth,
+            quotas: Quotas::from_lookup(&lookup),
+            trust: thresholds_from_lookup(&lookup),
+            media: MediaConfig::from_lookup(&lookup),
         }
     }
 
@@ -226,14 +475,43 @@ mod tests {
 
     #[test]
     fn the_default_budget_covers_a_full_sync_of_france() {
-        // 16 pages of about 55 000 each, plus their start, measured on the
-        // database of 2026-10-06 (15 606 places).
+        // 16 pages of 67 000 each, plus their start (France, 15 606 places
+        // on 2026-10-06; the page cost is measured by tests/budget.rs).
         let l = Limits::default();
-        assert!(l.rate_burst >= 16 * 56_000 * 2, "two full syncs in a row");
+        assert!(l.rate_burst >= 16 * 68_000 * 2, "two full syncs in a row");
         assert!(
             l.rate_per_second >= 30_000,
             "a 500-place viewport every second"
         );
+    }
+
+    #[test]
+    fn quotas_thresholds_and_media_are_read() {
+        let c = with(&[
+            ("LUNAWAY_QUOTA_REVIEW", "5/60"),
+            ("LUNAWAY_QUOTA_PHOTO", "lots"),
+            ("LUNAWAY_TL1_MIN_AGE_DAYS", "0"),
+            ("LUNAWAY_MEDIA_BASE_URL", "http://127.0.0.1:8080/media"),
+            ("LUNAWAY_SESSION_DAYS", "9999"),
+        ]);
+        assert_eq!(c.quotas.review, Quota::per(5, 60));
+        assert_eq!(
+            c.quotas.photo,
+            Quotas::default().photo,
+            "a bad value keeps the default"
+        );
+        assert_eq!(
+            c.quotas.sign_in,
+            Quota::per(10, 60),
+            "the contract: 10 a minute"
+        );
+        assert_eq!(c.quotas.account_creation, Quota::per(5, 3_600));
+        assert_eq!(c.trust.tl1_min_age_days, 0);
+        assert_eq!(
+            c.media.url("photos/a.webp"),
+            "http://127.0.0.1:8080/media/photos/a.webp"
+        );
+        assert_eq!(c.auth.session_ttl, Duration::from_secs(60 * 86_400));
     }
 
     #[test]

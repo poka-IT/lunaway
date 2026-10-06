@@ -12,7 +12,16 @@ use lunaway_domain::{
 };
 use uuid::Uuid;
 
-use crate::{error::internal, loaders::PlaceSourcesLoader};
+use crate::{
+    auth,
+    community_types::{
+        GqlVerification, IssueSummary, Photo, Review, ReviewConnection, SourceRating,
+        parse_item_cursor,
+    },
+    error::{internal, invalid_input},
+    loaders::PlaceSourcesLoader,
+    schema::{DB_FIELD_COST, cost, db, state},
+};
 
 /// What a place is.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
@@ -287,6 +296,35 @@ impl From<&DomainInterval> for OpeningInterval {
     }
 }
 
+/// A description in one language, with its source.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct LocalizedText {
+    /// BCP 47 tag; `und` when the source does not say.
+    pub lang: String,
+    /// The text.
+    pub text: String,
+    /// The source that wrote it.
+    pub source_id: String,
+}
+
+/// A page about the place elsewhere.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct ExternalLink {
+    /// The source that gave the link.
+    pub source_id: String,
+    /// An http(s) URL.
+    pub url: String,
+    /// A short neutral label (`OpenStreetMap`, `Wikidata`, `Wikipedia`).
+    pub label: String,
+}
+
+/// Most photos `Place.photos` returns.
+pub const MAX_PLACE_PHOTOS: i64 = 100;
+/// Largest page of `Place.reviews`.
+pub const MAX_REVIEWS_PAGE: i32 = 50;
+/// Reviews per page when the client does not say.
+const DEFAULT_REVIEWS_PAGE: i32 = 20;
+
 /// A place to stop: one real spot, merged from every source that lists it.
 pub struct Place(pub PlaceRow);
 
@@ -444,6 +482,160 @@ impl Place {
             .iter()
             .map(FieldProvenance::from)
             .collect()
+    }
+
+    /// The commune that covers the place (French communes); null outside
+    /// them or before they are loaded.
+    async fn municipality(&self) -> Option<&str> {
+        self.0.municipality.as_deref()
+    }
+
+    /// Every description of every source, by language, the source most
+    /// trusted for descriptions first.
+    async fn descriptions(&self) -> Vec<LocalizedText> {
+        self.0
+            .descriptions
+            .iter()
+            .map(|d| LocalizedText {
+                lang: d.lang.clone(),
+                text: d.text.clone(),
+                source_id: d.source_id.to_string(),
+            })
+            .collect()
+    }
+
+    /// Ratings by source: Lunaway users' under `community`; empty while
+    /// nobody rated the place.
+    async fn ratings(&self) -> Vec<SourceRating> {
+        let c = &self.0.community;
+        match c.rating_avg {
+            Some(average) if c.rating_count > 0 => vec![SourceRating {
+                source_id: lunaway_domain::SourceId::COMMUNITY.to_string(),
+                average,
+                count: c.rating_count,
+            }],
+            _ => Vec::new(),
+        }
+    }
+
+    /// Links to the place elsewhere: its OpenStreetMap object, its
+    /// Wikidata item, its Wikipedia article.
+    async fn external_links(&self) -> Vec<ExternalLink> {
+        self.0
+            .external_links
+            .iter()
+            .map(|l| ExternalLink {
+                source_id: l.source_id.to_string(),
+                url: l.url.clone(),
+                label: l.label.clone(),
+            })
+            .collect()
+    }
+
+    /// Published reviews with text.
+    async fn review_count(&self) -> i32 {
+        self.0.community.review_count
+    }
+
+    /// Published photos.
+    async fn photo_count(&self) -> i32 {
+        self.0.community.photo_count
+    }
+
+    /// The latest published photos (three at most), for the card and the
+    /// offline copy; each carries its author, so a device hides the photos
+    /// of an author it muted.
+    async fn cover_photos(&self, ctx: &Context<'_>) -> Vec<Photo> {
+        let media = &state(ctx).config.media;
+        self.0
+            .community
+            .cover_photos
+            .iter()
+            .map(|c| Photo::from_cover(c, media))
+            .collect()
+    }
+
+    /// Issues visitors reported over the last 30 days, by kind.
+    async fn reported_issues(&self) -> Vec<IssueSummary> {
+        self.0
+            .community
+            .reported_issues
+            .iter()
+            .map(IssueSummary::from)
+            .collect()
+    }
+
+    /// `TO_VERIFY` while a place only the community describes has not been
+    /// confirmed by two accounts other than its author.
+    async fn verification(&self) -> GqlVerification {
+        self.0.community.verification.into()
+    }
+
+    /// The published photos, newest first (100 at most), without the
+    /// authors the caller muted. Read per place: it costs a database query.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn photos(&self, ctx: &Context<'_>) -> Result<Vec<Photo>> {
+        let viewer = auth::viewer(ctx).await?;
+        let (pool, _permit) = db(ctx).await?;
+        let rows = lunaway_db::community::photos_of_place(
+            pool,
+            self.0.id,
+            viewer.as_ref().map(auth::Viewer::id),
+            MAX_PLACE_PHOTOS,
+        )
+        .await
+        .map_err(|e| internal(&e))?;
+        let media = &state(ctx).config.media;
+        Ok(rows
+            .into_iter()
+            .map(|r| Photo::from_row(r, media))
+            .collect())
+    }
+
+    /// The published reviews with text, newest first (50 per page at most),
+    /// without the authors the caller muted. Read per place.
+    #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
+    async fn reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<ReviewConnection> {
+        let first = first.unwrap_or(DEFAULT_REVIEWS_PAGE);
+        if !(1..=MAX_REVIEWS_PAGE).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_REVIEWS_PAGE}"
+            )));
+        }
+        let after = parse_item_cursor(after.as_deref())?;
+        let viewer = auth::viewer(ctx).await?;
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::community::reviews_of_place(
+            pool,
+            self.0.id,
+            viewer.as_ref().map(auth::Viewer::id),
+            i64::from(first),
+            after,
+        )
+        .await
+        .map_err(|e| internal(&e))?
+        .into())
+    }
+
+    /// The caller's own rating or review of the place, whatever its status;
+    /// null when anonymous or when there is none.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn my_review(&self, ctx: &Context<'_>) -> Result<Option<Review>> {
+        let Some(viewer) = auth::viewer(ctx).await? else {
+            return Ok(None);
+        };
+        let (pool, _permit) = db(ctx).await?;
+        Ok(
+            lunaway_db::community::review_by_account(pool, viewer.id(), self.0.id)
+                .await
+                .map_err(|e| internal(&e))?
+                .map(Review),
+        )
     }
 }
 

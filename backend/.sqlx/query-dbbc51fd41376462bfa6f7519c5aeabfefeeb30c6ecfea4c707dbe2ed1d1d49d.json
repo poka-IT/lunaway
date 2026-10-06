@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE places SET name = 'x'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "dbbc51fd41376462bfa6f7519c5aeabfefeeb30c6ecfea4c707dbe2ed1d1d49d"
+}

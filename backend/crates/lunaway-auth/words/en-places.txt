@@ -1,0 +1,49 @@
+# Natural regions, massifs, rivers and coasts of France, fourteen
+# characters at most.
+of the Vercors
+of the Jura
+of Aubrac
+of the Drôme
+of Morvan
+of the Vosges
+of the Loire
+of Queyras
+of the Landes
+of Camargue
+of the Verdon
+of Ardèche
+of Luberon
+of the Causses
+of Ouessant
+of Belle-Île
+of the Estérel
+of La Hague
+of Larzac
+of Cantal
+of Aveyron
+of the Lot
+of the Tarn
+of Médoc
+of Vexin
+of Perche
+of Sologne
+of Berry
+of the Bauges
+of Oisans
+of Cotentin
+of Oléron
+of Gavarnie
+of Gers
+of the Brenne
+of Pilat
+of Vivarais
+of Sancy
+of the Dombes
+of Corsica
+of Finistère
+of Provence
+of Quercy
+of the Maures
+of Ventoux
+of the Écrins
+of Brittany

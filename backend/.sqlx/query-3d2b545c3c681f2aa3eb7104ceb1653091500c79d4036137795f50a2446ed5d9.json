@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO municipalities (code, name, geom, fetched_at)\n            SELECT code, name, ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(geometry), 4326)), $4\n            FROM UNNEST($1::text[], $2::text[], $3::text[]) AS u(code, name, geometry)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3d2b545c3c681f2aa3eb7104ceb1653091500c79d4036137795f50a2446ed5d9"
+}

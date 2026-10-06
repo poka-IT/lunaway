@@ -6,7 +6,7 @@
 //! its serialised form is part of the database: fields are only added, with a
 //! serde default, never renamed.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +79,10 @@ pub struct NormalizedRecord {
     /// Free text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Every description the source gives, by language: a BCP 47 tag, or
+    /// [`UNDETERMINED_LANGUAGE`] when the source does not say.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub descriptions: BTreeMap<String, String>,
     /// Postal address.
     #[serde(default, skip_serializing_if = "Address::is_empty")]
     pub address: Address,
@@ -112,6 +116,25 @@ pub struct NormalizedRecord {
     /// OpenStreetMap element the record is, or cites (`node/123`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm_ref: Option<String>,
+    /// Wikipedia article, as OpenStreetMap writes it (`fr:Lac d'Annecy`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wikipedia: Option<String>,
+}
+
+/// The BCP 47 tag of a text whose language the source does not state.
+pub const UNDETERMINED_LANGUAGE: &str = "und";
+
+/// Whether `tag` looks like a BCP 47 language tag (`fr`, `pt-BR`): a primary
+/// subtag of two or three letters, then subtags of two to eight characters.
+/// OpenStreetMap keys such as `description:payment` are not languages.
+#[must_use]
+pub fn is_language_tag(tag: &str) -> bool {
+    let mut parts = tag.split('-');
+    let primary_ok = parts
+        .next()
+        .is_some_and(|p| (2..=3).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_lowercase()));
+    primary_ok
+        && parts.all(|p| (2..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
 const fn unknown_overnight() -> OvernightStatus {
@@ -142,6 +165,8 @@ impl NormalizedRecord {
             stars: None,
             wikidata: None,
             osm_ref: None,
+            descriptions: BTreeMap::new(),
+            wikipedia: None,
         }
     }
 }
@@ -166,6 +191,16 @@ mod tests {
         );
         let back: NormalizedRecord = serde_json::from_value(json).unwrap();
         assert_eq!(back, r);
+    }
+
+    #[test]
+    fn language_tags_are_told_from_other_keys() {
+        for good in ["fr", "en", "pt-BR", "zh-Hant", "und", "gsw"] {
+            assert!(is_language_tag(good), "{good}");
+        }
+        for bad in ["payment", "FR", "f", "", "fr-", "fr_FR", "de-x"] {
+            assert!(!is_language_tag(bad), "{bad}");
+        }
     }
 
     #[test]

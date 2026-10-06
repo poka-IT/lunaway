@@ -3,11 +3,19 @@
 //! (`sqlx::query!`), with the offline cache in `backend/.sqlx/` for builds
 //! without a database.
 
+pub mod accounts;
+pub mod community;
 pub mod conflation;
+pub mod lists;
+pub mod moderation;
+pub mod municipalities;
 pub mod places;
 pub mod records;
+pub mod search;
 pub mod sources;
 pub mod stats;
+pub mod submissions;
+pub mod summary;
 
 use std::time::Duration;
 

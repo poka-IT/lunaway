@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO conflation_constraints (id, record_a, record_b, kind, reason)\n            VALUES ($1, $2, $3, 'must_link', 'community edit of this place')\n            ON CONFLICT (record_a, record_b) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "96a18affcd9b11d732676fd38cfeffc1cbff15618772a6a0a8f0d1612283eff6"
+}

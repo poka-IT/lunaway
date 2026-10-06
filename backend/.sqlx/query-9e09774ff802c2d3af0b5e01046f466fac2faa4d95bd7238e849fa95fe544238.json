@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO reviews\n                    (id, place_id, account_id, stars, body, lang, visited_on, vehicle, status)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n                ON CONFLICT (account_id, place_id) WHERE account_id IS NOT NULL\n                DO UPDATE SET stars = EXCLUDED.stars, body = EXCLUDED.body,\n                              lang = EXCLUDED.lang, visited_on = EXCLUDED.visited_on,\n                              vehicle = EXCLUDED.vehicle,\n                              status = CASE WHEN reviews.status IN ('hidden', 'removed')\n                                            THEN reviews.status ELSE EXCLUDED.status END,\n                              updated_at = now()\n                RETURNING id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Text",
+        "Text",
+        "Date",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e09774ff802c2d3af0b5e01046f466fac2faa4d95bd7238e849fa95fe544238"
+}

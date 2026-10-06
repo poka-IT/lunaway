@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO moderation_queue (id, kind, target_type, target_id, account_id, reason)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        ON CONFLICT (kind, target_type, target_id) WHERE status = 'open'\n        DO UPDATE SET reason = CASE\n            WHEN position(EXCLUDED.reason IN moderation_queue.reason) > 0 THEN moderation_queue.reason\n            ELSE left(moderation_queue.reason || ', ' || EXCLUDED.reason, 2000) END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8b4d48f7887f0cdf1a488d118fdcf229acc1b6ce08a095d48d06b8979531fe5"
+}

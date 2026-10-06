@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE places SET reported_issues = (\n            SELECT jsonb_agg(jsonb_set(e, '{lastReportedAt}', to_jsonb(now() - interval '31 days')))\n            FROM jsonb_array_elements(reported_issues) e)\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b9b97166c4f8b8744621c2055d09b84c64417f95db3e244205d561ac3d49640a"
+}

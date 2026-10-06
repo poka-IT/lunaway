@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO reviews (id, place_id, account_id, stars, status)\n                VALUES ($1, $2, $3, $4, 'published')\n                ON CONFLICT (account_id, place_id) WHERE account_id IS NOT NULL\n                DO UPDATE SET stars = EXCLUDED.stars, updated_at = now()\n                RETURNING id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "df5677a60c4bcda17aac1d166959eb7be76cc8f7266a1f5b7a0d3dba5bfb5a78"
+}

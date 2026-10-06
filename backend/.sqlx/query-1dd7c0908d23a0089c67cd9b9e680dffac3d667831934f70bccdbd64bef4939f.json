@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE confirmations SET account_id = NULL, note = NULL WHERE account_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1dd7c0908d23a0089c67cd9b9e680dffac3d667831934f70bccdbd64bef4939f"
+}

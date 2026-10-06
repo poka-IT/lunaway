@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT m.muted_id, a.pseudonym FROM muted_authors m JOIN accounts a ON a.id = m.muted_id\n        WHERE m.account_id = $1 ORDER BY m.created_at DESC, m.muted_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "muted_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "muted_authors",
+            "name": "muted_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "pseudonym",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "pseudonym"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "d38893e66b33029caaca2858e5dbac865d31ab99997609e48f2be64a1371c716"
+}

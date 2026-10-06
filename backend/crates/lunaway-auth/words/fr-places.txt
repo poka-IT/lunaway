@@ -1,0 +1,51 @@
+# Natural regions, massifs, rivers and coasts of France, with the article
+# they take after "de". Twelve characters at most.
+du Vercors
+du Jura
+d'Aubrac
+des Cévennes
+de la Drôme
+du Morvan
+des Vosges
+de la Loire
+du Queyras
+des Landes
+de Camargue
+du Verdon
+de l'Ardèche
+du Luberon
+des Causses
+d'Ouessant
+de Belle-Île
+de l'Estérel
+de la Hague
+du Larzac
+des Pyrénées
+des Alpilles
+du Cantal
+de l'Aveyron
+du Lot
+du Tarn
+du Médoc
+du Vexin
+du Perche
+de Sologne
+du Berry
+des Bauges
+de l'Oisans
+du Cotentin
+d'Oléron
+de Gavarnie
+du Gers
+de la Brenne
+du Pilat
+du Vivarais
+du Sancy
+des Dombes
+de Corse
+du Finistère
+de Provence
+du Quercy
+des Maures
+du Ventoux
+des Écrins

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM favorite_items WHERE list_id = $1 AND place_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc8625456265bbcef788cbcf9712ed6ec633c4b93a21f4d333cc2e301ebc9fc9"
+}

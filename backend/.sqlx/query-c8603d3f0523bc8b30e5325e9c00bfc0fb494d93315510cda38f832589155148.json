@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO content_reports\n                (id, target_type, target_id, reporter_id, reason, note, created_at, dismissed_at)\n            SELECT id, target_type, $2, reporter_id, reason, note, created_at, dismissed_at\n            FROM content_reports WHERE target_id = ANY($1)\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8603d3f0523bc8b30e5325e9c00bfc0fb494d93315510cda38f832589155148"
+}

@@ -28,11 +28,15 @@ to end.
   (async-graphql walks every spread without memoisation); keep those checks
   ahead of any new walk of the document.
 - The endpoint takes one operation per `POST`, as `application/json` only:
-  no batch, no GET, no multipart. Body, response, concurrency, cost in
-  flight, timeout and the per-client budget (a fixed cost per request plus
-  its complexity; IPv4 or IPv6 /64, with a shared budget per IPv6 /48;
-  `X-Forwarded-For` believed only behind the loopback proxy) are
-  `config::Limits`, read from the environment (`.env.example`).
+  no batch, no GET, no multipart. Photos go to `POST /upload` (multipart,
+  a session of level 1, 10 MB), a separate route that reads the image into
+  memory within its limit and answers with the same error body. Body,
+  response, concurrency, cost in flight, timeout and the per-client budget
+  (a fixed cost per request plus its complexity; IPv4 or IPv6 /64, with a
+  shared budget per IPv6 /48; `X-Forwarded-For` believed only behind the
+  loopback proxy) are `config::Limits`, read from the environment
+  (`.env.example`); the per-account and per-client quotas of actions are
+  `config::Quotas`, in memory.
 - Introspection stays enabled in production: the schema is public in the
   repository, and the same limits bound introspection queries.
 - Lists are paginated with a cursor; a list that cannot grow past a small
@@ -40,10 +44,14 @@ to end.
 - Nested lists go through a DataLoader: no resolver issues one SQL query per
   parent row.
 - Authorization is checked in the resolver of every mutation and of every
-  field that is not public, from the request context, never trusted from an
-  argument.
+  field that is not public, from the request context (`auth.rs`: the
+  bearer session, resolved once per request), never trusted from an
+  argument. A public read ignores a bad token; a field that needs an
+  account answers `UNAUTHENTICATED`. Trust levels and quotas are checked
+  before any write.
 - Errors the client must act on carry an `extensions.code`
-  (`UNAUTHENTICATED`, `RATE_LIMITED` with `retryAfterSeconds` and a
+  (`UNAUTHENTICATED`, `FORBIDDEN` with `requiredLevel` and `level`,
+  `NOT_FOUND`, `RATE_LIMITED` with `retryAfterSeconds` and a
   `Retry-After` header, `INVALID_INPUT`, `RESYNC` for a sync cursor issued
   by another copy of the database: sync again from `since: null`); internal
   errors are logged and returned as a generic message with `INTERNAL`. The

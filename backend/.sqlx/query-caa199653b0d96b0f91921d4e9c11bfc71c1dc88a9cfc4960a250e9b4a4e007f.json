@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE heirs(id, live, depth) AS (\n            SELECT p.id, p.deleted_at IS NULL, 0 FROM places p WHERE p.id = ANY($1)\n            UNION ALL\n            SELECT p.id, p.deleted_at IS NULL, h.depth + 1\n            FROM heirs h JOIN places q ON q.id = h.id JOIN places p ON p.id = q.merged_into\n            WHERE NOT h.live AND h.depth < 8\n        )\n        SELECT DISTINCT id AS \"id!\" FROM heirs WHERE live ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "caa199653b0d96b0f91921d4e9c11bfc71c1dc88a9cfc4960a250e9b4a4e007f"
+}

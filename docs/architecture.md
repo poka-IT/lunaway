@@ -32,9 +32,9 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 | `lunaway-ingest` | one adapter per source (OpenStreetMap, Atout France), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
-| `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate, stats |
-| `lunaway-auth` (planned) | device keys, passkeys, sessions, trust levels |
-| `lunaway-media` (planned) | photo upload, re-encoding, EXIF location stripped |
+| `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
+| `lunaway-auth` | device keys (ES256 over P-256), session tokens, recovery codes (argon2id), generated pseudonyms; passkeys later |
+| `lunaway-media` | photo pipeline: bounded decoding, re-encoding from pixels (no metadata survives), 2048 px and 512 px WebP, thumbhash, content-addressed files |
 
 The GraphQL schema is exported to `schema/lunaway.graphql` and is the contract
 the app is generated from. Every query is bounded in depth, complexity, page
@@ -52,7 +52,17 @@ size and viewport area.
   with the match score.
 - Community tables: reviews, photos, confirmations ("still open?"), reports
   (occupancy, service status), lists of favourites, accounts and their
-  credentials.
+  credentials, the moderation queue. The API writes them; it never writes a
+  record or a place.
+- `place_submissions`: new places and edits, kept as revisions. The
+  conflation worker (`lunaway conflate --watch`, woken by the API through
+  `NOTIFY`) writes each accepted one into a record of the `community` source
+  and conflates it like any other.
+- The community summary of a place (ratings, counts, cover photos, recent
+  issues, verification) lives on `places`, recomputed by the same worker,
+  so the change feed carries it.
+- `municipalities`: the French communes; each place takes the name of the
+  one that covers it, for the search and the offline copy.
 - `changes`: a monotonic cursor the app syncs from.
 
 ## Conflation

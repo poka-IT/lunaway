@@ -5,20 +5,26 @@
 //! bounds are in [`config::Limits`] (per deployment) and in [`schema`] and
 //! [`guard`] (the shape of a document).
 
+mod auth;
 mod client;
+pub mod community_types;
 pub mod config;
 mod error;
 pub mod guard;
 mod http;
 mod loaders;
+pub mod mutation;
+mod quota;
 mod rate;
 pub mod schema;
 pub mod types;
+mod upload;
 
 use std::{sync::Arc, time::Duration};
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{Method, Request, header},
     routing::{get, post},
 };
@@ -73,18 +79,32 @@ fn request_span<B>(request: &Request<B>) -> tracing::Span {
     )
 }
 
-/// The HTTP router: `/health` for probes, `POST /graphql` for the API.
-/// Responses are gzip-compressed when the client accepts it: a sync page of
-/// 1000 places shrinks about thirteen times.
+/// The HTTP router: `/health` for probes, `POST /graphql` for the API,
+/// `POST /upload` for photos. Responses are gzip-compressed when the client
+/// accepts it: a sync page of 1000 places shrinks about thirteen times.
 pub fn router(state: ApiState) -> Router {
     let limits = state.config.limits;
     let dev_cors = state.config.dev_cors;
     let rate = Arc::clone(&state.rate);
+    let upload = Arc::new(upload::UploadEndpoint {
+        pool: state.pool.clone(),
+        config: Arc::new(state.config.clone()),
+        rate: Arc::clone(&state.rate),
+        quotas: Arc::clone(&state.quotas),
+        media: Arc::clone(&state.media),
+        workers: Arc::clone(&state.media_workers),
+        slots: tokio::sync::Semaphore::new(upload::UPLOADS_AT_ONCE),
+    });
+    let max_upload = upload.max_body();
     let endpoint = Arc::new(http::Endpoint::new(build_schema(state), limits, rate));
     let graphql = post(http::graphql).with_state(endpoint);
+    let upload = post(upload::upload)
+        .with_state(upload)
+        .layer(DefaultBodyLimit::max(max_upload));
     Router::new()
         .route("/health", get(health))
         .route("/graphql", graphql)
+        .route("/upload", upload)
         .layer(CompressionLayer::new())
         .layer(cors(dev_cors))
         .layer(TraceLayer::new_for_http().make_span_with(request_span))

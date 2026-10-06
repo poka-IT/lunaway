@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM muted_authors WHERE account_id = $1 AND muted_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6680047e1a3d34b020f563a4b9ebf35cb7a2bba42450c560fd026d8ae652b5b1"
+}

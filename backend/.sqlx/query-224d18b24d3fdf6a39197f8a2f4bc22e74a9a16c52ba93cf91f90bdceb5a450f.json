@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE reviews SET body = NULL, lang = NULL, visited_on = NULL, vehicle = NULL,\n                   withdrawn_at = now(), updated_at = now()\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "224d18b24d3fdf6a39197f8a2f4bc22e74a9a16c52ba93cf91f90bdceb5a450f"
+}

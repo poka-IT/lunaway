@@ -1,0 +1,225 @@
+{
+  "_doc": [
+    "Shared vectors of the Lunaway sign-in. The app's signer and backend/crates/lunaway-auth both replay them.",
+    "Device key: ECDSA on P-256 with SHA-256 (ES256). The client sends its public key as a JWK with kty \"EC\", crv \"P-256\", x and y; x and y are the 32-byte big-endian coordinates (leading zeros kept) in base64url without padding. Other members (alg, use, kid, key_ops, ext) are ignored; a JWK holding d is refused.",
+    "The server identifies a key by its RFC 7638 thumbprint: SHA-256 of {\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"...\",\"y\":\"...\"} (that member order, no whitespace), base64url without padding. The client never sends it.",
+    "Message: the UTF-8 bytes of challengePrefix followed by the nonce exactly as authChallenge returned it (43 base64url characters). The device signs those bytes; ES256 hashes them with SHA-256 itself, so the client must not hash them first (see the invalid case 'signed the digest').",
+    "Signature, in base64url: the raw 64 bytes r || s (IEEE P1363, what WebCrypto and JOSE produce) is preferred; ASN.1 DER (what Android's SHA256withECDSA produces) is accepted. Padding is tolerated on signatures; the standard base64 alphabet (+ and /) is not. Both forms of s (low and high) verify.",
+    "keys: two fixed key pairs (d is a test value, never a real key). validSignatures must verify, invalidSignatures and invalidKeys must be refused, each with its reason.",
+    "Regenerate after a deliberate change: LUNAWAY_WRITE_AUTH_VECTORS=1 cargo test -p lunaway-auth --test vectors (from backend/)."
+  ],
+  "challengePrefix": "lunaway-auth:v1:",
+  "invalidKeys": [
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-384\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"}",
+      "name": "another curve",
+      "reason": "crv must be P-256"
+    },
+    {
+      "jwk": "{\"kty\":\"RSA\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"}",
+      "name": "another key type",
+      "reason": "kty must be EC"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\",\"d\":\"XkIqOHhjbggYdCAR7ikSnUOq5shlxV3HaVdZmXKhct8\"}",
+      "name": "private key sent",
+      "reason": "a JWK carrying d is refused: the private key never leaves the device"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"U9uJJwAWPfo9p4_RoH-2fiFp5Og3YdrK-QzJN6wClw\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"}",
+      "name": "x of 31 bytes",
+      "reason": "each coordinate is exactly 32 bytes, leading zeros kept"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8E\"}",
+      "name": "point not on the curve",
+      "reason": "the point must satisfy the P-256 equation"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\",\"y\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\"}",
+      "name": "coordinates swapped",
+      "reason": "the point must satisfy the P-256 equation"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc=\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"}",
+      "name": "x padded",
+      "reason": "base64url without padding (RFC 7515)"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\"}",
+      "name": "y missing",
+      "reason": "kty, crv, x and y are required"
+    },
+    {
+      "jwk": "[\"EC\",\"P-256\",\"MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc\",\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"]",
+      "name": "not an object",
+      "reason": "a JWK is a JSON object"
+    },
+    {
+      "jwk": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"MFPbiScAFj36PaeP0aB/tn4haeToN2HayvkMyTesApc\",\"y\":\"dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A\"}",
+      "name": "standard base64 alphabet",
+      "reason": "base64url only: - and _ rather than + and /"
+    }
+  ],
+  "invalidSignatures": [
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "signed another nonce",
+      "reason": "a signature answers one nonce only",
+      "signature": "it_xUoulS_3RnonQNg4BkD-Sl1zvldPGdpphZuU4IkzcNvXYoiGttpc0rQ30uvkkHUR16J9HLaR6-fGPUGd1yA"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "signed by the other key",
+      "reason": "made by key-2",
+      "signature": "s3KV0-404LVwPA1WwJyb0zutnNQ46yEWTaU3JIDxNFZUrn2rvdNEGGF5mMwM7Ds6DZHE27jXHqY9pt2ydj2Fgw"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "signed the nonce without the prefix",
+      "reason": "the message is challengePrefix + nonce",
+      "signature": "MMw27EMu4uBosgPZ-4RfOT13n3-4yboaFjRk323xZGd0QRAoVPmjI0FPNON5jk2aLGhJHfm9vy5lxECgqHJ5XA"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "signed the digest",
+      "reason": "the client hashed the message before an ES256 signer that hashes again",
+      "signature": "dQ0s5ed0hz0W0nqDisC4nDQPoKcH_yf8DVKQIW6-B1ihhqf-VncpUuFvuWFsmt8OkzPYRnOw0oeatts_w87O8w"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "truncated",
+      "reason": "63 bytes: neither raw nor DER",
+      "signature": "AFYiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F6zg9DwGA0pAeAgMn_t3QbXEeavJ73TU6A0dTivZOin"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "standard base64 alphabet",
+      "reason": "base64url only",
+      "signature": "AFYiAdRBr+8IDHl16ziuEThYveeS2EzP7ycLwC2I/F6zg9DwGA0pAeAgMn/t3QbXEeavJ73TU6A0dTivZOinLA"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "zero scalars",
+      "reason": "r and s must be in 1..n-1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "der with a trailing byte",
+      "reason": "strict DER: nothing after the sequence",
+      "signature": "MEQCH1YiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F4CIQCzg9DwGA0pAeAgMn_t3QbXEeavJ73TU6A0dTivZOinLAA"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "der with a non-minimal integer",
+      "reason": "strict DER: minimal positive integers",
+      "signature": "MEUCIABWIgHUQa_vCAx5des4rhE4WL3nkthMz-8nC8AtiPxeAiEAs4PQ8BgNKQHgIDJ_7d0G1xHmrye901OgNHU4r2Topyw"
+    },
+    {
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "empty",
+      "reason": "no signature",
+      "signature": ""
+    }
+  ],
+  "keys": {
+    "key-1": {
+      "dBase64url": "XkIqOHhjbggYdCAR7ikSnUOq5shlxV3HaVdZmXKhct8",
+      "dHex": "5e422a3878636e0818742011ee29129d43aae6c865c55dc76957599972a172df",
+      "jwk": {
+        "crv": "P-256",
+        "kty": "EC",
+        "x": "MFPbiScAFj36PaeP0aB_tn4haeToN2HayvkMyTesApc",
+        "y": "dbsbKJxwgoEG2XhXXC1JNWmch2izrb98DyEquDKKr8A"
+      },
+      "sec1Hex": "043053db892700163dfa3da78fd1a07fb67e2169e4e83761dacaf90cc937ac029775bb1b289c70828106d978575c2d4935699c8768b3adbf7c0f212ab8328aafc0",
+      "thumbprint": "ssEeB1bNzyV_DwGBwyFkzWst2eJpZBSBTKz5cr_7igA"
+    },
+    "key-2": {
+      "dBase64url": "WpUuYxcbTIVmQwJaslYwMs4YPLVNTZcTIjs4KvNaTqs",
+      "dHex": "5a952e63171b4c856643025ab2563032ce183cb54d4d9713223b382af35a4eab",
+      "jwk": {
+        "crv": "P-256",
+        "kty": "EC",
+        "x": "CiK0Oe_EZxYoXleiP9IHljSwRXH-hksGWgCZdnQU3Xs",
+        "y": "4C_h2mDl98kPMYXjKjA-n8TcY4U7aPFzIkcTElC6MYQ"
+      },
+      "sec1Hex": "040a22b439efc46716285e57a23fd2079634b04571fe864b065a0099767414dd7be02fe1da60e5f7c90f3185e32a303e9fc4dc63853b68f1732247131250ba3184",
+      "thumbprint": "9oVaPaMdYc3pt495fm-gl0Ghuk-KfTi0IUfXfNeCpcY"
+    }
+  },
+  "messages": {
+    "nonce-1": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+    "nonce-2": "lunaway-auth:v1:9NNxi83oscy4aMNGAmKAwbfZpEyv8L1HtgHLArbcXY0"
+  },
+  "nonces": {
+    "nonce-1": "9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+    "nonce-2": "9NNxi83oscy4aMNGAmKAwbfZpEyv8L1HtgHLArbcXY0"
+  },
+  "validSignatures": [
+    {
+      "encoding": "raw",
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-1 raw",
+      "signature": "AFYiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F6zg9DwGA0pAeAgMn_t3QbXEeavJ73TU6A0dTivZOinLA"
+    },
+    {
+      "encoding": "der",
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-1 der",
+      "signature": "MEQCH1YiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F4CIQCzg9DwGA0pAeAgMn_t3QbXEeavJ73TU6A0dTivZOinLA"
+    },
+    {
+      "encoding": "raw",
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-1 raw, the other s",
+      "note": "n - s of 'key-1 raw' (s is high there, low here): ECDSA accepts both, signers do not normalise",
+      "signature": "AFYiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F5MfC8O5_LW_x_fzYASIvkoqwBLhelESuS_RJITl3p-JQ"
+    },
+    {
+      "encoding": "raw",
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-1 raw, padded",
+      "note": "Dart's base64Url pads by default; the server tolerates it",
+      "signature": "AFYiAdRBr-8IDHl16ziuEThYveeS2EzP7ycLwC2I_F6zg9DwGA0pAeAgMn_t3QbXEeavJ73TU6A0dTivZOinLA=="
+    },
+    {
+      "encoding": "der",
+      "key": "key-1",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-1 der from another implementation",
+      "note": "Python cryptography (OpenSSL), random nonce",
+      "signature": "MEYCIQC7JeTdGExAE-EbpPrYQ3aOZYCE4kn2RaQncvzP39jyegIhAOzpSg-bEkkAtihPJp5_h1IPtXU7yJS-5EzgigcDJ5VJ"
+    },
+    {
+      "encoding": "raw",
+      "key": "key-2",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-2 raw",
+      "signature": "s3KV0-404LVwPA1WwJyb0zutnNQ46yEWTaU3JIDxNFZUrn2rvdNEGGF5mMwM7Ds6DZHE27jXHqY9pt2ydj2Fgw"
+    },
+    {
+      "encoding": "der",
+      "key": "key-2",
+      "message": "lunaway-auth:v1:9jKuo1aS3cnwrV02QshG7pebs1uNZwkcNmxUOz-2Sls",
+      "name": "key-2 der",
+      "signature": "MEUCIQCzcpXT7jTgtXA8DVbAnJvTO62c1DjrIRZNpTckgPE0VgIgVK59q73TRBhheZjMDOw7Og2RxNu41x6mPabdsnY9hYM"
+    }
+  ],
+  "version": 1
+}

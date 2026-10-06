@@ -11,8 +11,10 @@ use chrono::Utc;
 use lunaway_db::{
     PgPool,
     conflation::{self, OpeningEval, PlaceWrite},
+    municipalities::{self, Municipality},
     places::{self, Change, PlaceFilter},
     records::{self, NewRecord},
+    search,
 };
 use lunaway_domain::{
     Address, BBox, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, SourceId,
@@ -58,6 +60,8 @@ async fn put(pool: &PgPool, c: &PlaceContent) -> Uuid {
             content: c,
             provenance: &[],
             opening: &NO_OPENING,
+            descriptions: &[],
+            external_links: &[],
             content_hash: "h",
         },
     )
@@ -261,25 +265,25 @@ async fn search_ignores_accents_tolerates_typos_and_prefers_the_nearest(pool: Pg
 
     let ids = |r: Vec<places::PlaceRow>| r.iter().map(|p| p.id).collect::<Vec<_>>();
     assert_eq!(
-        ids(places::search(&pool, "chataigniers", None, 20)
+        ids(search::search(&pool, "chataigniers", None, 20)
             .await
             .unwrap()),
         [chat]
     );
     assert_eq!(
-        ids(places::search(&pool, "CHÂTAIGNIERS", None, 20)
+        ids(search::search(&pool, "CHÂTAIGNIERS", None, 20)
             .await
             .unwrap()),
         [chat],
         "case and accents fold on both sides"
     );
     assert_eq!(
-        ids(places::search(&pool, "bradere", None, 20).await.unwrap()),
+        ids(search::search(&pool, "bradere", None, 20).await.unwrap()),
         [brad],
         "a missing letter"
     );
     assert_eq!(
-        ids(places::search(&pool, "saint etienne", None, 20)
+        ids(search::search(&pool, "saint etienne", None, 20)
             .await
             .unwrap()),
         [chat],
@@ -289,23 +293,23 @@ async fn search_ignores_accents_tolerates_typos_and_prefers_the_nearest(pool: Pg
     let annecy = Position::new(45.90, 6.12).unwrap();
     // Both "Camping du Lac" match fully, the nearer first; other campsites
     // share "camping d" and come after them.
-    let from_nantes = ids(places::search(&pool, "camping du lac", Some(nantes), 20)
+    let from_nantes = ids(search::search(&pool, "camping du lac", Some(nantes), 20)
         .await
         .unwrap());
     assert_eq!(from_nantes[..2], [lac_nantes, lac_annecy]);
-    let from_annecy = ids(places::search(&pool, "camping du lac", Some(annecy), 20)
+    let from_annecy = ids(search::search(&pool, "camping du lac", Some(annecy), 20)
         .await
         .unwrap());
     assert_eq!(from_annecy[..2], [lac_annecy, lac_nantes]);
     assert!(from_annecy.len() <= 4 && !from_annecy.contains(&gone));
     assert_eq!(
-        places::search_threshold("lac"),
+        search::search_threshold("lac"),
         0.6,
         "short queries stay strict"
     );
-    assert_eq!(places::search_threshold("bradere"), 0.5);
+    assert_eq!(search::search_threshold("bradere"), 0.5);
     assert!(
-        places::search(&pool, "zzzzqqq", None, 20)
+        search::search(&pool, "zzzzqqq", None, 20)
             .await
             .unwrap()
             .is_empty()
@@ -368,4 +372,125 @@ async fn the_sources_of_many_places_come_in_one_query(pool: PgPool) {
         Some("https://www.openstreetmap.org/way/1")
     );
     assert_eq!(rows[1].match_score, Some(0.97));
+}
+
+/// A square commune around a point, half a side of `half` degrees.
+fn square(code: &str, name: &str, lat: f64, lon: f64, half: f64) -> Municipality {
+    let ring = serde_json::json!([[
+        [lon - half, lat - half],
+        [lon + half, lat - half],
+        [lon + half, lat + half],
+        [lon - half, lat + half],
+        [lon - half, lat - half]
+    ]]);
+    Municipality {
+        code: code.to_owned(),
+        name: name.to_owned(),
+        geometry: serde_json::json!({"type": "Polygon", "coordinates": ring}),
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_town_s_name_finds_its_places_before_names_that_share_letters(pool: PgPool) {
+    // The places of the production report: "annecy" listed spots that only
+    // share "anne", and missed the car park of Annecy whose sources give no
+    // town.
+    let colmyr = put(
+        &pool,
+        &content(
+            PlaceKind::MotorhomeArea,
+            "Aire de stationnement camping-cars de Colmyr",
+            45.8907,
+            6.1388,
+        ),
+    )
+    .await;
+    let mut belvedere = content(PlaceKind::Campsite, "Le Belvédère", 45.8911, 6.1313);
+    belvedere.address.city = Some("Annecy".into());
+    let belvedere = put(&pool, &belvedere).await;
+    let mut sainte_anne = content(PlaceKind::Campsite, "Sainte-Anne", 46.34, -1.39);
+    sainte_anne.address.city = Some("La Tranche-sur-Mer".into());
+    let sainte_anne = put(&pool, &sainte_anne).await;
+    let annexe = put(
+        &pool,
+        &content(PlaceKind::Campsite, "Houx Annexe", 47.95, 0.21),
+    )
+    .await;
+    let mut anneyron = content(PlaceKind::Campsite, "Camping la Châtaigneraie", 45.27, 4.88);
+    anneyron.address.city = Some("Anneyron".into());
+    let anneyron = put(&pool, &anneyron).await;
+
+    let ids = |r: Vec<places::PlaceRow>| r.iter().map(|p| p.id).collect::<Vec<_>>();
+    let before = places::last_seq(&pool).await.unwrap();
+    assert_eq!(
+        ids(search::search(&pool, "annecy", None, 20).await.unwrap()),
+        [belvedere],
+        "before the communes are loaded only the address names the town, and a word that \
+         shares four letters is not a match"
+    );
+
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    let stats = municipalities::replace_all(
+        &mut tx,
+        &[
+            square("74010", "Annecy", 45.9, 6.13, 0.05),
+            square("85294", "La Tranche-sur-Mer", 46.34, -1.39, 0.05),
+        ],
+        chrono::Utc::now(),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(stats.municipalities, 2);
+    assert_eq!(
+        stats.places_changed, 3,
+        "Colmyr, the Belvédère and Sainte-Anne lie in them"
+    );
+    let colmyr_row = places::by_id(&pool, colmyr).await.unwrap().unwrap();
+    assert_eq!(colmyr_row.municipality.as_deref(), Some("Annecy"));
+    assert!(
+        colmyr_row.updated_seq > before,
+        "a place that learns its commune moves in the feed, so devices receive it"
+    );
+
+    let near_annecy = Position::new(45.9, 6.12).unwrap();
+    let found = ids(search::search(&pool, "annecy", Some(near_annecy), 20)
+        .await
+        .unwrap());
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(found.contains(&colmyr) && found.contains(&belvedere));
+    assert!(
+        !found.contains(&sainte_anne) && !found.contains(&annexe) && !found.contains(&anneyron)
+    );
+
+    let anne = ids(search::search(&pool, "anne", None, 20).await.unwrap());
+    assert_eq!(
+        anne.first(),
+        Some(&sainte_anne),
+        "the whole word comes before the words it begins: {anne:?}"
+    );
+    let prefix_rank = |id| anne.iter().position(|x| *x == id).unwrap();
+    assert!(
+        prefix_rank(colmyr) > 0 && prefix_rank(anneyron) > 0 && prefix_rank(annexe) > 0,
+        "Annecy, Anneyron and Annexe begin with the word"
+    );
+    assert_eq!(search::search_threshold("annecy"), 0.6);
+    assert_eq!(search::search_threshold("bradiere"), 0.5);
+
+    // A place written after the load takes its commune when the conflation
+    // writes it.
+    let later = put(
+        &pool,
+        &content(PlaceKind::Parking, "Parking du Pâquier", 45.9, 6.125),
+    )
+    .await;
+    assert_eq!(
+        places::by_id(&pool, later)
+            .await
+            .unwrap()
+            .unwrap()
+            .municipality
+            .as_deref(),
+        Some("Annecy")
+    );
 }

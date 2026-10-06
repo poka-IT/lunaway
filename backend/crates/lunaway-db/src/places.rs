@@ -4,11 +4,12 @@
 use chrono::{DateTime, Utc};
 use lunaway_domain::{
     Activity, Address, BBox, OpeningInterval, OvernightStatus, PlaceKind, Position, Service,
-    SourceId, conflation::FieldProvenance,
+    SourceId,
+    conflation::{ExternalLink, FieldProvenance, LocalizedText},
 };
 use uuid::Uuid;
 
-use crate::{DbError, PgPool};
+use crate::{DbError, PgPool, summary::CommunitySummary};
 
 /// A place as the API serves it.
 #[derive(Debug, Clone, PartialEq)]
@@ -62,40 +63,58 @@ pub struct PlaceRow {
     pub updated_seq: i64,
     /// Which source supplied each field.
     pub provenance: Vec<FieldProvenance>,
+    /// The commune that covers the place.
+    pub municipality: Option<String>,
+    /// Every description of every source, by language.
+    pub descriptions: Vec<LocalizedText>,
+    /// Pages about the place elsewhere.
+    pub external_links: Vec<ExternalLink>,
+    /// What the community says of it.
+    pub community: CommunitySummary,
 }
 
 /// The columns every place query selects, as `query_as!` reads them.
-struct PlaceDb {
-    id: Uuid,
-    kind: String,
-    name: Option<String>,
-    lat: f64,
-    lon: f64,
-    overnight: String,
-    services: Vec<String>,
-    activities: Vec<String>,
-    description: Option<String>,
-    street: Option<String>,
-    postcode: Option<String>,
-    city: Option<String>,
-    country_code: Option<String>,
-    price_parking_eur: Option<f64>,
-    price_services_eur: Option<f64>,
-    max_height_m: Option<f64>,
-    capacity: Option<i32>,
-    opening_hours: Option<String>,
-    opening_hours_parsed: bool,
-    opening_intervals: Option<serde_json::Value>,
-    opening_intervals_until: Option<DateTime<Utc>>,
-    website: Option<String>,
-    phone: Option<String>,
-    stars: Option<i16>,
-    last_confirmed_at: Option<DateTime<Utc>>,
-    updated_at: DateTime<Utc>,
-    updated_seq: i64,
-    provenance: serde_json::Value,
-    deleted: bool,
-    merged_into: Option<Uuid>,
+pub(crate) struct PlaceDb {
+    pub(crate) id: Uuid,
+    pub(crate) kind: String,
+    pub(crate) name: Option<String>,
+    pub(crate) lat: f64,
+    pub(crate) lon: f64,
+    pub(crate) overnight: String,
+    pub(crate) services: Vec<String>,
+    pub(crate) activities: Vec<String>,
+    pub(crate) description: Option<String>,
+    pub(crate) street: Option<String>,
+    pub(crate) postcode: Option<String>,
+    pub(crate) city: Option<String>,
+    pub(crate) country_code: Option<String>,
+    pub(crate) price_parking_eur: Option<f64>,
+    pub(crate) price_services_eur: Option<f64>,
+    pub(crate) max_height_m: Option<f64>,
+    pub(crate) capacity: Option<i32>,
+    pub(crate) opening_hours: Option<String>,
+    pub(crate) opening_hours_parsed: bool,
+    pub(crate) opening_intervals: Option<serde_json::Value>,
+    pub(crate) opening_intervals_until: Option<DateTime<Utc>>,
+    pub(crate) website: Option<String>,
+    pub(crate) phone: Option<String>,
+    pub(crate) stars: Option<i16>,
+    pub(crate) last_confirmed_at: Option<DateTime<Utc>>,
+    pub(crate) updated_at: DateTime<Utc>,
+    pub(crate) updated_seq: i64,
+    pub(crate) provenance: serde_json::Value,
+    pub(crate) deleted: bool,
+    pub(crate) merged_into: Option<Uuid>,
+    pub(crate) municipality: Option<String>,
+    pub(crate) descriptions: serde_json::Value,
+    pub(crate) external_links: serde_json::Value,
+    pub(crate) rating_avg: Option<f64>,
+    pub(crate) rating_count: i32,
+    pub(crate) review_count: i32,
+    pub(crate) photo_count: i32,
+    pub(crate) cover_photos: serde_json::Value,
+    pub(crate) reported_issues: serde_json::Value,
+    pub(crate) verification: String,
 }
 
 fn codes<T: std::str::FromStr<Err = lunaway_domain::UnknownCode>>(
@@ -154,6 +173,25 @@ impl TryFrom<PlaceDb> for PlaceRow {
             updated_seq: r.updated_seq,
             provenance: serde_json::from_value(r.provenance)
                 .map_err(|e| DbError::decode("provenance", e))?,
+            municipality: r.municipality,
+            descriptions: serde_json::from_value(r.descriptions)
+                .map_err(|e| DbError::decode("descriptions", e))?,
+            external_links: serde_json::from_value(r.external_links)
+                .map_err(|e| DbError::decode("external links", e))?,
+            community: CommunitySummary {
+                rating_avg: r.rating_avg,
+                rating_count: r.rating_count,
+                review_count: r.review_count,
+                photo_count: r.photo_count,
+                cover_photos: serde_json::from_value(r.cover_photos)
+                    .map_err(|e| DbError::decode("cover photos", e))?,
+                reported_issues: serde_json::from_value(r.reported_issues)
+                    .map_err(|e| DbError::decode("reported issues", e))?,
+                verification: r
+                    .verification
+                    .parse()
+                    .map_err(|e| DbError::decode("verification", e))?,
+            },
         })
     }
 }
@@ -211,7 +249,9 @@ pub async fn in_bbox(
                country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
-               deleted_at IS NOT NULL AS "deleted!", merged_into
+               deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
+               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
+               reported_issues, verification
         FROM places
         WHERE deleted_at IS NULL
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -317,7 +357,9 @@ pub async fn changes(
                country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
-               deleted_at IS NOT NULL AS "deleted!", merged_into
+               deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
+               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
+               reported_issues, verification
         FROM places
         WHERE updated_seq > $5
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -375,7 +417,9 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
                    opening_hours, opening_hours_parsed, opening_intervals,
                    opening_intervals_until, website, phone, stars, last_confirmed_at,
                    updated_at, updated_seq, provenance,
-                   deleted_at IS NOT NULL AS "deleted!", merged_into
+                   deleted_at IS NOT NULL AS "deleted!", merged_into, municipality,
+                   descriptions, external_links, rating_avg, rating_count, review_count,
+                   photo_count, cover_photos, reported_issues, verification
             FROM places WHERE id = $1
             "#,
             id,
@@ -393,72 +437,6 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
     }
     tracing::warn!(%id, "merge redirects form a chain too long to follow");
     Ok(None)
-}
-
-/// Trigram word similarity a search result needs. One missing letter in an
-/// eight-letter word scores 0.55, so longer queries accept 0.5; a query of
-/// four letters or fewer keeps pg_trgm's default of 0.6, or "lac" would
-/// match every name holding "la".
-#[must_use]
-pub fn search_threshold(text: &str) -> f64 {
-    let letters = text.chars().filter(|c| c.is_alphanumeric()).count();
-    if letters <= 4 { 0.6 } else { 0.5 }
-}
-
-/// Live places whose folded name and municipality match `text` (accents and
-/// case ignored, typos tolerated by trigram word similarity), best match
-/// first; among matches of similar quality, the nearest to `near` first.
-///
-/// # Errors
-///
-/// [`DbError`] when the query fails or a row does not decode.
-pub async fn search(
-    pool: &PgPool,
-    text: &str,
-    near: Option<Position>,
-    first: i64,
-) -> Result<Vec<PlaceRow>, DbError> {
-    let mut tx = pool.begin().await?;
-    // `<%` reads its threshold from this setting; `set_config(.., true)`
-    // scopes it to the transaction, and the GIN index still serves the
-    // operator.
-    sqlx::query_scalar!(
-        "SELECT set_config('pg_trgm.word_similarity_threshold', $1, true)",
-        search_threshold(text).to_string(),
-    )
-    .fetch_one(&mut *tx)
-    .await?;
-    // Similarities are bucketed to one decimal before the distance breaks
-    // the tie: "Camping du Lac" 2 km away beats the same name 300 km away,
-    // a much better name match still wins.
-    let rows = sqlx::query_as!(
-        PlaceDb,
-        r#"
-        SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
-               overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, capacity,
-               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
-               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
-               deleted_at IS NOT NULL AS "deleted!", merged_into
-        FROM places
-        WHERE deleted_at IS NULL AND lunaway_fold($1) <% search_text
-        ORDER BY round(word_similarity(lunaway_fold($1), search_text)::numeric, 1) DESC,
-                 CASE WHEN $2::float8 IS NULL OR $3::float8 IS NULL THEN 0
-                      ELSE ST_Distance(geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)
-                 END,
-                 word_similarity(lunaway_fold($1), search_text) DESC,
-                 id
-        LIMIT $4
-        "#,
-        text,
-        near.map(Position::lat),
-        near.map(Position::lon),
-        first,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-    tx.commit().await?;
-    rows.into_iter().map(PlaceRow::try_from).collect()
 }
 
 /// A source of a place, with what the API shows of it.

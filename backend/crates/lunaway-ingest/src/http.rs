@@ -37,6 +37,7 @@ pub const REDIRECT_HOSTS: &[&str] = &[
     "object.files.data.gouv.fr",
     "data.classement.atout-france.fr",
     "data.geopf.fr",
+    "object.data.gouv.fr",
 ];
 
 /// Follows a redirect to the host first asked or to [`REDIRECT_HOSTS`], at

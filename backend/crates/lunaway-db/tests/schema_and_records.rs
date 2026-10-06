@@ -44,7 +44,13 @@ async fn clear_flags(pool: &PgPool) {
 async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
     let s = sources::list(&pool).await.unwrap();
     let ids: Vec<&str> = s.iter().map(|s| s.id.as_str()).collect();
-    assert_eq!(ids, ["atout-france", "osm"]);
+    assert_eq!(ids, ["atout-france", "community", "osm"]);
+    let community = s.iter().find(|s| s.id == SourceId::COMMUNITY).unwrap();
+    assert_eq!(
+        (community.licence.as_str(), community.attribution.as_str()),
+        ("ODbL 1.0", "Lunaway contributors"),
+        "places added by users join the ODbL database, credited to them"
+    );
     let osm = s.iter().find(|s| s.id == SourceId::OSM).unwrap();
     assert_eq!(osm.licence, "ODbL 1.0");
     assert_eq!(

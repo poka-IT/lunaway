@@ -670,6 +670,7 @@ fn stored(i: u32, source: &SourceId) -> lunaway_db::conflation::StoredRecord {
         id: Uuid::now_v7(),
         source_id: source.clone(),
         external_id: format!("r/{i}"),
+        external_url: None,
         fetched_at: Utc.with_ymd_and_hms(2026, 10, 6, 0, 0, 0).unwrap(),
         deleted: false,
         record: campsite(&format!("Camping {i}"), lat, 1.0),
@@ -782,5 +783,354 @@ async fn the_scoring_leaves_the_async_runtime_free(pool: PgPool) {
     assert!(
         worst < took / 8,
         "a ticker beside the conflation stalled {worst:?} out of {took:?}"
+    );
+}
+
+/// A pool whose connections act as `role`.
+async fn as_role(pool: &PgPool, role: &'static str) -> PgPool {
+    sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(move |conn, _| {
+            Box::pin(async move {
+                sqlx::query(role).execute(conn).await?;
+                Ok(())
+            })
+        })
+        .connect_with((*pool.connect_options()).clone())
+        .await
+        .unwrap()
+}
+
+async fn place_named(pool: &PgPool, name: &str) -> Uuid {
+    sqlx::query_scalar!(
+        "SELECT id FROM places WHERE deleted_at IS NULL AND name = $1",
+        name
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+async fn account(app: &PgPool, n: u8) -> Uuid {
+    let (a, _) = lunaway_db::accounts::create_with_key(
+        app,
+        lunaway_db::accounts::NewAccount {
+            pseudonym: "Loutre du Morvan",
+            thumbprint: &format!("{n:0>43}"),
+            public_key: &[4; 65],
+            session_hash: &[n; 32],
+            session_ttl_secs: 3_600.0,
+        },
+    )
+    .await
+    .unwrap();
+    a.id
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool: PgPool) {
+    use lunaway_db::submissions::{self, NewSubmission, Submitted};
+    use lunaway_domain::community::submission::{NewPlace, PlacePatch};
+    ingest_fixtures(&pool).await;
+    run(&pool, day(2)).await.unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let author = account(&app, 1).await;
+    let device: Uuid = sqlx::query_scalar!("SELECT id FROM device_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let port = place_named(&pool, "Camping municipal du Port").await;
+    lunaway_db::community::rate(&app, author, port, 4)
+        .await
+        .unwrap();
+    let new = NewPlace {
+        kind: PlaceKind::Nature,
+        position: Position::new(47.1, -1.0).unwrap(),
+        details: PlacePatch {
+            name: Some("Clairière des Mauges".into()),
+            ..PlacePatch::default()
+        },
+    };
+    let patch = PlacePatch {
+        max_height_m: Some(3.5),
+        ..PlacePatch::default()
+    };
+    for what in [
+        Submitted::Create(&new),
+        Submitted::Edit {
+            place: port,
+            patch: &patch,
+        },
+    ] {
+        submissions::submit(
+            &app,
+            NewSubmission {
+                account: author,
+                device_key: device,
+                what,
+                accepted: true,
+                held_for: None,
+            },
+        )
+        .await
+        .unwrap();
+    }
+    let stats = run(&ingest, day(2)).await.unwrap();
+    assert_eq!(
+        (stats.submissions_applied, stats.created),
+        (2, 1),
+        "the import role writes community records and their places"
+    );
+    let port_row = places::by_id(&pool, port).await.unwrap().unwrap();
+    assert_eq!(port_row.community.rating_count, 1);
+    assert_eq!(port_row.community.rating_avg, Some(4.0));
+    assert_eq!(
+        port_row.max_height_m,
+        Some(3.5),
+        "the edit gives a height where OpenStreetMap had none"
+    );
+    let second = run(&ingest, day(2)).await.unwrap();
+    assert_eq!(
+        (
+            second.submissions_applied,
+            second.community_refreshed,
+            second.dirty
+        ),
+        (0, 0, 0),
+        "a run with nothing new writes nothing"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn contributions_follow_a_place_merged_into_another(pool: PgPool) {
+    ingest_fixtures(&pool).await;
+    run(&pool, day(2)).await.unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let a = place_named(&pool, "Aire Val-du-Layon").await;
+    let b = place_named(&pool, "Nature Camp Anjou").await;
+    let (rater_a, rater_b) = (account(&app, 1).await, account(&app, 2).await);
+    lunaway_db::community::rate(&app, rater_a, a, 2)
+        .await
+        .unwrap();
+    lunaway_db::community::rate(&app, rater_b, b, 4)
+        .await
+        .unwrap();
+    run(&pool, day(2)).await.unwrap();
+    // A person states the two are one spot: one place absorbs the other.
+    let rec = |place: Uuid| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query_scalar!(
+                "SELECT record_id FROM place_sources WHERE place_id = $1 LIMIT 1",
+                place
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+        }
+    };
+    records::set_constraint(
+        &pool,
+        rec(a).await,
+        rec(b).await,
+        ConstraintKind::MustLink,
+        None,
+    )
+    .await
+    .unwrap();
+    let stats = run(&pool, day(2)).await.unwrap();
+    assert_eq!(stats.tombstoned, 1);
+    let heir = places::by_id(&pool, a).await.unwrap().unwrap();
+    assert_eq!(heir.id, places::by_id(&pool, b).await.unwrap().unwrap().id);
+    assert_eq!(
+        heir.community.rating_count, 2,
+        "the absorbed place's ratings count for the place that absorbed it, an account once"
+    );
+    // The account that rated the absorbed place rates the place it now
+    // sees: its rating moves, it is not counted twice.
+    let absorbed_rater = if heir.id == a { rater_b } else { rater_a };
+    lunaway_db::community::rate(&app, absorbed_rater, heir.id, 5)
+        .await
+        .unwrap();
+    run(&pool, day(2)).await.unwrap();
+    let heir = places::by_id(&pool, heir.id).await.unwrap().unwrap();
+    assert_eq!(heir.community.rating_count, 2);
+    let expected = if heir.id == a {
+        (2.0 + 5.0) / 2.0
+    } else {
+        (4.0 + 5.0) / 2.0
+    };
+    assert_eq!(heir.community.rating_avg, Some(expected));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_community_place_is_verified_once_an_open_source_lists_it(pool: PgPool) {
+    use lunaway_db::submissions::{self, NewSubmission, Submitted};
+    use lunaway_domain::community::submission::{NewPlace, PlacePatch};
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let author = account(&app, 1).await;
+    let device: Uuid = sqlx::query_scalar!("SELECT id FROM device_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let new = NewPlace {
+        kind: PlaceKind::Campsite,
+        position: Position::new(46.5, 2.5).unwrap(),
+        details: PlacePatch {
+            name: Some("Camping des Bruyères".into()),
+            ..PlacePatch::default()
+        },
+    };
+    let sent = submissions::submit(
+        &app,
+        NewSubmission {
+            account: author,
+            device_key: device,
+            what: Submitted::Create(&new),
+            accepted: true,
+            held_for: None,
+        },
+    )
+    .await
+    .unwrap();
+    run(&pool, day(2)).await.unwrap();
+    let place = submissions::submission(&pool, sent.id)
+        .await
+        .unwrap()
+        .unwrap()
+        .place_id
+        .unwrap();
+    let row = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert_eq!(
+        row.community.verification,
+        lunaway_domain::community::Verification::ToVerify
+    );
+    // OpenStreetMap maps the same campsite: it joins the place.
+    let raw = serde_json::json!({});
+    records::upsert(
+        &pool,
+        &SourceId::OSM,
+        Some("test"),
+        &[records::NewRecord {
+            external_id: "way/77",
+            external_url: Some("https://www.openstreetmap.org/way/77"),
+            record: &campsite("Camping des Bruyères", 46.5, 2.5),
+            raw: &raw,
+            fetched_at: Utc::now(),
+        }],
+    )
+    .await
+    .unwrap();
+    run(&pool, day(2)).await.unwrap();
+    let row = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert_eq!(row.id, place);
+    assert_eq!(
+        row.community.verification,
+        lunaway_domain::community::Verification::Verified,
+        "a place an open source lists needs no confirmation"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_issue_leaves_the_card_once_its_window_has_passed(pool: PgPool) {
+    ingest_fixtures(&pool).await;
+    run(&pool, day(2)).await.unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let reporter = account(&app, 1).await;
+    lunaway_db::accounts::set_granted_level(&app, reporter, 1)
+        .await
+        .unwrap();
+    let port = place_named(&pool, "Camping municipal du Port").await;
+    lunaway_db::community::report_issue(
+        &app,
+        reporter,
+        port,
+        lunaway_domain::community::IssueKind::NightBan,
+        None,
+    )
+    .await
+    .unwrap();
+    run(&pool, day(2)).await.unwrap();
+    let row = places::by_id(&pool, port).await.unwrap().unwrap();
+    assert_eq!(row.community.reported_issues.len(), 1);
+    // A month passes: the report and the date the card shows grow old.
+    sqlx::query!("UPDATE issue_reports SET created_at = now() - interval '31 days'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query!(
+        r#"
+        UPDATE places SET reported_issues = (
+            SELECT jsonb_agg(jsonb_set(e, '{lastReportedAt}', to_jsonb(now() - interval '31 days')))
+            FROM jsonb_array_elements(reported_issues) e)
+        WHERE id = $1
+        "#,
+        port
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let stats = run(&pool, day(2)).await.unwrap();
+    assert_eq!(stats.community_refreshed, 1);
+    let row = places::by_id(&pool, port).await.unwrap().unwrap();
+    assert!(
+        row.community.reported_issues.is_empty(),
+        "nothing happened at the place, the report still expires"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
+    use lunaway_db::submissions::{self, NewSubmission, Submitted};
+    use lunaway_domain::community::submission::{NewPlace, PlacePatch};
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let worker = tokio::spawn(async move {
+        lunaway_conflate::watch(&ingest, std::time::Duration::from_secs(600), || day(2)).await
+    });
+    // Let the worker run once and start listening.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let author = account(&app, 1).await;
+    let device: Uuid = sqlx::query_scalar!("SELECT id FROM device_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let new = NewPlace {
+        kind: PlaceKind::Parking,
+        position: Position::new(47.2, -0.5).unwrap(),
+        details: PlacePatch {
+            name: Some("Parking des Tilleuls".into()),
+            ..PlacePatch::default()
+        },
+    };
+    let sent = submissions::submit(
+        &app,
+        NewSubmission {
+            account: author,
+            device_key: device,
+            what: Submitted::Create(&new),
+            accepted: true,
+            held_for: None,
+        },
+    )
+    .await
+    .unwrap();
+    let mut applied = false;
+    for _ in 0..50 {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let s = submissions::submission(&pool, sent.id)
+            .await
+            .unwrap()
+            .unwrap();
+        if s.status == "applied" && s.place_id.is_some() {
+            applied = true;
+            break;
+        }
+    }
+    worker.abort();
+    assert!(
+        applied,
+        "a submission is applied within seconds of the API's NOTIFY, not at the next period"
     );
 }

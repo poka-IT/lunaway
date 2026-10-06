@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE reviews SET place_id = $2, stars = $3, body = $4, lang = $5,\n                       visited_on = $6, vehicle = $7, status = $8, withdrawn_at = NULL,\n                       updated_at = now()\n                WHERE id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Text",
+        "Text",
+        "Date",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32b57e6271cac2b42f60287b38858b48dca3b5a17a9b74b4660a477037e09425"
+}
