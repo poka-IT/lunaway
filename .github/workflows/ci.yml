@@ -1,5 +1,5 @@
-# The same gates as tool/check.sh, split in three jobs so a red one says
-# where to look. Every job has a timeout: a job past it is an infrastructure
+# The same gates as tool/check.sh, split in parallel jobs so a red one says
+# where to look and the slowest one sets the wait. Every job has a timeout: a job past it is an infrastructure
 # problem to investigate, never a slow build to wait for.
 name: ci
 
@@ -42,9 +42,12 @@ jobs:
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           ./actionlint -color
 
-  app:
+  # The app's gates run as three parallel jobs: code generation, analysis and
+  # tests each take about a minute, and in one job they ran one after the
+  # other (about four minutes before the first red result).
+  app-generated:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: pinned Flutter version
@@ -72,9 +75,43 @@ jobs:
           dart run slang
           dart run build_runner build --delete-conflicting-outputs
           git diff --exit-code -- lib || { echo "::error::generated code is stale: run slang and build_runner, commit the output"; exit 1; }
+
+  app-analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
       - name: analyze (dart analyze loads riverpod_lint, flutter analyze does not)
         working-directory: app
         run: dart analyze --fatal-infos
+
+  app-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
       - name: tests
         working-directory: app
         run: flutter test --no-pub
@@ -107,6 +144,51 @@ jobs:
         with:
           name: golden-failures
           path: app/test/goldens/failures/
+
+  windows:
+    # Builds the Windows app (release), so the target cannot rot between
+    # the releases that ship it. Nothing runs it here.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        shell: bash
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
+      - name: build
+        working-directory: app
+        run: flutter build windows --release --no-pub
+
+  ios:
+    # Builds the iOS app (release) without signing: the target compiles,
+    # its plugins and Info.plist keys hold. Signing is the release's job.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
+      - name: build
+        working-directory: app
+        run: flutter build ios --release --no-codesign --no-pub
 
   backend:
     runs-on: ubuntu-latest
@@ -147,6 +229,17 @@ jobs:
         run: sh tool/structure_rs.sh
       - name: clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: test database without durability, schema in its template
+        # The service is disposable: fsync and full-page writes only slow the
+        # thousands of small transactions and CREATE DATABASE calls of the
+        # tests. A migrated template1 lets each #[sqlx::test] database start
+        # with the schema instead of creating PostGIS and running every
+        # migration again (backend/tool/test-template.sh).
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q \
+            -c "ALTER SYSTEM SET fsync = off" -c "ALTER SYSTEM SET synchronous_commit = off" \
+            -c "ALTER SYSTEM SET full_page_writes = off" -c "SELECT pg_reload_conf()"
+          sh tool/test-template.sh
       - name: tests
         run: cargo nextest run --locked --workspace --all-targets --profile ci
       - name: licences, sources, advisories

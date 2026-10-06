@@ -33,6 +33,7 @@ fvm flutter test
 fvm dart analyze --fatal-infos          # dart, not flutter: only dart analyze runs riverpod_lint
 # backend, from backend/
 docker compose -f compose.yaml up -d    # local PostGIS, 127.0.0.1:54329
+sh tool/test-template.sh                # after a new migration: tests start from a migrated template
 cargo nextest run --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p lunaway-api                # 127.0.0.1:8484, /health and /graphql

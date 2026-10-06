@@ -120,6 +120,9 @@ else
   if [ "$QUICK" -eq 0 ]; then
     # The database tests need the compose database (backend/compose.yaml).
     export DATABASE_URL="${DATABASE_URL:-postgres://lunaway:lunaway@127.0.0.1:54329/lunaway}"
+    # Each test database then starts from the migrated template1 instead of
+    # creating PostGIS and running every migration (about ten times faster).
+    run "test database template" in_backend sh tool/test-template.sh
     if command -v cargo-nextest >/dev/null 2>&1; then
       run "cargo nextest" in_backend cargo nextest run --locked --workspace --all-targets
     else

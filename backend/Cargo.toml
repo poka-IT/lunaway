@@ -95,3 +95,25 @@ todo = "deny"
 
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "deny"
+
+# Debug builds keep line tables for readable backtraces and drop the rest of
+# the debug info: full debug info made target/ reach 12 GB on a disk that
+# filled up, and every test binary paid for it at link time.
+[profile.dev]
+debug = "line-tables-only"
+
+# Dependencies are compiled once and optimised: unoptimised argon2, p256,
+# image decoding and WebP encoding made single tests take ten seconds and
+# more. Our own crates stay at opt-level 0 for fast incremental builds.
+[profile.dev.package."*"]
+debug = false
+opt-level = 2
+
+# The conflation scoring runs over hundreds of thousands of pairs in its
+# tests, and the photo pipeline walks every pixel of a phone picture: both
+# crates are pure computation, and unoptimised they dominated the suite.
+[profile.dev.package.lunaway-domain]
+opt-level = 2
+
+[profile.dev.package.lunaway-media]
+opt-level = 2

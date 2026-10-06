@@ -63,3 +63,16 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
 `#[sqlx::test(migrations = "../../migrations")]` gives each test a fresh
 database; it needs `DATABASE_URL` pointing at a server where the user may
 create databases (the local compose database does).
+
+## Test speed
+
+- `#[sqlx::test]` copies `template1` for each test. `backend/tool/test-template.sh`
+  migrates `template1` so tests skip PostGIS creation and the migrations;
+  `tool/check.sh` and the CI run it before the tests. After editing a
+  migration, run it again, or the tests fail with "previously applied but
+  has been modified".
+- The dev and CI databases run without fsync (`backend/compose.yaml`, the CI
+  step): never copy those settings to a server.
+- Dependencies, `lunaway-domain` and `lunaway-media` are optimised in dev
+  builds (`backend/Cargo.toml`); keep pure, heavy computation in those crates.
+
