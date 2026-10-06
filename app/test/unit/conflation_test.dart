@@ -3,8 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/features/places/domain/conflation.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+
+import '../support/conflation.dart';
 
 /// The vectors the Rust scorer runs too: both implementations must give the
 /// same normalisations, scores and decisions.
@@ -64,6 +65,28 @@ void main() {
     }
     expect(Conflation.genericWords, (parameters['genericWords'] as List<dynamic>).toSet());
     expect(Conflation.abbreviations, parameters['abbreviations']);
+    expect(Conflation.ligatures, parameters['ligatures']);
+    expect(Conflation.platformHosts, (parameters['platformHosts'] as List<dynamic>).toSet());
+    expect(LatLng.earthRadiusM, parameters['earthRadiusM']);
+  });
+
+  test('kind compatibility reads the same both ways, and a kind fully matches itself', () {
+    for (final a in PlaceKind.values) {
+      expect(Conflation.kindCompatibility(a, a), 1, reason: '$a');
+      for (final b in PlaceKind.values) {
+        expect(
+          Conflation.kindCompatibility(a, b),
+          Conflation.kindCompatibility(b, a),
+          reason: '$a, $b',
+        );
+      }
+    }
+    expect(Conflation.kindCompatibility(PlaceKind.farm, PlaceKind.homestay), 0.8);
+    expect(Conflation.kindCompatibility(PlaceKind.offRoad, PlaceKind.campsite), 0);
+  });
+
+  test('ligatures expand when names fold', () {
+    expect(Conflation.fold('Œuilly-Ærøskøbing Straße Łódź'), 'oeuilly aeroskobing strasse lodz');
   });
 
   group('normalisation', () {

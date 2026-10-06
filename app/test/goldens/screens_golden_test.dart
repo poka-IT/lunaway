@@ -6,7 +6,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
@@ -19,8 +21,10 @@ import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
 /// The key screens per width class and theme, in French, with the real
-/// typeface, reviewed as images. Rendering differs between operating
-/// systems, so the references are made and compared on macOS only.
+/// typefaces, icons and pin images, reviewed as images. Rendering differs
+/// between operating systems, so the references are made and compared on
+/// macOS only (the `goldens` job of the CI), with a small tolerance for
+/// anti-aliasing (`test/flutter_test_config.dart`).
 const _phone = Size(412, 915);
 const _tablet = Size(768, 1024);
 const _desktop = Size(1280, 800);
@@ -43,12 +47,23 @@ Future<TestApp> _pump(WidgetTester tester, Size size, Brightness brightness) asy
     brightness: brightness,
     places: _places,
     map: GoldenMap(_annecy),
-    settings: const AppSettings(),
+    // A new user's filters, in the theme of the image.
+    settings: AppSettings(
+      theme: brightness == Brightness.dark ? ThemePreference.dark : ThemePreference.light,
+    ),
   );
+  // Images decode on the real event loop, before the frame is compared.
   await tester.runAsync(() async {
     final context = tester.element(find.byType(Scaffold).first);
+    final fetcher = app.container(tester).read(imageFetcherProvider);
     for (final p in samplePhotos) {
-      await precacheImage(ResizeImage(CachedImage(p.thumbUrl), width: 480), context);
+      await precacheImage(
+        ResizeImage(CachedImage(p.thumbUrl, fetcher: fetcher), width: 480),
+        context,
+      );
+    }
+    for (final id in allPinImageIds()) {
+      await precacheImage(AssetImage('assets/map/pins/2x/$id.png'), context);
     }
   });
   await settleShort(tester);
@@ -104,7 +119,7 @@ void main() {
       (tester) => _withShadows(() async {
         await _pump(tester, size, Brightness.light);
         if (name == 'medium') {
-          await tester.tap(find.text('Afficher la liste'));
+          await tester.tap(find.textContaining('Liste ('));
           await settleShort(tester);
         }
         await expectLater(find.byType(MaterialApp), matchesGoldenFile('images/map_list_$name.png'));

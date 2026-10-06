@@ -1,0 +1,22 @@
+{
+  "name": "lunaway-map-style",
+  "private": true,
+  "description": "Generates the Aube and Minuit basemap styles of Lunaway from @protomaps/basemaps, and previews them.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "generate": "node generate.mjs",
+    "fetch-preview-data": "node preview/fetch.mjs",
+    "preview": "node preview/render.mjs"
+  },
+  "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "26.4.4",
+    "@protomaps/basemaps": "5.7.2"
+  },
+  "devDependencies": {
+    "pmtiles": "4.5.0"
+  }
+}

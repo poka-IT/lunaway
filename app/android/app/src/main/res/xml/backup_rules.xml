@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup on Android 11 (API 30) and earlier; data_extraction_rules.xml
+     holds the rules for Android 12 and later. Only the user's own database
+     (favourites, settings, vehicle profile) and its SQLite companion files;
+     the place cache, the demo stores and the image cache are downloaded
+     again. An <include> list backs up nothing else.
+
+     Each file is listed twice: to the cloud only when the backup is
+     end-to-end encrypted (clientSideEncryption, a screen lock is set), and
+     in a device-to-device transfer. Android 9 to 11 honour these flags;
+     Android 7 and 8 ignore requireFlags and have no encrypted cloud backup,
+     so there the database goes to the cloud backup as the system makes it. -->
+<full-backup-content>
+    <include domain="file" path="lunaway_user.sqlite" requireFlags="clientSideEncryption" />
+    <include domain="file" path="lunaway_user.sqlite-wal" requireFlags="clientSideEncryption" />
+    <include domain="file" path="lunaway_user.sqlite-shm" requireFlags="clientSideEncryption" />
+    <include domain="file" path="lunaway_user.sqlite-journal" requireFlags="clientSideEncryption" />
+    <include domain="file" path="lunaway_user.sqlite" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="lunaway_user.sqlite-wal" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="lunaway_user.sqlite-shm" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="lunaway_user.sqlite-journal" requireFlags="deviceToDeviceTransfer" />
+</full-backup-content>

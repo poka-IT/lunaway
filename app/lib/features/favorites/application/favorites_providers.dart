@@ -7,7 +7,7 @@ part 'favorites_providers.g.dart';
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
 FavoritesRepository favoritesRepository(Ref ref) =>
-    DriftFavoritesRepository(ref.watch(appDatabaseProvider), clock: ref.watch(clockProvider));
+    DriftFavoritesRepository(ref.watch(userDatabaseProvider), clock: ref.watch(clockProvider));
 
 @riverpod
 Stream<List<FavoriteList>> favoriteLists(Ref ref) =>
@@ -16,6 +16,10 @@ Stream<List<FavoriteList>> favoriteLists(Ref ref) =>
 @riverpod
 Stream<List<FavoriteEntry>> favoriteEntries(Ref ref, int listId) =>
     ref.watch(favoritesRepositoryProvider).watchEntries(listId);
+
+/// The id of the default list, which the save button toggles.
+@riverpod
+Future<int> defaultFavoriteList(Ref ref) => ref.watch(favoritesRepositoryProvider).defaultListId();
 
 /// The lists holding a place: empty means not saved.
 @riverpod

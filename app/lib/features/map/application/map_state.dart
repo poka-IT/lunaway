@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/location/last_position.dart';
+import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_view.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
-import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'map_state.g.dart';
@@ -80,15 +85,56 @@ class MapController extends _$MapController {
   void attach(LunaMapController controller) => state = controller;
 }
 
-/// The last known device position.
+/// The location permission of the platform; a fake in widget tests.
+// keepAlive: stateless, wired once.
+@Riverpod(keepAlive: true)
+LocationPermissions locationPermissions(Ref ref) => const PlatformLocationPermissions();
+
+/// Where the last known position is kept between runs.
+// keepAlive: a repository over the app-wide database.
+@Riverpod(keepAlive: true)
+LastPositionStore lastPositionStore(Ref ref) =>
+    DriftLastPositionStore(ref.watch(cacheDatabaseProvider));
+
+/// The coarse position stored by the previous run, read in `main` before the
+/// first frame so the automatic theme is right from the start.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+LatLng? initialPosition(Ref ref) => null;
+
+/// The basemap style templates, read from the assets in `main` before the
+/// first frame, so the map never waits on a file to get its style.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+BasemapTemplates basemapTemplates(Ref ref) => BasemapTemplates.blank;
+
+/// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+/// pointed at the configured tile host, labelled in [language].
+@riverpod
+String basemapStyle(Ref ref, {required bool dark, required String language}) => fillBasemapStyle(
+  ref.watch(basemapTemplatesProvider).of(dark: dark),
+  base: ref.watch(appConfigProvider).basemapBase,
+  language: language,
+);
+
+/// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
 @Riverpod(keepAlive: true)
 class UserLocation extends _$UserLocation {
   @override
   LatLng? build() => null;
 
-  void update(LatLng? position) => state = position;
+  void update(LatLng? position) {
+    state = position;
+    if (position != null) unawaited(ref.read(lastPositionStoreProvider).save(position));
+  }
 }
+
+/// The position the sun is computed at for the automatic theme: this run's,
+/// else the one the previous run stored.
+@riverpod
+LatLng? sunPosition(Ref ref) =>
+    ref.watch(userLocationProvider) ?? ref.watch(initialPositionProvider);
 
 /// The places in the viewport, nearest to the user (or to the map centre)
 /// first: the list beside the map.
@@ -97,7 +143,7 @@ Stream<List<PlaceSummary>> nearbyPlaces(Ref ref) {
   // Before the map reports its camera (or where it cannot run), the list
   // covers France around the initial centre.
   final viewport = ref.watch(viewportProvider) ?? initialViewport;
-  final filter = ref.watch(placeFilterProvider);
+  final filter = ref.watch(effectiveFilterProvider);
   final user = ref.watch(userLocationProvider);
   final center = user != null && viewport.bounds.contains(user) ? user : viewport.center;
   return ref.watch(placesRepositoryProvider).watchInBounds(viewport.bounds, filter, center: center);

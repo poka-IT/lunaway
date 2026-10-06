@@ -8,6 +8,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 /// place without id, kind or position is a server bug and throws.
 Place placeFromJson(Map<String, dynamic> json) {
   final address = json['address'];
+  final municipality = _nonEmpty(json['municipality']);
   return Place(
     id: json['id'] as String,
     name: _nonEmpty(json['name']),
@@ -24,7 +25,10 @@ Place placeFromJson(Map<String, dynamic> json) {
         ?Activity.fromWire(a as String),
     },
     description: _nonEmpty(json['description']),
-    address: address is Map<String, dynamic> ? addressFromJson(address) : null,
+    address: _withCommune(
+      address is Map<String, dynamic> ? addressFromJson(address) : null,
+      municipality,
+    ),
     priceParkingEur: (json['priceParkingEur'] as num?)?.toDouble(),
     priceServicesEur: (json['priceServicesEur'] as num?)?.toDouble(),
     maxHeightM: (json['maxHeightM'] as num?)?.toDouble(),
@@ -136,8 +140,8 @@ ReviewPage reviewPageFromJson(Object? json) {
             text: _nonEmpty(m['text']),
             lang: _nonEmpty(m['lang']),
             authorName: _nonEmpty(m['authorName']),
-            authorVehicle: _nonEmpty(m['authorVehicle']),
-            visitedAt: _date(m['visitedAt']),
+            authorVehicle: ReviewVehicle.fromWire(m['authorVehicle']),
+            visitedAt: _day(m['visitedAt']),
             createdAt: created,
           ),
     ],
@@ -157,8 +161,11 @@ Map<String, Object?> reviewPageToJson(ReviewPage page) => {
         'text': r.text,
         'lang': r.lang,
         'authorName': r.authorName,
-        'authorVehicle': r.authorVehicle,
-        'visitedAt': r.visitedAt?.toUtc().toIso8601String(),
+        'authorVehicle': r.authorVehicle?.wire,
+        'visitedAt': switch (r.visitedAt) {
+          final d? => '${d.year.toString().padLeft(4, '0')}-${_two(d.month)}-${_two(d.day)}',
+          null => null,
+        },
         'createdAt': r.createdAt.toUtc().toIso8601String(),
       },
   ],
@@ -266,6 +273,8 @@ Map<String, Object?> placeToJson(Place p) => {
           'city': p.address!.city,
           'countryCode': p.address!.countryCode,
         },
+  // The server's commune; the places written here are all French towns.
+  'municipality': p.address?.city,
   'priceParkingEur': p.priceParkingEur,
   'priceServicesEur': p.priceServicesEur,
   'maxHeightM': p.maxHeightM,
@@ -293,3 +302,27 @@ String? _nonEmpty(Object? value) {
 }
 
 DateTime? _date(Object? value) => value is String ? DateTime.tryParse(value)?.toUtc() : null;
+
+/// A `NaiveDate` (`2026-09-20`) as local midnight of that day, so formatting
+/// it never moves it to the day before or after.
+DateTime? _day(Object? value) {
+  if (value is! String) return null;
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(value);
+  if (m == null) return null;
+  return DateTime(int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!));
+}
+
+String _two(int n) => n.toString().padLeft(2, '0');
+
+/// The address, its town taken from the commune the server found for the
+/// place when the source gave none: rows and the offline search by town
+/// then cover places mapped without an address.
+Address? _withCommune(Address? address, String? municipality) {
+  if (municipality == null || address?.city != null) return address;
+  return Address(
+    street: address?.street,
+    postcode: address?.postcode,
+    city: municipality,
+    countryCode: address?.countryCode,
+  );
+}

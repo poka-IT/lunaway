@@ -95,7 +95,7 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
     final registered = sources.any((s) => s.source.id == demoRegistrySource.id);
     places.add(
       Place(
-        id: 'demo-${(i + 1).toString().padLeft(4, '0')}',
+        id: _demoId(0, i + 1),
         name: placeName,
         kind: kind,
         lat: double.parse(lat.toStringAsFixed(6)),
@@ -144,7 +144,7 @@ const demoSource = Source(
 /// descriptions, photos and reviews, in the shape the server will send for
 /// community contributions.
 const demoCommunitySource = Source(
-  id: 'community',
+  id: communitySourceId,
   name: 'Communauté Lunaway (démo)',
   licence: 'Données de démonstration',
   attribution: 'Notes, descriptions et avis inventés pour la démonstration.',
@@ -377,9 +377,11 @@ const List<_Text> _descriptions = [
 ];
 
 /// Photos and reviews of a demo place, the way the server would answer: a
-/// few synthetic photos from the app bundle, and invented reviews.
-({List<Photo> photos, List<Review> reviews}) demoExtras(Place place) {
+/// few synthetic photos at the image proxy's URLs under [apiBase] (the demo
+/// server draws them), and invented reviews.
+({List<Photo> photos, List<Review> reviews}) demoExtras(Place place, {required Uri apiBase}) {
   final seed = place.id.codeUnits.fold(7, (a, c) => (a * 31 + c) & 0x7FFFFFFF);
+  final index = int.parse(place.id.substring(place.id.lastIndexOf('-') + 1));
   final rng = _Rng(seed);
   final rating = place.ratings.where((r) => r.sourceId == demoCommunitySource.id).firstOrNull;
   final photoCount = rating == null ? 0 : 1 + rng.nextInt(5);
@@ -388,10 +390,10 @@ const List<_Text> _descriptions = [
       () {
         final n = 1 + (seed + i) % 6;
         return Photo(
-          id: '${place.id}-photo-$i',
+          id: _demoId(1, index * 100 + i),
           sourceId: demoCommunitySource.id,
-          thumbUrl: 'asset:assets/demo/photo-$n-thumb.jpg',
-          largeUrl: 'asset:assets/demo/photo-$n-large.jpg',
+          thumbUrl: '$apiBase/media/demo-$n/thumb',
+          largeUrl: '$apiBase/media/demo-$n/large',
         );
       }(),
   ];
@@ -399,14 +401,14 @@ const List<_Text> _descriptions = [
   final reviews = [
     for (var i = 0; i < count && i < 60; i++)
       Review(
-        id: '${place.id}-review-$i',
+        id: _demoId(2, index * 100 + i),
         sourceId: demoCommunitySource.id,
         rating: 2 + rng.nextInt(4),
         text: _reviews[rng.nextInt(_reviews.length)],
         lang: 'fr',
         authorName: 'Voyageur démo ${1 + rng.nextInt(400)}',
-        authorVehicle: _vehicles[rng.nextInt(_vehicles.length)],
-        visitedAt: DateTime.utc(2026, 9, 2).subtract(Duration(days: i * 9 + rng.nextInt(9))),
+        authorVehicle: ReviewVehicle.values[rng.nextInt(ReviewVehicle.values.length)],
+        visitedAt: DateTime(2026, 9, 2).subtract(Duration(days: i * 9 + rng.nextInt(9))),
         createdAt: DateTime.utc(2026, 9, 3).subtract(Duration(days: i * 9 + rng.nextInt(9))),
       ),
   ];
@@ -421,14 +423,10 @@ const _reviews = [
   'Avis de démonstration : propre, gratuit, idéal pour une étape.',
 ];
 
-const _vehicles = [
-  'Fourgon aménagé',
-  'Camping-car profilé',
-  'Capucine',
-  'Van',
-  'Intégral',
-  '4x4 aménagé',
-];
+/// A UUID-shaped id, as the API gives: [kind] tells places, photos and
+/// reviews apart, [n] numbers them, and the last group stays a plain number.
+String _demoId(int kind, int n) =>
+    '00000000-${kind.toString().padLeft(4, '0')}-4000-8000-${n.toString().padLeft(12, '0')}';
 
 /// Opening hours of the demo, as the OSM text and the weekly spans (minutes
 /// after local midnight, per ISO weekday) it means: the demo builds the

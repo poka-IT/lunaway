@@ -1,0 +1,48 @@
+-- What the user made on this device: settings, favourites, the vehicle. Kept
+-- apart from the place cache so the device backups carry exactly this file
+-- (android/app/src/main/res/xml/ backup rules) and nothing that can be
+-- downloaded again.
+
+CREATE TABLE settings (
+  id TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+) AS SettingRow;
+
+CREATE TABLE favorite_lists (
+  id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  -- Null for the default list, whose name follows the app language.
+  name TEXT,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at INTEGER NOT NULL
+) AS FavoriteListRow;
+
+-- A favourite keeps a snapshot of the place, so it still shows (and can be
+-- navigated to) after a sync removed the place or before any sync ran.
+CREATE TABLE favorite_items (
+  list_id INTEGER NOT NULL REFERENCES favorite_lists (id) ON DELETE CASCADE,
+  place_id TEXT NOT NULL,
+  name TEXT,
+  kind TEXT NOT NULL,
+  overnight TEXT NOT NULL DEFAULT 'UNKNOWN',
+  city TEXT,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  added_at INTEGER NOT NULL,
+  PRIMARY KEY (list_id, place_id)
+) AS FavoriteItemRow;
+
+CREATE INDEX favorite_items_place ON favorite_items (place_id);
+
+-- The user's vehicle, one row: the filters use its size now, the route
+-- planner its limits later. Every dimension is optional, so a user who knows
+-- only the height still gets the height filter.
+CREATE TABLE vehicles (
+  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+  type TEXT NOT NULL,
+  towing TEXT NOT NULL DEFAULT 'none',
+  height_m REAL,
+  width_m REAL,
+  length_m REAL,
+  weight_t REAL,
+  updated_at INTEGER NOT NULL
+) AS VehicleRow;

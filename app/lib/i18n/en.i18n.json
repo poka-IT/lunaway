@@ -12,11 +12,12 @@
     "save": "Save",
     "delete": "Delete",
     "undo": "Undo",
-    "more": "More options"
+    "ok": "Got it",
+    "saveFailed": "The change could not be saved."
   },
   "kinds": {
     "motorhomeArea": "Motorhome area",
-    "serviceArea": "Service point",
+    "serviceArea": "Service area",
     "campsite": "Campsite",
     "parking": "Car park",
     "nature": "Spot in nature",
@@ -25,18 +26,22 @@
     "farm": "Farm stay",
     "homestay": "Private host",
     "offRoad": "Off-road spot",
-    "extraService": "Useful stop"
+    "extraService": "Handy stop"
   },
   "families": {
     "stopovers": "Areas and car parks",
+    "stopoversHint": "Motorhome areas, car parks, rest areas",
     "campsites": "Campsites and hosts",
+    "campsitesHint": "Campsites, farms, private hosts",
     "nature": "Nature",
-    "services": "Service points"
+    "natureHint": "Spots in nature, tracks",
+    "services": "Services",
+    "servicesHint": "Water and dump points, no night"
   },
   "services": {
     "drinkingWater": "Drinking water",
-    "greyWater": "Grey water drain",
-    "blackWater": "Toilet cassette",
+    "greyWater": "Grey water dump",
+    "blackWater": "Cassette dump",
     "wasteBin": "Bins",
     "toilets": "Toilets",
     "showers": "Showers",
@@ -49,12 +54,12 @@
     "bakery": "Bakery",
     "swimmingPool": "Swimming pool",
     "petsAllowed": "Pets welcome",
-    "mobileData": "Mobile data",
-    "winterCaravanning": "Winter stays"
+    "mobileData": "Mobile signal",
+    "winterCaravanning": "Open in winter"
   },
   "activities": {
     "monuments": "Sights",
-    "windsurfKitesurf": "Windsurf, kitesurf",
+    "windsurfKitesurf": "Windsurfing, kitesurfing",
     "mountainBiking": "Mountain biking",
     "hiking": "Hiking",
     "climbing": "Climbing",
@@ -62,32 +67,37 @@
     "fishing": "Fishing",
     "shoreFishing": "Shore fishing",
     "swimming": "Swimming",
-    "motorcycling": "Motorcycling",
+    "motorcycling": "Motorcycle rides",
     "viewpoint": "Viewpoint",
     "playground": "Playground"
   },
   "amenities": {
     "water": "Water",
-    "dumpStation": "Dump station",
+    "dumpStation": "Dump point",
     "electricity": "Electricity",
-    "toilets": "Toilets"
+    "toilets": "Toilets",
+    "showers": "Showers",
+    "wasteBin": "Bins",
+    "laundry": "Laundry",
+    "wifi": "Wi-Fi",
+    "lpg": "LPG"
   },
   "overnight": {
-    "allowed": "Night allowed",
-    "tolerated": "Night tolerated",
+    "allowed": "Overnight allowed",
+    "tolerated": "Overnight tolerated",
     "dayOnly": "Daytime only",
-    "forbidden": "No overnight stay",
-    "unknown": "Night: not known",
-    "allowedHint": "You can spend the night here.",
+    "forbidden": "No overnight",
+    "unknown": "Overnight not reported",
+    "allowedHint": "You may spend the night here.",
     "toleratedHint": "A night is usually accepted. Stay discreet and leave no trace.",
-    "dayOnlyHint": "Parking by day only. Find another spot for the night.",
-    "forbiddenHint": "Spending the night here is banned.",
-    "unknownHint": "Nobody has told us yet whether a night is allowed."
+    "dayOnlyHint": "Daytime parking only. Look for another place for the night.",
+    "forbiddenHint": "Spending the night here is forbidden.",
+    "unknownHint": "Nobody has said yet. Ask on site."
   },
   "freshness": {
     "confirmed": "Confirmed $when",
     "updated": "Updated $when",
-    "stale": "Not confirmed for more than a year",
+    "stale": "Not confirmed for over a year",
     "today": "today",
     "daysAgo(param=n)": {
       "one": "yesterday",
@@ -103,84 +113,128 @@
     }
   },
   "map": {
-    "searchHint": "Search a place or a town",
+    "searchHint": "A place, a town",
     "clearSearch": "Clear the search",
     "locateMe": "Show my position",
-    "locationUnavailable": "Your position is not available. Check that location access is allowed.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
     "filters": "Filters",
-    "showList": "Show the list",
-    "showMap": "Show the map",
-    "placesHere(param=n)": {
-      "one": "1 place here",
-      "other": "$n places here"
+    "credit": "© OpenStreetMap · Protomaps",
+    "creditLabel": "Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.",
+    "showList": "List",
+    "showListCount(param=n)": {
+      "one": "List ($n)",
+      "other": "List ($n)"
     },
-    "nearestPlaces": "The $n nearest places",
-    "pointTitle": "Selected point",
+    "placesHereLabel(param=n)": {
+      "one": "place here",
+      "other": "places here"
+    },
+    "nearestPlacesLabel(param=n)": {
+      "one": "nearest place",
+      "other": "nearest places"
+    },
+    "pointTitle": "Chosen point",
+    "pointHint": "Its coordinates and the way there",
     "downloading": "Downloading the places of France",
     "downloadingCount(param=n)": {
-      "one": "1 place received",
-      "other": "$n places received"
+      "one": "$count place received",
+      "other": "$count places received"
     },
-    "noData": "No place on this device yet",
-    "noDataHint": "Download the places once; the map then works without network.",
+    "noData": "No places on this device yet",
+    "noDataHint": "Download the places once: the map then works without a network.",
     "download": "Download the places",
-    "downloadFailed": "The download failed. Check the connection and try again.",
+    "downloadFailed": "The download stopped",
     "demoBanner": "Demo: invented places",
     "unsupported": "The map is not available on this system. Use the web app."
+  },
+  "sync": {
+    "failedOffline": "No connection for now.",
+    "failedBusy": "The server is very busy.",
+    "failedServer": "The server has a problem for now.",
+    "failedOther": "The update did not go through.",
+    "failedRefused": "The server refused the update. A newer version of the app may be needed.",
+    "willRetry": "Lunaway will try again by itself.",
+    "incomplete": "Download incomplete: $count places so far",
+    "incompleteShort": "Download incomplete",
+    "resuming": "Downloading: $count places",
+    "resume": "Resume"
+  },
+  "location": {
+    "rationaleTitle": "Show your position?",
+    "rationale": "Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.",
+    "allow": "Continue",
+    "notNow": "Not now",
+    "deniedTitle": "Position turned off for Lunaway",
+    "denied": "You refused access to your position. To use it, allow it in the device settings.",
+    "openSettings": "Open settings",
+    "serviceOffTitle": "Location is off",
+    "serviceOff": "Location is turned off on this device. Turn it on in the quick settings, then try again.",
+    "notAllowed": "Position not allowed. The map works without it.",
+    "noFix": "Your position is not coming through. Try in the open, or in a moment.",
+    "unsupported": "This device does not give its position."
   },
   "search": {
     "towns": "Towns",
     "places": "Places",
-    "noResult": "No place or town matches “$query”.",
+    "noResult": "No place or town matches \"$query\".",
     "townPlaces(param=n)": {
-      "one": "1 place",
+      "one": "$n place",
       "other": "$n places"
     }
   },
   "filters": {
     "title": "Filters",
-    "families": "Type of place",
-    "night": "Night allowed",
-    "nightHint": "Allowed or tolerated",
+    "families": "Kind of place",
+    "familiesHint": "None chosen: every kind",
+    "night": "The night",
+    "nightHint": "None chosen: every place",
+    "nightPossible": "Night possible",
     "amenities": "Services",
-    "height": "Vehicle height",
-    "heightAny": "Any height",
-    "heightHint": "Hides places with a lower height barrier. Places whose barrier is unknown stay visible.",
-    "reset": "Reset",
+    "amenitiesHint": "The place must have all of them",
+    "vehicle": "My vehicle",
+    "myVehicleFits": "My vehicle fits",
+    "myVehicleFitsHeight": "Fits $height",
+    "myVehicleHint": "Hides places limited below $height. Unknown heights stay.",
+    "myVehicleUnknown": "Give your vehicle's height to use it.",
+    "reset": "Clear all",
+    "apply": "Apply",
     "show(param=n)": {
       "zero": "No place matches",
-      "one": "Show 1 place",
-      "other": "Show $n places"
+      "one": "Show $count place",
+      "other": "Show $count places"
     },
     "active(param=n)": {
-      "one": "1 filter on",
+      "one": "$n filter on",
       "other": "$n filters on"
     }
   },
   "place": {
     "unnamedIn": "$kind in $town",
+    "away": "$distance away",
     "directions": "Directions",
     "share": "Share",
     "save": "Save",
     "saved": "Saved",
+    "saveHint": "In My favourites. Long press to choose lists.",
     "saveTo": "Save to a list",
-    "savedToast": "Saved in your favourites",
-    "removedToast": "Removed from your favourites",
-    "facts": "Good to know",
+    "chooseLists": "Lists",
+    "savedToast": "Added to My favourites",
+    "removedToast": "Removed from My favourites",
     "pricePerNight": "Per night",
     "priceFree": "Free",
-    "priceUnknown": "Not known",
+    "priceUnknown": "Unknown",
     "priceServices": "Services",
-    "maxHeight": "Height limit",
+    "maxHeight": "Max. height",
     "capacity": "Pitches",
-    "classification": "Classification",
+    "classification": "Rating",
     "classStars(param=n)": {
       "one": "$n star",
       "other": "$n stars"
     },
     "hours": "Opening hours",
     "services": "Services",
-    "noServices": "No service listed.",
+    "noServices": "No services listed.",
     "activities": "Nearby",
     "description": "Description",
     "contact": "Contact",
@@ -188,6 +242,7 @@
     "call": "Call",
     "coordinates": "Coordinates",
     "copy": "Copy the coordinates",
+    "copyShort": "Copy",
     "copied": "Copied: $text",
     "otherFormats": "Other formats",
     "formatDecimal": "Decimal degrees",
@@ -199,20 +254,29 @@
     "fetched": "Read $when",
     "matchScore": "Match $score %",
     "viewSource": "View at the source",
-    "gone": "This place is no longer in the data.",
+    "gone": "This place is no longer in the data",
+    "goneHint": "It was removed or merged with another since the last update.",
     "loadError": "This place could not be read.",
     "openFailed": "No app could open this link.",
     "photos": "Photos",
     "extrasOffline": "Photos and reviews need a connection.",
     "reviewsTitle": "Reviews",
     "reviewsCount(param=n)": {
-      "one": "1 review",
+      "one": "$n review",
       "other": "$n reviews"
     },
-    "noReviews": "No review yet.",
+    "noReviews": "No reviews yet.",
     "moreReviews": "More reviews",
     "moreReviewsFailed": "More reviews could not load. Tap to try again.",
     "stars": "$rating out of 5",
+    "deletedAccount": "Deleted account",
+    "reviewVehicle": {
+      "van": "Van",
+      "campervan": "Campervan",
+      "motorhome": "Motorhome",
+      "caravan": "Caravan",
+      "other": "Other vehicle"
+    },
     "originalLanguage": "Original text in $language",
     "photoPosition": "Photo $index of $count",
     "links": "Elsewhere"
@@ -222,86 +286,143 @@
     "openUntil": "Open, closes at $time",
     "openUntilDay": "Open, closes $day at $time",
     "closesIn(param=n)": {
-      "one": "Open, closes in 1 minute",
+      "one": "Open, closes in $n minute",
       "other": "Open, closes in $n minutes"
     },
     "closedUntil": "Closed, opens at $time",
     "closedUntilDay": "Closed, opens $day at $time",
     "opensIn(param=n)": {
-      "one": "Closed, opens in 1 minute",
+      "one": "Closed, opens in $n minute",
       "other": "Closed, opens in $n minutes"
     },
     "closedWindow": "Closed for the next two weeks",
     "tomorrow": "tomorrow",
     "onDate": "on $date",
     "midnight": "midnight",
-    "stale": "Open or closed unknown: the data needs an update"
+    "stale": "Opening unknown: data to update",
+    "localTime": "Local time of the place"
   },
   "directions": {
-    "title": "Navigate with",
+    "title": "Directions with",
+    "hint": "Lunaway hands the trip to your navigation app.",
+    "remember": "Always use this app",
+    "rememberHint": "You can change it in Profile",
+    "noApp": "No navigation app is installed.",
+    "settingTitle": "Directions",
+    "settingHint": "The app your trips go to",
+    "askEachTime": "Ask each time",
     "appleMaps": "Apple Maps",
     "googleMaps": "Google Maps",
     "waze": "Waze",
-    "osm": "OpenStreetMap",
-    "system": "A navigation app"
+    "osmAnd": "OsmAnd",
+    "organicMaps": "Organic Maps",
+    "magicEarth": "Magic Earth",
+    "openStreetMap": "OpenStreetMap (browser)"
   },
   "list": {
     "title": "Places around",
-    "empty": "No place in this area with these filters.",
+    "empty": "No places around here with these filters",
     "emptyHint": "Move the map, zoom out or loosen the filters.",
     "error": "The list could not be read."
   },
   "favorites": {
     "title": "Favourites",
     "defaultList": "My favourites",
-    "empty": "Your saved places will appear here.",
+    "empty": "Nothing saved here yet",
     "emptyHint": "Tap Save on a place to keep it, even offline.",
     "newList": "New list",
-    "listName": "Name of the list",
+    "listName": "List name",
     "renameList": "Rename the list",
     "deleteList": "Delete the list",
-    "deleteListConfirm": "Delete “$name”? The places stay on the map.",
+    "deleteListConfirm": "Delete \"$name\"? The places stay on the map.",
+    "listActions": "List options",
+    "placeActions": "Place options",
+    "openOnMap": "See on the map",
+    "remove": "Remove from the list",
     "removed": "Removed from the list",
     "count(param=n)": {
       "zero": "Empty",
-      "one": "1 place",
+      "one": "$n place",
       "other": "$n places"
     },
     "error": "Your favourites could not be read."
   },
+  "vehicle": {
+    "title": "My vehicle",
+    "why": "Its size filters out the places it does not fit. It stays on this device.",
+    "whyHeight": "To keep only the places it fits, give at least its height. It stays on this device.",
+    "none": "Describe your vehicle to hide the places it does not fit.",
+    "add": "Describe my vehicle",
+    "edit": "Edit",
+    "type": "Type",
+    "types": {
+      "van": "Van",
+      "campervan": "Campervan",
+      "lowProfile": "Low-profile",
+      "overcab": "Over-cab",
+      "integrated": "A-class"
+    },
+    "towingTitle": "It tows",
+    "towing": {
+      "none": "Nothing",
+      "car": "A car",
+      "trailer": "A trailer"
+    },
+    "size": "Dimensions",
+    "sizeHint": "Typical values for the type chosen: correct them with your registration papers.",
+    "height": "Height",
+    "width": "Width",
+    "length": "Total length, towing included",
+    "weight": "Gross vehicle weight",
+    "heightShort": "H $value",
+    "widthShort": "W $value",
+    "lengthShort": "L $value",
+    "notANumber": "A number, for example 2.90",
+    "outOfRange": "Between $min and $max $unit",
+    "navigationLater": "The built-in route planner, coming later, will take all these dimensions into account.",
+    "save": "Save",
+    "clear": "Clear"
+  },
   "profile": {
     "title": "Profile",
+    "noAccountNeeded": "No account, no ads, no trackers: everything stays on this device.",
     "language": "Language",
     "languageSystem": "Device",
-    "noAccountNeeded": "No account needed. No ads, no trackers: the map and your favourites stay on this device.",
+    "appearance": "Appearance",
+    "themeAuto": "Auto",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAutoHint": "Light by day, dark after sunset where you are.",
+    "themeLightHint": "Always light, day and night.",
+    "themeDarkHint": "Always dark, easy on the eyes at night.",
     "offline": "Offline data",
-    "offlinePlaces(param=n)": {
-      "zero": "No place on this device",
-      "one": "1 place on this device",
-      "other": "$n places on this device"
+    "placesOnDevice(param=n)": {
+      "one": "place on this device",
+      "other": "places on this device"
     },
     "offlineSize": "Storage used: $size",
     "lastSync": "Last update $when",
     "neverSynced": "Never downloaded",
     "syncNow": "Update now",
     "syncing": "Updating",
-    "syncDone": "The places are up to date.",
-    "syncFailed": "The update failed. The places on this device still work.",
     "about": "About",
     "version": "Version $version",
     "website": "Website",
     "privacy": "Privacy policy",
     "sourceCode": "Source code",
     "licences": "Licences",
-    "attributions": "Data and map",
-    "attributionOsm": "Places and map data © OpenStreetMap contributors, under the Open Database License (ODbL).",
+    "appLicence": "Lunaway is free software under the GNU AGPL 3.0 or later.",
+    "attributions": "Sources and credits",
+    "attributionOsm": "Places and map data © OpenStreetMap contributors.",
+    "attributionOdbl": "OpenStreetMap data under the Open Database License (ODbL).",
     "attributionAtout": "Classified campsites from Atout France, under the Licence Ouverte 2.0 (Etalab).",
-    "attributionTiles": "Map by OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors.",
-    "attributionFont": "Atkinson Hyperlegible Next typeface, SIL Open Font License 1.1.",
-    "appLicence": "Lunaway is free software under the GNU AGPL 3.0 or later."
+    "attributionCommunes": "Place communes: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), under the ODbL.",
+    "attributionTiles": "Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.",
+    "attributionFonts": "Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.",
+    "attributionIcons": "Phosphor icons, MIT licence."
   },
   "units": {
-    "kilobytes": "$n kB",
+    "kilobytes": "$n KB",
     "megabytes": "$n MB"
   },
   "languages": {

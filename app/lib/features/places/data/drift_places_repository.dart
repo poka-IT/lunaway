@@ -2,13 +2,12 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
-import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -19,7 +18,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   new(this._db);
 
-  final AppDatabase _db;
+  final CacheDatabase _db;
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
@@ -143,87 +142,105 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   // SyncStore
 
   @override
-  Future<String?> cursorFor(String region) async {
-    final row = await (_db.select(
-      _db.syncState,
-    )..where((s) => s.region.equals(region))).getSingleOrNull();
-    return row?.cursor;
-  }
-
-  @override
-  Stream<DateTime?> watchLastSync(String region) =>
-      (_db.select(_db.syncState)..where((s) => s.region.equals(region))).watchSingleOrNull().map(
-        (row) =>
-            row == null ? null : DateTime.fromMillisecondsSinceEpoch(row.syncedAt, isUtc: true),
+  Stream<SyncState> watchSync(String region) =>
+      (_db.select(_db.regionSyncs)..where((s) => s.region.equals(region))).watchSingleOrNull().map(
+        (row) => row == null ? SyncState.none : _syncState(row),
       );
 
   @override
-  Future<void> applyPage(String region, ChangeSet page, DateTime syncedAt) => _db.transaction(
-    () async {
-      await _db.batch((batch) {
-        for (final p in page.places) {
-          final row = _companion(p, syncedAt);
-          batch.insert(_db.places, row, onConflict: DoUpdate((_) => row, target: [_db.places.id]));
-        }
-        if (page.deleted.isNotEmpty) {
-          batch.deleteWhere(_db.places, (p) => p.id.isIn(page.deleted));
-        }
-        batch.insert(
-          _db.syncState,
-          SyncStateCompanion.insert(
-            region: region,
-            cursor: page.cursor,
-            syncedAt: syncedAt.millisecondsSinceEpoch,
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-      });
-    },
+  Future<SyncState> stateOf(String region) async {
+    final row = await (_db.select(
+      _db.regionSyncs,
+    )..where((s) => s.region.equals(region))).getSingleOrNull();
+    return row == null ? SyncState.none : _syncState(row);
+  }
+
+  static SyncState _syncState(SyncStateRow r) => SyncState(
+    cursor: r.cursor,
+    generation: r.generation,
+    fullSync: r.fullSync,
+    running: r.running,
+    completedAt: r.completedAt == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(r.completedAt!, isUtc: true),
   );
 
   @override
-  Future<void> reset(String region) => _db.transaction(() async {
-    await _db.delete(_db.syncState).go();
-    await _db.delete(_db.fullSyncs).go();
-    await _db.delete(_db.places).go();
-  });
-
-  @override
-  Future<DateTime?> fullSyncStart(String region) async {
-    final row = await (_db.select(
-      _db.fullSyncs,
-    )..where((f) => f.region.equals(region))).getSingleOrNull();
-    return row == null ? null : DateTime.fromMillisecondsSinceEpoch(row.startedAt, isUtc: true);
-  }
-
-  @override
-  Future<void> beginFullSync(String region, DateTime at) => _db.transaction(() async {
-    await (_db.delete(_db.syncState)..where((s) => s.region.equals(region))).go();
+  Future<void> beginFullSync(String region) => _db.transaction(() async {
+    final state = await stateOf(region);
     await _db
-        .into(_db.fullSyncs)
-        .insert(
-          FullSyncsCompanion.insert(region: region, startedAt: at.millisecondsSinceEpoch),
-          mode: InsertMode.insertOrReplace,
+        .into(_db.regionSyncs)
+        .insertOnConflictUpdate(
+          RegionSyncsCompanion.insert(
+            region: region,
+            cursor: const Value(null),
+            generation: Value(state.generation + 1),
+            fullSync: const Value(true),
+            running: const Value(true),
+            completedAt: Value(state.completedAt?.millisecondsSinceEpoch),
+          ),
         );
   });
 
   @override
-  Future<int> finishFullSync(String region, GeoBounds bounds) => _db.transaction(() async {
-    final started = await fullSyncStart(region);
-    if (started == null) return 0;
-    final swept =
-        await (_db.delete(_db.places)..where(
-              (p) =>
-                  p.syncedAt.isSmallerThanValue(started.millisecondsSinceEpoch) &
-                  p.lat.isBetweenValues(bounds.south, bounds.north) &
-                  p.lon.isBetweenValues(bounds.west, bounds.east),
-            ))
-            .go();
-    await (_db.delete(_db.fullSyncs)..where((f) => f.region.equals(region))).go();
-    return swept;
+  Future<void> beginDeltaSync(String region) => (_db.update(
+    _db.regionSyncs,
+  )..where((s) => s.region.equals(region))).write(const RegionSyncsCompanion(running: Value(true)));
+
+  @override
+  Future<void> applyPage(String region, ChangeSet page) => _db.transaction(() async {
+    final generation = (await stateOf(region)).generation;
+    await _db.batch((batch) {
+      for (final p in page.places) {
+        final row = _companion(p, generation);
+        batch.insert(_db.places, row, onConflict: DoUpdate((_) => row, target: [_db.places.id]));
+      }
+      if (page.deleted.isNotEmpty) {
+        batch.deleteWhere(_db.places, (p) => p.id.isIn(page.deleted));
+      }
+    });
+    await (_db.update(_db.regionSyncs)..where((s) => s.region.equals(region))).write(
+      RegionSyncsCompanion(cursor: Value(page.cursor)),
+    );
   });
 
-  PlacesCompanion _companion(Place p, DateTime syncedAt) => PlacesCompanion.insert(
+  @override
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) =>
+      _db.transaction(() async {
+        final state = await stateOf(region);
+        var swept = 0;
+        if (state.fullSync) {
+          swept =
+              await (_db.delete(_db.places)..where(
+                    (p) =>
+                        p.syncGen.isSmallerThanValue(state.generation) &
+                        p.lat.isBetweenValues(bounds.south, bounds.north) &
+                        p.lon.isBetweenValues(bounds.west, bounds.east),
+                  ))
+                  .go();
+        }
+        await (_db.update(_db.regionSyncs)..where((s) => s.region.equals(region))).write(
+          RegionSyncsCompanion(
+            fullSync: const Value(false),
+            running: const Value(false),
+            completedAt: Value(at.millisecondsSinceEpoch),
+          ),
+        );
+        return swept;
+      });
+
+  @override
+  Future<void> reset(String region, GeoBounds bounds) => _db.transaction(() async {
+    await (_db.delete(_db.regionSyncs)..where((s) => s.region.equals(region))).go();
+    await (_db.delete(_db.places)..where(
+          (p) =>
+              p.lat.isBetweenValues(bounds.south, bounds.north) &
+              p.lon.isBetweenValues(bounds.west, bounds.east),
+        ))
+        .go();
+  });
+
+  PlacesCompanion _companion(Place p, int generation) => PlacesCompanion.insert(
     id: p.id,
     name: Value(p.name),
     kind: p.kind.wire,
@@ -245,17 +262,17 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     openingHours: Value(p.openingHours),
     openingHoursParsed: Value(p.openingHoursParsed),
     openingIntervalsJson: Value(
-      p.openingIntervals == null ? null : jsonEncode(openingIntervalsToJson(p.openingIntervals)),
-    ),
-    // The server says where its window ends; a server older than that field
-    // computed the same 14 days from the moment of the sync.
-    openingValidUntil: Value(
-      p.openingIntervals == null
+      p.openingIntervals == null || p.openingValidUntil == null
           ? null
-          : (p.openingValidUntil ?? syncedAt.add(openingWindow)).millisecondsSinceEpoch,
+          : jsonEncode(openingIntervalsToJson(p.openingIntervals)),
+    ),
+    // The server says where its window ends; the window is meaningless
+    // without that end, so intervals without one are dropped.
+    openingValidUntil: Value(
+      p.openingIntervals == null ? null : p.openingValidUntil?.millisecondsSinceEpoch,
     ),
     stars: Value(p.stars),
-    syncedAt: Value(syncedAt.millisecondsSinceEpoch),
+    syncGen: Value(generation),
     website: Value(p.website),
     phone: Value(p.phone),
     lastConfirmedAt: Value(p.lastConfirmedAt?.millisecondsSinceEpoch),
@@ -339,8 +356,9 @@ _Where _filterSql(PlaceFilter filter) {
     clauses.add('p.family IN (${List.filled(filter.families.length, '?').join(', ')})');
     variables.addAll(filter.families.map((f) => Variable.withInt(f.index)));
   }
-  if (filter.nightOk) {
-    clauses.add("p.overnight IN ('ALLOWED', 'TOLERATED')");
+  if (filter.overnight.isNotEmpty) {
+    clauses.add('p.overnight IN (${List.filled(filter.overnight.length, '?').join(', ')})');
+    variables.addAll(filter.overnight.map((o) => Variable.withString(o.wire)));
   }
   for (final amenity in filter.amenities) {
     clauses.add('(p.services & ?) != 0');

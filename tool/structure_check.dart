@@ -11,9 +11,12 @@
 // and in CI.
 //
 // Two files next to this one hold the data a rule needs:
-//   - tool/allowed_hosts.txt: every host a URL literal in app/lib may name.
+//   - tool/allowed_hosts.txt: every host a URL literal in app/lib, app/web
+//     or app/assets/map may name (a protocol-relative `//host`, a
+//     `Uri.https('host', ...)` and a Dart `host: '...'` argument count too).
 //     An app that talks to a new host is a privacy event; adding a line there
-//     is a reviewed decision, not a side effect of a feature.
+//     is a reviewed decision, not a side effect of a feature. Third-party
+//     files listed in tool/harness/vendored.txt are not read.
 //   - tool/structure_ratchet.json: occurrences that predate a rule, per file.
 //     A rule holds NEW occurrences at zero and lets a file shrink; it never
 //     lets a file grow. It is empty and should stay so.
@@ -23,7 +26,13 @@ import 'dart:io';
 
 const _hostsFile = 'tool/allowed_hosts.txt';
 const _ratchetFile = 'tool/structure_ratchet.json';
+const _vendoredFile = 'tool/harness/vendored.txt';
 const _appLib = 'app/lib/';
+
+/// Outside app/lib, the files the browser or the desktop map web view load as
+/// code or data: a URL there is a request the app makes just the same.
+const _webRoots = ['app/web/', 'app/assets/map/'];
+const _webExtensions = ['.js', '.mjs', '.html', '.json', '.css'];
 
 class _Hit {
   _Hit(this.file, this.line, this.text);
@@ -44,6 +53,14 @@ class _Rule {
 
 class _Source {
   _Source(this.path, this.lines) : code = _stripComments(lines);
+
+  /// A JavaScript, CSS, HTML or JSON file: only its block comments (`/* */`,
+  /// `<!-- -->`) are blanked, keeping the line numbers. `//` is left alone:
+  /// a URL in a template literal, an unquoted CSS `url()` or an HTML
+  /// attribute value would look like a line comment to the Dart stripper,
+  /// and its host must still be read.
+  _Source.web(this.path, String text) : lines = text.split('\n'), code = _blankBlockComments(text).split('\n');
+
   final String path;
   final List<String> lines;
   final List<String> code;
@@ -71,6 +88,12 @@ List<String> _stripComments(List<String> lines) {
     return l;
   }).toList();
 }
+
+/// Replaces `/* ... */` and `<!-- ... -->` with spaces, newlines kept.
+String _blankBlockComments(String text) => text.replaceAllMapped(
+  RegExp(r'/\*[\s\S]*?\*/|<!--[\s\S]*?-->'),
+  (m) => m.group(0)!.replaceAll(RegExp(r'[^\n]'), ' '),
+);
 
 /// Lines of [sources] matching [re], minus those matching [unless]. Matching
 /// is per line, so a rule anchors on a token the formatter cannot split.
@@ -108,13 +131,26 @@ final _rules = <_Rule>[
   ),
   _Rule(
     'allowed-hosts',
-    'Every host the app may talk to is listed in $_hostsFile; a new host is a reviewed decision.',
+    'Every host the app may talk to (app/lib, app/web, app/assets/map) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',
     _unknownHosts,
   ),
 ];
 
-final _hostRe = RegExp(r'''https?://(?:[^\s'"@/]+@)?([A-Za-z0-9.-]+\.[A-Za-z]{2,})''');
+final _hostRe = RegExp(r'''(?:https?|wss?)://(?:[^\s'"@/]+@)?([A-Za-z0-9.-]+\.[A-Za-z]{2,})''');
+
+/// The authority given to `Uri.https(` or `Uri.http(` as a literal, even on
+/// the next line; a port is dropped. An interpolated authority cannot be read.
+final _uriCtorRe = RegExp(r'''\bUri\.https?\(\s*(['"])([^'"$]*)\1''');
+final _domainRe = RegExp(r'^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
+/// A protocol-relative URL (`//host/path`) in an attribute, a string or a
+/// CSS `url()`: the page's own scheme applies, the host is just as remote.
+final _schemelessRe = RegExp(r'''(?:^|['"(=\s,])//([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})''');
+
+/// A literal `host:` argument in Dart (`Uri(scheme: 'https', host: ...)`,
+/// `uri.replace(host: ...)`): another way to build a request to a host.
+final _hostArgRe = RegExp(r'''\bhost:\s*(['"])([^'"$]*)\1''');
 
 List<_Hit> _unknownHosts(List<_Source> sources) {
   final entries = File(_hostsFile).existsSync()
@@ -122,20 +158,35 @@ List<_Hit> _unknownHosts(List<_Source> sources) {
       : <String>[];
   final allowed = entries.where((e) => !e.startsWith('file:')).toSet();
   final exemptFiles = entries.where((e) => e.startsWith('file:')).map((e) => e.substring(5).trim()).toSet();
+  bool ok(String host) =>
+      allowed.any((a) => a.startsWith('*.') ? host.endsWith(a.substring(1)) || host == a.substring(2) : host == a);
   final hits = <_Hit>[];
   for (final s in sources) {
-    if (!s.under(_appLib) || exemptFiles.contains(s.path)) continue;
+    if (exemptFiles.contains(s.path)) continue;
     for (var i = 0; i < s.code.length; i++) {
-      for (final m in _hostRe.allMatches(s.code[i])) {
+      for (final m in [..._hostRe.allMatches(s.code[i]), ..._schemelessRe.allMatches(s.code[i])]) {
         final host = m.group(1)!.toLowerCase();
-        final ok = allowed.any(
-          (a) => a.startsWith('*.') ? host.endsWith(a.substring(1)) || host == a.substring(2) : host == a,
-        );
-        if (!ok) hits.add(_Hit(s.path, i + 1, '$host  <- ${s.lines[i].trim()}'));
+        if (!ok(host)) hits.add(_Hit(s.path, i + 1, '$host  <- ${s.lines[i].trim()}'));
       }
+    }
+    final code = s.code.join('\n');
+    final literalHosts = [..._uriCtorRe.allMatches(code), if (s.path.endsWith('.dart')) ..._hostArgRe.allMatches(code)];
+    for (final m in literalHosts) {
+      final host = m.group(2)!.split(':').first.toLowerCase();
+      if (!_domainRe.hasMatch(host) || ok(host)) continue;
+      final line = '\n'.allMatches(code.substring(0, m.start)).length;
+      hits.add(_Hit(s.path, line + 1, '$host  <- ${s.lines[line].trim()}'));
     }
   }
   return hits;
+}
+
+/// Paths of third-party files as their projects publish them; a line ending
+/// in / covers a directory.
+List<String> _vendored() {
+  final f = File(_vendoredFile);
+  if (!f.existsSync()) return const [];
+  return f.readAsLinesSync().map((l) => l.trim()).where((l) => l.isNotEmpty && !l.startsWith('#')).toList();
 }
 
 void main(List<String> args) {
@@ -147,6 +198,16 @@ void main(List<String> args) {
   for (final f in Directory(_appLib).listSync(recursive: true).whereType<File>()) {
     if (!f.path.endsWith('.dart')) continue;
     sources.add(_Source(f.path.replaceAll(r'\', '/'), f.readAsLinesSync()));
+  }
+  final vendored = _vendored();
+  for (final root in _webRoots) {
+    if (!Directory(root).existsSync()) continue;
+    for (final f in Directory(root).listSync(recursive: true).whereType<File>()) {
+      final path = f.path.replaceAll(r'\', '/');
+      final isVendored = vendored.any((v) => v.endsWith('/') ? path.startsWith(v) : path == v);
+      if (!_webExtensions.any(path.endsWith) || isVendored) continue;
+      sources.add(_Source.web(path, f.readAsStringSync()));
+    }
   }
 
   final ratchet = _loadRatchet();

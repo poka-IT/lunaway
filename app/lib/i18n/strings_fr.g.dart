@@ -50,6 +50,8 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$overnight$fr overnight = _Translations$overnight$fr._(_root);
 	@override late final _Translations$freshness$fr freshness = _Translations$freshness$fr._(_root);
 	@override late final _Translations$map$fr map = _Translations$map$fr._(_root);
+	@override late final _Translations$sync$fr sync = _Translations$sync$fr._(_root);
+	@override late final _Translations$location$fr location = _Translations$location$fr._(_root);
 	@override late final _Translations$search$fr search = _Translations$search$fr._(_root);
 	@override late final _Translations$filters$fr filters = _Translations$filters$fr._(_root);
 	@override late final _Translations$place$fr place = _Translations$place$fr._(_root);
@@ -57,6 +59,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$directions$fr directions = _Translations$directions$fr._(_root);
 	@override late final _Translations$list$fr list = _Translations$list$fr._(_root);
 	@override late final _Translations$favorites$fr favorites = _Translations$favorites$fr._(_root);
+	@override late final _Translations$vehicle$fr vehicle = _Translations$vehicle$fr._(_root);
 	@override late final _Translations$profile$fr profile = _Translations$profile$fr._(_root);
 	@override late final _Translations$units$fr units = _Translations$units$fr._(_root);
 	@override late final _Translations$languages$fr languages = _Translations$languages$fr._(_root);
@@ -88,7 +91,8 @@ class _Translations$common$fr extends Translations$common$en {
 	@override String get save => 'Enregistrer';
 	@override String get delete => 'Supprimer';
 	@override String get undo => 'Annuler';
-	@override String get more => 'Plus d\'options';
+	@override String get ok => 'Compris';
+	@override String get saveFailed => 'La modification n\'a pas pu être enregistrée.';
 }
 
 // Path: kinds
@@ -119,9 +123,13 @@ class _Translations$families$fr extends Translations$families$en {
 
 	// Translations
 	@override String get stopovers => 'Aires et parkings';
+	@override String get stopoversHint => 'Aires de camping-car, parkings, aires de repos';
 	@override String get campsites => 'Campings et accueils';
+	@override String get campsitesHint => 'Campings, fermes, particuliers';
 	@override String get nature => 'Nature';
+	@override String get natureHint => 'Lieux en pleine nature, pistes';
 	@override String get services => 'Services';
+	@override String get servicesHint => 'Eau et vidange, sans nuit';
 }
 
 // Path: services
@@ -182,6 +190,11 @@ class _Translations$amenities$fr extends Translations$amenities$en {
 	@override String get dumpStation => 'Vidange';
 	@override String get electricity => 'Électricité';
 	@override String get toilets => 'Toilettes';
+	@override String get showers => 'Douches';
+	@override String get wasteBin => 'Poubelles';
+	@override String get laundry => 'Laverie';
+	@override String get wifi => 'Wi-Fi';
+	@override String get lpg => 'GPL';
 }
 
 // Path: overnight
@@ -193,14 +206,14 @@ class _Translations$overnight$fr extends Translations$overnight$en {
 	// Translations
 	@override String get allowed => 'Nuit autorisée';
 	@override String get tolerated => 'Nuit tolérée';
-	@override String get dayOnly => 'Journée seulement';
+	@override String get dayOnly => 'De jour seulement';
 	@override String get forbidden => 'Nuit interdite';
-	@override String get unknown => 'Nuit : on ne sait pas';
+	@override String get unknown => 'Nuit non renseignée';
 	@override String get allowedHint => 'Vous pouvez passer la nuit ici.';
 	@override String get toleratedHint => 'Une nuit est en général acceptée. Restez discret et ne laissez aucune trace.';
 	@override String get dayOnlyHint => 'Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.';
 	@override String get forbiddenHint => 'Passer la nuit ici est interdit.';
-	@override String get unknownHint => 'Personne ne nous a encore dit si la nuit est permise.';
+	@override String get unknownHint => 'Personne ne l\'a encore indiqué. Renseignez-vous sur place.';
 }
 
 // Path: freshness
@@ -235,30 +248,80 @@ class _Translations$map$fr extends Translations$map$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String get searchHint => 'Chercher un lieu ou une commune';
+	@override String get searchHint => 'Un lieu, une commune';
 	@override String get clearSearch => 'Effacer la recherche';
 	@override String get locateMe => 'Afficher ma position';
-	@override String get locationUnavailable => 'Votre position n\'est pas disponible. Vérifiez que la localisation est autorisée.';
+	@override String get zoomIn => 'Zoomer';
+	@override String get zoomOut => 'Dézoomer';
 	@override String get filters => 'Filtres';
-	@override String get showList => 'Afficher la liste';
-	@override String get showMap => 'Afficher la carte';
-	@override String placesHere({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
-		one: '${n} lieu ici',
-		other: '${n} lieux ici',
+	@override String get credit => '© OpenStreetMap · Protomaps';
+	@override String get creditLabel => 'Crédits de la carte : © les contributeurs d\'OpenStreetMap, style Protomaps. Ouvre la page des droits d\'OpenStreetMap.';
+	@override String get showList => 'Liste';
+	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Liste (${n})',
+		other: 'Liste (${n})',
 	);
-	@override String nearestPlaces({required Object n}) => 'Les ${n} lieux les plus proches';
+	@override String placesHereLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'lieu ici',
+		other: 'lieux ici',
+	);
+	@override String nearestPlacesLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'lieu le plus proche',
+		other: 'lieux les plus proches',
+	);
 	@override String get pointTitle => 'Point choisi';
+	@override String get pointHint => 'Ses coordonnées et l\'itinéraire jusqu\'à lui';
 	@override String get downloading => 'Téléchargement des lieux de France';
-	@override String downloadingCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
-		one: '${n} lieu reçu',
-		other: '${n} lieux reçus',
+	@override String downloadingCount({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${count} lieu reçu',
+		other: '${count} lieux reçus',
 	);
 	@override String get noData => 'Aucun lieu sur cet appareil pour l\'instant';
-	@override String get noDataHint => 'Téléchargez les lieux une fois ; la carte fonctionne ensuite sans réseau.';
+	@override String get noDataHint => 'Téléchargez les lieux une fois : la carte fonctionne ensuite sans réseau.';
 	@override String get download => 'Télécharger les lieux';
-	@override String get downloadFailed => 'Le téléchargement a échoué. Vérifiez la connexion et réessayez.';
+	@override String get downloadFailed => 'Le téléchargement s\'est interrompu';
 	@override String get demoBanner => 'Démo : lieux inventés';
 	@override String get unsupported => 'La carte n\'est pas disponible sur ce système. Utilisez l\'application web.';
+}
+
+// Path: sync
+class _Translations$sync$fr extends Translations$sync$en {
+	_Translations$sync$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get failedOffline => 'Pas de connexion pour l\'instant.';
+	@override String get failedBusy => 'Le serveur est très demandé.';
+	@override String get failedServer => 'Le serveur a un problème pour l\'instant.';
+	@override String get failedOther => 'La mise à jour n\'a pas abouti.';
+	@override String get failedRefused => 'Le serveur a refusé la mise à jour. Une nouvelle version de l\'application est peut-être nécessaire.';
+	@override String get willRetry => 'Lunaway réessaiera tout seul.';
+	@override String incomplete({required Object count}) => 'Téléchargement incomplet : ${count} lieux pour l\'instant';
+	@override String get incompleteShort => 'Téléchargement incomplet';
+	@override String resuming({required Object count}) => 'Téléchargement en cours : ${count} lieux';
+	@override String get resume => 'Reprendre';
+}
+
+// Path: location
+class _Translations$location$fr extends Translations$location$en {
+	_Translations$location$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get rationaleTitle => 'Afficher votre position ?';
+	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous et trier les lieux par distance. Votre position reste sur l\'appareil.';
+	@override String get allow => 'Continuer';
+	@override String get notNow => 'Pas maintenant';
+	@override String get deniedTitle => 'Position désactivée pour Lunaway';
+	@override String get denied => 'Vous avez refusé l\'accès à la position. Pour l\'utiliser, autorisez-le dans les réglages de l\'appareil.';
+	@override String get openSettings => 'Ouvrir les réglages';
+	@override String get serviceOffTitle => 'Localisation éteinte';
+	@override String get serviceOff => 'La localisation de l\'appareil est éteinte. Allumez-la dans les réglages rapides, puis réessayez.';
+	@override String get notAllowed => 'Position non autorisée. La carte fonctionne sans elle.';
+	@override String get noFix => 'Votre position n\'arrive pas. Essayez à découvert, ou dans un instant.';
+	@override String get unsupported => 'Cet appareil ne donne pas sa position.';
 }
 
 // Path: search
@@ -286,17 +349,23 @@ class _Translations$filters$fr extends Translations$filters$en {
 	// Translations
 	@override String get title => 'Filtres';
 	@override String get families => 'Type de lieu';
-	@override String get night => 'Nuit autorisée';
-	@override String get nightHint => 'Autorisée ou tolérée';
+	@override String get familiesHint => 'Aucun choix : tous les types';
+	@override String get night => 'La nuit';
+	@override String get nightHint => 'Aucun choix : tous les lieux';
+	@override String get nightPossible => 'Nuit possible';
 	@override String get amenities => 'Services';
-	@override String get height => 'Hauteur du véhicule';
-	@override String get heightAny => 'Toutes hauteurs';
-	@override String get heightHint => 'Masque les lieux dont la barre de hauteur est plus basse. Les lieux sans hauteur connue restent visibles.';
+	@override String get amenitiesHint => 'Le lieu doit tous les avoir';
+	@override String get vehicle => 'Mon véhicule';
+	@override String get myVehicleFits => 'Mon véhicule passe';
+	@override String myVehicleFitsHeight({required Object height}) => 'Passe à ${height}';
+	@override String myVehicleHint({required Object height}) => 'Masque les lieux limités sous ${height}. Les hauteurs inconnues restent.';
+	@override String get myVehicleUnknown => 'Indiquez la hauteur de votre véhicule pour l\'utiliser.';
 	@override String get reset => 'Tout effacer';
-	@override String show({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+	@override String get apply => 'Appliquer';
+	@override String show({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		zero: 'Aucun lieu ne correspond',
-		one: 'Afficher ${n} lieu',
-		other: 'Afficher ${n} lieux',
+		one: 'Afficher ${count} lieu',
+		other: 'Afficher ${count} lieux',
 	);
 	@override String active({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} filtre actif',
@@ -312,14 +381,16 @@ class _Translations$place$fr extends Translations$place$en {
 
 	// Translations
 	@override String unnamedIn({required Object kind, required Object town}) => '${kind} à ${town}';
+	@override String away({required Object distance}) => 'à ${distance}';
 	@override String get directions => 'Itinéraire';
 	@override String get share => 'Partager';
 	@override String get save => 'Enregistrer';
 	@override String get saved => 'Enregistré';
+	@override String get saveHint => 'Dans Mes favoris. Appui long pour choisir des listes.';
 	@override String get saveTo => 'Enregistrer dans une liste';
-	@override String get savedToast => 'Ajouté à vos favoris';
-	@override String get removedToast => 'Retiré de vos favoris';
-	@override String get facts => 'Bon à savoir';
+	@override String get chooseLists => 'Listes';
+	@override String get savedToast => 'Ajouté à Mes favoris';
+	@override String get removedToast => 'Retiré de Mes favoris';
 	@override String get pricePerNight => 'La nuit';
 	@override String get priceFree => 'Gratuit';
 	@override String get priceUnknown => 'Inconnu';
@@ -341,6 +412,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get call => 'Appeler';
 	@override String get coordinates => 'Coordonnées';
 	@override String get copy => 'Copier les coordonnées';
+	@override String get copyShort => 'Copier';
 	@override String copied({required Object text}) => 'Copié : ${text}';
 	@override String get otherFormats => 'Autres formats';
 	@override String get formatDecimal => 'Degrés décimaux';
@@ -352,7 +424,8 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String fetched({required Object when}) => 'Lu ${when}';
 	@override String matchScore({required Object score}) => 'Correspondance ${score} %';
 	@override String get viewSource => 'Voir à la source';
-	@override String get gone => 'Ce lieu n\'est plus dans les données.';
+	@override String get gone => 'Ce lieu n\'est plus dans les données';
+	@override String get goneHint => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.';
 	@override String get loadError => 'Ce lieu n\'a pas pu être lu.';
 	@override String get openFailed => 'Aucune application n\'a pu ouvrir ce lien.';
 	@override String get photos => 'Photos';
@@ -366,6 +439,8 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get moreReviews => 'Plus d\'avis';
 	@override String get moreReviewsFailed => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.';
 	@override String stars({required Object rating}) => '${rating} sur 5';
+	@override String get deletedAccount => 'Compte supprimé';
+	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
 	@override String get links => 'Ailleurs';
@@ -396,6 +471,7 @@ class _Translations$hours$fr extends Translations$hours$en {
 	@override String onDate({required Object date}) => 'le ${date}';
 	@override String get midnight => 'minuit';
 	@override String get stale => 'Ouverture inconnue : données à mettre à jour';
+	@override String get localTime => 'Heures du lieu';
 }
 
 // Path: directions
@@ -405,12 +481,21 @@ class _Translations$directions$fr extends Translations$directions$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String get title => 'Y aller avec';
-	@override String get appleMaps => 'Plans d\'Apple';
+	@override String get title => 'Itinéraire avec';
+	@override String get hint => 'Lunaway confie le trajet à votre application de navigation.';
+	@override String get remember => 'Toujours utiliser cette application';
+	@override String get rememberHint => 'Modifiable dans Profil';
+	@override String get noApp => 'Aucune application de navigation n\'est installée.';
+	@override String get settingTitle => 'Itinéraire';
+	@override String get settingHint => 'L\'application qui reçoit vos trajets';
+	@override String get askEachTime => 'Demander à chaque fois';
+	@override String get appleMaps => 'Plans';
 	@override String get googleMaps => 'Google Maps';
 	@override String get waze => 'Waze';
-	@override String get osm => 'OpenStreetMap';
-	@override String get system => 'Une application de navigation';
+	@override String get osmAnd => 'OsmAnd';
+	@override String get organicMaps => 'Organic Maps';
+	@override String get magicEarth => 'Magic Earth';
+	@override String get openStreetMap => 'OpenStreetMap (navigateur)';
 }
 
 // Path: list
@@ -421,7 +506,7 @@ class _Translations$list$fr extends Translations$list$en {
 
 	// Translations
 	@override String get title => 'Lieux autour';
-	@override String get empty => 'Aucun lieu dans cette zone avec ces filtres.';
+	@override String get empty => 'Aucun lieu par ici avec ces filtres';
 	@override String get emptyHint => 'Déplacez la carte, dézoomez ou assouplissez les filtres.';
 	@override String get error => 'La liste n\'a pas pu être lue.';
 }
@@ -435,13 +520,17 @@ class _Translations$favorites$fr extends Translations$favorites$en {
 	// Translations
 	@override String get title => 'Favoris';
 	@override String get defaultList => 'Mes favoris';
-	@override String get empty => 'Les lieux que vous enregistrez apparaîtront ici.';
+	@override String get empty => 'Rien d\'enregistré ici pour l\'instant';
 	@override String get emptyHint => 'Touchez Enregistrer sur un lieu pour le garder, même hors connexion.';
 	@override String get newList => 'Nouvelle liste';
 	@override String get listName => 'Nom de la liste';
 	@override String get renameList => 'Renommer la liste';
 	@override String get deleteList => 'Supprimer la liste';
 	@override String deleteListConfirm({required Object name}) => 'Supprimer « ${name} » ? Les lieux restent sur la carte.';
+	@override String get listActions => 'Options de la liste';
+	@override String get placeActions => 'Options du lieu';
+	@override String get openOnMap => 'Voir sur la carte';
+	@override String get remove => 'Retirer de la liste';
 	@override String get removed => 'Retiré de la liste';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		zero: 'Vide',
@@ -449,6 +538,39 @@ class _Translations$favorites$fr extends Translations$favorites$en {
 		other: '${n} lieux',
 	);
 	@override String get error => 'Vos favoris n\'ont pas pu être lus.';
+}
+
+// Path: vehicle
+class _Translations$vehicle$fr extends Translations$vehicle$en {
+	_Translations$vehicle$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Mon véhicule';
+	@override String get why => 'Sa taille filtre les lieux où il ne passe pas. Elle reste sur cet appareil.';
+	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle reste sur cet appareil.';
+	@override String get none => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.';
+	@override String get add => 'Décrire mon véhicule';
+	@override String get edit => 'Modifier';
+	@override String get type => 'Type';
+	@override late final _Translations$vehicle$types$fr types = _Translations$vehicle$types$fr._(_root);
+	@override String get towingTitle => 'Il tracte';
+	@override late final _Translations$vehicle$towing$fr towing = _Translations$vehicle$towing$fr._(_root);
+	@override String get size => 'Dimensions';
+	@override String get sizeHint => 'Valeurs typiques du type choisi : corrigez-les avec celles de votre carte grise.';
+	@override String get height => 'Hauteur';
+	@override String get width => 'Largeur';
+	@override String get length => 'Longueur totale, attelage compris';
+	@override String get weight => 'Poids total autorisé';
+	@override String heightShort({required Object value}) => 'H ${value}';
+	@override String widthShort({required Object value}) => 'l ${value}';
+	@override String lengthShort({required Object value}) => 'L ${value}';
+	@override String get notANumber => 'Un nombre, par exemple 2,90';
+	@override String outOfRange({required Object min, required Object max, required Object unit}) => 'Entre ${min} et ${max} ${unit}';
+	@override String get navigationLater => 'L\'itinéraire intégré, à venir, tiendra compte de toutes ces dimensions.';
+	@override String get save => 'Enregistrer';
+	@override String get clear => 'Effacer';
 }
 
 // Path: profile
@@ -459,34 +581,41 @@ class _Translations$profile$fr extends Translations$profile$en {
 
 	// Translations
 	@override String get title => 'Profil';
+	@override String get noAccountNeeded => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.';
 	@override String get language => 'Langue';
 	@override String get languageSystem => 'Appareil';
-	@override String get noAccountNeeded => 'Aucun compte n\'est nécessaire. Ni publicité ni pisteur : la carte et vos favoris restent sur cet appareil.';
+	@override String get appearance => 'Apparence';
+	@override String get themeAuto => 'Auto';
+	@override String get themeLight => 'Clair';
+	@override String get themeDark => 'Sombre';
+	@override String get themeAutoHint => 'Clair le jour, sombre après le coucher du soleil là où vous êtes.';
+	@override String get themeLightHint => 'Toujours clair, de jour comme de nuit.';
+	@override String get themeDarkHint => 'Toujours sombre, doux pour les yeux la nuit.';
 	@override String get offline => 'Données hors connexion';
-	@override String offlinePlaces({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
-		zero: 'Aucun lieu sur cet appareil',
-		one: '${n} lieu sur cet appareil',
-		other: '${n} lieux sur cet appareil',
+	@override String placesOnDevice({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'lieu sur cet appareil',
+		other: 'lieux sur cet appareil',
 	);
 	@override String offlineSize({required Object size}) => 'Espace utilisé : ${size}';
 	@override String lastSync({required Object when}) => 'Dernière mise à jour ${when}';
 	@override String get neverSynced => 'Jamais téléchargé';
 	@override String get syncNow => 'Mettre à jour';
 	@override String get syncing => 'Mise à jour en cours';
-	@override String get syncDone => 'Les lieux sont à jour.';
-	@override String get syncFailed => 'La mise à jour a échoué. Les lieux de cet appareil restent utilisables.';
 	@override String get about => 'À propos';
 	@override String version({required Object version}) => 'Version ${version}';
 	@override String get website => 'Site web';
 	@override String get privacy => 'Confidentialité';
 	@override String get sourceCode => 'Code source';
 	@override String get licences => 'Licences';
-	@override String get attributions => 'Données et carte';
-	@override String get attributionOsm => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap, sous licence Open Database License (ODbL).';
-	@override String get attributionAtout => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).';
-	@override String get attributionTiles => 'Carte OpenFreeMap, © OpenMapTiles, données © les contributeurs d\'OpenStreetMap.';
-	@override String get attributionFont => 'Police Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get appLicence => 'Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure.';
+	@override String get attributions => 'Sources et attributions';
+	@override String get attributionOsm => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.';
+	@override String get attributionOdbl => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).';
+	@override String get attributionAtout => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionCommunes => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.';
+	@override String get attributionTiles => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.';
+	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
+	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 }
 
 // Path: units
@@ -526,6 +655,46 @@ class _Translations$locale$fr extends Translations$locale$en {
 	@override String get fr => 'Français';
 }
 
+// Path: place.reviewVehicle
+class _Translations$place$reviewVehicle$fr extends Translations$place$reviewVehicle$en {
+	_Translations$place$reviewVehicle$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get van => 'Van';
+	@override String get campervan => 'Fourgon aménagé';
+	@override String get motorhome => 'Camping-car';
+	@override String get caravan => 'Caravane';
+	@override String get other => 'Autre véhicule';
+}
+
+// Path: vehicle.types
+class _Translations$vehicle$types$fr extends Translations$vehicle$types$en {
+	_Translations$vehicle$types$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get van => 'Van';
+	@override String get campervan => 'Fourgon aménagé';
+	@override String get lowProfile => 'Profilé';
+	@override String get overcab => 'Capucine';
+	@override String get integrated => 'Intégral';
+}
+
+// Path: vehicle.towing
+class _Translations$vehicle$towing$fr extends Translations$vehicle$towing$en {
+	_Translations$vehicle$towing$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get none => 'Rien';
+	@override String get car => 'Une voiture';
+	@override String get trailer => 'Une remorque';
+}
+
 /// The flat map containing all translations for locale <fr>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -544,7 +713,8 @@ extension on TranslationsFr {
 			'common.save' => 'Enregistrer',
 			'common.delete' => 'Supprimer',
 			'common.undo' => 'Annuler',
-			'common.more' => 'Plus d\'options',
+			'common.ok' => 'Compris',
+			'common.saveFailed' => 'La modification n\'a pas pu être enregistrée.',
 			'kinds.motorhomeArea' => 'Aire de camping-car',
 			'kinds.serviceArea' => 'Aire de services',
 			'kinds.campsite' => 'Camping',
@@ -557,9 +727,13 @@ extension on TranslationsFr {
 			'kinds.offRoad' => 'Lieu tout-terrain',
 			'kinds.extraService' => 'Arrêt pratique',
 			'families.stopovers' => 'Aires et parkings',
+			'families.stopoversHint' => 'Aires de camping-car, parkings, aires de repos',
 			'families.campsites' => 'Campings et accueils',
+			'families.campsitesHint' => 'Campings, fermes, particuliers',
 			'families.nature' => 'Nature',
+			'families.natureHint' => 'Lieux en pleine nature, pistes',
 			'families.services' => 'Services',
+			'families.servicesHint' => 'Eau et vidange, sans nuit',
 			'services.drinkingWater' => 'Eau potable',
 			'services.greyWater' => 'Vidange eaux grises',
 			'services.blackWater' => 'Vidange cassette',
@@ -593,16 +767,21 @@ extension on TranslationsFr {
 			'amenities.dumpStation' => 'Vidange',
 			'amenities.electricity' => 'Électricité',
 			'amenities.toilets' => 'Toilettes',
+			'amenities.showers' => 'Douches',
+			'amenities.wasteBin' => 'Poubelles',
+			'amenities.laundry' => 'Laverie',
+			'amenities.wifi' => 'Wi-Fi',
+			'amenities.lpg' => 'GPL',
 			'overnight.allowed' => 'Nuit autorisée',
 			'overnight.tolerated' => 'Nuit tolérée',
-			'overnight.dayOnly' => 'Journée seulement',
+			'overnight.dayOnly' => 'De jour seulement',
 			'overnight.forbidden' => 'Nuit interdite',
-			'overnight.unknown' => 'Nuit : on ne sait pas',
+			'overnight.unknown' => 'Nuit non renseignée',
 			'overnight.allowedHint' => 'Vous pouvez passer la nuit ici.',
 			'overnight.toleratedHint' => 'Une nuit est en général acceptée. Restez discret et ne laissez aucune trace.',
 			'overnight.dayOnlyHint' => 'Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.',
 			'overnight.forbiddenHint' => 'Passer la nuit ici est interdit.',
-			'overnight.unknownHint' => 'Personne ne nous a encore dit si la nuit est permise.',
+			'overnight.unknownHint' => 'Personne ne l\'a encore indiqué. Renseignez-vous sur place.',
 			'freshness.confirmed' => ({required Object when}) => 'Confirmé ${when}',
 			'freshness.updated' => ({required Object when}) => 'Mis à jour ${when}',
 			'freshness.stale' => 'Pas confirmé depuis plus d\'un an',
@@ -610,48 +789,82 @@ extension on TranslationsFr {
 			'freshness.daysAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'hier', other: 'il y a ${n} jours', ), 
 			'freshness.monthsAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a un mois', other: 'il y a ${n} mois', ), 
 			'freshness.yearsAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a un an', other: 'il y a ${n} ans', ), 
-			'map.searchHint' => 'Chercher un lieu ou une commune',
+			'map.searchHint' => 'Un lieu, une commune',
 			'map.clearSearch' => 'Effacer la recherche',
 			'map.locateMe' => 'Afficher ma position',
-			'map.locationUnavailable' => 'Votre position n\'est pas disponible. Vérifiez que la localisation est autorisée.',
+			'map.zoomIn' => 'Zoomer',
+			'map.zoomOut' => 'Dézoomer',
 			'map.filters' => 'Filtres',
-			'map.showList' => 'Afficher la liste',
-			'map.showMap' => 'Afficher la carte',
-			'map.placesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} lieu ici', other: '${n} lieux ici', ), 
-			'map.nearestPlaces' => ({required Object n}) => 'Les ${n} lieux les plus proches',
+			'map.credit' => '© OpenStreetMap · Protomaps',
+			'map.creditLabel' => 'Crédits de la carte : © les contributeurs d\'OpenStreetMap, style Protomaps. Ouvre la page des droits d\'OpenStreetMap.',
+			'map.showList' => 'Liste',
+			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Liste (${n})', other: 'Liste (${n})', ), 
+			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu ici', other: 'lieux ici', ), 
+			'map.nearestPlacesLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche', other: 'lieux les plus proches', ), 
 			'map.pointTitle' => 'Point choisi',
+			'map.pointHint' => 'Ses coordonnées et l\'itinéraire jusqu\'à lui',
 			'map.downloading' => 'Téléchargement des lieux de France',
-			'map.downloadingCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} lieu reçu', other: '${n} lieux reçus', ), 
+			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu reçu', other: '${count} lieux reçus', ), 
 			'map.noData' => 'Aucun lieu sur cet appareil pour l\'instant',
-			'map.noDataHint' => 'Téléchargez les lieux une fois ; la carte fonctionne ensuite sans réseau.',
+			'map.noDataHint' => 'Téléchargez les lieux une fois : la carte fonctionne ensuite sans réseau.',
 			'map.download' => 'Télécharger les lieux',
-			'map.downloadFailed' => 'Le téléchargement a échoué. Vérifiez la connexion et réessayez.',
+			'map.downloadFailed' => 'Le téléchargement s\'est interrompu',
 			'map.demoBanner' => 'Démo : lieux inventés',
 			'map.unsupported' => 'La carte n\'est pas disponible sur ce système. Utilisez l\'application web.',
+			'sync.failedOffline' => 'Pas de connexion pour l\'instant.',
+			'sync.failedBusy' => 'Le serveur est très demandé.',
+			'sync.failedServer' => 'Le serveur a un problème pour l\'instant.',
+			'sync.failedOther' => 'La mise à jour n\'a pas abouti.',
+			'sync.failedRefused' => 'Le serveur a refusé la mise à jour. Une nouvelle version de l\'application est peut-être nécessaire.',
+			'sync.willRetry' => 'Lunaway réessaiera tout seul.',
+			'sync.incomplete' => ({required Object count}) => 'Téléchargement incomplet : ${count} lieux pour l\'instant',
+			'sync.incompleteShort' => 'Téléchargement incomplet',
+			'sync.resuming' => ({required Object count}) => 'Téléchargement en cours : ${count} lieux',
+			'sync.resume' => 'Reprendre',
+			'location.rationaleTitle' => 'Afficher votre position ?',
+			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous et trier les lieux par distance. Votre position reste sur l\'appareil.',
+			'location.allow' => 'Continuer',
+			'location.notNow' => 'Pas maintenant',
+			'location.deniedTitle' => 'Position désactivée pour Lunaway',
+			'location.denied' => 'Vous avez refusé l\'accès à la position. Pour l\'utiliser, autorisez-le dans les réglages de l\'appareil.',
+			'location.openSettings' => 'Ouvrir les réglages',
+			'location.serviceOffTitle' => 'Localisation éteinte',
+			'location.serviceOff' => 'La localisation de l\'appareil est éteinte. Allumez-la dans les réglages rapides, puis réessayez.',
+			'location.notAllowed' => 'Position non autorisée. La carte fonctionne sans elle.',
+			'location.noFix' => 'Votre position n\'arrive pas. Essayez à découvert, ou dans un instant.',
+			'location.unsupported' => 'Cet appareil ne donne pas sa position.',
 			'search.towns' => 'Communes',
 			'search.places' => 'Lieux',
 			'search.noResult' => ({required Object query}) => 'Aucun lieu ni aucune commune ne correspond à « ${query} ».',
 			'search.townPlaces' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} lieu', other: '${n} lieux', ), 
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
-			'filters.night' => 'Nuit autorisée',
-			'filters.nightHint' => 'Autorisée ou tolérée',
+			'filters.familiesHint' => 'Aucun choix : tous les types',
+			'filters.night' => 'La nuit',
+			'filters.nightHint' => 'Aucun choix : tous les lieux',
+			'filters.nightPossible' => 'Nuit possible',
 			'filters.amenities' => 'Services',
-			'filters.height' => 'Hauteur du véhicule',
-			'filters.heightAny' => 'Toutes hauteurs',
-			'filters.heightHint' => 'Masque les lieux dont la barre de hauteur est plus basse. Les lieux sans hauteur connue restent visibles.',
+			'filters.amenitiesHint' => 'Le lieu doit tous les avoir',
+			'filters.vehicle' => 'Mon véhicule',
+			'filters.myVehicleFits' => 'Mon véhicule passe',
+			'filters.myVehicleFitsHeight' => ({required Object height}) => 'Passe à ${height}',
+			'filters.myVehicleHint' => ({required Object height}) => 'Masque les lieux limités sous ${height}. Les hauteurs inconnues restent.',
+			'filters.myVehicleUnknown' => 'Indiquez la hauteur de votre véhicule pour l\'utiliser.',
 			'filters.reset' => 'Tout effacer',
-			'filters.show' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu ne correspond', one: 'Afficher ${n} lieu', other: 'Afficher ${n} lieux', ), 
+			'filters.apply' => 'Appliquer',
+			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu ne correspond', one: 'Afficher ${count} lieu', other: 'Afficher ${count} lieux', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} filtre actif', other: '${n} filtres actifs', ), 
 			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} à ${town}',
+			'place.away' => ({required Object distance}) => 'à ${distance}',
 			'place.directions' => 'Itinéraire',
 			'place.share' => 'Partager',
 			'place.save' => 'Enregistrer',
 			'place.saved' => 'Enregistré',
+			'place.saveHint' => 'Dans Mes favoris. Appui long pour choisir des listes.',
 			'place.saveTo' => 'Enregistrer dans une liste',
-			'place.savedToast' => 'Ajouté à vos favoris',
-			'place.removedToast' => 'Retiré de vos favoris',
-			'place.facts' => 'Bon à savoir',
+			'place.chooseLists' => 'Listes',
+			'place.savedToast' => 'Ajouté à Mes favoris',
+			'place.removedToast' => 'Retiré de Mes favoris',
 			'place.pricePerNight' => 'La nuit',
 			'place.priceFree' => 'Gratuit',
 			'place.priceUnknown' => 'Inconnu',
@@ -670,6 +883,7 @@ extension on TranslationsFr {
 			'place.call' => 'Appeler',
 			'place.coordinates' => 'Coordonnées',
 			'place.copy' => 'Copier les coordonnées',
+			'place.copyShort' => 'Copier',
 			'place.copied' => ({required Object text}) => 'Copié : ${text}',
 			'place.otherFormats' => 'Autres formats',
 			'place.formatDecimal' => 'Degrés décimaux',
@@ -681,7 +895,8 @@ extension on TranslationsFr {
 			'place.fetched' => ({required Object when}) => 'Lu ${when}',
 			'place.matchScore' => ({required Object score}) => 'Correspondance ${score} %',
 			'place.viewSource' => 'Voir à la source',
-			'place.gone' => 'Ce lieu n\'est plus dans les données.',
+			'place.gone' => 'Ce lieu n\'est plus dans les données',
+			'place.goneHint' => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.',
 			'place.loadError' => 'Ce lieu n\'a pas pu être lu.',
 			'place.openFailed' => 'Aucune application n\'a pu ouvrir ce lien.',
 			'place.photos' => 'Photos',
@@ -692,6 +907,12 @@ extension on TranslationsFr {
 			'place.moreReviews' => 'Plus d\'avis',
 			'place.moreReviewsFailed' => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.',
 			'place.stars' => ({required Object rating}) => '${rating} sur 5',
+			'place.deletedAccount' => 'Compte supprimé',
+			'place.reviewVehicle.van' => 'Van',
+			'place.reviewVehicle.campervan' => 'Fourgon aménagé',
+			'place.reviewVehicle.motorhome' => 'Camping-car',
+			'place.reviewVehicle.caravan' => 'Caravane',
+			'place.reviewVehicle.other' => 'Autre véhicule',
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
 			'place.links' => 'Ailleurs',
@@ -707,53 +928,105 @@ extension on TranslationsFr {
 			'hours.onDate' => ({required Object date}) => 'le ${date}',
 			'hours.midnight' => 'minuit',
 			'hours.stale' => 'Ouverture inconnue : données à mettre à jour',
-			'directions.title' => 'Y aller avec',
-			'directions.appleMaps' => 'Plans d\'Apple',
+			'hours.localTime' => 'Heures du lieu',
+			'directions.title' => 'Itinéraire avec',
+			'directions.hint' => 'Lunaway confie le trajet à votre application de navigation.',
+			'directions.remember' => 'Toujours utiliser cette application',
+			'directions.rememberHint' => 'Modifiable dans Profil',
+			'directions.noApp' => 'Aucune application de navigation n\'est installée.',
+			'directions.settingTitle' => 'Itinéraire',
+			'directions.settingHint' => 'L\'application qui reçoit vos trajets',
+			'directions.askEachTime' => 'Demander à chaque fois',
+			'directions.appleMaps' => 'Plans',
 			'directions.googleMaps' => 'Google Maps',
 			'directions.waze' => 'Waze',
-			'directions.osm' => 'OpenStreetMap',
-			'directions.system' => 'Une application de navigation',
+			'directions.osmAnd' => 'OsmAnd',
+			'directions.organicMaps' => 'Organic Maps',
+			'directions.magicEarth' => 'Magic Earth',
+			'directions.openStreetMap' => 'OpenStreetMap (navigateur)',
 			'list.title' => 'Lieux autour',
-			'list.empty' => 'Aucun lieu dans cette zone avec ces filtres.',
+			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
 			'list.error' => 'La liste n\'a pas pu être lue.',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
-			'favorites.empty' => 'Les lieux que vous enregistrez apparaîtront ici.',
+			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
 			'favorites.emptyHint' => 'Touchez Enregistrer sur un lieu pour le garder, même hors connexion.',
 			'favorites.newList' => 'Nouvelle liste',
 			'favorites.listName' => 'Nom de la liste',
 			'favorites.renameList' => 'Renommer la liste',
 			'favorites.deleteList' => 'Supprimer la liste',
 			'favorites.deleteListConfirm' => ({required Object name}) => 'Supprimer « ${name} » ? Les lieux restent sur la carte.',
+			'favorites.listActions' => 'Options de la liste',
+			'favorites.placeActions' => 'Options du lieu',
+			'favorites.openOnMap' => 'Voir sur la carte',
+			'favorites.remove' => 'Retirer de la liste',
 			'favorites.removed' => 'Retiré de la liste',
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Vide', one: '${n} lieu', other: '${n} lieux', ), 
 			'favorites.error' => 'Vos favoris n\'ont pas pu être lus.',
+			'vehicle.title' => 'Mon véhicule',
+			'vehicle.why' => 'Sa taille filtre les lieux où il ne passe pas. Elle reste sur cet appareil.',
+			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle reste sur cet appareil.',
+			'vehicle.none' => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.',
+			'vehicle.add' => 'Décrire mon véhicule',
+			'vehicle.edit' => 'Modifier',
+			'vehicle.type' => 'Type',
+			'vehicle.types.van' => 'Van',
+			'vehicle.types.campervan' => 'Fourgon aménagé',
+			'vehicle.types.lowProfile' => 'Profilé',
+			'vehicle.types.overcab' => 'Capucine',
+			'vehicle.types.integrated' => 'Intégral',
+			'vehicle.towingTitle' => 'Il tracte',
+			'vehicle.towing.none' => 'Rien',
+			'vehicle.towing.car' => 'Une voiture',
+			'vehicle.towing.trailer' => 'Une remorque',
+			'vehicle.size' => 'Dimensions',
+			'vehicle.sizeHint' => 'Valeurs typiques du type choisi : corrigez-les avec celles de votre carte grise.',
+			'vehicle.height' => 'Hauteur',
+			'vehicle.width' => 'Largeur',
+			'vehicle.length' => 'Longueur totale, attelage compris',
+			'vehicle.weight' => 'Poids total autorisé',
+			'vehicle.heightShort' => ({required Object value}) => 'H ${value}',
+			'vehicle.widthShort' => ({required Object value}) => 'l ${value}',
+			'vehicle.lengthShort' => ({required Object value}) => 'L ${value}',
+			'vehicle.notANumber' => 'Un nombre, par exemple 2,90',
+			'vehicle.outOfRange' => ({required Object min, required Object max, required Object unit}) => 'Entre ${min} et ${max} ${unit}',
+			'vehicle.navigationLater' => 'L\'itinéraire intégré, à venir, tiendra compte de toutes ces dimensions.',
+			'vehicle.save' => 'Enregistrer',
+			'vehicle.clear' => 'Effacer',
 			'profile.title' => 'Profil',
+			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.',
 			'profile.language' => 'Langue',
 			'profile.languageSystem' => 'Appareil',
-			'profile.noAccountNeeded' => 'Aucun compte n\'est nécessaire. Ni publicité ni pisteur : la carte et vos favoris restent sur cet appareil.',
+			'profile.appearance' => 'Apparence',
+			'profile.themeAuto' => 'Auto',
+			'profile.themeLight' => 'Clair',
+			'profile.themeDark' => 'Sombre',
+			'profile.themeAutoHint' => 'Clair le jour, sombre après le coucher du soleil là où vous êtes.',
+			'profile.themeLightHint' => 'Toujours clair, de jour comme de nuit.',
+			'profile.themeDarkHint' => 'Toujours sombre, doux pour les yeux la nuit.',
 			'profile.offline' => 'Données hors connexion',
-			'profile.offlinePlaces' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu sur cet appareil', one: '${n} lieu sur cet appareil', other: '${n} lieux sur cet appareil', ), 
+			'profile.placesOnDevice' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu sur cet appareil', other: 'lieux sur cet appareil', ), 
 			'profile.offlineSize' => ({required Object size}) => 'Espace utilisé : ${size}',
 			'profile.lastSync' => ({required Object when}) => 'Dernière mise à jour ${when}',
 			'profile.neverSynced' => 'Jamais téléchargé',
 			'profile.syncNow' => 'Mettre à jour',
 			'profile.syncing' => 'Mise à jour en cours',
-			'profile.syncDone' => 'Les lieux sont à jour.',
-			'profile.syncFailed' => 'La mise à jour a échoué. Les lieux de cet appareil restent utilisables.',
 			'profile.about' => 'À propos',
 			'profile.version' => ({required Object version}) => 'Version ${version}',
 			'profile.website' => 'Site web',
 			'profile.privacy' => 'Confidentialité',
 			'profile.sourceCode' => 'Code source',
 			'profile.licences' => 'Licences',
-			'profile.attributions' => 'Données et carte',
-			'profile.attributionOsm' => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap, sous licence Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).',
-			'profile.attributionTiles' => 'Carte OpenFreeMap, © OpenMapTiles, données © les contributeurs d\'OpenStreetMap.',
-			'profile.attributionFont' => 'Police Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.appLicence' => 'Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure.',
+			'profile.attributions' => 'Sources et attributions',
+			'profile.attributionOsm' => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.',
+			'profile.attributionOdbl' => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).',
+			'profile.attributionAtout' => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionCommunes' => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.',
+			'profile.attributionTiles' => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.',
+			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
+			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',

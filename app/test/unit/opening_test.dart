@@ -1,11 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 
-/// Local wall-clock times: the wording is read in the device's time zone.
-DateTime at(int day, int hour, [int minute = 0]) => DateTime(2026, 10, day, hour, minute);
+/// Wall-clock times of a place in France (summer time in October, UTC+2),
+/// as UTC instants: the wording reads them in the place's zone, whatever
+/// the zone of the machine running the test.
+DateTime at(int day, int hour, [int minute = 0]) =>
+    DateTime.utc(2026, 10, day, hour, minute).subtract(const Duration(hours: 2));
 
 OpeningInterval span(DateTime start, DateTime end) => OpeningInterval(start.toUtc(), end.toUtc());
 
@@ -64,8 +68,11 @@ void main() {
       t = AppLocale.fr.buildSync();
     });
 
-    String say(List<OpeningInterval> spans, DateTime now) =>
-        t.opening(openingStateAt(spans, now.toUtc(), validUntil: validUntil)!, now);
+    String say(List<OpeningInterval> spans, DateTime now) => t.opening(
+      openingStateAt(spans, now.toUtc(), validUntil: validUntil)!,
+      now,
+      zone: PlaceZone.central,
+    );
 
     test(
       'open, with the closing hour',
@@ -119,6 +126,45 @@ void main() {
     final weekend = [span(at(10, 9), at(10, 12))];
     final state = openingStateAt(weekend, at(6, 10).toUtc(), validUntil: validUntil)!;
     // CLDR puts a narrow no-break space between the time and AM.
-    expect(t.opening(state, at(6, 10)), 'Closed, opens Saturday at 9:00\u202fAM');
+    expect(
+      t.opening(state, at(6, 10), zone: PlaceZone.central),
+      'Closed, opens Saturday at 9:00\u202fAM',
+    );
+  });
+
+  test('the hours of a place in Portugal read in Portuguese time, not in the device zone', () {
+    final t = AppLocale.fr.buildSync();
+    // 08:00 to 19:00 in Lisbon (UTC+1 in October) is 09:00 to 20:00 in Paris.
+    final lisbon = [
+      for (var d = 5; d <= 20; d++)
+        OpeningInterval(DateTime.utc(2026, 10, d, 7), DateTime.utc(2026, 10, d, 18)),
+    ];
+    final now = DateTime.utc(2026, 10, 6, 9);
+    final state = openingStateAt(lisbon, now, validUntil: validUntil)!;
+    expect(t.opening(state, now, zone: PlaceZone.ofCountry('PT')), 'Ouvert, ferme à 19:00');
+    expect(t.opening(state, now, zone: PlaceZone.ofCountry('FR')), 'Ouvert, ferme à 20:00');
+  });
+
+  group('the place zone', () {
+    test(
+      'follows European summer time, from the last Sunday of March to October, at 01:00 UTC',
+      () {
+        const paris = PlaceZone.central;
+        expect(paris.offsetAt(DateTime.utc(2026, 3, 29, 0, 59)), const Duration(hours: 1));
+        expect(paris.offsetAt(DateTime.utc(2026, 3, 29, 1)), const Duration(hours: 2));
+        expect(paris.offsetAt(DateTime.utc(2026, 10, 25, 0, 59)), const Duration(hours: 2));
+        expect(paris.offsetAt(DateTime.utc(2026, 10, 25, 1)), const Duration(hours: 1));
+        expect(PlaceZone.iceland.offsetAt(DateTime.utc(2026, 7)), Duration.zero);
+        expect(PlaceZone.ofCountry('fi'), PlaceZone.eastern);
+        expect(PlaceZone.ofCountry(null), PlaceZone.central, reason: "France, the app's region");
+      },
+    );
+
+    test('gives the wall clock of the place', () {
+      expect(
+        PlaceZone.central.wallClock(DateTime.utc(2026, 1, 10, 23, 30)),
+        DateTime.utc(2026, 1, 11, 0, 30),
+      );
+    });
   });
 }

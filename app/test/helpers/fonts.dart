@@ -1,22 +1,26 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 
-/// Loads the real typefaces (Atkinson Hyperlegible Next and the Material
-/// icons) so golden images show readable text rather than test boxes.
+/// Loads the app's typefaces under the families the theme names (Atkinson,
+/// Fraunces and the Phosphor icons), so golden images show the real text and
+/// icons rather than test boxes. Each face carries its own weight.
 Future<void> loadRealFonts() async {
-  final atkinson = FontLoader('Atkinson');
-  for (final weight in ['Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold']) {
-    atkinson.addFont(rootBundle.load('assets/fonts/AtkinsonHyperlegibleNext-$weight.ttf'));
-  }
-  await atkinson.load();
-  final root = Platform.environment['FLUTTER_ROOT'];
-  if (root != null) {
-    final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
-    if (icons.existsSync()) {
-      final loader = FontLoader('MaterialIcons')
-        ..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
-      await loader.load();
+  const families = {
+    'Atkinson': [
+      'atkinson-next-lunaway/AtkinsonNextLunaway-Regular.ttf',
+      'atkinson-next-lunaway/AtkinsonNextLunaway-Medium.ttf',
+      'atkinson-next-lunaway/AtkinsonNextLunaway-SemiBold.ttf',
+      'atkinson-next-lunaway/AtkinsonNextLunaway-Bold.ttf',
+      'atkinson-next-lunaway/AtkinsonNextLunaway-ExtraBold.ttf',
+    ],
+    'Fraunces': ['fraunces/Fraunces-Variable.ttf'],
+    'PhosphorRegular': ['phosphor/Phosphor-Regular.ttf'],
+    'PhosphorFill': ['phosphor/Phosphor-Fill.ttf'],
+  };
+  for (final MapEntry(key: family, value: files) in families.entries) {
+    final loader = FontLoader(family);
+    for (final file in files) {
+      loader.addFont(rootBundle.load('assets/fonts/$file'));
     }
+    await loader.load();
   }
 }

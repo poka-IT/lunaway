@@ -1,28 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/places/data/demo/demo_places.dart';
+import 'package:lunaway/features/places/data/demo/demo_server.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 
 import 'graphql_validator.dart';
 
-/// Fields the app already reads that the server has not exported yet: the
-/// community content of the contract (descriptions, ratings, links, photos,
-/// reviews), served by the demo fixture until then. An operation may miss
-/// these and nothing else; once the schema declares one, the test asks for
-/// its removal here, so the list only shrinks.
-const pendingServerFields = {
-  ('Place', 'descriptions'),
-  ('Place', 'ratings'),
-  ('Place', 'externalLinks'),
-  ('Place', 'photos'),
-  ('Place', 'reviews'),
-};
-
-final _missingField = RegExp(r'(\w+) has no field "(\w+)"$');
-
 /// Every operation the app sends must be valid against the schema the
 /// server exports (`schema/lunaway.graphql`): when either side changes, this
-/// test names the field that drifted.
+/// test names the field that drifted. The demo server, which stands in for
+/// the API in the demo build and in tests, is held to the same schema: it
+/// refuses a document the server would refuse, and its answers carry what
+/// the schema promises.
 void main() {
   final schema = File('../schema/lunaway.graphql').readAsStringSync();
   final validator = SchemaValidator(schema);
@@ -33,26 +28,80 @@ void main() {
 
   for (final op in allOperations) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
-      final all = validator.validate(op.document);
-      bool pending(String e) => switch (_missingField.firstMatch(e)) {
-        final m? => pendingServerFields.contains((m[1], m[2])),
-        null => false,
-      };
-      // A variable used only under a pending field reads as unused.
-      final waiting = all.any(pending);
-      final errors = all.where(
-        (e) => !pending(e) && !(waiting && e.endsWith('is declared but never used')),
-      );
-      expect(errors, isEmpty);
+      expect(validator.validate(op.document), isEmpty);
     });
   }
 
-  test('no field stays pending once the schema has it', () {
-    final landed = [
-      for (final (type, field) in pendingServerFields)
-        if (validator.hasField(type, field)) '$type.$field',
-    ];
-    expect(landed, isEmpty, reason: 'remove them from pendingServerFields');
+  group('the demo server answers as the schema says', () {
+    final apiBase = Uri.parse('https://api.example.org');
+    final exchanges =
+        <({String query, Map<String, Object?> variables, Map<String, dynamic> body})>[];
+    final client = GraphQLClient(
+      endpoint: Uri.parse('$apiBase/graphql'),
+      httpClient: _Recording(
+        demoApiClient(
+          demoPlaces(),
+          apiBase: apiBase,
+          latency: Duration.zero,
+          validate: validator.validate,
+        ),
+        exchanges,
+      ),
+      userAgent: 'Lunaway/test (+https://lunaway.net)',
+    );
+    setUp(exchanges.clear);
+
+    void conforms() {
+      expect(exchanges, isNotEmpty);
+      for (final e in exchanges) {
+        expect(validator.checkVariables(e.query, e.variables), isEmpty, reason: 'variables');
+        expect(e.body['errors'], isNull);
+        expect(
+          validator.checkResponse(e.query, e.body['data'] as Map<String, dynamic>),
+          isEmpty,
+          reason: 'response',
+        );
+      }
+    }
+
+    test('a sync page', () async {
+      final page = await client.execute(
+        changesOperation,
+        changesVariables(bbox: GeoBounds.metropolitanFrance, first: 200),
+      );
+      expect(page.places, hasLength(200));
+      conforms();
+    });
+
+    test('the photos and reviews of a place, then the next reviews', () async {
+      // A place the demo gives a community rating has photos and reviews.
+      final place = demoPlaces().firstWhere(
+        (p) => p.ratings.any((r) => r.sourceId == communitySourceId && r.count > 25),
+      );
+      final extras = await client.execute(extrasOperation, {'id': place.id, 'first': 20});
+      expect(extras!.photos, isNotEmpty);
+      expect(extras.reviews.nodes, hasLength(20));
+      expect(extras.reviews.nodes.map((r) => r.authorVehicle), everyElement(isNotNull));
+      final next = await client.execute(reviewsOperation, {
+        'id': place.id,
+        'first': 20,
+        'after': extras.reviews.endCursor,
+      });
+      expect(next.nodes, isNotEmpty);
+      conforms();
+    });
+
+    test('refuses a document the server would refuse', () async {
+      final broken = GraphQLOperation<Object?>(
+        name: 'Changes',
+        document: changesOperation.document.replaceFirst('cursor', 'colour'),
+        parse: (data) => data,
+      );
+      await expectLater(
+        client.execute(broken, changesVariables(bbox: GeoBounds.metropolitanFrance)),
+        throwsA(isA<GraphQLResponseException>()),
+      );
+    });
   });
 
   group('the validator itself', () {
@@ -94,10 +143,77 @@ void main() {
       ]);
     });
 
+    test('checks the values of variables', () {
+      expect(
+        v.checkVariables(r'query Q($id: ID!, $n: Int) { thing(id: $id, n: $n) { id } }', {
+          'n': 'three',
+        }),
+        [r'$id: null for ID!', r'$n: three is not a Int'],
+      );
+    });
+
+    test('checks a response against the selection', () {
+      const q = 'query Q { version things { id name child { id } } }';
+      expect(
+        v.checkResponse(q, {
+          'version': '1',
+          'things': [
+            {'id': 'a', 'name': null, 'child': null},
+          ],
+        }),
+        isEmpty,
+      );
+      expect(
+        v.checkResponse(q, {
+          'things': [
+            {
+              'id': null,
+              'name': 3,
+              'child': {'id': 'b'},
+            },
+          ],
+        }),
+        [
+          'Q.version: missing',
+          'Q.things[0].id: null for ID!',
+          'Q.things[0].name: 3 is not a String',
+        ],
+      );
+    });
+
     test('checks fragments against their type', () {
       expect(v.validate('query Q { things { ...F } } fragment F on Thing { id size }'), [
         'Q.things{F}: Thing has no field "size"',
       ]);
     });
   });
+}
+
+/// Passes requests to [_inner] and keeps each GraphQL request with its
+/// answer, for the checks above.
+final class _Recording extends http.BaseClient {
+  new(this._inner, this._log);
+
+  final http.Client _inner;
+  final List<({String query, Map<String, Object?> variables, Map<String, dynamic> body})> _log;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final sent = request is http.Request ? request.body : '';
+    final response = await http.Response.fromStream(await _inner.send(request));
+    if (sent.isNotEmpty) {
+      final body = jsonDecode(sent) as Map<String, dynamic>;
+      _log.add((
+        query: body['query'] as String,
+        variables: (body['variables'] as Map<String, dynamic>?) ?? const {},
+        body: jsonDecode(response.body) as Map<String, dynamic>,
+      ));
+    }
+    return http.StreamedResponse(
+      Stream.value(response.bodyBytes),
+      response.statusCode,
+      headers: response.headers,
+      request: request,
+    );
+  }
 }

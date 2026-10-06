@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
-import 'package:lunaway/shared/widgets/place_avatar.dart';
+import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/shared/theme/palette.dart';
 
 import 'fakes.dart';
 
-/// A stand-in map for golden images: a flat basemap with the pins drawn
-/// where they would be, so the layouts read as they do on a device.
+/// A stand-in map for golden images: a flat basemap in the colours of the
+/// Aube and Minuit styles, the real pin images (`assets/map/pins/2x/`) where
+/// the places are, and two clusters drawn as the map draws them, so the
+/// layouts read as they do on a device.
 final class GoldenMap extends FakeMap {
   new(this.bounds);
 
@@ -39,14 +42,14 @@ class _GoldenMapViewState extends State<_GoldenMapView> {
       if (!mounted) return;
       widget.props.onMapReady(widget.map);
       widget.props.onViewportChanged(
-        MapViewport(bounds: widget.map.bounds, center: widget.map.bounds.center, zoom: 8),
+        MapViewport(bounds: widget.map.bounds, center: widget.map.bounds.center, zoom: 11),
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final dark = widget.props.dark;
     final b = widget.map.bounds;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -54,33 +57,76 @@ class _GoldenMapViewState extends State<_GoldenMapView> {
           (p.lon - b.west) / (b.east - b.west) * constraints.maxWidth,
           (b.north - p.lat) / (b.north - b.south) * constraints.maxHeight,
         );
+        final selected = widget.props.selectedId;
+        final places = [
+          for (final p in widget.props.places)
+            if (b.contains(p.position)) p,
+        ]..sort((a, c) => (a.id == selected ? 1 : 0).compareTo(c.id == selected ? 1 : 0));
         return Stack(
           children: [
             Positioned.fill(
               child: CustomPaint(painter: _Basemap(dark: dark)),
             ),
-            for (final p in widget.props.places)
-              if (b.contains(p.position))
-                Positioned(
-                  left: at(p.position).dx - 20,
-                  top: at(p.position).dy - 20,
-                  child: Container(
-                    decoration: p.id == widget.props.selectedId
-                        ? BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0x55F2A33A),
-                            border: Border.all(color: const Color(0xFFF2A33A), width: 3),
-                          )
-                        : null,
-                    padding: const EdgeInsets.all(2),
-                    child: PlaceAvatar(kind: p.kind, overnight: p.overnight, size: 30),
+            for (final (count, x, y) in const [(12, 0.18, 0.22), (48, 0.78, 0.3)])
+              Positioned(
+                left: constraints.maxWidth * x - 20,
+                top: constraints.maxHeight * y - 20,
+                child: _Cluster(count: count, dark: dark),
+              ),
+            for (final p in places)
+              () {
+                final isSelected = p.id == selected;
+                // The sprites hold 2x pixels; the map shows them at 1x, the
+                // tip on the place.
+                final size = isSelected ? 52.0 : 40.0;
+                final point = at(p.position);
+                return Positioned(
+                  left: point.dx - size / 2,
+                  top: point.dy - size,
+                  width: size,
+                  height: size,
+                  child: Image.asset(
+                    'assets/map/pins/2x/${pinImageId(p.kind, p.overnight, selected: isSelected)}.png',
+                    fit: BoxFit.contain,
+                    alignment: Alignment.bottomCenter,
                   ),
-                ),
+                );
+              }(),
           ],
         );
       },
     );
   }
+}
+
+/// A cluster as the map layer draws it: a disc sized by its count, the
+/// count in the middle.
+class _Cluster extends StatelessWidget {
+  const new({required this.count, required this.dark});
+
+  final int count;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 40,
+    height: 40,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: (dark ? Palette.creme : Palette.minuit).withValues(alpha: 0.94),
+      border: Border.all(color: dark ? Palette.minuit : Palette.creme, width: 2.5),
+    ),
+    child: Text(
+      '$count',
+      style: TextStyle(
+        fontFamily: 'Atkinson',
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+        color: dark ? Palette.minuit : Palette.creme,
+      ),
+    ),
+  );
 }
 
 class _Basemap extends CustomPainter {
@@ -90,11 +136,12 @@ class _Basemap extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final land = Paint()..color = dark ? const Color(0xFF1F242C) : const Color(0xFFEDEFF1);
-    final water = Paint()..color = dark ? const Color(0xFF16202E) : const Color(0xFFCBDDEB);
+    // The land, water and road tones of the Aube and Minuit styles.
+    final land = Paint()..color = dark ? const Color(0xFF0B2342) : const Color(0xFFF3EAD9);
+    final water = Paint()..color = dark ? const Color(0xFF0E3A52) : const Color(0xFFAED8DA);
     final road = Paint()
-      ..color = dark ? const Color(0xFF39404B) : const Color(0xFFFFFFFF)
-      ..strokeWidth = 3
+      ..color = dark ? const Color(0xFF26446A) : const Color(0xFFFFFFFF)
+      ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
     canvas
       ..drawRect(Offset.zero & size, land)

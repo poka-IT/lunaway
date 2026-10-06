@@ -9,14 +9,13 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
-import 'package:lunaway/features/map/presentation/pin_images.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
-import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
-import 'package:permission_handler/permission_handler.dart';
 
 final _log = Logger('map');
 
@@ -45,8 +44,6 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // Updates run one after the other: a newer one never races an older one.
   Future<void> _queue = Future.value();
 
-  static Future<Map<String, Uint8List>>? _images;
-
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
 
@@ -68,7 +65,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   void didUpdateWidget(GlLunaMap old) {
     super.didUpdateWidget(old);
-    if (old.props.styleUrl != _props.styleUrl) {
+    if (old.props.style != _props.style) {
       // The new style drops every source and layer; they come back on load.
       _ready = false;
       _sentPlaces = null;
@@ -84,97 +81,153 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     });
   }
 
-  /// MapLibre Android reads an image pixel as a physical pixel; elsewhere
-  /// as a logical one.
-  double get _imageScale => !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-      ? MediaQuery.devicePixelRatioOf(context)
-      : 1;
+  /// The pin images of the screen's density, and the factor that brings
+  /// them to the engine's unit: MapLibre Android reads an image pixel as a
+  /// physical pixel, the others as a logical one.
+  int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
+
+  double get _pinScale {
+    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    return (android ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
+  }
+
+  gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
+    iconImage: const ['get', 'icon'],
+    iconSize: size,
+    iconAnchor: 'bottom',
+    iconAllowOverlap: true,
+    iconIgnorePlacement: true,
+  );
+
+  /// Counts style loads: a theme or language switch loads a new style while
+  /// the setup of the previous one may still be adding its layers.
+  int _styleLoads = 0;
 
   Future<void> _onStyleLoaded() async {
     final c = _controller;
     if (c == null || !mounted) return;
     if (kIsWeb) _stopWebLongPress ??= listenWebMapLongPress(_onWebLongPress);
+    final load = ++_styleLoads;
+    _ready = false;
+    // A newer style load takes over: this one stops at its next step.
+    bool current() => mounted && load == _styleLoads;
+    final dark = _props.dark;
     try {
-      final images = await (_images ??= renderPinImages());
+      final images = await PinSprites.load(_ratio);
       for (final e in images.entries) {
+        if (!current()) return;
         await c.addImage(e.key, e.value);
       }
+      // The one call an older setup had in flight may already have added a
+      // layer or a source to this style: each is removed before it is added.
+      Future<void> fresh(Future<void> Function() add, {String? layer, String? source}) async {
+        if (!current()) return;
+        if (layer != null) await _quietly(() => c.removeLayer(layer));
+        if (source != null) await _quietly(() => c.removeSource(source));
+        if (!current()) return;
+        await add();
+      }
+
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
-      await c.addSource(
-        MapStyle.placesSource,
-        const gl.GeojsonSourceProperties(
-          data: empty,
-          cluster: true,
-          clusterRadius: MapStyle.clusterRadius,
-          clusterMaxZoom: MapStyle.clusterMaxZoom,
-        ),
-      );
-      await c.addSource(MapStyle.selectionSource, const gl.GeojsonSourceProperties(data: empty));
-      await c.addCircleLayer(
-        MapStyle.placesSource,
-        MapStyle.clustersLayer,
-        const gl.CircleLayerProperties(
-          circleColor: MapLook.clusterFill,
-          circleRadius: MapLook.clusterRadius,
-          circleStrokeWidth: MapLook.clusterStrokeWidth,
-          circleStrokeColor: MapLook.clusterStroke,
-          circleOpacity: MapLook.clusterOpacity,
-        ),
-        filter: MapStyle.clusterFilter,
-      );
-      await c.addSymbolLayer(
-        MapStyle.placesSource,
-        MapStyle.clusterCountLayer,
-        const gl.SymbolLayerProperties(
-          textField: ['get', 'point_count_abbreviated'],
-          textFont: MapLook.clusterFont,
-          textSize: MapLook.clusterTextSize,
-          textColor: MapLook.clusterText,
-          textAllowOverlap: true,
-          textIgnorePlacement: true,
-        ),
-        filter: MapStyle.clusterFilter,
-      );
-      await c.addSymbolLayer(
-        MapStyle.placesSource,
-        MapStyle.placesLayer,
-        gl.SymbolLayerProperties(
-          iconImage: const ['get', 'icon'],
-          iconSize: MapLook.pinSize(_imageScale),
-          iconAllowOverlap: true,
-          iconIgnorePlacement: true,
-          symbolSortKey: ['get', 'rank'],
-        ),
-        filter: MapStyle.pointFilter,
-      );
-      await c.addCircleLayer(
-        MapStyle.selectionSource,
-        MapStyle.selectionHaloLayer,
-        const gl.CircleLayerProperties(
-          circleRadius: MapLook.selectionHaloRadius,
-          circleColor: MapLook.selection,
-          circleOpacity: MapLook.selectionHaloOpacity,
-          circleStrokeColor: MapLook.selection,
-          circleStrokeWidth: MapLook.selectionStrokeWidth,
-        ),
-      );
-      await c.addSymbolLayer(
-        MapStyle.selectionSource,
+      for (final layer in [
         MapStyle.selectionPinLayer,
-        gl.SymbolLayerProperties(
-          iconImage: const ['get', 'icon'],
-          iconSize: MapLook.selectedPinSize(_imageScale),
-          iconAllowOverlap: true,
-          iconIgnorePlacement: true,
+        MapStyle.placesLayer,
+        MapStyle.clusterCountLayer,
+        MapStyle.clustersLayer,
+      ]) {
+        await fresh(() async {}, layer: layer);
+      }
+      await fresh(
+        () => c.addSource(
+          MapStyle.placesSource,
+          const gl.GeojsonSourceProperties(
+            data: empty,
+            cluster: true,
+            clusterRadius: MapStyle.clusterRadius,
+            clusterMaxZoom: MapStyle.clusterMaxZoom,
+          ),
         ),
+        source: MapStyle.placesSource,
       );
+      await fresh(
+        () => c.addSource(MapStyle.selectionSource, const gl.GeojsonSourceProperties(data: empty)),
+        source: MapStyle.selectionSource,
+      );
+      await fresh(
+        () => c.addCircleLayer(
+          MapStyle.placesSource,
+          MapStyle.clustersLayer,
+          gl.CircleLayerProperties(
+            circleColor: MapLook.clusterFill(dark: dark),
+            circleRadius: MapLook.clusterRadius,
+            circleStrokeWidth: MapLook.clusterStrokeWidth,
+            circleStrokeColor: MapLook.clusterStroke(dark: dark),
+            circleOpacity: MapLook.clusterOpacity,
+          ),
+          filter: MapStyle.clusterFilter,
+        ),
+        layer: MapStyle.clustersLayer,
+      );
+      await fresh(
+        () => c.addSymbolLayer(
+          MapStyle.placesSource,
+          MapStyle.clusterCountLayer,
+          gl.SymbolLayerProperties(
+            textField: const ['get', 'point_count_abbreviated'],
+            textFont: MapLook.clusterFont,
+            textSize: MapLook.clusterTextSize,
+            textColor: MapLook.clusterText(dark: dark),
+            textAllowOverlap: true,
+            textIgnorePlacement: true,
+          ),
+          filter: MapStyle.clusterFilter,
+        ),
+        layer: MapStyle.clusterCountLayer,
+      );
+      await fresh(
+        () => c.addSymbolLayer(
+          MapStyle.placesSource,
+          MapStyle.placesLayer,
+          gl.SymbolLayerProperties(
+            iconImage: const ['get', 'icon'],
+            iconSize: MapLook.pinSize(_pinScale),
+            iconAnchor: 'bottom',
+            iconAllowOverlap: true,
+            iconIgnorePlacement: true,
+            symbolSortKey: const ['get', 'rank'],
+          ),
+          filter: MapStyle.pointFilter,
+        ),
+        layer: MapStyle.placesLayer,
+      );
+      await fresh(
+        () => c.addSymbolLayer(
+          MapStyle.selectionSource,
+          MapStyle.selectionPinLayer,
+          _selectionLayer(_pinScale),
+        ),
+        layer: MapStyle.selectionPinLayer,
+      );
+      if (!current()) return;
       _ready = true;
+      _sentPlaces = null;
+      _sentSelected = null;
+      _sentPoint = null;
       _scheduleSync();
       // The first camera rests without a move: report it, so the list beside
       // the map follows from the start.
       await _onCameraIdle();
     } on Object catch (e, st) {
       _log.warning('could not set up the map style', e, st);
+    }
+  }
+
+  /// A removal that may find nothing to remove.
+  static Future<void> _quietly(Future<void> Function() call) async {
+    try {
+      await call();
+    } on Object {
+      // Nothing of that id on this style: the add that follows is all.
     }
   }
 
@@ -197,6 +250,20 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
       );
+      if (selected != null || props.markedPoint != null) await _popSelection(c);
+    }
+  }
+
+  /// The selected pin grows into place with a spring's give, so the eye
+  /// finds it.
+  Future<void> _popSelection(gl.MapLibreMapController c) async {
+    if (!mounted || Motion.reduced(context)) return;
+    final full = _pinScale;
+    const steps = [0.55, 0.8, 1.02, 1.08, 1.03, 1.0];
+    for (final s in steps) {
+      if (!mounted) return;
+      await c.setLayerProperties(MapStyle.selectionPinLayer, _selectionLayer(full * s));
+      await Future<void>.delayed(const Duration(milliseconds: 34));
     }
   }
 
@@ -210,20 +277,24 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       MapStyle.tappableLayers,
       null,
     );
-    if (features.isEmpty) return;
+    if (features.isEmpty) {
+      _props.onEmptyTap?.call();
+      return;
+    }
     final feature = features.first as Map<Object?, Object?>;
-    final properties = (feature['properties'] as Map<Object?, Object?>?) ?? const {};
-    if (properties.containsKey('point_count')) {
-      final clusterId = (properties['cluster_id']! as num).toInt();
-      final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
-      final coordinates =
-          (feature['geometry']! as Map<Object?, Object?>)['coordinates']! as List<Object?>;
-      await moveTo(
-        LatLng((coordinates[1]! as num).toDouble(), (coordinates[0]! as num).toDouble()),
-        zoom: zoom + 0.3,
-      );
-    } else if (properties['id'] case final String id) {
-      _props.onPlaceTap(id);
+    final geometry = feature['geometry'] as Map<Object?, Object?>?;
+    final tap = mapTapFor(
+      feature['properties'] as Map<Object?, Object?>?,
+      geometry?['coordinates'] as List<Object?>?,
+    );
+    switch (tap) {
+      case TapCluster(:final clusterId, :final at):
+        final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
+        await moveTo(at, zoom: zoom + 0.3);
+      case TapPlace(:final id):
+        _props.onPlaceTap(id);
+      case TapNothing():
+        break;
     }
   }
 
@@ -260,7 +331,17 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final target = centerForPadding(center, z, _props.padding);
     await c.animateCamera(
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(target.lat, target.lon), z),
-      duration: Motion.camera,
+      duration: Motion.of(context, Motion.camera),
+    );
+  }
+
+  @override
+  Future<void> zoomBy(double delta) async {
+    final c = _controller;
+    if (c == null) return;
+    await c.animateCamera(
+      gl.CameraUpdate.zoomBy(delta),
+      duration: Motion.of(context, Motion.medium),
     );
   }
 
@@ -287,12 +368,6 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   Future<LatLng?> locateUser() async {
     final c = _controller;
     if (c == null) return null;
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      // MapLibre Android shows the position but does not ask for the
-      // permission; MapLibre iOS asks by itself.
-      final status = await Permission.locationWhenInUse.request();
-      if (!status.isGranted) return null;
-    }
     if (!_locationOn && mounted) setState(() => _locationOn = true);
     try {
       final position = await c.requestMyLocationLatLng().timeout(const Duration(seconds: 12));
@@ -306,19 +381,31 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   Widget build(BuildContext context) {
     final props = _props;
-    if (kIsWeb) placeWebMapControls(top: props.padding.top);
+    if (kIsWeb) {
+      placeWebMapControls(top: props.padding.top);
+    }
+    final inset = props.attributionInset;
     return gl.MapLibreMap(
-      styleString: props.styleUrl,
+      styleString: props.style,
       initialCameraPosition: gl.CameraPosition(
         target: gl.LatLng(props.initialCenter.lat, props.initialCenter.lon),
         zoom: props.initialZoom,
       ),
       trackCameraPosition: true,
+      // No annotations: the places are layers of their own. The plugin's
+      // annotation manager would add unused layers on every style load, and
+      // races a style switch (the theme turning at sunset).
+      annotationOrder: const [],
       myLocationEnabled: _locationOn,
-      compassViewPosition: gl.CompassViewPosition.topRight,
-      compassViewMargins: math.Point(12, props.padding.top + 8),
-      attributionButtonPosition: gl.AttributionButtonPosition.topRight,
-      attributionButtonMargins: math.Point(12, props.padding.top + 60),
+      // North stays up: rotating a map by accident confuses more than it
+      // helps when looking for a place to sleep.
+      rotateGesturesEnabled: false,
+      tiltGesturesEnabled: false,
+      compassEnabled: false,
+      attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
+      attributionButtonMargins: math.Point(inset.left + 8, inset.bottom + 8),
+      logoViewPosition: gl.LogoViewPosition.bottomLeft,
+      logoViewMargins: math.Point(inset.left + 44, inset.bottom + 8),
       onMapCreated: (c) {
         _controller = c;
         props.onMapReady(this);

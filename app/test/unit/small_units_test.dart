@@ -1,18 +1,14 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
-import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/labels.dart';
 
 import '../helpers/samples.dart';
@@ -24,9 +20,30 @@ void main() {
 
     test('distances round to tens of metres, then tenths of a kilometre', () {
       expect(fr.distance(347), '350 m');
+      expect(fr.distance(994), '990 m');
+      expect(fr.distance(995), '1,0 km', reason: 'never "1000 m"');
       expect(fr.distance(3240), '3,2 km');
       expect(en.distance(3240), '3.2 km');
+      expect(en.distance(9960), '10 km');
       expect(en.distance(48400), '48 km');
+    });
+
+    test('counts group thousands the local way', () {
+      expect(fr.number(15256), '15\u202f256');
+      expect(en.number(15256), '15,256');
+      expect(fr.number(420), '420');
+    });
+
+    test('file sizes keep one decimal only under ten, and switch unit at a thousand', () {
+      expect(fr.fileSize(850 * 1024), '850 ko');
+      expect(fr.fileSize(1020 * 1024), '1,0 Mo', reason: 'never "1020,0 ko"');
+      expect(en.fileSize((3.3 * 1024 * 1024).round()), '3.3 MB');
+      expect(fr.fileSize(23 * 1024 * 1024), '23 Mo');
+    });
+
+    test('vehicle weights read in tonnes with the local separator', () {
+      expect(fr.tonnes(3.5), '3,5 t');
+      expect(en.tonnes(3.5), '3.5 t');
     });
 
     test('prices drop the cents when there are none', () {
@@ -57,10 +74,16 @@ void main() {
       expect(en.ago(DateTime(2024, 9), now), '2 years ago');
     });
 
-    test('the French count forms carry the number, zero included', () {
-      expect(fr.map.placesHere(n: 0), '0 lieu ici');
-      expect(fr.map.placesHere(n: 1), '1 lieu ici');
-      expect(fr.map.placesHere(n: 12), '12 lieux ici');
+    test('the French count forms agree with the number, zero included', () {
+      expect(fr.map.placesHereLabel(n: 0), 'lieu ici');
+      expect(fr.map.placesHereLabel(n: 1), 'lieu ici');
+      expect(fr.map.placesHereLabel(n: 12), 'lieux ici');
+      expect(fr.filters.show(n: 15256, count: fr.number(15256)), 'Afficher 15\u202f256 lieux');
+    });
+
+    test('an unknown night reads calmly, never as an alarm', () {
+      expect(fr.overnightShort(OvernightStatus.unknown), 'Nuit non renseignée');
+      expect(en.overnightShort(OvernightStatus.unknown), 'Overnight not reported');
     });
   });
 
@@ -92,13 +115,18 @@ void main() {
     });
   });
 
-  test('the map source carries id, pin and rank, nights allowed on top', () {
+  test('the map source carries id, kind, pin and rank, nights allowed on top', () {
     final fc = placesFeatureCollection([lakeArea.summary, dayParking.summary]);
     final features = fc['features']! as List<Object?>;
     final lake = features.first! as Map<String, Object?>;
     expect(lake['id'], lakeArea.id);
     expect((lake['geometry']! as Map)['coordinates'], [lakeArea.lon, lakeArea.lat]);
-    expect(lake['properties'], {'id': lakeArea.id, 'icon': 'pin-stopovers-allowed', 'rank': 4});
+    expect(lake['properties'], {
+      'id': lakeArea.id,
+      'kind': 'place',
+      'icon': 'pin-motorhomeArea-allowed',
+      'rank': 4,
+    });
     final parking = features.last! as Map<String, Object?>;
     expect((parking['properties']! as Map)['rank'], lessThan(4));
     expect(
@@ -110,14 +138,17 @@ void main() {
 
   test('the selection source marks the selected place, or else a long-pressed point', () {
     List<Object?> features(Map<String, Object?> fc) => fc['features']! as List<Object?>;
-    Object? icon(Map<String, Object?> fc) =>
-        ((features(fc).single! as Map)['properties']! as Map)['icon'];
+    Map<Object?, Object?> props(Map<String, Object?> fc) =>
+        (features(fc).single! as Map)['properties']! as Map;
     const point = LatLng(45.7629, 4.831697);
-    expect(icon(pointFeatureCollection(lakeArea.summary)), 'pin-stopovers-allowed');
-    expect(icon(pointFeatureCollection(null, point: point)), markedPointImageId);
     expect(
-      icon(pointFeatureCollection(lakeArea.summary, point: point)),
-      'pin-stopovers-allowed',
+      props(pointFeatureCollection(lakeArea.summary))['icon'],
+      'pin-motorhomeArea-allowed-selected',
+    );
+    expect(props(pointFeatureCollection(null, point: point))['icon'], markedPointImageId);
+    expect(
+      props(pointFeatureCollection(lakeArea.summary, point: point))['icon'],
+      'pin-motorhomeArea-allowed-selected',
       reason: 'a place selection wins',
     );
     final marked = features(pointFeatureCollection(null, point: point)).single! as Map;
@@ -125,15 +156,46 @@ void main() {
     expect(features(pointFeatureCollection(null)), isEmpty);
   });
 
+  group('a tap on the map', () {
+    test('on a place opens it', () {
+      final fc = placesFeatureCollection([lakeArea.summary]);
+      final f = (fc['features']! as List<Object?>).single! as Map<String, Object?>;
+      expect(mapTapFor(f['properties']! as Map<Object?, Object?>, null), TapPlace(lakeArea.id));
+    });
+
+    test('on the long-pressed point marker does nothing (it never reads as a place)', () {
+      final fc = pointFeatureCollection(null, point: const LatLng(45, 5));
+      final f = (fc['features']! as List<Object?>).single! as Map<String, Object?>;
+      expect(
+        mapTapFor(f['properties']! as Map<Object?, Object?>, const [5, 45]),
+        const TapNothing(),
+      );
+    });
+
+    test('on a cluster zooms into it, at its position', () {
+      expect(
+        mapTapFor({'point_count': 12, 'cluster_id': 7}, const [5.5, 45.25]),
+        const TapCluster(7, LatLng(45.25, 5.5)),
+      );
+      expect(mapTapFor({'point_count': 12}, const [5.5, 45.25]), const TapNothing());
+    });
+
+    test('on a feature of unknown shape does nothing', () {
+      expect(mapTapFor(null, null), const TapNothing());
+      expect(mapTapFor({'id': 'x'}, null), const TapNothing(), reason: 'no kind: not ours');
+    });
+  });
+
   test('a filter counts and matches by its criteria', () {
     const f = PlaceFilter(
-      nightOk: true,
+      overnight: nightPossible,
       amenities: {Amenity.water, Amenity.toilets},
-      vehicleHeightM: 3,
+      fitsMyVehicle: true,
     );
     expect(f.activeCount, 4);
+    expect(f.nightOk, isTrue);
     expect(f.matches(lakeArea.summary), isFalse, reason: 'no toilets');
-    expect(PlaceFilter.initial.matches(dayParking.summary), isFalse);
+    expect(PlaceFilter.none.withNightOk(on: true).matches(dayParking.summary), isFalse);
     expect(PlaceFilter.none.isEmpty, isTrue);
     expect(
       PlaceFilter.none.toggleAmenity(Amenity.water).toggleAmenity(Amenity.water),
@@ -141,49 +203,44 @@ void main() {
     );
   });
 
-  group('directions', () {
-    const to = LatLng(45.7629, 4.831697);
-
-    test('Android hands a geo: link to the system chooser', () {
-      expect(NavigationTarget.forPlatform(TargetPlatform.android, web: false), [
-        NavigationTarget.system,
-      ]);
-      expect(
-        NavigationTarget.system.url(to, label: 'Aire du Lac').toString(),
-        'geo:45.762900,4.831697?q=45.762900,4.831697(Aire%20du%20Lac)',
-      );
-    });
-
-    test('iOS offers Apple Maps, Google Maps and Waze', () {
-      expect(NavigationTarget.forPlatform(TargetPlatform.iOS, web: false), [
-        NavigationTarget.appleMaps,
-        NavigationTarget.googleMaps,
-        NavigationTarget.waze,
-      ]);
-      expect(
-        NavigationTarget.appleMaps.url(to).toString(),
-        'https://maps.apple.com/?daddr=45.762900%2C4.831697&dirflg=d',
-      );
-    });
-
-    test('the web offers links that open in a new tab', () {
-      expect(NavigationTarget.forPlatform(TargetPlatform.android, web: true), [
-        NavigationTarget.googleMaps,
-        NavigationTarget.openStreetMap,
-      ]);
-      expect(
-        NavigationTarget.openStreetMap.url(to).toString(),
-        'https://www.openstreetmap.org/directions?route=%3B45.762900%2C4.831697',
-      );
-    });
+  test('"my vehicle fits" turns into the stored height, or into nothing without one', () {
+    const f = PlaceFilter(fitsMyVehicle: true);
+    expect(f.resolve(vehicleHeightM: 2.9).vehicleHeightM, 2.9);
+    expect(f.resolve().vehicleHeightM, isNull);
+    expect(PlaceFilter.none.resolve(vehicleHeightM: 2.9).vehicleHeightM, isNull);
+    expect(f.resolve(vehicleHeightM: 2.9).matches(dayParking.summary, maxHeightM: 2.1), isFalse);
   });
 
-  test('a photo still being fetched by the proxy is retried once after the asked delay', () {
-    http.Response r(int status, [String? retry]) =>
-        http.Response('', status, headers: {'retry-after': ?retry});
-    expect(CachedImage.retryDelay(r(404, '3')), const Duration(seconds: 3));
-    expect(CachedImage.retryDelay(r(404, '600')), const Duration(seconds: 30), reason: 'capped');
-    expect(CachedImage.retryDelay(r(404)), isNull);
-    expect(CachedImage.retryDelay(r(503, '3')), isNull);
+  test('service and activity bits are pinned, so stored masks keep their meaning', () {
+    // The bit of a value is written to the device: it must never follow
+    // the declaration order. This table is the stored format.
+    expect(
+      {for (final s in Service.values) s.wire: s.bit},
+      {
+        'DRINKING_WATER': 1,
+        'GREY_WATER': 2,
+        'BLACK_WATER': 4,
+        'WASTE_BIN': 8,
+        'TOILETS': 16,
+        'SHOWERS': 32,
+        'ELECTRICITY': 64,
+        'WIFI': 128,
+        'LAUNDRY': 256,
+        'LPG': 512,
+        'GAS_BOTTLES': 1024,
+        'VEHICLE_WASH': 2048,
+        'BAKERY': 4096,
+        'SWIMMING_POOL': 8192,
+        'PETS_ALLOWED': 16384,
+        'MOBILE_DATA': 32768,
+        'WINTER_CARAVANNING': 65536,
+      },
+    );
+    expect(Activity.values.map((a) => a.position).toSet(), hasLength(Activity.values.length));
+    expect(Activity.playground.bit, 1 << 11);
+    expect(Service.fromMask(Service.maskOf({Service.lpg, Service.toilets})), {
+      Service.lpg,
+      Service.toilets,
+    });
   });
 }

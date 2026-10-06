@@ -154,6 +154,10 @@ final class GraphQLError {
   /// The server failed; try again later.
   static const internal = 'INTERNAL';
 
+  /// A service behind the API is down; the request was fine, try it again
+  /// later.
+  static const unavailable = 'UNAVAILABLE';
+
   final String message;
   final String? code;
   final int? retryAfterSeconds;
@@ -183,7 +187,8 @@ final class GraphQLRateLimitedException extends GraphQLNetworkException {
 }
 
 /// The server answered with GraphQL errors: retrying the same request will
-/// not help, except where a code says what to do instead.
+/// not help, except where a code says what to do instead ([transient],
+/// `RESYNC`).
 final class GraphQLResponseException implements Exception {
   new(this.errors);
 
@@ -192,6 +197,12 @@ final class GraphQLResponseException implements Exception {
   List<String> get messages => [for (final e in errors) e.message];
 
   bool hasCode(String code) => errors.any((e) => e.code == code);
+
+  /// Every error says the server failed or a service behind it is down: the
+  /// same request is worth sending again later.
+  bool get transient =>
+      errors.isNotEmpty &&
+      errors.every((e) => e.code == GraphQLError.internal || e.code == GraphQLError.unavailable);
 
   @override
   String toString() => 'GraphQLResponseException: ${errors.join('; ')}';

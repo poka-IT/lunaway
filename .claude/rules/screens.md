@@ -12,9 +12,19 @@ Material 3 width class; every screen works in all three.
 
 | class | width | frame | content |
 |---|---|---|---|
-| compact | < 600 | bottom `NavigationBar` | one pane; details open as a bottom sheet over the map |
-| medium | 600 to 839 | `NavigationRail` with labels | one pane, wider margins; details in a side sheet |
-| expanded | >= 840 | extended `NavigationRail` | map plus list and detail panes side by side |
+| compact | < 600 | floating dock (the shell's `_Dock`, in the Scaffold's bottom bar slot) | one pane; details open as a bottom sheet over the map, the dock gives way to the place's action bar |
+| medium | 600 to 839 | the shell's rail with labels | one pane, wider margins; details in a side panel |
+| expanded | >= 840 | the wide rail with the brand lockup | map plus list and detail panes side by side |
+
+The design system (`app/lib/shared/theme/`) themes every Material component;
+the shell draws its own dock and rail rather than `NavigationBar` and
+`NavigationRail`. A message goes through `showMessage`
+(`app/lib/shared/messages.dart`), never a bare `showSnackBar`: it replaces
+the message shown, and one with an action (undo) still leaves by itself,
+except under a screen reader where it waits to be closed. A bar of actions
+at the bottom of the window wraps itself in `LiftsMessages`; the shell then
+floats every message above it, on a phone as on a panel's foot. Never
+position a message by hand.
 
 The shell (`app/lib/shared/adaptive_shell.dart`) owns the navigation; a
 screen never builds its own bar or rail.

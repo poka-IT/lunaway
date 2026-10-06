@@ -55,7 +55,7 @@ final class FavoritesRepositoryProvider
 }
 
 String _$favoritesRepositoryHash() =>
-    r'40167a96fadbf7b1dc12793efbe99921369bb971';
+    r'269d91e7ef905e27a471fb0d2ea027ee8e0f19b6';
 
 @ProviderFor(favoriteLists)
 final favoriteListsProvider = FavoriteListsProvider._();
@@ -174,6 +174,45 @@ final class FavoriteEntriesFamily extends $Family
   @override
   String toString() => r'favoriteEntriesProvider';
 }
+
+/// The id of the default list, which the save button toggles.
+
+@ProviderFor(defaultFavoriteList)
+final defaultFavoriteListProvider = DefaultFavoriteListProvider._();
+
+/// The id of the default list, which the save button toggles.
+
+final class DefaultFavoriteListProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+    with $FutureModifier<int>, $FutureProvider<int> {
+  /// The id of the default list, which the save button toggles.
+  DefaultFavoriteListProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'defaultFavoriteListProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$defaultFavoriteListHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<int> create(Ref ref) {
+    return defaultFavoriteList(ref);
+  }
+}
+
+String _$defaultFavoriteListHash() =>
+    r'3e4943719c1b3ab47691da16cbb9e3a5fe35eadb';
 
 /// The lists holding a place: empty means not saved.
 

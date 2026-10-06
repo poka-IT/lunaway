@@ -8,8 +8,10 @@ import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 String fixture(String name) => File('test/fixtures/$name').readAsStringSync();
@@ -68,7 +70,7 @@ void main() {
       Service.greyWater,
     }, reason: 'an unknown service is skipped');
     expect(first.website, isNull, reason: 'an empty string is no website');
-    expect(first.address!.city, 'Grenoble');
+    expect(first.address!.city, 'Grenoble', reason: "the source's town wins over the commune");
     expect(first.openingIntervals, [
       OpeningInterval(DateTime.utc(2026, 10, 6, 6), DateTime.utc(2026, 10, 6, 18)),
     ]);
@@ -86,6 +88,43 @@ void main() {
     );
     expect(second.overnight, OvernightStatus.unknown);
     expect(second.stars, isNull, reason: 'a classification outside 1 to 5 means nothing');
+    expect(
+      second.address!.city,
+      'Échirolles',
+      reason: 'a place mapped without an address takes the commune it lies in',
+    );
+  });
+
+  test('reads a review: the vehicle by its API name, the day of the stay as a date', () {
+    final page = reviewPageFromJson({
+      'nodes': [
+        {
+          'id': '0192f5a0-0000-7000-8000-000000000101',
+          'sourceId': 'community',
+          'rating': 4,
+          'text': 'Calme.',
+          'authorName': null,
+          'authorVehicle': 'CAMPERVAN',
+          'visitedAt': '2026-09-20',
+          'createdAt': '2026-09-21T08:00:00Z',
+        },
+        {
+          'id': '0192f5a0-0000-7000-8000-000000000102',
+          'sourceId': 'community',
+          'authorVehicle': 'HOVERCRAFT',
+          'createdAt': '2026-09-21T08:00:00Z',
+        },
+      ],
+      'hasNextPage': false,
+      'totalCount': 2,
+    });
+    final first = page.nodes.first;
+    expect(first.authorVehicle, ReviewVehicle.campervan);
+    expect(first.visitedAt, DateTime(2026, 9, 20), reason: 'the same calendar day in any zone');
+    expect(page.nodes.last.authorVehicle, isNull, reason: 'a vehicle a newer server adds');
+    final back = reviewPageToJson(page)['nodes']! as List;
+    expect((back.first as Map)['visitedAt'], '2026-09-20');
+    expect((back.first as Map)['authorVehicle'], 'CAMPERVAN');
   });
 
   test('GraphQL errors become a response exception', () async {
@@ -188,12 +227,28 @@ void main() {
     await expectLater(c.execute(changesOperation), throwsA(isA<GraphQLNetworkException>()));
   });
 
-  test('the release build points at the public API, debug builds at the local one', () {
-    expect(AppConfig.publicApi, 'https://api.lunaway.net');
-    expect(AppConfig.localApi, 'http://127.0.0.1:8484');
+  test('every build points at the public API unless a developer names another', () {
+    // A debug build on a phone has no "local" backend to reach: the old
+    // localhost default made it useless there. Tests run without
+    // LUNAWAY_API_URL and without the demo.
     final config = AppConfig.fromEnvironment();
-    // Tests run in debug mode without LUNAWAY_API.
-    expect(config.apiBaseUrl, AppConfig.localApi);
-    expect(config.graphqlEndpoint.toString(), 'http://127.0.0.1:8484/graphql');
+    expect(config.apiBaseUrl, AppConfig.publicApi);
+    expect(config.graphqlEndpoint.toString(), 'https://api.lunaway.net/graphql');
+    expect(config.demo, isFalse);
+    expect(demoBuild, isFalse, reason: 'the demo is a build of its own, never the default');
+  });
+
+  test('a base URL with a path and a trailing slash still gives its GraphQL endpoint', () {
+    const config = AppConfig(
+      apiBaseUrl: 'https://188-245-10-130.sslip.io/api/',
+      demo: false,
+      basemapUrl: '',
+    );
+    expect(config.graphqlEndpoint.toString(), 'https://188-245-10-130.sslip.io/api/graphql');
+    expect(
+      config.isApiMedia(Uri.parse('https://188-245-10-130.sslip.io/api/media/x/thumb')),
+      isTrue,
+    );
+    expect(config.isApiMedia(Uri.parse('https://188-245-10-130.sslip.io/media/x/thumb')), isFalse);
   });
 }

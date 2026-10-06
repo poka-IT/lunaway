@@ -1,106 +1,110 @@
-import 'dart:io';
-
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/cache_database.dart';
+import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
-import 'package:lunaway/features/places/data/drift_places_repository.dart';
-import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/samples.dart';
 
 void main() {
-  late AppDatabase db;
-  setUp(() => db = AppDatabase(NativeDatabase.memory()));
-  tearDown(() => db.close());
+  late CacheDatabase db;
+  late UserDatabase user;
+  setUp(() {
+    db = CacheDatabase(NativeDatabase.memory());
+    user = UserDatabase(NativeDatabase.memory());
+  });
+  tearDown(() async {
+    await db.close();
+    await user.close();
+  });
 
-  test(
-    'a version 1 store gains the classification, keeps favourites and syncs in full again',
-    () async {
-      final dir = Directory.systemTemp.createTempSync('lunaway-migration');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      final file = File('${dir.path}/store.sqlite');
-      final before = AppDatabase(NativeDatabase(file));
-      await DriftPlacesRepository(before).applyPage(
-        'fr',
-        ChangeSet(places: samplePlaces, deleted: const [], cursor: 'c1', hasMore: false),
-        DateTime.utc(2026, 10, 6),
-      );
-      await DriftFavoritesRepository(before).addToDefault(lakeArea.summary);
-      await before.close();
-      // Back to the version 1 schema: no classification, no per-place sync
-      // time, no record of a full sync.
-      sqlite3.open(file.path)
-        ..execute('ALTER TABLE places DROP COLUMN stars')
-        ..execute('ALTER TABLE places DROP COLUMN synced_at')
-        ..execute('DROP TABLE full_syncs')
-        ..execute('PRAGMA user_version = 1')
-        ..close();
-
-      final after = AppDatabase(NativeDatabase(file));
-      addTearDown(after.close);
-      final places = DriftPlacesRepository(after);
-      expect(await places.cursorFor('fr'), isNull, reason: 'the next sync is a full one');
-      expect(await places.watchCount().first, samplePlaces.length);
-      expect((await places.watchPlace(campsite.id).first)!.stars, isNull);
-      expect(await places.fullSyncStart('fr'), isNull, reason: 'the table is there again');
-      final lists = await DriftFavoritesRepository(after).watchLists().first;
-      expect(lists.single.count, 1);
-    },
-  );
+  test('both stores start at schema version 1, the first shipped one', () {
+    expect(db.schemaVersion, 1);
+    expect(user.schemaVersion, 1);
+  });
 
   group('settings', () {
-    test('a new user starts with the "night allowed" filter and the device language', () async {
-      final settings = await SettingsRepository(db).load();
-      expect(settings.filter, PlaceFilter.initial);
-      expect(settings.filter.nightOk, isTrue);
+    test('a new user starts with no filter, the automatic theme and the device language', () async {
+      final settings = await SettingsRepository(user).load();
+      expect(settings.filter, PlaceFilter.none, reason: 'service points show from the start');
+      expect(settings.theme, ThemePreference.auto);
       expect(settings.localeCode, isNull);
+      expect(settings.navigationApp, isNull);
     });
 
-    test('the language and every filter survive a restart', () async {
-      const filter = PlaceFilter(
-        families: {KindFamily.campsites, KindFamily.nature},
-        amenities: {Amenity.dumpStation},
-        vehicleHeightM: 3.2,
+    test(
+      'the language, the theme, the navigation app and every filter survive a restart',
+      () async {
+        const filter = PlaceFilter(
+          families: {KindFamily.campsites, KindFamily.nature},
+          overnight: {OvernightStatus.allowed},
+          amenities: {Amenity.dumpStation, Amenity.showers},
+          fitsMyVehicle: true,
+        );
+        await SettingsRepository(user).save(
+          const AppSettings(
+            localeCode: 'fr',
+            filter: filter,
+            theme: ThemePreference.dark,
+            navigationApp: 'waze',
+          ),
+        );
+        final loaded = await SettingsRepository(user).load();
+        expect(loaded.localeCode, 'fr');
+        expect(loaded.filter, filter);
+        expect(loaded.theme, ThemePreference.dark);
+        expect(loaded.navigationApp, 'waze');
+      },
+    );
+
+    test('going back to the device language and forgetting the app clears them', () async {
+      await SettingsRepository(user)
+          .save(const AppSettings(localeCode: 'en', navigationApp: 'waze'));
+      await SettingsRepository(user).save(const AppSettings());
+      final loaded = await SettingsRepository(user).load();
+      expect(loaded.localeCode, isNull);
+      expect(loaded.navigationApp, isNull);
+    });
+
+    test('a corrupt or older filter value falls back without blocking the start', () {
+      expect(SettingsRepository.decodeFilter('{not json'), PlaceFilter.none);
+      expect(
+        SettingsRepository.decodeFilter('{"overnight": ["allowed", "someday"], "families": ["x"]}'),
+        const PlaceFilter(overnight: {OvernightStatus.allowed}),
       );
-      await SettingsRepository(db).save(const AppSettings(localeCode: 'fr', filter: filter));
-      final loaded = await SettingsRepository(db).load();
-      expect(loaded.localeCode, 'fr');
-      expect(loaded.filter, filter);
-    });
-
-    test('going back to the device language forgets the stored one', () async {
-      await SettingsRepository(db).save(const AppSettings(localeCode: 'en'));
-      await SettingsRepository(db).save(const AppSettings());
-      expect((await SettingsRepository(db).load()).localeCode, isNull);
     });
   });
 
   group('favourites', () {
     test('the default list exists from the first read and holds what is saved', () async {
-      final repo = DriftFavoritesRepository(db, clock: () => testNow);
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
       final lists = await repo.watchLists().first;
       expect(lists.single.isDefault, isTrue);
+      expect(await repo.defaultListId(), lists.single.id);
       await repo.addToDefault(lakeArea.summary);
       final entries = await repo.watchEntries(lists.single.id).first;
-      expect(entries.single.placeId, lakeArea.id);
+      final entry = entries.single;
+      expect(entry.placeId, lakeArea.id);
+      // A snapshot keeps the place readable offline: name, kind, night, town.
       expect(
-        entries.single.name,
-        lakeArea.name,
-        reason: 'a snapshot keeps the place visible offline',
+        (entry.name, entry.overnight, entry.city),
+        (lakeArea.name, OvernightStatus.allowed, 'Annecy'),
       );
       expect(await repo.watchListsOf(lakeArea.id).first, {lists.single.id});
     });
 
     test('lists can be created, renamed and deleted, the default one stays', () async {
-      final repo = DriftFavoritesRepository(db, clock: () => testNow);
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
       final defaultId = (await repo.watchLists().first).single.id;
       final trip = await repo.createList('  Été 2027 ');
       await repo.add(trip, campsite.summary);
@@ -118,15 +122,42 @@ void main() {
       );
     });
 
-    test('a removed entry can be put back', () async {
-      final repo = DriftFavoritesRepository(db, clock: () => testNow);
+    test('a removal from one list leaves the others, and gives back what to restore', () async {
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
+      final defaultId = await repo.defaultListId();
+      final trip = await repo.createList('Trip');
       await repo.addToDefault(dayParking.summary);
-      final listId = (await repo.watchLists().first).single.id;
-      final entry = (await repo.watchEntries(listId).first).single;
-      await repo.removeEverywhere(dayParking.id);
-      expect(await repo.watchEntries(listId).first, isEmpty);
-      await repo.restore(entry);
-      expect(await repo.watchEntries(listId).first, [entry]);
+      await repo.add(trip, dayParking.summary);
+      final removed = await repo.remove(defaultId, dayParking.id);
+      expect(removed?.listId, defaultId);
+      expect(await repo.watchListsOf(dayParking.id).first, {trip});
+      await repo.restore(removed!);
+      expect(await repo.watchListsOf(dayParking.id).first, {defaultId, trip});
+      expect(await repo.remove(defaultId, 'nowhere'), isNull);
+    });
+  });
+
+  group('vehicle', () {
+    test('none at first, then the saved one, with every dimension', () async {
+      final repo = DriftVehicleRepository(user, clock: () => testNow);
+      expect(await repo.watch().first, isNull);
+      final van = Vehicle.typical(VehicleType.overcab)
+          .copyWith(towing: Towing.car, weightT: () => null);
+      await repo.save(van);
+      expect(await repo.watch().first, van);
+      await repo.save(van.copyWith(heightM: () => 3.3));
+      expect((await repo.watch().first)!.heightM, 3.3, reason: 'one vehicle, updated in place');
+      await repo.clear();
+      expect(await repo.watch().first, isNull);
+    });
+  });
+
+  group('last position', () {
+    test('is kept coarse, about ten kilometres, out of the user store', () async {
+      final store = DriftLastPositionStore(db);
+      expect(await store.load(), isNull);
+      await store.save(const LatLng(45.899236, 6.129387));
+      expect(await store.load(), const LatLng(45.9, 6.1));
     });
   });
 

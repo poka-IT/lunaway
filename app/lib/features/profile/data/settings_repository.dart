@@ -1,32 +1,64 @@
 import 'dart:convert';
 
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
+/// How the app picks its light or dark look.
+enum ThemePreference {
+  /// Light by day, dark after sunset at the user's last known position.
+  auto,
+  light,
+  dark;
+
+  static ThemePreference fromName(String? name) => values.asNameMap()[name] ?? ThemePreference.auto;
+}
+
 /// The user's choices, kept on the device.
 @immutable
 final class AppSettings {
-  const new({this.localeCode, this.filter = PlaceFilter.initial});
+  const new({
+    this.localeCode,
+    this.filter = PlaceFilter.none,
+    this.theme = ThemePreference.auto,
+    this.navigationApp,
+  });
 
   /// Null: follow the device language.
   final String? localeCode;
 
-  /// The last filters, so a vehicle height set once stays set.
+  /// The last filters, so a choice made once stays made.
   final PlaceFilter filter;
 
-  AppSettings copyWith({String? Function()? localeCode, PlaceFilter? filter}) => AppSettings(
+  final ThemePreference theme;
+
+  /// The navigation app the user picked for directions, by its id; null
+  /// until a first choice, which the chooser then offers to remember.
+  final String? navigationApp;
+
+  AppSettings copyWith({
+    String? Function()? localeCode,
+    PlaceFilter? filter,
+    ThemePreference? theme,
+    String? Function()? navigationApp,
+  }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
+    theme: theme ?? this.theme,
+    navigationApp: navigationApp == null ? this.navigationApp : navigationApp(),
   );
 
   @override
   bool operator ==(Object other) =>
-      other is AppSettings && other.localeCode == localeCode && other.filter == filter;
+      other is AppSettings &&
+      other.localeCode == localeCode &&
+      other.filter == filter &&
+      other.theme == theme &&
+      other.navigationApp == navigationApp;
 
   @override
-  int get hashCode => Object.hash(localeCode, filter);
+  int get hashCode => Object.hash(localeCode, filter, theme, navigationApp);
 }
 
 /// Where the settings live between runs.
@@ -40,42 +72,56 @@ abstract interface class SettingsStore {
 final class SettingsRepository implements SettingsStore {
   new(this._db);
 
-  final AppDatabase _db;
+  final UserDatabase _db;
 
   static const _locale = 'locale';
   static const _filter = 'filter';
+  static const _theme = 'theme';
+  static const _navigation = 'navigation_app';
 
   @override
   Future<AppSettings> load() async {
     final rows = await _db.select(_db.settings).get();
     final values = {for (final r in rows) r.id: r.value};
-    return AppSettings(localeCode: values[_locale], filter: _decodeFilter(values[_filter]));
+    return AppSettings(
+      localeCode: values[_locale],
+      filter: decodeFilter(values[_filter]),
+      theme: ThemePreference.fromName(values[_theme]),
+      navigationApp: values[_navigation],
+    );
   }
 
   @override
   Future<void> save(AppSettings settings) => _db.transaction(() async {
-    final locale = settings.localeCode;
-    if (locale == null) {
-      await (_db.delete(_db.settings)..where((s) => s.id.equals(_locale))).go();
-    } else {
-      await _put(_locale, locale);
-    }
-    await _put(_filter, jsonEncode(_encodeFilter(settings.filter)));
+    await _putOrDelete(_locale, settings.localeCode);
+    await _putOrDelete(_navigation, settings.navigationApp);
+    await _put(_filter, jsonEncode(encodeFilter(settings.filter)));
+    await _put(_theme, settings.theme.name);
   });
+
+  Future<void> _putOrDelete(String id, String? value) async {
+    if (value == null) {
+      await (_db.delete(_db.settings)..where((s) => s.id.equals(id))).go();
+    } else {
+      await _put(id, value);
+    }
+  }
 
   Future<void> _put(String id, String value) =>
       _db.into(_db.settings).insertOnConflictUpdate(SettingsCompanion.insert(id: id, value: value));
 
-  static Map<String, Object?> _encodeFilter(PlaceFilter f) => {
+  @visibleForTesting
+  static Map<String, Object?> encodeFilter(PlaceFilter f) => {
     'families': [for (final x in f.families) x.name],
-    'nightOk': f.nightOk,
+    'overnight': [for (final o in f.overnight) o.name],
     'amenities': [for (final a in f.amenities) a.name],
-    'vehicleHeightM': f.vehicleHeightM,
+    'fitsMyVehicle': f.fitsMyVehicle,
   };
 
   /// Unknown names (an older or newer app) are dropped, never fatal.
-  static PlaceFilter _decodeFilter(String? raw) {
-    if (raw == null) return PlaceFilter.initial;
+  @visibleForTesting
+  static PlaceFilter decodeFilter(String? raw) {
+    if (raw == null) return PlaceFilter.none;
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return PlaceFilter(
@@ -83,12 +129,15 @@ final class SettingsRepository implements SettingsStore {
           for (final n in (json['families'] as List<dynamic>? ?? const []))
             ?KindFamily.values.asNameMap()['$n'],
         },
-        nightOk: json['nightOk'] == true,
+        overnight: {
+          for (final n in (json['overnight'] as List<dynamic>? ?? const []))
+            ?OvernightStatus.values.asNameMap()['$n'],
+        },
         amenities: {
           for (final n in (json['amenities'] as List<dynamic>? ?? const []))
             ?Amenity.values.asNameMap()['$n'],
         },
-        vehicleHeightM: (json['vehicleHeightM'] as num?)?.toDouble(),
+        fitsMyVehicle: json['fitsMyVehicle'] == true,
       );
       // A corrupt value falls back to no filter rather than blocking startup.
       // ignore: avoid_catches_without_on_clauses

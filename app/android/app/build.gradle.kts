@@ -8,14 +8,24 @@ plugins {
 }
 
 // The release key lives in android/key.properties (storeFile, storePassword,
-// keyAlias, keyPassword), never in git. Without it, release builds are signed
-// with the debug key, so CI and fresh clones still build.
+// keyAlias, keyPassword), never in git. A store release without it fails: a
+// build signed with the debug key looks like a release and cannot update the
+// published app. `-PallowDebugSigning` (through flutter: `-P
+// allowDebugSigning=true`) signs it with the debug key on purpose, to test a
+// release build on a device; such a build says so in its version name
+// (-debugsigned) and in the build log. F-Droid builds are never signed here:
+// F-Droid signs the APK it builds with its own key.
 val keyProperties = Properties()
 val keyPropertiesFile = rootProject.file("key.properties")
 val hasReleaseKey = keyPropertiesFile.exists()
 if (hasReleaseKey) {
     FileInputStream(keyPropertiesFile).use { keyProperties.load(it) }
 }
+// Only the bare flag or `true`: a stray value (`no`, `1`) in a gradle.properties
+// file or an ORG_GRADLE_PROJECT_ variable does not sign a store build with the
+// debug key.
+val allowDebugSigning = providers.gradleProperty("allowDebugSigning").orNull in setOf("", "true")
+val debugSignedStore = !hasReleaseKey && allowDebugSigning
 
 android {
     namespace = "legal.p2p.lunaway"
@@ -58,18 +68,22 @@ android {
     productFlavors {
         create("store") {
             dimension = "distribution"
+            // The release build type sets no signing config, so this one
+            // applies; debug and profile builds keep the debug key.
+            signingConfig =
+                when {
+                    hasReleaseKey -> signingConfigs.getByName("release")
+                    allowDebugSigning -> signingConfigs.getByName("debug")
+                    else -> null
+                }
+            if (debugSignedStore) {
+                versionNameSuffix = "-debugsigned"
+            }
         }
         create("fdroid") {
             dimension = "distribution"
             versionNameSuffix = "-fdroid"
             proguardFile("proguard-fdroid.pro")
-        }
-    }
-
-    buildTypes {
-        release {
-            signingConfig =
-                if (hasReleaseKey) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 
@@ -92,6 +106,27 @@ configurations.configureEach {
         exclude(group = "com.google.firebase")
     }
 }
+
+// Stops a store release before anything is built when it has no key to be
+// signed with. preStoreReleaseBuild runs first in every task of the variant
+// (assemble, bundle, install).
+val checkStoreReleaseSigning by tasks.registering {
+    val signable = hasReleaseKey || allowDebugSigning
+    val debugSigned = debugSignedStore
+    doLast {
+        if (debugSigned) {
+            logger.warn("Store release signed with the DEBUG key (-PallowDebugSigning): for local tests only, never to publish.")
+        }
+        if (!signable) {
+            throw GradleException(
+                "Store release without android/key.properties: add the upload key, or pass " +
+                    "-PallowDebugSigning (flutter: -P allowDebugSigning=true) to sign this build " +
+                    "with the debug key for a local test. F-Droid builds (--flavor fdroid) need no key.",
+            )
+        }
+    }
+}
+tasks.matching { it.name == "preStoreReleaseBuild" }.configureEach { dependsOn(checkStoreReleaseSigning) }
 
 kotlin {
     compilerOptions {

@@ -30,6 +30,7 @@ fragment PlaceFields on Place {
   activities
   description
   address { street postcode city countryCode }
+  municipality
   priceParkingEur
   priceServicesEur
   maxHeightM

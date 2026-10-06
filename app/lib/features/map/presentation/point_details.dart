@@ -4,57 +4,152 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// A point the user long-pressed on the map: its coordinates to copy, and the
 /// way there.
-class PointDetails extends ConsumerWidget {
-  const new({required this.position, this.scrollController, this.onClose, super.key});
+class PointDetails extends StatelessWidget {
+  const new({
+    required this.position,
+    this.scrollController,
+    this.onClose,
+    this.actions = false,
+    this.bottomPadding = Space.huge,
+    super.key,
+  });
 
   final LatLng position;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
 
+  /// The action bar at the foot of the content (a panel).
+  final bool actions;
+  final double bottomPadding;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
-    return ListView(
+    final scheme = theme.colorScheme;
+    final body = ListView(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(Space.xl, Space.xxs, Space.xl, Space.huge),
+      padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
       children: [
         Row(
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(AppIcons.point, color: theme.colorScheme.onPrimaryContainer),
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(52 * 0.32),
+              ),
+              child: Icon(AppIcons.point, color: scheme.onPrimaryContainer),
             ),
             const SizedBox(width: Space.ml),
             Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(t.map.pointTitle, style: theme.textTheme.headlineSmall),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(t.map.pointTitle, style: theme.textTheme.headlineSmall),
+                  ),
+                  Text(
+                    t.map.pointHint,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
               ),
             ),
             if (onClose != null)
               IconButton(
                 tooltip: t.common.close,
-                icon: const Icon(AppIcons.close),
                 onPressed: onClose,
+                style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
+                icon: const Icon(AppIcons.close, size: 20),
               ),
           ],
         ),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
-        const SizedBox(height: Space.l),
-        FilledButton.icon(
-          onPressed: () => openDirections(context, ref, position),
-          icon: const Icon(AppIcons.directions),
-          label: Text(t.place.directions),
-        ),
       ],
+    );
+    if (!actions) return body;
+    return Column(
+      children: [
+        Expanded(child: body),
+        PointActionBar(position: position),
+      ],
+    );
+  }
+}
+
+/// The actions of a point: the route there, and its coordinates to copy.
+class PointActionBar extends ConsumerWidget {
+  const new({required this.position, this.floating = false, super.key});
+
+  final LatLng position;
+  final bool floating;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final scheme = Theme.of(context).colorScheme;
+    final row = Padding(
+      padding: const EdgeInsets.all(Space.m),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => openDirections(context, ref, position),
+              onLongPress: () => openDirections(context, ref, position, choose: true),
+              icon: const Icon(AppIcons.directions),
+              label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+            ),
+          ),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => copyCoordinates(context, position),
+              icon: const Icon(AppIcons.copy),
+              label: Text(t.place.copyShort, maxLines: 2, textAlign: TextAlign.center),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!floating) {
+      return LiftsMessages(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            border: Border(top: BorderSide(color: scheme.outlineVariant)),
+          ),
+          child: SafeArea(top: false, child: row),
+        ),
+      );
+    }
+    return LiftsMessages(
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: Space.s),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.m),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+              boxShadow: LunaTokens.of(context).floatingShadow,
+            ),
+            child: Material(type: MaterialType.transparency, child: row),
+          ),
+        ),
+      ),
     );
   }
 }

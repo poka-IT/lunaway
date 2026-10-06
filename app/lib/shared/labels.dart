@@ -1,13 +1,17 @@
 import 'package:intl/intl.dart';
+import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
-/// Labels of the taxonomy and formatting of the values a place shows, in the
-/// current language. Numbers follow the locale (a decimal comma in French),
-/// except coordinates, which `CoordinateFormat` keeps with a point.
+/// Labels of the taxonomy and formatting of the values the app shows, in the
+/// current language. Numbers follow the locale (a decimal comma and a narrow
+/// space between thousands in French), except coordinates, which
+/// `CoordinateFormat` keeps with a point.
 extension Labels on Translations {
   // Read through a name, so the translation gate sees every key used.
   Translations get _t => this;
@@ -31,6 +35,13 @@ extension Labels on Translations {
     .campsites => _t.families.campsites,
     .nature => _t.families.nature,
     .services => _t.families.services,
+  };
+
+  String familyHint(KindFamily f) => switch (f) {
+    .stopovers => _t.families.stopoversHint,
+    .campsites => _t.families.campsitesHint,
+    .nature => _t.families.natureHint,
+    .services => _t.families.servicesHint,
   };
 
   String service(Service s) => switch (s) {
@@ -73,9 +84,15 @@ extension Labels on Translations {
     .dumpStation => _t.amenities.dumpStation,
     .electricity => _t.amenities.electricity,
     .toilets => _t.amenities.toilets,
+    .showers => _t.amenities.showers,
+    .wasteBin => _t.amenities.wasteBin,
+    .laundry => _t.amenities.laundry,
+    .wifi => _t.amenities.wifi,
+    .lpg => _t.amenities.lpg,
   };
 
-  String overnightLabel(OvernightStatus o) => switch (o) {
+  /// The status as a short label, for rows, chips and badges.
+  String overnightShort(OvernightStatus o) => switch (o) {
     .allowed => _t.overnight.allowed,
     .tolerated => _t.overnight.tolerated,
     .dayOnly => _t.overnight.dayOnly,
@@ -89,6 +106,28 @@ extension Labels on Translations {
     .dayOnly => _t.overnight.dayOnlyHint,
     .forbidden => _t.overnight.forbiddenHint,
     .unknown => _t.overnight.unknownHint,
+  };
+
+  String vehicleType(VehicleType v) => switch (v) {
+    .van => _t.vehicle.types.van,
+    .campervan => _t.vehicle.types.campervan,
+    .lowProfile => _t.vehicle.types.lowProfile,
+    .overcab => _t.vehicle.types.overcab,
+    .integrated => _t.vehicle.types.integrated,
+  };
+
+  String reviewVehicle(ReviewVehicle v) => switch (v) {
+    .van => _t.place.reviewVehicle.van,
+    .campervan => _t.place.reviewVehicle.campervan,
+    .motorhome => _t.place.reviewVehicle.motorhome,
+    .caravan => _t.place.reviewVehicle.caravan,
+    .other => _t.place.reviewVehicle.other,
+  };
+
+  String towing(Towing w) => switch (w) {
+    .none => _t.vehicle.towing.none,
+    .car => _t.vehicle.towing.car,
+    .trailer => _t.vehicle.towing.trailer,
   };
 
   /// The name, or "Car park in Annecy" when the place has none.
@@ -112,9 +151,9 @@ extension Labels on Translations {
   }
 
   /// "Open, closes at 19:00", "Closed, opens Monday at 08:00": [state] read
-  /// in the device's local time at [now].
-  String opening(OpeningState state, DateTime now) {
-    final local = now.toLocal();
+  /// at [now], on the wall clock of the place's [zone].
+  String opening(OpeningState state, DateTime now, {required PlaceZone zone}) {
+    final local = zone.wallClock(now);
     switch (state) {
       case OpenThroughWindow():
         return _t.hours.open;
@@ -123,35 +162,32 @@ extension Labels on Translations {
       case OpenUntil(:final closesAt):
         final minutes = closesAt.difference(now).inMinutes;
         if (minutes <= 60) return _t.hours.closesIn(n: minutes < 1 ? 1 : minutes);
-        final (day, time) = _dayAndTime(closesAt.toLocal(), local, endOfSpan: true);
+        final (day, time) = _dayAndTime(zone.wallClock(closesAt), local, endOfSpan: true);
         return day == null
             ? _t.hours.openUntil(time: time)
             : _t.hours.openUntilDay(day: day, time: time);
       case ClosedUntil(:final opensAt):
         final minutes = opensAt.difference(now).inMinutes;
         if (minutes <= 60) return _t.hours.opensIn(n: minutes < 1 ? 1 : minutes);
-        final (day, time) = _dayAndTime(opensAt.toLocal(), local, endOfSpan: false);
+        final (day, time) = _dayAndTime(zone.wallClock(opensAt), local, endOfSpan: false);
         return day == null
             ? _t.hours.closedUntil(time: time)
             : _t.hours.closedUntilDay(day: day, time: time);
     }
   }
 
-  /// The day (null for today) and the time of [at]. A span ending at
-  /// midnight ends "at midnight" today, not "tomorrow at 00:00".
+  /// The day (null for today) and the time of [at], both wall clock times
+  /// of the place. A span ending at midnight ends "at midnight" today, not
+  /// "tomorrow at 00:00".
   (String?, String) _dayAndTime(DateTime at, DateTime now, {required bool endOfSpan}) {
-    final today = DateTime(now.year, now.month, now.day);
-    var day = DateTime(at.year, at.month, at.day);
+    final today = DateTime.utc(now.year, now.month, now.day);
+    var day = DateTime.utc(at.year, at.month, at.day);
     var time = DateFormat.jm(_locale).format(at);
     if (endOfSpan && at.hour == 0 && at.minute == 0) {
-      day = DateTime(day.year, day.month, day.day - 1);
+      day = DateTime.utc(day.year, day.month, day.day - 1);
       time = _t.hours.midnight;
     }
-    final days = DateTime.utc(
-      day.year,
-      day.month,
-      day.day,
-    ).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
+    final days = day.difference(today).inDays;
     if (days <= 0) return (null, time);
     if (days == 1) return (_t.hours.tomorrow, time);
     if (days < 7) return (DateFormat.EEEE(_locale).format(day), time);
@@ -169,16 +205,21 @@ extension Labels on Translations {
     _ => code,
   };
 
+  String get _locale => $meta.locale.languageCode;
+
+  /// "15 256" or "15,256".
+  String number(int value) => NumberFormat.decimalPattern(_locale).format(value);
+
   /// "4.3" or "4,3".
   String ratingValue(double average) => NumberFormat('0.0', _locale).format(average);
 
-  String get _locale => $meta.locale.languageCode;
-
-  /// "350 m", "3.2 km" or "3,2 km", "48 km".
+  /// "350 m", "3.2 km" or "3,2 km", "48 km". Metres round to tens; a distance
+  /// that rounds to 1000 m reads "1.0 km".
   String distance(double metres) {
-    if (metres < 1000) return '${(metres / 10).round() * 10} m';
+    final tens = (metres / 10).round() * 10;
+    if (tens < 1000) return '$tens m';
     final km = metres / 1000;
-    final format = NumberFormat(km < 10 ? '0.0' : '0', _locale);
+    final format = NumberFormat(km < 9.95 ? '0.0' : '0', _locale);
     return '${format.format(km)} km';
   }
 
@@ -192,12 +233,20 @@ extension Labels on Translations {
     ).format(value);
   }
 
-  /// "2.20 m" or "2,20 m".
+  /// "2.90 m" or "2,90 m".
   String metres(double value) => '${NumberFormat('0.00', _locale).format(value)} m';
 
+  /// "3.5 t" or "3,5 t".
+  String tonnes(double value) => '${NumberFormat('0.0', _locale).format(value)} t';
+
+  /// "850 KB", "3.3 MB", "120 MB": one decimal only under ten.
   String fileSize(int bytes) {
-    final format = NumberFormat('0.0', _locale);
-    if (bytes < 1024 * 1024) return _t.units.kilobytes(n: format.format(bytes / 1024));
-    return _t.units.megabytes(n: format.format(bytes / (1024 * 1024)));
+    const kb = 1024;
+    const mb = 1024 * 1024;
+    if (bytes < 1000 * kb) {
+      return _t.units.kilobytes(n: NumberFormat('0', _locale).format((bytes / kb).ceil()));
+    }
+    final value = bytes / mb;
+    return _t.units.megabytes(n: NumberFormat(value < 9.95 ? '0.0' : '0', _locale).format(value));
   }
 }

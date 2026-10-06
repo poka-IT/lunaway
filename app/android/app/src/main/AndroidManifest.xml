@@ -3,11 +3,16 @@
     <!-- The position shows on the map and sorts the places around; it never leaves the device. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Backups carry the user's own database only (favourites, settings,
+         vehicle profile), never the place cache: res/xml/data_extraction_rules.xml
+         for Android 12 and later, res/xml/backup_rules.xml before. -->
     <application
         android:label="Lunaway"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round">
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -46,8 +51,9 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-        <!-- Directions go to the installed navigation apps through geo: links;
-             links and phone numbers open in their apps. -->
+        <!-- Links, geo: points and phone numbers open in their apps.
+             url_launcher checks and opens every URL with ACTION_VIEW, tel:
+             included. -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="geo"/>
@@ -57,8 +63,46 @@
             <data android:scheme="https"/>
         </intent>
         <intent>
-            <action android:name="android.intent.action.DIAL"/>
+            <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="tel"/>
+        </intent>
+        <!-- Directions: the navigation apps the place sheet can hand a route
+             to (lib/core/navigation_apps.dart), so it offers only those
+             installed. An https route link (Google Maps, Waze) resolves to
+             any browser, hence the packages. The schemes are the ones the
+             app opens: google.navigation (Google Maps, documented), waze
+             (Waze), osmand.navigation and osmand.api (OsmAnd), om (Organic
+             Maps) and magicearth (Magic Earth, not documented by its
+             vendor). -->
+        <package android:name="com.google.android.apps.maps"/>
+        <package android:name="com.waze"/>
+        <package android:name="net.osmand"/>
+        <package android:name="net.osmand.plus"/>
+        <package android:name="app.organicmaps"/>
+        <package android:name="com.generalmagic.magicearth"/>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="google.navigation"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="waze"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="osmand.navigation"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="osmand.api"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="om"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="magicearth"/>
         </intent>
     </queries>
 </manifest>

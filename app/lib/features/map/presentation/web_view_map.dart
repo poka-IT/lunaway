@@ -3,56 +3,97 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
-import 'package:lunaway/features/map/presentation/pin_images.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('map');
 
 /// The map on macOS and Windows, where maplibre_gl has no implementation:
 /// MapLibre GL JS shipped in the app's assets, in a web view, driven through
 /// a small bridge (`assets/map/lunaway_map.js`). It draws the same layers as
-/// the native map, from the same [MapStyle].
-class WebViewLunaMap extends StatefulWidget {
+/// the native map, from the same [MapStyle] and the same pin images.
+///
+/// The web view holds the app's bridge, so it holds nothing but the map
+/// page: every other navigation is refused, and web links (the basemap's
+/// attribution) open in the browser.
+class WebViewLunaMap extends ConsumerStatefulWidget {
   const new(this.props, {super.key});
 
   final LunaMapProps props;
 
   @override
-  State<WebViewLunaMap> createState() => _WebViewLunaMapState();
+  ConsumerState<WebViewLunaMap> createState() => _WebViewLunaMapState();
 }
 
-class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapController {
+class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements LunaMapController {
   PlatformInAppWebViewController? _web;
+  Uri? _mapPage;
   late final PlatformInAppWebViewWidget _view = PlatformInAppWebViewWidget(
     PlatformInAppWebViewWidgetCreationParams(
       initialFile: 'assets/map/map.html',
       initialSettings: InAppWebViewSettings(
         transparentBackground: true,
         disableContextMenu: true,
-        allowFileAccessFromFileURLs: true,
+        useShouldOverrideUrlLoading: true,
       ),
       onWebViewCreated: (controller) {
         final web = controller as PlatformInAppWebViewController;
         _web = web;
         web.addJavaScriptHandler(handlerName: 'lunaway', callback: _onEvent);
       },
+      shouldOverrideUrlLoading: (_, action) => _decide(action.request.url),
+      onCreateWindow: (_, action) async {
+        // A link opening a new window never gets one in the app.
+        await _decide(action.request.url);
+        return false;
+      },
       onLoadStop: (_, url) {
-        _log.fine('map page loaded: $url');
-        unawaited(_init());
+        final loaded = url == null ? null : Uri.tryParse(url.toString());
+        if (_mapPage == null && decideMapNavigation(loaded, mapPage: null) == .allow) {
+          _mapPage = loaded;
+        }
+        if (_onMapPage(loaded)) {
+          unawaited(_init());
+        } else {
+          _log.warning('the map view loaded something else: $url');
+        }
       },
       onReceivedError: (_, request, error) =>
           _log.warning('map page error: ${error.description} (${request.url})'),
       onConsoleMessage: (_, message) => _log.info('map js: ${message.message}'),
     ),
   );
+
+  bool _onMapPage(Uri? url) {
+    final page = _mapPage;
+    return page != null && isMapPage(url, mapPage: page);
+  }
+
+  Future<NavigationActionPolicy> _decide(WebUri? url) async {
+    final target = url == null ? null : Uri.tryParse(url.toString());
+    switch (decideMapNavigation(target, mapPage: _mapPage)) {
+      case MapPageNavigation.allow:
+        return NavigationActionPolicy.ALLOW;
+      case MapPageNavigation.openExternally:
+        await ref.read(externalActionsProvider).openUrl(target!);
+        return NavigationActionPolicy.CANCEL;
+      case MapPageNavigation.block:
+        _log.info('map view: blocked a navigation to $url');
+        return NavigationActionPolicy.CANCEL;
+    }
+  }
 
   bool _ready = false;
   String? _style;
@@ -67,29 +108,43 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
   Future<Object?> _call(String body, [Map<String, Object?> arguments = const {}]) async {
     final web = _web;
     if (web == null) return null;
+    // The bridge only ever talks to the map page.
+    final current = await web.getUrl();
+    if (!_onMapPage(current == null ? null : Uri.tryParse(current.toString()))) return null;
     final result = await web.callAsyncJavaScript(functionBody: body, arguments: arguments);
     if (result?.error != null) _log.warning('map js error: ${result!.error}');
     return result?.value;
   }
 
   Future<void> _init() async {
-    final images = await renderPinImages();
-    _style = _props.styleUrl;
+    final ratio = PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
+    final reducedMotion = Motion.reduced(context);
+    final images = await PinSprites.load(ratio);
+    _style = _props.style;
     await _call('return window.lunaway.init(options);', {
       'options': {
-        'style': _props.styleUrl,
+        'style': _styleArgument(_props.style),
         'lat': _props.initialCenter.lat,
         'lon': _props.initialCenter.lon,
         'zoom': _props.initialZoom,
+        'pixelRatio': ratio,
         'images': {for (final e in images.entries) e.key: base64Encode(e.value)},
-        'spec': _spec,
+        'spec': _spec(dark: _props.dark),
+        'reducedMotion': reducedMotion,
       },
     });
   }
 
+  static bool _isStyleJson(String style) => style.trimLeft().startsWith('{');
+
+  /// A style URL as is, a style document as an object.
+  static Object _styleArgument(String style) =>
+      _isStyleJson(style) ? jsonDecode(style) as Object : style;
+
   /// The sources and layers of [MapStyle], in the GL JS style syntax.
-  static final Map<String, Object?> _spec = {
+  static Map<String, Object?> _spec({required bool dark}) => {
     'clusterSource': MapStyle.placesSource,
+    'selectionLayer': MapStyle.selectionPinLayer,
     'tappable': MapStyle.tappableLayers,
     'sources': [
       {
@@ -109,10 +164,10 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
         'source': MapStyle.placesSource,
         'filter': MapStyle.clusterFilter,
         'paint': {
-          'circle-color': MapLook.clusterFill,
+          'circle-color': MapLook.clusterFill(dark: dark),
           'circle-radius': MapLook.clusterRadius,
           'circle-stroke-width': MapLook.clusterStrokeWidth,
-          'circle-stroke-color': MapLook.clusterStroke,
+          'circle-stroke-color': MapLook.clusterStroke(dark: dark),
           'circle-opacity': MapLook.clusterOpacity,
         },
       },
@@ -128,7 +183,7 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
           'text-allow-overlap': true,
           'text-ignore-placement': true,
         },
-        'paint': {'text-color': MapLook.clusterText},
+        'paint': {'text-color': MapLook.clusterText(dark: dark)},
       },
       {
         'id': MapStyle.placesLayer,
@@ -137,22 +192,11 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
         'filter': MapStyle.pointFilter,
         'layout': {
           'icon-image': ['get', 'icon'],
-          'icon-size': MapLook.pinSize(),
+          'icon-size': MapLook.pinSize(1),
+          'icon-anchor': 'bottom',
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'symbol-sort-key': ['get', 'rank'],
-        },
-      },
-      {
-        'id': MapStyle.selectionHaloLayer,
-        'type': 'circle',
-        'source': MapStyle.selectionSource,
-        'paint': {
-          'circle-radius': MapLook.selectionHaloRadius,
-          'circle-color': MapLook.selection,
-          'circle-opacity': MapLook.selectionHaloOpacity,
-          'circle-stroke-color': MapLook.selection,
-          'circle-stroke-width': MapLook.selectionStrokeWidth,
         },
       },
       {
@@ -161,7 +205,8 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
         'source': MapStyle.selectionSource,
         'layout': {
           'icon-image': ['get', 'icon'],
-          'icon-size': MapLook.selectedPinSize(),
+          'icon-size': 1,
+          'icon-anchor': 'bottom',
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
         },
@@ -179,7 +224,12 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
         _sentPlaces = null;
         _sentSelected = null;
         _sentPoint = null;
-        _scheduleSync();
+        // The theme or the language changed while the page was loading.
+        if (_style != null && _props.style != _style) {
+          _setStyle();
+        } else {
+          _scheduleSync();
+        }
         if (first) _props.onMapReady(this);
       case 'idle':
         _zoom = (event['zoom']! as num).toDouble();
@@ -197,22 +247,41 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
         );
       case 'place':
         _props.onPlaceTap('${event['id']}');
+      case 'empty':
+        _props.onEmptyTap?.call();
       case 'longpress':
         _props.onLongPress(
           LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
         );
+      case 'link':
+        // A link clicked in the page (the attribution): the browser opens
+        // web links; openUrl refuses any other scheme.
+        if (Uri.tryParse('${event['url']}') case final url?) {
+          unawaited(ref.read(externalActionsProvider).openUrl(url));
+        }
     }
   }
 
   @override
   void didUpdateWidget(WebViewLunaMap old) {
     super.didUpdateWidget(old);
-    if (_ready && _style != null && _props.styleUrl != _style) {
-      _style = _props.styleUrl;
-      unawaited(_call('return window.lunaway.setStyle(url);', {'url': _props.styleUrl}));
+    if (_ready && _style != null && (_props.style != _style || _props.dark != old.props.dark)) {
+      _setStyle();
       return;
     }
     _scheduleSync();
+  }
+
+  /// Loads the current style; the page answers with `ready` once the places
+  /// are back on it.
+  void _setStyle() {
+    _style = _props.style;
+    unawaited(
+      _call('return window.lunaway.setStyle(style, spec);', {
+        'style': _styleArgument(_props.style),
+        'spec': _spec(dark: _props.dark),
+      }),
+    );
   }
 
   void _scheduleSync() {
@@ -238,8 +307,7 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
       _sentSelected = props.selectedId;
       _sentPoint = props.markedPoint;
       final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
-      await _call('return window.lunaway.setData(id, data);', {
-        'id': MapStyle.selectionSource,
+      await _call('return window.lunaway.setSelection(data);', {
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });
     }
@@ -249,14 +317,20 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
   Future<void> moveTo(LatLng center, {double? zoom}) async {
     // Wait for the frame that lays out a sheet the selection just opened.
     await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     final z = zoom ?? _zoom;
     final target = centerForPadding(center, z, _props.padding);
-    await _call('return window.lunaway.moveTo(lat, lon, zoom);', {
+    await _call('return window.lunaway.moveTo(lat, lon, zoom, duration);', {
       'lat': target.lat,
       'lon': target.lon,
       'zoom': z,
+      'duration': Motion.of(context, Motion.camera).inMilliseconds,
     });
   }
+
+  @override
+  Future<void> zoomBy(double delta) =>
+      _call('return window.lunaway.zoomBy(delta);', {'delta': delta});
 
   @override
   Future<void> fitBounds(GeoBounds bounds) async {
@@ -278,15 +352,12 @@ class _WebViewLunaMapState extends State<WebViewLunaMap> implements LunaMapContr
   @override
   Future<LatLng?> locateUser() async {
     try {
-      final geo = GeolocatorPlatform.instance;
-      var permission = await geo.checkPermission();
-      if (permission == LocationPermission.denied) permission = await geo.requestPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      final position = await geo.getCurrentPosition().timeout(const Duration(seconds: 15));
-      return LatLng(position.latitude, position.longitude);
+      final position = await GeolocatorPlatform.instance.getCurrentPosition().timeout(
+        const Duration(seconds: 15),
+      );
+      final at = LatLng(position.latitude, position.longitude);
+      await _call('return window.lunaway.showPosition(lat, lon);', {'lat': at.lat, 'lon': at.lon});
+      return at;
     } on Object catch (e) {
       _log.info('no position: $e');
       return null;

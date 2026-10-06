@@ -1,9 +1,49 @@
 # Third-party files committed exactly as their projects publish them. They are
-# not authored here, so the writing gates (dashes) skip them. One path per
-# line; a line ending in / covers a directory. Update a file only by
-# replacing it with a new upstream release, and keep its licence beside it.
+# not authored here, so the writing gates (dashes) and the allowed-hosts rule
+# of tool/structure_check.dart skip them. One path per line; a line ending in
+# / covers a directory. Update a file only by replacing it with a new upstream
+# release, keep its licence beside it, and update its record below.
+#
+# app/web/sqlite3.wasm: sqlite3.dart release sqlite3-3.7.0 (SQLite 3.53.4),
+#   asset sqlite3.wasm of github.com/simolus3/sqlite3.dart/releases/tag/sqlite3-3.7.0,
+#   sha256 fbcd2e8214f9231ea961e1b7706a22dd1194cfbfe6f26f13841b5aa7a0be1a1f.
+#   MIT (app/web/sqlite3.wasm.LICENSE.txt); SQLite itself is public domain.
+#   Moves with the sqlite3 package of app/pubspec.lock.
+# app/web/drift_worker.js: drift release drift-2.35.1, asset drift_worker.js of
+#   github.com/simolus3/drift/releases/tag/drift-2.35.1,
+#   sha256 fe5f13be0526f78293796aefb9a29d3823a2dbdbf1bccd3f0faeb90eaaafd72a.
+#   MIT (app/web/drift_worker.js.LICENSE.txt). Moves with drift.
+# app/third_party/sqlite/: sqlite3.c and sqlite3.h of the SQLite 3.53.4
+#   amalgamation, sqlite.org/2026/sqlite-amalgamation-3530400.zip (zip SHA3-256
+#   628a44cfe82c66aed1ccbbe85a562d2e33ebe64b3288981ed76285612227934e as listed
+#   on sqlite.org/download.html); sha256 sqlite3.c
+#   b1dd5d74ec7f29055a6684fa06fb3c2f6821c87dd38f9a458dfd2e8a1db28189, sqlite3.h
+#   919e7f2e8ed1d8f56ac17b412b8971c76aa5d1a879752cc6058f75e7d5910e1d. Public
+#   domain (sqlite.org/copyright.html, stated in each file's header). Compiled
+#   by the sqlite3 package's build hook (hooks: in app/pubspec.yaml); keep it
+#   at the SQLite version of the package's own prebuilt binaries.
+# app/web/fonts/: the web engine's Noto fallback fonts at the paths Flutter
+#   3.47.6 requests (engine font_fallback_data.dart), fetched from
+#   fonts.gstatic.com/s/<path>. SIL OFL 1.1, an OFL.txt per family.
+#   notosans/v37 (Noto Sans 2.014, Latin, Greek, Cyrillic): sha256
+#   62a7417925f89dc84917c38d96b7b2e68092106dc3832c7a48129030322e73d8.
+#   notosanssymbols/v43 (Noto Sans Symbols 2.003): sha256
+#   08202e258ea583254c036cff46a7077bb5af4f82c41a6c0a6775f6e44d99f1aa.
+#   notosanssymbols2/v24 (Noto Sans Symbols 2 2.008, six files): sha256
+#   -gTBWXPM4Q b0d885dae11e7fb260ce06cb94af4b7c865acbaf692b7f80eb23b0fb3d68153c,
+#   -jrBWXPM4Q 5824d50a6e4eca33bc2aca4fc61ceca9dd518bfe7d4b8c75adad3a8064d0d3a1,
+#   -prgfE71 97f469061805041dfda672e164eca7384f01e74ea1362a3aa91cf993be9a1579,
+#   -pTgfA 076185b66a4070d41cc0e52cdad03c00b30084a7438d3e52f2a47cf5e2d1eb01,
+#   -ujgfE71 2eb49cfc40ca8a57d17e621471a4a2d583f7602676f583459f1dfc733fb94e1d,
+#   -vrgfE71 c90fbe98152bbb119a7e521a048c6aa6fc367879d6e3dae6db5a17582de25ead.
+#   A Flutter upgrade can move these paths: test/unit/web_index_test.dart
+#   fails until the files follow.
 app/web/maplibre-gl/
 app/assets/map/maplibre-gl.js
 app/assets/map/maplibre-gl.css
 app/web/drift_worker.js
+app/web/drift_worker.js.LICENSE.txt
 app/web/sqlite3.wasm
+app/web/sqlite3.wasm.LICENSE.txt
+app/web/fonts/
+app/third_party/sqlite/

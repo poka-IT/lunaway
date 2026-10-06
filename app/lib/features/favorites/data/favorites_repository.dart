@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -38,12 +38,16 @@ final class FavoriteEntry {
     required this.position,
     required this.addedAt,
     this.name,
+    this.overnight = OvernightStatus.unknown,
+    this.city,
   });
 
   final int listId;
   final String placeId;
   final String? name;
   final PlaceKind kind;
+  final OvernightStatus overnight;
+  final String? city;
   final LatLng position;
   final DateTime addedAt;
 
@@ -54,11 +58,13 @@ final class FavoriteEntry {
       other.placeId == placeId &&
       other.name == name &&
       other.kind == kind &&
+      other.overnight == overnight &&
+      other.city == city &&
       other.position == position &&
       other.addedAt == addedAt;
 
   @override
-  int get hashCode => Object.hash(listId, placeId, name, kind, position, addedAt);
+  int get hashCode => Object.hash(listId, placeId, name, kind, overnight, city, position, addedAt);
 }
 
 abstract interface class FavoritesRepository {
@@ -71,15 +77,17 @@ abstract interface class FavoritesRepository {
   /// The ids of the lists holding [placeId].
   Stream<Set<int>> watchListsOf(String placeId);
 
+  /// The id of the default list, created on first use.
+  Future<int> defaultListId();
+
   /// Saves [place] in the default list.
   Future<void> addToDefault(PlaceSummary place);
 
   Future<void> add(int listId, PlaceSummary place);
 
-  Future<void> remove(int listId, String placeId);
-
-  /// Removes [placeId] from every list.
-  Future<void> removeEverywhere(String placeId);
+  /// Removes [placeId] from [listId] and returns what was removed, for an
+  /// undo; null when it was not there.
+  Future<FavoriteEntry?> remove(int listId, String placeId);
 
   Future<int> createList(String name);
 
@@ -95,10 +103,11 @@ abstract interface class FavoritesRepository {
 final class DriftFavoritesRepository implements FavoritesRepository {
   new(this._db, {this.clock = DateTime.now});
 
-  final AppDatabase _db;
+  final UserDatabase _db;
   final DateTime Function() clock;
 
-  Future<int> _defaultListId() => _db.transaction(() async {
+  @override
+  Future<int> defaultListId() => _db.transaction(() async {
     final existing = await (_db.select(
       _db.favoriteLists,
     )..where((l) => l.isDefault.equals(true))).getSingleOrNull();
@@ -115,7 +124,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
 
   @override
   Stream<List<FavoriteList>> watchLists() async* {
-    await _defaultListId();
+    await defaultListId();
     yield* _db
         .customSelect(
           'SELECT l.id, l.name, l.is_default, COUNT(i.place_id) AS n FROM favorite_lists l '
@@ -152,7 +161,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<void> addToDefault(PlaceSummary place) async => await add(await _defaultListId(), place);
+  Future<void> addToDefault(PlaceSummary place) async => await add(await defaultListId(), place);
 
   @override
   Future<void> add(int listId, PlaceSummary place) => _db
@@ -163,6 +172,8 @@ final class DriftFavoritesRepository implements FavoritesRepository {
           placeId: place.id,
           name: Value(place.name),
           kind: place.kind.wire,
+          overnight: Value(place.overnight.wire),
+          city: Value(place.city),
           lat: place.lat,
           lon: place.lon,
           addedAt: clock().millisecondsSinceEpoch,
@@ -171,13 +182,16 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<void> remove(int listId, String placeId) => (_db.delete(
-    _db.favoriteItems,
-  )..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId))).go();
-
-  @override
-  Future<void> removeEverywhere(String placeId) =>
-      (_db.delete(_db.favoriteItems)..where((i) => i.placeId.equals(placeId))).go();
+  Future<FavoriteEntry?> remove(int listId, String placeId) => _db.transaction(() async {
+    final query = _db.select(_db.favoriteItems)
+      ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId));
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    await (_db.delete(
+      _db.favoriteItems,
+    )..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId))).go();
+    return _entry(row);
+  });
 
   @override
   Future<int> createList(String name) => _db
@@ -208,6 +222,8 @@ final class DriftFavoritesRepository implements FavoritesRepository {
           placeId: entry.placeId,
           name: Value(entry.name),
           kind: entry.kind.wire,
+          overnight: Value(entry.overnight.wire),
+          city: Value(entry.city),
           lat: entry.position.lat,
           lon: entry.position.lon,
           addedAt: entry.addedAt.millisecondsSinceEpoch,
@@ -220,6 +236,8 @@ final class DriftFavoritesRepository implements FavoritesRepository {
     placeId: r.placeId,
     name: r.name,
     kind: PlaceKind.fromWire(r.kind),
+    overnight: OvernightStatus.fromWire(r.overnight),
+    city: r.city,
     position: LatLng(r.lat, r.lon),
     addedAt: DateTime.fromMillisecondsSinceEpoch(r.addedAt, isUtc: true),
   );

@@ -102,46 +102,87 @@ final class AppVersionProvider
 
 String _$appVersionHash() => r'c67afb04e42493484a674ffaa09eeb0e35add300';
 
-@ProviderFor(appDatabase)
-final appDatabaseProvider = AppDatabaseProvider._();
+@ProviderFor(cacheDatabase)
+final cacheDatabaseProvider = CacheDatabaseProvider._();
 
-final class AppDatabaseProvider
-    extends $FunctionalProvider<AppDatabase, AppDatabase, AppDatabase>
-    with $Provider<AppDatabase> {
-  AppDatabaseProvider._()
+final class CacheDatabaseProvider
+    extends $FunctionalProvider<CacheDatabase, CacheDatabase, CacheDatabase>
+    with $Provider<CacheDatabase> {
+  CacheDatabaseProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'appDatabaseProvider',
+        name: r'cacheDatabaseProvider',
         isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$appDatabaseHash();
+  String debugGetCreateSourceHash() => _$cacheDatabaseHash();
 
   @$internal
   @override
-  $ProviderElement<AppDatabase> $createElement($ProviderPointer pointer) =>
+  $ProviderElement<CacheDatabase> $createElement($ProviderPointer pointer) =>
       $ProviderElement(pointer);
 
   @override
-  AppDatabase create(Ref ref) {
-    return appDatabase(ref);
+  CacheDatabase create(Ref ref) {
+    return cacheDatabase(ref);
   }
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(AppDatabase value) {
+  Override overrideWithValue(CacheDatabase value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<AppDatabase>(value),
+      providerOverride: $SyncValueProvider<CacheDatabase>(value),
     );
   }
 }
 
-String _$appDatabaseHash() => r'642d531e2f8142972b8901f2a73e38b7dc6395ab';
+String _$cacheDatabaseHash() => r'bfee7ee9b7fa9c33709b0b88e0d8324412e30f00';
+
+@ProviderFor(userDatabase)
+final userDatabaseProvider = UserDatabaseProvider._();
+
+final class UserDatabaseProvider
+    extends $FunctionalProvider<UserDatabase, UserDatabase, UserDatabase>
+    with $Provider<UserDatabase> {
+  UserDatabaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'userDatabaseProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$userDatabaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<UserDatabase> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  UserDatabase create(Ref ref) {
+    return userDatabase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(UserDatabase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<UserDatabase>(value),
+    );
+  }
+}
+
+String _$userDatabaseHash() => r'03f4ae5f178a9345e97fc48ffdc852a1adcbc1e7';
 
 @ProviderFor(httpClient)
 final httpClientProvider = HttpClientProvider._();
@@ -225,6 +266,55 @@ final class UserAgentProvider
 
 String _$userAgentHash() => r'cd5d351cc762fa1b7d16fa007dcdad9ebe9c01b8';
 
+/// Downloads the photos of the API's image proxy.
+// keepAlive: a stateless service over the shared client.
+
+@ProviderFor(imageFetcher)
+final imageFetcherProvider = ImageFetcherProvider._();
+
+/// Downloads the photos of the API's image proxy.
+// keepAlive: a stateless service over the shared client.
+
+final class ImageFetcherProvider
+    extends $FunctionalProvider<ImageFetcher, ImageFetcher, ImageFetcher>
+    with $Provider<ImageFetcher> {
+  /// Downloads the photos of the API's image proxy.
+  // keepAlive: a stateless service over the shared client.
+  ImageFetcherProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'imageFetcherProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$imageFetcherHash();
+
+  @$internal
+  @override
+  $ProviderElement<ImageFetcher> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  ImageFetcher create(Ref ref) {
+    return imageFetcher(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ImageFetcher value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ImageFetcher>(value),
+    );
+  }
+}
+
+String _$imageFetcherHash() => r'ffd7fa49c64a0acf7cf81764cc33bca2ff064653';
+
 /// The clock, injectable so freshness and "open now" are testable.
 // keepAlive: a pure function with no state to release.
 
@@ -279,3 +369,89 @@ final class ClockProvider
 }
 
 String _$clockHash() => r'3f65ad34ac6fcd532de9004042bdf2ed2bd85b13';
+
+/// The current time, emitted again at the start of every minute: what a
+/// screen showing "open now" or "updated 3 days ago" watches, so the text
+/// turns over without a rebuild from elsewhere.
+
+@ProviderFor(minuteClock)
+final minuteClockProvider = MinuteClockProvider._();
+
+/// The current time, emitted again at the start of every minute: what a
+/// screen showing "open now" or "updated 3 days ago" watches, so the text
+/// turns over without a rebuild from elsewhere.
+
+final class MinuteClockProvider
+    extends
+        $FunctionalProvider<AsyncValue<DateTime>, DateTime, Stream<DateTime>>
+    with $FutureModifier<DateTime>, $StreamProvider<DateTime> {
+  /// The current time, emitted again at the start of every minute: what a
+  /// screen showing "open now" or "updated 3 days ago" watches, so the text
+  /// turns over without a rebuild from elsewhere.
+  MinuteClockProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'minuteClockProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$minuteClockHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<DateTime> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<DateTime> create(Ref ref) {
+    return minuteClock(ref);
+  }
+}
+
+String _$minuteClockHash() => r'b9558187e9778bf64fc9526ff4efb62b0e11e28d';
+
+@ProviderFor(minuteTicker)
+final minuteTickerProvider = MinuteTickerProvider._();
+
+final class MinuteTickerProvider
+    extends $FunctionalProvider<MinuteTicker, MinuteTicker, MinuteTicker>
+    with $Provider<MinuteTicker> {
+  MinuteTickerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'minuteTickerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$minuteTickerHash();
+
+  @$internal
+  @override
+  $ProviderElement<MinuteTicker> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  MinuteTicker create(Ref ref) {
+    return minuteTicker(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(MinuteTicker value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MinuteTicker>(value),
+    );
+  }
+}
+
+String _$minuteTickerHash() => r'74a97970bd2bc28580ef6f6caf167ec4e571cd81';

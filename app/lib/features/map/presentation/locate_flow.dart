@@ -1,0 +1,127 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
+
+/// Shows the device position on the map, asking for it the considerate way:
+/// an explanation before the system prompt the first time, the way to the
+/// settings after a refusal for good, a word when location is off on the
+/// device, and a distinct message when no position comes in time.
+Future<void> locateUser(BuildContext context, WidgetRef ref) async {
+  final t = context.t;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final permissions = ref.read(locationPermissionsProvider);
+  var access = await permissions.status();
+  if (!context.mounted) return;
+  switch (access) {
+    case LocationAccess.granted:
+      break;
+    case LocationAccess.unsupported:
+      showMessage(messenger, t.location.unsupported);
+      return;
+    case LocationAccess.serviceOff:
+      await _explain(
+        context,
+        title: t.location.serviceOffTitle,
+        body: t.location.serviceOff,
+        action: t.common.ok,
+      );
+      return;
+    case LocationAccess.deniedForever:
+      if (await _explain(
+        context,
+        title: t.location.deniedTitle,
+        body: t.location.denied,
+        action: t.location.openSettings,
+        dismiss: t.location.notNow,
+      )) {
+        await permissions.openSettings();
+      }
+      return;
+    case LocationAccess.notGranted:
+      final allow = await _explain(
+        context,
+        title: t.location.rationaleTitle,
+        body: t.location.rationale,
+        action: t.location.allow,
+        dismiss: t.location.notNow,
+      );
+      if (!allow) return;
+      access = await permissions.request();
+      if (!context.mounted) return;
+      if (access == LocationAccess.deniedForever) {
+        if (await _explain(
+          context,
+          title: t.location.deniedTitle,
+          body: t.location.denied,
+          action: t.location.openSettings,
+          dismiss: t.location.notNow,
+        )) {
+          await permissions.openSettings();
+        }
+        return;
+      }
+      if (access != LocationAccess.granted) {
+        showMessage(messenger, t.location.notAllowed);
+        return;
+      }
+  }
+  final controller = ref.read(mapControllerProvider);
+  final position = await controller?.locateUser();
+  if (!context.mounted) return;
+  if (position == null) {
+    showMessage(messenger, t.location.noFix);
+    return;
+  }
+  ref.read(userLocationProvider.notifier).update(position);
+  await controller?.moveTo(position, zoom: 12);
+}
+
+/// An explanation sheet; true when the user took its action.
+Future<bool> _explain(
+  BuildContext context, {
+  required String title,
+  required String body,
+  required String action,
+  String? dismiss,
+}) async {
+  final taken = await showModalBottomSheet<bool>(
+    context: context,
+    // Above the dock and the panels: the shell holds the branches.
+    useRootNavigator: true,
+    useSafeArea: true,
+    // As tall as the text needs, and scrolling past that: at a large text
+    // size the explanation and its buttons never get cut.
+    isScrollControlled: true,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.l),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(AppIcons.locate, size: 36, color: theme.colorScheme.secondary),
+              const SizedBox(height: Space.m),
+              Text(title, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: Space.s),
+              Text(body, style: theme.textTheme.bodyLarge),
+              const SizedBox(height: Space.xl),
+              FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(action)),
+              if (dismiss != null) ...[
+                const SizedBox(height: Space.s),
+                TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(dismiss)),
+              ],
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  return taken ?? false;
+}

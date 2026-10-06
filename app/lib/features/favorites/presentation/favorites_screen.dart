@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
-import 'package:lunaway/shared/widgets/place_avatar.dart';
+import 'package:lunaway/shared/theme/typography.dart';
+import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
+
+final _log = Logger('favorites');
 
 /// Saved places, in lists. They live on the device and keep a copy of the
 /// place, so they show even offline or after the place left the data.
@@ -24,137 +30,181 @@ class FavoritesScreen extends ConsumerWidget {
     final t = context.t;
     final lists = ref.watch(favoriteListsProvider);
     final selectedId = ref.watch(selectedFavoriteListProvider);
-    final expanded = WindowSize.of(context) == .expanded;
-    return switch (lists) {
-      AsyncData(value: final lists) when lists.isNotEmpty => _Loaded(
-        lists: lists,
-        selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
-        expanded: expanded,
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: switch (lists) {
+          AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
+            lists: lists,
+            selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
+          ),
+          AsyncError() => MessageView(
+            mood: SceneMood.error,
+            title: t.favorites.error,
+            action: t.common.retry,
+            onAction: () => ref.invalidate(favoriteListsProvider),
+          ),
+          _ => ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
+        },
       ),
-      AsyncError() => Scaffold(
-        appBar: AppBar(title: Text(t.favorites.title)),
-        body: MessageView(
-          icon: AppIcons.error,
-          title: t.favorites.error,
-          error: true,
-          action: t.common.retry,
-          onAction: () => ref.invalidate(favoriteListsProvider),
-        ),
-      ),
-      _ => Scaffold(
-        appBar: AppBar(title: Text(t.favorites.title)),
-        body: ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
-      ),
-    };
+    );
   }
 }
 
-String _listName(Translations t, FavoriteList list) =>
+String listName(Translations t, FavoriteList list) =>
     list.isDefault ? t.favorites.defaultList : (list.name ?? t.favorites.defaultList);
 
+Future<void> _newList(BuildContext context, WidgetRef ref) async {
+  final name = await askListName(context, title: context.t.favorites.newList);
+  if (name == null) return;
+  final id = await ref.read(favoritesRepositoryProvider).createList(name);
+  ref.read(selectedFavoriteListProvider.notifier).show(id);
+}
+
 class _Loaded extends ConsumerWidget {
-  const new({required this.lists, required this.selected, required this.expanded});
+  const new({required this.lists, required this.selected});
 
   final List<FavoriteList> lists;
   final FavoriteList selected;
-  final bool expanded;
-
-  Future<void> _newList(BuildContext context, WidgetRef ref) async {
-    final name = await askListName(context, title: context.t.favorites.newList);
-    if (name == null) return;
-    final id = await ref.read(favoritesRepositoryProvider).createList(name);
-    ref.read(selectedFavoriteListProvider.notifier).show(id);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    final theme = Theme.of(context);
+    final size = WindowSize.of(context);
     final select = ref.read(selectedFavoriteListProvider.notifier);
-    final menu = selected.isDefault ? null : _ListMenu(list: selected);
-    if (expanded) {
-      return Scaffold(
-        body: Row(
-          children: [
-            SizedBox(
-              width: 320,
-              child: Material(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: SafeArea(
-                  right: false,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: Space.l),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.l),
-                        child: Text(
-                          t.favorites.title,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ),
-                      for (final list in lists)
-                        ListTile(
-                          selected: list.id == selected.id,
-                          selectedTileColor: Theme.of(context).colorScheme.secondaryContainer,
-                          leading: Icon(
-                            list.isDefault ? AppIcons.favoriteSelected : AppIcons.customList,
-                          ),
-                          title: Text(_listName(t, list)),
-                          trailing: Text(t.favorites.count(n: list.count)),
-                          onTap: () => select.show(list.id),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.l, 0),
-                        child: OutlinedButton.icon(
-                          onPressed: () => _newList(context, ref),
-                          icon: const Icon(AppIcons.add),
-                          label: Text(t.favorites.newList),
-                        ),
-                      ),
-                    ],
+    final header = Padding(
+      padding: EdgeInsets.fromLTRB(
+        size == .compact ? Space.xl : Space.xxl,
+        Space.l,
+        Space.m,
+        Space.s,
+      ),
+      // A wrap: at a large text size the button goes under the title
+      // rather than squeezing it.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: Space.s,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(t.favorites.title, style: theme.textTheme.headlineMedium),
+          ),
+          // In the header, so it is never cut at the end of the cards.
+          TextButton.icon(
+            onPressed: () => _newList(context, ref),
+            icon: const Icon(AppIcons.add),
+            label: Text(t.favorites.newList),
+          ),
+        ],
+      ),
+    );
+    final cards = [
+      for (final list in lists)
+        _ListCard(list: list, selected: list.id == selected.id, onTap: () => select.show(list.id)),
+    ];
+    if (size == .expanded) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 340,
+            child: ListView(
+              children: [
+                header,
+                for (final c in cards)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.l, Space.s),
+                    child: c,
                   ),
-                ),
-              ),
+              ],
             ),
-            const VerticalDivider(width: 1),
-            Expanded(
-              child: Scaffold(
-                appBar: AppBar(title: Text(_listName(t, selected)), actions: [?menu]),
-                body: _Entries(list: selected),
-              ),
-            ),
-          ],
-        ),
+          ),
+          VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant),
+          Expanded(
+            child: _Entries(key: ValueKey(selected.id), list: selected),
+          ),
+        ],
       );
     }
-    return Scaffold(
-      appBar: AppBar(title: Text(t.favorites.title), actions: [?menu]),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SingleChildScrollView(
+    // The cards grow with the text size, so their name and count never clip.
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.5);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        SizedBox(
+          height: 64 + 52 * scale,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(Space.l, Space.xxs, Space.l, Space.s),
-            child: Row(
+            padding: EdgeInsets.symmetric(horizontal: size == .compact ? Space.xl : Space.xxl),
+            itemCount: cards.length,
+            separatorBuilder: (_, _) => const SizedBox(width: Space.s),
+            itemBuilder: (_, i) => SizedBox(width: 136 + 40 * scale, child: cards[i]),
+          ),
+        ),
+        const SizedBox(height: Space.s),
+        Expanded(
+          child: _Entries(key: ValueKey(selected.id), list: selected),
+        ),
+      ],
+    );
+  }
+}
+
+/// A list as a card: its name in Fraunces and how many places it holds.
+class _ListCard extends StatelessWidget {
+  const new({required this.list, required this.selected, required this.onTap});
+
+  final FavoriteList list;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+          side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
+        ),
+        child: InkWell(
+          customBorder: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+          ),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(Space.l),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                for (final list in lists)
-                  Padding(
-                    padding: const EdgeInsets.only(right: Space.s),
-                    child: ChoiceChip(
-                      label: Text('${_listName(t, list)} · ${list.count}'),
-                      selected: list.id == selected.id,
-                      onSelected: (_) => select.show(list.id),
-                    ),
-                  ),
-                ActionChip(
-                  avatar: const Icon(AppIcons.add),
-                  label: Text(t.favorites.newList),
-                  onPressed: () => _newList(context, ref),
+                Icon(
+                  list.isDefault ? AppIcons.defaultList : AppIcons.customList,
+                  color: list.isDefault ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: Space.s),
+                Text(
+                  listName(t, list),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge,
+                ),
+                Text(
+                  t.favorites.count(n: list.count),
+                  style: LunaType.number(14, weight: 420, color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
           ),
-          Expanded(child: _Entries(list: selected)),
-        ],
+        ),
       ),
     );
   }
@@ -170,9 +220,10 @@ class _ListMenu extends ConsumerWidget {
     final t = context.t;
     final repo = ref.read(favoritesRepositoryProvider);
     return PopupMenuButton<String>(
-      tooltip: t.common.more,
+      tooltip: t.favorites.listActions,
+      icon: const Icon(AppIcons.moreVertical),
       onSelected: (action) async {
-        final name = _listName(t, list);
+        final name = listName(t, list);
         if (action == 'rename') {
           final renamed = await askListName(context, title: t.favorites.renameList, initial: name);
           if (renamed != null) await repo.renameList(list.id, renamed);
@@ -201,81 +252,196 @@ class _ListMenu extends ConsumerWidget {
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'rename', child: Text(t.favorites.renameList)),
-        PopupMenuItem(value: 'delete', child: Text(t.favorites.deleteList)),
+        PopupMenuItem(
+          value: 'rename',
+          child: ListTile(
+            leading: const Icon(AppIcons.rename),
+            title: Text(t.favorites.renameList),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: const Icon(AppIcons.delete),
+            title: Text(t.favorites.deleteList),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _Entries extends ConsumerWidget {
-  const new({required this.list});
+/// The places of a list. A removal, by swipe or by the row's menu, leaves
+/// the screen at once and can be undone.
+class _Entries extends ConsumerStatefulWidget {
+  const new({required this.list, super.key});
 
   final FavoriteList list;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Entries> createState() => _EntriesState();
+}
+
+class _EntriesState extends ConsumerState<_Entries> {
+  // Removed rows, hidden at once: a dismissed row must leave the tree in the
+  // same frame, before the database answers.
+  final Set<String> _gone = {};
+
+  Future<void> _remove(FavoriteEntry e) async {
     final t = context.t;
-    final entries = ref.watch(favoriteEntriesProvider(list.id));
-    final user = ref.watch(userLocationProvider);
-    return switch (entries) {
-      AsyncData(:final value) when value.isEmpty => MessageView(
-        icon: AppIcons.favorite,
-        title: t.favorites.empty,
-        hint: t.favorites.emptyHint,
-      ),
-      AsyncData(:final value) => ListView.builder(
-        padding: const EdgeInsets.only(bottom: Space.xxl),
-        itemCount: value.length,
-        itemBuilder: (context, i) {
-          final e = value[i];
-          return Dismissible(
-            key: ValueKey('${e.listId}-${e.placeId}'),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: Space.xxl),
-              color: Theme.of(context).colorScheme.errorContainer,
-              child: Icon(AppIcons.delete, color: Theme.of(context).colorScheme.onErrorContainer),
-            ),
-            onDismissed: (_) async {
-              final messenger = ScaffoldMessenger.of(context);
-              final repo = ref.read(favoritesRepositoryProvider);
-              await repo.remove(e.listId, e.placeId);
-              messenger
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
-                    content: Text(t.favorites.removed),
-                    action: SnackBarAction(label: t.common.undo, onPressed: () => repo.restore(e)),
-                  ),
-                );
-            },
-            child: ListTile(
-              leading: PlaceAvatar(kind: e.kind, size: 40),
-              title: Text(
-                t.placeTitle(name: e.name, kind: e.kind),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(t.kind(e.kind)),
-              trailing: user == null
-                  ? const Icon(AppIcons.chevron)
-                  : Text(
-                      t.distance(e.position.distanceTo(user)),
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-              onTap: () async {
-                ref.read(selectionProvider.notifier).select(PlaceSelection(e.placeId));
-                context.go(AppRoutes.map);
-                await ref.read(mapControllerProvider)?.moveTo(e.position, zoom: 13);
-              },
-            ),
-          );
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = ref.read(favoritesRepositoryProvider);
+    setState(() => _gone.add(e.placeId));
+    final FavoriteEntry? removed;
+    try {
+      removed = await repo.remove(e.listId, e.placeId);
+    } on Object catch (error, stack) {
+      _log.warning('removing a favourite failed', error, stack);
+      showMessage(messenger, t.common.saveFailed);
+      // The swiped row must leave the tree before it comes back as new.
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) setState(() => _gone.remove(e.placeId));
+      return;
+    }
+    showMessage(
+      messenger,
+      t.favorites.removed,
+      action: SnackBarAction(
+        label: t.common.undo,
+        onPressed: () async {
+          if (removed != null) await repo.restore(removed);
+          if (mounted) setState(() => _gone.remove(e.placeId));
         },
       ),
-      AsyncError() => MessageView(icon: AppIcons.error, title: t.favorites.error, error: true),
-      AsyncLoading() => ListView(children: const [SkeletonTile(), SkeletonTile()]),
+    );
+  }
+
+  Future<void> _open(FavoriteEntry e) async {
+    ref.read(selectionProvider.notifier).select(PlaceSelection(e.placeId));
+    context.go(AppRoutes.map);
+    await ref.read(mapControllerProvider)?.moveTo(e.position, zoom: 13);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final list = widget.list;
+    final entries = ref.watch(favoriteEntriesProvider(list.id));
+    // A row stays hidden until the list stops holding it; then it is
+    // forgotten here, so the place shows again if it is saved anew.
+    ref.listen(favoriteEntriesProvider(list.id), (_, next) {
+      final held = next.value?.map((e) => e.placeId).toSet();
+      if (held != null) _gone.removeWhere((id) => !held.contains(id));
+    });
+    final user = ref.watch(userLocationProvider);
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final title = Padding(
+      padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.s, Space.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(listName(t, list), style: theme.textTheme.titleLarge)),
+          if (!list.isDefault) _ListMenu(list: list),
+        ],
+      ),
+    );
+    return switch (entries) {
+      AsyncValue(:final value?) when value.where((e) => !_gone.contains(e.placeId)).isEmpty =>
+        ListView(
+          children: [
+            title,
+            MessageView(
+              mood: SceneMood.saved,
+              title: t.favorites.empty,
+              hint: t.favorites.emptyHint,
+            ),
+          ],
+        ),
+      AsyncValue(:final value?) => () {
+        final shown = value.where((e) => !_gone.contains(e.placeId)).toList();
+        return ListView.builder(
+          padding: EdgeInsets.only(bottom: bottom + Space.l),
+          itemCount: shown.length + 1,
+          itemBuilder: (context, i) {
+            if (i == 0) return title;
+            final e = shown[i - 1];
+            return Dismissible(
+              key: ValueKey('${e.listId}-${e.placeId}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: Space.xxl),
+                color: theme.colorScheme.errorContainer,
+                child: Icon(AppIcons.delete, color: theme.colorScheme.onErrorContainer),
+              ),
+              onDismissed: (_) => _remove(e),
+              child: PlaceTile(
+                place: PlaceSummary(
+                  id: e.placeId,
+                  name: e.name,
+                  city: e.city,
+                  kind: e.kind,
+                  lat: e.position.lat,
+                  lon: e.position.lon,
+                  overnight: e.overnight,
+                ),
+                distanceM: user == null ? null : e.position.distanceTo(user),
+                onTap: () => _open(e),
+                trailing: PopupMenuButton<String>(
+                  tooltip: t.favorites.placeActions,
+                  icon: const Icon(AppIcons.moreVertical),
+                  onSelected: (action) async {
+                    switch (action) {
+                      case 'open':
+                        await _open(e);
+                      case 'lists':
+                        await showSaveToLists(
+                          context,
+                          PlaceSummary(
+                            id: e.placeId,
+                            name: e.name,
+                            city: e.city,
+                            kind: e.kind,
+                            lat: e.position.lat,
+                            lon: e.position.lon,
+                            overnight: e.overnight,
+                          ),
+                        );
+                      case 'remove':
+                        await _remove(e);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'open',
+                      child: ListTile(
+                        leading: const Icon(AppIcons.map),
+                        title: Text(t.favorites.openOnMap),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'lists',
+                      child: ListTile(
+                        leading: const Icon(AppIcons.lists),
+                        title: Text(t.place.chooseLists),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: ListTile(
+                        leading: const Icon(AppIcons.delete),
+                        title: Text(t.favorites.remove),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }(),
+      AsyncError() => MessageView(mood: SceneMood.error, title: t.favorites.error),
+      _ => ListView(children: const [SkeletonTile(), SkeletonTile()]),
     };
   }
 }

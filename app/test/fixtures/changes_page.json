@@ -24,6 +24,7 @@
             "city": "Grenoble",
             "countryCode": "FR"
           },
+          "municipality": "Saint-Martin-d'Hères",
           "priceParkingEur": 8.5,
           "priceServicesEur": 0,
           "maxHeightM": null,
@@ -102,6 +103,7 @@
           "lat": 43.3,
           "lon": 5.37,
           "overnight": "SOMETIMES",
+          "municipality": "Échirolles",
           "services": [],
           "activities": [],
           "openingHoursParsed": false,

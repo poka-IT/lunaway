@@ -4,13 +4,17 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 /// MapLibre GL JS on the web ignores the plugin's control margins, so its
-/// top right controls (compass, attribution) would sit under the floating
-/// search bar. A style rule moves that corner below the overlays instead; it
-/// is rewritten when the overlays change height.
+/// controls would sit under the floating search bar, the sheet or the dock.
+/// A style rule moves the top corner below the overlays; it is rewritten
+/// when the overlays change. The engine's attribution control is hidden:
+/// the app draws the basemap credit itself, visible on every engine.
 void placeWebMapControls({required double top}) {
   // Scoped under the map class to outrank maplibre-gl.css, which the plugin
   // links after this rule is added.
-  final css = '.maplibregl-map .maplibregl-ctrl-top-right{top:${top.round()}px}';
+  final css = [
+    '.maplibregl-map .maplibregl-ctrl-top-right{top:${top.round()}px}',
+    '.maplibregl-map .maplibregl-ctrl-attrib{display:none}',
+  ].join();
   final existing = web.document.getElementById(_styleId);
   if (existing != null) {
     if (existing.textContent != css) existing.textContent = css;

@@ -4,7 +4,7 @@ apps targeting Android 15 and later. 16 KB pages exist on 64-bit devices
 only, so 32-bit libraries are listed for information. Zip alignment is
 checked separately with `zipalign -c -P 16 -v 4 <apk>`.
 
-    python3 tool/android/check_16k.py <apk>
+    python3 tool/android/check_16k.py <apk or aab>
 """
 
 import struct
@@ -40,10 +40,15 @@ def load_alignments(data):
 def main(apk):
     bad = 0
     with zipfile.ZipFile(apk) as z:
-        for name in sorted(n for n in z.namelist() if n.startswith("lib/") and n.endswith(".so")):
+        # lib/<abi>/ in an APK, base/lib/<abi>/ in an app bundle.
+        libs = sorted(n for n in z.namelist() if n.startswith(("lib/", "base/lib/")) and n.endswith(".so"))
+        if not libs:
+            print("no native library found: not an APK or app bundle with native code")
+            return 1
+        for name in libs:
             aligns = load_alignments(z.read(name))
             low = min(aligns) if aligns else 0
-            wide = name.split("/")[1] in ("arm64-v8a", "x86_64")
+            wide = name.split("/")[-2] in ("arm64-v8a", "x86_64")
             ok = low >= 16384 or not wide
             bad += 0 if ok else 1
             label = "ok " if low >= 16384 else ("n/a" if not wide else "BAD")

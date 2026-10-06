@@ -79,6 +79,35 @@ jobs:
         working-directory: app
         run: flutter test --no-pub
 
+  goldens:
+    # The golden images are made on macOS (the maintainer's machine): text
+    # rasterises differently elsewhere, so they are compared on macOS too,
+    # with the small tolerance of app/test/flutter_test_config.dart.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
+      - name: golden images
+        working-directory: app
+        run: flutter test --no-pub --tags golden test/goldens
+      - name: differences, for review
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-failures
+          path: app/test/goldens/failures/
+
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -9,15 +9,27 @@
   var map = null;
   var spec = null;
   var images = {};
+  var pixelRatio = 1;
+  var reducedMotion = false;
   var data = {};
   var longPressTimer = null;
   var suppressClick = false;
+  var popFrame = null;
 
   function send(event) {
     if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
       window.flutter_inappwebview.callHandler('lunaway', event);
     }
   }
+
+  // A link in the page (the basemap attribution) never loads in the web
+  // view, which holds the app's bridge: the app opens it in the browser.
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    e.preventDefault();
+    send({ type: 'link', url: a.href });
+  }, true);
 
   function emptyCollection() {
     return { type: 'FeatureCollection', features: [] };
@@ -27,7 +39,7 @@
     return new Promise(function (resolve) {
       var img = new Image();
       img.onload = function () {
-        if (!map.hasImage(id)) map.addImage(id, img);
+        if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: pixelRatio });
         resolve();
       };
       img.onerror = function () { resolve(); };
@@ -61,20 +73,22 @@
     };
   }
 
+  // The same rule as mapTapFor in lib/features/map/domain/map_geojson.dart:
+  // a cluster zooms in, a place opens, the long-press marker does nothing.
   function onClick(e) {
     if (suppressClick) { suppressClick = false; return; }
     var slop = 14;
     var box = [[e.point.x - slop, e.point.y - slop], [e.point.x + slop, e.point.y + slop]];
     var layers = spec.tappable.filter(function (id) { return map.getLayer(id); });
     var features = map.queryRenderedFeatures(box, { layers: layers });
-    if (features.length === 0) return;
+    if (features.length === 0) { send({ type: 'empty' }); return; }
     var f = features[0];
     var p = f.properties || {};
     if (p.point_count !== undefined) {
       map.getSource(spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
-        map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.3, duration: 600 });
+        map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.3, duration: reducedMotion ? 0 : 600 });
       });
-    } else if (p.id !== undefined) {
+    } else if (p.kind === 'place' && p.id !== undefined) {
       send({ type: 'place', id: p.id });
     }
   }
@@ -92,10 +106,29 @@
 
   function cancelLongPress() { clearTimeout(longPressTimer); }
 
+  // The selected pin grows into place with a spring's give.
+  function popSelection() {
+    if (reducedMotion || !map.getLayer(spec.selectionLayer)) return;
+    var steps = [0.55, 0.8, 1.02, 1.08, 1.03, 1.0];
+    var i = 0;
+    cancelAnimationFrame(popFrame);
+    function step() {
+      if (!map.getLayer(spec.selectionLayer)) return;
+      map.setLayoutProperty(spec.selectionLayer, 'icon-size', steps[i]);
+      i += 1;
+      if (i < steps.length) popFrame = requestAnimationFrame(function () { setTimeout(step, 20); });
+    }
+    step();
+  }
+
+  var position = null;
+
   window.lunaway = {
     init: function (options) {
       spec = options.spec;
       images = options.images;
+      pixelRatio = options.pixelRatio || 1;
+      reducedMotion = !!options.reducedMotion;
       map = new maplibregl.Map({
         container: 'map',
         style: options.style,
@@ -103,10 +136,10 @@
         zoom: options.zoom,
         attributionControl: false,
         dragRotate: false,
-        pitchWithRotate: false
+        pitchWithRotate: false,
+        touchPitch: false
       });
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-      // Bottom left, clear of the position button at the bottom right.
+      // Bottom left, clear of the app's own buttons at the bottom right.
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
       map.on('style.load', function () {
         installLayers().then(function () {
@@ -126,8 +159,9 @@
       });
       return true;
     },
-    setStyle: function (url) {
-      map.setStyle(url);
+    setStyle: function (style, newSpec) {
+      spec = newSpec;
+      map.setStyle(style);
       return true;
     },
     setData: function (sourceId, collection) {
@@ -136,12 +170,31 @@
       if (source) source.setData(collection);
       return true;
     },
-    moveTo: function (lat, lon, zoom) {
-      map.easeTo({ center: [lon, lat], zoom: zoom, duration: 700 });
+    setSelection: function (collection) {
+      window.lunaway.setData(spec.sources[1].id, collection);
+      if (collection.features.length > 0) popSelection();
+      return true;
+    },
+    moveTo: function (lat, lon, zoom, duration) {
+      map.easeTo({ center: [lon, lat], zoom: zoom, duration: duration });
+      return true;
+    },
+    zoomBy: function (delta) {
+      map.easeTo({ zoom: map.getZoom() + delta, duration: reducedMotion ? 0 : 260 });
       return true;
     },
     fitBounds: function (south, west, north, east, padding) {
-      map.fitBounds([[west, south], [east, north]], { padding: padding, duration: 700 });
+      map.fitBounds([[west, south], [east, north]], { padding: padding, duration: reducedMotion ? 0 : 700 });
+      return true;
+    },
+    showPosition: function (lat, lon) {
+      if (!position) {
+        var dot = document.createElement('div');
+        dot.className = 'lunaway-position';
+        position = new maplibregl.Marker({ element: dot }).setLngLat([lon, lat]).addTo(map);
+      } else {
+        position.setLngLat([lon, lat]);
+      }
       return true;
     },
     viewport: function () { return viewport(); }

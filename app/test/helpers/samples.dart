@@ -159,13 +159,17 @@ final serviceArea = Place(
 
 final List<Place> samplePlaces = [lakeArea, dayParking, campsite, unnamedParking, serviceArea];
 
+/// The API the tests' configuration points at (the public one): photos
+/// are served at its image proxy's paths, by the demo server in tests.
+const testApiBase = 'https://api.lunaway.net';
+
 final List<Photo> samplePhotos = [
   for (var i = 1; i <= 3; i++)
     Photo(
       id: 'photo-$i',
       sourceId: 'community',
-      thumbUrl: 'asset:assets/demo/photo-$i-thumb.jpg',
-      largeUrl: 'asset:assets/demo/photo-$i-large.jpg',
+      thumbUrl: '$testApiBase/media/demo-$i/thumb',
+      largeUrl: '$testApiBase/media/demo-$i/large',
     ),
 ];
 
@@ -178,7 +182,7 @@ final List<Review> sampleReviews = [
       text: 'Avis inventé numéro $i.',
       lang: 'fr',
       authorName: 'Voyageur démo $i',
-      authorVehicle: 'Fourgon aménagé',
+      authorVehicle: ReviewVehicle.campervan,
       createdAt: DateTime.utc(2026, 9, 10 - i),
     ),
 ];

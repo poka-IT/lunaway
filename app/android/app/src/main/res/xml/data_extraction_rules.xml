@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup and device-to-device transfer, Android 12 (API 31) and later.
+     Android 11 and earlier read backup_rules.xml, with the same files.
+
+     Only the user's own data travels: lunaway_user.sqlite (favourites,
+     settings, vehicle profile) in the app's files directory, with the
+     companion files SQLite keeps beside it while a write is in flight. The
+     place cache (lunaway.sqlite), the demo stores and the image cache stay
+     out: the app downloads them again. An <include> list backs up nothing
+     else.
+
+     Cloud backup only runs when the backup is end-to-end encrypted (a screen
+     lock is set): favourite places say where someone travels. -->
+<data-extraction-rules>
+    <cloud-backup disableIfNoEncryptionCapabilities="true">
+        <include domain="file" path="lunaway_user.sqlite" />
+        <include domain="file" path="lunaway_user.sqlite-wal" />
+        <include domain="file" path="lunaway_user.sqlite-shm" />
+        <include domain="file" path="lunaway_user.sqlite-journal" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="lunaway_user.sqlite" />
+        <include domain="file" path="lunaway_user.sqlite-wal" />
+        <include domain="file" path="lunaway_user.sqlite-shm" />
+        <include domain="file" path="lunaway_user.sqlite-journal" />
+    </device-transfer>
+</data-extraction-rules>

@@ -20,41 +20,95 @@ final class SyncRegion {
   final GeoBounds bounds;
 }
 
+/// Where the sync of a region stands, as the store keeps it across runs.
+@immutable
+final class SyncState {
+  const new({
+    this.cursor,
+    this.generation = 0,
+    this.fullSync = false,
+    this.running = false,
+    this.completedAt,
+  });
+
+  static const none = SyncState();
+
+  /// The cursor of the last page written; null before the first page of a
+  /// full sync.
+  final String? cursor;
+
+  /// The generation of the current or last full sync.
+  final int generation;
+
+  /// A full sync is under way: its end removes what it did not write.
+  final bool fullSync;
+
+  /// A run started and has not reached its last page: it resumes from
+  /// [cursor] at the next occasion, whatever the age of the last sync.
+  final bool running;
+
+  /// When a run last reached its last page; null until the first full sync
+  /// of the region completes.
+  final DateTime? completedAt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SyncState &&
+      other.cursor == cursor &&
+      other.generation == generation &&
+      other.fullSync == fullSync &&
+      other.running == running &&
+      other.completedAt == completedAt;
+
+  @override
+  int get hashCode => Object.hash(cursor, generation, fullSync, running, completedAt);
+}
+
 /// Where pages of changes come from: the API, or the demo data.
 abstract interface class ChangesSource {
   Future<ChangeSet> changes({required GeoBounds bbox, required int first, String? since});
 }
 
 /// Where pages of changes go. A page and its cursor are written in one
-/// transaction, so an interrupted sync resumes from the last whole page.
+/// transaction, so an interrupted run resumes from the last whole page.
 abstract interface class SyncStore {
-  Future<String?> cursorFor(String region);
+  Future<SyncState> stateOf(String region);
 
-  Future<void> applyPage(String region, ChangeSet page, DateTime syncedAt);
+  /// Starts a full sync of [region]: a new generation, no cursor, running.
+  /// The places stay on the device until the sync ends.
+  Future<void> beginFullSync(String region);
 
-  /// Forgets the cursor and every place, for a sync from scratch.
-  Future<void> reset(String region);
+  /// Starts a delta run from the stored cursor.
+  Future<void> beginDeltaSync(String region);
 
-  /// When the sync from scratch in progress for [region] started, if one is.
-  Future<DateTime?> fullSyncStart(String region);
+  /// Writes [page] and its cursor, tagging the places with the current
+  /// generation.
+  Future<void> applyPage(String region, ChangeSet page);
 
-  /// Drops the cursor of [region] and records that a sync from scratch
-  /// starts at [at]; the places stay on the device meanwhile.
-  Future<void> beginFullSync(String region, DateTime at);
+  /// Ends the run at its last page: when it was a full sync, removes the
+  /// places inside [bounds] it did not write (the server no longer has
+  /// them) and returns how many; records [at] as the completion time.
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at);
 
-  /// Ends the sync from scratch of [region]: removes the places inside
-  /// [bounds] that it did not write, which the server no longer has, and
-  /// returns how many.
-  Future<int> finishFullSync(String region, GeoBounds bounds);
+  /// Forgets [region]: its state, and the places inside [bounds].
+  Future<void> reset(String region, GeoBounds bounds);
 }
 
 @immutable
 final class SyncProgress {
-  const new({required this.pages, required this.upserted, required this.deleted});
+  const new({
+    required this.pages,
+    required this.upserted,
+    required this.deleted,
+    this.complete = false,
+  });
 
   final int pages;
   final int upserted;
   final int deleted;
+
+  /// The run reached the server's last page.
+  final bool complete;
 }
 
 /// Pages through `changes(bbox, since, first)` until the server says there is
@@ -76,14 +130,20 @@ final class SyncService {
     void Function(SyncProgress progress)? onProgress,
     DateTime Function() clock = DateTime.now,
   }) async {
-    if (fromScratch) await store.reset(region.id);
-    var since = await store.cursorFor(region.id);
-    // Without a cursor the server sends every place but no deletion: the
-    // sweep at the end removes what it no longer has.
-    var full = since == null;
-    if (full && await store.fullSyncStart(region.id) == null) {
-      await store.beginFullSync(region.id, clock().toUtc());
+    if (fromScratch) await store.reset(region.id, region.bounds);
+    final state = await store.stateOf(region.id);
+    // An interrupted run carries on from its cursor, as it was (full or
+    // delta). Otherwise a region without a cursor starts a full sync: the
+    // server then sends every place but no deletion, and the sweep at the
+    // end removes what it no longer has.
+    if (!state.running) {
+      if (state.cursor == null) {
+        await store.beginFullSync(region.id);
+      } else {
+        await store.beginDeltaSync(region.id);
+      }
     }
+    var since = state.cursor;
     var progress = const SyncProgress(pages: 0, upserted: 0, deleted: 0);
     var complete = false;
     while (progress.pages < maxPages) {
@@ -93,15 +153,15 @@ final class SyncService {
       } on GraphQLResponseException catch (e) {
         // The cursor comes from another copy of the server's change feed (a
         // restore): start again from scratch, keeping the places until the
-        // sweep and the favourites for good.
-        if (full || !e.hasCode(GraphQLError.resync)) rethrow;
+        // sweep and the favourites for good. Without a cursor the request
+        // cannot be refused this way: that would loop, so it surfaces.
+        if (since == null || !e.hasCode(GraphQLError.resync)) rethrow;
         _log.warning('${region.id}: the server asks for a sync from scratch');
-        await store.beginFullSync(region.id, clock().toUtc());
+        await store.beginFullSync(region.id);
         since = null;
-        full = true;
         continue;
       }
-      await store.applyPage(region.id, page, clock().toUtc());
+      await store.applyPage(region.id, page);
       progress = SyncProgress(
         pages: progress.pages + 1,
         upserted: progress.upserted + page.places.length,
@@ -118,16 +178,18 @@ final class SyncService {
       }
       since = page.cursor;
     }
-    if (complete && await store.fullSyncStart(region.id) != null) {
-      final swept = await store.finishFullSync(region.id, region.bounds);
+    if (complete) {
+      final swept = await store.completeRun(region.id, region.bounds, clock().toUtc());
       progress = SyncProgress(
         pages: progress.pages,
         upserted: progress.upserted,
         deleted: progress.deleted + swept,
+        complete: true,
       );
     }
     _log.info(
-      '${region.id}: ${progress.pages} page(s), ${progress.upserted} upserted, ${progress.deleted} deleted',
+      '${region.id}: ${progress.pages} page(s), ${progress.upserted} upserted, '
+      '${progress.deleted} deleted, ${complete ? 'complete' : 'to be resumed'}',
     );
     return progress;
   }

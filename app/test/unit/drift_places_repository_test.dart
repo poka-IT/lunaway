@@ -1,6 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
@@ -11,18 +11,20 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import '../helpers/samples.dart';
 
 void main() {
-  late AppDatabase db;
+  late CacheDatabase db;
   late DriftPlacesRepository repo;
   final synced = DateTime.utc(2026, 10, 6, 8);
+  const france = GeoBounds(south: 41, west: -6, north: 52, east: 10);
 
   setUp(() async {
-    db = AppDatabase(NativeDatabase.memory());
+    db = CacheDatabase(NativeDatabase.memory());
     repo = DriftPlacesRepository(db);
+    await repo.beginFullSync('fr');
     await repo.applyPage(
       'fr',
       ChangeSet(places: samplePlaces, deleted: const [], cursor: 'c1', hasMore: false),
-      synced,
     );
+    await repo.completeRun('fr', france, synced);
   });
   tearDown(() => db.close());
 
@@ -44,7 +46,9 @@ void main() {
       expect((await repo.watchPlace(campsite.id).first)!.stars, 3);
     });
 
-    test('intervals from a server that sends no window end hold 14 days from the sync', () async {
+    test('intervals without the end of their window are not kept', () async {
+      // Without its end, a time in no interval could read as closed when
+      // nothing is known: better no hours than wrong ones.
       final older = Place(
         id: 'test-older',
         kind: PlaceKind.parking,
@@ -58,17 +62,24 @@ void main() {
       await repo.applyPage(
         'fr',
         ChangeSet(places: [older], deleted: const [], cursor: 'c2', hasMore: false),
-        synced,
       );
-      expect(
-        (await repo.watchPlace(older.id).first)!.openingValidUntil,
-        synced.add(const Duration(days: 14)),
-      );
+      final stored = (await repo.watchPlace(older.id).first)!;
+      expect(stored.openingIntervals, isNull);
+      expect(stored.openingValidUntil, isNull);
     });
 
-    test('stores the cursor with the page', () async {
-      expect(await repo.cursorFor('fr'), 'c1');
-      expect(await repo.watchLastSync('fr').first, synced);
+    test('stores the cursor with the page, the completion only at the end', () async {
+      expect((await repo.stateOf('fr')).cursor, 'c1');
+      expect((await repo.watchSync('fr').first).completedAt, synced);
+      await repo.beginDeltaSync('fr');
+      await repo.applyPage(
+        'fr',
+        const ChangeSet(places: [], deleted: [], cursor: 'c2', hasMore: true),
+      );
+      final state = await repo.stateOf('fr');
+      expect(state.cursor, 'c2');
+      expect(state.running, isTrue);
+      expect(state.completedAt, synced, reason: 'a page is not a completed sync');
     });
 
     test('updates a place in place and deletes the ones the server removed', () async {
@@ -84,7 +95,6 @@ void main() {
       await repo.applyPage(
         'fr',
         ChangeSet(places: [renamed], deleted: [campsite.id], cursor: 'c2', hasMore: false),
-        synced,
       );
       expect((await repo.watchPlace(dayParking.id).first)!.name, 'Parking renommé (démo)');
       expect(await repo.watchPlace(campsite.id).first, isNull);
@@ -95,34 +105,56 @@ void main() {
     });
 
     test('a full sync removes the places it did not write, inside its region only', () async {
-      final later = synced.add(const Duration(hours: 1));
-      await repo.beginFullSync('fr', later);
-      expect(await repo.cursorFor('fr'), isNull);
-      expect(await repo.fullSyncStart('fr'), later);
+      await repo.beginFullSync('fr');
+      expect((await repo.stateOf('fr')).cursor, isNull);
+      expect((await repo.stateOf('fr')).fullSync, isTrue);
       // The server still has the lake area and the campsite.
       await repo.applyPage(
         'fr',
         ChangeSet(places: [lakeArea, campsite], deleted: const [], cursor: 'c9', hasMore: false),
-        later,
       );
-      final swept = await repo.finishFullSync(
+      final swept = await repo.completeRun(
         'fr',
         const GeoBounds(south: 44, west: -2, north: 48, east: 7),
+        synced.add(const Duration(hours: 1)),
       );
       final left = {for (final p in await repo.watchAll(PlaceFilter.none).first) p.id};
       // The service area and the unnamed car park lie outside these bounds.
       expect(left, {lakeArea.id, campsite.id, unnamedParking.id, serviceArea.id});
       expect(swept, 1, reason: 'only the day car park was inside and not written');
-      expect(await repo.fullSyncStart('fr'), isNull);
-      expect(await repo.cursorFor('fr'), 'c9');
+      final state = await repo.stateOf('fr');
+      expect(state.fullSync, isFalse);
+      expect(state.cursor, 'c9');
       // The search index follows the sweep.
       expect((await repo.search('tilleuls')).places, isEmpty);
     });
 
-    test('a reset forgets the places and the cursor', () async {
-      await repo.reset('fr');
-      expect(await repo.watchCount().first, 0);
-      expect(await repo.cursorFor('fr'), isNull);
+    test(
+      'the sweep goes by generation, not by clock: a clock set back sweeps nothing written',
+      () async {
+        await repo.beginFullSync('fr');
+        await repo.applyPage(
+          'fr',
+          ChangeSet(places: samplePlaces, deleted: const [], cursor: 'c9', hasMore: false),
+        );
+        // Completion recorded at a time before the first sync: irrelevant.
+        final swept = await repo.completeRun(
+          'fr',
+          france,
+          synced.subtract(const Duration(days: 30)),
+        );
+        expect(swept, 0);
+        expect(await repo.watchCount().first, samplePlaces.length);
+      },
+    );
+
+    test('a reset forgets its region only: its state and the places inside its bounds', () async {
+      await repo.beginFullSync('other');
+      await repo.reset('fr', const GeoBounds(south: 45, west: 4, north: 47, east: 7));
+      expect((await repo.stateOf('fr')).cursor, isNull);
+      expect((await repo.stateOf('other')).generation, 1, reason: 'another region keeps its state');
+      final left = {for (final p in await repo.watchAll(PlaceFilter.none).first) p.id};
+      expect(left, {campsite.id, unnamedParking.id, serviceArea.id});
     });
   });
 
@@ -131,8 +163,19 @@ void main() {
       expect(await ids(PlaceFilter.none), samplePlaces.map((p) => p.id).toSet());
     });
 
-    test('"night allowed" keeps allowed and tolerated, drops day-only places', () async {
-      expect(await ids(PlaceFilter.initial), {lakeArea.id, campsite.id, unnamedParking.id});
+    test('"night possible" keeps allowed and tolerated, drops day-only places', () async {
+      expect(await ids(PlaceFilter.none.withNightOk(on: true)), {
+        lakeArea.id,
+        campsite.id,
+        unnamedParking.id,
+      });
+    });
+
+    test('a single night status keeps that status only', () async {
+      expect(await ids(const PlaceFilter(overnight: {OvernightStatus.dayOnly})), {
+        dayParking.id,
+        serviceArea.id,
+      });
     });
 
     test('a family keeps its kinds only', () async {
@@ -161,7 +204,7 @@ void main() {
     });
 
     test('the count matches the filtered list', () async {
-      const filter = PlaceFilter(nightOk: true, amenities: {Amenity.water});
+      const filter = PlaceFilter(overnight: nightPossible, amenities: {Amenity.water});
       expect(await repo.countMatching(filter), (await ids(filter)).length);
     });
 
@@ -186,7 +229,11 @@ void main() {
     test('applies the filter in the box too', () async {
       const alps = GeoBounds(south: 45, west: 4, north: 47, east: 7);
       final inside = await repo
-          .watchInBounds(alps, PlaceFilter.initial, center: const LatLng(45.76, 4.83))
+          .watchInBounds(
+            alps,
+            const PlaceFilter(overnight: nightPossible),
+            center: const LatLng(45.76, 4.83),
+          )
           .first;
       expect(inside.map((p) => p.id), [lakeArea.id]);
     });

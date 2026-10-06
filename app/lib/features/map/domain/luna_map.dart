@@ -29,8 +29,13 @@ abstract interface class LunaMapController {
 
   Future<void> fitBounds(GeoBounds bounds);
 
-  /// The device position, after asking for the permission if needed; null
-  /// when it is refused or unavailable.
+  /// Zooms in (positive) or out (negative) by [delta] levels, around the
+  /// centre of the visible part of the map.
+  Future<void> zoomBy(double delta);
+
+  /// Shows the device position and returns it; null when none came in
+  /// time. The location permission is the screen's business: it asks,
+  /// with an explanation, before calling this.
   Future<LatLng?> locateUser();
 }
 
@@ -40,7 +45,8 @@ abstract interface class LunaMapController {
 @immutable
 final class LunaMapProps {
   const new({
-    required this.styleUrl,
+    required this.style,
+    required this.dark,
     required this.initialCenter,
     required this.initialZoom,
     required this.places,
@@ -50,10 +56,16 @@ final class LunaMapProps {
     required this.onViewportChanged,
     required this.onMapReady,
     this.markedPoint,
+    this.onEmptyTap,
     this.padding = EdgeInsets.zero,
+    this.attributionInset = EdgeInsets.zero,
   });
 
-  final String styleUrl;
+  /// The basemap: a style URL or a style document (JSON text).
+  final String style;
+
+  /// The night basemap is on: clusters switch to their night colours.
+  final bool dark;
   final LatLng initialCenter;
   final double initialZoom;
   final List<PlaceSummary> places;
@@ -64,11 +76,19 @@ final class LunaMapProps {
   final ValueChanged<String> onPlaceTap;
   final ValueChanged<LatLng> onLongPress;
   final ValueChanged<MapViewport> onViewportChanged;
+
+  /// A tap where there is no pin, no cluster and no marker: closes what the
+  /// map had open, as in every map app.
+  final VoidCallback? onEmptyTap;
   final ValueChanged<LunaMapController> onMapReady;
 
   /// Space covered by floating panels, so camera moves centre on what the
   /// user can see.
   final EdgeInsets padding;
+
+  /// Where the basemap attribution sits, from the bottom left corner: above
+  /// the sheet and the dock on a phone, in the corner on a desktop.
+  final EdgeInsets attributionInset;
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);

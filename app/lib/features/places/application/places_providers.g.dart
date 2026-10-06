@@ -48,7 +48,7 @@ final class GraphQLClientProvider
   }
 }
 
-String _$graphQLClientHash() => r'1c42650d01626d7a9b188e656814f36bce3f6258';
+String _$graphQLClientHash() => r'dc5a660bfeb2eaef8d3bb98cacfb88ea66b1fb00';
 
 @ProviderFor(driftPlacesRepository)
 final driftPlacesRepositoryProvider = DriftPlacesRepositoryProvider._();
@@ -96,7 +96,7 @@ final class DriftPlacesRepositoryProvider
 }
 
 String _$driftPlacesRepositoryHash() =>
-    r'65ebf086997a072d8546b06d0e857d0290c37b58';
+    r'2462291bdf100b47e896dc6db7cc5a16de40cb43';
 
 /// The read side every screen uses; tests replace it with a fake.
 // keepAlive: a repository over the app-wide database.
@@ -193,17 +193,78 @@ final class SyncServiceProvider
 
 String _$syncServiceHash() => r'be7ed1cffea8b9c4fe57457d9a4962fedab3140c';
 
-/// Runs the sync of the region and reports its progress.
+/// The waits between automatic retries of a failed sync, the last one
+/// repeated; replaced in tests.
+// keepAlive: a constant of the run.
+
+@ProviderFor(syncRetryDelays)
+final syncRetryDelaysProvider = SyncRetryDelaysProvider._();
+
+/// The waits between automatic retries of a failed sync, the last one
+/// repeated; replaced in tests.
+// keepAlive: a constant of the run.
+
+final class SyncRetryDelaysProvider
+    extends $FunctionalProvider<List<Duration>, List<Duration>, List<Duration>>
+    with $Provider<List<Duration>> {
+  /// The waits between automatic retries of a failed sync, the last one
+  /// repeated; replaced in tests.
+  // keepAlive: a constant of the run.
+  SyncRetryDelaysProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'syncRetryDelaysProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$syncRetryDelaysHash();
+
+  @$internal
+  @override
+  $ProviderElement<List<Duration>> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  List<Duration> create(Ref ref) {
+    return syncRetryDelays(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<Duration> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<Duration>>(value),
+    );
+  }
+}
+
+String _$syncRetryDelaysHash() => r'a95d2893ba7ae768cab9842e2e9d7520b2e9f5dd';
+
+/// Runs the sync of the region and reports its progress. Started once by
+/// the app: it syncs at launch when the data is old or a run was cut short,
+/// again each time the app comes back to the foreground, and retries a
+/// failed sync on its own with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 
 @ProviderFor(SyncController)
 final syncControllerProvider = SyncControllerProvider._();
 
-/// Runs the sync of the region and reports its progress.
+/// Runs the sync of the region and reports its progress. Started once by
+/// the app: it syncs at launch when the data is old or a run was cut short,
+/// again each time the app comes back to the foreground, and retries a
+/// failed sync on its own with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 final class SyncControllerProvider
     extends $NotifierProvider<SyncController, SyncStatus> {
-  /// Runs the sync of the region and reports its progress.
+  /// Runs the sync of the region and reports its progress. Started once by
+  /// the app: it syncs at launch when the data is old or a run was cut short,
+  /// again each time the app comes back to the foreground, and retries a
+  /// failed sync on its own with a growing wait.
   // keepAlive: a sync outlives the screen that started it.
   SyncControllerProvider._()
     : super(
@@ -232,9 +293,12 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'22fd4c89a5af50fe87962626c8decf19d8838f26';
+String _$syncControllerHash() => r'7f5e89298f020a8dde77618f35467f9d92ac7441';
 
-/// Runs the sync of the region and reports its progress.
+/// Runs the sync of the region and reports its progress. Started once by
+/// the app: it syncs at launch when the data is old or a run was cut short,
+/// again each time the app comes back to the foreground, and retries a
+/// failed sync on its own with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 
 abstract class _$SyncController extends $Notifier<SyncStatus> {
@@ -254,6 +318,55 @@ abstract class _$SyncController extends $Notifier<SyncStatus> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The filter the map and the list query with: the user's filters, with
+/// "my vehicle fits" turned into the stored vehicle's height.
+
+@ProviderFor(effectiveFilter)
+final effectiveFilterProvider = EffectiveFilterProvider._();
+
+/// The filter the map and the list query with: the user's filters, with
+/// "my vehicle fits" turned into the stored vehicle's height.
+
+final class EffectiveFilterProvider
+    extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
+    with $Provider<PlaceFilter> {
+  /// The filter the map and the list query with: the user's filters, with
+  /// "my vehicle fits" turned into the stored vehicle's height.
+  EffectiveFilterProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'effectiveFilterProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$effectiveFilterHash();
+
+  @$internal
+  @override
+  $ProviderElement<PlaceFilter> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PlaceFilter create(Ref ref) {
+    return effectiveFilter(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlaceFilter value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlaceFilter>(value),
+    );
+  }
+}
+
+String _$effectiveFilterHash() => r'db9a04415798b3cb7ae51aa20e45bc6bce202b84';
 
 /// Every place passing the filter, for the map.
 
@@ -299,7 +412,7 @@ final class MapPlacesProvider
   }
 }
 
-String _$mapPlacesHash() => r'dffa56747fb214dc0919ac928a49809e3d00a520';
+String _$mapPlacesHash() => r'979c36a3a26865a95b52303ad4886ac4e826aa34';
 
 @ProviderFor(place)
 final placeProvider = PlaceFamily._();
@@ -457,7 +570,7 @@ final class FilterPreviewCountProvider
 }
 
 String _$filterPreviewCountHash() =>
-    r'6e2bdce56aed682567e8109cba1ed61c2146aa7c';
+    r'ee34b1f35d59288ed82b02771f34308ca123e43d';
 
 /// How many places a filter keeps, before the user applies it.
 
@@ -481,39 +594,44 @@ final class FilterPreviewCountFamily extends $Family
   String toString() => r'filterPreviewCountProvider';
 }
 
-@ProviderFor(lastSync)
-final lastSyncProvider = LastSyncProvider._();
+/// Where the sync of the region stands, as stored.
 
-final class LastSyncProvider
+@ProviderFor(syncState)
+final syncStateProvider = SyncStateProvider._();
+
+/// Where the sync of the region stands, as stored.
+
+final class SyncStateProvider
     extends
-        $FunctionalProvider<AsyncValue<DateTime?>, DateTime?, Stream<DateTime?>>
-    with $FutureModifier<DateTime?>, $StreamProvider<DateTime?> {
-  LastSyncProvider._()
+        $FunctionalProvider<AsyncValue<SyncState>, SyncState, Stream<SyncState>>
+    with $FutureModifier<SyncState>, $StreamProvider<SyncState> {
+  /// Where the sync of the region stands, as stored.
+  SyncStateProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'lastSyncProvider',
+        name: r'syncStateProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$lastSyncHash();
+  String debugGetCreateSourceHash() => _$syncStateHash();
 
   @$internal
   @override
-  $StreamProviderElement<DateTime?> $createElement($ProviderPointer pointer) =>
+  $StreamProviderElement<SyncState> $createElement($ProviderPointer pointer) =>
       $StreamProviderElement(pointer);
 
   @override
-  Stream<DateTime?> create(Ref ref) {
-    return lastSync(ref);
+  Stream<SyncState> create(Ref ref) {
+    return syncState(ref);
   }
 }
 
-String _$lastSyncHash() => r'de13539ca64f39d847c287b53c15debf30e71d13';
+String _$syncStateHash() => r'b1d621f005b6b5851f0742342b4481961a9e70be';
 
 @ProviderFor(storageSize)
 final storageSizeProvider = StorageSizeProvider._();
@@ -594,7 +712,7 @@ final class PlaceExtrasRepositoryProvider
 }
 
 String _$placeExtrasRepositoryHash() =>
-    r'e8d5836fc63388b4b04e8de38fc27fbb9657ee51';
+    r'86005541e500e21f0a458613633b1fd8ca5cf711';
 
 /// Photos and reviews of a place, online with a cache. A failure without a
 /// cached copy surfaces, so the screen can say a connection is needed.
@@ -686,22 +804,25 @@ final class PlaceExtrasFamily extends $Family
 }
 
 /// The reviews shown for a place: the first page with the extras, the next
-/// ones appended on demand.
+/// ones appended on demand. Like the extras it reads, a failure surfaces at
+/// once instead of being retried behind the user's back.
 
 @ProviderFor(PlaceReviews)
 final placeReviewsProvider = PlaceReviewsFamily._();
 
 /// The reviews shown for a place: the first page with the extras, the next
-/// ones appended on demand.
+/// ones appended on demand. Like the extras it reads, a failure surfaces at
+/// once instead of being retried behind the user's back.
 final class PlaceReviewsProvider
     extends $AsyncNotifierProvider<PlaceReviews, ReviewList> {
   /// The reviews shown for a place: the first page with the extras, the next
-  /// ones appended on demand.
+  /// ones appended on demand. Like the extras it reads, a failure surfaces at
+  /// once instead of being retried behind the user's back.
   PlaceReviewsProvider._({
     required PlaceReviewsFamily super.from,
     required String super.argument,
   }) : super(
-         retry: null,
+         retry: noRetry,
          name: r'placeReviewsProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -733,10 +854,11 @@ final class PlaceReviewsProvider
   }
 }
 
-String _$placeReviewsHash() => r'2fc02142b4bdf723d782a26869e909a617bc7358';
+String _$placeReviewsHash() => r'a9a54e3d33e23233e6816574a4c4491cf1e4a2bd';
 
 /// The reviews shown for a place: the first page with the extras, the next
-/// ones appended on demand.
+/// ones appended on demand. Like the extras it reads, a failure surfaces at
+/// once instead of being retried behind the user's back.
 
 final class PlaceReviewsFamily extends $Family
     with
@@ -749,7 +871,7 @@ final class PlaceReviewsFamily extends $Family
         > {
   PlaceReviewsFamily._()
     : super(
-        retry: null,
+        retry: noRetry,
         name: r'placeReviewsProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -757,7 +879,8 @@ final class PlaceReviewsFamily extends $Family
       );
 
   /// The reviews shown for a place: the first page with the extras, the next
-  /// ones appended on demand.
+  /// ones appended on demand. Like the extras it reads, a failure surfaces at
+  /// once instead of being retried behind the user's back.
 
   PlaceReviewsProvider call(String placeId) =>
       PlaceReviewsProvider._(argument: placeId, from: this);
@@ -767,7 +890,8 @@ final class PlaceReviewsFamily extends $Family
 }
 
 /// The reviews shown for a place: the first page with the extras, the next
-/// ones appended on demand.
+/// ones appended on demand. Like the extras it reads, a failure surfaces at
+/// once instead of being retried behind the user's back.
 
 abstract class _$PlaceReviews extends $AsyncNotifier<ReviewList> {
   late final _$args = ref.$arg as String;

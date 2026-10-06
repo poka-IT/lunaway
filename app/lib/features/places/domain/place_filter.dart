@@ -3,63 +3,82 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
-/// A need the filters offer, wider than one service: a dump station is a grey
-/// water or a black water point, whichever the place has.
+/// A need the filters offer, sometimes wider than one service: a dump
+/// station is a grey water or a black water point, whichever the place has.
 enum Amenity {
   water({Service.drinkingWater}),
   dumpStation({Service.greyWater, Service.blackWater}),
   electricity({Service.electricity}),
-  toilets({Service.toilets});
+  toilets({Service.toilets}),
+  showers({Service.showers}),
+  wasteBin({Service.wasteBin}),
+  laundry({Service.laundry}),
+  wifi({Service.wifi}),
+  lpg({Service.lpg});
 
   new(this.services);
 
   /// A place offers the amenity when it has any of these.
   final Set<Service> services;
 
+  /// The four a traveller checks first, offered one tap away on the map.
+  static const List<Amenity> quick = [water, dumpStation, electricity, toilets];
+
   int get mask => Service.maskOf(services);
 
   bool offeredBy(Set<Service> placeServices) => placeServices.any(services.contains);
 }
 
-/// The few filters the app offers. Every field narrows the result; the empty
+/// The overnight statuses where a night can be spent: what the "night
+/// possible" shortcut keeps.
+const Set<OvernightStatus> nightPossible = {OvernightStatus.allowed, OvernightStatus.tolerated};
+
+/// The filters the app offers. Every field narrows the result; the empty
 /// filter keeps everything.
 @immutable
 final class PlaceFilter {
   const new({
     this.families = const {},
-    this.nightOk = false,
+    this.overnight = const {},
     this.amenities = const {},
+    this.fitsMyVehicle = false,
     this.vehicleHeightM,
   });
 
+  /// No filter: what a new user starts with, so service points (which
+  /// rarely allow a night) show from the first launch.
   static const none = PlaceFilter();
-
-  /// The filter a new user starts with: only places where a night is allowed
-  /// or tolerated, the first question a traveller asks.
-  static const initial = PlaceFilter(nightOk: true);
 
   /// Empty means every family.
   final Set<KindFamily> families;
 
-  /// Keep only places where a night is allowed or tolerated.
-  final bool nightOk;
+  /// The overnight statuses kept; empty means every status.
+  final Set<OvernightStatus> overnight;
 
   /// The place must offer all of them.
   final Set<Amenity> amenities;
 
+  /// Keep only places the user's vehicle fits, using its stored size. The
+  /// screens resolve it into [vehicleHeightM] before querying.
+  final bool fitsMyVehicle;
+
   /// Excludes places whose known maximum height is lower. Unknown heights
-  /// stay: hiding them would hide most of the map.
+  /// stay: hiding them would hide most of the map. Set from the vehicle
+  /// profile when [fitsMyVehicle] is on; never stored on its own.
   final double? vehicleHeightM;
 
-  bool get isEmpty => families.isEmpty && !nightOk && amenities.isEmpty && vehicleHeightM == null;
+  bool get isEmpty => families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle;
+
+  /// The "night possible" shortcut is on.
+  bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
 
   /// How many criteria are active, for the badge on the filter button.
   int get activeCount =>
-      families.length + (nightOk ? 1 : 0) + amenities.length + (vehicleHeightM == null ? 0 : 1);
+      families.length + (overnight.isEmpty ? 0 : 1) + amenities.length + (fitsMyVehicle ? 1 : 0);
 
   bool matches(PlaceSummary place, {double? maxHeightM}) {
     if (families.isNotEmpty && !families.contains(place.kind.family)) return false;
-    if (nightOk && !place.overnight.nightOk) return false;
+    if (overnight.isNotEmpty && !overnight.contains(place.overnight)) return false;
     if (!amenities.every((a) => a.offeredBy(place.services))) return false;
     final height = vehicleHeightM;
     if (height != null && maxHeightM != null && maxHeightM < height) return false;
@@ -68,19 +87,32 @@ final class PlaceFilter {
 
   PlaceFilter copyWith({
     Set<KindFamily>? families,
-    bool? nightOk,
+    Set<OvernightStatus>? overnight,
     Set<Amenity>? amenities,
+    bool? fitsMyVehicle,
     double? Function()? vehicleHeightM,
   }) => PlaceFilter(
     families: families ?? this.families,
-    nightOk: nightOk ?? this.nightOk,
+    overnight: overnight ?? this.overnight,
     amenities: amenities ?? this.amenities,
+    fitsMyVehicle: fitsMyVehicle ?? this.fitsMyVehicle,
     vehicleHeightM: vehicleHeightM == null ? this.vehicleHeightM : vehicleHeightM(),
   );
 
   PlaceFilter toggleAmenity(Amenity amenity) => copyWith(amenities: _toggle(amenities, amenity));
 
   PlaceFilter toggleFamily(KindFamily family) => copyWith(families: _toggle(families, family));
+
+  PlaceFilter toggleOvernight(OvernightStatus status) =>
+      copyWith(overnight: _toggle(overnight, status));
+
+  /// Turns the "night possible" shortcut on, or every status back on.
+  PlaceFilter withNightOk({required bool on}) => copyWith(overnight: on ? nightPossible : const {});
+
+  /// The filter to query with: [fitsMyVehicle] turned into the height of
+  /// the stored vehicle, or into nothing while no height is known.
+  PlaceFilter resolve({double? vehicleHeightM}) =>
+      copyWith(vehicleHeightM: () => fitsMyVehicle ? vehicleHeightM : null);
 
   static Set<T> _toggle<T>(Set<T> set, T value) =>
       set.contains(value) ? ({...set}..remove(value)) : {...set, value};
@@ -89,15 +121,17 @@ final class PlaceFilter {
   bool operator ==(Object other) =>
       other is PlaceFilter &&
       const SetEquality<KindFamily>().equals(other.families, families) &&
-      other.nightOk == nightOk &&
+      const SetEquality<OvernightStatus>().equals(other.overnight, overnight) &&
       const SetEquality<Amenity>().equals(other.amenities, amenities) &&
+      other.fitsMyVehicle == fitsMyVehicle &&
       other.vehicleHeightM == vehicleHeightM;
 
   @override
   int get hashCode => Object.hash(
     Object.hashAllUnordered(families),
-    nightOk,
+    Object.hashAllUnordered(overnight),
     Object.hashAllUnordered(amenities),
+    fitsMyVehicle,
     vehicleHeightM,
   );
 }

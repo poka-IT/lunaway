@@ -12,6 +12,11 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Lunaway</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>fr</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,6 +33,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- The navigation apps whose installation the place sheet checks
+	     (canLaunchUrl, lib/core/navigation_apps.dart) before offering them
+	     for directions, by the URL scheme the app opens: comgooglemaps
+	     (Google Maps) and waze (Waze) are documented by their vendors, om
+	     (Organic Maps) is registered by its iOS app, osmand.navigation and
+	     magicearth are not documented for iOS and may never answer. Apple
+	     Plans opens from an https link and needs no entry. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+		<string>om</string>
+		<string>osmand.navigation</string>
+		<string>magicearth</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

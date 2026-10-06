@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
+import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -14,7 +17,7 @@ import 'package:lunaway/features/places/domain/place_filter.dart';
 /// An in-memory [PlacesRepository] with the same filter semantics as the
 /// drift one (the drift one is tested against the same expectations).
 final class FakePlacesRepository implements PlacesRepository {
-  new(List<Place> places, {this.lastSync}) {
+  new(List<Place> places, {this.sync = SyncState.none}) {
     for (final p in places) {
       _places[p.id] = p;
     }
@@ -22,7 +25,9 @@ final class FakePlacesRepository implements PlacesRepository {
 
   final Map<String, Place> _places = {};
   final StreamController<void> _changes = StreamController.broadcast();
-  DateTime? lastSync;
+
+  /// Where the sync stands, as the store would say.
+  SyncState sync;
 
   /// Makes every read fail, for the error states.
   Exception? failWith;
@@ -105,7 +110,12 @@ final class FakePlacesRepository implements PlacesRepository {
       _places.values.where((p) => _keeps(p, filter)).length;
 
   @override
-  Stream<DateTime?> watchLastSync(String region) => _watch(() => lastSync);
+  Stream<SyncState> watchSync(String region) => _watch(() => sync);
+
+  void setSync(SyncState next) {
+    sync = next;
+    _changes.add(null);
+  }
 
   @override
   Future<int> storageSizeBytes() async => 3 * 1024 * 1024 + 300 * 1024;
@@ -154,10 +164,17 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   );
 
   @override
+  Future<int> defaultListId() async => 1;
+
+  @override
   Future<void> addToDefault(PlaceSummary place) => add(1, place);
+
+  /// Makes every later add and removal fail, as a full disk would.
+  bool failWrites = false;
 
   @override
   Future<void> add(int listId, PlaceSummary place) async {
+    if (failWrites) throw StateError('disk full');
     _entries
       ..removeWhere((e) => e.listId == listId && e.placeId == place.id)
       ..add(
@@ -166,6 +183,8 @@ final class FakeFavoritesRepository implements FavoritesRepository {
           placeId: place.id,
           name: place.name,
           kind: place.kind,
+          overnight: place.overnight,
+          city: place.city,
           position: place.position,
           addedAt: DateTime.utc(2026, 10, 6),
         ),
@@ -174,15 +193,12 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   }
 
   @override
-  Future<void> remove(int listId, String placeId) async {
+  Future<FavoriteEntry?> remove(int listId, String placeId) async {
+    if (failWrites) throw StateError('disk full');
+    final removed = _entries.where((e) => e.listId == listId && e.placeId == placeId).firstOrNull;
     _entries.removeWhere((e) => e.listId == listId && e.placeId == placeId);
     _changed();
-  }
-
-  @override
-  Future<void> removeEverywhere(String placeId) async {
-    _entries.removeWhere((e) => e.placeId == placeId);
-    _changed();
+    return removed;
   }
 
   @override
@@ -214,20 +230,67 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   }
 }
 
-/// Records what the app hands to other apps.
+/// Records what the app hands to other apps, through the same checks as
+/// the platform implementation.
 final class FakeExternalActions implements ExternalActions {
   final List<Uri> opened = [];
   final List<String> shared = [];
+  final List<String> dialled = [];
+  final List<({NavigationApp app, LatLng to})> routes = [];
   bool openSucceeds = true;
+
+  /// The navigation apps "installed".
+  Set<NavigationApp> installed = {NavigationApp.googleMaps, NavigationApp.waze};
 
   @override
   Future<bool> openUrl(Uri url) async {
+    if (!PlatformExternalActions.isWebPage(url)) return false;
     opened.add(url);
     return openSucceeds;
   }
 
   @override
+  Future<bool> dial(String number) async {
+    dialled.add(number);
+    return openSucceeds;
+  }
+
+  @override
+  Future<bool> navigate(NavigationApp app, LatLng to, {LatLng? from, String? label}) async {
+    routes.add((app: app, to: to));
+    return openSucceeds;
+  }
+
+  @override
+  Future<bool> canNavigateWith(NavigationApp app) async => installed.contains(app);
+
+  @override
   Future<void> share(String text, {String? subject, Rect? origin}) async => shared.add(text);
+}
+
+/// The location permission, answered from fields the test sets.
+final class FakeLocationPermissions implements LocationPermissions {
+  LocationAccess current = LocationAccess.granted;
+
+  /// What the system prompt answers.
+  LocationAccess afterRequest = LocationAccess.granted;
+  int requests = 0;
+  int settingsOpened = 0;
+
+  @override
+  Future<LocationAccess> status() async => current;
+
+  @override
+  Future<LocationAccess> request() async {
+    requests++;
+    return current = afterRequest;
+  }
+
+  @override
+  Future<bool> openSettings() async {
+    settingsOpened++;
+    return true;
+  }
 }
 
 /// Photos and reviews served from memory; [online] false makes the network
@@ -293,6 +356,11 @@ base class FakeMap implements LunaMapController {
 
   @override
   Future<void> fitBounds(GeoBounds bounds) async => fits.add(bounds);
+
+  final List<double> zooms = [];
+
+  @override
+  Future<void> zoomBy(double delta) async => zooms.add(delta);
 
   @override
   Future<LatLng?> locateUser() async => userPosition;

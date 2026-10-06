@@ -5,7 +5,10 @@ import 'package:gql/language.dart';
 /// for what can drift between the app and the server. Every field exists on
 /// its type, every argument exists and the required ones are given,
 /// variables are declared, used, and typed compatibly with the arguments
-/// they feed, and selections are present exactly on object types.
+/// they feed, and selections are present exactly on object types. It also
+/// checks values: the variables a request sends ([checkVariables]) and the
+/// data a response carries ([checkResponse]), so a stand-in server (the
+/// demo) cannot drift from what the real one accepts and sends.
 final class SchemaValidator {
   new(String sdl) {
     final doc = parseString(sdl);
@@ -164,6 +167,180 @@ final class SchemaValidator {
             visiting,
           );
       }
+    }
+  }
+
+  /// Custom scalars and how a value of each is written on the wire. A
+  /// scalar the schema adds without a rule here is reported, so the check
+  /// never passes a value it does not understand.
+  static final Map<String, bool Function(Object)> _scalars = {
+    'UUID': (v) =>
+        v is String &&
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(v),
+    'DateTime': (v) => v is String && v.contains('T') && DateTime.tryParse(v) != null,
+    'NaiveDate': (v) => v is String && RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v),
+  };
+
+  /// Problems in [variables], the values a request sends with [document]:
+  /// each must have its declared type, as the server parses it.
+  List<String> checkVariables(String document, Map<String, Object?> variables) {
+    final errors = <String>[];
+    for (final op in parseString(document).definitions.whereType<OperationDefinitionNode>()) {
+      for (final v in op.variableDefinitions) {
+        final name = v.variable.name.value;
+        _input(v.type, variables[name], '\$$name', errors);
+      }
+    }
+    return errors;
+  }
+
+  void _input(TypeNode type, Object? value, String path, List<String> errors) {
+    if (value == null) {
+      if (type.isNonNull) errors.add('$path: null for ${_print(type)}');
+      return;
+    }
+    switch (type) {
+      case ListTypeNode(type: final item):
+        if (value is! List) {
+          errors.add('$path: not a list');
+          return;
+        }
+        for (var i = 0; i < value.length; i++) {
+          _input(item, value[i], '$path[$i]', errors);
+        }
+      case NamedTypeNode(:final name):
+        switch (_types[name.value]) {
+          case InputObjectTypeDefinitionNode(:final fields):
+            if (value is! Map) {
+              errors.add('$path: not an object');
+              return;
+            }
+            for (final key in value.keys.where((k) => !fields.any((f) => f.name.value == k))) {
+              errors.add('$path: ${name.value} has no field "$key"');
+            }
+            for (final f in fields) {
+              _input(f.type, value[f.name.value], '$path.${f.name.value}', errors);
+            }
+          default:
+            _leaf(name.value, value, path, errors);
+        }
+      default:
+        errors.add('$path: unexpected type');
+    }
+  }
+
+  /// Problems in [data], the `data` of a response to [document]: a selected
+  /// field missing, a value of the wrong shape, an enum value the schema
+  /// does not list, a null where the schema promises a value.
+  List<String> checkResponse(String document, Map<String, dynamic> data) {
+    final doc = parseString(document);
+    final fragments = {
+      for (final d in doc.definitions.whereType<FragmentDefinitionNode>()) d.name.value: d,
+    };
+    final errors = <String>[];
+    for (final op in doc.definitions.whereType<OperationDefinitionNode>()) {
+      final root = _roots[op.type];
+      if (root == null) continue;
+      _object(op.selectionSet, root, data, op.name?.value ?? '<anonymous>', fragments, errors);
+    }
+    return errors;
+  }
+
+  void _object(
+    SelectionSetNode set,
+    String typeName,
+    Map<String, dynamic> value,
+    String path,
+    Map<String, FragmentDefinitionNode> fragments,
+    List<String> errors,
+  ) {
+    final fields = switch (_types[typeName]) {
+      ObjectTypeDefinitionNode(:final fields) => fields,
+      InterfaceTypeDefinitionNode(:final fields) => fields,
+      _ => const <FieldDefinitionNode>[],
+    };
+    for (final selection in set.selections) {
+      switch (selection) {
+        case FieldNode(:final name, :final alias, selectionSet: final sub):
+          if (name.value == '__typename') continue;
+          final def = fields.where((f) => f.name.value == name.value).firstOrNull;
+          // An unknown field is validate()'s finding; nothing to compare.
+          if (def == null) continue;
+          final key = alias?.value ?? name.value;
+          if (!value.containsKey(key)) {
+            errors.add('$path.$key: missing');
+            continue;
+          }
+          _output(def.type, value[key], sub, '$path.$key', fragments, errors);
+        case FragmentSpreadNode(:final name):
+          final fragment = fragments[name.value];
+          if (fragment == null) continue;
+          _object(
+            fragment.selectionSet,
+            fragment.typeCondition.on.name.value,
+            value,
+            path,
+            fragments,
+            errors,
+          );
+        case InlineFragmentNode(:final typeCondition, selectionSet: final sub):
+          _object(sub, typeCondition?.on.name.value ?? typeName, value, path, fragments, errors);
+      }
+    }
+  }
+
+  void _output(
+    TypeNode type,
+    Object? value,
+    SelectionSetNode? sub,
+    String path,
+    Map<String, FragmentDefinitionNode> fragments,
+    List<String> errors,
+  ) {
+    if (value == null) {
+      if (type.isNonNull) errors.add('$path: null for ${_print(type)}');
+      return;
+    }
+    switch (type) {
+      case ListTypeNode(type: final item):
+        if (value is! List) {
+          errors.add('$path: not a list');
+          return;
+        }
+        for (var i = 0; i < value.length; i++) {
+          _output(item, value[i], sub, '$path[$i]', fragments, errors);
+        }
+      case NamedTypeNode(:final name):
+        switch (_types[name.value]) {
+          case ObjectTypeDefinitionNode() || InterfaceTypeDefinitionNode():
+            if (value is! Map<String, dynamic> || sub == null) {
+              errors.add('$path: not an object');
+              return;
+            }
+            _object(sub, name.value, value, path, fragments, errors);
+          default:
+            _leaf(name.value, value, path, errors);
+        }
+      default:
+        errors.add('$path: unexpected type');
+    }
+  }
+
+  void _leaf(String type, Object value, String path, List<String> errors) {
+    final ok = switch (_types[type]) {
+      EnumTypeDefinitionNode(:final values) => values.any((v) => v.name.value == value),
+      _ => switch (type) {
+        'Int' => value is int,
+        'Float' => value is num,
+        'Boolean' => value is bool,
+        'String' || 'ID' => value is String,
+        _ => _scalars[type]?.call(value),
+      },
+    };
+    if (ok == null) {
+      errors.add('$path: no rule for the scalar $type, add one to the validator');
+    } else if (!ok) {
+      errors.add('$path: $value is not a $type');
     }
   }
 

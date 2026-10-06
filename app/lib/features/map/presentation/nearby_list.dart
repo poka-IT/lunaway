@@ -5,19 +5,26 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/theme/typography.dart';
+import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 /// The places of the viewed area, nearest first, kept in step with the map:
-/// moving the map refreshes the list, tapping a row selects the pin.
+/// moving the map refreshes the list, tapping a row selects the pin. While a
+/// new area loads, the rows of the previous one stay: no skeleton flashes at
+/// every pan.
 class NearbyList extends ConsumerWidget {
-  const new({this.scrollController, this.header, super.key});
+  const new({this.scrollController, this.header, this.bottomPadding = Space.xxl, super.key});
 
   final ScrollController? scrollController;
 
   /// Shown above the rows, scrolling with them (a sheet's handle area).
   final Widget? header;
+
+  /// Room below the last row (the dock floats there on a phone).
+  final double bottomPadding;
 
   /// The list query stops at this many rows; at that count the area is too
   /// wide for a useful list.
@@ -40,16 +47,11 @@ class NearbyList extends ConsumerWidget {
     final slivers = <Widget>[
       if (header != null) SliverToBoxAdapter(child: header),
       switch (places) {
-        AsyncData(:final value) when value.isEmpty => SliverFillRemaining(
+        AsyncValue(value: final value?) when value.isEmpty => SliverFillRemaining(
           hasScrollBody: false,
-          child: MessageView(
-            icon: AppIcons.emptyArea,
-            title: t.list.empty,
-            hint: t.list.emptyHint,
-            compact: true,
-          ),
+          child: MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true),
         ),
-        AsyncData(:final value) => SliverList.builder(
+        AsyncValue(value: final value?) => SliverList.builder(
           itemCount: value.length,
           itemBuilder: (context, i) {
             final p = value[i];
@@ -65,64 +67,66 @@ class NearbyList extends ConsumerWidget {
         AsyncError() => SliverFillRemaining(
           hasScrollBody: false,
           child: MessageView(
-            icon: AppIcons.error,
+            mood: SceneMood.error,
             title: t.list.error,
-            error: true,
             compact: true,
             action: t.common.retry,
             onAction: () => ref.invalidate(nearbyPlacesProvider),
           ),
         ),
-        AsyncLoading() => SliverList.builder(
-          itemCount: 6,
-          itemBuilder: (_, _) => const SkeletonTile(),
-        ),
+        _ => SliverList.builder(itemCount: 6, itemBuilder: (_, _) => const SkeletonTile()),
       },
-      const SliverToBoxAdapter(child: SizedBox(height: Space.xxl)),
+      SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
     ];
     return CustomScrollView(controller: scrollController, slivers: slivers);
   }
 }
 
-/// The count line above the list: how many places the area holds, or a hint
-/// to zoom in when the area is too wide.
+/// The count line above the list: how many places the area holds, the
+/// number in Fraunces.
 class NearbyCount extends ConsumerWidget {
-  const new({super.key});
+  const new({this.trailing, super.key});
+
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final count = ref.watch(nearbyPlacesProvider).value?.length;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final demo = ref.watch(appConfigProvider).demo;
+    final title = count == null
+        ? Text(t.list.title, style: theme.textTheme.titleLarge)
+        : Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: t.number(count), style: LunaType.number(22, weight: 480)),
+                TextSpan(
+                  text:
+                      ' ${count >= NearbyList.limit ? t.map.nearestPlacesLabel(n: count) : t.map.placesHereLabel(n: count)}',
+                  style: theme.textTheme.titleLarge,
+                ),
+              ],
+            ),
+            maxLines: 2,
+          );
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            count == null
-                ? t.list.title
-                // At the limit the list holds the places nearest the centre,
-                // not every place in view.
-                : count >= NearbyList.limit
-                ? t.map.nearestPlaces(n: count)
-                : t.map.placesHere(n: count),
-            style: theme.textTheme.titleMedium,
-          ),
-        ),
+        Expanded(child: Semantics(header: true, child: title)),
         if (demo)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xxs),
             decoration: BoxDecoration(
-              color: theme.colorScheme.tertiaryContainer,
-              borderRadius: BorderRadius.circular(LunaTokens.of(context).radiusS),
+              color: scheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
             ),
             child: Text(
               t.map.demoBanner,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onTertiaryContainer,
-              ),
+              style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSecondaryContainer),
             ),
           ),
+        ?trailing,
       ],
     );
   }

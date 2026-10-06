@@ -1,0 +1,4 @@
+# fontTools for build.sh, pinned to the pure Python wheel by its PyPI hash:
+# pip installs that very file or nothing, so a file added to the release
+# later is never run.
+fonttools==4.66.1 --hash=sha256:7234ae9e28db64273fbbfa72caebd0a97e3bdba6b05064114741b9539ef339d0

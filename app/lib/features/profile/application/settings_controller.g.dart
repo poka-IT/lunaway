@@ -49,24 +49,24 @@ final class SettingsRepositoryProvider
 }
 
 String _$settingsRepositoryHash() =>
-    r'516679bb301ebef0ed787e1826f06f2422cd168c';
+    r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
 
 /// The settings as read before the first frame, overridden in `main`, so the
-/// app never flashes a default language or filter.
+/// app never flashes a default language, theme or filter.
 // keepAlive: a constant of the run.
 
 @ProviderFor(initialSettings)
 final initialSettingsProvider = InitialSettingsProvider._();
 
 /// The settings as read before the first frame, overridden in `main`, so the
-/// app never flashes a default language or filter.
+/// app never flashes a default language, theme or filter.
 // keepAlive: a constant of the run.
 
 final class InitialSettingsProvider
     extends $FunctionalProvider<AppSettings, AppSettings, AppSettings>
     with $Provider<AppSettings> {
   /// The settings as read before the first frame, overridden in `main`, so the
-  /// app never flashes a default language or filter.
+  /// app never flashes a default language, theme or filter.
   // keepAlive: a constant of the run.
   InitialSettingsProvider._()
     : super(
@@ -141,7 +141,7 @@ final class SettingsProvider extends $NotifierProvider<Settings, AppSettings> {
   }
 }
 
-String _$settingsHash() => r'477dfca19730daa1fbadd81f6612c3c037fcca39';
+String _$settingsHash() => r'3bfd3482e311ff4e19dfe84d400fc38fb43d983a';
 
 /// The user's settings: the state changes at once, the write follows.
 // keepAlive: the settings shape every screen for the whole run.
@@ -164,17 +164,20 @@ abstract class _$Settings extends $Notifier<AppSettings> {
   }
 }
 
-/// The active place filter, a slice of the settings.
+/// The user's place filter, a slice of the settings. Screens query with
+/// `effectiveFilterProvider`, which adds the vehicle's size.
 
 @ProviderFor(placeFilter)
 final placeFilterProvider = PlaceFilterProvider._();
 
-/// The active place filter, a slice of the settings.
+/// The user's place filter, a slice of the settings. Screens query with
+/// `effectiveFilterProvider`, which adds the vehicle's size.
 
 final class PlaceFilterProvider
     extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
     with $Provider<PlaceFilter> {
-  /// The active place filter, a slice of the settings.
+  /// The user's place filter, a slice of the settings. Screens query with
+  /// `effectiveFilterProvider`, which adds the vehicle's size.
   PlaceFilterProvider._()
     : super(
         from: null,

@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
-import 'package:lunaway/features/places/data/demo/demo_places.dart';
-import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
@@ -14,29 +13,26 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
-import 'package:meta/meta.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'places_providers.g.dart';
 
 final _log = Logger('places');
 
-// keepAlive: one client for the run; in demo mode it talks to the
-// in-process demo API instead of the network.
+// keepAlive: one client for the run (a demo build swaps the HTTP client for
+// the in-process demo API, in main).
 @Riverpod(keepAlive: true)
-GraphQLClient graphQLClient(Ref ref) {
-  final config = ref.watch(appConfigProvider);
-  return GraphQLClient(
-    endpoint: config.graphqlEndpoint,
-    httpClient: config.demo ? demoApiClient(demoPlaces()) : ref.watch(httpClientProvider),
-    userAgent: ref.watch(userAgentProvider),
-  );
-}
+GraphQLClient graphQLClient(Ref ref) => GraphQLClient(
+  endpoint: ref.watch(appConfigProvider).graphqlEndpoint,
+  httpClient: ref.watch(httpClientProvider),
+  userAgent: ref.watch(userAgentProvider),
+);
 
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
 DriftPlacesRepository driftPlacesRepository(Ref ref) =>
-    DriftPlacesRepository(ref.watch(appDatabaseProvider));
+    DriftPlacesRepository(ref.watch(cacheDatabaseProvider));
 
 /// The read side every screen uses; tests replace it with a fake.
 // keepAlive: a repository over the app-wide database.
@@ -49,6 +45,35 @@ SyncService syncService(Ref ref) => SyncService(
   source: GraphQLChangesSource(ref.watch(graphQLClientProvider)),
   store: ref.watch(driftPlacesRepositoryProvider),
 );
+
+/// Why a sync failed, in the terms the user can act on.
+enum SyncFailure {
+  /// No connection, a timeout, a server down: it comes back by itself.
+  offline,
+
+  /// The server asked to slow down for longer than the app waits.
+  busy,
+
+  /// The server failed, or a service behind it is down: it comes back by
+  /// itself.
+  server,
+
+  /// The server refused the request: retrying the same request will not
+  /// help, an update of the app may.
+  refused,
+
+  /// Anything else (an answer the app cannot read, a full disk): no cause
+  /// the user can act on is known, so the message stays neutral.
+  other;
+
+  static SyncFailure of(Object error) => switch (error) {
+    GraphQLRateLimitedException() => busy,
+    GraphQLNetworkException() => offline,
+    GraphQLResponseException(transient: true) => server,
+    GraphQLResponseException() => refused,
+    _ => other,
+  };
+}
 
 /// Where a sync stands, for the offline data panel and the map banner.
 @immutable
@@ -73,34 +98,72 @@ final class SyncDone extends SyncStatus {
 }
 
 final class SyncFailed extends SyncStatus {
-  const new(this.error);
+  const new(this.failure, {this.retryIn});
 
-  final Object error;
+  final SyncFailure failure;
+
+  /// When the app tries again by itself; null when it will not.
+  final Duration? retryIn;
 }
 
-/// Runs the sync of the region and reports its progress.
+/// The waits between automatic retries of a failed sync, the last one
+/// repeated; replaced in tests.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+List<Duration> syncRetryDelays(Ref ref) => const [
+  Duration(seconds: 30),
+  Duration(minutes: 2),
+  Duration(minutes: 10),
+  Duration(minutes: 30),
+];
+
+/// Runs the sync of the region and reports its progress. Started once by
+/// the app: it syncs at launch when the data is old or a run was cut short,
+/// again each time the app comes back to the foreground, and retries a
+/// failed sync on its own with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 @Riverpod(keepAlive: true)
 class SyncController extends _$SyncController {
-  /// A sync older than this is refreshed at startup.
+  /// A sync older than this is refreshed.
   static const staleAfter = Duration(hours: 12);
 
-  @override
-  SyncStatus build() => const SyncIdle();
+  AppLifecycleListener? _lifecycle;
+  Timer? _retry;
+  var _failures = 0;
 
+  @override
+  SyncStatus build() {
+    ref.onDispose(() {
+      _retry?.cancel();
+      _lifecycle?.dispose();
+    });
+    return const SyncIdle();
+  }
+
+  /// Starts the automatic syncs; later calls do nothing.
+  void start() {
+    if (_lifecycle != null) return;
+    _lifecycle = AppLifecycleListener(onResume: () => unawaited(syncIfStale()));
+    unawaited(syncIfStale());
+  }
+
+  /// Syncs when a run waits to be resumed, when no full sync ever
+  /// completed, or when the last one is older than [staleAfter].
   Future<void> syncIfStale() async {
-    final last = await ref
+    final state = await ref
         .read(placesRepositoryProvider)
-        .watchLastSync(SyncRegion.metropolitanFrance.id)
+        .watchSync(SyncRegion.metropolitanFrance.id)
         .first;
     if (!ref.mounted) return;
+    final last = state.completedAt;
     final now = ref.read(clockProvider)();
-    if (last != null && now.difference(last) < staleAfter) return;
+    if (!state.running && last != null && now.difference(last) < staleAfter) return;
     await sync();
   }
 
   Future<void> sync({bool fromScratch = false}) async {
     if (state is SyncRunning) return;
+    _retry?.cancel();
     state = const SyncRunning(0);
     try {
       final result = await ref
@@ -108,24 +171,52 @@ class SyncController extends _$SyncController {
           .sync(
             SyncRegion.metropolitanFrance,
             fromScratch: fromScratch,
+            clock: ref.read(clockProvider),
             onProgress: (p) {
               if (ref.mounted) state = SyncRunning(p.upserted);
             },
           );
       if (!ref.mounted) return;
+      if (!result.complete) {
+        // The server said there was more without moving its cursor: the run
+        // resumes from its last page at the next attempt.
+        _failed(SyncFailure.server);
+        return;
+      }
+      _failures = 0;
       state = SyncDone(result.upserted);
     } on Object catch (e, st) {
       _log.warning('sync failed', e, st);
       if (!ref.mounted) return;
-      state = SyncFailed(e);
+      _failed(SyncFailure.of(e), serverWait: e is GraphQLRateLimitedException ? e.wait : null);
     }
   }
+
+  /// Reports [failure] and tries again after the next of [syncRetryDelays],
+  /// or after [serverWait] when the server asked for longer. A refused
+  /// request fails the same way next time: no automatic retry.
+  void _failed(SyncFailure failure, {Duration? serverWait}) {
+    final delays = ref.read(syncRetryDelaysProvider);
+    var wait = failure == SyncFailure.refused || delays.isEmpty
+        ? null
+        : delays[_failures.clamp(0, delays.length - 1)];
+    if (wait != null && serverWait != null && serverWait > wait) wait = serverWait;
+    _failures++;
+    state = SyncFailed(failure, retryIn: wait);
+    if (wait != null) _retry = Timer(wait, () => unawaited(sync()));
+  }
 }
+
+/// The filter the map and the list query with: the user's filters, with
+/// "my vehicle fits" turned into the stored vehicle's height.
+@riverpod
+PlaceFilter effectiveFilter(Ref ref) =>
+    ref.watch(placeFilterProvider).resolve(vehicleHeightM: ref.watch(vehicleHeightProvider));
 
 /// Every place passing the filter, for the map.
 @riverpod
 Stream<List<PlaceSummary>> mapPlaces(Ref ref) =>
-    ref.watch(placesRepositoryProvider).watchAll(ref.watch(placeFilterProvider));
+    ref.watch(placesRepositoryProvider).watchAll(ref.watch(effectiveFilterProvider));
 
 @riverpod
 Stream<Place?> place(Ref ref, String id) => ref.watch(placesRepositoryProvider).watchPlace(id);
@@ -138,12 +229,14 @@ Stream<int> placeCount(Ref ref) => ref.watch(placesRepositoryProvider).watchCoun
 Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) {
   // Re-count when a sync writes.
   ref.watch(placeCountProvider);
-  return ref.watch(placesRepositoryProvider).countMatching(filter);
+  final resolved = filter.resolve(vehicleHeightM: ref.watch(vehicleHeightProvider));
+  return ref.watch(placesRepositoryProvider).countMatching(resolved);
 }
 
+/// Where the sync of the region stands, as stored.
 @riverpod
-Stream<DateTime?> lastSync(Ref ref) =>
-    ref.watch(placesRepositoryProvider).watchLastSync(SyncRegion.metropolitanFrance.id);
+Stream<SyncState> syncState(Ref ref) =>
+    ref.watch(placesRepositoryProvider).watchSync(SyncRegion.metropolitanFrance.id);
 
 @riverpod
 Future<int> storageSize(Ref ref) {
@@ -155,7 +248,7 @@ Future<int> storageSize(Ref ref) {
 // keepAlive: a repository over the app-wide database and client.
 @Riverpod(keepAlive: true)
 PlaceExtrasRepository placeExtrasRepository(Ref ref) => PlaceExtrasRepository(
-  db: ref.watch(appDatabaseProvider),
+  db: ref.watch(cacheDatabaseProvider),
   source: GraphQLPlaceExtrasSource(ref.watch(graphQLClientProvider)),
   clock: ref.watch(clockProvider),
 );
@@ -182,13 +275,30 @@ final class ReviewList {
 }
 
 /// The reviews shown for a place: the first page with the extras, the next
-/// ones appended on demand.
-@riverpod
+/// ones appended on demand. Like the extras it reads, a failure surfaces at
+/// once instead of being retried behind the user's back.
+@Riverpod(retry: noRetry)
 class PlaceReviews extends _$PlaceReviews {
   @override
   Future<ReviewList> build(String placeId) async {
+    final previous = state.value;
     final extras = await ref.watch(placeExtrasProvider(placeId).future);
-    return ReviewList(extras?.reviews ?? ReviewPage.empty);
+    final first = extras?.reviews ?? ReviewPage.empty;
+    // The extras emit again when a fresh copy replaces the cached one: pages
+    // the user already loaded stay, as long as the first page did not change.
+    if (previous != null && previous.page.nodes.length > first.nodes.length) {
+      final head = previous.page.nodes.take(first.nodes.length).map((r) => r.id).toList();
+      if (_sameIds(head, first.nodes.map((r) => r.id).toList())) return ReviewList(previous.page);
+    }
+    return ReviewList(first);
+  }
+
+  static bool _sameIds(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<void> loadMore() async {

@@ -61,22 +61,11 @@
   <div id="splash" aria-hidden="true">
     <div class="disc"><img src="icons/lunaway-mark.svg" alt=""></div>
   </div>
-  <script>
-    window.addEventListener('flutter-first-frame', function () {
-      var splash = document.getElementById('splash');
-      if (!splash) return;
-      splash.classList.add('done');
-      setTimeout(function () { splash.remove(); }, 400);
-    });
-  </script>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- No inline script or event handler attribute in this file: the
+       Content-Security-Policy of /app/ (script-src 'self') refuses them.
+       splash.js removes the loading screen; flutter_bootstrap.js (built from
+       web/flutter_bootstrap.js) starts the app with our own font host. -->
+  <script src="splash.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

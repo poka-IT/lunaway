@@ -1,5 +1,5 @@
-/// Native builds place the map's compass and attribution through the plugin's
-/// margins; nothing to do here.
+/// Native builds place the map's controls through the plugin's margins;
+/// nothing to do here.
 void placeWebMapControls({required double top}) {}
 
 /// Native builds have a real long press; nothing to listen for here.

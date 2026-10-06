@@ -52,47 +52,67 @@ final class _Server implements ChangesSource {
   }
 }
 
+/// The store contract in memory: a cursor, a generation, the running and
+/// full flags, a completion time.
 final class _Store implements SyncStore {
-  final Map<String, String> cursors = {};
+  SyncState state = SyncState.none;
   final List<ChangeSet> pages = [];
   int resets = 0;
-  final Map<String, DateTime> fullStarts = {};
   final List<String> events = [];
 
   /// How many stale places the sweep finds.
   int stale = 0;
 
   @override
-  Future<DateTime?> fullSyncStart(String region) async => fullStarts[region];
+  Future<SyncState> stateOf(String region) async => state;
 
   @override
-  Future<void> beginFullSync(String region, DateTime at) async {
+  Future<void> beginFullSync(String region) async {
     events.add('begin');
-    cursors.remove(region);
-    fullStarts[region] = at;
+    state = SyncState(
+      generation: state.generation + 1,
+      fullSync: true,
+      running: true,
+      completedAt: state.completedAt,
+    );
   }
 
   @override
-  Future<int> finishFullSync(String region, GeoBounds bounds) async {
-    events.add('sweep');
-    fullStarts.remove(region);
-    return stale;
+  Future<void> beginDeltaSync(String region) async {
+    events.add('delta');
+    state = SyncState(
+      cursor: state.cursor,
+      generation: state.generation,
+      running: true,
+      completedAt: state.completedAt,
+    );
   }
 
   @override
-  Future<String?> cursorFor(String region) async => cursors[region];
-
-  @override
-  Future<void> applyPage(String region, ChangeSet page, DateTime syncedAt) async {
+  Future<void> applyPage(String region, ChangeSet page) async {
     events.add('page');
     pages.add(page);
-    cursors[region] = page.cursor;
+    state = SyncState(
+      cursor: page.cursor,
+      generation: state.generation,
+      fullSync: state.fullSync,
+      running: state.running,
+      completedAt: state.completedAt,
+    );
   }
 
   @override
-  Future<void> reset(String region) async {
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async {
+    events.add(state.fullSync ? 'sweep' : 'done');
+    final swept = state.fullSync ? stale : 0;
+    state = SyncState(cursor: state.cursor, generation: state.generation, completedAt: at);
+    return swept;
+  }
+
+  @override
+  Future<void> reset(String region, GeoBounds bounds) async {
     resets++;
-    cursors.remove(region);
+    state = SyncState.none;
   }
 }
 
@@ -113,19 +133,21 @@ void main() {
     expect(result.upserted, 2500);
     expect(result.deleted, 1);
     expect(progress, [1000, 2000, 2500]);
-    expect(store.cursors['r'], '2500');
+    expect(store.state.cursor, '2500');
+    expect(result.complete, isTrue);
   });
 
   test('resumes from the stored cursor', () async {
     final server = _Server(2500);
-    final store = _Store()..cursors['r'] = '2000';
+    final store = _Store()..state = const SyncState(cursor: '2000');
     await SyncService(source: server, store: store).sync(region);
     expect(server.requests.map((r) => r.since), ['2000']);
+    expect(store.events.first, 'delta');
   });
 
   test('a sync from scratch forgets the cursor first', () async {
     final server = _Server(10);
-    final store = _Store()..cursors['r'] = '2000';
+    final store = _Store()..state = const SyncState(cursor: '2000');
     await SyncService(source: server, store: store).sync(region, fromScratch: true);
     expect(store.resets, 1);
     expect(server.requests.first.since, isNull);
@@ -136,6 +158,8 @@ void main() {
     final store = _Store();
     final result = await SyncService(source: server, store: store).sync(region);
     expect(result.pages, 2);
+    expect(result.complete, isFalse);
+    expect(store.state.running, isTrue, reason: 'it resumes at the next occasion');
   });
 
   test('a first sync is a full one, swept at the end of what the server no longer has', () async {
@@ -143,25 +167,26 @@ void main() {
     final result = await SyncService(source: _Server(1500), store: store).sync(region);
     expect(store.events, ['begin', 'page', 'page', 'sweep']);
     expect(result.deleted, 1 + 3);
-    expect(store.fullStarts, isEmpty);
+    expect(store.state.fullSync, isFalse);
+    expect(store.state.completedAt, isNotNull);
   });
 
   test('a delta sync sweeps nothing', () async {
-    final store = _Store()..cursors['r'] = '1000';
+    final store = _Store()..state = const SyncState(cursor: '1000');
     await SyncService(source: _Server(1500), store: store).sync(region);
-    expect(store.events, ['page']);
+    expect(store.events, ['delta', 'page', 'done']);
   });
 
   test(
     'a cursor the server calls foreign is dropped for a sync from scratch, then swept',
     () async {
       final server = _Server(1500)..foreign = {'stale'};
-      final store = _Store()..cursors['r'] = 'stale';
+      final store = _Store()..state = const SyncState(cursor: 'stale');
       final result = await SyncService(source: server, store: store).sync(region);
       expect(server.requests.map((r) => r.since), ['stale', null, '1000']);
-      expect(store.events, ['begin', 'page', 'page', 'sweep']);
+      expect(store.events, ['delta', 'begin', 'page', 'page', 'sweep']);
       expect(store.resets, 0, reason: 'the places and favourites stay until the sweep');
-      expect(store.cursors['r'], '1500');
+      expect(store.state.cursor, '1500');
       expect(result.upserted, 1500);
     },
   );
@@ -181,15 +206,18 @@ void main() {
     final store = _Store();
     await expectLater(SyncService(source: server, store: store).sync(region), throwsStateError);
     expect(store.events, ['begin', 'page']);
+    expect(store.state.completedAt, isNull, reason: 'a cut run is not a sync');
     server.failAfter = null;
     await SyncService(source: server, store: store).sync(region);
+    // Resumed as it was: still the same full sync, no second "begin".
     expect(store.events, ['begin', 'page', 'page', 'sweep']);
+    expect(server.requests.last.since, '1000');
   });
 
   test('a failure mid-way keeps the pages already stored, for a later resume', () async {
     final server = _Server(2500)..failAfter = StateError('offline');
     final store = _Store();
     await expectLater(SyncService(source: server, store: store).sync(region), throwsStateError);
-    expect(store.cursors['r'], '1000');
+    expect(store.state.cursor, '1000');
   });
 }

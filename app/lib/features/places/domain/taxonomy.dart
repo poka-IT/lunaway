@@ -53,29 +53,35 @@ enum KindFamily {
 /// A facility of a place. [bit] packs a set of services into one integer
 /// column so the local filter is a single bitwise test in SQL.
 enum Service {
-  drinkingWater('DRINKING_WATER'),
-  greyWater('GREY_WATER'),
-  blackWater('BLACK_WATER'),
-  wasteBin('WASTE_BIN'),
-  toilets('TOILETS'),
-  showers('SHOWERS'),
-  electricity('ELECTRICITY'),
-  wifi('WIFI'),
-  laundry('LAUNDRY'),
-  lpg('LPG'),
-  gasBottles('GAS_BOTTLES'),
-  vehicleWash('VEHICLE_WASH'),
-  bakery('BAKERY'),
-  swimmingPool('SWIMMING_POOL'),
-  petsAllowed('PETS_ALLOWED'),
-  mobileData('MOBILE_DATA'),
-  winterCaravanning('WINTER_CARAVANNING');
+  drinkingWater('DRINKING_WATER', 0),
+  greyWater('GREY_WATER', 1),
+  blackWater('BLACK_WATER', 2),
+  wasteBin('WASTE_BIN', 3),
+  toilets('TOILETS', 4),
+  showers('SHOWERS', 5),
+  electricity('ELECTRICITY', 6),
+  wifi('WIFI', 7),
+  laundry('LAUNDRY', 8),
+  lpg('LPG', 9),
+  gasBottles('GAS_BOTTLES', 10),
+  vehicleWash('VEHICLE_WASH', 11),
+  bakery('BAKERY', 12),
+  swimmingPool('SWIMMING_POOL', 13),
+  petsAllowed('PETS_ALLOWED', 14),
+  mobileData('MOBILE_DATA', 15),
+  winterCaravanning('WINTER_CARAVANNING', 16);
 
-  new(this.wire);
+  new(this.wire, this.position);
 
   final String wire;
 
-  int get bit => 1 << index;
+  /// The bit of the service in the stored masks. Pinned, not derived from
+  /// the declaration order: masks are written to the device, and a service
+  /// added in the middle of the list must not shift the meaning of stored
+  /// rows.
+  final int position;
+
+  int get bit => 1 << position;
 
   static final Map<String, Service> _byWire = {for (final s in values) s.wire: s};
 
@@ -92,24 +98,28 @@ enum Service {
 
 /// Something to do around a place.
 enum Activity {
-  monuments('MONUMENTS'),
-  windsurfKitesurf('WINDSURF_KITESURF'),
-  mountainBiking('MOUNTAIN_BIKING'),
-  hiking('HIKING'),
-  climbing('CLIMBING'),
-  canoeKayak('CANOE_KAYAK'),
-  fishing('FISHING'),
-  shoreFishing('SHORE_FISHING'),
-  swimming('SWIMMING'),
-  motorcycling('MOTORCYCLING'),
-  viewpoint('VIEWPOINT'),
-  playground('PLAYGROUND');
+  monuments('MONUMENTS', 0),
+  windsurfKitesurf('WINDSURF_KITESURF', 1),
+  mountainBiking('MOUNTAIN_BIKING', 2),
+  hiking('HIKING', 3),
+  climbing('CLIMBING', 4),
+  canoeKayak('CANOE_KAYAK', 5),
+  fishing('FISHING', 6),
+  shoreFishing('SHORE_FISHING', 7),
+  swimming('SWIMMING', 8),
+  motorcycling('MOTORCYCLING', 9),
+  viewpoint('VIEWPOINT', 10),
+  playground('PLAYGROUND', 11);
 
-  new(this.wire);
+  new(this.wire, this.position);
 
   final String wire;
 
-  int get bit => 1 << index;
+  /// The bit of the activity in the stored masks, pinned like
+  /// [Service.position].
+  final int position;
+
+  int get bit => 1 << position;
 
   static final Map<String, Activity> _byWire = {for (final a in values) a.wire: a};
 

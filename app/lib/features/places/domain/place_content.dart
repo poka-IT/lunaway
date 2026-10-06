@@ -88,6 +88,26 @@ final class Photo {
   int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl);
 }
 
+/// The source of what Lunaway users write: reviews, photos, places.
+const communitySourceId = 'community';
+
+/// The vehicle a reviewer travelled in, as the API names it.
+enum ReviewVehicle {
+  van('VAN'),
+  campervan('CAMPERVAN'),
+  motorhome('MOTORHOME'),
+  caravan('CARAVAN'),
+  other('OTHER');
+
+  new(this.wire);
+
+  final String wire;
+
+  /// Null for a value this version does not know: a newer server may add
+  /// one, and the review still shows without it.
+  static ReviewVehicle? fromWire(Object? wire) => values.where((v) => v.wire == wire).firstOrNull;
+}
+
 /// What a visitor wrote about a place, on the source it was written on.
 @immutable
 final class Review {
@@ -110,8 +130,13 @@ final class Review {
   final int? rating;
   final String? text;
   final String? lang;
+
+  /// Null once the author deleted their account.
   final String? authorName;
-  final String? authorVehicle;
+  final ReviewVehicle? authorVehicle;
+
+  /// The day of the stay, a calendar date (local midnight) without a time
+  /// zone of its own.
   final DateTime? visitedAt;
   final DateTime createdAt;
 

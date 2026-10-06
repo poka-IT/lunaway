@@ -62,9 +62,13 @@ Play App Signing holds the app signing key. We keep the upload key:
 - upload certificate SHA-256:
   `98:8B:3F:B8:5F:26:27:71:E0:09:8B:07:6F:59:D7:B9:AF:7B:C1:79:F9:16:B2:38:58:35:C2:63:30:16:A0:C1`.
 
-The release `signingConfig` reads `key.properties` and falls back to the
-debug key when the file is absent, so CI and fresh clones still build. Back
-up the keystore and its password together. A lost upload key is replaced
+The `store` flavor signs its release with `key.properties`. Without the file,
+a store release stops at its first task (`checkStoreReleaseSigning`) unless
+the build passes `-P allowDebugSigning=true` (flutter) or
+`-PallowDebugSigning` (gradle): the build is then signed with the debug key,
+its version name ends in `-debugsigned`, and it serves local tests only. The
+`fdroid` release is never signed here. Back up the keystore and its password
+together. A lost upload key is replaced
 through Play Console (App signing, request upload key reset), which takes
 days.
 

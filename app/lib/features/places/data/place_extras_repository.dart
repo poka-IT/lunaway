@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:logging/logging.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
@@ -43,7 +43,7 @@ final class PlaceExtrasRepository {
     this.pageSize = 20,
   });
 
-  final AppDatabase db;
+  final CacheDatabase db;
   final PlaceExtrasSource source;
   final DateTime Function() clock;
   final Duration maxAge;

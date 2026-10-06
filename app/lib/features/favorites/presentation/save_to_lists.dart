@@ -11,6 +11,8 @@ import 'package:lunaway/shared/theme/tokens.dart';
 Future<void> showSaveToLists(BuildContext context, PlaceSummary place) =>
     showModalBottomSheet<void>(
       context: context,
+      // Above the dock and the panels: the shell holds the branches.
+      useRootNavigator: true,
       useSafeArea: true,
       isScrollControlled: true,
       builder: (context) => _SaveToLists(place: place),

@@ -1,0 +1,126 @@
+-- The place cache: synced places with their spatial and text indexes, the
+-- sync state and the photos and reviews read online. Everything here can be
+-- downloaded again, so it stays out of the device backups (the user's own
+-- data lives in user_schema.drift): Android's backup rules leave the file
+-- out, iOS and macOS keep it in their caches directory. Places are written only by the sync
+-- service; the indexes follow through triggers so no caller can forget one.
+
+CREATE TABLE places (
+  -- The integer key the R*Tree and FTS5 indexes need; the API id stays the
+  -- identity every caller uses.
+  rid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  name TEXT,
+  kind TEXT NOT NULL,
+  -- KindFamily index, so a family filter is an integer IN list.
+  family INTEGER NOT NULL,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  overnight TEXT NOT NULL,
+  -- Bit masks of Service and Activity (taxonomy.dart, pinned bits).
+  services INTEGER NOT NULL DEFAULT 0,
+  activities INTEGER NOT NULL DEFAULT 0,
+  description TEXT,
+  street TEXT,
+  postcode TEXT,
+  city TEXT,
+  country_code TEXT,
+  price_parking REAL,
+  price_services REAL,
+  max_height REAL,
+  capacity INTEGER,
+  opening_hours TEXT,
+  opening_hours_parsed BOOLEAN NOT NULL DEFAULT FALSE,
+  -- JSON list of {start, end} in UTC; null when the server sent none.
+  opening_intervals_json TEXT,
+  -- End of the window the intervals cover, as the server sent it.
+  opening_valid_until INTEGER,
+  -- Official classification, 1 to 5.
+  stars INTEGER,
+  -- The full sync generation that last wrote the place: when a full sync
+  -- ends, the places of its region it did not write are gone from the
+  -- server. A counter, not a time, so a clock change cannot sweep the
+  -- wrong places.
+  sync_gen INTEGER NOT NULL DEFAULT 0,
+  website TEXT,
+  phone TEXT,
+  last_confirmed_at INTEGER,
+  updated_at INTEGER NOT NULL,
+  sources_json TEXT NOT NULL DEFAULT '[]',
+  provenance_json TEXT NOT NULL DEFAULT '[]',
+  descriptions_json TEXT NOT NULL DEFAULT '[]',
+  ratings_json TEXT NOT NULL DEFAULT '[]',
+  links_json TEXT NOT NULL DEFAULT '[]',
+  -- The ratings combined across sources, for the list rows without JSON.
+  rating_avg REAL,
+  rating_count INTEGER NOT NULL DEFAULT 0
+) AS PlaceRow;
+
+CREATE VIRTUAL TABLE place_bounds USING rtree(rid, min_lat, max_lat, min_lon, max_lon);
+
+CREATE VIRTUAL TABLE place_search USING fts5(
+  name,
+  city,
+  postcode,
+  content = 'places',
+  content_rowid = 'rid',
+  tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER places_after_insert AFTER INSERT ON places BEGIN
+  INSERT INTO place_bounds (rid, min_lat, max_lat, min_lon, max_lon)
+    VALUES (new.rid, new.lat, new.lat, new.lon, new.lon);
+  INSERT INTO place_search (rowid, name, city, postcode)
+    VALUES (new.rid, new.name, new.city, new.postcode);
+END;
+
+CREATE TRIGGER places_after_delete AFTER DELETE ON places BEGIN
+  DELETE FROM place_bounds WHERE rid = old.rid;
+  INSERT INTO place_search (place_search, rowid, name, city, postcode)
+    VALUES ('delete', old.rid, old.name, old.city, old.postcode);
+END;
+
+CREATE TRIGGER places_after_update AFTER UPDATE ON places BEGIN
+  UPDATE place_bounds
+    SET min_lat = new.lat, max_lat = new.lat, min_lon = new.lon, max_lon = new.lon
+    WHERE rid = new.rid;
+  INSERT INTO place_search (place_search, rowid, name, city, postcode)
+    VALUES ('delete', old.rid, old.name, old.city, old.postcode);
+  INSERT INTO place_search (rowid, name, city, postcode)
+    VALUES (new.rid, new.name, new.city, new.postcode);
+END;
+
+-- One row per synced region. A run writes its cursor with every page and
+-- stays "running" until a page says there is no more: an interrupted run is
+-- resumed from its cursor, and only a finished run counts as a sync.
+CREATE TABLE region_syncs (
+  region TEXT NOT NULL PRIMARY KEY,
+  -- The opaque cursor of the last applied page; null before the first page
+  -- of a full sync.
+  cursor TEXT,
+  -- Generation of the current or last full sync (see places.sync_gen).
+  generation INTEGER NOT NULL DEFAULT 0,
+  -- A full sync is under way: its end sweeps what it did not write.
+  full_sync BOOLEAN NOT NULL DEFAULT FALSE,
+  -- A run started and has not reached its last page yet.
+  running BOOLEAN NOT NULL DEFAULT FALSE,
+  -- When a run last reached its last page; null until the first full sync
+  -- completes.
+  completed_at INTEGER
+) AS SyncStateRow;
+
+-- Photos and the first page of reviews of the places the user opened: read
+-- online, kept so a place opened once still shows them without network.
+CREATE TABLE place_extras_cache (
+  place_id TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+) AS PlaceExtrasCacheRow;
+
+-- Values about this device that are not the user's to keep: the coarse last
+-- known position (for the automatic theme at the next launch). Out of the
+-- backups with the rest of this file.
+CREATE TABLE device_state (
+  id TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+) AS DeviceStateRow;

@@ -12,10 +12,10 @@ final _log = Logger('settings');
 
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
-SettingsStore settingsRepository(Ref ref) => SettingsRepository(ref.watch(appDatabaseProvider));
+SettingsStore settingsRepository(Ref ref) => SettingsRepository(ref.watch(userDatabaseProvider));
 
 /// The settings as read before the first frame, overridden in `main`, so the
-/// app never flashes a default language or filter.
+/// app never flashes a default language, theme or filter.
 // keepAlive: a constant of the run.
 @Riverpod(keepAlive: true)
 AppSettings initialSettings(Ref ref) => const AppSettings();
@@ -38,6 +38,12 @@ class Settings extends _$Settings {
 
   Future<void> setFilter(PlaceFilter filter) => _update(state.copyWith(filter: filter));
 
+  Future<void> setTheme(ThemePreference theme) => _update(state.copyWith(theme: theme));
+
+  /// Remembers the navigation app for directions; null forgets it, so the
+  /// chooser shows again.
+  Future<void> setNavigationApp(String? id) => _update(state.copyWith(navigationApp: () => id));
+
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;
     state = next;
@@ -50,6 +56,7 @@ class Settings extends _$Settings {
   }
 }
 
-/// The active place filter, a slice of the settings.
+/// The user's place filter, a slice of the settings. Screens query with
+/// `effectiveFilterProvider`, which adds the vehicle's size.
 @riverpod
 PlaceFilter placeFilter(Ref ref) => ref.watch(settingsProvider.select((s) => s.filter));

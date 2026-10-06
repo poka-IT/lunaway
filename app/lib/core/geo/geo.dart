@@ -10,10 +10,13 @@ final class LatLng {
   final double lat;
   final double lon;
 
+  /// The mean Earth radius (IUGG), the one the backend's matching uses too.
+  static const double earthRadiusM = 6371008.8;
+
   /// Great-circle distance in metres (haversine). Precise to well under a
   /// metre at the scales the app sorts by, and cheap enough for a list.
   double distanceTo(LatLng other) {
-    const earthRadius = 6371008.8;
+    const earthRadius = earthRadiusM;
     final dLat = _rad(other.lat - lat);
     final dLon = _rad(other.lon - lon);
     final a =

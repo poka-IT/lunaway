@@ -1,4 +1,5 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:meta/meta.dart';
@@ -32,8 +33,9 @@ abstract interface class PlacesRepository {
   /// How many places pass [filter], for the button of the filter sheet.
   Future<int> countMatching(PlaceFilter filter);
 
-  /// When [region] was last synced in full; null before the first sync.
-  Stream<DateTime?> watchLastSync(String region);
+  /// Where the sync of [region] stands: when it last completed (null before
+  /// the first full sync ends) and whether a run is waiting to resume.
+  Stream<SyncState> watchSync(String region);
 
   /// Bytes the local store takes on the device.
   Future<int> storageSizeBytes();

@@ -35,5 +35,8 @@ with a provider override. Network calls never leave a unit or widget test.
   does not depend on the machine's language.
 - `pumpAndSettle` only when an animation must finish; a stream or a timer that
   never settles needs `pump(duration)`.
+- A unit test of a timer (retries, waits) runs under `fakeAsync` (package
+  `fake_async`, a dev dependency) and moves the clock with `elapse`; it never
+  sleeps on real time (`test/unit/sync_retry_test.dart`).
 - Recorded responses of external services live in `test/fixtures/`, trimmed
   to what the test reads.

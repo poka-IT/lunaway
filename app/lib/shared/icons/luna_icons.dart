@@ -4,15 +4,29 @@ import 'package:flutter/widgets.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:path_parsing/path_parsing.dart';
 
-/// A vector glyph on a 24 x 24 grid, in SVG path syntax: a filled part, an
-/// optional part cut out of it, and an optional stroked part. Drawn by code,
-/// so the same glyph serves the widgets and the map pins at any density.
+/// A vector glyph on a 24 x 24 grid, in SVG path syntax: a filled part,
+/// parts cut out of it one after the other, and an optional stroked part.
+/// Drawn by code, so the same glyph serves the widgets and the map pins at
+/// any density.
 @immutable
 final class LunaIconData {
-  const new({this.fill, this.cutout, this.stroke, this.strokeWidth = 1.9});
+  const new({
+    this.fill,
+    this.cutouts = const [],
+    this.softCutouts = const [],
+    this.stroke,
+    this.strokeWidth = 1.9,
+  });
 
   final String? fill;
-  final String? cutout;
+
+  /// Each removed from the fill in turn, so overlapping cut-outs cannot
+  /// cancel each other out the way subpaths of one path can.
+  final List<String> cutouts;
+
+  /// Cut out at a third, so what is behind shows through faintly: the
+  /// craters of the full moon, texture rather than holes.
+  final List<String> softCutouts;
   final String? stroke;
   final double strokeWidth;
 
@@ -34,9 +48,23 @@ final class LunaIconData {
     final fillData = fill;
     if (fillData != null) {
       var path = _parse(fillData);
-      final cut = cutout;
-      if (cut != null) path = Path.combine(ui.PathOperation.difference, path, _parse(cut));
-      canvas.drawPath(path, Paint()..color = color);
+      for (final cut in cutouts) {
+        path = Path.combine(ui.PathOperation.difference, path, _parse(cut));
+      }
+      if (softCutouts.isEmpty) {
+        canvas.drawPath(path, Paint()..color = color);
+      } else {
+        canvas
+          ..saveLayer(const Rect.fromLTWH(0, 0, 24, 24), Paint())
+          ..drawPath(path, Paint()..color = color);
+        final soft = Paint()
+          ..blendMode = BlendMode.dstOut
+          ..color = const Color(0x55000000);
+        for (final cut in softCutouts) {
+          canvas.drawPath(_parse(cut), soft);
+        }
+        canvas.restore();
+      }
     }
     final strokeData = stroke;
     if (strokeData != null) {
@@ -106,187 +134,59 @@ class _LunaIconPainter extends CustomPainter {
   bool shouldRepaint(_LunaIconPainter old) => old.icon != icon || old.color != color;
 }
 
-/// The Lunaway glyphs: kind families and overnight statuses (filled, they are
-/// read at pin size), and services (outlined, they are read in a list).
+/// The glyphs Phosphor does not have: the night statuses as moon phases.
 abstract final class LunaIcons {
-  static const van = LunaIconData(
-    fill:
-        'M3 15.6V8.5C3 7.4 3.9 6.5 5 6.5h9.9c.6 0 1.2.3 1.6.8l2.3 3h1.2c1.1 0 2 .9 2 2v3.3 '
-        'c0 .5-.4.9-.9.9H3.9c-.5 0-.9-.4-.9-.9z '
-        'M9.3 17.4a2.2 2.2 0 1 1-4.4 0 2.2 2.2 0 0 1 4.4 0z '
-        'M19.1 17.4a2.2 2.2 0 1 1-4.4 0 2.2 2.2 0 0 1 4.4 0z',
-    cutout: 'M5.4 8.7h4.3v2.5H5.4z M11.6 8.7h3.3l1.9 2.5h-5.2z',
+  // The night statuses as moon phases, one shape per status, so the status
+  // reads without its colour: in the sheet, the list, the filters and the
+  // map pins alike.
+
+  /// A night is allowed: the full moon, its craters a faint texture (cut
+  /// clean, they turned it into a button at badge size).
+  static const fullMoon = LunaIconData(
+    fill: 'M3.80 12.00a8.20 8.20 0 1 0 16.40 0a8.20 8.20 0 1 0 -16.40 0z',
+    softCutouts: [
+      'M7.40 10.40a2.20 2.20 0 1 0 4.40 0a2.20 2.20 0 1 0 -4.40 0z',
+      'M12.60 15.20a1.70 1.70 0 1 0 3.40 0a1.70 1.70 0 1 0 -3.40 0z',
+      'M13.70 8.30a1.10 1.10 0 1 0 2.20 0a1.10 1.10 0 1 0 -2.20 0z',
+    ],
   );
 
-  static const tent = LunaIconData(
-    fill: 'M12 3.2 2.3 20.3h19.4L12 3.2z',
-    cutout: 'M12 12.2 8.8 20.3h6.4L12 12.2z',
+  /// A night is tolerated: the crescent of the logo.
+  static const crescent = LunaIconData(
+    fill: 'M4.00 12.00a8.00 8.00 0 1 0 16.00 0a8.00 8.00 0 1 0 -16.00 0z',
+    cutouts: ['M9.00 9.20a6.60 6.60 0 1 0 13.20 0a6.60 6.60 0 1 0 -13.20 0z'],
   );
 
-  static const tree = LunaIconData(
-    fill: 'M12 2.4 6 10.3h3.1L4.8 16.2h5.7v5.4h3v-5.4h5.7l-4.3-5.9H18L12 2.4z',
-  );
-
-  static const tap = LunaIconData(
-    fill:
-        'M4.5 8.6h6.2V7H8.8V4.8h6.4V7h-1.9v1.6h2.9a3.6 3.6 0 0 1 3.6 3.6v2.4h-3.5v-2.2 '
-        'a.6.6 0 0 0-.6-.6H4.5z '
-        'M17.9 21.2a2.1 2.1 0 0 1-2.1-2.1c0-1.3 2.1-3.8 2.1-3.8s2.1 2.5 2.1 3.8a2.1 2.1 0 0 1-2.1 2.1z',
-  );
-
-  static const moonStar = LunaIconData(
-    fill:
-        'M14.6 3.4a8.6 8.6 0 1 0 6 13.4A7.1 7.1 0 0 1 14.6 3.4z '
-        'M19 2.8l.65 1.55 1.55.65-1.55.65L19 7.2l-.65-1.55-1.55-.65 1.55-.65z',
-  );
-
-  static const moon = LunaIconData(fill: 'M14.6 3.4a8.6 8.6 0 1 0 6 13.4A7.1 7.1 0 0 1 14.6 3.4z');
-
+  /// Parking by day only: the sun.
   static const sun = LunaIconData(
-    fill: 'M16.2 12a4.2 4.2 0 1 1-8.4 0 4.2 4.2 0 0 1 8.4 0z',
-    stroke:
-        'M12 2.6v2 M12 19.4v2 M2.6 12h2 M19.4 12h2 M5.4 5.4l1.4 1.4 M17.2 17.2l1.4 1.4 '
-        'M5.4 18.6l1.4-1.4 M17.2 6.8l1.4-1.4',
-    strokeWidth: 2,
-  );
-
-  static const moonBarred = LunaIconData(
-    fill: 'M14.6 3.4a8.6 8.6 0 1 0 6 13.4A7.1 7.1 0 0 1 14.6 3.4z',
-    cutout: 'M2.6 4.6 4.6 2.6 21.4 19.4 19.4 21.4z',
-    stroke: 'M3.8 3.8l16.4 16.4',
+    fill: 'M8.10 12.00a3.90 3.90 0 1 0 7.80 0a3.90 3.90 0 1 0 -7.80 0z',
+    stroke: 'M18.20 12.00L20.60 12.00M16.38 16.38L18.08 18.08M12.00 18.20L12.00 20.60M7.62 16.38L5.92 18.08M5.80 12.00L3.40 12.00M7.62 7.62L5.92 5.92M12.00 5.80L12.00 3.40M16.38 7.62L18.08 5.92',
     strokeWidth: 1.8,
   );
 
-  static const question = LunaIconData(
-    stroke: 'M8.9 9.1a3.1 3.1 0 1 1 4.6 2.7c-1 .55-1.6 1.3-1.6 2.4v.6 M11.95 18.3h.01',
-    strokeWidth: 2.4,
+  /// A night is forbidden: the crescent, struck through.
+  static const crossedMoon = LunaIconData(
+    fill: 'M4.00 12.00a8.00 8.00 0 1 0 16.00 0a8.00 8.00 0 1 0 -16.00 0z',
+    cutouts: [
+      'M9.00 9.20a6.60 6.60 0 1 0 13.20 0a6.60 6.60 0 1 0 -13.20 0z',
+      'M2.16 4.84L4.84 2.16L21.84 19.16L19.16 21.84z',
+    ],
+    stroke: 'M4.2 4.2L19.8 19.8',
+    strokeWidth: 1.8,
   );
 
-  // Services, outlined.
-
-  static const water = LunaIconData(
-    stroke:
-        'M12 3.2C9 7 6.2 10.4 6.2 14a5.8 5.8 0 0 0 11.6 0c0-3.6-2.8-7-5.8-10.8z '
-        'M9.3 14.4a2.8 2.8 0 0 0 2.3 2.7',
+  /// Nobody has said yet: a dotted circle, a blank to fill rather than a
+  /// warning.
+  static const unknownNight = LunaIconData(
+    stroke: 'M12.52 4.52A7.5 7.5 0 0 1 14.81 5.05M16.82 6.25A7.5 7.5 0 0 1 18.36 8.03M19.28 10.19A7.5 7.5 0 0 1 19.48 12.52M18.95 14.81A7.5 7.5 0 0 1 17.75 16.82M15.97 18.36A7.5 7.5 0 0 1 13.81 19.28M11.48 19.48A7.5 7.5 0 0 1 9.19 18.95M7.18 17.75A7.5 7.5 0 0 1 5.64 15.97M4.72 13.81A7.5 7.5 0 0 1 4.52 11.48M5.05 9.19A7.5 7.5 0 0 1 6.25 7.18M8.03 5.64A7.5 7.5 0 0 1 10.19 4.72',
+    strokeWidth: 1.8,
   );
 
-  static const greyWater = LunaIconData(
-    stroke: 'M12 3v8 M8.6 7.8 12 11.2l3.4-3.4 M4 14.5h16v5H4z M8 14.5v5 M12 14.5v5 M16 14.5v5',
-  );
-
-  static const blackWater = LunaIconData(
-    stroke: 'M6.5 3.5h11v7.5h-11z M10 7.2h4 M12 11v4.4 M9.6 13.4 12 15.8l2.4-2.4 M4.5 20h15',
-  );
-
-  static const bin = LunaIconData(
-    stroke: 'M4.5 6.5h15 M9.5 6.5v-2h5v2 M6.5 6.5l1 14h9l1-14 M10 10.5v6.5 M14 10.5v6.5',
-  );
-
-  static const toilet = LunaIconData(
-    stroke: 'M7 3.5h5v6.5H7z M5 10h14c0 3.6-2.6 6.4-6 6.9l.8 3.6H8.4l.9-3.8C6.9 15.8 5 13.2 5 10z',
-  );
-
-  static const shower = LunaIconData(
-    stroke:
-        'M5 21V9a5 5 0 0 1 10 0 M10.5 9h9 M12 12.5v1 M15 12.5v1 M18 12.5v1 M13.5 16v1 '
-        'M16.5 16v1 M15 19.5v1',
-  );
-
-  static const bolt = LunaIconData(stroke: 'M13.6 2.6 5 13.6h6.6l-1.1 7.8 8.5-11h-6.6l1.2-7.8z');
-
-  static const wifi = LunaIconData(
-    stroke: 'M2.8 9.2a13.5 13.5 0 0 1 18.4 0 M5.9 12.6a9 9 0 0 1 12.2 0 M9 16a4.6 4.6 0 0 1 6 0 M12 19.6h.01',
-  );
-
-  static const laundry = LunaIconData(
-    stroke:
-        'M5 3.5h14v17H5z M5 7.5h14 M8 5.5h.01 M10.5 5.5h.01 M16 14a4 4 0 1 1-8 0 4 4 0 0 1 8 0z '
-        'M10 14.6c.7-.6 1.3-.6 2 0s1.3.6 2 0',
-  );
-
-  static const fuelPump = LunaIconData(
-    stroke:
-        'M4.5 20.5v-15a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v15 M3 20.5h12 M7 8.5h4 '
-        'M13.5 11h2a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 0 3 0V8.5L17.5 6',
-  );
-
-  static const gasBottle = LunaIconData(
-    stroke: 'M9.5 3h5v3h-5z M7 10a4 4 0 0 1 4-4h2a4 4 0 0 1 4 4v10.5H7z M7 13.5h10',
-  );
-
-  static const wash = LunaIconData(
-    stroke:
-        'M3.5 18.5V14l1.9-3.5h9.4l2.6 3.5h3.1v4.5z M7 21v-2.5 M17.5 21v-2.5 '
-        'M8 3.2c-.9 1.1-1.4 1.9-1.4 2.6a1.4 1.4 0 0 0 2.8 0c0-.7-.5-1.5-1.4-2.6z '
-        'M15 3.2c-.9 1.1-1.4 1.9-1.4 2.6a1.4 1.4 0 0 0 2.8 0c0-.7-.5-1.5-1.4-2.6z',
-  );
-
-  static const bread = LunaIconData(
-    stroke:
-        'M4.3 16.9 16.9 4.3a2.6 2.6 0 0 1 3.7 3.7L8 20.6a2.6 2.6 0 0 1-3.7-3.7z '
-        'M8.6 12.6l2 2 M11.6 9.6l2 2 M14.6 6.6l2 2',
-  );
-
-  static const pool = LunaIconData(
-    stroke:
-        'M8 15.5V6a2 2 0 0 1 2-2 M15 15.5V6a2 2 0 0 1 2-2 M8 8.5h7 M8 12h7 '
-        'M3 19.5c1.5 0 1.5-1 3-1s1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1',
-  );
-
-  static const paw = LunaIconData(
-    fill:
-        'M12 12.2c-2.7 0-5.2 3.3-5.2 5.5 0 1.6 1.3 2.3 2.7 2.3 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5 '
-        'c1.4 0 2.7-.7 2.7-2.3 0-2.2-2.5-5.5-5.2-5.5z '
-        'M8.3 10.3a1.7 2.1 0 1 1-3.4 0 1.7 2.1 0 0 1 3.4 0z '
-        'M11.4 6.3a1.8 2.2 0 1 1-3.6 0 1.8 2.2 0 0 1 3.6 0z '
-        'M16.2 6.3a1.8 2.2 0 1 1-3.6 0 1.8 2.2 0 0 1 3.6 0z '
-        'M19.1 10.3a1.7 2.1 0 1 1-3.4 0 1.7 2.1 0 0 1 3.4 0z',
-  );
-
-  static const signal = LunaIconData(
-    stroke: 'M5 19.5v-3 M9.5 19.5v-6 M14 19.5v-9 M18.5 19.5v-13',
-    strokeWidth: 2.4,
-  );
-
-  static const snowflake = LunaIconData(
-    stroke:
-        'M12 2.8v18.4 M4 7.4l16 9.2 M4 16.6l16-9.2 M9.6 4.4 12 6.2l2.4-1.8 M9.6 19.6 12 17.8l2.4 1.8 '
-        'M4.6 10.4l2.8-.9-.4-2.9 M19.4 13.6l-2.8.9.4 2.9 M4.6 13.6l2.8.9-.4 2.9 M19.4 10.4l-2.8-.9.4-2.9',
-    strokeWidth: 1.7,
-  );
-
-  static LunaIconData family(KindFamily family) => switch (family) {
-    .stopovers => van,
-    .campsites => tent,
-    .nature => tree,
-    .services => tap,
-  };
-
-  static LunaIconData overnight(OvernightStatus status) => switch (status) {
-    .allowed => moonStar,
-    .tolerated => moon,
+  static LunaIconData night(OvernightStatus status) => switch (status) {
+    .allowed => fullMoon,
+    .tolerated => crescent,
     .dayOnly => sun,
-    .forbidden => moonBarred,
-    .unknown => question,
-  };
-
-  static LunaIconData service(Service service) => switch (service) {
-    .drinkingWater => water,
-    .greyWater => greyWater,
-    .blackWater => blackWater,
-    .wasteBin => bin,
-    .toilets => toilet,
-    .showers => shower,
-    .electricity => bolt,
-    .wifi => wifi,
-    .laundry => laundry,
-    .lpg => fuelPump,
-    .gasBottles => gasBottle,
-    .vehicleWash => wash,
-    .bakery => bread,
-    .swimmingPool => pool,
-    .petsAllowed => paw,
-    .mobileData => signal,
-    .winterCaravanning => snowflake,
+    .forbidden => crossedMoon,
+    .unknown => unknownNight,
   };
 }

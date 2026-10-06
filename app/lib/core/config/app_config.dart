@@ -1,40 +1,40 @@
 import 'package:flutter/foundation.dart';
 
+/// Whether this build carries the demo mode: synthetic places served on the
+/// device, no network. A compile-time constant, so a build without
+/// `--dart-define=LUNAWAY_DEMO=true` (every release) leaves the demo data and
+/// its fake server out of the binary: the compiler drops code under a false
+/// constant.
+const bool demoBuild = bool.fromEnvironment('LUNAWAY_DEMO');
+
 /// Build-time configuration, from `--dart-define`:
 ///
-/// - `LUNAWAY_API`: base URL of the API. Release builds default to the
-///   public API, debug and profile builds to the local backend.
-/// - `LUNAWAY_DEMO=true`: synthetic places served on the device, no network.
-/// - `LUNAWAY_STYLE_LIGHT`, `LUNAWAY_STYLE_DARK`: basemap style URLs, so the
-///   self-hosted Protomaps style can replace OpenFreeMap without a code change.
+/// - `LUNAWAY_API_URL`: base URL of the API, the public API by default. A
+///   developer points it at a local or a staging server.
+/// - `LUNAWAY_DEMO=true`: the demo mode (see [demoBuild]).
+/// - `LUNAWAY_BASEMAP_URL`: base URL of the basemap host (TileJSON at
+///   `planet.json`, glyphs under `fonts/`, sprites under `sprites/`), our
+///   tile server by default. A developer points it at another deployment of
+///   the same layout.
 @immutable
 final class AppConfig {
-  const new({
-    required this.apiBaseUrl,
-    required this.demo,
-    required this.basemapLight,
-    required this.basemapDark,
-  });
+  const new({required this.apiBaseUrl, required this.demo, required this.basemapUrl});
 
   factory fromEnvironment() {
-    const api = String.fromEnvironment('LUNAWAY_API');
-    const light = String.fromEnvironment('LUNAWAY_STYLE_LIGHT');
-    const dark = String.fromEnvironment('LUNAWAY_STYLE_DARK');
+    const api = String.fromEnvironment('LUNAWAY_API_URL');
+    const basemap = String.fromEnvironment('LUNAWAY_BASEMAP_URL');
     return AppConfig(
-      apiBaseUrl: api.isNotEmpty ? api : (kReleaseMode ? publicApi : localApi),
-      demo: const bool.fromEnvironment('LUNAWAY_DEMO'),
-      basemapLight: light.isNotEmpty ? light : openFreeMapLight,
-      basemapDark: dark.isNotEmpty ? dark : openFreeMapDark,
+      apiBaseUrl: api.isNotEmpty ? api : publicApi,
+      demo: demoBuild,
+      basemapUrl: basemap.isNotEmpty ? basemap : publicBasemap,
     );
   }
 
   static const publicApi = 'https://api.lunaway.net';
-  static const localApi = 'http://127.0.0.1:8484';
 
-  /// OpenFreeMap: free, keyless, no tracking. Positron and Dark are quiet
-  /// basemaps on which the coloured pins stand out.
-  static const openFreeMapLight = 'https://tiles.openfreemap.org/styles/positron';
-  static const openFreeMapDark = 'https://tiles.openfreemap.org/styles/dark';
+  /// Our tile server: OpenStreetMap data in the Protomaps schema, with the
+  /// glyphs and sprites the app's styles name.
+  static const publicBasemap = 'https://tiles.lunaway.net';
 
   static const website = 'https://lunaway.net';
   static const privacyPolicy = 'https://lunaway.net/privacy';
@@ -42,10 +42,26 @@ final class AppConfig {
 
   final String apiBaseUrl;
   final bool demo;
-  final String basemapLight;
-  final String basemapDark;
+  final String basemapUrl;
 
-  Uri get graphqlEndpoint => Uri.parse('${apiBaseUrl.replaceAll(RegExp(r'/+$'), '')}/graphql');
+  Uri get apiBase => Uri.parse(apiBaseUrl.replaceAll(RegExp(r'/+$'), ''));
+
+  Uri get graphqlEndpoint => apiBase.replace(path: '${apiBase.path}/graphql');
+
+  /// The basemap host's base URL, without a trailing slash.
+  String get basemapBase => basemapUrl.replaceAll(RegExp(r'/+$'), '');
+
+  /// Whether [url] is a photo served by the API's image proxy: the only
+  /// images the app downloads. Same scheme, host and port as the API, under
+  /// `/media/`.
+  bool isApiMedia(Uri url) {
+    final base = apiBase;
+    return url.scheme == base.scheme &&
+        url.host == base.host &&
+        url.port == base.port &&
+        url.path.startsWith('${base.path}/media/') &&
+        !url.path.contains('..');
+  }
 
   /// The honest User-Agent of every request the app makes.
   static String userAgent(String version) => 'Lunaway/$version (+$website)';

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
+import 'package:lunaway/shared/images/image_fetcher.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -26,26 +29,36 @@ class PlacePhotos extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     return switch (ref.watch(placeExtrasProvider(place.id))) {
-      AsyncData(value: final extras?) when extras.photos.isNotEmpty => Padding(
-        padding: const EdgeInsets.only(top: Space.xl),
-        child: Semantics(
-          label: t.place.photos,
-          container: true,
-          child: SizedBox(
-            height: height,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: extras.photos.length,
-              separatorBuilder: (_, _) => const SizedBox(width: Space.s),
-              itemBuilder: (context, i) => _Thumb(
-                photo: extras.photos[i],
-                label: t.place.photoPosition(index: i + 1, count: extras.photos.length),
-                onTap: () => showPhotoViewer(context, extras.photos, i, sources: place.sources),
+      AsyncValue(value: final extras, hasValue: true)
+          when extras != null && extras.photos.isNotEmpty =>
+        Padding(
+          padding: const EdgeInsets.only(top: Space.xl),
+          child: Semantics(
+            label: t.place.photos,
+            container: true,
+            child: SizedBox(
+              height: height,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: extras.photos.length,
+                separatorBuilder: (_, _) => const SizedBox(width: Space.s),
+                itemBuilder: (context, i) => _Thumb(
+                  photo: extras.photos[i],
+                  fetcher: ref.watch(imageFetcherProvider),
+                  source: sourceName(t, extras.photos[i].sourceId, sources: place.sources),
+                  label: t.place.photoPosition(index: i + 1, count: extras.photos.length),
+                  onTap: () => showPhotoViewer(
+                    context,
+                    extras.photos,
+                    i,
+                    sources: place.sources,
+                    fetcher: ref.read(imageFetcherProvider),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
       AsyncData() => const SizedBox.shrink(),
       AsyncError() => Padding(
         padding: const EdgeInsets.only(top: Space.xl),
@@ -59,11 +72,11 @@ class PlacePhotos extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             physics: const NeverScrollableScrollPhysics(),
             children: const [
-              Skeleton(width: 160, height: height, radius: 16),
+              Skeleton(width: 160, height: height, radius: LunaTokens.radiusL),
               SizedBox(width: Space.s),
-              Skeleton(width: 160, height: height, radius: 16),
+              Skeleton(width: 160, height: height, radius: LunaTokens.radiusL),
               SizedBox(width: Space.s),
-              Skeleton(width: 160, height: height, radius: 16),
+              Skeleton(width: 160, height: height, radius: LunaTokens.radiusL),
             ],
           ),
         ),
@@ -73,9 +86,20 @@ class PlacePhotos extends ConsumerWidget {
 }
 
 class _Thumb extends StatelessWidget {
-  const new({required this.photo, required this.label, required this.onTap});
+  const new({
+    required this.photo,
+    required this.fetcher,
+    required this.source,
+    required this.label,
+    required this.onTap,
+  });
 
   final Photo photo;
+  final ImageFetcher fetcher;
+
+  /// The source of the photo, on its corner: every value shown says where it
+  /// came from.
+  final String source;
   final String label;
   final VoidCallback onTap;
 
@@ -84,9 +108,9 @@ class _Thumb extends StatelessWidget {
     const width = PlacePhotos.height * 4 / 3;
     return Semantics(
       button: true,
-      label: label,
+      label: '$label, $source',
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(LunaTokens.of(context).radiusL),
+        borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: SizedBox(
           width: width,
           height: PlacePhotos.height,
@@ -94,7 +118,7 @@ class _Thumb extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image(
-                image: ResizeImage(CachedImage(photo.thumbUrl), width: 480),
+                image: ResizeImage(CachedImage(photo.thumbUrl, fetcher: fetcher), width: 480),
                 fit: BoxFit.cover,
                 excludeFromSemantics: true,
                 // The skeleton holds the place until the first frame, so the
@@ -103,8 +127,17 @@ class _Thumb extends StatelessWidget {
                     ? const Skeleton(width: width, height: PlacePhotos.height, radius: 0)
                     : child,
                 errorBuilder: (context, _, _) => ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
                   child: const Icon(AppIcons.noImage),
+                ),
+              ),
+              Positioned(
+                left: Space.s,
+                bottom: Space.s,
+                right: Space.s,
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: ExcludeSemantics(child: SourceBadge(label: source, onPhoto: true)),
                 ),
               ),
               Material(
@@ -143,22 +176,31 @@ Future<void> showPhotoViewer(
   BuildContext context,
   List<Photo> photos,
   int index, {
+  required ImageFetcher fetcher,
   List<PlaceSource> sources = const [],
-}) => Navigator.of(context).push(
+}) => Navigator.of(context, rootNavigator: true).push(
   PageRouteBuilder<void>(
     opaque: false,
     barrierColor: LunaTokens.of(context).photoBackdrop,
-    pageBuilder: (_, _, _) => PhotoViewer(photos: photos, initial: index, sources: sources),
+    pageBuilder: (_, _, _) =>
+        PhotoViewer(photos: photos, initial: index, sources: sources, fetcher: fetcher),
     transitionsBuilder: (_, animation, _, child) =>
         FadeTransition(opacity: animation, child: child),
   ),
 );
 
 class PhotoViewer extends StatefulWidget {
-  const new({required this.photos, required this.initial, this.sources = const [], super.key});
+  const new({
+    required this.photos,
+    required this.initial,
+    required this.fetcher,
+    this.sources = const [],
+    super.key,
+  });
 
   final List<Photo> photos;
   final int initial;
+  final ImageFetcher fetcher;
   final List<PlaceSource> sources;
 
   @override
@@ -191,7 +233,15 @@ class _PhotoViewerState extends State<PhotoViewer> {
               maxScale: 4,
               child: Center(
                 child: Image(
-                  image: CachedImage(widget.photos[i].largeUrl),
+                  // Decoded at the size of the screen, not of the file: a
+                  // large photo would otherwise take tens of megabytes.
+                  image: ResizeImage(
+                    CachedImage(widget.photos[i].largeUrl, fetcher: widget.fetcher),
+                    width:
+                        (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
+                            .round(),
+                    policy: ResizeImagePolicy.fit,
+                  ),
                   fit: BoxFit.contain,
                   semanticLabel: t.place.photoPosition(index: i + 1, count: widget.photos.length),
                   loadingBuilder: (context, child, progress) =>
@@ -210,13 +260,16 @@ class _PhotoViewerState extends State<PhotoViewer> {
               padding: const EdgeInsets.all(Space.s),
               child: Row(
                 children: [
-                  IconButton.filledTonal(
+                  IconButton.filled(
                     tooltip: t.common.close,
                     icon: const Icon(AppIcons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const Spacer(),
-                  SourceBadge(label: sourceName(t, photo.sourceId, sources: widget.sources)),
+                  SourceBadge(
+                    label: sourceName(t, photo.sourceId, sources: widget.sources),
+                    onPhoto: true,
+                  ),
                   const SizedBox(width: Space.m),
                   Text(
                     '${_index + 1} / ${widget.photos.length}',
@@ -257,7 +310,7 @@ class PlaceReviewsSection extends ConsumerWidget {
         children: [
           Semantics(
             header: true,
-            child: Text(t.place.reviewsTitle, style: theme.textTheme.titleMedium),
+            child: Text(t.place.reviewsTitle, style: theme.textTheme.titleLarge),
           ),
           const SizedBox(height: Space.sm),
           Wrap(
@@ -332,38 +385,6 @@ class PlaceReviewsSection extends ConsumerWidget {
   }
 }
 
-/// "★ 4,3 (128)": the rating and how many reviews it rests on.
-class RatingText extends StatelessWidget {
-  const new({required this.average, required this.count, this.style, super.key});
-
-  final double average;
-  final int count;
-  final TextStyle? style;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final theme = Theme.of(context);
-    return Semantics(
-      label: '${t.place.stars(rating: t.ratingValue(average))}, ${t.place.reviewsCount(n: count)}',
-      excludeSemantics: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(AppIcons.star, size: 20, color: theme.colorScheme.tertiary),
-          const SizedBox(width: Space.hair),
-          Flexible(
-            child: Text(
-              '${t.ratingValue(average)} ($count)',
-              style: style ?? theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class ReviewCard extends StatelessWidget {
   const new({required this.review, this.sources = const [], super.key});
 
@@ -375,8 +396,14 @@ class ReviewCard extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final rating = review.rating;
+    // The day of the stay is a calendar date already; the writing time is
+    // an instant, shown in the reader's zone.
     final date = DateFormat.yMMMM(t.$meta.locale.languageCode)
-        .format((review.visitedAt ?? review.createdAt).toLocal());
+        .format(review.visitedAt ?? review.createdAt.toLocal());
+    // A deleted account leaves its community reviews without a name.
+    final author =
+        review.authorName ?? (review.sourceId == communitySourceId ? t.place.deletedAccount : null);
+    final vehicle = review.authorVehicle;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(Space.l),
@@ -402,7 +429,7 @@ class ReviewCard extends StatelessWidget {
                           Icon(
                             i <= rating ? AppIcons.star : AppIcons.starEmpty,
                             size: 18,
-                            color: theme.colorScheme.tertiary,
+                            color: theme.colorScheme.primary,
                           ),
                       ],
                     ),
@@ -416,7 +443,7 @@ class ReviewCard extends StatelessWidget {
             ],
             const SizedBox(height: Space.s),
             Text(
-              [?review.authorName, ?review.authorVehicle, date].join(' · '),
+              [?author, if (vehicle != null) t.reviewVehicle(vehicle), date].join(' · '),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],

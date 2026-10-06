@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Differences a failed golden comparison writes, for review.
+test/goldens/failures/

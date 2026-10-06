@@ -1,50 +1,66 @@
+import 'package:lunaway/shared/theme/palette.dart';
+
 /// How Lunaway's own layers look on the basemap: clusters, pins and the
 /// selection. Both map engines read these values, so they draw one map.
 abstract final class MapLook {
-  /// Pins are drawn at this many pixels per logical pixel and scaled back by
-  /// the layers, which keeps them sharp on any screen.
-  static const double pinPixelRatio = 3;
+  static String _hex(int argb) => '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
-  /// The night blue of the brand, readable on the light and the dark basemap.
-  static const clusterFill = '#24427A';
-  static const clusterStroke = '#FFFFFF';
-  static const double clusterStrokeWidth = 3;
+  /// Clusters: a navy disc with a cream count by day, the reverse at night,
+  /// so they read as part of the brand and never as a place.
+  static String clusterFill({required bool dark}) =>
+      _hex((dark ? Palette.creme : Palette.minuit).toARGB32());
+  static String clusterText({required bool dark}) =>
+      _hex((dark ? Palette.minuit : Palette.creme).toARGB32());
+  static String clusterStroke({required bool dark}) =>
+      _hex((dark ? Palette.minuit : Palette.creme).toARGB32());
+  static const double clusterStrokeWidth = 2.5;
   static const double clusterOpacity = 0.94;
-  static const clusterText = '#FFFFFF';
-  static const double clusterTextSize = 14;
 
-  /// Fonts the basemap's glyph server provides.
-  static const List<String> clusterFont = ['Noto Sans Bold'];
-
-  /// Bigger discs for bigger clusters.
+  /// A cluster's size says how many places it holds: 5 and 500 never look
+  /// alike. The largest stays under half the clustering radius, so two
+  /// neighbours on the country view keep a gap of basemap between them.
   static const List<Object> clusterRadius = [
-    'step',
+    'interpolate',
+    ['linear'],
     ['get', 'point_count'],
-    17,
-    25,
-    21,
-    150,
-    26,
+    2,
+    12,
+    10,
+    14,
+    50,
+    16,
+    200,
+    19,
+    1000,
+    22,
+  ];
+  static const List<Object> clusterTextSize = [
+    'interpolate',
+    ['linear'],
+    ['get', 'point_count'],
+    2,
+    12,
+    200,
+    13.5,
+    1000,
+    15,
   ];
 
-  /// Slightly smaller pins when zoomed out, full size from zoom 13. [scale]
-  /// converts the pin images to the engine's unit: 1 where an image pixel is
-  /// a logical pixel (iOS, the web), the device pixel ratio on Android, which
-  /// reads image pixels as physical ones.
-  static List<Object> pinSize([double scale = 1]) => [
+  /// The font stack of the counts, which must exist on the basemap's glyph
+  /// server: the Protomaps fonts stop at Medium.
+  static const clusterFont = ['Noto Sans Medium'];
+
+  /// Slightly smaller pins when zoomed out, full size from zoom 12. [scale]
+  /// converts the pin images to the engine's unit: 1 / ratio where an image
+  /// pixel is a logical pixel (iOS, the web), device pixel ratio / ratio on
+  /// Android, which reads image pixels as physical ones.
+  static List<Object> pinSize(double scale) => [
     'interpolate',
     ['linear'],
     ['zoom'],
-    8,
-    0.8 * scale / pinPixelRatio,
-    13,
-    scale / pinPixelRatio,
+    6,
+    0.72 * scale,
+    12,
+    scale,
   ];
-
-  /// Lantern amber, the accent kept for what the user picked.
-  static const selection = '#F2A33A';
-  static double selectedPinSize([double scale = 1]) => 1.35 * scale / pinPixelRatio;
-  static const double selectionHaloRadius = 24;
-  static const double selectionHaloOpacity = 0.28;
-  static const double selectionStrokeWidth = 3;
 }

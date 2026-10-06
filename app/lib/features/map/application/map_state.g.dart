@@ -174,17 +174,331 @@ abstract class _$MapController extends $Notifier<LunaMapController?> {
   }
 }
 
-/// The last known device position.
+/// The location permission of the platform; a fake in widget tests.
+// keepAlive: stateless, wired once.
+
+@ProviderFor(locationPermissions)
+final locationPermissionsProvider = LocationPermissionsProvider._();
+
+/// The location permission of the platform; a fake in widget tests.
+// keepAlive: stateless, wired once.
+
+final class LocationPermissionsProvider
+    extends
+        $FunctionalProvider<
+          LocationPermissions,
+          LocationPermissions,
+          LocationPermissions
+        >
+    with $Provider<LocationPermissions> {
+  /// The location permission of the platform; a fake in widget tests.
+  // keepAlive: stateless, wired once.
+  LocationPermissionsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'locationPermissionsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$locationPermissionsHash();
+
+  @$internal
+  @override
+  $ProviderElement<LocationPermissions> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  LocationPermissions create(Ref ref) {
+    return locationPermissions(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LocationPermissions value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LocationPermissions>(value),
+    );
+  }
+}
+
+String _$locationPermissionsHash() =>
+    r'fb5f761a3e8c462f7b337a02a3a81f902341b560';
+
+/// Where the last known position is kept between runs.
+// keepAlive: a repository over the app-wide database.
+
+@ProviderFor(lastPositionStore)
+final lastPositionStoreProvider = LastPositionStoreProvider._();
+
+/// Where the last known position is kept between runs.
+// keepAlive: a repository over the app-wide database.
+
+final class LastPositionStoreProvider
+    extends
+        $FunctionalProvider<
+          LastPositionStore,
+          LastPositionStore,
+          LastPositionStore
+        >
+    with $Provider<LastPositionStore> {
+  /// Where the last known position is kept between runs.
+  // keepAlive: a repository over the app-wide database.
+  LastPositionStoreProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'lastPositionStoreProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$lastPositionStoreHash();
+
+  @$internal
+  @override
+  $ProviderElement<LastPositionStore> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  LastPositionStore create(Ref ref) {
+    return lastPositionStore(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LastPositionStore value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LastPositionStore>(value),
+    );
+  }
+}
+
+String _$lastPositionStoreHash() => r'0fa82364011926925c58fda56981d3283e06d553';
+
+/// The coarse position stored by the previous run, read in `main` before the
+/// first frame so the automatic theme is right from the start.
+// keepAlive: a constant of the run.
+
+@ProviderFor(initialPosition)
+final initialPositionProvider = InitialPositionProvider._();
+
+/// The coarse position stored by the previous run, read in `main` before the
+/// first frame so the automatic theme is right from the start.
+// keepAlive: a constant of the run.
+
+final class InitialPositionProvider
+    extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
+    with $Provider<LatLng?> {
+  /// The coarse position stored by the previous run, read in `main` before the
+  /// first frame so the automatic theme is right from the start.
+  // keepAlive: a constant of the run.
+  InitialPositionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'initialPositionProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$initialPositionHash();
+
+  @$internal
+  @override
+  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  LatLng? create(Ref ref) {
+    return initialPosition(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LatLng? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
+  }
+}
+
+String _$initialPositionHash() => r'884e07dfdbad8cd36ac154a7522d6bd68c61e432';
+
+/// The basemap style templates, read from the assets in `main` before the
+/// first frame, so the map never waits on a file to get its style.
+// keepAlive: a constant of the run.
+
+@ProviderFor(basemapTemplates)
+final basemapTemplatesProvider = BasemapTemplatesProvider._();
+
+/// The basemap style templates, read from the assets in `main` before the
+/// first frame, so the map never waits on a file to get its style.
+// keepAlive: a constant of the run.
+
+final class BasemapTemplatesProvider
+    extends
+        $FunctionalProvider<
+          BasemapTemplates,
+          BasemapTemplates,
+          BasemapTemplates
+        >
+    with $Provider<BasemapTemplates> {
+  /// The basemap style templates, read from the assets in `main` before the
+  /// first frame, so the map never waits on a file to get its style.
+  // keepAlive: a constant of the run.
+  BasemapTemplatesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'basemapTemplatesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$basemapTemplatesHash();
+
+  @$internal
+  @override
+  $ProviderElement<BasemapTemplates> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  BasemapTemplates create(Ref ref) {
+    return basemapTemplates(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(BasemapTemplates value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<BasemapTemplates>(value),
+    );
+  }
+}
+
+String _$basemapTemplatesHash() => r'270783c70eba3bef13f43889b25816b10b3d5542';
+
+/// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+/// pointed at the configured tile host, labelled in [language].
+
+@ProviderFor(basemapStyle)
+final basemapStyleProvider = BasemapStyleFamily._();
+
+/// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+/// pointed at the configured tile host, labelled in [language].
+
+final class BasemapStyleProvider
+    extends $FunctionalProvider<String, String, String>
+    with $Provider<String> {
+  /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+  /// pointed at the configured tile host, labelled in [language].
+  BasemapStyleProvider._({
+    required BasemapStyleFamily super.from,
+    required ({bool dark, String language}) super.argument,
+  }) : super(
+         retry: null,
+         name: r'basemapStyleProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$basemapStyleHash();
+
+  @override
+  String toString() {
+    return r'basemapStyleProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  String create(Ref ref) {
+    final argument = this.argument as ({bool dark, String language});
+    return basemapStyle(ref, dark: argument.dark, language: argument.language);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is BasemapStyleProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$basemapStyleHash() => r'208b71ba132d2f2dd482a93df11da6880073b4ae';
+
+/// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+/// pointed at the configured tile host, labelled in [language].
+
+final class BasemapStyleFamily extends $Family
+    with $FunctionalFamilyOverride<String, ({bool dark, String language})> {
+  BasemapStyleFamily._()
+    : super(
+        retry: null,
+        name: r'basemapStyleProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
+  /// pointed at the configured tile host, labelled in [language].
+
+  BasemapStyleProvider call({required bool dark, required String language}) =>
+      BasemapStyleProvider._(
+        argument: (dark: dark, language: language),
+        from: this,
+      );
+
+  @override
+  String toString() => r'basemapStyleProvider';
+}
+
+/// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
 
 @ProviderFor(UserLocation)
 final userLocationProvider = UserLocationProvider._();
 
-/// The last known device position.
+/// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
 final class UserLocationProvider
     extends $NotifierProvider<UserLocation, LatLng?> {
-  /// The last known device position.
+  /// The device position located during this run.
   // keepAlive: distances in the list keep using it across tabs.
   UserLocationProvider._()
     : super(
@@ -213,9 +527,9 @@ final class UserLocationProvider
   }
 }
 
-String _$userLocationHash() => r'9477fab4c5f3d6a95351dc797125e9c43bd86f69';
+String _$userLocationHash() => r'ea17efdb5740934bcb5f43cc436acc8242c6f968';
 
-/// The last known device position.
+/// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
 
 abstract class _$UserLocation extends $Notifier<LatLng?> {
@@ -235,6 +549,55 @@ abstract class _$UserLocation extends $Notifier<LatLng?> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The position the sun is computed at for the automatic theme: this run's,
+/// else the one the previous run stored.
+
+@ProviderFor(sunPosition)
+final sunPositionProvider = SunPositionProvider._();
+
+/// The position the sun is computed at for the automatic theme: this run's,
+/// else the one the previous run stored.
+
+final class SunPositionProvider
+    extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
+    with $Provider<LatLng?> {
+  /// The position the sun is computed at for the automatic theme: this run's,
+  /// else the one the previous run stored.
+  SunPositionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sunPositionProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sunPositionHash();
+
+  @$internal
+  @override
+  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  LatLng? create(Ref ref) {
+    return sunPosition(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(LatLng? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
+  }
+}
+
+String _$sunPositionHash() => r'846cbf1e9ddb9e1e9f9849671a1ab058d7b7cd5a';
 
 /// The places in the viewport, nearest to the user (or to the map centre)
 /// first: the list beside the map.
@@ -283,7 +646,7 @@ final class NearbyPlacesProvider
   }
 }
 
-String _$nearbyPlacesHash() => r'5a314be6d7902fca52c6f37a68b149ad91a48912';
+String _$nearbyPlacesHash() => r'7be2753b027bd88e436462ff4cd350be1b8e4127';
 
 /// The map widget, swapped for a fake in widget tests where platform views do
 /// not render.

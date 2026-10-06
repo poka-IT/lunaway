@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
@@ -61,7 +63,7 @@ void main() {
 
   testWidgets('a day-only car park says so plainly, with its height barrier', (tester) async {
     await openPlace(tester, dayParking);
-    expect(find.text('Journée seulement'), findsWidgets);
+    expect(find.text('De jour seulement'), findsWidgets);
     expect(
       find.text('Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.'),
       findsOneWidget,
@@ -134,21 +136,46 @@ void main() {
     expect(clipboard, ['45°45\'46.4"N 4°49\'54.1"E']);
   });
 
-  testWidgets('directions hand the place to a navigation app', (tester) async {
+  testWidgets('directions offer the installed navigation apps and remember the choice', (
+    tester,
+  ) async {
     final app = await openPlace(tester, dayParking);
     await tester.tap(find.text('Itinéraire'));
     await settleShort(tester);
-    // Tests run as Android: a geo: link for the system chooser.
-    expect(
-      app.external.opened.single.toString(),
-      startsWith('geo:45.762900,4.831697?q=45.762900,4.831697('),
-    );
+    expect(find.text('Itinéraire avec'), findsOneWidget);
+    expect(find.text('Google Maps'), findsOneWidget);
+    expect(find.text('Waze'), findsOneWidget);
+    expect(find.text('OsmAnd'), findsNothing, reason: 'not installed');
+    await tester.tap(find.text('Waze'));
+    await settleShort(tester);
+    expect(app.external.routes.single.app, NavigationApp.waze);
+    expect(app.external.routes.single.to, dayParking.position);
+    expect(app.settings.value.navigationApp, NavigationApp.waze.id);
+    // Remembered: the next trip goes straight to Waze.
+    await tester.tap(find.text('Itinéraire'));
+    await settleShort(tester);
+    expect(find.text('Itinéraire avec'), findsNothing);
+    expect(app.external.routes.map((r) => r.app), [NavigationApp.waze, NavigationApp.waze]);
   });
 
-  testWidgets('when no app opens the link, the user is told', (tester) async {
+  testWidgets('with the switch off, the chooser asks again next time', (tester) async {
+    final app = await openPlace(tester, dayParking);
+    await tester.tap(find.text('Itinéraire'));
+    await settleShort(tester);
+    await tester.tap(find.text('Toujours utiliser cette application'));
+    await settleShort(tester);
+    await tester.tap(find.text('Google Maps'));
+    await settleShort(tester);
+    expect(app.external.routes.single.app, NavigationApp.googleMaps);
+    expect(app.settings.value.navigationApp, isNull);
+  });
+
+  testWidgets('when no app opens the route, the user is told', (tester) async {
     final app = await openPlace(tester, dayParking);
     app.external.openSucceeds = false;
     await tester.tap(find.text('Itinéraire'));
+    await settleShort(tester);
+    await tester.tap(find.text('Waze'));
     await settleShort(tester);
     expect(find.text("Aucune application n'a pu ouvrir ce lien."), findsOneWidget);
   });
@@ -170,10 +197,83 @@ void main() {
     await settleShort(tester);
     expect(app.favorites.entries.single.placeId, campsite.id);
     expect(find.text('Enregistré'), findsOneWidget);
-    expect(find.text('Ajouté à vos favoris'), findsOneWidget);
+    expect(find.text('Ajouté à Mes favoris'), findsOneWidget);
     await tester.tap(find.text('Enregistré'));
     await settleShort(tester);
     expect(app.favorites.entries, isEmpty);
+  });
+
+  testWidgets('saving again takes the place out of "My favourites" only, with an undo', (
+    tester,
+  ) async {
+    final app = await openPlace(tester, campsite);
+    final trip = await app.favorites.createList('Bretagne 2027');
+    await app.favorites.add(trip, campsite.summary);
+    await app.favorites.addToDefault(campsite.summary);
+    await settleShort(tester);
+    await tester.tap(find.text('Enregistré'));
+    await settleShort(tester);
+    expect(app.favorites.entries.map((e) => e.listId), [trip], reason: 'the trip list keeps it');
+    expect(find.text('Retiré de Mes favoris'), findsOneWidget);
+    await tester.tap(find.text('Annuler'));
+    await settleShort(tester);
+    expect(app.favorites.entries.map((e) => e.listId).toSet(), {trip, 1});
+  });
+
+  testWidgets('the lists offered after a save still open once the place is closed', (tester) async {
+    final app = await pumpLunaway(tester);
+    final selection = app.container(tester).read(selectionProvider.notifier)
+      ..select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    await tester.tap(find.text('Enregistrer').hitTestable());
+    await settleShort(tester);
+    selection.select(null);
+    await settleShort(tester);
+    expect(find.text('Itinéraire'), findsNothing);
+    await tester.tap(find.text('Listes'));
+    await settleShort(tester);
+    expect(tester.takeException(), isNull);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
+  });
+
+  testWidgets('a save that fails says so', (tester) async {
+    final app = await openPlace(tester, campsite);
+    app.favorites.failWrites = true;
+    await tester.tap(find.text('Enregistrer'));
+    await settleShort(tester);
+    expect(find.text("La modification n'a pas pu être enregistrée."), findsOneWidget);
+    expect(find.text('Enregistrer'), findsOneWidget, reason: 'still not saved');
+  });
+
+  testWidgets('a long press on save picks the lists, with no tooltip in the way', (tester) async {
+    await openPlace(tester, campsite);
+    await tester.longPress(find.text('Enregistrer'));
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
+    expect(
+      find.ancestor(of: find.text('Enregistrer'), matching: find.byType(Tooltip)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('with large text on a phone the actions stack and no label is cut', (tester) async {
+    final app = await pumpLunaway(tester, textScale: 2);
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    expect(tester.takeException(), isNull);
+    final directions = tester.getRect(find.text('Itinéraire'));
+    for (final label in ['Enregistrer', 'Partager', 'Copier']) {
+      final text = find.text(label).hitTestable();
+      expect(text, findsOneWidget, reason: label);
+      final paragraph = tester.renderObject<RenderParagraph>(text);
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      expect(
+        tester.getRect(text).width,
+        lessThanOrEqualTo(phone.width / 3),
+        reason: '$label fits its third of the row',
+      );
+      expect(tester.getRect(text).top, greaterThan(directions.bottom), reason: 'on a second row');
+    }
   });
 
   testWidgets('the rating shows with its review count', (tester) async {
@@ -196,9 +296,12 @@ void main() {
   });
 
   testWidgets('photos open full screen, one at a time', (tester) async {
+    final semantics = tester.ensureSemantics();
     await openPlace(tester, lakeArea);
-    expect(find.bySemanticsLabel('Photo 1 sur 3'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Photo 1 sur 3'));
+    // Each photo is named with its rank and its source, badged on the image.
+    final first = find.bySemanticsLabel('Photo 1 sur 3, Lunaway');
+    expect(first, findsOneWidget);
+    await tester.tap(first);
     await settleShort(tester);
     expect(find.text('1 / 3'), findsOneWidget);
     await tester.fling(find.byType(PageView), const Offset(-600, 0), 1500);
@@ -207,6 +310,7 @@ void main() {
     await tester.tap(find.byTooltip('Fermer').last);
     await settleShort(tester);
     expect(find.text('2 / 3'), findsNothing);
+    semantics.dispose();
   });
 
   testWidgets('reviews show their source, author and vehicle, with more on demand', (tester) async {
@@ -263,6 +367,6 @@ void main() {
     final app = await pumpLunaway(tester, size: desktop);
     app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('removed'));
     await settleShort(tester);
-    expect(find.text("Ce lieu n'est plus dans les données."), findsOneWidget);
+    expect(find.text("Ce lieu n'est plus dans les données"), findsOneWidget);
   });
 }

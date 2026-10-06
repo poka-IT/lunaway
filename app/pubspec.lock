@@ -234,7 +234,7 @@ packages:
     source: hosted
     version: "0.3.1"
   fake_async:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: fake_async
       sha256: "5368f224a74523e8d2e7399ea1638b37aecfca824a3cc4dfdf77bf1fa905ac44"
@@ -1082,7 +1082,7 @@ packages:
     source: hosted
     version: "1.4.0"
   unorm_dart:
-    dependency: "direct main"
+    dependency: "direct dev"
     description:
       name: unorm_dart
       sha256: b4f4d2aff27d65a5fc37f400d4c09e55d7535359315acbe3b895a9add4de3a23

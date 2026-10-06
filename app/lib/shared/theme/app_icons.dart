@@ -1,70 +1,170 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 
-/// The Material icons the app uses, by meaning. The domain glyphs (kinds,
-/// overnight statuses, services) are drawn in `shared/icons/luna_icons.dart`.
+/// The icons of the app, by meaning: Phosphor (MIT), regular weight in the
+/// interface, fill for an active state. The night statuses are drawn moon
+/// phases (`shared/icons/luna_icons.dart`), not icons of a set.
 abstract final class AppIcons {
-  static const IconData map = Icons.map_outlined;
-  static const IconData mapSelected = Icons.map;
-  static const IconData favorite = Icons.favorite_border;
-  static const IconData favoriteSelected = Icons.favorite;
-  static const IconData profile = Icons.person_outline;
-  static const IconData profileSelected = Icons.person;
-  static const IconData search = Icons.search;
-  static const IconData clear = Icons.close;
-  static const IconData close = Icons.close;
-  static const IconData filters = Icons.tune;
-  static const IconData locate = Icons.my_location;
-  static const IconData list = Icons.view_list;
-  static const IconData directions = Icons.directions;
-  static const IconData share = Icons.ios_share;
-  static const IconData copy = Icons.content_copy;
-  static const IconData more = Icons.more_vert;
-  static const IconData coordinates = Icons.my_location;
-  static const IconData point = Icons.pin_drop;
-  static const IconData town = Icons.location_city;
-  static const IconData openExternal = Icons.open_in_new;
-  static const IconData website = Icons.language;
-  static const IconData call = Icons.call_outlined;
-  static const IconData hours = Icons.schedule;
-  static const IconData pricePerNight = Icons.nightlight_outlined;
-  static const IconData priceServices = Icons.water_drop_outlined;
-  static const IconData height = Icons.height;
-  static const IconData capacity = Icons.grid_view;
-  static const IconData classification = Icons.workspace_premium_outlined;
-  static const IconData confirmed = Icons.verified_outlined;
-  static const IconData stale = Icons.history_toggle_off;
-  static const IconData star = Icons.star_rounded;
-  static const IconData starEmpty = Icons.star_outline_rounded;
-  static const IconData error = Icons.error_outline;
-  static const IconData retry = Icons.refresh;
-  static const IconData offline = Icons.cloud_off;
-  static const IconData gone = Icons.wrong_location_outlined;
-  static const IconData emptyArea = Icons.travel_explore;
-  static const IconData download = Icons.download;
-  static const IconData downloadOffline = Icons.download_for_offline_outlined;
-  static const IconData sync = Icons.sync;
-  static const IconData add = Icons.add;
-  static const IconData delete = Icons.delete_outline;
-  static const IconData chevron = Icons.chevron_right;
-  static const IconData expand = Icons.expand_more;
-  static const IconData defaultList = Icons.favorite;
-  static const IconData customList = Icons.bookmarks_outlined;
-  static const IconData language = Icons.translate;
-  static const IconData offlineData = Icons.offline_pin_outlined;
-  static const IconData about = Icons.info_outline;
-  static const IconData version = Icons.verified_outlined;
-  static const IconData privacy = Icons.privacy_tip_outlined;
-  static const IconData sourceCode = Icons.code;
-  static const IconData licences = Icons.description_outlined;
-  static const IconData attributions = Icons.map_outlined;
-  static const IconData brokenImage = Icons.broken_image_outlined;
-  static const IconData noImage = Icons.image_not_supported_outlined;
-  static const IconData unsupported = Icons.map_outlined;
-  static const IconData navigationSystem = Icons.navigation_outlined;
-  static const IconData navigationApple = Icons.map_outlined;
-  static const IconData navigationGoogle = Icons.directions_car_outlined;
-  static const IconData navigationWaze = Icons.alt_route;
-  static const IconData navigationOsm = Icons.public;
-  static const IconData check = Icons.check;
-  static const IconData checkCircle = Icons.check_circle;
+  static const IconData map = PhosphorRegular.mapTrifold;
+  static const IconData mapSelected = PhosphorFill.mapTrifold;
+  static const IconData favorite = PhosphorRegular.heart;
+  static const IconData favoriteSelected = PhosphorFill.heart;
+  static const IconData profile = PhosphorRegular.user;
+  static const IconData profileSelected = PhosphorFill.user;
+  static const IconData search = PhosphorRegular.magnifyingGlass;
+  static const IconData close = PhosphorRegular.x;
+  static const IconData filters = PhosphorRegular.slidersHorizontal;
+  static const IconData locate = PhosphorRegular.crosshair;
+  static const IconData locateActive = PhosphorFill.crosshair;
+  static const IconData zoomIn = PhosphorRegular.plus;
+  static const IconData zoomOut = PhosphorRegular.minus;
+  static const IconData list = PhosphorRegular.listBullets;
+  static const IconData directions = PhosphorFill.navigationArrow;
+  static const IconData share = PhosphorRegular.shareNetwork;
+  static const IconData copy = PhosphorRegular.copy;
+  static const IconData copied = PhosphorRegular.checkCircle;
+  static const IconData more = PhosphorRegular.dotsThree;
+  static const IconData moreVertical = PhosphorRegular.dotsThreeVertical;
+  static const IconData coordinates = PhosphorRegular.gpsFix;
+  static const IconData point = PhosphorFill.mapPin;
+  static const IconData town = PhosphorRegular.buildings;
+  static const IconData openExternal = PhosphorRegular.arrowSquareOut;
+  static const IconData website = PhosphorRegular.globe;
+  static const IconData call = PhosphorRegular.phone;
+  static const IconData hours = PhosphorRegular.clock;
+  static const IconData pricePerNight = PhosphorRegular.moonStars;
+  static const IconData priceServices = PhosphorRegular.drop;
+  static const IconData height = PhosphorRegular.arrowsVertical;
+  static const IconData width = PhosphorRegular.arrowsHorizontal;
+  static const IconData length = PhosphorRegular.ruler;
+  static const IconData weight = PhosphorRegular.scales;
+  static const IconData capacity = PhosphorRegular.squaresFour;
+  static const IconData classification = PhosphorRegular.sealCheck;
+  static const IconData confirmed = PhosphorRegular.sealCheck;
+  static const IconData stale = PhosphorRegular.clockCounterClockwise;
+  static const IconData star = PhosphorFill.star;
+  static const IconData starEmpty = PhosphorRegular.star;
+  static const IconData error = PhosphorRegular.warningCircle;
+  static const IconData retry = PhosphorRegular.arrowClockwise;
+  static const IconData offline = PhosphorRegular.cloudSlash;
+  static const IconData gone = PhosphorRegular.mapPinSimpleLine;
+  static const IconData download = PhosphorRegular.downloadSimple;
+  static const IconData sync = PhosphorRegular.arrowsClockwise;
+  static const IconData add = PhosphorRegular.plus;
+  static const IconData delete = PhosphorRegular.trash;
+  static const IconData rename = PhosphorRegular.pencilSimple;
+  static const IconData chevron = PhosphorRegular.caretRight;
+  static const IconData chevronDown = PhosphorRegular.caretDown;
+  static const IconData back = PhosphorRegular.arrowLeft;
+  static const IconData expand = PhosphorRegular.caretDown;
+  static const IconData defaultList = PhosphorFill.heart;
+  static const IconData customList = PhosphorRegular.bookmarkSimple;
+  static const IconData lists = PhosphorRegular.bookmarksSimple;
+  static const IconData language = PhosphorRegular.translate;
+  static const IconData appearance = PhosphorRegular.circleHalf;
+  static const IconData themeAuto = PhosphorRegular.sunHorizon;
+  static const IconData themeLight = PhosphorRegular.sun;
+  static const IconData themeDark = PhosphorRegular.moon;
+  static const IconData offlineData = PhosphorRegular.cloudArrowDown;
+  static const IconData about = PhosphorRegular.info;
+  static const IconData version = PhosphorRegular.tag;
+  static const IconData privacy = PhosphorRegular.shieldCheck;
+  static const IconData sourceCode = PhosphorRegular.code;
+  static const IconData licences = PhosphorRegular.fileText;
+  static const IconData attributions = PhosphorRegular.handHeart;
+  static const IconData brokenImage = PhosphorRegular.imageBroken;
+  static const IconData noImage = PhosphorRegular.image;
+  static const IconData photos = PhosphorRegular.images;
+  static const IconData vehicle = PhosphorRegular.van;
+  static const IconData vehicleFits = PhosphorRegular.van;
+  static const IconData check = PhosphorRegular.check;
+  static const IconData checkCircle = PhosphorFill.checkCircle;
+  static const IconData locationOff = PhosphorRegular.gpsSlash;
+  static const IconData settings = PhosphorRegular.gear;
+  static const IconData description = PhosphorRegular.textAlignLeft;
+  static const IconData reviews = PhosphorRegular.chatsCircle;
+  static const IconData sources = PhosphorRegular.stack;
+  static const IconData activities = PhosphorRegular.personSimpleHike;
+  static const IconData navigationApps = PhosphorRegular.signpost;
+  static const IconData inAppNavigation = PhosphorRegular.path;
+  static const IconData appleMaps = PhosphorRegular.mapTrifold;
+  static const IconData googleMaps = PhosphorRegular.mapPin;
+  static const IconData waze = PhosphorRegular.navigationArrow;
+  static const IconData osmand = PhosphorRegular.compass;
+  static const IconData organicMaps = PhosphorRegular.leaf;
+  static const IconData magicEarth = PhosphorRegular.globeHemisphereEast;
+  static const IconData osmWeb = PhosphorRegular.globe;
+  static const IconData towing = PhosphorRegular.truckTrailer;
+
+  /// The glyph of a kind, inside its pin and its avatar.
+  static IconData kind(PlaceKind k) => switch (k) {
+    .motorhomeArea => PhosphorFill.van,
+    .serviceArea => PhosphorFill.drop,
+    .campsite => PhosphorFill.tent,
+    .parking => PhosphorFill.letterCircleP,
+    .nature => PhosphorFill.treeEvergreen,
+    .restArea => PhosphorFill.coffee,
+    .picnicArea => PhosphorFill.picnicTable,
+    .farm => PhosphorFill.barn,
+    .homestay => PhosphorFill.houseLine,
+    .offRoad => PhosphorFill.jeep,
+    .extraService => PhosphorFill.wrench,
+  };
+
+  /// The glyph of a family, in the filters.
+  static IconData family(KindFamily f) => switch (f) {
+    .stopovers => PhosphorFill.van,
+    .campsites => PhosphorFill.tent,
+    .nature => PhosphorFill.treeEvergreen,
+    .services => PhosphorFill.drop,
+  };
+
+  static IconData service(Service s) => switch (s) {
+    .drinkingWater => PhosphorRegular.drop,
+    .greyWater => PhosphorRegular.dropHalfBottom,
+    .blackWater => PhosphorRegular.toilet,
+    .wasteBin => PhosphorRegular.trash,
+    .toilets => PhosphorRegular.toiletPaper,
+    .showers => PhosphorRegular.shower,
+    .electricity => PhosphorRegular.plug,
+    .wifi => PhosphorRegular.wifiHigh,
+    .laundry => PhosphorRegular.washingMachine,
+    .lpg => PhosphorRegular.gasPump,
+    .gasBottles => PhosphorRegular.gasCan,
+    .vehicleWash => PhosphorRegular.carSimple,
+    .bakery => PhosphorRegular.bread,
+    .swimmingPool => PhosphorRegular.swimmingPool,
+    .petsAllowed => PhosphorRegular.pawPrint,
+    .mobileData => PhosphorRegular.cellSignalHigh,
+    .winterCaravanning => PhosphorRegular.snowflake,
+  };
+
+  static IconData amenity(Amenity a) => switch (a) {
+    .water => service(Service.drinkingWater),
+    .dumpStation => service(Service.greyWater),
+    .electricity => service(Service.electricity),
+    .toilets => service(Service.toilets),
+    .showers => service(Service.showers),
+    .wasteBin => service(Service.wasteBin),
+    .laundry => service(Service.laundry),
+    .wifi => service(Service.wifi),
+    .lpg => service(Service.lpg),
+  };
+
+  static IconData activity(Activity a) => switch (a) {
+    .monuments => PhosphorRegular.bank,
+    .windsurfKitesurf => PhosphorRegular.wind,
+    .mountainBiking => PhosphorRegular.bicycle,
+    .hiking => PhosphorRegular.personSimpleHike,
+    .climbing => PhosphorRegular.mountains,
+    .canoeKayak => PhosphorRegular.waves,
+    .fishing => PhosphorRegular.fish,
+    .shoreFishing => PhosphorRegular.fishSimple,
+    .swimming => PhosphorRegular.personSimpleSwim,
+    .motorcycling => PhosphorRegular.motorcycle,
+    .viewpoint => PhosphorRegular.binoculars,
+    .playground => PhosphorRegular.baby,
+  };
 }

@@ -1,4 +1,5 @@
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 /// The display name of a source: the name the API gives it in the place's
@@ -11,7 +12,7 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
   return switch (sourceId) {
     'osm' => 'OpenStreetMap',
     'atout-france' => 'Atout France',
-    'community' => t.appTitle,
+    communitySourceId => t.appTitle,
     _ => sourceId,
   };
 }

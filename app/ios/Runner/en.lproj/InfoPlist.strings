@@ -1,0 +1,5 @@
+/* The reason iOS shows when Lunaway first asks for the position. Each key
+   of Info.plist ending in UsageDescription has a line here and in
+   fr.lproj/InfoPlist.strings. */
+"NSLocationWhenInUseUsageDescription" = "Lunaway shows your position on the map and sorts the places around you. It stays on your device.";
+"NSLocationUsageDescription" = "Lunaway shows your position on the map and sorts the places around you. It stays on your device.";

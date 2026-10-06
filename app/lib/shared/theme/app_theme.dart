@@ -1,154 +1,350 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:lunaway/shared/theme/luna_colors.dart';
+import 'package:lunaway/shared/theme/luna_scheme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/theme/typography.dart';
 
-/// Night blue: the sky above a quiet overnight spot.
-const nightBlue = Color(0xFF1D3461);
-
-/// Lantern amber: the warm accent, kept for what deserves the eye (the
-/// overnight status, the favourite).
-const lanternAmber = Color(0xFFF2A33A);
-
-const _fontFamily = 'Atkinson';
-
-/// The Lunaway theme for a brightness. Sizes are a notch above the Material
-/// defaults: the app is read at arm's length, often by older eyes. Every size
-/// still scales with the system text size, since widgets read these styles.
+/// The Lunaway theme for a brightness: "Aube" by day, "Minuit" by night.
+/// Every component the app uses is themed here, so no widget falls back to
+/// a stock Material look: no elevation shadows (surfaces separate by tone),
+/// no tinted surfaces, amber for actions and selection only.
 ThemeData lunaTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  final base = ColorScheme.fromSeed(seedColor: nightBlue, brightness: brightness);
-  final accent = ColorScheme.fromSeed(seedColor: lanternAmber, brightness: brightness);
-  final scheme = base.copyWith(
-    primary: dark ? null : nightBlue,
-    tertiary: accent.primary,
-    onTertiary: accent.onPrimary,
-    tertiaryContainer: accent.primaryContainer,
-    onTertiaryContainer: accent.onPrimaryContainer,
-  );
+  final scheme = dark ? LunaScheme.minuit : LunaScheme.aube;
+  final tokens = dark ? LunaTokens.minuitTheme : LunaTokens.aube;
+  final text = LunaType.textTheme(scheme.onSurface);
 
-  final text = _textTheme(Typography.material2021().black)
-      .apply(fontFamily: _fontFamily, bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
-
-  const radius = 20.0;
-  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
+  RoundedRectangleBorder rounded(double r, [BorderSide side = BorderSide.none]) =>
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(r), side: side);
+  WidgetStateProperty<T> states<T>(T Function(Set<WidgetState> s) resolve) =>
+      WidgetStateProperty.resolveWith(resolve);
+  const noElevation = WidgetStatePropertyAll<double>(0);
+  final buttonText = text.labelLarge!.copyWith(fontSize: 16);
+  final disabledFg = scheme.onSurface.withValues(alpha: 0.38);
+  final disabledBg = scheme.onSurface.withValues(alpha: 0.08);
+  // The ink of a press: the content's own colour, faint, never a grey wash.
+  Color overlay(Color on, Set<WidgetState> s) => s.contains(WidgetState.pressed)
+      ? on.withValues(alpha: 0.12)
+      : s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
+      ? on.withValues(alpha: 0.08)
+      : Colors.transparent;
 
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
     colorScheme: scheme,
-    fontFamily: _fontFamily,
+    fontFamily: LunaType.body,
     textTheme: text,
+    primaryTextTheme: text,
     visualDensity: VisualDensity.standard,
     materialTapTargetSize: MaterialTapTargetSize.padded,
     scaffoldBackgroundColor: scheme.surface,
-    extensions: [
-      if (dark) LunaColors.dark else LunaColors.light,
-      if (dark) LunaTokens.dark else LunaTokens.light,
-    ],
+    canvasColor: scheme.surface,
+    splashFactory: InkSparkle.splashFactory,
+    extensions: [tokens],
+    iconTheme: IconThemeData(color: scheme.onSurface, size: 24),
     appBarTheme: AppBarTheme(
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
       surfaceTintColor: Colors.transparent,
-      scrolledUnderElevation: 1,
+      elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      height: 76,
-      backgroundColor: scheme.surfaceContainer,
-      indicatorColor: scheme.secondaryContainer,
-      labelTextStyle: WidgetStateProperty.resolveWith(
-        (states) => text.labelMedium?.copyWith(
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    ),
-    navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: scheme.surfaceContainer,
-      indicatorColor: scheme.secondaryContainer,
-      selectedLabelTextStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-      unselectedLabelTextStyle: text.labelLarge,
+      titleTextStyle: text.headlineMedium,
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(64, 52),
-        shape: shape,
-        textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.xl)),
+        shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
+        elevation: noElevation,
+        textStyle: WidgetStatePropertyAll(buttonText),
+        backgroundColor: states(
+          (s) => s.contains(WidgetState.disabled) ? disabledBg : scheme.primary,
+        ),
+        foregroundColor: states(
+          (s) => s.contains(WidgetState.disabled) ? disabledFg : scheme.onPrimary,
+        ),
+        overlayColor: states((s) => overlay(scheme.onPrimary, s)),
+        iconSize: const WidgetStatePropertyAll(22),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(64, 52),
-        shape: shape,
-        textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-        side: BorderSide(color: scheme.outlineVariant),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.l)),
+        shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
+        elevation: noElevation,
+        textStyle: WidgetStatePropertyAll(buttonText),
+        side: states(
+          (s) => BorderSide(
+            color: s.contains(WidgetState.disabled) ? disabledBg : scheme.outline,
+            width: 1.2,
+          ),
+        ),
+        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+        foregroundColor: states(
+          (s) => s.contains(WidgetState.disabled) ? disabledFg : scheme.onSurface,
+        ),
+        overlayColor: states((s) => overlay(scheme.onSurface, s)),
+        iconSize: const WidgetStatePropertyAll(22),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        shape: shape,
-        textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.m)),
+        shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusM)),
+        textStyle: WidgetStatePropertyAll(buttonText),
+        foregroundColor: states((s) => s.contains(WidgetState.disabled) ? disabledFg : tokens.link),
+        overlayColor: states((s) => overlay(tokens.link, s)),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
+        shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
+        elevation: noElevation,
+        textStyle: WidgetStatePropertyAll(buttonText),
+        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+        foregroundColor: WidgetStatePropertyAll(scheme.onSurface),
+        overlayColor: states((s) => overlay(scheme.onSurface, s)),
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        iconSize: const WidgetStatePropertyAll(24),
+        foregroundColor: states(
+          (s) => s.contains(WidgetState.disabled) ? disabledFg : scheme.onSurface,
+        ),
+        overlayColor: states((s) => overlay(scheme.onSurface, s)),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: tokens.floatingSurface,
+      foregroundColor: scheme.onSurface,
+      elevation: 0,
+      focusElevation: 0,
+      hoverElevation: 0,
+      highlightElevation: 0,
+      shape: rounded(LunaTokens.radiusL),
     ),
     chipTheme: ChipThemeData(
       shape: const StadiumBorder(),
-      labelStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      side: BorderSide(color: scheme.outlineVariant),
+      labelStyle: text.labelLarge!.copyWith(color: scheme.onSurface),
+      secondaryLabelStyle: text.labelLarge!.copyWith(color: scheme.onPrimaryContainer),
+      padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: Space.s),
+      labelPadding: const EdgeInsets.symmetric(horizontal: Space.xs),
+      side: WidgetStateBorderSide.resolveWith(
+        (s) => BorderSide(
+          color: s.contains(WidgetState.selected) ? scheme.primary : scheme.outlineVariant,
+          width: s.contains(WidgetState.selected) ? 1.5 : 1,
+        ),
+      ),
+      color: states(
+        (s) => s.contains(WidgetState.selected)
+            ? scheme.primaryContainer
+            : s.contains(WidgetState.disabled)
+            ? disabledBg
+            : scheme.surfaceContainerLow,
+      ),
+      iconTheme: IconThemeData(color: scheme.onSurface, size: 20),
       showCheckmark: false,
+      elevation: 0,
+      pressElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
     ),
     cardTheme: CardThemeData(
       elevation: 0,
       color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+      shape: rounded(LunaTokens.radiusXl),
     ),
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: scheme.surfaceContainerLow,
+      backgroundColor: scheme.surface,
+      modalBackgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
       showDragHandle: true,
       dragHandleColor: scheme.outline,
+      dragHandleSize: const Size(36, 4),
+      modalBarrierColor: scheme.scrim.withValues(alpha: 0.42),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(LunaTokens.radiusSheet)),
       ),
     ),
     dialogTheme: DialogThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      backgroundColor: scheme.surfaceContainerHigh,
+      shape: rounded(LunaTokens.radiusSheet),
+      backgroundColor: scheme.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      barrierColor: scheme.scrim.withValues(alpha: 0.42),
+      titleTextStyle: text.headlineSmall,
+      contentTextStyle: text.bodyLarge,
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      contentTextStyle: text.bodyLarge?.copyWith(color: scheme.onInverseSurface),
-      insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      elevation: 0,
+      backgroundColor: scheme.inverseSurface,
+      actionTextColor: scheme.inversePrimary,
+      closeIconColor: scheme.onInverseSurface,
+      shape: rounded(LunaTokens.radiusL),
+      contentTextStyle: text.bodyLarge!.copyWith(color: scheme.onInverseSurface),
+      insetPadding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.l),
     ),
     listTileTheme: ListTileThemeData(
-      minVerticalPadding: 12,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+      minVerticalPadding: Space.m,
+      contentPadding: const EdgeInsets.symmetric(horizontal: Space.xl),
       titleTextStyle: text.titleMedium,
-      subtitleTextStyle: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+      subtitleTextStyle: text.bodyMedium!.copyWith(color: scheme.onSurfaceVariant),
+      leadingAndTrailingTextStyle: text.labelLarge,
+      iconColor: scheme.onSurfaceVariant,
+      selectedColor: scheme.onSurface,
+      selectedTileColor: scheme.primaryContainer,
+      shape: rounded(LunaTokens.radiusL),
     ),
     switchTheme: SwitchThemeData(
-      thumbIcon: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected) ? const Icon(Icons.check) : null,
+      thumbColor: states(
+        (s) => s.contains(WidgetState.selected)
+            ? scheme.onPrimary
+            : (dark ? scheme.onSurfaceVariant : scheme.outline),
       ),
+      trackColor: states(
+        (s) => s.contains(WidgetState.selected) ? scheme.primary : scheme.surfaceContainerHighest,
+      ),
+      trackOutlineColor: states(
+        (s) => s.contains(WidgetState.selected) ? scheme.primary : scheme.outline,
+      ),
+      thumbIcon: const WidgetStatePropertyAll(null),
     ),
-    sliderTheme: const SliderThemeData(showValueIndicator: ShowValueIndicator.onDrag),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: states((s) => s.contains(WidgetState.selected) ? scheme.primary : null),
+      checkColor: WidgetStatePropertyAll(scheme.onPrimary),
+      side: BorderSide(color: scheme.outline, width: 1.6),
+      shape: rounded(LunaTokens.radiusXs),
+    ),
+    radioTheme: RadioThemeData(
+      fillColor: states((s) => s.contains(WidgetState.selected) ? scheme.primary : scheme.outline),
+    ),
+    sliderTheme: SliderThemeData(
+      activeTrackColor: scheme.primary,
+      inactiveTrackColor: scheme.surfaceContainerHighest,
+      thumbColor: scheme.primary,
+      overlayColor: scheme.primary.withValues(alpha: 0.16),
+      valueIndicatorColor: scheme.inverseSurface,
+      valueIndicatorTextStyle: text.labelLarge!.copyWith(color: scheme.onInverseSurface),
+      showValueIndicator: ShowValueIndicator.onDrag,
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: scheme.primary,
+      linearTrackColor: scheme.surfaceContainerHighest,
+      circularTrackColor: Colors.transparent,
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: scheme.surfaceContainerLow,
+      elevation: 0,
+      indicatorColor: scheme.primary,
+      indicatorShape: const StadiumBorder(),
+      selectedIconTheme: IconThemeData(color: scheme.onPrimary, size: 24),
+      unselectedIconTheme: IconThemeData(color: scheme.onSurfaceVariant, size: 24),
+      selectedLabelTextStyle: text.labelLarge!.copyWith(color: scheme.onSurface),
+      unselectedLabelTextStyle: text.labelLarge!.copyWith(color: scheme.onSurfaceVariant),
+      useIndicator: true,
+      minWidth: 88,
+      minExtendedWidth: 232,
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: tokens.dockSurface,
+      indicatorColor: tokens.dockSelected,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+    ),
     segmentedButtonTheme: SegmentedButtonThemeData(
-      style: SegmentedButton.styleFrom(
-        minimumSize: const Size(64, 48),
-        textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(64, 48)),
+        textStyle: WidgetStatePropertyAll(text.labelLarge),
+        shape: const WidgetStatePropertyAll(StadiumBorder()),
+        side: WidgetStatePropertyAll(BorderSide(color: scheme.outlineVariant)),
+        backgroundColor: states(
+          (s) => s.contains(WidgetState.selected) ? scheme.primary : Colors.transparent,
+        ),
+        foregroundColor: states(
+          (s) => s.contains(WidgetState.selected) ? scheme.onPrimary : scheme.onSurface,
+        ),
       ),
     ),
-    dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1),
+    inputDecorationTheme: InputDecorationThemeData(
+      filled: true,
+      fillColor: scheme.surfaceContainerLow,
+      contentPadding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.ml),
+      labelStyle: text.bodyLarge!.copyWith(color: scheme.onSurfaceVariant),
+      floatingLabelStyle: text.bodyMedium!.copyWith(color: scheme.onSurface),
+      hintStyle: text.bodyLarge!.copyWith(color: scheme.onSurfaceVariant),
+      helperStyle: text.bodySmall!.copyWith(color: scheme.onSurfaceVariant),
+      errorStyle: text.bodySmall!.copyWith(color: scheme.error),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+        borderSide: BorderSide(color: scheme.outlineVariant),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+        borderSide: BorderSide(color: scheme.outlineVariant),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+        borderSide: BorderSide(color: scheme.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+        borderSide: BorderSide(color: scheme.error),
+      ),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: scheme.onSurface,
+      selectionColor: scheme.primary.withValues(alpha: 0.35),
+      selectionHandleColor: scheme.primary,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: rounded(LunaTokens.radiusL, BorderSide(color: scheme.outlineVariant)),
+      textStyle: text.bodyLarge,
+      labelTextStyle: WidgetStatePropertyAll(text.bodyLarge),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLow),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: noElevation,
+        shape: WidgetStatePropertyAll(
+          rounded(LunaTokens.radiusL, BorderSide(color: scheme.outlineVariant)),
+        ),
+      ),
+    ),
+    badgeTheme: BadgeThemeData(
+      backgroundColor: scheme.primary,
+      textColor: scheme.onPrimary,
+      textStyle: text.labelSmall,
+    ),
+    dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1, thickness: 1),
     tooltipTheme: TooltipThemeData(
-      textStyle: text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+      textStyle: text.bodyMedium!.copyWith(color: scheme.onInverseSurface),
+      decoration: BoxDecoration(
+        color: scheme.inverseSurface,
+        borderRadius: BorderRadius.circular(LunaTokens.radiusS),
+      ),
+      waitDuration: const Duration(milliseconds: 600),
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      thumbColor: WidgetStatePropertyAll(scheme.onSurface.withValues(alpha: 0.28)),
+      radius: const Radius.circular(LunaTokens.radiusPill),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
@@ -161,24 +357,3 @@ ThemeData lunaTheme(Brightness brightness) {
     ),
   );
 }
-
-/// The Material 2021 scale, one step larger for the body and label styles a
-/// user reads most, and with weights that hold up on a sunlit screen.
-TextTheme _textTheme(TextTheme base) => base.copyWith(
-  displaySmall: base.displaySmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
-  headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.3),
-  headlineSmall: base.headlineSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2),
-  titleLarge: base.titleLarge?.copyWith(fontSize: 23, fontWeight: FontWeight.w700),
-  titleMedium: base.titleMedium?.copyWith(
-    fontSize: 17,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0,
-  ),
-  titleSmall: base.titleSmall?.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
-  bodyLarge: base.bodyLarge?.copyWith(fontSize: 17, height: 1.45, letterSpacing: 0.1),
-  bodyMedium: base.bodyMedium?.copyWith(fontSize: 15.5, height: 1.4, letterSpacing: 0.1),
-  bodySmall: base.bodySmall?.copyWith(fontSize: 13.5, height: 1.35),
-  labelLarge: base.labelLarge?.copyWith(fontSize: 15.5, letterSpacing: 0.1),
-  labelMedium: base.labelMedium?.copyWith(fontSize: 13.5, letterSpacing: 0.2),
-  labelSmall: base.labelSmall?.copyWith(fontSize: 12, letterSpacing: 0.3),
-);

@@ -9,18 +9,19 @@ import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/brand_mark.dart';
+import 'package:lunaway/shared/widgets/floating.dart';
 
-/// The search field over the map, and its results under it while there is a
-/// query. Everything is answered by the local index, without network.
+/// The search pill over the map, with the brand mark, and its results under
+/// it while there is a query. Everything is answered by the local index,
+/// without network.
 class MapSearch extends ConsumerStatefulWidget {
-  const new({this.trailing, this.elevated = true, super.key});
-
-  /// A button at the end of the field (the filters on a phone).
-  final Widget? trailing;
+  const new({this.floating = true, super.key});
 
   /// Floating over the map (true) or sitting in a pane (false).
-  final bool elevated;
+  final bool floating;
 
   @override
   ConsumerState<MapSearch> createState() => _MapSearchState();
@@ -51,70 +52,81 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     await ref.read(mapControllerProvider)?.moveTo(town.center, zoom: 12);
   }
 
-  Future<void> _goToPlace(String id, double lat, double lon) async {
+  Future<void> _goToPlace(String id, LatLng at) async {
     _clear();
     ref.read(selectionProvider.notifier).select(PlaceSelection(id));
     final viewport = ref.read(viewportProvider);
-    await ref
-        .read(mapControllerProvider)
-        ?.moveTo(LatLng(lat, lon), zoom: (viewport?.zoom ?? 0) < 13 ? 13 : null);
+    await ref.read(mapControllerProvider)?.moveTo(at, zoom: (viewport?.zoom ?? 0) < 13 ? 13 : null);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final query = ref.watch(searchQueryProvider);
-    final field = Material(
-      elevation: widget.elevated ? 3 : 0,
-      shadowColor: LunaTokens.of(context).shadow,
-      color: widget.elevated
-          ? theme.colorScheme.surfaceContainerHigh
-          : theme.colorScheme.surfaceContainerHighest,
-      shape: const StadiumBorder(),
-      child: SizedBox(
-        height: 56,
-        child: Row(
-          children: [
-            const SizedBox(width: Space.lx),
-            Icon(AppIcons.search, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: Space.m),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                focusNode: _focus,
-                textInputAction: TextInputAction.search,
-                style: theme.textTheme.bodyLarge,
-                decoration: InputDecoration.collapsed(
-                  hintText: t.map.searchHint,
-                  hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                onChanged: (value) => ref.read(searchQueryProvider.notifier).change(value),
+    final row = SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          const SizedBox(width: Space.ml),
+          if (widget.floating)
+            const BrandMark(height: 30)
+          else
+            Icon(AppIcons.search, color: scheme.onSurfaceVariant),
+          const SizedBox(width: Space.m),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focus,
+              textInputAction: TextInputAction.search,
+              style: theme.textTheme.bodyLarge,
+              // A bare field: the pill is its box, not the theme's outline.
+              decoration: InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                hintText: t.map.searchHint,
+                hintMaxLines: 1,
+                hintStyle: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               ),
+              onChanged: (value) => ref.read(searchQueryProvider.notifier).change(value),
             ),
-            if (query.isNotEmpty)
-              IconButton(
-                tooltip: t.map.clearSearch,
-                icon: const Icon(AppIcons.close),
-                onPressed: _clear,
-              )
-            else
-              const SizedBox(width: Space.s),
-            ?widget.trailing,
-            if (widget.trailing != null) const SizedBox(width: Space.xxs),
-          ],
-        ),
+          ),
+          if (query.isNotEmpty)
+            IconButton(
+              tooltip: t.map.clearSearch,
+              icon: const Icon(AppIcons.close),
+              onPressed: _clear,
+            )
+          else if (widget.floating)
+            Padding(
+              padding: const EdgeInsets.only(right: Space.ml),
+              child: Icon(AppIcons.search, color: scheme.onSurfaceVariant),
+            )
+          else
+            const SizedBox(width: Space.m),
+        ],
       ),
     );
+    final field = widget.floating
+        ? FloatingSurface(child: row)
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
+            ),
+            child: Material(type: MaterialType.transparency, child: row),
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         field,
         AnimatedSize(
-          duration: Motion.emphasized,
+          duration: Motion.of(context, Motion.emphasized),
           curve: Motion.enter,
           alignment: Alignment.topCenter,
           child: query.trim().isEmpty
@@ -134,12 +146,13 @@ class _Results extends ConsumerWidget {
 
   final String query;
   final ValueChanged<Municipality> onTown;
-  final void Function(String id, double lat, double lon) onPlace;
+  final void Function(String id, LatLng at) onPlace;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final user = ref.watch(userLocationProvider);
     final near = user ?? ref.read(viewportProvider)?.center;
     final results = ref.watch(searchResultsProvider(query, near: near));
@@ -148,50 +161,47 @@ class _Results extends ConsumerWidget {
     final view = MediaQueryData.fromView(View.of(context));
     final aboveKeyboard = view.size.height - view.viewInsets.bottom - view.padding.top - 96;
     final maxHeight = math.max(120, math.min(view.size.height * 0.55, aboveKeyboard)).toDouble();
+    Widget list(SearchResults value) => ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: Space.s),
+      children: [
+        if (value.municipalities.isNotEmpty) _Header(t.search.towns),
+        for (final town in value.municipalities)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: scheme.secondaryContainer,
+              foregroundColor: scheme.onSecondaryContainer,
+              child: const Icon(AppIcons.town),
+            ),
+            title: Text(town.name),
+            subtitle: Text([?town.postcode, t.search.townPlaces(n: town.placeCount)].join(' · ')),
+            onTap: () => onTown(town),
+          ),
+        if (value.places.isNotEmpty) _Header(t.search.places),
+        for (final place in value.places)
+          PlaceTile(
+            place: place,
+            distanceM: user == null ? null : place.position.distanceTo(user),
+            onTap: () => onPlace(place.id, place.position),
+          ),
+      ],
+    );
+    // The previous results stay while the next ones load: no flash of a
+    // spinner at every keystroke.
     final body = switch (results) {
-      AsyncData(:final value) when value.isEmpty => Padding(
+      AsyncValue(value: final value?) when value.isEmpty => Padding(
         padding: const EdgeInsets.all(Space.xl),
         child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
       ),
-      AsyncData(:final value) => ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: Space.s),
-        children: [
-          if (value.municipalities.isNotEmpty) _Header(t.search.towns),
-          for (final town in value.municipalities)
-            ListTile(
-              leading: const CircleAvatar(child: Icon(AppIcons.town)),
-              title: Text(town.name),
-              subtitle: Text([?town.postcode, t.search.townPlaces(n: town.placeCount)].join(' · ')),
-              onTap: () => onTown(town),
-            ),
-          if (value.places.isNotEmpty) _Header(t.search.places),
-          for (final place in value.places)
-            PlaceTile(
-              place: place,
-              distanceM: user == null ? null : place.position.distanceTo(user),
-              onTap: () => onPlace(place.id, place.lat, place.lon),
-            ),
-        ],
-      ),
+      AsyncValue(value: final value?) => list(value),
       AsyncError() => Padding(
         padding: const EdgeInsets.all(Space.xl),
-        child: Text(
-          t.list.error,
-          style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.error),
-        ),
+        child: Text(t.list.error, style: theme.textTheme.bodyLarge?.copyWith(color: scheme.error)),
       ),
-      AsyncLoading() => const SizedBox(
-        height: 72,
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      _ => const SizedBox(height: 72, child: Center(child: CircularProgressIndicator())),
     };
-    return Material(
-      elevation: LunaTokens.of(context).floatingElevation,
-      shadowColor: LunaTokens.of(context).shadow,
-      color: theme.colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(LunaTokens.of(context).radiusXl),
-      clipBehavior: Clip.antiAlias,
+    return FloatingSurface(
+      radius: LunaTokens.radiusXl,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: body,
@@ -211,7 +221,7 @@ class _Header extends StatelessWidget {
     child: Text(
       text,
       style: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(color: Theme.of(context).colorScheme.primary),
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
     ),
   );
 }

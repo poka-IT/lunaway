@@ -1,21 +1,25 @@
-import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/app.dart';
-import 'package:lunaway/core/database/app_database.dart';
+import 'package:lunaway/core/config/app_config.dart';
+import 'package:lunaway/core/database/cache_database.dart';
+import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/demo/demo_server.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
-import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -51,9 +55,13 @@ final class FakeChangesSource implements ChangesSource {
   final List<Place> places;
   bool failing;
 
+  /// Pages asked for, failed ones included.
+  int requests = 0;
+
   @override
   Future<ChangeSet> changes({required GeoBounds bbox, required int first, String? since}) async {
-    if (failing) throw StateError('offline');
+    requests++;
+    if (failing) throw GraphQLNetworkException('offline', null);
     final start = int.tryParse(since ?? '') ?? 0;
     final end = (start + first).clamp(0, places.length);
     return ChangeSet(
@@ -74,7 +82,9 @@ final class TestApp {
     required this.map,
     required this.settings,
     required this.extras,
-    required this.db,
+    required this.cache,
+    required this.user,
+    required this.location,
   });
 
   final FakePlacesRepository places;
@@ -83,49 +93,74 @@ final class TestApp {
   final FakeMap map;
   final MemorySettings settings;
   final FakeExtrasSource extras;
-  final AppDatabase db;
+  final CacheDatabase cache;
+  final UserDatabase user;
+  final FakeLocationPermissions location;
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
 }
 
+/// An in-memory database whose query streams stop at once when their last
+/// listener goes: drift otherwise stops them on a timer, which outlives the
+/// widget tree of a test.
+DatabaseConnection memoryDatabase() =>
+    DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true);
+
 /// Pumps the whole app at [size] with fakes around it: no network, no disk,
-/// a fixed clock ([testNow]) and a fake map.
+/// a fixed clock ([testNow]) that does not tick, and a fake map. The theme
+/// follows [brightness] (the app's own setting, not the system's).
 Future<TestApp> pumpLunaway(
   WidgetTester tester, {
   Size size = phone,
   List<Place>? places,
   AppLocale locale = AppLocale.fr,
-  AppSettings settings = const AppSettings(filter: PlaceFilter.none),
-  DateTime? lastSync,
+  AppSettings? settings,
+  SyncState? sync,
   bool neverSynced = false,
   Brightness brightness = Brightness.light,
   FakeExtrasSource? extras,
-  SyncService? sync,
+  SyncService? syncService,
   FakeMap? map,
+  double textScale = 1,
   bool settle = true,
+  BasemapTemplates basemap = BasemapTemplates.blank,
+  AppConfig? config,
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
-  tester.platformDispatcher.platformBrightnessTestValue = brightness;
+  tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.reset);
-  addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await LocaleSettings.setLocale(locale);
+  final initial =
+      settings ??
+      AppSettings(
+        theme: brightness == Brightness.dark ? ThemePreference.dark : ThemePreference.light,
+      );
 
   final app = TestApp(
     places: FakePlacesRepository(
       places ?? samplePlaces,
-      lastSync: neverSynced ? null : lastSync ?? testNow.subtract(const Duration(hours: 1)),
+      sync:
+          sync ??
+          (neverSynced
+              ? SyncState.none
+              : SyncState(cursor: 'c', completedAt: testNow.subtract(const Duration(hours: 1)))),
     ),
     favorites: FakeFavoritesRepository(),
     external: FakeExternalActions(),
     map: map ?? FakeMap(),
-    settings: MemorySettings(settings),
+    settings: MemorySettings(initial),
     extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
-    db: AppDatabase(NativeDatabase.memory()),
+    cache: CacheDatabase(memoryDatabase()),
+    user: UserDatabase(memoryDatabase()),
+    location: FakeLocationPermissions(),
   );
-  addTearDown(app.db.close);
+  // The in-memory databases are left to the garbage collector: closing one
+  // waits for its queries, and a query the failed test left pending under
+  // the fake clock never ends, which would hang the whole run.
 
   await tester.pumpWidget(
     ProviderScope(
@@ -134,15 +169,25 @@ Future<TestApp> pumpLunaway(
         favoritesRepositoryProvider.overrideWithValue(app.favorites),
         externalActionsProvider.overrideWithValue(app.external),
         lunaMapBuilderProvider.overrideWithValue(app.map.build),
+        basemapTemplatesProvider.overrideWithValue(basemap),
+        if (config != null) appConfigProvider.overrideWithValue(config),
         clockProvider.overrideWithValue(() => testNow),
+        minuteTickerProvider.overrideWithValue((_) => const Stream.empty()),
         settingsRepositoryProvider.overrideWithValue(app.settings),
-        initialSettingsProvider.overrideWithValue(settings),
-        appDatabaseProvider.overrideWithValue(app.db),
+        initialSettingsProvider.overrideWithValue(initial),
+        cacheDatabaseProvider.overrideWithValue(app.cache),
+        userDatabaseProvider.overrideWithValue(app.user),
+        locationPermissionsProvider.overrideWithValue(app.location),
+        syncRetryDelaysProvider.overrideWithValue(const []),
+        // Photos come from the demo server, drawn in process: no network.
+        httpClientProvider.overrideWithValue(
+          demoApiClient(const [], apiBase: Uri.parse(testApiBase), latency: Duration.zero),
+        ),
         placeExtrasRepositoryProvider.overrideWithValue(
-          PlaceExtrasRepository(db: app.db, source: app.extras, clock: () => testNow),
+          PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
         syncServiceProvider.overrideWithValue(
-          sync ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
+          syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
       ],
       child: TranslationProvider(child: const LunawayApp()),
@@ -165,20 +210,59 @@ Future<void> settleShort(
 
 final class _NoStore implements SyncStore {
   @override
-  Future<void> applyPage(String region, ChangeSet page, DateTime syncedAt) async {}
+  Future<SyncState> stateOf(String region) async =>
+      SyncState(cursor: 'c', completedAt: DateTime.utc(2026));
 
   @override
-  Future<String?> cursorFor(String region) async => null;
+  Future<void> beginFullSync(String region) async {}
 
   @override
-  Future<void> reset(String region) async {}
+  Future<void> beginDeltaSync(String region) async {}
 
   @override
-  Future<DateTime?> fullSyncStart(String region) async => null;
+  Future<void> applyPage(String region, ChangeSet page) async {}
 
   @override
-  Future<void> beginFullSync(String region, DateTime at) async {}
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async => 0;
 
   @override
-  Future<int> finishFullSync(String region, GeoBounds bounds) async => 0;
+  Future<void> reset(String region, GeoBounds bounds) async {}
+}
+
+/// A sync store in memory that keeps the state the way the drift one does.
+final class MemorySyncStore implements SyncStore {
+  SyncState state = SyncState.none;
+
+  @override
+  Future<SyncState> stateOf(String region) async => state;
+
+  @override
+  Future<void> beginFullSync(String region) async =>
+      state = SyncState(generation: state.generation + 1, fullSync: true, running: true);
+
+  @override
+  Future<void> beginDeltaSync(String region) async => state = SyncState(
+    cursor: state.cursor,
+    generation: state.generation,
+    running: true,
+    completedAt: state.completedAt,
+  );
+
+  @override
+  Future<void> applyPage(String region, ChangeSet page) async => state = SyncState(
+    cursor: page.cursor,
+    generation: state.generation,
+    fullSync: state.fullSync,
+    running: true,
+    completedAt: state.completedAt,
+  );
+
+  @override
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async {
+    state = SyncState(cursor: state.cursor, generation: state.generation, completedAt: at);
+    return 0;
+  }
+
+  @override
+  Future<void> reset(String region, GeoBounds bounds) async => state = SyncState.none;
 }
