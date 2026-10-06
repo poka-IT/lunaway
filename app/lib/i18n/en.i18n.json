@@ -514,7 +514,11 @@
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
       "dangerZone": "Danger zone in $distance",
-      "inDangerZone": "Danger zone"
+      "inDangerZone": "Danger zone, $distance left",
+      "cameraAhead": "Speed camera in $distance",
+      "cameraLimit": "Speed camera in $distance, $limit km/h",
+      "limitEstimated": "Estimated limit",
+      "overLimit": "over the limit"
     },
     "voice": {
       "rerouting": "Recalculating.",
@@ -541,7 +545,11 @@
         "other": "$n miles"
       },
       "size": "$metres.$cm metres",
-      "sizeWhole": "$metres metres"
+      "sizeWhole": "$metres metres",
+      "overSpeed": "Speed limit $limit.",
+      "dangerZone": "Danger zone in $distance.",
+      "inDangerZone": "Danger zone.",
+      "camera": "Speed camera in $distance."
     },
     "units": {
       "ft": "$n ft",
@@ -558,7 +566,11 @@
       "voiceHint": "With the phone's own voice",
       "units": "Distances",
       "metric": "Kilometres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "speedLimit": "Speed limit",
+      "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
+      "speedSound": "Spoken speed alerts",
+      "speedSoundHint": "A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only."
     }
   },
   "list": {

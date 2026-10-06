@@ -4,7 +4,6 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
-import 'package:lunaway/features/navigation/domain/danger_zones.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -149,9 +148,3 @@ class ShownFuelOffers extends _$ShownFuelOffers {
 
   void show(List<FuelOffer> offers) => state = offers;
 }
-
-/// The danger zones of a route: none until a source is chosen for the
-/// countries that allow them.
-// keepAlive: stateless, wired once.
-@Riverpod(keepAlive: true)
-DangerZoneSource dangerZones(Ref ref) => const NoDangerZones();

@@ -64,7 +64,7 @@ final class NearbyFuelPointProvider
   }
 }
 
-String _$nearbyFuelPointHash() => r'6e90aebabd436a4fcb02c05df47d9984fceaa0f4';
+String _$nearbyFuelPointHash() => r'7273106584537e8f3381336f3a12b5aa8888fafd';
 
 /// The cheapest stations of the chosen fuel around the user, from the
 /// server (`fuelNearby`): what the list shows where the stations of the

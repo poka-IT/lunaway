@@ -1570,7 +1570,11 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get firstTitle => 'Avant de partir';
 	@override String get firstAccept => 'J\'ai compris';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}';
-	@override String get inDangerZone => 'Zone de danger';
+	@override String inDangerZone({required Object distance}) => 'Zone de danger, encore ${distance}';
+	@override String cameraAhead({required Object distance}) => 'Radar dans ${distance}';
+	@override String cameraLimit({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h';
+	@override String get limitEstimated => 'Limite estimée';
+	@override String get overLimit => 'au-dessus de la limite';
 }
 
 // Path: navigation.voice
@@ -1605,6 +1609,10 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	);
 	@override String size({required Object metres, required Object cm}) => '${metres} mètres ${cm}';
 	@override String sizeWhole({required Object metres}) => '${metres} mètres';
+	@override String overSpeed({required Object limit}) => 'Vitesse limitée à ${limit}.';
+	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
+	@override String get inDangerZone => 'Zone de danger.';
+	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
 }
 
 // Path: navigation.units
@@ -1636,6 +1644,10 @@ class _Translations$navigation$settings$fr extends Translations$navigation$setti
 	@override String get units => 'Distances';
 	@override String get metric => 'Kilomètres';
 	@override String get imperial => 'Miles';
+	@override String get speedLimit => 'Limite de vitesse';
+	@override String get speedLimitHint => 'La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s\'affiche en gris.';
+	@override String get speedSound => 'Alertes de vitesse parlées';
+	@override String get speedSoundHint => 'Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls.';
 }
 
 // Path: vehicle.types
@@ -2452,7 +2464,11 @@ extension on TranslationsFr {
 			'navigation.guidance.firstTitle' => 'Avant de partir',
 			'navigation.guidance.firstAccept' => 'J\'ai compris',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}',
-			'navigation.guidance.inDangerZone' => 'Zone de danger',
+			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Zone de danger, encore ${distance}',
+			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Radar dans ${distance}',
+			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h',
+			'navigation.guidance.limitEstimated' => 'Limite estimée',
+			'navigation.guidance.overLimit' => 'au-dessus de la limite',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
@@ -2469,6 +2485,10 @@ extension on TranslationsFr {
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} mile', other: '${n} miles', ), 
 			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres} mètres ${cm}',
 			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} mètres',
+			'navigation.voice.overSpeed' => ({required Object limit}) => 'Vitesse limitée à ${limit}.',
+			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
+			'navigation.voice.inDangerZone' => 'Zone de danger.',
+			'navigation.voice.camera' => ({required Object distance}) => 'Radar dans ${distance}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -2482,6 +2502,10 @@ extension on TranslationsFr {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilomètres',
 			'navigation.settings.imperial' => 'Miles',
+			'navigation.settings.speedLimit' => 'Limite de vitesse',
+			'navigation.settings.speedLimitHint' => 'La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s\'affiche en gris.',
+			'navigation.settings.speedSound' => 'Alertes de vitesse parlées',
+			'navigation.settings.speedSoundHint' => 'Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls.',
 			'list.title' => 'Lieux autour',
 			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
@@ -2537,6 +2561,8 @@ extension on TranslationsFr {
 			'vehicle.consumption' => 'Consommation',
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Chauffage au GPL',
+			_ => null,
+		} ?? switch (path) {
 			'vehicle.lpgHeatingHint' => 'Le prix du GPL compte aussi pour vous.',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.',
@@ -2549,8 +2575,6 @@ extension on TranslationsFr {
 			'profile.themeAutoHint' => 'Clair le jour, sombre après le coucher du soleil là où vous êtes.',
 			'profile.themeLightHint' => 'Toujours clair, de jour comme de nuit.',
 			'profile.themeDarkHint' => 'Toujours sombre, doux pour les yeux la nuit.',
-			_ => null,
-		} ?? switch (path) {
 			'profile.offline' => 'Données hors connexion',
 			'profile.placesOnDevice' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu sur cet appareil', other: 'lieux sur cet appareil', ), 
 			'profile.offlineSize' => ({required Object size}) => 'Espace utilisé : ${size}',
@@ -3051,6 +3075,8 @@ extension on TranslationsFr {
 			'poi.add.duplicateThere' => 'Oui, toujours là',
 			'poi.add.duplicateGone' => 'Non, il n\'y est plus',
 			'poi.cheapest.title' => 'Moins cher autour de moi',
+			_ => null,
+		} ?? switch (path) {
 			'poi.cheapest.show' => 'Moins cher autour',
 			'poi.cheapest.zoomIn' => 'Rapprochez la carte pour comparer les prix des stations.',
 			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',
@@ -3063,8 +3089,6 @@ extension on TranslationsFr {
 			'poi.trend.month' => '30 derniers jours :',
 			'poi.trend.range' => ({required Object low, required Object high}) => 'de ${low} à ${high}',
 			'poi.trend.span' => ({required Object range, required Object move}) => '${range}, ${move}',
-			_ => null,
-		} ?? switch (path) {
 			'poi.trend.oneDay' => 'un seul jour relevé',
 			'poi.trend.steady' => 'stable',
 			'poi.trend.down' => ({required Object amount}) => 'en baisse de ${amount}',

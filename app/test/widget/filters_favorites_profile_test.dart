@@ -392,6 +392,14 @@ void main() {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
       for (final label in ['Site web', 'Confidentialité', 'Code source']) {
+        await tester.scrollUntilVisible(
+          find.text(label),
+          200,
+          scrollable: find
+              .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pump();
         await tester.tap(find.text(label));
         await settleShort(tester);
       }

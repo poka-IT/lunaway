@@ -7,6 +7,7 @@ import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 
 import '../helpers/navigation.dart';
 import 'graphql_validator.dart';
@@ -69,16 +70,43 @@ void main() {
     'limoges_drive',
     'brive_ussel_en',
   ]) {
+    // Recorded before the routes carried their speed limits: they answer
+    // the request without them.
     test('the recorded answer $name matches the selection', () {
       final body = jsonDecode(
         File('test/fixtures/navigation/route_$name.json').readAsStringSync(),
       ) as Map<String, dynamic>;
       expect(
-        validator.checkResponse(routeOperation.document, body['data'] as Map<String, dynamic>),
+        validator.checkResponse(
+          routeOperation.older!.document,
+          body['data'] as Map<String, dynamic>,
+        ),
         isEmpty,
       );
     });
   }
+
+  test('a route with its speed limits, recorded on 2026-10-06, matches the selection', () {
+    final body = jsonDecode(
+      File('test/fixtures/navigation/route_a20_limits.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    expect(validator.checkResponse(routeOperation.document, data), isEmpty);
+    final route = routePlanFromJson(data['route'] as Map<String, dynamic>).routes.single;
+    final limits = route.speedLimits!;
+    expect(limits.first.kmh, 50);
+    expect(limits.map((l) => l.source), contains(SpeedLimitSource.vehicle));
+    expect(limits.map((l) => l.source), contains(SpeedLimitSource.estimated));
+    expect(spanAt(limits, 10000)!.kmh, 110, reason: 'the A20 north of Limoges');
+  });
+
+  test('the route request without the speed limits is valid too, for an API without them', () {
+    final older = routeOperation.older!;
+    expect(older.withoutFields, isTrue);
+    expect(validator.validate(older.document), isEmpty);
+    expect(older.document, isNot(contains('speedLimits')));
+    expect(routeOperation.document, contains('speedLimits'));
+  });
 
   // The road events delta lands with the backend's road events
   // (plan/research/21-backend-travaux.md); until the schema has it, the

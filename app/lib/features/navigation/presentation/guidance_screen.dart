@@ -20,8 +20,10 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -559,23 +561,8 @@ class _Notices extends ConsumerWidget {
       _ => null,
     };
     final now = ref.watch(clockProvider)().toLocal();
-    final along = session.snapshot?.distanceAlongM ?? 0;
-    // Checked again only every few seconds: the banner ends with the zone.
-    final zone = switch (session.dangerZone) {
-      final z? when along <= z.startM + z.lengthM => z,
-      _ => null,
-    };
     final notices = <Widget>[
-      if (zone != null)
-        _Notice(
-          icon: AppIcons.error,
-          strong: true,
-          text: zone.startM > along
-              ? t.navigation.guidance.dangerZone(
-                  distance: t.routeDistance(zone.startM - along, units),
-                )
-              : t.navigation.guidance.inDangerZone,
-        ),
+      if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
       if (alert != null)
@@ -835,12 +822,7 @@ class _BottomBar extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
           child: Row(
             children: [
-              _Speed(
-                speedMps: speed,
-                limitKmh: snap?.speedLimitKmh,
-                units: units,
-                color: colors.text,
-              ),
+              SpeedAndLimit(speedMps: speed, aids: session.aids, units: units, color: colors.text),
               const SizedBox(width: Space.m),
               Expanded(
                 child: Semantics(
@@ -877,76 +859,6 @@ class _BottomBar extends ConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The speed, and the limit beside it in a road sign's red ring when the
-/// map knows it.
-class _Speed extends StatelessWidget {
-  const new({
-    required this.speedMps,
-    required this.limitKmh,
-    required this.units,
-    required this.color,
-  });
-
-  final double? speedMps;
-  final double? limitKmh;
-  final DistanceUnits units;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final metric = units == DistanceUnits.metric;
-    final factor = metric ? 3.6 : 2.236936;
-    final speed = speedMps == null ? null : (speedMps! * factor).round();
-    final limit = limitKmh == null ? null : (metric ? limitKmh! : limitKmh! / 1.609344).round();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Semantics(
-          label: '${t.navigation.guidance.speed} ${speed ?? ''}',
-          excludeSemantics: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                speed == null ? '' : '$speed',
-                style: theme.textTheme.headlineMedium?.copyWith(color: color),
-              ),
-              Text(
-                metric ? t.navigation.units.kmh : t.navigation.units.mph,
-                style: theme.textTheme.labelSmall?.copyWith(color: color),
-              ),
-            ],
-          ),
-        ),
-        if (limit != null) ...[
-          const SizedBox(width: Space.s),
-          Semantics(
-            label: '${t.navigation.guidance.limit} $limit',
-            excludeSemantics: true,
-            child: Container(
-              width: 48,
-              height: 48,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLowest,
-                shape: BoxShape.circle,
-                border: Border.all(color: scheme.error, width: 5),
-              ),
-              child: Text(
-                '$limit',
-                style: theme.textTheme.titleMedium?.copyWith(color: scheme.onSurface),
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 }

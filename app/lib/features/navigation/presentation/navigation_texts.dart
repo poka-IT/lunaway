@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -256,4 +257,20 @@ final class TranslatedWording implements GuidanceWording {
 
   @override
   String get arrived => t.navigation.voice.arrived;
+
+  @override
+  String aid(DrivingAids aids) {
+    final alert = aids.alert;
+    return switch (aids.wordKind) {
+      AidWord.overSpeed => t.navigation.voice.overSpeed(limit: '${aids.limit?.kmh ?? ''}'),
+      AidWord.camera when alert != null => t.navigation.voice.camera(
+        distance: t.spokenDistance(alert.aheadM, units),
+      ),
+      AidWord.zone when alert != null =>
+        alert.inside
+            ? t.navigation.voice.inDangerZone
+            : t.navigation.voice.dangerZone(distance: t.spokenDistance(alert.aheadM, units)),
+      _ => '',
+    };
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/driving_aids_settings.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -68,6 +69,8 @@ class RouteSettingsSection extends ConsumerWidget {
                     title: Text(t.navigation.settings.voice),
                     subtitle: Text(t.navigation.settings.voiceHint),
                   ),
+                  const Divider(height: 1),
+                  const DrivingAidsSettingsTiles(),
                   const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.all(Space.l),

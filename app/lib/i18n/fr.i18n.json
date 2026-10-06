@@ -514,7 +514,11 @@
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris",
       "dangerZone": "Zone de danger dans $distance",
-      "inDangerZone": "Zone de danger"
+      "inDangerZone": "Zone de danger, encore $distance",
+      "cameraAhead": "Radar dans $distance",
+      "cameraLimit": "Radar dans $distance, $limit km/h",
+      "limitEstimated": "Limite estimée",
+      "overLimit": "au-dessus de la limite"
     },
     "voice": {
       "rerouting": "Recalcul de l'itinéraire.",
@@ -541,7 +545,11 @@
         "other": "$n miles"
       },
       "size": "$metres mètres $cm",
-      "sizeWhole": "$metres mètres"
+      "sizeWhole": "$metres mètres",
+      "overSpeed": "Vitesse limitée à $limit.",
+      "dangerZone": "Zone de danger dans $distance.",
+      "inDangerZone": "Zone de danger.",
+      "camera": "Radar dans $distance."
     },
     "units": {
       "ft": "$n ft",
@@ -558,7 +566,11 @@
       "voiceHint": "Avec la voix du téléphone",
       "units": "Distances",
       "metric": "Kilomètres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "speedLimit": "Limite de vitesse",
+      "speedLimitHint": "La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s'affiche en gris.",
+      "speedSound": "Alertes de vitesse parlées",
+      "speedSoundHint": "Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls."
     }
   },
   "list": {

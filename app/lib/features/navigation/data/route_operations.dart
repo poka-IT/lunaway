@@ -1,6 +1,7 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 
 /// The routing operations the app sends, held to the schema by
@@ -35,12 +36,11 @@ fragment RoutingGraphFields on RoutingGraph {
 }
 ''';
 
-/// A route for the user's vehicle. One `route` per request: the API refuses
-/// two.
-final routeOperation = GraphQLOperation<RoutePlan>(
-  name: 'Route',
-  document:
-      '''
+/// The route request, with the limits for the vehicle along each route when
+/// [speedLimits]: an API without them refuses the field, and gets the
+/// request without it.
+String _routeDocument({required bool speedLimits}) =>
+    '''
 query Route(\$input: RouteInput!) {
   route(input: \$input) {
     status
@@ -52,7 +52,7 @@ query Route(\$input: RouteInput!) {
       hasToll
       hasFerry
       hasMotorway
-      warnings { ...RouteWarningFields }
+      warnings { ...RouteWarningFields }${speedLimits ? '\n      speedLimits { fromM toM kmh source }' : ''}
     }
     blockers { ...RouteWarningFields }
     recalculations
@@ -66,7 +66,14 @@ query Route(\$input: RouteInput!) {
   }
 }
 $_warningFields
-$_graphFields''',
+$_graphFields''';
+
+/// A route for the user's vehicle. One `route` per request: the API refuses
+/// two.
+final routeOperation = GraphQLOperation<RoutePlan>(
+  name: 'Route',
+  document: _routeDocument(speedLimits: true),
+  older: OlderForm.selecting(_routeDocument(speedLimits: false)),
   parse: (data) => routePlanFromJson(data['route'] as Map<String, dynamic>),
 );
 
@@ -196,6 +203,7 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
             hasFerry: r['hasFerry'] == true,
             hasMotorway: r['hasMotorway'] == true,
             warnings: _warnings(r['warnings']),
+            speedLimits: _speedLimits(r['speedLimits']),
           ),
     ],
     blockers: _warnings(json['blockers']),
@@ -231,6 +239,25 @@ RoutingGraphInfo _graph(Map<String, dynamic> g) => RoutingGraphInfo(
   ignFetchedAt: g['ignFetchedAt'] == null ? null : DateTime.parse(g['ignFetchedAt'] as String),
   ignEdition: g['ignEdition'] == null ? null : DateTime.parse(g['ignEdition'] as String),
 );
+
+/// The limits along a route, in order; null without any (an older API, an
+/// engine that did not answer). A span of a source this app does not know
+/// is left out: no limit shows there.
+List<SpeedLimitSpan>? _speedLimits(Object? list) {
+  if (list is! List) return null;
+  return [
+    for (final s in list)
+      if (s is Map<String, dynamic>)
+        if ((
+              (s['fromM'] as num?)?.toDouble(),
+              (s['toM'] as num?)?.toDouble(),
+              (s['kmh'] as num?)?.toInt(),
+              SpeedLimitSource.fromWire(s['source']),
+            )
+            case (final from?, final to?, final kmh?, final source?))
+          SpeedLimitSpan(fromM: from, toM: to, kmh: kmh, source: source),
+  ]..sort((a, b) => a.fromM.compareTo(b.fromM));
+}
 
 /// Warnings of a kind, severity, source, certainty or place this app does
 /// not know (a newer server) are dropped rather than failing the route; the

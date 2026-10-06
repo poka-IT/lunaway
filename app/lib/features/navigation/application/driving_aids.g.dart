@@ -1,0 +1,267 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'driving_aids.dart';
+
+// **************************************************************************
+// RiverpodGenerator
+// **************************************************************************
+
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+
+@ProviderFor(drivingAidsStore)
+final drivingAidsStoreProvider = DrivingAidsStoreProvider._();
+
+final class DrivingAidsStoreProvider
+    extends
+        $FunctionalProvider<
+          DrivingAidsStore,
+          DrivingAidsStore,
+          DrivingAidsStore
+        >
+    with $Provider<DrivingAidsStore> {
+  DrivingAidsStoreProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'drivingAidsStoreProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$drivingAidsStoreHash();
+
+  @$internal
+  @override
+  $ProviderElement<DrivingAidsStore> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  DrivingAidsStore create(Ref ref) {
+    return drivingAidsStore(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DrivingAidsStore value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DrivingAidsStore>(value),
+    );
+  }
+}
+
+String _$drivingAidsStoreHash() => r'6a9e21df1ff65fc78733ec8b9cba47d3e71906de';
+
+/// Whether the limit shows, and whether the aids speak.
+// keepAlive: the guidance reads it at every fix, the profile edits it.
+
+@ProviderFor(DrivingAidsSettingsController)
+final drivingAidsSettingsControllerProvider =
+    DrivingAidsSettingsControllerProvider._();
+
+/// Whether the limit shows, and whether the aids speak.
+// keepAlive: the guidance reads it at every fix, the profile edits it.
+final class DrivingAidsSettingsControllerProvider
+    extends
+        $AsyncNotifierProvider<
+          DrivingAidsSettingsController,
+          DrivingAidsSettings
+        > {
+  /// Whether the limit shows, and whether the aids speak.
+  // keepAlive: the guidance reads it at every fix, the profile edits it.
+  DrivingAidsSettingsControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'drivingAidsSettingsControllerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$drivingAidsSettingsControllerHash();
+
+  @$internal
+  @override
+  DrivingAidsSettingsController create() => DrivingAidsSettingsController();
+}
+
+String _$drivingAidsSettingsControllerHash() =>
+    r'0ddc958d26606c2f4d3b555e0f373341b5f2fa3b';
+
+/// Whether the limit shows, and whether the aids speak.
+// keepAlive: the guidance reads it at every fix, the profile edits it.
+
+abstract class _$DrivingAidsSettingsController
+    extends $AsyncNotifier<DrivingAidsSettings> {
+  FutureOr<DrivingAidsSettings> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref =
+        this.ref as $Ref<AsyncValue<DrivingAidsSettings>, DrivingAidsSettings>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<DrivingAidsSettings>, DrivingAidsSettings>,
+              AsyncValue<DrivingAidsSettings>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(enforcementStore)
+final enforcementStoreProvider = EnforcementStoreProvider._();
+
+final class EnforcementStoreProvider
+    extends
+        $FunctionalProvider<
+          EnforcementStore,
+          EnforcementStore,
+          EnforcementStore
+        >
+    with $Provider<EnforcementStore> {
+  EnforcementStoreProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'enforcementStoreProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$enforcementStoreHash();
+
+  @$internal
+  @override
+  $ProviderElement<EnforcementStore> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  EnforcementStore create(Ref ref) {
+    return enforcementStore(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(EnforcementStore value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<EnforcementStore>(value),
+    );
+  }
+}
+
+String _$enforcementStoreHash() => r'063820bfaf5b4aabf5d40ff27ebe41f22b018fa0';
+
+/// The speed camera delta, through the routing client: no position goes
+/// with it, only the countries of the trip.
+// keepAlive: a stateless service, wired once.
+
+@ProviderFor(enforcementFeed)
+final enforcementFeedProvider = EnforcementFeedProvider._();
+
+/// The speed camera delta, through the routing client: no position goes
+/// with it, only the countries of the trip.
+// keepAlive: a stateless service, wired once.
+
+final class EnforcementFeedProvider
+    extends
+        $FunctionalProvider<EnforcementFeed, EnforcementFeed, EnforcementFeed>
+    with $Provider<EnforcementFeed> {
+  /// The speed camera delta, through the routing client: no position goes
+  /// with it, only the countries of the trip.
+  // keepAlive: a stateless service, wired once.
+  EnforcementFeedProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'enforcementFeedProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$enforcementFeedHash();
+
+  @$internal
+  @override
+  $ProviderElement<EnforcementFeed> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  EnforcementFeed create(Ref ref) {
+    return enforcementFeed(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(EnforcementFeed value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<EnforcementFeed>(value),
+    );
+  }
+}
+
+String _$enforcementFeedHash() => r'55acdd011f94af39c04c86d05a2ab89de36334a6';
+
+/// The countries around a position, read on the device by the guidance
+/// library; where it is not loaded, none (every rule then reads as off).
+// keepAlive: the library loads once per run.
+
+@ProviderFor(countryLocator)
+final countryLocatorProvider = CountryLocatorProvider._();
+
+/// The countries around a position, read on the device by the guidance
+/// library; where it is not loaded, none (every rule then reads as off).
+// keepAlive: the library loads once per run.
+
+final class CountryLocatorProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<CountryLocator>,
+          CountryLocator,
+          FutureOr<CountryLocator>
+        >
+    with $FutureModifier<CountryLocator>, $FutureProvider<CountryLocator> {
+  /// The countries around a position, read on the device by the guidance
+  /// library; where it is not loaded, none (every rule then reads as off).
+  // keepAlive: the library loads once per run.
+  CountryLocatorProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'countryLocatorProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$countryLocatorHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<CountryLocator> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<CountryLocator> create(Ref ref) {
+    return countryLocator(ref);
+  }
+}
+
+String _$countryLocatorHash() => r'91b5057101dc4fbaad74c5424dcd449859da3529';
