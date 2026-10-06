@@ -68,8 +68,10 @@ const REACH_EXTRA_M: f64 = 1_000.0;
 /// the engine and the zone measure on slightly different spheres.
 const SLACK_M: f64 = 100.0;
 /// Farthest apart the camera's place may be on the road behind it and on
-/// the road ahead, metres.
-const JOIN_M: f64 = 10.0;
+/// the road ahead, metres: on one edge the two meet within a decimetre
+/// (polyline6); a wider gap is two edges, and the step would mark the
+/// camera's segment.
+const JOIN_M: f64 = 2.0;
 /// Least distance, as the crow flies, from a zone's end to its camera, as
 /// a share of the road between them: below, the road turned back.
 const MIN_SPREAD: f64 = 0.2;
@@ -927,9 +929,10 @@ pub struct BuildReport {
     pub merged: Merged,
     /// Items unchanged since the last build.
     pub unchanged: usize,
-    /// Points built (exact countries and those off while driving).
+    /// Points written, new or changed (exact countries and those off while
+    /// driving).
     pub points: usize,
-    /// Zones built.
+    /// Zones written, new or changed.
     pub zones: usize,
     /// Cameras of a zone country the engine could not place.
     pub unplaced: usize,
@@ -989,29 +992,25 @@ pub async fn build(
         let d = &p.device;
         let item = match mode {
             Mode::Zones => match zone(engine, &mut calls, p, secret).await? {
-                Asked::Zone(line) => {
-                    report.zones += 1;
-                    Item {
-                        id: item_id(secret, &p.key),
-                        device_key: p.key.clone(),
-                        kind: ItemKind::Zone,
-                        category: d.kind.zone_kind().code().to_owned(),
-                        country: p.country.clone(),
-                        line: Some(line),
-                        point: None,
-                        bearing_deg: None,
-                        limit_kmh: None,
-                        source_ids: p.sources.clone(),
-                        content_hash: hash,
-                    }
-                }
+                Asked::Zone(line) => Item {
+                    id: item_id(secret, &p.key),
+                    device_key: p.key.clone(),
+                    kind: ItemKind::Zone,
+                    category: d.kind.zone_kind().code().to_owned(),
+                    country: p.country.clone(),
+                    line: Some(line),
+                    point: None,
+                    bearing_deg: None,
+                    limit_kmh: None,
+                    source_ids: p.sources.clone(),
+                    content_hash: hash,
+                },
                 Asked::Unplaced => {
                     report.unplaced += 1;
                     continue;
                 }
             },
             Mode::Exact | Mode::OffWhileDriving => {
-                report.points += 1;
                 let line = if d.kind == DeviceKind::Section {
                     section_line(engine, &mut calls, d)
                         .await?
@@ -1042,6 +1041,10 @@ pub async fn build(
             // Built again (a full build), and the same as what is served.
             report.unchanged += 1;
         } else {
+            match item.kind {
+                ItemKind::Zone => report.zones += 1,
+                ItemKind::Camera => report.points += 1,
+            }
             items.push(item);
         }
     }

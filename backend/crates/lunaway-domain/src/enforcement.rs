@@ -395,7 +395,8 @@ pub fn zone_fraction(secret: &[u8], camera: &str, frame: ZoneFrame) -> f64 {
     let mut h = Sha256::new();
     h.update((secret.len() as u64).to_be_bytes());
     h.update(secret);
-    h.update(b"zone-share:");
+    // Shares of earlier builds, keyed otherwise, are never reused.
+    h.update(b"zone-share-v2:");
     h.update(frame.length_m.to_be_bytes());
     h.update([u8::from(frame.north_east)]);
     h.update(camera.as_bytes());

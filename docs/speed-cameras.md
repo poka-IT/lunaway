@@ -46,8 +46,8 @@ a point where only zones may be shown (its country, or a country within
 1 km of the point), an item of a country that is off, a zone running into
 a country that is off, or a section's road running into a zone country
 (lines read every 20th point there, every fourth with the margin at the
-build) never leaves the server, whatever a row says. The app applies the table again by the country it is
-in, the stricter rule at once at a border.
+build) never leaves the server, whatever a row says. The app applies the
+table again by the country it is in, the stricter rule at once at a border.
 
 ## Zone lengths
 
@@ -86,9 +86,10 @@ routing engine on loopback:
    server secret (`LUNAWAY_ZONE_SECRET`, 32 characters at least, never
    changed once zones are served). A zone whose length changes (a limit
    mapped or removed on the OpenStreetMap node that completes the camera:
-   anyone may edit it) or whose road's heading wavers across due north
-   between two graphs takes another share: with one share for both, the two
-   versions' ends would solve for the camera (reviews of 2026-10-06). Each
+   anyone may edit it) or whose road's heading wavers across due north or
+   due east between two graphs takes another share: with one share for
+   both, the two versions' ends would solve for the camera (reviews of
+   2026-10-06). Each
    version narrows the camera down to where the versions overlap, toward
    15 % of the shortest zone on each side of it; a camera has at most six
    (three lengths, two halves), and nothing else may change its share.
@@ -111,17 +112,18 @@ drives along its line, either way.
 Measured on 2026-10-06 against Valhalla 3.9.0 on the Limousin extract (the
 build server's graph), with the French list of that day and the
 OpenStreetMap cameras of the extract: 62 cameras stand on the graph's
-roads; 57 got a zone. Of those, 50 keep at least 90 % of the stretch before
-the camera on the camera's road, 47 the stretch after it (a red light at a
+roads; 57 got a zone. Of those, 48 keep at least 90 % of the stretch before
+the camera on the camera's road, 46 the stretch after it (a red light at a
 junction turns off, as a driver does), by the engine's own matching of
 each zone. The whole build of the 3 204 French cameras stored (2 within
-1 km of Switzerland are not) took 27 s and 24 600 engine calls, most of
+1 km of Switzerland are not) took 26 s and 24 600 engine calls, most of
 them failing at once for the cameras outside the extract.
 
 An item is built again only when what it comes from changes; after a new
 routing graph, the build runs with `--full`, and an item built again the
-same as it is served is not written (phones do not fetch it again). A build that would retire more
-than a tenth of the live items retires none and fails, after writing the
+same as it is served is not written (phones do not fetch it again). A
+build that would retire more than a tenth of the live items retires none
+and fails, after writing the
 new and changed ones (an engine without its graph places nothing);
 `--allow-retire` lifts that guard when the cause is known (a country turned
 off). Items are written in the order of their ids, which nothing outside
