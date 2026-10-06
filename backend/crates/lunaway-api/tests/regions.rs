@@ -477,6 +477,20 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
             .await
             .unwrap();
     }
+    // What a build that stopped left: a pack it wrote and never recorded,
+    // for a region with no place and no row, and its work files. An
+    // operator's note stays.
+    let places_dir = dir.path().join("places");
+    let work_dir = dir.path().join(".work");
+    let stray = "DE-1-0123456789ab.sqlite.gz";
+    for path in [
+        places_dir.join(stray),
+        places_dir.join("notes.txt"),
+        work_dir.join("raw-x.sqlite"),
+        work_dir.join("FR-PDL-1-0123456789ab.sqlite.gz.partial"),
+    ] {
+        std::fs::write(path, b"x").unwrap();
+    }
     let report = build(
         &pool,
         ApiConfig::default(),
@@ -488,6 +502,18 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     )
     .await
     .unwrap();
+    assert!(
+        report.pruned.contains(&stray.to_owned()) && !places_dir.join(stray).exists(),
+        "a pack no manifest names is not served after a takedown: {:?}",
+        report.pruned
+    );
+    assert!(places_dir.join("notes.txt").exists());
+    assert_eq!(
+        std::fs::read_dir(&work_dir).unwrap().count(),
+        0,
+        "what a stopped build left in its work directory goes"
+    );
+    std::fs::remove_file(places_dir.join("notes.txt")).unwrap();
     let codes: Vec<&str> = report
         .built
         .iter()
@@ -556,7 +582,7 @@ async fn a_build_waits_for_the_running_one_past_its_role_s_statement_timeout(poo
     tokio::time::sleep(std::time::Duration::from_millis(900)).await;
     assert!(
         !second.is_finished(),
-        "a takedown started during the daily build waits for it"
+        "a build started during another waits for it"
     );
     running.release().await.unwrap();
     let done = second.await.unwrap();

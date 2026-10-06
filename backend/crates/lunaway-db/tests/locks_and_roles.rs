@@ -544,3 +544,25 @@ async fn an_import_waits_for_the_lock_past_its_role_s_statement_timeout(pool: Pg
             .unwrap();
     assert_eq!(limit, "300ms", "outside the lock, the role's limit holds");
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_pack_build_knows_when_its_lock_went_with_its_session(pool: PgPool) {
+    let mut lock = lunaway_db::packs::BuildLock::acquire(&pool).await.unwrap();
+    assert!(lock.held().await.unwrap());
+    // The server ends the lock's session (a restart, an administrator):
+    // the lock is gone, and another build could take it.
+    sqlx::query(
+        "SELECT pg_terminate_backend(pid) FROM pg_locks \
+         WHERE locktype = 'advisory' AND pid <> pg_backend_pid() \
+           AND database = (SELECT oid FROM pg_database WHERE datname = current_database())",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(
+        !matches!(lock.held().await, Ok(true)),
+        "a build must not record its packs once its lock is gone"
+    );
+    let other = lunaway_db::packs::BuildLock::acquire(&pool).await.unwrap();
+    other.release().await.unwrap();
+}

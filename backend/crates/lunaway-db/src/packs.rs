@@ -381,6 +381,26 @@ impl BuildLock {
         Ok(Self(conn))
     }
 
+    /// Whether this session still holds the lock: a session the server
+    /// ended (a restart, `pg_terminate_backend`) lost it, and another build
+    /// may have run since.
+    ///
+    /// # Errors
+    ///
+    /// [`DbError`] when the connection is gone.
+    pub async fn held(&mut self) -> Result<bool, DbError> {
+        Ok(sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM pg_locks
+                WHERE locktype = 'advisory' AND granted AND pid = pg_backend_pid()
+            ) AS "held!"
+            "#
+        )
+        .fetch_one(&mut self.0)
+        .await?)
+    }
+
     /// Frees the lock and closes its connection.
     ///
     /// # Errors

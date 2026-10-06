@@ -219,6 +219,10 @@ pub enum PackError {
     /// otherwise build nothing and look done.
     #[error("{0:?} is not a sync region")]
     UnknownRegion(String),
+    /// The builders' lock was lost during the build (its session ended):
+    /// another build may have run beside this one, so nothing was recorded.
+    #[error("the pack build lock was lost; nothing recorded")]
+    LockLost,
 }
 
 /// What to build.
@@ -430,13 +434,17 @@ pub async fn build(
                 .ok_or_else(|| PackError::UnknownRegion(r.clone()))
         })
         .collect::<Result<_, _>>()?;
-    let lock = packs::BuildLock::acquire(pool).await?;
-    let built = build_locked(pool, config, options, &only).await;
-    if let Err(error) = lock.release().await {
-        // The lock goes with its connection, which is closed anyway.
+    let mut lock = packs::BuildLock::acquire(pool).await?;
+    let built = build_locked(pool, config, options, &only, &mut lock).await;
+    let released = lock.release().await;
+    if let (Err(_), Err(error)) = (&built, &released) {
         tracing::warn!(%error, "the pack build lock was not released cleanly");
     }
-    built
+    let built = built?;
+    // A release that fails most likely means the session ended during the
+    // build, after its last check: the operator must hear of it.
+    released?;
+    Ok(built)
 }
 
 async fn build_locked(
@@ -444,6 +452,7 @@ async fn build_locked(
     config: ApiConfig,
     options: &PackOptions,
     only: &[String],
+    lock: &mut packs::BuildLock,
 ) -> Result<BuildReport, PackError> {
     let dir = options.dir.join("places");
     // Files being written, beside the served ones on the same disk (an
@@ -509,17 +518,6 @@ async fn build_locked(
             ))
             .data(state.clone())
             .finish();
-        // Removed when dropped, whichever way the build ends.
-        let raw_file = tempfile::Builder::new()
-            .prefix("raw-")
-            .suffix(".sqlite")
-            .tempfile_in(&work)
-            .map_err(|source| PackError::Io {
-                path: work.clone(),
-                source,
-            })?
-            .into_temp_path();
-        let raw_path = raw_file.to_path_buf();
         let generated_at = Utc::now();
         let describe = vec![
             ("format", FORMAT.to_owned()),
@@ -530,11 +528,22 @@ async fn build_locked(
             ("licence", LICENCE.to_owned()),
             ("attribution", ATTRIBUTION.to_owned()),
         ];
-        let path = raw_path.clone();
-        let mut writer = blocking(move || {
-            let w = Writer::create(&path)?;
+        let work_dir = work.clone();
+        let (mut writer, raw_file) = blocking(move || {
+            // The raw database, removed when dropped, whichever way the
+            // build ends.
+            let raw_file = tempfile::Builder::new()
+                .prefix("raw-")
+                .suffix(".sqlite")
+                .tempfile_in(&work_dir)
+                .map_err(|source| PackError::Io {
+                    path: work_dir.clone(),
+                    source,
+                })?
+                .into_temp_path();
+            let w = Writer::create(&raw_file)?;
             w.describe(&describe)?;
-            Ok(w)
+            Ok((w, raw_file))
         })
         .await?;
         while !places.is_empty() {
@@ -577,13 +586,13 @@ async fn build_locked(
                 .iter()
                 .map(|b| format!("{b:02x}"))
                 .collect();
+            raw_file.close().map_err(|source| PackError::Io {
+                path: raw_path,
+                source,
+            })?;
             Ok((compressed, sha256))
         })
         .await?;
-        raw_file.close().map_err(|source| PackError::Io {
-            path: raw_path.clone(),
-            source,
-        })?;
         let file_name = format!(
             "{}-{}-{}.sqlite.gz",
             extent.region,
@@ -618,6 +627,11 @@ async fn build_locked(
         built.push(pack);
     }
     snapshot.end().await?;
+    // Packs from a snapshot older than a build that ran beside this one
+    // must not be recorded after it.
+    if !lock.held().await? {
+        return Err(PackError::LockLost);
+    }
     let mut out = BuildReport::default();
     for pack in built {
         let previous = packs::record(pool, &pack).await?;
