@@ -504,7 +504,7 @@ Stations along a route.
 type FuelAlongRoute {
 	"""
 	The best stations, by effective price, then by distance along the
-	route.
+	route; those out of the fuel last.
 	"""
 	stations: [FuelStop!]!
 	"""
@@ -517,7 +517,8 @@ type FuelAlongRoute {
 	"""
 	candidates: Int!
 	"""
-	Whether every detour returned was measured by the routing engine.
+	Whether every detour returned was measured by the routing engine;
+	false when none is returned.
 	"""
 	detoursMeasured: Boolean!
 }
@@ -582,7 +583,8 @@ type FuelDetour {
 	minutes: Float!
 	"""
 	Measured by the routing engine; an estimate from the straight line
-	otherwise (the engine did not answer in time).
+	otherwise (the engine refused, was busy, is not set up, or did not
+	answer in time).
 	"""
 	measured: Boolean!
 	"""
@@ -819,11 +821,16 @@ type FuelStop {
 	"""
 	poiId: UUID
 	"""
-	Its name in OpenStreetMap.
+	The source of `name`, `brand` and `openNow`: the point of
+	interest's (`osm` for OpenStreetMap, ODbL); null without one.
+	"""
+	nameSourceId: String
+	"""
+	Its name, from the point of interest.
 	"""
 	name: String
 	"""
-	Its brand in OpenStreetMap.
+	Its brand, from the point of interest.
 	"""
 	brand: String
 	"""

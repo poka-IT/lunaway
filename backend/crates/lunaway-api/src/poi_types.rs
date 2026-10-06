@@ -238,6 +238,7 @@ pub struct FuelInfo {
 impl FuelInfo {
     /// The price of `fuel` over the last days, as Lunaway saw it every
     /// quarter of an hour; null when it saw none.
+    #[graphql(complexity = "crate::fuel_types::PRICE_TREND_COST + child_complexity")]
     async fn price_trend(
         &self,
         ctx: &async_graphql::Context<'_>,

@@ -72,7 +72,7 @@ fn the_corridor_finds_the_stations_a_full_scan_finds() {
         (15_000.0, 80),
     ] {
         let corridor = Corridor::new(line.clone(), half_width_m).unwrap();
-        let along = corridor.line().along();
+        let along = corridor.along();
         let mut inside = 0;
         for (id, p) in &stations {
             let (d, s) = scan(&line, along, *p);
@@ -102,7 +102,7 @@ fn a_motorway_station_is_reached_from_the_route_on_either_side() {
         .1;
     let found = corridor.locate(masseret).unwrap();
     assert!(found.offset_m < 1_000.0, "{found:?}");
-    let length = corridor.line().length_m();
+    let length = corridor.length_m();
     assert!((93_000.0..94_500.0).contains(&length), "{length}");
     let (before, after) = corridor.anchors(found.along_m);
     assert!((found.along_m - before.along_m - ANCHOR_REACH_M).abs() < 1.0);

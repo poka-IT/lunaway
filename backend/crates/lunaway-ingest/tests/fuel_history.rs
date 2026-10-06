@@ -174,19 +174,6 @@ async fn masseret_diesel(pool: &PgPool) -> Vec<(f64, f64)> {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn each_poll_keeps_the_day_s_lowest_and_highest_price(pool: PgPool) {
-    // A day past the 30 kept, and one inside them.
-    let today = lunaway_domain::fuel::price_day(Utc::now());
-    for (days_ago, price) in [(30, 2.10), (29, 2.20)] {
-        sqlx::query(
-            "INSERT INTO fuel_price_days (station_ref, fuel, day, low_eur, high_eur) \
-             VALUES ('19510002', 'diesel', $1, $2, $2)",
-        )
-        .bind(today - chrono::Duration::days(days_ago))
-        .bind(price)
-        .execute(&pool)
-        .await
-        .unwrap();
-    }
     let addr = serve(vec![
         feed_with_masseret_at(2.25),
         feed_with_masseret_at(2.19),
@@ -208,11 +195,21 @@ async fn each_poll_keeps_the_day_s_lowest_and_highest_price(pool: PgPool) {
         first.price_days, 260,
         "one day for each price of the export but two, older than 90 days"
     );
-    assert_eq!(
-        masseret_diesel(&pool).await,
-        [(2.20, 2.20), (2.25, 2.25)],
-        "the day past the history is gone"
-    );
+    assert_eq!(masseret_diesel(&pool).await, [(2.25, 2.25)]);
+    // A day past the 30 kept, and one inside them, counted from the day
+    // of the answer.
+    let today = lunaway_domain::fuel::price_day(first.fetched_at);
+    for (days_ago, price) in [(30, 2.10), (29, 2.20)] {
+        sqlx::query(
+            "INSERT INTO fuel_price_days (station_ref, fuel, day, low_eur, high_eur) \
+             VALUES ('19510002', 'diesel', $1, $2, $2)",
+        )
+        .bind(today - chrono::Duration::days(days_ago))
+        .bind(price)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
     let lower = fuel::import(&pool, &client, &cache, &config, true)
         .await
         .unwrap();
@@ -221,7 +218,11 @@ async fn each_poll_keeps_the_day_s_lowest_and_highest_price(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(higher.price_days, 1);
-    assert_eq!(masseret_diesel(&pool).await, [(2.20, 2.20), (2.19, 2.31)]);
+    assert_eq!(
+        masseret_diesel(&pool).await,
+        [(2.20, 2.20), (2.19, 2.31)],
+        "the day past the history is gone, the day's low and high are kept"
+    );
     let same = fuel::import(&pool, &client, &cache, &config, true)
         .await
         .unwrap();

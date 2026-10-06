@@ -5,6 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::dataloader::Loader;
 use lunaway_db::{DbError, PgPool, fuel, places};
+use lunaway_domain::poi::FuelKind;
 use uuid::Uuid;
 
 /// The sources of places, by place id: read from the database, or handed
@@ -39,23 +40,29 @@ impl Loader<Uuid> for PlaceSourcesLoader {
     }
 }
 
-/// The price history of fuel stations, by their id in the feed: every fuel,
-/// the last [`lunaway_domain::fuel::PRICE_HISTORY_DAYS`] days.
+/// The price history of a fuel at a station, by the station's id in the
+/// feed and the fuel: the last [`lunaway_domain::fuel::PRICE_HISTORY_DAYS`]
+/// days.
 pub(crate) struct FuelTrendLoader(pub(crate) PgPool);
 
-impl Loader<String> for FuelTrendLoader {
-    type Value = Vec<fuel::StationPriceDay>;
+impl Loader<(String, FuelKind)> for FuelTrendLoader {
+    type Value = Vec<lunaway_domain::fuel::PriceDay>;
     type Error = Arc<DbError>;
 
-    async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
+    async fn load(
+        &self,
+        keys: &[(String, FuelKind)],
+    ) -> Result<HashMap<(String, FuelKind), Self::Value>, Self::Error> {
         let today = lunaway_domain::fuel::price_day(chrono::Utc::now());
         let since = today - chrono::Duration::days(lunaway_domain::fuel::PRICE_HISTORY_DAYS - 1);
         let rows = fuel::price_days(&self.0, keys, since)
             .await
             .map_err(Arc::new)?;
-        let mut out: HashMap<String, Self::Value> = HashMap::with_capacity(keys.len());
+        let mut out: HashMap<(String, FuelKind), Self::Value> = HashMap::with_capacity(keys.len());
         for row in rows {
-            out.entry(row.station_ref.clone()).or_default().push(row);
+            out.entry((row.station_ref, row.fuel))
+                .or_default()
+                .push(row.day);
         }
         Ok(out)
     }

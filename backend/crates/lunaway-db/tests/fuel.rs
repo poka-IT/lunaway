@@ -121,6 +121,17 @@ async fn a_search_around_a_point_puts_the_cheapest_first_and_a_stale_price_nowhe
             ("5".to_owned(), 2.20, false),
         ]
     );
+    // A route by Tarbes: its box straddles longitude 0, and a station just
+    // above its southern edge is inside (as geography it was not).
+    put(&pool, "7", &station(43.23, 0.07, Some((2.30, now)), false)).await;
+    let by_tarbes = BBox::new(43.2075, -2.96, 43.62, 5.40).unwrap();
+    let tarbes: Vec<String> = fuel::in_box(&pool, FuelKind::Diesel, by_tarbes, since)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|p| p.station_ref)
+        .collect();
+    assert_eq!(tarbes, ["7"]);
     let read = fuel::by_refs(&pool, &["3".to_owned(), "9".to_owned()])
         .await
         .unwrap();
@@ -134,12 +145,12 @@ async fn a_day_keeps_its_low_and_high_and_the_history_its_30_days(pool: PgPool) 
     let seen = |price_eur| {
         vec![
             PriceSeen {
-                station_ref: "19510002".to_owned(),
+                station_ref: "19510002",
                 fuel: FuelKind::Diesel,
                 price_eur,
             },
             PriceSeen {
-                station_ref: "19510002".to_owned(),
+                station_ref: "19510002",
                 fuel: FuelKind::Lpg,
                 price_eur: 1.05,
             },
@@ -184,9 +195,11 @@ async fn a_day_keeps_its_low_and_high_and_the_history_its_30_days(pool: PgPool) 
         2
     );
 
-    let days = fuel::price_days(&pool, &["19510002".to_owned()], day)
-        .await
-        .unwrap();
+    let both = [
+        ("19510002".to_owned(), FuelKind::Diesel),
+        ("19510002".to_owned(), FuelKind::Lpg),
+    ];
+    let days = fuel::price_days(&pool, &both, day).await.unwrap();
     let diesel: Vec<(NaiveDate, f64, f64)> = days
         .iter()
         .filter(|d| d.fuel == FuelKind::Diesel)
@@ -194,19 +207,18 @@ async fn a_day_keeps_its_low_and_high_and_the_history_its_30_days(pool: PgPool) 
         .collect();
     assert_eq!(diesel, [(day, 2.19, 2.31), (next, 2.22, 2.22)]);
     assert_eq!(
-        fuel::price_days(&pool, &["19510002".to_owned()], next)
-            .await
-            .unwrap()
-            .len(),
+        fuel::price_days(&pool, &both, next).await.unwrap().len(),
         2,
         "from the next day on: both fuels of that day"
     );
-    assert_eq!(fuel::purge_price_days(&pool, next).await.unwrap(), 2);
     assert_eq!(
-        fuel::price_days(&pool, &["19510002".to_owned()], day)
+        fuel::price_days(&pool, &both[..1], next)
             .await
             .unwrap()
             .len(),
-        2
+        1,
+        "only the fuel asked"
     );
+    assert_eq!(fuel::purge_price_days(&pool, next).await.unwrap(), 2);
+    assert_eq!(fuel::price_days(&pool, &both, day).await.unwrap().len(), 2);
 }

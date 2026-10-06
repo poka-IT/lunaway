@@ -71,7 +71,8 @@ pub struct FuelDetour {
     /// Minutes more than the route.
     pub minutes: f64,
     /// Measured by the routing engine; an estimate from the straight line
-    /// otherwise (the engine did not answer in time).
+    /// otherwise (the engine refused, was busy, is not set up, or did not
+    /// answer in time).
     pub measured: bool,
     /// Litres the detour burns at the consumption given.
     pub litres: f64,
@@ -89,9 +90,12 @@ pub struct FuelStop {
     /// The point of interest that describes it, when OpenStreetMap has one
     /// (`Query.poi`): name, brand, hours, services.
     pub poi_id: Option<Uuid>,
-    /// Its name in OpenStreetMap.
+    /// The source of `name`, `brand` and `openNow`: the point of
+    /// interest's (`osm` for OpenStreetMap, ODbL); null without one.
+    pub name_source_id: Option<String>,
+    /// Its name, from the point of interest.
     pub name: Option<String>,
-    /// Its brand in OpenStreetMap.
+    /// Its brand, from the point of interest.
     pub brand: Option<String>,
     /// Latitude the feed gives.
     pub lat: f64,
@@ -138,9 +142,13 @@ pub struct FuelStop {
     pub(crate) kind: FuelKind,
 }
 
+/// Cost of a price trend: its 30 days, read from the database.
+pub(crate) const PRICE_TREND_COST: usize = 30;
+
 #[ComplexObject]
 impl FuelStop {
     /// The price of this fuel over the last days, as Lunaway saw it.
+    #[graphql(complexity = "PRICE_TREND_COST + child_complexity")]
     async fn price_trend(&self, ctx: &Context<'_>) -> Result<Option<FuelPriceTrend>> {
         price_trend(ctx, &self.station_ref, self.kind).await
     }
@@ -150,14 +158,15 @@ impl FuelStop {
 #[derive(SimpleObject, Debug, Clone)]
 pub struct FuelAlongRoute {
     /// The best stations, by effective price, then by distance along the
-    /// route.
+    /// route; those out of the fuel last.
     pub stations: Vec<FuelStop>,
     /// The route's length, kilometres.
     pub route_km: f64,
     /// Stations with the fuel within half the detour of the route, before
     /// ranking.
     pub candidates: i32,
-    /// Whether every detour returned was measured by the routing engine.
+    /// Whether every detour returned was measured by the routing engine;
+    /// false when none is returned.
     pub detours_measured: bool,
 }
 
@@ -211,16 +220,11 @@ pub(crate) async fn price_trend(
     else {
         return Ok(None);
     };
-    let days = loader
-        .load_one(station_ref.to_owned())
+    let days: Vec<PriceDay> = loader
+        .load_one((station_ref.to_owned(), fuel))
         .await
         .map_err(|e| crate::error::internal(e.as_ref()))?
         .unwrap_or_default();
-    let days: Vec<PriceDay> = days
-        .into_iter()
-        .filter(|d| d.fuel == fuel)
-        .map(|d| d.day)
-        .collect();
     Ok(trend_of(fuel, &days, price_day(Utc::now())))
 }
 

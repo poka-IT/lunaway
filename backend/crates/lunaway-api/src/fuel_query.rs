@@ -3,14 +3,17 @@
 //! a route, have the routing engine measure the detours of the best
 //! candidates ([`lunaway_domain::fuel`]).
 
-use std::{ops::RangeInclusive, time::Duration};
+use std::{ops::RangeInclusive, sync::Arc, time::Duration};
 
 use async_graphql::{Context, Result};
 use chrono::{DateTime, Utc};
 use lunaway_db::fuel::{self as db, FuelStationRow, StationPoint};
 use lunaway_domain::{
     BBox, Position,
-    fuel::{Corridor, Detour, Located, MAX_PRICE_AGE_DAYS, Refuel, runs},
+    fuel::{
+        Corridor, Detour, Located, MAX_LINE_SPAN_DEG, MAX_PRICE_AGE_DAYS, Refuel, line_span_deg,
+        runs,
+    },
     poi::{FuelKind, open_state},
     routing::polyline,
 };
@@ -26,6 +29,7 @@ use crate::{
         RouteError,
         valhalla::{Avoid, MatrixPoint, costing_options},
     },
+    routing_query::log_chain,
     schema::{DB_FIELD_COST, ROUTE_FIELD_COST, RouteOnce, db, state},
     types::LatLonInput,
 };
@@ -55,10 +59,12 @@ const FILL: RangeInclusive<f64> = 5.0..=300.0;
 /// Detours the engine measures at most for one search: twice the stations
 /// asked, within this.
 const MAX_MEASURED: usize = 20;
-/// Longest run of stations one matrix call measures, metres along the route
-/// (anchors included): under the engine's 400 km between the points of a
-/// matrix (`max_matrix_distance` in `infra/routing/valhalla.json`).
-const MAX_RUN_M: f64 = 300_000.0;
+/// Longest run of stations one matrix call measures, metres along the
+/// route: the engine computes every pair of a matrix and reads none but a
+/// few short legs, so a call stays local. With the anchors (3 km each side)
+/// and the band (15 km each side at most), its points lie less than 60 km
+/// apart.
+const MAX_RUN_M: f64 = 20_000.0;
 /// How far the engine may look for a road around a station, metres: a
 /// station sits beside its road, sometimes behind a car park.
 const STATION_CUTOFF_M: u32 = 2_000;
@@ -135,6 +141,7 @@ fn stop_of(
     Some(FuelStop {
         station_id: row.station_ref.clone(),
         poi_id: row.poi.as_ref().map(|p| p.id),
+        name_source_id: row.poi.as_ref().map(|p| p.source_id.clone()),
         name: row.poi.as_ref().and_then(|p| p.name.clone()),
         brand: row.poi.as_ref().and_then(|p| p.brand.clone()),
         lat: row.position.lat(),
@@ -203,48 +210,9 @@ pub(crate) async fn nearby(
         .collect())
 }
 
-/// The route's line from the input, checked.
-fn line_of(input: &FuelAlongRouteInput) -> Result<Vec<Position>> {
-    let points = match (&input.polyline, &input.points) {
-        (Some(p), None) => {
-            if p.len() > MAX_POLYLINE_CHARS {
-                return Err(invalid_input(format!(
-                    "polyline holds {} characters, more than the {MAX_POLYLINE_CHARS} allowed: \
-                     simplify the line",
-                    p.len()
-                )));
-            }
-            polyline::decode(p).map_err(|e| invalid_input(format!("polyline: {e}")))?
-        }
-        (None, Some(list)) => {
-            if list.len() > MAX_INPUT_POINTS {
-                return Err(invalid_input(format!(
-                    "at most {MAX_INPUT_POINTS} points, got {}",
-                    list.len()
-                )));
-            }
-            list.iter()
-                .enumerate()
-                .map(|(i, p)| {
-                    Position::new(p.lat, p.lon)
-                        .map_err(|e| invalid_input(format!("points[{i}]: {e}")))
-                })
-                .collect::<Result<_>>()?
-        }
-        _ => return Err(invalid_input("give either polyline or points")),
-    };
-    if points.len() < 2 || points.len() > MAX_LINE_POINTS {
-        return Err(invalid_input(format!(
-            "the route must hold 2 to {MAX_LINE_POINTS} points, got {}",
-            points.len()
-        )));
-    }
-    Ok(points)
-}
-
-/// The search's settings, checked before anything is spent.
+/// The search's settings, checked before anything is spent: every scalar,
+/// and the size of the line as sent.
 struct Search {
-    corridor: Corridor,
     fuel: FuelKind,
     max_detour_km: f64,
     refuel: Refuel,
@@ -279,6 +247,23 @@ fn search(input: &FuelAlongRouteInput) -> Result<Search> {
             "limit must be between 1 and {MAX_ALONG_LIMIT}"
         )));
     }
+    match (&input.polyline, &input.points) {
+        (Some(p), None) if p.len() > MAX_POLYLINE_CHARS => {
+            return Err(invalid_input(format!(
+                "polyline holds {} characters, more than the {MAX_POLYLINE_CHARS} allowed: \
+                 simplify the line",
+                p.len()
+            )));
+        }
+        (None, Some(list)) if list.len() > MAX_INPUT_POINTS => {
+            return Err(invalid_input(format!(
+                "at most {MAX_INPUT_POINTS} points, got {}",
+                list.len()
+            )));
+        }
+        (Some(_), None) | (None, Some(_)) => {}
+        _ => return Err(invalid_input("give either polyline or points")),
+    }
     let costing = match &input.vehicle {
         Some(v) => costing_options(
             &crate::routing_query::vehicle(v)?.routing(),
@@ -286,16 +271,7 @@ fn search(input: &FuelAlongRouteInput) -> Result<Search> {
         ),
         None => json!({ "auto": {} }),
     };
-    let corridor = Corridor::new(line_of(input)?, input.max_detour_km * 1_000.0 / 2.0)
-        .ok_or_else(|| invalid_input("the route must hold two distinct points"))?;
-    let route_km = corridor.line().length_m() / 1_000.0;
-    if route_km > MAX_ROUTE_KM {
-        return Err(invalid_input(format!(
-            "the route is {route_km:.0} km long, more than the {MAX_ROUTE_KM:.0} km allowed"
-        )));
-    }
     Ok(Search {
-        corridor,
         fuel: input.fuel.into(),
         max_detour_km: input.max_detour_km,
         refuel: Refuel {
@@ -307,9 +283,49 @@ fn search(input: &FuelAlongRouteInput) -> Result<Search> {
     })
 }
 
+/// The route's line from the input, checked: its points, the degrees it
+/// covers (what the corridor's grid costs) and its length. Linear in the
+/// points, which the size checks of [`search`] bound.
+fn line_of(input: &FuelAlongRouteInput) -> Result<Vec<Position>> {
+    let points = match (&input.polyline, &input.points) {
+        (Some(p), _) => polyline::decode(p).map_err(|e| invalid_input(format!("polyline: {e}")))?,
+        (None, Some(list)) => list
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("points[{i}]: {e}")))
+            })
+            .collect::<Result<_>>()?,
+        (None, None) => return Err(invalid_input("give either polyline or points")),
+    };
+    if points.len() < 2 || points.len() > MAX_LINE_POINTS {
+        return Err(invalid_input(format!(
+            "the route must hold 2 to {MAX_LINE_POINTS} points, got {}",
+            points.len()
+        )));
+    }
+    let span = line_span_deg(&points);
+    if span > MAX_LINE_SPAN_DEG {
+        return Err(invalid_input(format!(
+            "the line covers {span:.0} degrees, more than the {MAX_LINE_SPAN_DEG:.0} a route covers"
+        )));
+    }
+    let km: f64 = points
+        .windows(2)
+        .map(|w| w[0].distance_m(w[1]))
+        .sum::<f64>()
+        / 1_000.0;
+    if km > MAX_ROUTE_KM {
+        return Err(invalid_input(format!(
+            "the route is {km:.0} km long, more than the {MAX_ROUTE_KM:.0} km allowed"
+        )));
+    }
+    Ok(points)
+}
+
 /// The box around the corridor, for the database's index.
 fn corridor_box(corridor: &Corridor) -> Result<BBox> {
-    let points = corridor.line().points();
+    let points = corridor.points();
     let fold = |f: fn(Position) -> f64| {
         points
             .iter()
@@ -350,9 +366,10 @@ fn heading(deg: f64) -> u16 {
 }
 
 /// Measures the detours of `shortlist`, sorted by distance along the route,
-/// with the engine, a run of stations per call; a run the engine cannot
-/// measure in time keeps its estimates.
-async fn measure(ctx: &Context<'_>, s: &Search, shortlist: &mut [Candidate]) {
+/// with the engine, a run of nearby stations per call. An engine that
+/// refuses, is busy or is not set up is not asked again for this search,
+/// and what it did not measure keeps its estimate.
+async fn measure(ctx: &Context<'_>, corridor: &Corridor, s: &Search, shortlist: &mut [Candidate]) {
     let routing = &state(ctx).routing;
     let deadline = tokio::time::Instant::now() + ENGINE_DEADLINE;
     let alongs: Vec<f64> = shortlist.iter().map(|c| c.located.along_m).collect();
@@ -361,7 +378,7 @@ async fn measure(ctx: &Context<'_>, s: &Search, shortlist: &mut [Candidate]) {
         let k = stations.len();
         let anchors: Vec<_> = stations
             .iter()
-            .map(|c| s.corridor.anchors(c.located.along_m))
+            .map(|c| corridor.anchors(c.located.along_m))
             .collect();
         let anchor = |a: &lunaway_domain::fuel::Anchor| MatrixPoint {
             at: a.at,
@@ -391,9 +408,11 @@ async fn measure(ctx: &Context<'_>, s: &Search, shortlist: &mut [Candidate]) {
                 .await
             {
                 Ok(Ok(cells)) => cells,
+                Ok(Err(RouteError::NotSetUp)) => break,
                 Ok(Err(error)) => {
-                    log_engine(&error);
-                    continue;
+                    log_chain(&error);
+                    tracing::warn!("fuel detours estimated");
+                    break;
                 }
                 Err(_) => {
                     tracing::warn!("fuel detours ran out of time; the rest are estimated");
@@ -403,38 +422,39 @@ async fn measure(ctx: &Context<'_>, s: &Search, shortlist: &mut [Candidate]) {
         for (i, c) in stations.iter_mut().enumerate() {
             let get =
                 |r: usize, t: usize| cells.get(r).and_then(|row| row.get(t)).copied().flatten();
-            match (get(i, i), get(k + i, k + i), get(i, k + i)) {
-                (Some(to), Some(from), Some(direct)) => {
-                    c.detour = Detour::measured(to, from, direct);
-                }
+            c.detour = match (get(i, i), get(k + i, k + i), get(i, k + i)) {
+                (Some(to), Some(from), Some(direct)) => Detour::measured(to, from, direct),
                 // No way to the station from the route: it is not one to
                 // send a driver to.
-                _ => {
-                    c.detour = Detour {
-                        km: f64::INFINITY,
-                        minutes: f64::INFINITY,
-                        measured: true,
-                    };
-                }
-            }
+                _ => Detour {
+                    km: f64::INFINITY,
+                    minutes: f64::INFINITY,
+                    measured: true,
+                },
+            };
         }
     }
 }
 
-fn log_engine(error: &RouteError) {
-    match error {
-        RouteError::NotSetUp => {}
-        RouteError::Busy => tracing::warn!("the routing engine is busy; fuel detours estimated"),
-        other => {
-            let mut chain = vec![other.to_string()];
-            let mut cause = std::error::Error::source(other);
-            while let Some(c) = cause {
-                chain.push(c.to_string());
-                cause = c.source();
-            }
-            tracing::warn!(error = %chain.join(": "), "fuel detours estimated");
-        }
-    }
+/// The corridor of `points` and the candidates among `stations`, on a
+/// blocking thread: a long route's grid and thousands of stations to place
+/// take milliseconds.
+async fn place(corridor: Arc<Corridor>, stations: Vec<StationPoint>) -> Result<Vec<Candidate>> {
+    tokio::task::spawn_blocking(move || {
+        stations
+            .into_iter()
+            .filter_map(|point| {
+                let located = corridor.locate(point.position)?;
+                Some(Candidate {
+                    detour: Detour::estimated(located.offset_m),
+                    point,
+                    located,
+                })
+            })
+            .collect()
+    })
+    .await
+    .map_err(|e| internal(&e))
 }
 
 /// `Query.fuelAlongRoute`.
@@ -456,50 +476,49 @@ pub(crate) async fn along_route(
             .copied()
             .unwrap_or(ClientKey::Unknown),
     );
-    let st = state(ctx);
-    st.quotas
+    // Taken before the line is read: whatever it costs, the client pays.
+    state(ctx)
+        .quotas
         .take(Action::FuelRoute, client)
         .map_err(|wait| quota_spent("fuel searches along a route", wait))?;
+    let points = line_of(&input)?;
+    let half_width_m = s.max_detour_km * 1_000.0 / 2.0;
+    let corridor = Arc::new(
+        tokio::task::spawn_blocking(move || Corridor::new(points, half_width_m))
+            .await
+            .map_err(|e| internal(&e))?
+            .ok_or_else(|| invalid_input("the route must hold two distinct points"))?,
+    );
     let now = Utc::now();
-    let area = corridor_box(&s.corridor)?;
+    let area = corridor_box(&corridor)?;
     let (pool, _permit) = db(ctx).await?;
     let points = db::in_box(pool, s.fuel, area, fresh_since(now))
         .await
         .map_err(|e| internal(&e))?;
-    let mut candidates: Vec<Candidate> = points
-        .into_iter()
-        .filter_map(|point| {
-            let located = s.corridor.locate(point.position)?;
-            Some(Candidate {
-                detour: Detour::estimated(located.offset_m),
-                point,
-                located,
-            })
-        })
-        .collect();
+    let mut candidates = place(Arc::clone(&corridor), points).await?;
     let found = candidates.len();
+    // Stations out of the fuel last, and those whose estimate already
+    // exceeds the detour accepted after the others: measured, a road may
+    // be shorter than the estimate, estimated, they are dropped.
     let rank = |c: &Candidate| {
         (
             c.point.in_shortage,
+            c.detour.km > s.max_detour_km,
             s.refuel.effective(c.point.price_eur, c.detour.km).price_eur,
         )
     };
-    candidates.sort_by(|a, b| {
+    let by_rank = |a: &Candidate, b: &Candidate| {
         rank(a)
             .partial_cmp(&rank(b))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then(a.located.along_m.total_cmp(&b.located.along_m))
-    });
+    };
+    candidates.sort_by(by_rank);
     candidates.truncate(MAX_MEASURED.min(2 * s.limit));
     candidates.sort_by(|a, b| a.located.along_m.total_cmp(&b.located.along_m));
-    measure(ctx, &s, &mut candidates).await;
+    measure(ctx, &corridor, &s, &mut candidates).await;
     candidates.retain(|c| c.detour.km <= s.max_detour_km);
-    candidates.sort_by(|a, b| {
-        rank(a)
-            .partial_cmp(&rank(b))
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.located.along_m.total_cmp(&b.located.along_m))
-    });
+    candidates.sort_by(by_rank);
     candidates.truncate(s.limit);
     let refs: Vec<String> = candidates
         .iter()
@@ -511,7 +530,7 @@ pub(crate) async fn along_route(
         .into_iter()
         .map(|r| (r.station_ref.clone(), r))
         .collect();
-    let detours_measured = candidates.iter().all(|c| c.detour.measured);
+    let detours_measured = !candidates.is_empty() && candidates.iter().all(|c| c.detour.measured);
     let stations = candidates
         .into_iter()
         .filter_map(|c| {
@@ -527,7 +546,7 @@ pub(crate) async fn along_route(
         .collect();
     Ok(FuelAlongRoute {
         stations,
-        route_km: s.corridor.line().length_m() / 1_000.0,
+        route_km: corridor.length_m() / 1_000.0,
         candidates: i32::try_from(found).unwrap_or(i32::MAX),
         detours_measured,
     })
@@ -557,7 +576,7 @@ mod tests {
         }
     }
 
-    fn message(r: Result<Search>) -> String {
+    fn message<T>(r: Result<T>) -> String {
         r.err().map(|e| e.message).unwrap_or_default()
     }
 
@@ -585,21 +604,40 @@ mod tests {
         let mut long = input();
         long.polyline = Some("_".repeat(MAX_POLYLINE_CHARS + 1));
         assert!(message(search(&long)).contains("simplify"));
+    }
+
+    #[test]
+    fn a_line_is_read_and_measured_before_its_corridor_is_built() {
+        assert!(line_of(&input()).is_ok());
         let mut broken = input();
         broken.polyline = Some("~".to_owned());
-        assert!(message(search(&broken)).contains("polyline"));
+        assert!(message(line_of(&broken)).contains("polyline"));
         let mut across = input();
         across.polyline = Some(polyline::encode(&[
             Position::new(36.0, -9.0).unwrap(),
             Position::new(60.0, 25.0).unwrap(),
         ]));
-        assert!(message(search(&across)).contains("km long"));
+        assert!(message(line_of(&across)).contains("km long"));
+        // Back and forth across the antimeridian: 2.2 km a segment, but
+        // 360 degrees of grid each (security audit of 2026-10-06).
+        let mut zigzag = input();
+        zigzag.polyline = None;
+        zigzag.points = Some(
+            (0..1_000)
+                .map(|i| LatLonInput {
+                    lat: 0.0,
+                    lon: if i % 2 == 0 { -179.99 } else { 179.99 },
+                })
+                .collect(),
+        );
+        assert!(search(&zigzag).is_ok(), "its size passes");
+        assert!(message(line_of(&zigzag)).contains("degrees"));
     }
 
     #[test]
     fn the_box_holds_the_band_on_every_side() {
-        let s = search(&input()).unwrap();
-        let b = corridor_box(&s.corridor).unwrap();
+        let corridor = Corridor::new(line_of(&input()).unwrap(), 2_500.0).unwrap();
+        let b = corridor_box(&corridor).unwrap();
         assert!(b.south() < 45.0 - 2_400.0 / 111_195.0);
         assert!(b.north() > 45.1 + 2_400.0 / 111_195.0);
         let lon_m = (1.0 - b.west()) * 111_195.0 * 45.1_f64.to_radians().cos();

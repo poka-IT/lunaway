@@ -533,7 +533,7 @@ async fn record_prices(
     fetched_at: DateTime<Utc>,
 ) -> Result<u64, IngestError> {
     let day = price_day(fetched_at);
-    let seen: Vec<PriceSeen> = stations
+    let seen: Vec<PriceSeen<'_>> = stations
         .iter()
         .flat_map(|s| {
             s.station
@@ -541,7 +541,7 @@ async fn record_prices(
                 .iter()
                 .filter(|p| price_is_current(p.updated_at, fetched_at))
                 .map(|p| PriceSeen {
-                    station_ref: s.key.clone(),
+                    station_ref: &s.key,
                     fuel: p.fuel,
                     price_eur: p.price_eur,
                 })

@@ -280,9 +280,10 @@ pub struct Quotas {
     /// (`plan/research/07-navigation.md`, C.3), so the burst covers five
     /// minutes lost in a town.
     pub route: Quota,
-    /// Searches of fuel along a route per client (`FUEL_ROUTE`): 30 every
-    /// ten minutes, as routes. Each measures up to 20 detours with the
-    /// routing engine, in one or a few matrix calls.
+    /// Searches of fuel along a route per client (`FUEL_ROUTE`): 10 every
+    /// ten minutes. Each measures up to 20 detours with the routing engine,
+    /// whose calls are shared with routes; a driver asks once in a while,
+    /// not at every recalculation.
     pub fuel_route: Quota,
     /// Road events reported or said over, per account
     /// (`LUNAWAY_QUOTA_ROAD_REPORT`, 30 a day): a driver meets a few a
@@ -313,7 +314,7 @@ impl Default for Quotas {
             account: Quota::per(100, DAY),
             endorsement: Quota::per(5, DAY),
             route: Quota::per(30, 10 * MINUTE),
-            fuel_route: Quota::per(30, 10 * MINUTE),
+            fuel_route: Quota::per(10, 10 * MINUTE),
             road_report: Quota::per(30, DAY),
             road_report_client: Quota::per(100, DAY),
         }

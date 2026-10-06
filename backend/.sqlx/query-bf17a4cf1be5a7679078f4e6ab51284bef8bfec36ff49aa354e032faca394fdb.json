@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT station_ref, fuel, day, low_eur, high_eur\n        FROM fuel_price_days\n        WHERE station_ref = ANY($1) AND day >= $2\n        ORDER BY station_ref, fuel, day\n        ",
+  "query": "\n        SELECT d.station_ref, d.fuel, d.day, d.low_eur, d.high_eur\n        FROM fuel_price_days d\n        JOIN UNNEST($1::text[], $2::text[]) AS k(station_ref, fuel)\n          ON k.station_ref = d.station_ref AND k.fuel = d.fuel\n        WHERE d.day >= $3\n        ORDER BY d.station_ref, d.fuel, d.day\n        ",
   "describe": {
     "columns": [
       {
@@ -62,6 +62,7 @@
     "parameters": {
       "Left": [
         "TextArray",
+        "TextArray",
         "Date"
       ]
     },
@@ -73,5 +74,5 @@
       false
     ]
   },
-  "hash": "7214235264508a54ee44777705bcaafbcd765a3a927378b9b6f7cf9c17865577"
+  "hash": "bf17a4cf1be5a7679078f4e6ab51284bef8bfec36ff49aa354e032faca394fdb"
 }

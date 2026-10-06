@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, Utc};
 
-use crate::{Position, routing::RouteLine};
+use crate::Position;
 
 /// A price older than this is not offered: on 2026-10-06, 9 of the 9 006
 /// diesel prices of the feed and 183 of its 1 513 LPG prices were older,
@@ -51,10 +51,32 @@ fn offset(a: Position, b: Position) -> (f64, f64) {
     )
 }
 
+/// Most degrees a corridor's line may cover, summed over its segments, each
+/// counted by its larger span (latitude or longitude): the grid indexes a
+/// segment cell by cell, so a line jumping across the globe and back would
+/// cost more than any route (a security audit of 2026-10-06 sent one across
+/// the antimeridian). A 2 500 km route due east at 71° N covers 2 500 /
+/// 36.2 = 69° of longitude.
+pub const MAX_LINE_SPAN_DEG: f64 = 100.0;
+
+/// The degrees `points` cover, summed over its segments ([`MAX_LINE_SPAN_DEG`]).
+#[must_use]
+pub fn line_span_deg(points: &[Position]) -> f64 {
+    points
+        .windows(2)
+        .map(|w| {
+            (w[1].lat() - w[0].lat())
+                .abs()
+                .max((w[1].lon() - w[0].lon()).abs())
+        })
+        .sum()
+}
+
 /// A route and the band around it where a station is a candidate.
 #[derive(Debug, Clone)]
 pub struct Corridor {
-    line: RouteLine,
+    points: Vec<Position>,
+    along: Vec<f64>,
     half_width_m: f64,
     cell_lat: f64,
     cell_lon: f64,
@@ -84,26 +106,32 @@ pub struct Anchor {
 
 impl Corridor {
     /// The band of `half_width_m` metres around the route `points` (in
-    /// driving order); none for fewer than two points or a width that is
-    /// not a positive number.
+    /// driving order); none for fewer than two points, a width that is not
+    /// a positive number, or a line over [`MAX_LINE_SPAN_DEG`].
     #[must_use]
     pub fn new(points: Vec<Position>, half_width_m: f64) -> Option<Self> {
-        if !(half_width_m.is_finite() && half_width_m > 0.0) {
+        if points.len() < 2
+            || !(half_width_m.is_finite() && half_width_m > 0.0)
+            || line_span_deg(&points) > MAX_LINE_SPAN_DEG
+        {
             return None;
         }
-        let line = RouteLine::new(points)?;
+        let mut along = Vec::with_capacity(points.len());
+        let mut total = 0.0;
+        for (i, p) in points.iter().enumerate() {
+            if i > 0 {
+                total += points[i - 1].distance_m(*p);
+            }
+            along.push(total);
+        }
         let cell_lat = (half_width_m / METRES_PER_DEGREE).max(MIN_CELL_DEG);
         // A degree of longitude shrinks with the latitude: the cell is as
         // wide in metres as it is high where the route is farthest north,
         // so the eight neighbours of a cell cover the band everywhere.
-        let max_lat = line
-            .points()
-            .iter()
-            .map(|p| p.lat().abs())
-            .fold(0.0_f64, f64::max);
+        let max_lat = points.iter().map(|p| p.lat().abs()).fold(0.0_f64, f64::max);
         let cell_lon = cell_lat / (max_lat + cell_lat).min(85.0).to_radians().cos();
         let mut cells: HashMap<(i64, i64), Vec<u32>> = HashMap::new();
-        for (i, pair) in line.points().windows(2).enumerate() {
+        for (i, pair) in points.windows(2).enumerate() {
             let Ok(segment) = u32::try_from(i) else { break };
             let (a, b) = (pair[0], pair[1]);
             let span =
@@ -111,7 +139,7 @@ impl Corridor {
             #[allow(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
-                reason = "a positive count of half cells along one segment"
+                reason = "a positive count of half cells along one segment, bounded by the span budget"
             )]
             let steps = (span * 2.0).ceil() as u32 + 1;
             let mut seen: HashSet<(i64, i64)> = HashSet::new();
@@ -133,7 +161,8 @@ impl Corridor {
             }
         }
         Some(Self {
-            line,
+            points,
+            along,
             half_width_m,
             cell_lat,
             cell_lon,
@@ -152,10 +181,22 @@ impl Corridor {
         )
     }
 
-    /// The route's line.
+    /// The route's points, in driving order.
     #[must_use]
-    pub const fn line(&self) -> &RouteLine {
-        &self.line
+    pub fn points(&self) -> &[Position] {
+        &self.points
+    }
+
+    /// Distance from the start of each point, metres.
+    #[must_use]
+    pub fn along(&self) -> &[f64] {
+        &self.along
+    }
+
+    /// The route's length, metres.
+    #[must_use]
+    pub fn length_m(&self) -> f64 {
+        self.along.last().copied().unwrap_or(0.0)
     }
 
     /// Half the band's width, metres.
@@ -171,13 +212,11 @@ impl Corridor {
     pub fn locate(&self, p: Position) -> Option<Located> {
         let (r, c) = Self::cell_of(p.lat(), p.lon(), self.cell_lat, self.cell_lon);
         let list = self.cells.get(&(r, c))?;
-        let points = self.line.points();
-        let along = self.line.along();
         let mut best: Option<Located> = None;
         for &seg in list {
             let i = seg as usize;
-            let (ax, ay) = offset(p, points[i]);
-            let (bx, by) = offset(p, points[i + 1]);
+            let (ax, ay) = offset(p, self.points[i]);
+            let (bx, by) = offset(p, self.points[i + 1]);
             let (dx, dy) = (bx - ax, by - ay);
             let len2 = dx * dx + dy * dy;
             let t = if len2 > 0.0 {
@@ -188,7 +227,7 @@ impl Corridor {
             let d = (ax + t * dx).hypot(ay + t * dy);
             if d <= self.half_width_m && best.is_none_or(|b| d < b.offset_m) {
                 best = Some(Located {
-                    along_m: along[i] + t * (along[i + 1] - along[i]),
+                    along_m: self.along[i] + t * (self.along[i + 1] - self.along[i]),
                     offset_m: d,
                 });
             }
@@ -196,17 +235,52 @@ impl Corridor {
         best
     }
 
+    /// The segment `s` metres from the start lies on: the index of its
+    /// first point.
+    fn segment_at(&self, s: f64) -> usize {
+        self.along
+            .partition_point(|a| *a <= s)
+            .saturating_sub(1)
+            .min(self.points.len() - 2)
+    }
+
+    /// The point `s` metres from the start (clamped to the route).
+    #[must_use]
+    pub fn point_at(&self, s: f64) -> Position {
+        let i = self.segment_at(s);
+        let (a, b) = (self.points[i], self.points[i + 1]);
+        let len = self.along[i + 1] - self.along[i];
+        let t = if len > 0.0 {
+            ((s - self.along[i]) / len).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        Position::new(
+            a.lat() + (b.lat() - a.lat()) * t,
+            a.lon() + (b.lon() - a.lon()) * t,
+        )
+        .unwrap_or(a)
+    }
+
+    /// The route's heading `s` metres from the start, degrees from north
+    /// (0 to 360).
+    #[must_use]
+    pub fn heading_at(&self, s: f64) -> f64 {
+        let i = self.segment_at(s);
+        crate::routing::corridor::heading(self.points[i], self.points[i + 1]).rem_euclid(360.0)
+    }
+
     /// The points before and after `along_m` a detour is measured from,
     /// [`ANCHOR_REACH_M`] away along the route, or the route's ends.
     #[must_use]
     pub fn anchors(&self, along_m: f64) -> (Anchor, Anchor) {
-        let length = self.line.length_m();
+        let length = self.length_m();
         let anchor = |s: f64| {
             let s = s.clamp(0.0, length);
             Anchor {
-                at: self.line.point_at(s),
+                at: self.point_at(s),
                 along_m: s,
-                heading_deg: self.line.heading_at(s),
+                heading_deg: self.heading_at(s),
             }
         };
         (
@@ -401,7 +475,7 @@ mod tests {
         let c = Corridor::new(vec![p(45.0, 1.0), p(45.0, 1.14)], 2_000.0).unwrap();
         let near = c.locate(p(45.017, 1.07)).unwrap();
         assert!((near.offset_m - 1_890.0).abs() < 10.0, "{near:?}");
-        assert!((near.along_m - c.line().length_m() / 2.0).abs() < 50.0);
+        assert!((near.along_m - c.length_m() / 2.0).abs() < 50.0);
         assert!(c.locate(p(45.02, 1.07)).is_none(), "2.2 km off is outside");
         assert!(
             c.locate(p(45.0, 1.168)).is_none(),
@@ -423,6 +497,19 @@ mod tests {
         let east = c.locate(p(69.6, 18.0 + east_deg)).unwrap();
         assert!((east.offset_m - 4_900.0).abs() < 5.0, "{east:?}");
         assert!(c.locate(p(69.6, 18.0 + 1.1 * east_deg)).is_none());
+    }
+
+    #[test]
+    fn a_line_across_the_globe_and_back_is_refused() {
+        let mut zigzag = Vec::new();
+        for i in 0..1_000 {
+            zigzag.push(p(0.0, if i % 2 == 0 { -179.99 } else { 179.99 }));
+        }
+        assert!(line_span_deg(&zigzag) > MAX_LINE_SPAN_DEG);
+        assert!(
+            Corridor::new(zigzag, 250.0).is_none(),
+            "the grid of such a line would take gigabytes"
+        );
     }
 
     #[test]

@@ -24,6 +24,8 @@ const MAX_IN_BOX: i64 = 20_000;
 pub struct StationPoi {
     /// The point of interest.
     pub id: Uuid,
+    /// Its source (`osm`, `community`).
+    pub source_id: String,
     /// Its name.
     pub name: Option<String>,
     /// Its brand.
@@ -74,6 +76,7 @@ struct StationDb {
     lon: f64,
     distance_m: Option<f64>,
     poi_id: Option<Uuid>,
+    poi_source_id: Option<String>,
     poi_name: Option<String>,
     poi_brand: Option<String>,
     always_open: Option<bool>,
@@ -89,6 +92,7 @@ impl TryFrom<StationDb> for FuelStationRow {
             None => None,
             Some(id) => Some(StationPoi {
                 id,
+                source_id: r.poi_source_id.unwrap_or_default(),
                 name: r.poi_name,
                 brand: r.poi_brand,
                 always_open: r.always_open.unwrap_or(false),
@@ -135,7 +139,8 @@ pub async fn near(
                ST_Y(j.geom::geometry) AS "lat!", ST_X(j.geom::geometry) AS "lon!",
                ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)
                    AS "distance_m?",
-               p.id AS "poi_id?", p.name AS "poi_name?", p.brand AS "poi_brand?",
+               p.id AS "poi_id?", p.source_id AS "poi_source_id?", p.name AS "poi_name?",
+               p.brand AS "poi_brand?",
                p.always_open AS "always_open?", p.opening_intervals AS "opening_intervals?",
                p.opening_intervals_until AS "opening_intervals_until?"
         FROM poi_join_records j
@@ -146,7 +151,8 @@ pub async fn near(
             LIMIT 1
         ) price
         LEFT JOIN LATERAL (
-            SELECT id, name, brand, always_open, opening_intervals, opening_intervals_until
+            SELECT id, source_id, name, brand, always_open, opening_intervals,
+                   opening_intervals_until
             FROM pois
             WHERE fuel_ref = j.ref AND deleted_at IS NULL AND NOT hidden
             ORDER BY id
@@ -202,7 +208,7 @@ pub async fn in_box(
             LIMIT 1
         ) price
         WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL
-          AND j.geom && ST_MakeEnvelope($2, $3, $4, $5, 4326)::geography
+          AND j.geom::geometry && ST_MakeEnvelope($2, $3, $4, $5, 4326)
         ORDER BY j.ref
         LIMIT $7
         "#,
@@ -241,12 +247,14 @@ pub async fn by_refs(pool: &PgPool, refs: &[String]) -> Result<Vec<FuelStationRo
         SELECT j.ref AS "station_ref!", j.data AS "data!", j.fetched_at AS "fetched_at!",
                ST_Y(j.geom::geometry) AS "lat!", ST_X(j.geom::geometry) AS "lon!",
                NULL::double precision AS "distance_m?",
-               p.id AS "poi_id?", p.name AS "poi_name?", p.brand AS "poi_brand?",
+               p.id AS "poi_id?", p.source_id AS "poi_source_id?", p.name AS "poi_name?",
+               p.brand AS "poi_brand?",
                p.always_open AS "always_open?", p.opening_intervals AS "opening_intervals?",
                p.opening_intervals_until AS "opening_intervals_until?"
         FROM poi_join_records j
         LEFT JOIN LATERAL (
-            SELECT id, name, brand, always_open, opening_intervals, opening_intervals_until
+            SELECT id, source_id, name, brand, always_open, opening_intervals,
+                   opening_intervals_until
             FROM pois
             WHERE fuel_ref = j.ref AND deleted_at IS NULL AND NOT hidden
             ORDER BY id
@@ -264,9 +272,9 @@ pub async fn by_refs(pool: &PgPool, refs: &[String]) -> Result<Vec<FuelStationRo
 
 /// A price the poller saw.
 #[derive(Debug, Clone, PartialEq)]
-pub struct PriceSeen {
+pub struct PriceSeen<'a> {
     /// The station's id in the feed.
-    pub station_ref: String,
+    pub station_ref: &'a str,
     /// The fuel.
     pub fuel: FuelKind,
     /// Euros per litre.
@@ -282,10 +290,10 @@ pub struct PriceSeen {
 /// [`DbError`] when the statement fails.
 pub async fn record_price_days(
     pool: &PgPool,
-    seen: &[PriceSeen],
+    seen: &[PriceSeen<'_>],
     day: NaiveDate,
 ) -> Result<u64, DbError> {
-    let refs: Vec<&str> = seen.iter().map(|s| s.station_ref.as_str()).collect();
+    let refs: Vec<&str> = seen.iter().map(|s| s.station_ref).collect();
     let fuels: Vec<&str> = seen.iter().map(|s| s.fuel.code()).collect();
     let prices: Vec<f64> = seen.iter().map(|s| s.price_eur).collect();
     let done = sqlx::query!(
@@ -331,24 +339,30 @@ pub struct StationPriceDay {
     pub day: PriceDay,
 }
 
-/// The days of `refs` from `since` on, in station, fuel and day order.
+/// The days of each station and fuel of `keys` from `since` on, in
+/// station, fuel and day order.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails or a fuel does not decode.
 pub async fn price_days(
     pool: &PgPool,
-    refs: &[String],
+    keys: &[(String, FuelKind)],
     since: NaiveDate,
 ) -> Result<Vec<StationPriceDay>, DbError> {
+    let refs: Vec<&str> = keys.iter().map(|(r, _)| r.as_str()).collect();
+    let fuels: Vec<&str> = keys.iter().map(|(_, f)| f.code()).collect();
     let rows = sqlx::query!(
         r#"
-        SELECT station_ref, fuel, day, low_eur, high_eur
-        FROM fuel_price_days
-        WHERE station_ref = ANY($1) AND day >= $2
-        ORDER BY station_ref, fuel, day
+        SELECT d.station_ref, d.fuel, d.day, d.low_eur, d.high_eur
+        FROM fuel_price_days d
+        JOIN UNNEST($1::text[], $2::text[]) AS k(station_ref, fuel)
+          ON k.station_ref = d.station_ref AND k.fuel = d.fuel
+        WHERE d.day >= $3
+        ORDER BY d.station_ref, d.fuel, d.day
         "#,
-        refs,
+        &refs as &[&str],
+        &fuels as &[&str],
         since,
     )
     .fetch_all(pool)

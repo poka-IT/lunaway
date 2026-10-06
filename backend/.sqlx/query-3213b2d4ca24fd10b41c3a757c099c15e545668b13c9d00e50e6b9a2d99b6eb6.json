@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT j.ref AS \"station_ref!\", ST_Y(j.geom::geometry) AS \"lat!\",\n               ST_X(j.geom::geometry) AS \"lon!\", price.eur AS \"price_eur!\",\n               EXISTS (\n                   SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                   WHERE s ->> 'fuel' = $1) AS \"in_shortage!\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $6\n            LIMIT 1\n        ) price\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND j.geom && ST_MakeEnvelope($2, $3, $4, $5, 4326)::geography\n        ORDER BY j.ref\n        LIMIT $7\n        ",
+  "query": "\n        SELECT j.ref AS \"station_ref!\", ST_Y(j.geom::geometry) AS \"lat!\",\n               ST_X(j.geom::geometry) AS \"lon!\", price.eur AS \"price_eur!\",\n               EXISTS (\n                   SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                   WHERE s ->> 'fuel' = $1) AS \"in_shortage!\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $6\n            LIMIT 1\n        ) price\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND j.geom::geometry && ST_MakeEnvelope($2, $3, $4, $5, 4326)\n        ORDER BY j.ref\n        LIMIT $7\n        ",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       null
     ]
   },
-  "hash": "cdb9f87350defa11b442d857c91644730d72a7c3ce60cecaf438164aaa326319"
+  "hash": "3213b2d4ca24fd10b41c3a757c099c15e545668b13c9d00e50e6b9a2d99b6eb6"
 }

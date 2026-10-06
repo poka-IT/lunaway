@@ -163,7 +163,7 @@ async fn engine(unreachable: Option<(f64, f64)>) -> (String, Asked) {
     (url, asked)
 }
 
-fn app(pool: &PgPool, engine: Option<&str>, quota: Option<Quota>) -> Router {
+fn app_with(pool: &PgPool, engine: Option<&str>, quota: Option<Quota>) -> Router {
     let mut config = ApiConfig {
         routing: RoutingConfig {
             valhalla_url: engine.map(str::to_owned),
@@ -255,7 +255,7 @@ fn position(row: &Value) -> Position {
 async fn stations_along_a_real_route_are_ranked_by_their_price_with_the_detour(pool: PgPool) {
     let rows = seed(&pool).await;
     let (url, asked) = engine(None).await;
-    let api = app(&pool, Some(&url), None);
+    let api = app_with(&pool, Some(&url), None);
     let body = gql(&api, &along_query(), along_input(5.0, 5)).await;
     let r = &ok(&body)["fuelAlongRoute"];
 
@@ -294,22 +294,72 @@ async fn stations_along_a_real_route_are_ranked_by_their_price_with_the_detour(p
         assert!(s["address"]["city"].is_string());
     }
 
-    // Ten candidates measured (twice the five asked), in one call: the
-    // anchors of the route then the stations as sources, the stations then
-    // the anchors as targets.
+    // Ten candidates measured (twice the five asked), in calls that stay
+    // local: in each, the anchors of the route then the stations as
+    // sources, the stations then the anchors as targets, every point less
+    // than 60 km from every other.
     let asked = asked.lock().unwrap();
-    assert_eq!(asked.len(), 1, "93 km fits one run");
-    let m = &asked[0];
-    let sources = m["sources"].as_array().unwrap();
-    let targets = m["targets"].as_array().unwrap();
-    assert_eq!((sources.len(), targets.len()), (20, 20));
+    let mut measured = 0;
+    for m in asked.iter() {
+        let sources = m["sources"].as_array().unwrap();
+        let targets = m["targets"].as_array().unwrap();
+        let k = sources.len() / 2;
+        assert_eq!(sources.len(), targets.len());
+        measured += k;
+        assert!(
+            sources[0]["heading"].is_number(),
+            "an anchor keeps its carriageway"
+        );
+        assert!(sources[k].get("heading").is_none(), "a station has none");
+        assert_eq!(sources[k], targets[0], "the stations are both");
+        assert_eq!(m["verbose"], true);
+        let all: Vec<Position> = sources.iter().chain(targets).map(point).collect();
+        let widest = all
+            .iter()
+            .flat_map(|a| all.iter().map(move |b| a.distance_m(*b)))
+            .fold(0.0, f64::max);
+        assert!(widest < 60_000.0, "a call spans {widest:.0} m");
+    }
+    assert_eq!(measured, 10);
     assert!(
-        sources[0]["heading"].is_number(),
-        "an anchor keeps its carriageway"
+        asked.len() > 1,
+        "stations along 93 km are measured run by run"
     );
-    assert!(sources[10].get("heading").is_none(), "a station has none");
-    assert_eq!(sources[10], targets[0], "the stations are both");
-    assert_eq!(m["verbose"], true);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_engine_that_refuses_is_asked_once_and_the_detours_estimated(pool: PgPool) {
+    seed(&pool).await;
+    let refusals = Arc::new(Mutex::new(0));
+    let counted = Arc::clone(&refusals);
+    let app = Router::new().route(
+        "/sources_to_targets",
+        post(move || {
+            let counted = Arc::clone(&counted);
+            async move {
+                *counted.lock().unwrap() += 1;
+                // Valhalla 3.9.0 for an action its configuration leaves out.
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error_code": 106, "error": "Try any of: '/route'",
+                                "status_code": 400, "status": "Bad Request"})),
+                )
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    let api = app_with(&pool, Some(&url), None);
+    let body = gql(&api, &along_query(), along_input(5.0, 5)).await;
+    let r = &ok(&body)["fuelAlongRoute"];
+    assert_eq!(r["detoursMeasured"], false);
+    assert!(!r["stations"].as_array().unwrap().is_empty());
+    assert_eq!(
+        *refusals.lock().unwrap(),
+        1,
+        "a refusing engine is not asked again"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -318,7 +368,7 @@ async fn a_station_the_engine_cannot_reach_or_too_far_off_is_left_out(pool: PgPo
     let masseret = rows.iter().find(|r| r["id"] == 19_510_002).unwrap();
     let at = position(masseret);
     let (url, asked) = engine(Some((at.lat(), at.lon()))).await;
-    let api = app(&pool, Some(&url), None);
+    let api = app_with(&pool, Some(&url), None);
     let body = gql(&api, &along_query(), along_input(5.0, 20)).await;
     let measured = asked
         .lock()
@@ -342,7 +392,7 @@ async fn a_station_the_engine_cannot_reach_or_too_far_off_is_left_out(pool: PgPo
 
     // A narrow detour keeps the stations beside the route only.
     let (url, _) = engine(None).await;
-    let api = app(&pool, Some(&url), None);
+    let api = app_with(&pool, Some(&url), None);
     let body = gql(&api, &along_query(), along_input(0.5, 20)).await;
     for s in ok(&body)["fuelAlongRoute"]["stations"].as_array().unwrap() {
         assert!(s["detour"]["km"].as_f64().unwrap() <= 0.5, "{s}");
@@ -353,7 +403,7 @@ async fn a_station_the_engine_cannot_reach_or_too_far_off_is_left_out(pool: PgPo
 #[sqlx::test(migrations = "../../migrations")]
 async fn without_the_engine_the_detours_are_estimated(pool: PgPool) {
     seed(&pool).await;
-    let api = app(&pool, None, None);
+    let api = app_with(&pool, None, None);
     let body = gql(&api, &along_query(), along_input(5.0, 5)).await;
     let r = &ok(&body)["fuelAlongRoute"];
     assert_eq!(r["detoursMeasured"], false);
@@ -370,7 +420,7 @@ async fn without_the_engine_the_detours_are_estimated(pool: PgPool) {
 async fn a_search_along_a_route_is_bounded_and_counted(pool: PgPool) {
     seed(&pool).await;
     let (url, asked) = engine(None).await;
-    let api = app(
+    let api = app_with(
         &pool,
         Some(&url),
         Some(Quota {
@@ -420,7 +470,7 @@ async fn fuel_near_a_point_lists_the_cheapest_first_with_its_trend(pool: PgPool)
     let today = lunaway_domain::fuel::price_day(Utc::now());
     let seen = |price_eur| {
         vec![PriceSeen {
-            station_ref: "19100016".to_owned(),
+            station_ref: "19100016",
             fuel: FuelKind::Diesel,
             price_eur,
         }]
@@ -434,7 +484,7 @@ async fn fuel_near_a_point_lists_the_cheapest_first_with_its_trend(pool: PgPool)
             .await
             .unwrap();
     }
-    let api = app(&pool, None, None);
+    let api = app_with(&pool, None, None);
     let body = gql(
         &api,
         "query($at: LatLonInput!) { fuelNearby(at: $at, fuel: DIESEL, radiusKm: 4, limit: 3) \
@@ -524,7 +574,7 @@ async fn a_station_openstreetmap_names_shows_its_name_hours_and_trend(pool: PgPo
     lunaway_db::fuel::record_price_days(
         &pool,
         &[PriceSeen {
-            station_ref: "19100016".to_owned(),
+            station_ref: "19100016",
             fuel: FuelKind::Diesel,
             price_eur: 2.25,
         }],
@@ -532,7 +582,7 @@ async fn a_station_openstreetmap_names_shows_its_name_hours_and_trend(pool: PgPo
     )
     .await
     .unwrap();
-    let api = app(&pool, None, None);
+    let api = app_with(&pool, None, None);
     let body = gql(
         &api,
         "{ fuelNearby(at: {lat: 45.1588, lon: 1.5321}, fuel: DIESEL, radiusKm: 4, limit: 1) \
