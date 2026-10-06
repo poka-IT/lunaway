@@ -4,6 +4,7 @@
 # decision: the app must not talk to anything else (no tracker, no analytics).
 lunaway.net            # the project website, linked from the about page (and its privacy page)
 api.lunaway.net        # the Lunaway GraphQL API: sync of places and the remote config
+tiles.lunaway.net      # our basemap host: TileJSON, vector tiles, glyphs, sprites, styles, offline packs (OpenStreetMap data, Protomaps schema, docs/deploy.md "Basemap")
 tiles.openfreemap.org  # basemap style, tiles and fonts (OpenFreeMap, no key, no tracking) until the self-hosted Protomaps style replaces it
 github.com             # the source code link of the about page (AGPL requires offering the source)
 www.openstreetmap.org  # OSM links for a place's coordinates, its source record, and the ODbL copyright page

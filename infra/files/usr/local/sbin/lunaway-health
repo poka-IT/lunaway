@@ -10,6 +10,9 @@
 #   root_disk          how full / is
 #   dump.ok            true when the last nightly dump succeeded less than
 #                      26 hours ago and no failure was recorded after it
+#   tiles              whether the tile volume is mounted, how full it is
+#                      (two planets fill it to about 90% after a refresh, by
+#                      design), the planet build served and its age in days
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -43,5 +46,15 @@ if [ -n "$success_at" ]; then
 	fi
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"}}\n' \
-	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure"
+if mountpoint -q /srv/tiles; then tiles_mounted=true; else tiles_mounted=false; fi
+tiles_used="$(percent /srv/tiles)"
+# The build behind the stable alias, named by the date of its OpenStreetMap data.
+tiles_build="$(readlink /srv/tiles/serve/planet.pmtiles 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p')"
+tiles_age=-1
+if [ -n "$tiles_build" ]; then
+	tiles_age=$(( ($(date -u +%s) - $(date -u -d "$tiles_build" +%s)) / 86400 ))
+fi
+
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s}}\n' \
+	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
+	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age"

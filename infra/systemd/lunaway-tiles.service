@@ -1,0 +1,80 @@
+# The basemap tile server: `pmtiles serve` over /srv/tiles/serve, on
+# loopback behind Caddy, which adds the cache, CORS and security headers.
+# Installed by infra/server/tiles.sh; the binary is the pinned go-pmtiles
+# release (infra/tiles/version.sh). It sees the tile volume read-only and
+# nothing else under /srv.
+[Unit]
+Description=Lunaway basemap tile server (pmtiles serve)
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/srv/tiles
+StartLimitIntervalSec=60
+StartLimitBurst=5
+ConditionPathExists=/usr/local/bin/pmtiles
+
+[Service]
+Type=exec
+# Each archive serve/<name>.pmtiles answers /<name>/{z}/{x}/{y}.mvt. The
+# cache holds directories only (tiles are read from the volume at each
+# request); 128 MB keeps the hot part of the planet's leaf directories.
+ExecStart=/usr/local/bin/pmtiles serve /srv/tiles/serve --interface=127.0.0.1 --port=8485 --cache-size=128
+# pmtiles logs every request path and directory fetch, and a tile path is a
+# place on the map: those lines never reach the journal. Start, reload
+# ("re-fetching directories for changed file") and error lines do.
+LogFilterPatterns=~(served [0-9]+ |[^-]fetching |fetched )
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=10s
+
+DynamicUser=yes
+User=lunaway-tileserver
+UMask=0077
+
+# Filesystem: everything read-only; /srv shows the tile volume only.
+ProtectSystem=strict
+ProtectHome=yes
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/tiles
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+# Network: loopback only, listening on 8485 for Caddy; it calls nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+SocketBindAllow=tcp:8485
+
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=256
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -1,7 +1,8 @@
 # Caddy configuration of a Lunaway backend. infra/server/caddy.sh renders it
 # to /etc/caddy/Caddyfile, replacing __SSLIP_HOST__ with the name derived from
-# the server's IPv4 address (a-b-c-d.sslip.io), which serves the API before
-# and alongside the real domain. The lunaway.net sites live in
+# the server's IPv4 address (a-b-c-d.sslip.io), which serves the API, and the
+# basemap under /tiles/, before and alongside the real domain. The
+# lunaway.net sites live in
 # lunaway.net.caddy and load only once infra/enable-domain.sh has linked them
 # into /etc/caddy/sites-enabled/.
 {
@@ -36,15 +37,27 @@
 			request>headers>Authorization delete
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
+			request>headers>Range delete
+			request>headers>If-Range delete
+			request>headers>If-Match delete
+			request>headers>If-None-Match delete
 			resp_headers>Set-Cookie delete
-			request>uri regexp "\?.*$" "?"
+			resp_headers>Etag delete
+			resp_headers>Content-Length delete
+			resp_headers>Content-Range delete
+			size delete
+			request>uri multi_regexp {
+				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
+				regexp "\?.*$" "?"
+			}
 			remote ip_mask 16 32
 		}
 	}
 }
 
 # Access log without client addresses in clear: IPv4 truncated to /16, IPv6
-# to /32, no port, no credentials, no cookies, no query strings. Kept 14 days.
+# to /32, no port, no credentials, no cookies, no query strings, nothing that
+# names a tile (coordinates, ranges, ETags, sizes). Kept 14 days.
 (access_log) {
 	log {
 		output file /var/log/caddy/access.log {
@@ -59,11 +72,160 @@
 			request>headers>Authorization delete
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
+			# A byte range of an offline pack points at a place too, and so
+			# does anything that names one tile: its ETag, its exact size.
+			request>headers>Range delete
+			request>headers>If-Range delete
+			request>headers>If-Match delete
+			request>headers>If-None-Match delete
 			resp_headers>Set-Cookie delete
-			# Query strings never reach a log: a GraphQL GET (refused by the
-			# API, but logged first) could carry a position in its variables.
-			request>uri regexp "\?.*$" "?"
+			resp_headers>Etag delete
+			resp_headers>Content-Length delete
+			resp_headers>Content-Range delete
+			size delete
+			request>uri multi_regexp {
+				# A tile address is a place on the map, often where the user
+				# is: the zoom stays, x and y go.
+				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
+				# Query strings never reach a log: a GraphQL GET (refused by
+				# the API, but logged first) could carry a position in its
+				# variables.
+				regexp "\?.*$" "?"
+			}
 		}
+	}
+}
+
+# The basemap (docs/deploy.md, "Basemap"), public OpenStreetMap data for any
+# origin. Imported by the tiles.lunaway.net site at its root, and by the
+# sslip.io site under /tiles/ (handle_path strips the prefix). The site sets
+# the variable tiles_base to its own public base URL; the TileJSON and the
+# styles are templates that receive it, so each host names itself.
+#
+#   /planet.json                       TileJSON, rewritten by each monthly refresh
+#   /planet-<YYYYMMDD>/{z}/{x}/{y}.mvt tiles of one planet build, immutable
+#   /planet/{z}/{x}/{y}.mvt            the current build, for checks and tools
+#   /fonts/{fontstack}/{range}.pbf     glyphs (Noto Sans, basemaps-assets)
+#   /sprites/<set>/<name>[@2x].json|png  protomaps-v4 now, ours beside it
+#   /styles/<name>.json                map styles, templates like the TileJSON
+#   /packs/<region>.pmtiles            offline packs, read with range requests
+(tiles) {
+	header Access-Control-Allow-Origin "*"
+	header Access-Control-Expose-Headers "ETag, Content-Length, Content-Range, Accept-Ranges"
+	@preflight method OPTIONS
+	handle @preflight {
+		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		header Access-Control-Allow-Headers "Range, If-Match, If-None-Match, If-Modified-Since"
+		header Access-Control-Max-Age "86400"
+		respond 204
+	}
+	@write not method GET HEAD OPTIONS
+	handle @write {
+		respond 405
+	}
+
+	# A stable address whose tile URLs name the current build; an hour of
+	# cache bounds how long a client keeps asking for the previous build,
+	# which stays served until the next refresh.
+	handle /planet.json {
+		root * /srv/tiles/tilejson
+		header Cache-Control "public, max-age=3600"
+		templates {
+			mime application/json
+		}
+		file_server
+	}
+
+	# pmtiles serves each tile gzip-encoded, as stored in the archive, with
+	# Content-Encoding: gzip; encode leaves an encoded response alone, and
+	# for a client that does not accept gzip, the proxy's transport decodes
+	# it (hence Vary). A tile
+	# absent from the archive answers 204, a zoom beyond it 404: as permanent
+	# as the tiles for a given build, so they are cached like them. Errors
+	# carry no cache header. At most 64 requests reach pmtiles at once; the
+	# others wait for a connection. During a restart of pmtiles, a request
+	# retries for up to 3 seconds.
+	@build_tile path_regexp ^/planet-[0-9]{8}/[0-9]{1,2}/[0-9]+/[0-9]+\.mvt$
+	handle @build_tile {
+		header Vary Accept-Encoding
+		header Cache-Control "public, max-age=31536000, immutable" {
+			match {
+				status 200 204 404
+			}
+		}
+		reverse_proxy 127.0.0.1:8485 {
+			lb_try_duration 3s
+			transport http {
+				max_conns_per_host 64
+				dial_timeout 2s
+				response_header_timeout 10s
+			}
+		}
+	}
+	@current_tile path_regexp ^/planet/[0-9]{1,2}/[0-9]+/[0-9]+\.mvt$
+	handle @current_tile {
+		header Vary Accept-Encoding
+		header Cache-Control "public, max-age=86400" {
+			match {
+				status 200 204 404
+			}
+		}
+		reverse_proxy 127.0.0.1:8485 {
+			lb_try_duration 3s
+			transport http {
+				max_conns_per_host 64
+				dial_timeout 2s
+				response_header_timeout 10s
+			}
+		}
+	}
+
+	# Glyphs and sprites change only with the pinned assets or a design
+	# pass, without a version in their path: a week and a day of cache.
+	handle /fonts/* {
+		root * /srv/tiles/assets
+		header Content-Type application/x-protobuf
+		header Cache-Control "public, max-age=604800" {
+			match {
+				status 200
+			}
+		}
+		file_server
+	}
+	handle /sprites/* {
+		root * /srv/tiles/assets
+		header Cache-Control "public, max-age=86400" {
+			match {
+				status 200
+			}
+		}
+		file_server
+	}
+	handle /styles/* {
+		root * /srv/tiles/assets
+		header Cache-Control "public, max-age=3600" {
+			match {
+				status 200
+			}
+		}
+		templates {
+			mime application/json
+		}
+		file_server
+	}
+	# Offline packs: whole files or byte ranges (file_server answers Range
+	# with 206), revalidated by ETag after a day.
+	handle /packs/* {
+		root * /srv/tiles
+		header Cache-Control "public, max-age=86400" {
+			match {
+				status 200 206
+			}
+		}
+		file_server
+	}
+	handle {
+		respond 404
 	}
 }
 
@@ -113,6 +275,11 @@
 }
 
 __SSLIP_HOST__ {
+	# The basemap before DNS exists, and after it beside tiles.lunaway.net.
+	handle_path /tiles/* {
+		vars tiles_base https://__SSLIP_HOST__/tiles
+		import tiles
+	}
 	import api
 }
 

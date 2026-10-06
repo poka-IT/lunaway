@@ -4,7 +4,8 @@
 #
 # Two servers, one role each, on a private network (10.42.0.0/16):
 #   backend   lunaway-backend-1   10.42.0.2   API, PostgreSQL + PostGIS, Caddy,
-#                                             the data pipeline (lunaway CLI)
+#                                             the data pipeline (lunaway CLI),
+#                                             the basemap (pmtiles, own volume)
 #   ops       lunaway-sync-1      10.42.0.3   status page and checks (Gatus),
 #                                             replica of the nightly dumps
 # The ops server reads two things from the backend over the private network,
@@ -25,7 +26,11 @@
 #   LUNAWAY_API_HOST, LUNAWAY_WEB_URL, LUNAWAY_STATUS_DOMAIN
 #                             what the status page checks and its public name,
 #                             optional (see docs/deploy.md, "Status page")
-#   LUNAWAY_BACKEND_IPV4/_IPV6/_VOLUME_ID, LUNAWAY_OPS_IPV4/_IPV6/_VOLUME_ID,
+#   LUNAWAY_TILES_URL         the basemap's public base URL the status page
+#                             checks, optional (https://<backend sslip.io name>/tiles
+#                             until DNS exists, then https://tiles.lunaway.net)
+#   LUNAWAY_BACKEND_IPV4/_IPV6/_VOLUME_ID/_TILES_VOLUME_ID,
+#   LUNAWAY_OPS_IPV4/_IPV6/_VOLUME_ID,
 #   LUNAWAY_HOSTNAME          written by provision.sh
 
 LUNAWAY_INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,6 +64,10 @@ role_get() {
     backend:firewall) echo lunaway-backend-fw ;;
     backend:volume) echo lunaway-data ;;
     backend:volume_gb) echo "${LUNAWAY_BACKEND_VOLUME_GB:-150}" ;;
+    # The basemap: two planet archives (the one served and the next, about
+    # 139 GB each in October 2026) and some margin (docs/deploy.md, "Basemap").
+    backend:tiles_volume) echo lunaway-tiles ;;
+    backend:tiles_volume_gb) echo "${LUNAWAY_TILES_VOLUME_GB:-300}" ;;
     backend:private_ip) echo "$LUNAWAY_BACKEND_PRIVATE_IP" ;;
     backend:alias) echo lunaway ;;
     backend:env) echo LUNAWAY_BACKEND ;;

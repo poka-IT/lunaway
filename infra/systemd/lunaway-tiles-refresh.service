@@ -1,0 +1,68 @@
+# Installs the newest Protomaps planet build on the tile volume, checks it
+# (size, BLAKE3, pmtiles verify, a tile through the running server) and
+# switches the basemap to it (/usr/local/sbin/lunaway-tiles-refresh). Run by
+# lunaway-tiles-refresh.timer; installed by infra/server/tiles.sh. The
+# download is about 140 GB and takes about half an hour; it resumes after an
+# interruption.
+[Unit]
+Description=Lunaway basemap: install the newest planet build
+# Wants, not Requires: a restart of the tile server would restart a
+# download under way. The run checks the server itself before switching.
+After=network-online.target lunaway-tiles.service
+Wants=network-online.target lunaway-tiles.service
+RequiresMountsFor=/srv/tiles
+ConditionPathExists=/usr/local/bin/pmtiles
+
+[Service]
+Type=oneshot
+User=lunaway-tiles
+Group=lunaway-tiles
+UMask=0022
+Environment=LUNAWAY_TILES_SCHEMA_MAJOR=4
+ExecStart=/usr/local/sbin/lunaway-tiles-refresh
+TimeoutStartSec=8h
+# Behind the API and PostgreSQL for CPU and disk.
+Nice=10
+CPUWeight=20
+IOSchedulingClass=idle
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# Writes the archives, the links and the TileJSON; never sees the database.
+ReadWritePaths=/srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson
+InaccessiblePaths=-/srv/data
+# Outbound: Protomaps' build list and downloads over HTTPS, and the local
+# tile server; never the private network or the cloud metadata service.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# pmtiles verify keeps a bitmap of every tile offset of the planet.
+MemoryHigh=2G
+MemoryMax=3G

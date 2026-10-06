@@ -5,12 +5,12 @@
 # double underscores. Gatus answers on loopback only; Caddy serves the page.
 #
 # Two groups:
-#   public    what a user meets: the API, its certificate, the web app;
-#             checked over HTTPS like any client
+#   public    what a user meets: the API, its certificate, the web app, the
+#             basemap; checked over HTTPS like any client
 #   backend   the backend's own facts, read over the private network from
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
-#             dump. Gatus does not check SSH host keys. A host posing as the
+#             dump, the basemap's build. Gatus does not check SSH host keys. A host posing as the
 #             backend gets nothing it can reuse (the key's signature is bound
 #             to that one session); it could only answer a false green, and
 #             it would have to sit on the private network.
@@ -76,6 +76,28 @@ endpoints:
       - "[STATUS] == 200"
       - "[CERTIFICATE_EXPIRATION] > 336h"
 
+  # The basemap (docs/deploy.md, "Basemap"): the TileJSON names the current
+  # build in its tile URLs, and a z14 tile over Paris comes back through
+  # Caddy and pmtiles. __TILES_URL__ is the sslip.io name's /tiles until DNS
+  # exists, then https://tiles.lunaway.net (LUNAWAY_TILES_URL).
+  - name: Basemap TileJSON
+    group: public
+    url: "__TILES_URL__/planet.json"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].tilejson == 3.0.0"
+      - "[BODY].tiles[0] == pat(__TILES_URL__/planet-*.mvt)"
+
+  - name: Basemap tile
+    group: public
+    url: "__TILES_URL__/planet/14/8299/5636.mvt"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY]) > 1000"
+      - "[RESPONSE_TIME] < 2000"
+
   - name: PostgreSQL
     group: backend
     url: "ssh://__BACKEND_PRIVATE_IP__:22"
@@ -127,3 +149,21 @@ __PROBE_KEY__
     conditions:
       - "[CONNECTED] == true"
       - "[BODY].dump.ok == true"
+
+  # The monthly refresh installs a build dated a day or two earlier; a build
+  # older than 35 days means the last refresh failed.
+  - name: Basemap build
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 1h
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].tiles.mounted == true"
+      - "[BODY].tiles.age_days >= 0"
+      - "[BODY].tiles.age_days < 35"

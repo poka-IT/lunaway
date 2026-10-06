@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Creates the Hetzner Cloud resources of Lunaway, or finds them: the admin
 # SSH key, the private network, then for each role its firewall, its server
-# (first boot hardened by cloud-init.yaml) and its volume. Idempotent: an
+# (first boot hardened by cloud-init.yaml) and its volume, plus the tile
+# volume of the backend. Idempotent: an
 # existing resource is kept as it is, and only resources named lunaway-* are
 # ever created or changed.
 #
@@ -161,6 +162,25 @@ provision_role() {
     # --server places the volume in the server's location and attaches it.
     hcloud volume create --name "$volume" --size "$(role_get "$role" volume_gb)" \
       --format ext4 --server "$server" --enable-protection delete "${LABEL_ARGS[@]}" >/dev/null
+  fi
+
+  # The backend's second volume holds the basemap (planet archives, fonts,
+  # offline packs): rebuilt by download, so apart from the database's.
+  if [ "$role" = backend ]; then
+    local tiles
+    tiles="$(role_get backend tiles_volume)"
+    if hcloud volume describe "$tiles" >/dev/null 2>&1; then
+      log "volume $tiles exists"
+      if [ -z "$(hcloud volume describe "$tiles" -o json | json_field server)" ]; then
+        hcloud volume attach --server "$server" "$tiles" >/dev/null
+        log "volume $tiles attached"
+      fi
+    else
+      log "creating volume $tiles ($(role_get backend tiles_volume_gb) GB, ext4) for $server"
+      hcloud volume create --name "$tiles" --size "$(role_get backend tiles_volume_gb)" \
+        --format ext4 --server "$server" --enable-protection delete "${LABEL_ARGS[@]}" --label role=tiles >/dev/null
+    fi
+    env_set LUNAWAY_BACKEND_TILES_VOLUME_ID "$(hcloud volume describe "$tiles" -o json | json_field id)"
   fi
 
   json="$(hcloud server describe "$server" -o json)"

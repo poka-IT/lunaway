@@ -13,7 +13,10 @@ only what differs from the files in the repository.
    nftables, fail2ban                            nftables, fail2ban
    Caddy :80 :443 ── 127.0.0.1:8484 lunaway-api  Caddy :80 :443 ── 127.0.0.1:8080 Gatus
      /media/ from /srv/data/media                  public status page, checks from outside
-   PostgreSQL 18 + PostGIS (localhost)           dump replica, 14 days (/srv/data/backups)
+     /tiles/ ── 127.0.0.1:8485 pmtiles serve       dump replica, 14 days (/srv/data/backups)
+       planet archive on /srv/tiles (own volume),
+       refreshed monthly from Protomaps
+   PostgreSQL 18 + PostGIS (localhost)
    lunaway CLI timers: ingest, conflate
    nightly dump, age-encrypted copy
    lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
@@ -36,20 +39,22 @@ only (`.claude/rules/data-sources.md`); the imports run on the backend.
 | `infra/provision.sh` | here | admin key, private network, then per role: firewall, server, primary IPs, volume |
 | `infra/cloud-init.yaml` | first boot | admin account, SSH policy, nftables, fail2ban, sysctl, automatic updates |
 | `infra/configure.sh` | here | copies `infra/` to a server, runs `infra/server/setup.sh` for its role, reboots if an update asks |
-| `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy backups api pipeline ops-access`, ops steps `harden data-volume ops-replica ops-status`, and the test and release helpers |
+| `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline ops-access`, ops steps `harden data-volume ops-replica ops-status`, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container, uploads the API and the CLI, migrates, switches the release, checks |
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
+| `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
 | `infra/verify.sh` | here | external and internal checks of both servers, the status page, the pulls, and what each database role may do (`infra/server/test-grants.sh`) |
 | `infra/files/` | server | configuration files, installed at the same path under `/`; `files/roles/<role>/` holds the per-role ones |
 | `infra/systemd/` | server | units and drop-ins, installed in `/etc/systemd/system/` |
 | `infra/caddy/` | servers | the backend's Caddyfile and domain sites, the ops server's `status.Caddyfile` |
+| `infra/tiles/` | here, backend | the basemap's pins (`version.sh`: go-pmtiles, basemaps-assets, the tile schema) and `assets-hash.py`, which computes the fonts and sprites pin |
 | `infra/ops/gatus/` | ops | Gatus's configuration template and the pinned release (`version.sh`) |
 | `infra/ops/mac/` | the Mac | the nightly job, its launchd plist and `install.sh` |
 | `infra/web/` | backend | placeholder landing page and web app page |
-| `infra/tests/caddy-layout.sh` | here | runs `infra/caddy/` in the Caddy image and checks every route and the log masking |
+| `infra/tests/caddy-layout.sh` | here | runs `infra/caddy/` in the Caddy image, the tile routes against a real `pmtiles serve`, and checks every route, header and the log masking |
 | `infra/routing/valhalla.container` | backend, later | draft unit of the routing engine, not installed |
 
 ## Private settings
@@ -64,8 +69,8 @@ in `~/.config/lunaway/env` (directory 0700, file 0600):
 | `LUNAWAY_SSH_IDENTITY` | path of the matching private key on this machine |
 | `LUNAWAY_SSH_ALLOW` | CIDRs allowed to reach SSH (written by `provision.sh`, `ssh-access.sh`) |
 | `LUNAWAY_BACKUP_RECIPIENT` | the age public key the dumps are encrypted to (written by `infra/ops/mac/install.sh keys`) |
-| `LUNAWAY_API_HOST`, `LUNAWAY_WEB_URL`, `LUNAWAY_STATUS_DOMAIN` | optional: what the status page checks and its public name (see "Status page") |
-| `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*`, `LUNAWAY_HOSTNAME` | addresses, volume ids, types, written by `provision.sh` |
+| `LUNAWAY_API_HOST`, `LUNAWAY_WEB_URL`, `LUNAWAY_TILES_URL`, `LUNAWAY_STATUS_DOMAIN` | optional: what the status page checks and its public name (see "Status page") |
+| `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*`, `LUNAWAY_HOSTNAME` | addresses, volume ids (the backend's tile volume in `LUNAWAY_BACKEND_TILES_VOLUME_ID`), types, written by `provision.sh` |
 
 `~/.config/lunaway/ssh_config` (written by the scripts) defines the hosts
 `lunaway` (backend) and `lunaway-ops` (also `lunaway-sync`, the server's first
@@ -89,7 +94,8 @@ Secrets live where they are used and nowhere else:
 infra/ops/mac/install.sh keys   # the age identity and the pull key, on the Mac
 infra/provision.sh              # both servers, the network, the volumes; waits for cloud-init
 infra/configure.sh ops          # first: generates the probe and replica keys, pins the backend's host key
-infra/configure.sh backend      # every backend step; lunaway-pull takes the ops server's keys
+infra/configure.sh backend      # every backend step; lunaway-pull takes the ops server's keys;
+                                # the tiles step starts the first planet download and its checks (about 45 minutes)
 infra/deploy-api.sh             # builds HEAD, migrates, deploys, checks https://<ip>.sslip.io
 infra/configure.sh backend pipeline   # turns the import timers on, now that the CLI is there
 infra/deploy-gatus.sh           # the status page's engine
@@ -112,6 +118,7 @@ Lunaway project is billed with 20% VAT.
 | `lunaway-backend-1` | cx33, 4 vCPU, 8 GB, 80 GB NVMe, fsn1 | the API, PostgreSQL and the imports need little at launch; 8 GB also holds the France routing graph, without much room (see "Next service") | 8.49 |
 | its daily backups | 20% of the server | images of the root disk, which carry a copy of the latest dumps | 1.70 |
 | `lunaway-data` | volume, 150 GB | database, dumps, import cache, photos (budget below) | 8.58 |
+| `lunaway-tiles` | volume, 300 GB | the basemap: two planet archives at the peak of a refresh (see "Basemap") | 17.16 |
 | `lunaway-sync-1` (role ops) | cx23, 2 vCPU, 4 GB, 40 GB, nbg1 | Gatus and Caddy, a nightly rsync | 5.49 |
 | `lunaway-sync-data` | volume, 20 GB | the dump replica | 1.14 |
 | 2 primary IPv4 | | mobile networks and campsite Wi-Fi without IPv6 | 1.00 |
@@ -213,9 +220,12 @@ Mac's nightly job reads.
 | public | GraphQL | `{ apiVersion }` answers with an `apiVersion` |
 | public | API certificate | more than 14 days left (Caddy renews 30 days before the end) |
 | public | Web app | 200 and the certificate, off until `LUNAWAY_WEB_URL` is set |
+| public | Basemap TileJSON | `<tiles>/planet.json` answers 200, TileJSON 3.0.0, tile URLs naming a build |
+| public | Basemap tile | a z14 tile over Paris (`<tiles>/planet/14/8299/5636.mvt`) answers 200, more than 1000 bytes, within 2 s |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
 | backend | Data volume | mounted, under 80% full; root disk under 85% |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
+| backend | Basemap build | the tile volume is mounted and the planet served is less than 35 days old (a refresh failed otherwise) |
 
 The backend checks run the probe over SSH on the private network: Gatus
 logs in as `lunaway-pull` with its probe key, which the backend forces to
@@ -234,6 +244,8 @@ What the page checks comes from the private settings, then
 - `LUNAWAY_API_HOST`: the API's name, the backend's sslip.io name by
   default; `api.lunaway.net` once DNS exists.
 - `LUNAWAY_WEB_URL`: `https://lunaway.net/app/` once the web app is served.
+- `LUNAWAY_TILES_URL`: the basemap's base URL, `https://<backend sslip.io
+  name>/tiles` by default; `https://tiles.lunaway.net` once DNS exists.
 - `LUNAWAY_STATUS_DOMAIN`: `status.lunaway.net` once its A and AAAA records
   point at the ops server; Caddy then serves both names and gets the
   certificate.
@@ -297,7 +309,7 @@ sudo journalctl -u lunaway-api -f            # API logs
 sudo tail -f /var/log/caddy/access.log       # access log, truncated addresses
 sudo -u postgres psql lunaway                # database shell
 sudo fail2ban-client status sshd             # bans
-systemctl list-timers 'lunaway*'             # dump, imports, conflation (backend), replica (ops)
+systemctl list-timers 'lunaway*'             # dump, imports, conflation, basemap refresh (backend), replica (ops)
 infra/configure.sh backend harden            # re-apply one step after editing infra/files
 ```
 
@@ -333,12 +345,13 @@ not loaded:
 | `lunaway.net/` | `/srv/lunaway/site` | landing site, HTML and CSS only; `/privacy`, `/account/delete`, `/about` map to `privacy.html` or `privacy/index.html`; hashed assets cached a year, the rest five minutes |
 | `lunaway.net/app/` | `/srv/lunaway/web` | Flutter web build, unknown paths fall back to `/app/index.html`; revalidated on every load |
 | `www.lunaway.net` | | permanent redirect to `https://lunaway.net` |
+| `tiles.lunaway.net` | pmtiles serve, `/srv/tiles` | the basemap (see "Basemap"); the sslip.io name serves the same under `/tiles/` |
 
 The sslip.io name of the backend serves the API snippet too, `/media/`
 included. `infra/tests/caddy-layout.sh` runs this configuration in the
 official Caddy image (plain HTTP, test roots) and checks each route and
 header, and that Caddy's own log masks client addresses; run it after
-editing `infra/caddy/`. Once the A and AAAA records of the three names point
+editing `infra/caddy/`. Once the A and AAAA records of the four names point
 at the backend (DNS only, not proxied, so the HTTP-01 challenge reaches
 Caddy):
 
@@ -352,8 +365,8 @@ Caddy uses Let's Encrypt only (no fallback CA), so a CAA record
 CORS requests from `https://lunaway.net` only (the web app's origin);
 `LUNAWAY_DEV_CORS=1` in its environment adds pages served from
 `localhost` and `127.0.0.1`, for development, never on the server. Then set
-`LUNAWAY_API_HOST=api.lunaway.net` and `LUNAWAY_WEB_URL` and rerun
-`infra/configure.sh ops ops-status`.
+`LUNAWAY_API_HOST=api.lunaway.net`, `LUNAWAY_TILES_URL=https://tiles.lunaway.net`
+and `LUNAWAY_WEB_URL`, and rerun `infra/configure.sh ops ops-status`.
 
 ### Deploying the landing site and the web app
 
@@ -457,6 +470,149 @@ The volumes hold what must survive, so the servers can change.
 - A volume stays in its location: moving the backend to another site means
   copying the data.
 
+## Basemap
+
+The map's background (roads, water, places, labels) comes from our own host,
+so the published app depends on no third-party tile service. The data is the
+Protomaps basemap, built daily by Protomaps from OpenStreetMap (ODbL) and
+Natural Earth, in the schema of
+[github.com/protomaps/basemaps](https://github.com/protomaps/basemaps)
+(schema 4), as one PMTiles archive of the whole planet, zoom 0 to 15
+(138,605,245,404 bytes for the build of 2026-10-05).
+
+| URL, on `tiles.lunaway.net` (on the sslip.io name: under `/tiles/`) | what | cache |
+|---|---|---|
+| `/planet.json` | TileJSON 3.0.0; its tile URLs name the current build and this host | an hour |
+| `/planet-<YYYYMMDD>/{z}/{x}/{y}.mvt` | vector tiles of one build, gzip-encoded (decoded by Caddy for a client that does not accept gzip) | a year, immutable |
+| `/planet/{z}/{x}/{y}.mvt` | the current build, for the status page and tools | a day |
+| `/fonts/{fontstack}/{range}.pbf` | glyphs: Noto Sans Regular, Medium, Italic, Devanagari | a week |
+| `/sprites/protomaps-v4/{light,dark,white,grayscale,black}[@2x].{json,png}` | Protomaps' sprites; ours go to `/sprites/<name>/` | a day |
+| `/styles/<name>.json` | map styles, empty until the app's styles are deployed | an hour |
+| `/packs/<region>.pmtiles` | offline packs, whole or by byte range, empty for now | a day, then ETag |
+
+Every answer carries `Access-Control-Allow-Origin: *` (public data), and a
+preflight allows `Range`. A tile absent from the archive answers 204, a zoom
+beyond 15 answers 404; both are cached like the tiles of their build, errors
+are not cached. Caddy lets at most 64 requests reach pmtiles at once. A map
+style points at the TileJSON (`"url": "https://tiles.lunaway.net/planet.json"`),
+the glyphs (`https://tiles.lunaway.net/fonts/{fontstack}/{range}.pbf`) and a
+sprite set; `@protomaps/basemaps` generates the default styles
+(`npx -p @protomaps/basemaps@5.7.2 -p tsx generate_style style.json <TileJSON>
+light en <sprite> <glyphs>`). The map must show the attribution
+`© OpenStreetMap` (ODbL); Protomaps asks for, without requiring, a credit to
+Protomaps when its styles are used.
+
+Styles and sprite sets go to the server with
+
+```bash
+infra/deploy-basemap-assets.sh styles DIR        # DIR/<name>.json, written for https://tiles.lunaway.net
+infra/deploy-basemap-assets.sh sprites SET DIR   # DIR/<name>[@2x].json|png, served under /sprites/SET/
+```
+
+A style is written with `https://tiles.lunaway.net` in its URLs; the server
+turns that prefix into a template action (`` {{placeholder `http.vars.tiles_base`}} ``)
+that Caddy fills in per host, so the sslip.io name serves the same style
+pointing at itself. The TileJSON works the same way.
+
+### On the backend
+
+- The volume `lunaway-tiles` (300 GB, fsn1) is mounted at `/srv/tiles`,
+  `nodev,nosuid,noexec`, no blocks reserved for root. Nothing on it needs a
+  backup: a lost volume is a new download.
+- `lunaway-tiles.service` runs `pmtiles serve /srv/tiles/serve` on
+  127.0.0.1:8485 (go-pmtiles 1.31.2, pinned by the SHA-256 of its release
+  tarball in `infra/tiles/version.sh`), as a dynamic user that sees
+  `/srv/tiles` read-only and nothing else under `/srv`. pmtiles logs every
+  tile path; `LogFilterPatterns=` keeps those lines out of the journal.
+- `infra/server/tiles.sh` installs the fonts and sprites from
+  `protomaps/basemaps-assets` at a pinned commit, accepted only when the
+  hash of their files matches `infra/tiles/version.sh`.
+- The access log keeps the zoom of a tile and drops x and y
+  (`/planet-20261005/14/x/y.mvt`); it never logs what else would name a
+  tile, and so a place on the map: request ranges and validators (`Range`,
+  `If-Range`, `If-Match`, `If-None-Match`), response `ETag`,
+  `Content-Length`, `Content-Range`, and the response size.
+
+```
+/srv/tiles/
+  builds/<YYYYMMDD>.pmtiles      planet archives: the current one and the previous
+  serve/planet-<YYYYMMDD>.pmtiles, serve/planet.pmtiles   symlinks into builds/
+  tilejson/planet.json           written by the refresh, a template Caddy fills in per host
+  assets/fonts/ assets/sprites/ assets/styles/
+  packs/<region>.pmtiles         offline packs, later
+```
+
+### Monthly refresh
+
+`lunaway-tiles-refresh.timer` (the 2nd of each month, 05:00 UTC) runs
+`/usr/local/sbin/lunaway-tiles-refresh` as `lunaway-tiles`:
+
+1. reads Protomaps' build list (`https://build-metadata.protomaps.dev/builds.json`:
+   name, size and BLAKE3 hash of each daily build) and picks the newest of
+   schema 4;
+2. makes room: removes a stale partial download, then the previous build
+   (never the one served) when two planets and 2 GB would not fit;
+3. downloads `https://build.protomaps.com/<YYYYMMDD>.pmtiles` over HTTP/1.1,
+   each attempt resuming at the size of the partial file (65.6 MB/s on
+   average from fsn1 on 2026-10-06, so about 35 minutes; the host cut the
+   transfer three times, after 9 to 15 minutes). curl's own `--retry` is not
+   used: it restarted a broken transfer from byte 0 and truncated the file;
+4. checks the size, the BLAKE3 hash against the list (9 minutes), `pmtiles
+   verify` (1 minute) and the header (MVT, gzip, zoom 0 to at least 14);
+5. links `serve/planet-<YYYYMMDD>.pmtiles`, fetches its z0 tile through the
+   running pmtiles, writes the new TileJSON, then moves `serve/planet.pmtiles`
+   by an atomic rename. pmtiles notices the change by itself (it compares the
+   file's size and time on each read).
+
+The previous build stays on the volume and stays served under its own name
+until the next refresh needs its room, so a client that read the TileJSON
+before the switch keeps its tiles for the hour of its cache. A failed run
+changes nothing that is served; it leaves its partial download, which the
+next run resumes. Protomaps keeps every daily build for a week and the last
+build of each version after that, and asks users to copy the file rather
+than link to it (https://docs.protomaps.com/basemaps/downloads), which is
+what this does.
+
+```bash
+sudo systemctl start lunaway-tiles-refresh               # refresh now
+sudo journalctl -u lunaway-tiles-refresh -f
+sudo -u lunaway-tiles /usr/local/sbin/lunaway-tiles-refresh 20261005   # back to a build still on the volume
+```
+
+A new tile schema (5) needs new styles in the app first: the refresh stays
+on schema 4 until `LUNAWAY_TILES_SCHEMA_MAJOR` (in the unit) changes.
+
+### Size
+
+Measured on the build of 2026-10-05 with `pmtiles extract --dry-run`
+(archive sizes):
+
+| extract | size |
+|---|---|
+| planet, zoom 0 to 15 | 138.6 GB |
+| planet, zoom 0 to 14 | 68 GB |
+| planet, zoom 0 to 13 / 12 / 11 / 10 / 8 | 36 / 18 / 8.0 / 3.8 / 0.56 GB |
+| Europe (-25 to 45 E, 27 to 72 N), zoom 0 to 15 | 50 GB |
+| France (-5.5 to 9.8 E, 41.2 to 51.2 N), zoom 0 to 15 / 0 to 14 | 9.9 / 4.7 GB |
+
+The whole planet was chosen over Europe at full zoom with the world at low
+zoom: the latter is about 54 GB, but needs two extracts and a merge of
+disjoint archives at each refresh, so about 160 GB at the peak (a 9.15 EUR
+volume instead of 17.16) and no published hash to check the result against.
+The planet grew by about 0.6 GB a month in 2026 (Protomaps' build list);
+two copies leave about 38 GB of the 300 GB volume (316 GB formatted) free.
+Offline packs will need room of their own: grow the volume online
+(`hcloud volume resize lunaway-tiles --size <GB>`, then `sudo resize2fs` on
+the backend).
+
+### Offline packs (later)
+
+A pack is a `pmtiles extract` of one region (`--bbox` or `--region` with a
+GeoJSON polygon, from the current build) written to `/srv/tiles/packs/`,
+served as a static file with range requests: the app can download it whole,
+or read it remotely through the PMTiles protocol. A pack's name should carry
+its build (`france-20261005.pmtiles`) so its URL never changes content.
+
 ## Next service: routing (Valhalla)
 
 The app's motorhome-aware navigation will query a Valhalla server on the
@@ -507,3 +663,4 @@ decisions are taken:
 | API | systemd sandbox: dynamic user, no capabilities, read-only system, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1 GB; CORS for `https://lunaway.net` only |
 | imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 2 GB |
 | status page | Gatus under its own user with the same sandbox, listening on loopback; Caddy in front refuses anything but GET and HEAD |
+| basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), the tile volume read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates and byte ranges never logged |

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Checks the servers from outside (ports, SSH policy, TLS, the API, the
-# status page, the Mac's pull) and from inside (firewall, fail2ban, sandbox
-# scores, PostgreSQL, backups, the pipeline, Gatus, the replica, what the ops
-# server's keys reach on the backend). Changes nothing. Prints each check
+# basemap, the status page, the Mac's pull) and from inside (firewall,
+# fail2ban, sandbox scores, PostgreSQL, backups, the pipeline, the tile
+# server and its refresh, Gatus, the replica, what the ops server's keys
+# reach on the backend). Changes nothing. Prints each check
 # with its evidence.
 #
 #   infra/verify.sh               both servers
@@ -19,7 +20,7 @@ set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 require_hcloud
 roles="${1:-backend ops}"
-ports="1-1024,2019,3900-3904,5432,8002,8080,8443,8484,9000,9090"
+ports="1-1024,2019,3900-3904,5432,8002,8080,8443,8484,8485,9000,9090"
 section() { echo; echo "######## $*"; }
 # refused LABEL COMMAND...: prints whether the command failed, as it should.
 # No timeout(1) here, macOS has none (with it, a missing command passed for a
@@ -45,7 +46,7 @@ for role in $roles; do
     echo "IPv6:"
     nmap -6 -Pn -sT -T4 -p "$ports" "$ip6" | grep -E '^[0-9]+/|Not shown|All [0-9]+'
   else
-    for port in 22 80 443 2019 5432 8080 8484; do
+    for port in 22 80 443 2019 5432 8080 8484 8485; do
       nc -z -G 3 "$ip4" "$port" 2>/dev/null && echo "$port open" || echo "$port closed or filtered"
     done
   fi
@@ -97,6 +98,23 @@ for r in json.load(sys.stdin)["rules"]:
       # Debian 13's curl speaks HTTP/3 (ngtcp2); the macOS one does not.
       echo "HTTP/3: $(docker run --rm buildpack-deps:trixie-curl curl -sS -o /dev/null -w '%{http_version} %{http_code}' --http3-only -m 10 "https://$host/health" 2>&1 | tail -n 1)"
     fi
+    # The basemap under /tiles/ (tiles.lunaway.net serves the same once DNS
+    # exists): TileJSON, tiles at z0, z8 and z14 over Paris and over Tokyo,
+    # with their status, size as sent (gzip), encoding, cache and time.
+    tiles="https://$host/tiles"
+    echo "basemap TileJSON: $(curl -fsS -m 10 "$tiles/planet.json" | python3 -c '
+import json, sys
+t = json.load(sys.stdin)
+print(t["tiles"][0], "zoom %s-%s" % (t["minzoom"], t["maxzoom"]), "schema", t.get("version"))' 2>&1)"
+    for tile in 0/0/0 8/129/88 14/8299/5636 8/227/100 14/14552/6451; do
+      echo "basemap tile $tile: $(curl -sS -o /dev/null -D - -w 'status %{http_code}, %{size_download} bytes, %{time_total}s' \
+        -H 'Accept-Encoding: gzip' -m 10 "$tiles/planet/$tile.mvt" | tr -d '\r' \
+        | grep -iE '^(content-encoding|cache-control):|^status' | tr '\n' ' ')"
+    done
+    echo "basemap CORS: $(curl -sS -o /dev/null -D - -m 10 -H 'Origin: https://example.org' "$tiles/planet.json" | grep -i '^access-control-allow-origin' | tr -d '\r' || echo none)"
+    echo "basemap glyphs: $(curl -sS -o /dev/null -w '%{http_code} %{content_type}' -m 10 "$tiles/fonts/Noto%20Sans%20Regular/0-255.pbf")"
+    echo "basemap sprite: $(curl -sS -o /dev/null -w '%{http_code} %{content_type}' -m 10 "$tiles/sprites/protomaps-v4/light.json")"
+    echo "basemap other path: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "$tiles/admin")"
     refused "lunaway-pull over the public address (it is the ops server's, private network only)" \
       ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       -o IdentitiesOnly=yes -i "$LUNAWAY_SSH_IDENTITY" -o ConnectTimeout=10 "lunaway-pull@$ip4" true

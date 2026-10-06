@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-tiles lunaway-tiles-refresh ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
@@ -42,7 +42,9 @@ swapon --show
 grep -E '^[^#].* swap ' /etc/fstab || echo "fstab: no swap line"
 journalctl --disk-usage
 df -h / /srv/data | sed 1d
+[ -d /srv/tiles ] && df -h /srv/tiles | sed 1d
 findmnt -no SOURCE,TARGET,OPTIONS /srv/data
+[ -d /srv/tiles ] && findmnt -no SOURCE,TARGET,OPTIONS /srv/tiles
 grep -vE '^#|^$' /etc/fstab | awk '{ print $2, $3 }'
 ip -brief address
 echo "--- updates"
@@ -106,6 +108,17 @@ echo "--- data pipeline"
 systemctl is-enabled lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-conflate.timer 2>&1 | tr '\n' ' '
 echo
 stat -c '%a %U:%G %n' /srv/data/ingest /srv/data/media
+echo "--- basemap"
+systemctl is-active lunaway-tiles
+echo "refresh timer: $(systemctl is-enabled lunaway-tiles-refresh.timer), next $(systemctl list-timers --no-pager --no-legend lunaway-tiles-refresh.timer | awk '{ print $1, $2, $3 }')"
+echo "last refresh: $(systemctl show -p Result --value lunaway-tiles-refresh), $(journalctl -u lunaway-tiles-refresh --no-pager -n 1 -o cat 2>/dev/null)"
+echo "$(/usr/local/bin/pmtiles version | cut -d, -f1), sha256 $(sha256sum /usr/local/bin/pmtiles | cut -c1-64)"
+echo "basemaps-assets: $(cat /srv/tiles/assets/.basemaps-assets 2>/dev/null || echo none)"
+stat -c '%a %U:%G %n' /srv/tiles /srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson /srv/tiles/assets /srv/tiles/packs
+ls -l /srv/tiles/builds /srv/tiles/serve
+echo "local tile z0: $(curl -sS -o /dev/null -w '%{http_code} %{size_download} bytes in %{time_total}s' -m 10 http://127.0.0.1:8485/planet/0/0/0.mvt)"
+# pmtiles logs each request path; the unit's LogFilterPatterns keeps them out.
+echo "request lines from pmtiles in the journal (should be 0): $(journalctl -u lunaway-tiles --no-pager -o cat | grep -cE 'served [0-9]+|[^-]fetching|fetched')"
 echo "--- what the ops server may read (lunaway-pull)"
 id lunaway-pull
 stat -c '%a %U:%G %n' /var/lib/lunaway-pull/.ssh/authorized_keys

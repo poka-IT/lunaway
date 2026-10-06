@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Turns on the lunaway.net sites (api.lunaway.net, lunaway.net,
-# www.lunaway.net) once their DNS records point at the server, then waits for
-# the certificates and checks each name over HTTPS.
+# www.lunaway.net, tiles.lunaway.net) once their DNS records point at the
+# server, then waits for the certificates and checks each name over HTTPS.
 #
 #   infra/enable-domain.sh              check DNS from two resolvers, enable, verify
 #   infra/enable-domain.sh --disable    unlink the sites again
@@ -11,7 +11,7 @@
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 require_host
-names="lunaway.net api.lunaway.net www.lunaway.net"
+names="lunaway.net api.lunaway.net www.lunaway.net tiles.lunaway.net"
 site=/etc/caddy/sites-available/lunaway.net.caddy
 link=/etc/caddy/sites-enabled/lunaway.net.caddy
 
@@ -55,7 +55,7 @@ lunaway_ssh "sudo ln -sfn $site $link"
 reload_caddy || die "Caddy rejected the configuration"
 
 log "waiting for certificates"
-for name in api.lunaway.net lunaway.net www.lunaway.net; do
+for name in $names; do
   for _ in $(seq 1 36); do
     curl -fsS -o /dev/null -m 10 "https://$name/" 2>/dev/null && break
     code="$(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$name/" 2>/dev/null || true)"
@@ -67,4 +67,6 @@ echo "    api.lunaway.net/health: $(curl -fsS -m 10 https://api.lunaway.net/heal
 echo "    api.lunaway.net apiVersion: $(curl -fsS -m 10 -H 'Content-Type: application/json' -d '{"query":"{ apiVersion }"}' https://api.lunaway.net/graphql || echo FAILED)"
 echo "    lunaway.net: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 https://lunaway.net/)"
 echo "    www.lunaway.net: $(curl -sS -o /dev/null -w '%{http_code} -> %{redirect_url}' -m 10 https://www.lunaway.net/somewhere)"
+echo "    tiles.lunaway.net TileJSON: $(curl -fsS -m 10 https://tiles.lunaway.net/planet.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["tiles"][0])' 2>/dev/null || echo FAILED)"
+echo "    tiles.lunaway.net tile z0: $(curl -sS -o /dev/null -w '%{http_code} %{size_download} bytes' -m 10 https://tiles.lunaway.net/planet/0/0/0.mvt)"
 log "issuer of api.lunaway.net: $(echo | openssl s_client -connect api.lunaway.net:443 -servername api.lunaway.net 2>/dev/null | openssl x509 -noout -issuer)"

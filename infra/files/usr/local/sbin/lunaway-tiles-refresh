@@ -1,0 +1,248 @@
+#!/bin/bash
+# Installs the newest Protomaps planet build on the tile volume and switches
+# the basemap to it. Run monthly by lunaway-tiles-refresh.timer as the
+# lunaway-tiles user; installed by infra/server/tiles.sh.
+#
+#   lunaway-tiles-refresh             the newest daily build of schema 4
+#   lunaway-tiles-refresh 20261005    that build: switches back to it when it
+#                                     is still on the volume (a rollback),
+#                                     downloads it while Protomaps keeps it
+#
+# Layout of /srv/tiles (the tile volume):
+#   builds/<YYYYMMDD>.pmtiles   the planet archives, at most two: the one
+#                               served and the previous (or the next, while
+#                               it downloads as <YYYYMMDD>.pmtiles.partial)
+#   serve/                      what `pmtiles serve` reads, symlinks only:
+#                               planet-<YYYYMMDD>.pmtiles for the current and
+#                               the previous build, planet.pmtiles for the
+#                               current one
+#   tilejson/planet.json        the TileJSON, naming the current build in its
+#                               tile URLs; Caddy fills in its own address
+#
+# The served archive is never removed before its successor is downloaded,
+# checked against the BLAKE3 hash Protomaps publishes, verified by
+# `pmtiles verify`, and answering through the running tile server. The
+# previous build stays until the next run needs its room: the volume holds
+# two planets and some margin, not three.
+set -euo pipefail
+umask 022
+
+TILES=/srv/tiles
+BUILDS="$TILES/builds"
+SERVE="$TILES/serve"
+TILEJSON="$TILES/tilejson"
+PMTILES=/usr/local/bin/pmtiles
+METADATA_URL=https://build-metadata.protomaps.dev/builds.json
+DOWNLOAD_BASE=https://build.protomaps.com
+SERVER=http://127.0.0.1:8485
+SCHEMA_MAJOR="${LUNAWAY_TILES_SCHEMA_MAJOR:-4}"
+# Left free after a download, for the TileJSON and the filesystem itself.
+MARGIN=$((2 * 1024 * 1024 * 1024))
+# Download attempts, each resuming where the file stops.
+ATTEMPTS=20
+# HTTPS only, redirects included, and few of them: the answer is checked
+# against its hash anyway, but nothing else is ever asked of other hosts.
+CURL_SAFE=(--proto "=https" --proto-redir "=https" --max-redirs 3 -A "Lunaway basemap refresh (+https://lunaway.net)")
+
+die() { echo "error: $*" >&2; exit 1; }
+log() { echo "$*"; }
+
+want="${1:-}"
+[ -z "$want" ] || [[ "$want" =~ ^[0-9]{8}$ ]] || die "usage: $0 [YYYYMMDD]"
+[[ "$SCHEMA_MAJOR" =~ ^[0-9]+$ ]] || die "LUNAWAY_TILES_SCHEMA_MAJOR is not a number"
+mountpoint -q "$TILES" || die "$TILES is not mounted"
+for dir in "$BUILDS" "$SERVE" "$TILEJSON"; do
+  [ -d "$dir" ] && [ -w "$dir" ] || die "$dir is missing or not writable; run infra/configure.sh backend tiles"
+done
+
+# One run at a time, the timer's and a manual one included.
+exec 9>"$BUILDS/.lock"
+flock -n 9 || die "another refresh is running"
+
+# build_of LINK: the YYYYMMDD of the build a serve/ symlink points at, empty
+# when there is no such link (the first run).
+build_of() {
+  local target
+  target="$(readlink "$1" 2>/dev/null)" || return 0
+  sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p' <<<"$target"
+}
+current="$(build_of "$SERVE/planet.pmtiles")"
+free_bytes() { df --output=avail -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
+
+# link NAME KEY: points serve/NAME.pmtiles at builds/KEY.pmtiles, atomically
+# (a rename over the old link), so a request never meets a missing file.
+link() {
+  ln -sfn "../builds/$2.pmtiles" "$SERVE/.$1.pmtiles.new"
+  mv -fT "$SERVE/.$1.pmtiles.new" "$SERVE/$1.pmtiles"
+}
+
+# publish KEY: serves the build KEY under its own name, checks it through
+# the running tile server, writes the TileJSON that names it, then moves the
+# stable alias. Every complete build on the volume (the current one and the
+# previous) stays served under its own name, so a client holding an hour-old
+# TileJSON still gets its tiles.
+publish() {
+  local key="$1" code name build others=""
+  link "planet-$key" "$key"
+  code="$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$SERVER/planet-$key/0/0/0.mvt" || true)"
+  [ "$code" = 200 ] || die "the tile server answers $code for planet-$key/0/0/0.mvt; nothing switched"
+
+  # The TileJSON carries a template action in place of the public base URL,
+  # which Caddy's templates fill in per site (sslip.io name or
+  # tiles.lunaway.net). Its quotes are backticks, so the file stays JSON.
+  # shellcheck disable=SC2016 # literal backticks, a Caddy template action
+  "$PMTILES" show --tilejson --public-url="__TILES_BASE__/planet-$key" "$SERVE/planet-$key.pmtiles" \
+    | sed 's|__TILES_BASE__|{{placeholder `http.vars.tiles_base`}}|g' > "$TILEJSON/.planet.json.new"
+  python3 - "$TILEJSON/.planet.json.new" "$key" <<'EOF'
+import json, sys
+text = open(sys.argv[1]).read()
+json.loads(text)
+plain = text.replace('{{placeholder `http.vars.tiles_base`}}', "https://example.org")
+# The rest comes from the archive's metadata. Caddy executes the file as a
+# template, where an action could read a file or the environment: the only
+# action allowed is ours.
+if "{{" in plain:
+    sys.exit("the archive's metadata holds a template action; TileJSON refused")
+tilejson = json.loads(plain)
+want = "https://example.org/planet-%s/{z}/{x}/{y}.mvt" % sys.argv[2]
+if tilejson.get("tiles") != [want]:
+    sys.exit("unexpected tiles in the TileJSON: %r" % tilejson.get("tiles"))
+EOF
+  chmod 0644 "$TILEJSON/.planet.json.new"
+  mv -f "$TILEJSON/.planet.json.new" "$TILEJSON/planet.json"
+  link planet "$key"
+  current="$key"
+
+  for name in "$BUILDS"/*.pmtiles; do
+    [ -f "$name" ] || continue
+    build="$(basename "$name" .pmtiles)"
+    if [ "$build" != "$key" ]; then
+      link "planet-$build" "$build"
+      others="$others $build"
+    fi
+  done
+  # A link whose build is gone (removed to make room) is dropped.
+  for name in "$SERVE"/planet-*.pmtiles; do
+    if [ -L "$name" ] && [ ! -e "$name" ]; then
+      rm -f "$name"
+    fi
+  done
+  log "serving planet $key; also on the volume and served:${others:- none}"
+}
+
+if [ -n "$want" ] && [ -f "$BUILDS/$want.pmtiles" ]; then
+  log "build $want is on the volume: switching to it"
+  publish "$want"
+  exit 0
+fi
+
+# The build list: one entry per daily build, with its size and BLAKE3 hash.
+listing="$BUILDS/.builds.json"
+curl -fsS "${CURL_SAFE[@]}" --retry 3 --retry-delay 10 -m 60 --max-filesize 10000000 -o "$listing" "$METADATA_URL"
+read -r key size b3 version < <(python3 - "$listing" "$want" "$SCHEMA_MAJOR" <<'EOF'
+import json, re, sys
+listing, want, major = sys.argv[1], sys.argv[2], sys.argv[3]
+builds = []
+for b in json.load(open(listing)):
+    key, size, b3, version = b.get("key"), b.get("size"), b.get("b3sum"), str(b.get("version", ""))
+    if not (isinstance(key, str) and re.fullmatch(r"[0-9]{8}\.pmtiles", key)):
+        continue
+    if not (isinstance(size, int) and size > 0 and isinstance(b3, str) and re.fullmatch(r"[0-9a-f]{64}", b3)):
+        continue
+    if not re.fullmatch(re.escape(major) + r"\.[0-9]+\.[0-9]+", version):
+        continue
+    if want and key != want + ".pmtiles":
+        continue
+    builds.append((key[:8], size, b3, version))
+if not builds:
+    sys.exit("no schema %s build%s in the list" % (major, " " + want if want else ""))
+print(*max(builds))
+EOF
+)
+[ -n "${key:-}" ] || die "could not read the build list"
+log "newest build: $key, schema $version, $size bytes, BLAKE3 $b3"
+
+if [ "$key" = "$current" ]; then
+  log "already serving $key"
+  publish "$key"
+  exit 0
+fi
+
+# Room for the download: drop partial downloads of other builds, then the
+# builds that are neither served nor wanted, oldest first. The served build
+# is never touched.
+part="$BUILDS/$key.pmtiles.partial"
+for name in "$BUILDS"/*.pmtiles.partial; do
+  if [ -e "$name" ] && [ "$name" != "$part" ]; then
+    rm -f "$name"
+    log "removed the stale partial $(basename "$name")"
+  fi
+done
+have=0
+[ -f "$part" ] && have="$(stat -c %s "$part")"
+if [ "$have" -gt "$size" ]; then
+  rm -f "$part"
+  have=0
+fi
+need=$((size - have + MARGIN))
+for name in "$BUILDS"/*.pmtiles; do
+  if [ "$(free_bytes)" -ge "$need" ]; then break; fi
+  [ -f "$name" ] || continue
+  build="$(basename "$name" .pmtiles)"
+  [ "$build" != "$current" ] || continue
+  # Stop serving it before removing it.
+  rm -f "$SERVE/planet-$build.pmtiles"
+  rm -f "$name"
+  log "removed build $build to make room"
+done
+[ "$(free_bytes)" -ge "$need" ] || die "not enough room on $TILES: $(free_bytes) bytes free, $need needed"
+
+# Each attempt resumes from the size of the partial file. curl's own --retry
+# is not used: on 2026-10-06 it restarted a broken transfer from byte 0 and
+# truncated 40 GB already on disk. HTTP/1.1: the same transfer had broken on
+# an HTTP/2 stream error after 15 minutes.
+start=$(date +%s)
+attempt=0
+while [ "$have" -lt "$size" ]; do
+  attempt=$((attempt + 1))
+  [ "$attempt" -le "$ATTEMPTS" ] || die "download incomplete after $ATTEMPTS attempts ($have of $size bytes); the next run resumes"
+  log "downloading $DOWNLOAD_BASE/$key.pmtiles from byte $have (attempt $attempt)"
+  if ! curl -fsS "${CURL_SAFE[@]}" --location --http1.1 --connect-timeout 30 \
+      --speed-limit 1000000 --speed-time 120 \
+      --continue-at "$have" -o "$part" "$DOWNLOAD_BASE/$key.pmtiles"; then
+    sleep 30
+  fi
+  have="$(stat -c %s "$part" 2>/dev/null || echo 0)"
+  if [ "$have" -gt "$size" ]; then
+    rm -f "$part"
+    die "the download grew past $size bytes; removed"
+  fi
+done
+log "download complete after $(( $(date +%s) - start )) s"
+got="$(stat -c %s "$part")"
+[ "$got" = "$size" ] || die "$part has $got bytes, the list says $size; it is kept, the next run resumes or replaces it"
+
+start=$(date +%s)
+hash="$(b3sum --num-threads 2 --no-names "$part")"
+if [ "$hash" != "$b3" ]; then
+  rm -f "$part"
+  die "BLAKE3 of the download is $hash, Protomaps publishes $b3; download removed"
+fi
+log "BLAKE3 matches ($(( $(date +%s) - start )) s)"
+
+start=$(date +%s)
+out="$("$PMTILES" verify "$part" 2>&1)" || die "pmtiles verify failed: $(echo "$out" | tail -n 3)"
+if grep -q 'Invalid' <<<"$out"; then
+  die "pmtiles verify reports invalid entries: $(grep -m 3 'Invalid' <<<"$out")"
+fi
+"$PMTILES" show --header-json "$part" | python3 -c '
+import json, sys
+h = json.load(sys.stdin)
+if h.get("tile_type") != "mvt" or h.get("tile_compression") != "gzip" or h.get("minzoom") != 0 or h.get("maxzoom", 0) < 14:
+    sys.exit("unexpected header: %r" % h)'
+log "pmtiles verify and header checks pass ($(( $(date +%s) - start )) s)"
+
+chmod 0644 "$part"
+mv -f "$part" "$BUILDS/$key.pmtiles"
+publish "$key"
+log "volume: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"

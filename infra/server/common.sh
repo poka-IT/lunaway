@@ -34,6 +34,44 @@ install_file() {
 
 mem_mb() { awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo; }
 
+# mount_volume ID MOUNTPOINT: mounts the Hetzner Volume ID there, through
+# fstab, nodev,nosuid,noexec. Never formats anything: a volume is created
+# formatted (provision.sh, --format ext4), and a volume without a filesystem
+# is an error to look at, not a disk to wipe.
+mount_volume() {
+  local id="$1" mnt="$2" dev uuid fstype other
+  [[ "$id" =~ ^[0-9]+$ ]] || die "unexpected volume id $id"
+  dev="/dev/disk/by-id/scsi-0HC_Volume_$id"
+  [ -b "$dev" ] || die "volume device $dev not found: is the volume attached to this server?"
+  uuid="$(blkid -s UUID -o value "$dev" || true)"
+  fstype="$(blkid -s TYPE -o value "$dev" || true)"
+  [ -n "$uuid" ] && [ "$fstype" = ext4 ] || die "no ext4 filesystem on $dev; refusing to format a volume"
+
+  # Hetzner's automount may have mounted it under /mnt/HC_Volume_<id>.
+  other="$(findmnt -n -o TARGET -S "UUID=$uuid" | grep -vx "$mnt" || true)"
+  if [ -n "$other" ]; then
+    umount "$other"
+    sed -i "\|$other|d" /etc/fstab
+  fi
+
+  if ! grep -q "^UUID=$uuid " /etc/fstab; then
+    echo "UUID=$uuid $mnt ext4 defaults,nofail,nodev,nosuid,noexec,x-systemd.device-timeout=30s 0 2" >> /etc/fstab
+    systemctl daemon-reload
+    echo "    added $mnt to /etc/fstab"
+  fi
+
+  if ! mountpoint -q "$mnt"; then
+    install -d -m 0755 "$mnt"
+    # An immutable mount point: should the volume ever be missing at boot,
+    # writes into it fail instead of quietly filling the root disk.
+    chattr +i "$mnt"
+    mount "$mnt"
+  fi
+  chmod 0755 "$mnt"
+  systemctl enable --quiet fstrim.timer
+  log "volume $id mounted at $mnt ($(df -h --output=size "$mnt" | tail -n 1 | tr -d ' '))"
+}
+
 # A random password of 43 characters from [A-Za-z0-9], safe in a URL.
 random_password() {
   local pw=""

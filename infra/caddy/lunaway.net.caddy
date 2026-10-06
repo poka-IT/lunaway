@@ -10,12 +10,36 @@
 #   /app/      the Flutter web build (/srv/lunaway/web), every unknown path
 #              falling back to /app/index.html for the app's router
 # Photos are served by the API host (api.lunaway.net/media/, see the api
-# snippet of the main Caddyfile).
+# snippet of the main Caddyfile), the basemap by tiles.lunaway.net (the tiles
+# snippet).
 # /srv/lunaway/site and /srv/lunaway/web are symlinks switched by
 # infra/deploy-web.sh.
 
 api.lunaway.net {
 	import api
+}
+
+# The basemap: tiles, TileJSON, glyphs, sprites, styles and offline packs,
+# all public data (the tiles snippet sets CORS and the cache headers).
+tiles.lunaway.net {
+	import access_log
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Cross-Origin-Resource-Policy "cross-origin"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; sandbox"
+	}
+	# Alone, because a deletion defers its whole header block to write time,
+	# where it would override the per-route headers of the snippet.
+	header -Server
+	request_body {
+		max_size 16KB
+	}
+	vars tiles_base https://tiles.lunaway.net
+	import tiles
 }
 
 lunaway.net {
@@ -40,13 +64,14 @@ lunaway.net {
 
 	# The web app. The CSP allows what a Flutter web app with MapLibre needs:
 	# WebAssembly compilation, blob: workers, the inline styles the engine
-	# injects, the API and the tile host. Build the app with
+	# injects, the API and the tile hosts (ours; OpenFreeMap until the app
+	# moves to it). Build the app with
 	# --base-href /app/ --no-web-resources-cdn, or CanvasKit loads from
 	# www.gstatic.com and the CSP refuses it. Its file names carry no content
 	# hash, so every response is revalidated (the ETag answers 304).
 	handle_path /app/* {
 		root * /srv/lunaway/web
-		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.openfreemap.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.lunaway.net https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net https://tiles.openfreemap.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		header Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server

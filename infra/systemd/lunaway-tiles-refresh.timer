@@ -1,0 +1,13 @@
+# On the 2nd of each month at 05:00 UTC: Protomaps keeps every daily build
+# for a week, the reboot window (02:30 UTC) and the OpenStreetMap import
+# (03:00 UTC) are over. A missed run happens at the next boot.
+[Unit]
+Description=Lunaway basemap: monthly planet refresh
+
+[Timer]
+OnCalendar=*-*-02 05:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

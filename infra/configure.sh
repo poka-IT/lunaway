@@ -53,7 +53,10 @@ case "$role" in
     [[ "$recipient" =~ ^age1[02-9ac-hj-np-z]{58}$ ]] \
       || die "LUNAWAY_BACKUP_RECIPIENT is not an age recipient; run infra/ops/mac/install.sh keys first"
     [[ "${LUNAWAY_HOSTNAME:-}" =~ ^[0-9]+-[0-9]+-[0-9]+-[0-9]+\.sslip\.io$ ]] || die "unexpected LUNAWAY_HOSTNAME"
+    tiles_volume_id="$(role_var backend TILES_VOLUME_ID)"
+    [[ "$tiles_volume_id" =~ ^[0-9]+$ ]] || die "no tile volume id for the backend; run infra/provision.sh backend"
     vars+=(
+      "LUNAWAY_TILES_VOLUME_ID=$tiles_volume_id"
       "LUNAWAY_HOSTNAME=$LUNAWAY_HOSTNAME"
       "LUNAWAY_OPS_PRIVATE_IP=$LUNAWAY_OPS_PRIVATE_IP"
       "LUNAWAY_PROBE_PUBKEY=$probe_key"
@@ -72,8 +75,12 @@ case "$role" in
     # under which names the page itself answers.
     api_host="${LUNAWAY_API_HOST:-${LUNAWAY_HOSTNAME:-}}"
     web_url="${LUNAWAY_WEB_URL:-}"
+    # The basemap: under /tiles on the backend's sslip.io name until DNS
+    # exists, then https://tiles.lunaway.net.
+    tiles_url="${LUNAWAY_TILES_URL:-https://${LUNAWAY_HOSTNAME:-}/tiles}"
     status_hosts="$(role_var ops IPV4 | tr . -).sslip.io${LUNAWAY_STATUS_DOMAIN:+ $LUNAWAY_STATUS_DOMAIN}"
     [[ "$api_host" =~ ^[a-z0-9.-]+$ ]] || die "unexpected API host: $api_host"
+    [[ "$tiles_url" =~ ^https://[a-z0-9.-]+\.[a-z]+(/[a-z0-9_-]+)*$ ]] || die "unexpected LUNAWAY_TILES_URL: $tiles_url"
     [ -z "$web_url" ] || [[ "$web_url" =~ ^https://[a-z0-9.-]+(/[A-Za-z0-9/._-]*)?$ ]] || die "unexpected LUNAWAY_WEB_URL: $web_url"
     [[ "$status_hosts" =~ ^[a-z0-9.-]+( [a-z0-9.-]+)?$ ]] || die "unexpected status host names: $status_hosts"
     vars+=(
@@ -82,6 +89,7 @@ case "$role" in
       "LUNAWAY_MAC_PULL_PUBKEY=$mac_key"
       "LUNAWAY_API_HOST=$api_host"
       "LUNAWAY_WEB_URL=$web_url"
+      "LUNAWAY_TILES_URL=$tiles_url"
       "LUNAWAY_STATUS_HOSTS=$status_hosts"
     )
     ;;
