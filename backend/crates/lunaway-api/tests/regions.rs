@@ -176,6 +176,7 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         &PackOptions {
             dir: dir.path().to_owned(),
             only: Vec::new(),
+            takedown: false,
         },
     )
     .await
@@ -265,6 +266,7 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     let options = PackOptions {
         dir: dir.path().to_owned(),
         only: Vec::new(),
+        takedown: false,
     };
     let rebuilt = build(&pool, ApiConfig::default(), &options).await.unwrap();
     let codes: Vec<&str> = rebuilt.iter().map(|b| b.pack.region.as_str()).collect();
@@ -280,6 +282,34 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     );
     let again = build(&pool, ApiConfig::default(), &options).await.unwrap();
     assert!(again.is_empty(), "nothing changed since the last build");
+
+    // A takedown rebuilds the region and leaves no older file behind.
+    let takedown = build(
+        &pool,
+        ApiConfig::default(),
+        &PackOptions {
+            dir: dir.path().to_owned(),
+            only: vec!["FR-PDL".into()],
+            takedown: true,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(takedown.len(), 1);
+    let left: Vec<String> = std::fs::read_dir(dir.path().join("places"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("FR-PDL-"))
+        .collect();
+    assert_eq!(
+        left,
+        [takedown[0]
+            .pack
+            .file
+            .trim_start_matches("places/")
+            .to_owned()],
+        "no earlier pack of the region still serves what was taken down"
+    );
 
     let both = gql(
         &app,

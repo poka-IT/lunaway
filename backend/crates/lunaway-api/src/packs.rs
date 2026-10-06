@@ -225,6 +225,10 @@ pub struct PackOptions {
     pub dir: PathBuf,
     /// Only these regions; every region with places when empty.
     pub only: Vec<String>,
+    /// Builds the packs of `only` even when nothing changed in them, and
+    /// removes their previous files at once: after a place was taken down
+    /// (personal data, a court order), no file still serves it.
+    pub takedown: bool,
 }
 
 /// A pack built.
@@ -415,11 +419,12 @@ pub async fn build(
     let cursor = crate::schema::changes_cursor(&head, head.last_seq);
     let mut built = Vec::with_capacity(regions.len());
     for extent in &regions {
-        let up_to_date = current.get(&extent.region).is_some_and(|p| {
-            p.feed_identity == identity
-                && p.seq >= extent.last_seq
-                && options.dir.join(&p.file).is_file()
-        });
+        let up_to_date = !options.takedown
+            && current.get(&extent.region).is_some_and(|p| {
+                p.feed_identity == identity
+                    && p.seq >= extent.last_seq
+                    && options.dir.join(&p.file).is_file()
+            });
         if up_to_date {
             continue;
         }
@@ -534,7 +539,8 @@ pub async fn build(
     let mut out = Vec::with_capacity(built.len());
     for pack in built {
         let previous = packs::record(pool, &pack).await?;
-        let removed = remove_older(&dir, &pack, previous.as_deref()).await?;
+        let keep_previous = previous.as_deref().filter(|_| !options.takedown);
+        let removed = remove_older(&dir, &pack, keep_previous).await?;
         out.push(Built { pack, removed });
     }
     if options.only.is_empty() {

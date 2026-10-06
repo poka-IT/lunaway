@@ -47,7 +47,10 @@ from one build to the next.
 that never changes: a new pack has a new name. It answers byte ranges, so a
 download cut off resumes with `Range: bytes=<what is there>-`. The previous
 pack of a region stays served until the next build, so a device that read
-the manifest just before a build still finds its file.
+the manifest just before a build still finds its file. After a place is
+taken down (personal data, a court order), `lunaway packs build --region
+<code> --takedown` rebuilds its region and removes the previous file at
+once.
 
 Before using the file, the device checks its size against `bytes` and its
 SHA-256 against `sha256`, then decompresses it (gzip) to a temporary file
@@ -151,7 +154,8 @@ lowercase hexadecimal SHA-256 of its document instead of the document:
   known;
 - a `query` whose SHA-256 is not the hash is refused (`INVALID_INPUT`);
 - a document is kept only once it ran without an error; the server keeps
-  512 at most and forgets them on a restart, so a client handles
+  512 at most, the least recently used going first, takes 60 new ones a
+  minute at most, and forgets them on a restart, so a client handles
   `PERSISTED_QUERY_NOT_FOUND` at any time;
 - a request without a hash is served as before.
 

@@ -12,7 +12,11 @@
 //! A document is kept only once it ran without any error, so a client cannot
 //! fill the registry with documents that do not even validate; the registry
 //! is bounded in entries, each document by the guard's size limit
-//! ([`crate::guard::MAX_QUERY_BYTES`]), the oldest evicted first. A document
+//! ([`crate::guard::MAX_QUERY_BYTES`]), the least recently used evicted
+//! first, and it takes at most [`NEW_PER_MINUTE`] new documents a minute:
+//! one address could otherwise register throwaway documents fast enough to
+//! push the app's out (security audit of 2026-10-06), and the app's, used
+//! by every device, stay the most recent. A document
 //! sent without a hash is served as before, under the same limits: the
 //! schema is public and every document is bounded by the guard and its
 //! cost, so an allowlist would refuse third-party and older clients without
@@ -21,19 +25,25 @@
 use std::{
     collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use sha2::{Digest, Sha256};
 
 /// Documents kept at most: the app sends about twenty.
 pub const MAX_ENTRIES: usize = 512;
+/// New documents kept per minute, all clients together: the app's twenty
+/// after a restart fit in the first minute; a flood needs over eight
+/// minutes to replace the whole registry.
+pub const NEW_PER_MINUTE: u32 = 60;
 
 /// The code of the answer to an unknown hash, as Apollo clients expect it.
 pub const NOT_FOUND: &str = "PERSISTED_QUERY_NOT_FOUND";
 /// The message of that answer, which Apollo clients also match on.
 pub const NOT_FOUND_MESSAGE: &str = "PersistedQueryNotFound";
 
-/// The documents known by their hash, the oldest evicted first.
+/// The documents known by their hash, the least recently used evicted
+/// first.
 #[derive(Debug, Default)]
 pub(crate) struct Registry {
     inner: Mutex<Inner>,
@@ -42,23 +52,49 @@ pub(crate) struct Registry {
 #[derive(Debug, Default)]
 struct Inner {
     map: HashMap<String, Arc<str>>,
+    /// Least recently used first.
     order: VecDeque<String>,
+    /// The minute new documents are counted in, and how many it took.
+    minute: Option<(Instant, u32)>,
 }
 
 impl Registry {
-    /// The document of `hash`, if kept.
+    /// The document of `hash`, if kept; it becomes the most recently used.
     pub(crate) fn get(&self, hash: &str) -> Option<Arc<str>> {
-        self.inner.lock().ok()?.map.get(hash).cloned()
+        let mut inner = self.inner.lock().ok()?;
+        let doc = inner.map.get(hash).cloned()?;
+        if let Some(i) = inner.order.iter().position(|h| h == hash)
+            && let Some(h) = inner.order.remove(i)
+        {
+            inner.order.push_back(h);
+        }
+        Some(doc)
     }
 
-    /// Keeps `document` under `hash` (its SHA-256, checked by the caller).
+    /// Keeps `document` under `hash` (its SHA-256, checked by the caller),
+    /// unless the minute's new documents are spent.
     pub(crate) fn put(&self, hash: &str, document: &str) {
+        self.put_at(hash, document, Instant::now());
+    }
+
+    fn put_at(&self, hash: &str, document: &str, now: Instant) {
         let Ok(mut inner) = self.inner.lock() else {
             return;
         };
         if inner.map.contains_key(hash) {
             return;
         }
+        let count = match inner.minute {
+            Some((start, n)) if now.duration_since(start) < Duration::from_secs(60) => n,
+            _ => {
+                inner.minute = Some((now, 0));
+                0
+            }
+        };
+        if count >= NEW_PER_MINUTE {
+            return;
+        }
+        inner.minute = inner.minute.map(|(start, n)| (start, n + 1));
         inner.map.insert(hash.to_owned(), Arc::from(document));
         inner.order.push_back(hash.to_owned());
         while inner.order.len() > MAX_ENTRIES {
@@ -89,20 +125,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_oldest_document_goes_first() {
+    fn the_least_recently_used_document_goes_first() {
         let r = Registry::default();
+        let start = Instant::now();
+        // A minute apart in batches, as the per-minute cap allows.
         for i in 0..=MAX_ENTRIES {
             let doc = format!("{{ q{i} }}");
-            r.put(&hash(&doc), &doc);
+            let minute = u64::try_from(i).unwrap() / u64::from(NEW_PER_MINUTE);
+            r.put_at(&hash(&doc), &doc, start + Duration::from_secs(61 * minute));
+            if i == 10 {
+                assert!(r.get(&hash("{ q0 }")).is_some(), "used: q0 is recent again");
+            }
         }
         assert!(
-            r.get(&hash("{ q0 }")).is_none(),
-            "the registry holds MAX_ENTRIES documents"
+            r.get(&hash("{ q0 }")).is_some(),
+            "a document in use outlives the ones registered after it"
         );
-        assert_eq!(
-            r.get(&hash("{ q1 }")).as_deref(),
-            Some("{ q1 }"),
-            "the newer ones stay"
+        assert!(
+            r.get(&hash("{ q1 }")).is_none(),
+            "the registry holds MAX_ENTRIES documents, the least recently used goes"
+        );
+    }
+
+    #[test]
+    fn a_flood_of_new_documents_is_capped_per_minute() {
+        let r = Registry::default();
+        let now = Instant::now();
+        for i in 0..200 {
+            let doc = format!("{{ flood{i} }}");
+            r.put_at(&hash(&doc), &doc, now);
+        }
+        let kept = (0..200)
+            .filter(|i| r.get(&hash(&format!("{{ flood{i} }}"))).is_some())
+            .count();
+        assert_eq!(kept, usize::try_from(NEW_PER_MINUTE).unwrap());
+        r.put_at(&hash("{ next }"), "{ next }", now + Duration::from_secs(61));
+        assert!(
+            r.get(&hash("{ next }")).is_some(),
+            "the next minute takes new ones"
         );
     }
 

@@ -20,6 +20,10 @@ pub(crate) enum Packs {
         /// Only this region (`FR-BRE`, `ES`); repeat for several.
         #[arg(long = "region")]
         only: Vec<String>,
+        /// Rebuilds the regions named even if nothing changed, and removes
+        /// their previous packs at once: after a place was taken down.
+        #[arg(long, requires = "only")]
+        takedown: bool,
     },
     /// Prints the packs recorded.
     List,
@@ -27,8 +31,16 @@ pub(crate) enum Packs {
 
 pub(crate) async fn run(pool: &PgPool, action: Packs) -> anyhow::Result<()> {
     match action {
-        Packs::Build { dir, only } => {
-            let options = PackOptions { dir, only };
+        Packs::Build {
+            dir,
+            only,
+            takedown,
+        } => {
+            let options = PackOptions {
+                dir,
+                only,
+                takedown,
+            };
             let built =
                 lunaway_api::packs::build(pool, lunaway_api::ApiConfig::from_env(), &options)
                     .await
