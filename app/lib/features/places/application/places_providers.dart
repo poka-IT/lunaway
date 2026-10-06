@@ -28,6 +28,7 @@ GraphQLClient graphQLClient(Ref ref) => GraphQLClient(
   endpoint: ref.watch(appConfigProvider).graphqlEndpoint,
   httpClient: ref.watch(httpClientProvider),
   userAgent: ref.watch(userAgentProvider),
+  persistedQueries: true,
 );
 
 // keepAlive: a repository over the app-wide database.

@@ -26,7 +26,17 @@ final class GraphQLOperation<T> {
 /// it does not know, and [variables] that drops what they carried.
 @immutable
 final class OlderForm {
-  const new({required this.document, required this.variables, this.usable = _always});
+  const new({
+    required this.document,
+    required this.variables,
+    this.usable = _always,
+    this.withoutFields = false,
+  });
+
+  /// [document] for an API that lacks fields it selects (`speedLimits` on
+  /// a route): sent when the server answers that it does not know a field.
+  factory selecting(String document) =>
+      OlderForm(document: document, variables: _same, withoutFields: true);
 
   /// The form of [document] without [arguments]: their variables and their
   /// uses, wherever they stand on a line. [usable] says which requests may
@@ -57,7 +67,13 @@ final class OlderForm {
   final Map<String, Object?> Function(Map<String, Object?> variables) variables;
   final bool Function(Map<String, Object?> variables) usable;
 
+  /// The older form leaves out fields, not only arguments: an unknown
+  /// field also calls for it.
+  final bool withoutFields;
+
   static bool _always(Map<String, Object?> _) => true;
+
+  static Map<String, Object?> _same(Map<String, Object?> variables) => variables;
 }
 
 /// Everything the offline store keeps of a place. Photos and reviews are

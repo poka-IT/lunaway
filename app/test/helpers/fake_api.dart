@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/features/account/data/p256.dart';
+import 'package:lunaway/features/places/data/demo/persisted_queries.dart';
 
 import '../contract/graphql_validator.dart';
 import 'samples.dart';
@@ -30,6 +31,9 @@ final class FakeApi {
 
   int level;
   String pseudonym;
+
+  /// The documents the app named by their hash, as the API keeps them.
+  final _persisted = PersistedQueryStore();
 
   /// No answer at all, as without a network.
   bool offline = false;
@@ -155,11 +159,18 @@ final class FakeApi {
     }
     final body = jsonDecode(request.body) as Map<String, dynamic>;
     final name = body['operationName'] as String? ?? '';
-    final query = body['query'] as String;
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     if (!_handled.contains(name)) {
       return await fallback.send(request).then(http.Response.fromStream);
     }
+    final String? document;
+    try {
+      document = _persisted.documentOf(body);
+    } on FormatException {
+      return _json(PersistedQueryStore.mismatch);
+    }
+    if (document == null) return _json(PersistedQueryStore.notFound);
+    final query = document;
     if (offline) throw http.ClientException('offline', request.url);
     if (older) {
       // As the API before idempotency keys, `createIfUnknown` and `clear`
