@@ -276,12 +276,23 @@ final class DriftRegionStore implements RegionStore {
       );
 }
 
+/// The instant of an RFC 3339 [column] in milliseconds since the epoch,
+/// the fraction of a second cut after the milliseconds as Dart's
+/// `DateTime.parse` cuts it (SQLite's own reading rounds it); NULL for a
+/// value that is not a date.
+String _epochMs(String column) =>
+    "(CAST(round((julianday(substr($column, 1, 19) || ltrim(substr($column, 20), '.0123456789'))"
+    ' - 2440587.5) * 86400) AS INTEGER) * 1000'
+    " + CAST(CASE WHEN substr($column, 20, 1) = '.'"
+    " THEN substr(rtrim(substr($column, 21, 3), 'Z+-:') || '000', 1, 3) ELSE '000' END AS INTEGER))";
+
 /// A pack's places copied into the cache in one statement (the fastest
 /// import the backend measured, docs/region-packs.md): every column read
 /// the way `placeFromJson` and the place row read the API's JSON, the
 /// enumerations through the temporary tables of the app's own values.
 /// Arguments: the generation, the region.
-const _importSql = r'''
+final _importSql =
+    '''
 INSERT INTO places (
   id, name, kind, family, lat, lon, overnight, services, activities, description,
   street, postcode, city, country_code, price_parking, price_services, max_height, capacity,
@@ -320,32 +331,32 @@ SELECT
        THEN p.opening_intervals END,
   CASE WHEN json_type(p.opening_intervals) = 'array'
         AND julianday(p.opening_intervals_until) IS NOT NULL
-       THEN CAST(round((julianday(p.opening_intervals_until) - 2440587.5) * 86400000.0) AS INTEGER)
+       THEN ${_epochMs('p.opening_intervals_until')}
        END,
   CASE WHEN p.stars BETWEEN 1 AND 5 THEN CAST(p.stars AS INTEGER) END,
   ?1,
   nullif(trim(p.website), ''),
   nullif(trim(p.phone), ''),
-  CAST(round((julianday(p.last_confirmed_at) - 2440587.5) * 86400000.0) AS INTEGER),
-  coalesce(CAST(round((julianday(p.updated_at) - 2440587.5) * 86400000.0) AS INTEGER), 0),
+  ${_epochMs('p.last_confirmed_at')},
+  coalesce(${_epochMs('p.updated_at')}, 0),
   coalesce(p.sources, '[]'),
   coalesce(p.provenance, '[]'),
   coalesce(p.descriptions, '[]'),
   coalesce(p.ratings, '[]'),
   coalesce(p.external_links, '[]'),
-  (SELECT sum(json_extract(j.value, '$.average') * json_extract(j.value, '$.count'))
-          / sum(json_extract(j.value, '$.count'))
+  (SELECT sum(json_extract(j.value, '\$.average') * json_extract(j.value, '\$.count'))
+          / sum(json_extract(j.value, '\$.count'))
      FROM json_each(p.ratings) j
-    WHERE json_type(j.value, '$.count') IN ('integer', 'real')
-      AND json_extract(j.value, '$.count') >= 1
-      AND json_type(j.value, '$.sourceId') = 'text'
-      AND json_type(j.value, '$.average') IN ('integer', 'real')),
-  coalesce((SELECT sum(CAST(json_extract(j.value, '$.count') AS INTEGER))
+    WHERE json_type(j.value, '\$.count') IN ('integer', 'real')
+      AND json_extract(j.value, '\$.count') >= 1
+      AND json_type(j.value, '\$.sourceId') = 'text'
+      AND json_type(j.value, '\$.average') IN ('integer', 'real')),
+  coalesce((SELECT sum(CAST(json_extract(j.value, '\$.count') AS INTEGER))
      FROM json_each(p.ratings) j
-    WHERE json_type(j.value, '$.count') IN ('integer', 'real')
-      AND json_extract(j.value, '$.count') >= 1
-      AND json_type(j.value, '$.sourceId') = 'text'
-      AND json_type(j.value, '$.average') IN ('integer', 'real')), 0),
+    WHERE json_type(j.value, '\$.count') IN ('integer', 'real')
+      AND json_extract(j.value, '\$.count') >= 1
+      AND json_type(j.value, '\$.sourceId') = 'text'
+      AND json_type(j.value, '\$.average') IN ('integer', 'real')), 0),
   coalesce(v.stored, vu.stored),
   coalesce(p.review_count, 0),
   coalesce(p.photo_count, 0),

@@ -64,7 +64,8 @@ List<Map<String, dynamic>> apiPlaces({String region = 'FR-ARA'}) {
         {'start': '2026-10-06T06:00:00Z', 'end': '2026-10-06T18:00:00Z'},
       ],
       'openingIntervalsUntil': null,
-      'updatedAt': '2026-10-05T08:00:00.123456Z',
+      // A fraction SQLite would round up: Dart cuts it after the milliseconds.
+      'updatedAt': '2026-10-05T08:00:00.123956Z',
       'lastConfirmedAt': '2026-10-01T12:00:00+02:00',
       'sources': <Object>[],
       'provenance': <Object>[],
