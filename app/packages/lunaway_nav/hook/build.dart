@@ -10,6 +10,9 @@ void main(List<String> args) async {
     if (!input.config.buildCodeAssets) return;
     final os = input.config.code.targetOS;
     if (os != OS.android && os != OS.iOS) return;
-    await const FlutterRustBridgeNativeAssetsBuilder().run(input: input, output: output);
+    // --locked: the app ships the crates of the committed Cargo.lock,
+    // the ones the gates checked, never a fresh resolution.
+    await const FlutterRustBridgeNativeAssetsBuilder(extraCargoBuildArgs: ['--locked'])
+        .run(input: input, output: output);
   });
 }

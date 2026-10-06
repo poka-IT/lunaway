@@ -162,6 +162,10 @@ def generated(rel):
 for rel, want in [("app/lib/core/router/router.g.dart", True), ("app/lib/i18n/strings.g.dart", True),
                   ("app/lib/x.freezed.dart", True), ("app/pubspec.lock", True), ("backend/Cargo.lock", True),
                   ("backend/.sqlx/query-abc.json", True), ("schema/lunaway.graphql", True),
+                  ("app/packages/lunaway_nav/rust/Cargo.lock", True),
+                  ("app/packages/lunaway_nav/lib/src/rust/frb_generated.dart", True),
+                  ("app/packages/lunaway_nav/rust/src/frb_generated.rs", True),
+                  ("app/packages/lunaway_nav/rust/src/session.rs", False),
                   ("app/lib/main.dart", False), ("app/lib/i18n/en.i18n.json", False), ("backend/Cargo.toml", False)]:
     check("generated " + rel, generated(rel), want)
 for rel, want in [(".env", True), (".env.example", False), ("app/android/key.properties", True),
@@ -263,7 +267,7 @@ CRATES = "[[package]]\nname = \"tokio\"\nversion = \"1.53.2\"\nsource = \"regist
 GITDEP = "[[package]]\nname = \"x\"\nversion = \"0.1.0\"\nsource = \"git+https://example.org/x.git#abc\"\n"
 CHECK_LOCK = os.path.join(ROOT, "tool", "harness", "git", "check_lock.sh")
 with tempfile.TemporaryDirectory() as repo:
-    os.makedirs(os.path.join(repo, "app"))
+    os.makedirs(os.path.join(repo, "app", "packages", "lunaway_nav", "rust"))
     os.makedirs(os.path.join(repo, "backend"))
 
     def gitc(*args):
@@ -292,6 +296,10 @@ with tempfile.TemporaryDirectory() as repo:
     gitc("commit", "-q", "-m", "hosted")
     check("lock: staged registry Cargo.lock", lock_check("--cached", "backend/Cargo.lock", CRATES), 0)
     check("lock: staged git Cargo.lock", lock_check("--cached", "backend/Cargo.lock", GITDEP), 1)
+    gitc("reset", "-q")
+    nav = "app/packages/lunaway_nav/rust/Cargo.lock"
+    check("lock: staged registry crate lock of the app", lock_check("--cached", nav, CRATES), 0)
+    check("lock: committed git crate lock of the app", lock_check("HEAD", nav, GITDEP), 1)
 
 # Every subprocess reading text names its encoding: `text=True` alone decodes
 # with the platform codec (cp1252 on a French Windows), and git hands back UTF-8.

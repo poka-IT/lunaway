@@ -11,8 +11,9 @@ import '../../helpers/navigation.dart';
 
 /// The guidance library built for this computer, when it is: the bridge is
 /// the same on a phone, only the library differs. Build it with
-/// `cargo build --release` in `packages/lunaway_nav/rust/` (the CI's step
-/// before the tests); without it these tests say so and skip.
+/// `cargo build --locked --release` in `packages/lunaway_nav/rust/`, as
+/// `tool/check.sh` does before the tests; without it these tests say so and
+/// skip.
 String? hostLibrary() {
   final name = Platform.isMacOS
       ? 'liblunaway_nav.dylib'

@@ -7,9 +7,10 @@
 #     packages, committed under app/packages/ (lunaway_nav), are the one
 #     exception: a relative path into that directory resolves on every
 #     clone;
-#   - backend/Cargo.lock never resolves a crate from git: deny.toml refuses
-#     unknown git sources, and a git dependency is a reviewed decision that
-#     starts in deny.toml, not in the lockfile.
+#   - backend/Cargo.lock and the lockfile of the app's guidance crate
+#     (app/packages/lunaway_nav/rust/Cargo.lock) never resolve a crate from
+#     git: deny.toml refuses unknown git sources, and a git dependency is a
+#     reviewed decision that starts in deny.toml, not in the lockfile.
 #
 #   tool/harness/git/check_lock.sh --cached     # the staged locks (pre-commit)
 #   tool/harness/git/check_lock.sh <rev>        # the locks of a commit (CI)
@@ -51,16 +52,17 @@ if pub=$(lock_at "$1" app/pubspec.lock); then
   fi
 fi
 
-if cargo_lock=$(lock_at "$1" backend/Cargo.lock); then
+for lock in backend/Cargo.lock app/packages/lunaway_nav/rust/Cargo.lock; do
+  cargo_lock=$(lock_at "$1" "$lock") || continue
   git_crates=$(printf '%s\n' "$cargo_lock" | awk '
     /^name = / { name = $3 }
     /^source = "git\+/ { print name }
   ')
   if [ -n "$git_crates" ]; then
-    echo "BLOCKED: backend/Cargo.lock resolves these crates from git:" >&2
+    echo "BLOCKED: $lock resolves these crates from git:" >&2
     printf '%s\n' "$git_crates" | sed 's/^/  /' >&2
     echo "Use a crates.io release, or allow the repository in backend/deny.toml [sources] first, with the reason." >&2
     fail=1
   fi
-fi
+done
 exit $fail

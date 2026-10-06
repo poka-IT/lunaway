@@ -58,6 +58,7 @@ thing gets deleted**, not left with a note; git history keeps it.
 | hook regressions | | | `harness` |
 | analysis (`dart analyze --fatal-infos`, clippy `-D warnings`) | | pre-push | `app`, `backend` |
 | dependency licences, sources, advisories | | | `backend` (cargo deny) |
+| the app's guidance crate (`app/packages/lunaway_nav/rust`: fmt, clippy, cargo deny with `backend/deny.toml`, tests) | edit guard (its lockfile and bridge are generated) | | `tool/check.sh`; no CI job yet |
 | tests | | | `app`, `backend` |
 | commit message | | commit-msg | |
 | background agent left unwatched | agent liveness (Stop) | | |
