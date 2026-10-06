@@ -62,7 +62,6 @@ class RouteSettingsSection extends ConsumerWidget {
                     child: AvoidChips(value: settings.avoid, onChanged: controller.setAvoid),
                   ),
                   const Divider(height: 1),
-                  const Divider(height: 1),
                   SwitchListTile(
                     value: settings.voice,
                     onChanged: (on) => controller.setVoice(on: on),

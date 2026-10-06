@@ -114,12 +114,13 @@ final class FuelQuery {
 /// vehicle's consumption. A failure shows at once (`noRetry`).
 @Riverpod(retry: noRetry)
 Future<List<FuelOffer>> fuelOffers(Ref ref, FuelQuery query) async {
-  // The vehicle's consumption, read before the first await (its fuel side
-  // only: its size leaves the list alone).
-  final consumption = ref.watch(vehicleFuelProvider).consumptionL100 ?? defaultConsumptionL100;
+  // The stored vehicle's consumption (what `vehicleFuelProvider` exposes),
+  // waited for rather than taken as unknown while it loads, and watched
+  // alone: another fuel or the LPG heating leaves the list alone.
+  final consumption = ref.watch(vehicleProvider.selectAsync((v) => v?.consumptionL100));
   final source = ref.watch(fuelStationsProvider);
   final offers = await source.along(route: query.line, fromM: query.fromM, fuel: query.fuel);
-  return rankOffers(offers, consumptionL100: consumption);
+  return rankOffers(offers, consumptionL100: await consumption ?? defaultConsumptionL100);
 }
 
 /// The stations the fuel list showed last for the route [line], drawn on

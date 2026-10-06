@@ -51,8 +51,10 @@ maintainer's Apple account, gathered in "What only the maintainer does".
   photo library additions, in English in `Info.plist` and in
   `en.lproj`/`fr.lproj/InfoPlist.strings`. The camera and photo strings
   were uncommitted on 2026-10-06: they must be in the tagged commit.
-- **Background modes, 2.5.4.** None today: the app reads the location only
-  in use and hands directions to other apps. See "If guidance ships".
+- **Background modes, 2.5.4.** `location` and `audio`, for the in-app
+  guidance only (`Info.plist`, `UIBackgroundModes`): it starts in the
+  foreground with "When In Use", shows the blue indicator while it runs
+  and stops both at the arrival or the end. See "If guidance ships".
 - **Metadata, 2.3.** No other app or brand named in the name, subtitle,
   keywords or images (`docs/store-listing.md`).
 
