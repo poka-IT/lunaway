@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brand palette (brand/README.md). Launcher icons keep the cream plate in
+     every theme; the splash follows the system theme (values-night). -->
+<resources>
+    <color name="ic_launcher_background">#FDF1DB</color>
+    <color name="splash_background">#FDF1DB</color>
+    <color name="splash_icon_background">#FDF1DB</color>
+</resources>

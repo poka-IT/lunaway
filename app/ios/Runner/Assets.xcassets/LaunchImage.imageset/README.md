@@ -1,5 +1,5 @@
 # Launch Screen Assets
 
-You can customize the launch screen with your own desired assets by replacing the image files in this directory.
-
-You can also do it by opening your Flutter project's Xcode project with `open ios/Runner.xcworkspace`, selecting `Runner/Assets.xcassets` in the Project Navigator and dropping in the desired images.
+These images are generated from `brand/lunaway-mark.svg` by
+`tool/brand/generate.sh` (light: the mark; dark: the mark on a cream disc).
+Edit the source and run the script rather than replacing them by hand.

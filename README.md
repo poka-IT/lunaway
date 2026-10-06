@@ -1,4 +1,9 @@
-# Lunaway
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/lunaway-lockup-dark.svg">
+    <img src="brand/lunaway-lockup.svg" alt="Lunaway" width="360">
+  </picture>
+</h1>
 
 Website: https://lunaway.net. API: https://api.lunaway.net/graphql.
 

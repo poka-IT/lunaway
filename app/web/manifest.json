@@ -1,11 +1,11 @@
 {
-    "name": "lunaway",
-    "short_name": "lunaway",
+    "name": "Lunaway",
+    "short_name": "Lunaway",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FDF1DB",
+    "theme_color": "#061F43",
+    "description": "Free and open map of places to stop with a motorhome or a van, usable offline.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

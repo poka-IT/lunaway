@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Night splash before Android 12: navy, with the mark on a cream disc, the
+     layout Android 12 uses with an icon background (icon 240 dp, disc 160 dp). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="@color/splash_icon_background" />
+        </shape>
+    </item>
+    <item
+        android:width="240dp"
+        android:height="240dp"
+        android:drawable="@drawable/splash_icon"
+        android:gravity="center" />
+</layer-list>
