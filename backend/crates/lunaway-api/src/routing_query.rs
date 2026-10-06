@@ -66,7 +66,7 @@ fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
     Ok(Stop { at, heading })
 }
 
-fn vehicle(v: &VehicleProfileInput) -> Result<VehicleProfile> {
+pub(crate) fn vehicle(v: &VehicleProfileInput) -> Result<VehicleProfile> {
     let bad = |e: InvalidVehicle| invalid_input(format!("vehicle: {e}"));
     let trailer = v
         .trailer

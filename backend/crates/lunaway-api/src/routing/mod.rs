@@ -243,6 +243,24 @@ impl Routing {
         }
     }
 
+    /// The engine's matrix from `sources` to `targets` with `costing`, one
+    /// engine slot held for the call: a row per source, a cell per target,
+    /// none where the engine found no way.
+    pub(crate) async fn matrix(
+        &self,
+        sources: &[valhalla::MatrixPoint],
+        targets: &[valhalla::MatrixPoint],
+        costing: &Value,
+    ) -> Result<Vec<Vec<Option<lunaway_domain::fuel::Leg>>>, RouteError> {
+        let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
+        let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
+            .await
+            .map_err(|_| RouteError::Busy)?
+            .map_err(|_| RouteError::Busy)?;
+        let body = valhalla::matrix_body(sources, targets, costing);
+        Ok(engine.matrix(&body, sources.len(), targets.len()).await?)
+    }
+
     /// Computes and checks routes for `request` on graph `graph_id`.
     pub(crate) async fn route(
         &self,

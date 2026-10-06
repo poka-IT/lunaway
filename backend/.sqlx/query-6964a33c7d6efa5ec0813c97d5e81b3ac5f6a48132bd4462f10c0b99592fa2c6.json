@@ -1,0 +1,150 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT j.ref AS \"station_ref!\", j.data AS \"data!\", j.fetched_at AS \"fetched_at!\",\n               ST_Y(j.geom::geometry) AS \"lat!\", ST_X(j.geom::geometry) AS \"lon!\",\n               ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)\n                   AS \"distance_m?\",\n               p.id AS \"poi_id?\", p.name AS \"poi_name?\", p.brand AS \"poi_brand?\",\n               p.always_open AS \"always_open?\", p.opening_intervals AS \"opening_intervals?\",\n               p.opening_intervals_until AS \"opening_intervals_until?\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $5\n            LIMIT 1\n        ) price\n        LEFT JOIN LATERAL (\n            SELECT id, name, brand, always_open, opening_intervals, opening_intervals_until\n            FROM pois\n            WHERE fuel_ref = j.ref AND deleted_at IS NULL AND NOT hidden\n            ORDER BY id\n            LIMIT 1\n        ) p ON true\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND ST_DWithin(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, $4)\n        ORDER BY EXISTS (\n                     SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                     WHERE s ->> 'fuel' = $1),\n                 price.eur,\n                 ST_Distance(j.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography),\n                 j.ref\n        LIMIT $6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "station_ref!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "ref"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "data!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "data"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "fetched_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "fetched_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "distance_m?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "poi_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "poi_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "poi_brand?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "brand"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "always_open?",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "always_open"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "opening_intervals?",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "opening_intervals_until?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "opening_intervals_until"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6964a33c7d6efa5ec0813c97d5e81b3ac5f6a48132bd4462f10c0b99592fa2c6"
+}

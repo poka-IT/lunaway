@@ -10,6 +10,8 @@ mod client;
 pub mod community_types;
 pub mod config;
 mod error;
+mod fuel_query;
+pub mod fuel_types;
 pub mod guard;
 mod http;
 mod loaders;

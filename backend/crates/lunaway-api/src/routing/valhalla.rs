@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use lunaway_domain::{Position, routing::RoutingDimensions};
+use lunaway_domain::{Position, fuel::Leg, routing::RoutingDimensions};
 use serde_json::{Value, json};
 
 /// Largest answer read from the engine: three routes across France with
@@ -179,6 +179,80 @@ pub(crate) enum EngineError {
     /// The answer is larger than any route.
     #[error("the routing engine's answer exceeds {MAX_ANSWER_BYTES} bytes")]
     TooLarge,
+    /// A matrix whose rows or cells do not match the request.
+    #[error("the routing engine's matrix does not match the request")]
+    MatrixShape,
+}
+
+/// A point of a matrix request.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct MatrixPoint {
+    /// Where.
+    pub(crate) at: Position,
+    /// The direction the vehicle drives there, degrees from north: a point
+    /// of a route sits on the carriageway the route drives.
+    pub(crate) heading: Option<u16>,
+    /// How far the engine may look for a road, metres.
+    pub(crate) search_cutoff_m: u32,
+}
+
+/// The body of a matrix request: the time and distance from each source to
+/// each target, in kilometres, one object per cell (`verbose`).
+pub(crate) fn matrix_body(
+    sources: &[MatrixPoint],
+    targets: &[MatrixPoint],
+    costing: &Value,
+) -> Value {
+    let location = |p: &MatrixPoint| {
+        let mut l = json!({
+            "lat": p.at.lat(),
+            "lon": p.at.lon(),
+            "search_cutoff": p.search_cutoff_m,
+        });
+        if let Some(h) = p.heading {
+            l["heading"] = h.into();
+            l["heading_tolerance"] = HEADING_TOLERANCE_DEG.into();
+        }
+        l
+    };
+    json!({
+        "sources": sources.iter().map(location).collect::<Vec<_>>(),
+        "targets": targets.iter().map(location).collect::<Vec<_>>(),
+        "costing": "auto",
+        "costing_options": costing,
+        "units": "kilometers",
+        "verbose": true,
+    })
+}
+
+/// The cells of a matrix answer, a row per source: none where the engine
+/// found no way.
+fn matrix_cells(
+    value: &Value,
+    sources: usize,
+    targets: usize,
+) -> Result<Vec<Vec<Option<Leg>>>, EngineError> {
+    let rows = value
+        .get("sources_to_targets")
+        .and_then(Value::as_array)
+        .filter(|rows| rows.len() == sources)
+        .ok_or(EngineError::MatrixShape)?;
+    rows.iter()
+        .map(|row| {
+            let cells = row
+                .as_array()
+                .filter(|cells| cells.len() == targets)
+                .ok_or(EngineError::MatrixShape)?;
+            Ok(cells
+                .iter()
+                .map(|c| {
+                    let km = c.get("distance").and_then(Value::as_f64)?;
+                    let seconds = c.get("time").and_then(Value::as_f64)?;
+                    (km.is_finite() && seconds.is_finite()).then_some(Leg { km, seconds })
+                })
+                .collect())
+        })
+        .collect()
 }
 
 /// A client of the engine at a loopback URL.
@@ -212,11 +286,12 @@ impl Engine {
         })
     }
 
-    /// `POST /route` with `body`.
-    pub(crate) async fn route(&self, body: &Value) -> Result<Answer, EngineError> {
+    /// `POST` of `body` to `path`: the status and the JSON answer, read
+    /// within [`MAX_ANSWER_BYTES`].
+    async fn post(&self, path: &str, body: &Value) -> Result<(u16, Value), EngineError> {
         let mut response = self
             .http
-            .post(format!("{}/route", self.base))
+            .post(format!("{}/{path}", self.base))
             .json(body)
             .send()
             .await
@@ -237,6 +312,41 @@ impl Engine {
         }
         let value: Value = serde_json::from_slice(&bytes)
             .map_err(|source| EngineError::NotJson { status, source })?;
+        Ok((status, value))
+    }
+
+    /// `POST /sources_to_targets` with `body`, made by [`matrix_body`]
+    /// for `sources` and `targets` points: a row per source, a cell per
+    /// target.
+    pub(crate) async fn matrix(
+        &self,
+        body: &Value,
+        sources: usize,
+        targets: usize,
+    ) -> Result<Vec<Vec<Option<Leg>>>, EngineError> {
+        let (status, value) = self.post("sources_to_targets", body).await?;
+        if status != 200 {
+            return Err(EngineError::Refused {
+                status,
+                code: format!(
+                    "{}: {}",
+                    value
+                        .get("error_code")
+                        .and_then(Value::as_i64)
+                        .unwrap_or_default(),
+                    value
+                        .get("error")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                ),
+            });
+        }
+        matrix_cells(&value, sources, targets)
+    }
+
+    /// `POST /route` with `body`.
+    pub(crate) async fn route(&self, body: &Value) -> Result<Answer, EngineError> {
+        let (status, value) = self.post("route", body).await?;
         let code = value
             .get("code")
             .and_then(Value::as_str)
@@ -309,6 +419,42 @@ mod tests {
             c["auto"].get("hgv_no_access_penalty").is_none(),
             "no truck notion"
         );
+    }
+
+    #[test]
+    fn a_matrix_reads_a_row_per_source_and_a_cell_per_target() {
+        let p = |lat: f64| MatrixPoint {
+            at: Position::new(lat, 1.0).unwrap(),
+            heading: (lat > 45.0).then_some(180),
+            search_cutoff_m: 1_000,
+        };
+        let body = matrix_body(&[p(45.1), p(44.9)], &[p(44.0)], &json!({"auto": {}}));
+        assert_eq!(body["verbose"], true);
+        assert_eq!(body["units"], "kilometers");
+        assert_eq!(body["sources"][0]["heading"], 180);
+        assert!(body["sources"][1].get("heading").is_none());
+        // Valhalla 3.9.0's verbose answer, an unreachable cell with nulls.
+        let answer = json!({"sources_to_targets": [
+            [{"distance": 12.5, "time": 600, "from_index": 0, "to_index": 0}],
+            [{"distance": null, "time": null, "from_index": 1, "to_index": 0}]
+        ]});
+        let cells = matrix_cells(&answer, 2, 1).unwrap();
+        assert_eq!(
+            cells[0][0],
+            Some(Leg {
+                km: 12.5,
+                seconds: 600.0
+            })
+        );
+        assert_eq!(cells[1][0], None);
+        assert!(matches!(
+            matrix_cells(&answer, 3, 1),
+            Err(EngineError::MatrixShape)
+        ));
+        assert!(matches!(
+            matrix_cells(&answer, 2, 2),
+            Err(EngineError::MatrixShape)
+        ));
     }
 
     #[test]

@@ -5,6 +5,7 @@
 
 pub mod community;
 pub mod conflation;
+pub mod fuel;
 pub mod geo;
 pub mod opening;
 pub mod poi;

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM fuel_price_days WHERE day < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "770d8aed74595ecc74d4ba2be3d7621216d6e7fe7f5838df744805c71fd9bd22"
+}

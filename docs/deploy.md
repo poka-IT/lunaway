@@ -387,6 +387,17 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
 - **Once, at the deployment:** `lunaway conflate --full`, so a place only
   the community describes gets the country of its position, hence a sync
   region.
+- **Fuel along a route.** `Query.fuelAlongRoute` measures detours with the
+  engine's matrix (`POST /sources_to_targets`, at most 40 sources by 40
+  targets a call, points less than 310 km apart): add
+  `sources_to_targets` to `loki.actions` of `infra/routing/valhalla.json`
+  (its `max_matrix_location_pairs` of 2 500 and `max_matrix_distance` of
+  400 km bound it). Until then every detour is estimated from the straight
+  line (`detour.measured` false) and the API logs a warning per search.
+  Its quota is `LUNAWAY_QUOTA_FUEL_ROUTE` (30 every ten minutes); the fuel
+  poller fills `fuel_price_days`: the 31 046 prices of the feed on
+  2026-10-06 over 30 days make 931 380 rows, 114 MB with their indexes
+  (measured on PostgreSQL 18 with PostGIS 3.6).
 
 ## Status page
 

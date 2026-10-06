@@ -44,6 +44,43 @@ for more than an hour stops the import.
 | `object.data.gouv.fr` | the communes file, when an operator runs `lunaway ingest municipalities` (once a year, when a new year's file is published), cached under `municipalities/` | the data.gouv.fr object storage of the "Contours administratifs" dataset above |
 | `data.geopf.fr` (WFS, `/wfs/ows`) | BD TOPO's restricted road sections, by the routing graph build once a week: about 27 pages of 5 000 sections (the server's cap), one at a time, a second apart, sorted by `cleabs` (the server's paging is not transaction-safe), cached gzip-compressed under `ign-bdtopo/` | Licence Ouverte 2.0 (the BD TOPO row above). The Géoplateforme's terms set a fair-use limit of "30 requêtes/s" per address for the WFS, answered with a 429 for 5 seconds beyond it (https://cartes.gouv.fr/cgu/, version of 2024-10-15, article 3.2, read 2026-10-06); a page takes 7 to 17 s to answer |
 
+## Fuels of the price feed
+
+The feed gives each station one column group per fuel; the adapter
+(`lunaway-ingest/src/fuel.rs`, `FUELS`) maps each to the domain's
+`FuelKind` and the API's `FuelKind` enum. The test
+`each_column_of_the_feed_maps_to_its_fuel` (`lunaway-ingest/tests/fuel_history.rs`)
+reads the recorded export near the A20 and checks that no price column is
+left without a fuel.
+
+| feed columns (`<prefix>_prix`, `_maj`, `_rupture_type`, `_rupture_debut`) | name in the shortage lists | `FuelKind` (API) | what it is |
+|---|---|---|---|
+| `gazole` | `Gazole` | `DIESEL` | diesel (B7) |
+| `sp95` | `SP95` | `SP95` | unleaded 95 (E5) |
+| `e10` | `E10` | `E10` | unleaded 95 with up to 10 % ethanol |
+| `sp98` | `SP98` | `SP98` | unleaded 98 |
+| `e85` | `E85` | `E85` | superethanol |
+| `gplc` | `GPLc` | `LPG` | LPG for vehicles |
+
+The feed has no AdBlue: a station's record holds 46 fields, of which these
+six fuels are the only priced ones, and the 27 kinds of services the
+export listed on 2026-10-06 name none (the word appears nowhere in its
+11.5 MB), so the enum has no such value. OpenStreetMap's `fuel:adblue`
+tag says where it is sold, without a price.
+
+Rhythm: the feed is refreshed every 10 minutes at the source and harvested
+by data.economie.gouv.fr every 15 minutes (the dataset row above); the
+poller reads it every 15 minutes. A station updates its own prices when it
+changes them: on 2026-10-06, 44 % of the diesel prices dated from the last
+24 hours, 99 % from the last 30 days, and 9 of 9 006 from more than 90 days;
+LPG prices change less often (183 of 1 513 older than 90 days). A price
+older than 90 days is not offered by `fuelNearby` and `fuelAlongRoute`
+(`lunaway_domain::fuel::MAX_PRICE_AGE_DAYS`).
+
+History: each poll writes, per station and fuel, the day's lowest and
+highest price (`fuel_price_days`, the day in Paris time, 30 days kept),
+which `priceTrend` shows. A day the poller did not see stays absent.
+
 ## Road events
 
 Closures, works, lane restrictions, temporary vehicle limits and detours,

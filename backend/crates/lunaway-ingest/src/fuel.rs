@@ -21,10 +21,11 @@
 use std::{collections::BTreeSet, time::Duration};
 
 use chrono::{DateTime, Utc};
-use lunaway_db::{PgPool, pois::NewJoin};
+use lunaway_db::{PgPool, fuel::PriceSeen, pois::NewJoin};
 use lunaway_domain::{
     Position, SourceId,
-    poi::{FuelKind, FuelPrice, FuelShortage, FuelStation, FuelTile, ShortageKind},
+    fuel::{PRICE_HISTORY_DAYS, price_day, price_is_current},
+    poi::{FuelAddress, FuelKind, FuelPrice, FuelShortage, FuelStation, FuelTile, ShortageKind},
 };
 
 use crate::{
@@ -298,6 +299,11 @@ pub fn station_of(
         .and_then(|(lat, lon)| Position::new(lat, lon).ok())
         // A station at 0,0 is a station without coordinates.
         .filter(|p| p.lat() != 0.0 || p.lon() != 0.0);
+    let address = FuelAddress {
+        street: text(row, "adresse").map(str::to_owned),
+        postcode: text(row, "cp").map(str::to_owned),
+        city: text(row, "ville").map(str::to_owned),
+    };
     let mut station = FuelStation {
         prices,
         shortages,
@@ -305,6 +311,7 @@ pub fn station_of(
         automate_24_24: text(row, "horaires_automate_24_24") == Some("Oui"),
         highway: text(row, "pop") == Some("A"),
         position,
+        address: (address != FuelAddress::default()).then_some(address),
         tile: FuelTile::default(),
     };
     station.tile = FuelTile {
@@ -446,6 +453,9 @@ pub struct FuelReport {
     pub lpg: usize,
     /// What the store did.
     pub store: JoinStoreReport,
+    /// Days of price history written (a new day, a lower low or a higher
+    /// high).
+    pub price_days: u64,
 }
 
 /// Polls the feed and stores every station as a joined row of
@@ -487,6 +497,7 @@ pub async fn import(
         })
         .collect();
     let store = store_joins(pool, &SourceId::FUEL_PRICES, &rows).await?;
+    let price_days = record_prices(pool, &parsed.stations, fetched_at).await?;
     let lpg = parsed
         .stations
         .iter()
@@ -508,7 +519,39 @@ pub async fn import(
         skipped: parsed.skipped,
         lpg,
         store,
+        price_days,
     })
+}
+
+/// Adds the prices of an answer fetched at `fetched_at` to the history of
+/// its day, and drops the days past [`PRICE_HISTORY_DAYS`]. A price too old
+/// to be offered (`fuel::MAX_PRICE_AGE_DAYS`) is left out, and the day is
+/// the answer's, so reading a cached answer again changes nothing.
+async fn record_prices(
+    pool: &PgPool,
+    stations: &[ParsedStation],
+    fetched_at: DateTime<Utc>,
+) -> Result<u64, IngestError> {
+    let day = price_day(fetched_at);
+    let seen: Vec<PriceSeen> = stations
+        .iter()
+        .flat_map(|s| {
+            s.station
+                .prices
+                .iter()
+                .filter(|p| price_is_current(p.updated_at, fetched_at))
+                .map(|p| PriceSeen {
+                    station_ref: s.key.clone(),
+                    fuel: p.fuel,
+                    price_eur: p.price_eur,
+                })
+        })
+        .collect();
+    let written = lunaway_db::fuel::record_price_days(pool, &seen, day).await?;
+    let first_kept = day - chrono::Duration::days(PRICE_HISTORY_DAYS - 1);
+    let purged = lunaway_db::fuel::purge_price_days(pool, first_kept).await?;
+    tracing::info!(written, purged, %day, "fuel price history");
+    Ok(written)
 }
 
 #[cfg(test)]

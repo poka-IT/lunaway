@@ -169,7 +169,15 @@ pub fn schema_builder() -> SchemaBuilder<QueryRoot, MutationRoot, EmptySubscript
 #[must_use]
 pub fn build_schema(state: ApiState) -> LunawaySchema {
     let loader = DataLoader::new(PlaceSourcesLoader::Pool(state.pool.clone()), tokio::spawn);
-    schema_builder().data(state).data(loader).finish()
+    let trends = DataLoader::new(
+        crate::loaders::FuelTrendLoader(state.pool.clone()),
+        tokio::spawn,
+    );
+    schema_builder()
+        .data(state)
+        .data(loader)
+        .data(trends)
+        .finish()
 }
 
 fn bbox(input: BBoxInput, max_area: f64) -> Result<BBox> {
@@ -590,6 +598,38 @@ impl QueryRoot {
     /// order: the map's chips.
     async fn poi_categories(&self) -> Vec<PoiCategoryInfo> {
         poi_query::categories()
+    }
+
+    /// Fuel stations within `radiusKm` of `at` (10 by default, 50 at most)
+    /// with a price of `fuel` updated in the last 90 days, at most `limit`
+    /// (10 by default, 50 at most): those not out of it first, then the
+    /// cheapest, then the nearest.
+    #[graphql(complexity = "crate::fuel_query::nearby_cost(limit, child_complexity)")]
+    async fn fuel_nearby(
+        &self,
+        ctx: &Context<'_>,
+        at: LatLonInput,
+        fuel: crate::poi_types::GqlFuelKind,
+        #[graphql(default = 10.0)] radius_km: f64,
+        #[graphql(default = 10)] limit: i32,
+    ) -> Result<Vec<crate::fuel_types::FuelStop>> {
+        crate::fuel_query::nearby(ctx, at, fuel, radius_km, limit).await
+    }
+
+    /// Fuel stations along a route: those within half `maxDetourKm` of its
+    /// line with a price of the fuel updated in the last 90 days, the best
+    /// candidates' detours measured by the routing engine (from the route
+    /// before the station, to the route after it), ranked by the price with
+    /// the detour's fuel in it. One per request, like `route`, and counted
+    /// in its own quota (`RATE_LIMITED` when spent). A detour the engine
+    /// could not measure in time is estimated (`detour.measured` false).
+    #[graphql(complexity = "crate::fuel_query::along_cost(input.limit, child_complexity)")]
+    async fn fuel_along_route(
+        &self,
+        ctx: &Context<'_>,
+        input: crate::fuel_types::FuelAlongRouteInput,
+    ) -> Result<crate::fuel_types::FuelAlongRoute> {
+        crate::fuel_query::along_route(ctx, input).await
     }
 
     /// One point of interest; null when it is gone or hidden.

@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT j.ref AS \"station_ref!\", ST_Y(j.geom::geometry) AS \"lat!\",\n               ST_X(j.geom::geometry) AS \"lon!\", price.eur AS \"price_eur!\",\n               EXISTS (\n                   SELECT 1 FROM jsonb_array_elements(j.data -> 'shortages') s\n                   WHERE s ->> 'fuel' = $1) AS \"in_shortage!\"\n        FROM poi_join_records j\n        CROSS JOIN LATERAL (\n            SELECT (e ->> 'price_eur')::double precision AS eur\n            FROM jsonb_array_elements(j.data -> 'prices') e\n            WHERE e ->> 'fuel' = $1 AND (e ->> 'updated_at')::timestamptz >= $6\n            LIMIT 1\n        ) price\n        WHERE j.source_id = 'prix-carburants' AND j.deleted_at IS NULL\n          AND j.geom && ST_MakeEnvelope($2, $3, $4, $5, 4326)::geography\n        ORDER BY j.ref\n        LIMIT $7\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "station_ref!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "ref"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "price_eur!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "in_shortage!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "cdb9f87350defa11b442d857c91644730d72a7c3ce60cecaf438164aaa326319"
+}

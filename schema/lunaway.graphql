@@ -499,6 +499,103 @@ type FieldProvenance {
 }
 
 """
+Stations along a route.
+"""
+type FuelAlongRoute {
+	"""
+	The best stations, by effective price, then by distance along the
+	route.
+	"""
+	stations: [FuelStop!]!
+	"""
+	The route's length, kilometres.
+	"""
+	routeKm: Float!
+	"""
+	Stations with the fuel within half the detour of the route, before
+	ranking.
+	"""
+	candidates: Int!
+	"""
+	Whether every detour returned was measured by the routing engine.
+	"""
+	detoursMeasured: Boolean!
+}
+
+"""
+What to look for along a route.
+"""
+input FuelAlongRouteInput {
+	"""
+	The route's line in driving order, as a polyline with six decimals:
+	the `geometry` of a route of `route`'s `osrmJson`, or the part of it
+	still ahead. At most 48 000 characters (the request body is 64 KiB):
+	simplify a long route first (a few tens of metres of tolerance keep
+	every station where it is). Give `polyline` or `points`.
+	"""
+	polyline: String
+	"""
+	The route's line as points, in driving order (at most 1 000).
+	"""
+	points: [LatLonInput!]
+	"""
+	The fuel.
+	"""
+	fuel: FuelKind!
+	"""
+	The longest detour accepted, kilometres there and back (0.5 to 30):
+	stations farther than half of it from the route are not looked at.
+	"""
+	maxDetourKm: Float! = 5.0
+	"""
+	The vehicle's consumption, litres per 100 km (2 to 50): it prices
+	the detour.
+	"""
+	litresPer100Km: Float!
+	"""
+	Litres the driver means to buy (5 to 300): the detour's fuel is
+	spread over them in `effectivePriceEur`.
+	"""
+	fillLitres: Float! = 60.0
+	"""
+	Stations returned at most (1 to 20).
+	"""
+	limit: Int! = 10
+	"""
+	The vehicle, so the detours are measured on roads it may drive; a
+	car's limits otherwise.
+	"""
+	vehicle: VehicleProfileInput
+}
+
+"""
+What reaching a station off the route adds.
+"""
+type FuelDetour {
+	"""
+	Kilometres more than the route, there and back.
+	"""
+	km: Float!
+	"""
+	Minutes more than the route.
+	"""
+	minutes: Float!
+	"""
+	Measured by the routing engine; an estimate from the straight line
+	otherwise (the engine did not answer in time).
+	"""
+	measured: Boolean!
+	"""
+	Litres the detour burns at the consumption given.
+	"""
+	litres: Float!
+	"""
+	What they cost at the station's price, euros.
+	"""
+	costEur: Float!
+}
+
+"""
 What the French fuel price feed says of a station.
 """
 type FuelInfo {
@@ -536,34 +633,41 @@ type FuelInfo {
 	`prix-carburants`.
 	"""
 	sourceId: String!
+	"""
+	The price of `fuel` over the last days, as Lunaway saw it every
+	quarter of an hour; null when it saw none.
+	"""
+	priceTrend(fuel: FuelKind!): FuelPriceTrend
 }
 
 """
-A fuel of the French price feed.
+A fuel of the French price feed, one per group of its columns
+(`docs/data-sources.md`, "Fuels of the price feed"). The feed prices no
+AdBlue.
 """
 enum FuelKind {
 	"""
-	Diesel (Gazole).
+	Diesel (`gazole` in the feed).
 	"""
 	DIESEL
 	"""
-	Unleaded 95.
+	Unleaded 95 (`sp95`).
 	"""
 	SP95
 	"""
-	Unleaded 95 with up to 10 % ethanol.
+	Unleaded 95 with up to 10 % ethanol (`e10`).
 	"""
 	E10
 	"""
-	Unleaded 98.
+	Unleaded 98 (`sp98`).
 	"""
 	SP98
 	"""
-	Superethanol.
+	Superethanol (`e85`).
 	"""
 	E85
 	"""
-	LPG for vehicles (GPLc).
+	LPG for vehicles (`gplc`).
 	"""
 	LPG
 }
@@ -584,6 +688,70 @@ type FuelPrice {
 	When the station last updated it.
 	"""
 	updatedAt: DateTime!
+}
+
+"""
+One day of a station's price for a fuel (Paris time).
+"""
+type FuelPriceDay {
+	"""
+	The day.
+	"""
+	day: NaiveDate!
+	"""
+	Lowest price seen that day, euros per litre.
+	"""
+	lowEur: Float!
+	"""
+	Highest price seen that day.
+	"""
+	highEur: Float!
+}
+
+"""
+What the days of a span say.
+"""
+type FuelPriceSpan {
+	"""
+	Lowest price of the span.
+	"""
+	lowEur: Float!
+	"""
+	Highest price of the span.
+	"""
+	highEur: Float!
+	"""
+	Days of the span Lunaway saw a price on.
+	"""
+	daysKnown: Int!
+	"""
+	The last day's low minus the first day's low: below zero, the price
+	went down; null with fewer than two days known.
+	"""
+	changeEur: Float
+}
+
+"""
+A station's price of one fuel over the last days, as the poller saw it
+every quarter of an hour: nothing is inferred for a day it did not see.
+"""
+type FuelPriceTrend {
+	"""
+	The fuel.
+	"""
+	fuel: FuelKind!
+	"""
+	The days known, oldest first, the last 30 at most.
+	"""
+	days: [FuelPriceDay!]!
+	"""
+	The last 7 days, today included.
+	"""
+	last7Days: FuelPriceSpan
+	"""
+	The last 30 days, today included.
+	"""
+	last30Days: FuelPriceSpan
 }
 
 """
@@ -616,6 +784,122 @@ enum FuelShortageKind {
 	For good: the station stopped selling it.
 	"""
 	DEFINITIVE
+}
+
+"""
+A station's address in the fuel feed.
+"""
+type FuelStationAddress {
+	"""
+	Street and number.
+	"""
+	street: String
+	"""
+	Postcode.
+	"""
+	postcode: String
+	"""
+	Town.
+	"""
+	city: String
+}
+
+"""
+A station to refuel at, for one fuel.
+"""
+type FuelStop {
+	"""
+	The station's id in the fuel feed (OpenStreetMap
+	`ref:FR:prix-carburants`).
+	"""
+	stationId: String!
+	"""
+	The point of interest that describes it, when OpenStreetMap has one
+	(`Query.poi`): name, brand, hours, services.
+	"""
+	poiId: UUID
+	"""
+	Its name in OpenStreetMap.
+	"""
+	name: String
+	"""
+	Its brand in OpenStreetMap.
+	"""
+	brand: String
+	"""
+	Latitude the feed gives.
+	"""
+	lat: Float!
+	"""
+	Longitude the feed gives.
+	"""
+	lon: Float!
+	"""
+	Its address in the feed.
+	"""
+	address: FuelStationAddress
+	"""
+	The fuel asked.
+	"""
+	fuel: FuelKind!
+	"""
+	Its price, euros per litre.
+	"""
+	priceEur: Float!
+	"""
+	When the station last changed it.
+	"""
+	priceUpdatedAt: DateTime!
+	"""
+	Whether it is out of the fuel, for now or for good.
+	"""
+	shortage: FuelShortage
+	"""
+	Whether it is open now, from the hours OpenStreetMap gives (unknown
+	without them).
+	"""
+	openNow: OpenNow!
+	"""
+	A card machine sells fuel day and night ("automate CB 24/24"): the
+	station can serve while closed.
+	"""
+	selfService24h: Boolean!
+	"""
+	On a motorway.
+	"""
+	highway: Boolean!
+	"""
+	Metres from the point asked (`fuelNearby`), or from the route
+	(`fuelAlongRoute`), in a straight line.
+	"""
+	distanceM: Float!
+	"""
+	Kilometres from the route's start to where the station is reached
+	(`fuelAlongRoute` only).
+	"""
+	alongKm: Float
+	"""
+	What the detour adds (`fuelAlongRoute` only).
+	"""
+	detour: FuelDetour
+	"""
+	The price per litre with the detour's fuel spread over the litres
+	bought: what the stations are ranked by along a route; the price
+	itself near a point.
+	"""
+	effectivePriceEur: Float!
+	"""
+	When Lunaway read the feed (every 15 minutes).
+	"""
+	fetchedAt: DateTime!
+	"""
+	`prix-carburants`.
+	"""
+	sourceId: String!
+	"""
+	The price of this fuel over the last days, as Lunaway saw it.
+	"""
+	priceTrend: FuelPriceTrend
 }
 
 """
@@ -2260,6 +2544,23 @@ type Query {
 	order: the map's chips.
 	"""
 	poiCategories: [PoiCategoryInfo!]!
+	"""
+	Fuel stations within `radiusKm` of `at` (10 by default, 50 at most)
+	with a price of `fuel` updated in the last 90 days, at most `limit`
+	(10 by default, 50 at most): those not out of it first, then the
+	cheapest, then the nearest.
+	"""
+	fuelNearby(at: LatLonInput!, fuel: FuelKind!, radiusKm: Float! = 10.0, limit: Int! = 10): [FuelStop!]!
+	"""
+	Fuel stations along a route: those within half `maxDetourKm` of its
+	line with a price of the fuel updated in the last 90 days, the best
+	candidates' detours measured by the routing engine (from the route
+	before the station, to the route after it), ranked by the price with
+	the detour's fuel in it. One per request, like `route`, and counted
+	in its own quota (`RATE_LIMITED` when spent). A detour the engine
+	could not measure in time is estimated (`detour.measured` false).
+	"""
+	fuelAlongRoute(input: FuelAlongRouteInput!): FuelAlongRoute!
 	"""
 	One point of interest; null when it is gone or hidden.
 	"""

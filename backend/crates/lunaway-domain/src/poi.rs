@@ -622,9 +622,27 @@ pub struct FuelStation {
     /// Where the feed puts it, for a station no OSM element names.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<Position>,
+    /// Its address as the feed writes it: what names a station no OSM
+    /// element describes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<FuelAddress>,
     /// What the tiles show.
     #[serde(default)]
     pub tile: FuelTile,
+}
+
+/// A station's address in the fuel feed.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuelAddress {
+    /// Street and number (`adresse`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub street: Option<String>,
+    /// Postcode (`cp`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub postcode: Option<String>,
+    /// Town (`ville`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city: Option<String>,
 }
 
 /// Days after which a "temporary" shortage reads as the station having
@@ -633,6 +651,18 @@ pub struct FuelStation {
 pub const STALE_SHORTAGE_DAYS: i64 = 90;
 
 impl FuelStation {
+    /// Its price of `fuel`, if it lists one.
+    #[must_use]
+    pub fn price_of(&self, fuel: FuelKind) -> Option<&FuelPrice> {
+        self.prices.iter().find(|p| p.fuel == fuel)
+    }
+
+    /// How it is out of `fuel`, if it is.
+    #[must_use]
+    pub fn shortage_of(&self, fuel: FuelKind) -> Option<&FuelShortage> {
+        self.shortages.iter().find(|s| s.fuel == fuel)
+    }
+
     /// Whether the station sells LPG, its latest price update for clock
     /// ([`FuelStation::sells_lpg_at`]).
     #[must_use]
@@ -1112,6 +1142,7 @@ mod tests {
             automate_24_24: false,
             highway: false,
             position: None,
+            address: None,
             tile: FuelTile::default(),
         };
         assert!(station(vec![price(FuelKind::Lpg)], vec![]).sells_lpg());

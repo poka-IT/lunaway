@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO fuel_price_days AS d (station_ref, fuel, day, low_eur, high_eur)\n        SELECT u.station_ref, u.fuel, $4, u.eur, u.eur\n        FROM UNNEST($1::text[], $2::text[], $3::double precision[]) AS u(station_ref, fuel, eur)\n        ON CONFLICT (station_ref, fuel, day) DO UPDATE SET\n            low_eur = least(d.low_eur, EXCLUDED.low_eur),\n            high_eur = greatest(d.high_eur, EXCLUDED.high_eur)\n        WHERE EXCLUDED.low_eur < d.low_eur OR EXCLUDED.high_eur > d.high_eur\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Float8Array",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7b32cb0a3cd1fdaab7214d9277d572f519454c0f34d178ea5b0594ddbd8a16b7"
+}

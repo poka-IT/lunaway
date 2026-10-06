@@ -104,23 +104,25 @@ pub enum GqlPoiKind {
     MotorhomeShop,
 }
 
-/// A fuel of the French price feed.
+/// A fuel of the French price feed, one per group of its columns
+/// (`docs/data-sources.md`, "Fuels of the price feed"). The feed prices no
+/// AdBlue.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(remote = "lunaway_domain::poi::FuelKind", name = "FuelKind")]
 pub enum GqlFuelKind {
-    /// Diesel (Gazole).
+    /// Diesel (`gazole` in the feed).
     Diesel,
-    /// Unleaded 95.
+    /// Unleaded 95 (`sp95`).
     #[graphql(name = "SP95")]
     Sp95,
-    /// Unleaded 95 with up to 10 % ethanol.
+    /// Unleaded 95 with up to 10 % ethanol (`e10`).
     E10,
-    /// Unleaded 98.
+    /// Unleaded 98 (`sp98`).
     #[graphql(name = "SP98")]
     Sp98,
-    /// Superethanol.
+    /// Superethanol (`e85`).
     E85,
-    /// LPG for vehicles (GPLc).
+    /// LPG for vehicles (`gplc`).
     Lpg,
 }
 
@@ -206,6 +208,7 @@ pub struct FuelShortage {
 
 /// What the French fuel price feed says of a station.
 #[derive(SimpleObject, Debug, Clone)]
+#[graphql(complex)]
 pub struct FuelInfo {
     /// Prices, one per fuel sold.
     pub prices: Vec<FuelPrice>,
@@ -226,6 +229,22 @@ pub struct FuelInfo {
     pub fetched_at: DateTime<Utc>,
     /// `prix-carburants`.
     pub source_id: String,
+    /// The station's id in the feed.
+    #[graphql(skip)]
+    pub(crate) station_ref: String,
+}
+
+#[async_graphql::ComplexObject]
+impl FuelInfo {
+    /// The price of `fuel` over the last days, as Lunaway saw it every
+    /// quarter of an hour; null when it saw none.
+    async fn price_trend(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+        fuel: GqlFuelKind,
+    ) -> async_graphql::Result<Option<crate::fuel_types::FuelPriceTrend>> {
+        crate::fuel_types::price_trend(ctx, &self.station_ref, fuel.into()).await
+    }
 }
 
 /// What FINESS says of a health establishment, when it lists it as closed.
@@ -472,7 +491,9 @@ impl Poi {
     async fn fuel(&self) -> Option<FuelInfo> {
         let (s, fetched_at) = self.fuel_station()?;
         let fetched_at = *fetched_at;
+        let station_ref = self.row.join(&SourceId::FUEL_PRICES)?.key.clone();
         Some(FuelInfo {
+            station_ref,
             // What the importer read with the feed's clock, as the map.
             sells_lpg: s.tile.lpg,
             prices: s

@@ -6,6 +6,7 @@
 pub mod accounts;
 pub mod community;
 pub mod conflation;
+pub mod fuel;
 pub mod lists;
 pub mod moderation;
 pub mod municipalities;
