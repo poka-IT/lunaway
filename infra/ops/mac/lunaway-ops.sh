@@ -4,7 +4,10 @@
 # infra/ops/mac/install.sh. It is the only piece outside Hetzner:
 #
 #   1. pulls the encrypted dump replica from the ops server (a key forced to
-#      a read-only rsync), into ~/Backups/lunaway, 30 days kept
+#      a read-only rsync), into ~/Backups/lunaway, 29 days kept, and the
+#      encrypted photos into ~/Backups/lunaway/media; a photo the server's
+#      list (media/manifest) no longer names goes to media-deleted/<day> here,
+#      <day> being when the backend deleted it, and is dropped 26 days later
 #   2. checks the newest dump: recent, no failure recorded after the last
 #      success, decrypts (the age key exists only here) and lists with
 #      pg_restore, without writing the plaintext anywhere
@@ -31,7 +34,10 @@ status_url="${LUNAWAY_STATUS_URL:?set LUNAWAY_STATUS_URL}"
 repo="${LUNAWAY_ALERT_REPO:-poka-IT/lunaway}"
 gh_user="${LUNAWAY_ALERT_GH_USER:-poka-IT}"
 title="ops: alerte"
-keep_days=30
+# 29: a dump taken just before an account is deleted holds it; dropped when
+# 30 days old at most, as the privacy page announces.
+keep_days=29
+held_days=26
 now=$(date -u +%s)
 failures=""
 
@@ -62,9 +68,10 @@ mkdir -p "$dest"
 # it, which is 04:30 in Paris in summer: three attempts, two minutes apart.
 pulled=no
 for attempt in 1 2 3; do
-	if rsync -rt --timeout=300 -e "ssh -F $conf/ssh_config" lunaway-ops-pull: "$dest/"; then
+	if rsync -rt --timeout=300 --exclude=/media/ -e "ssh -F $conf/ssh_config" lunaway-ops-pull: "$dest/" \
+		&& rsync -rt --timeout=600 -e "ssh -F $conf/ssh_config" lunaway-ops-pull:media/ "$dest/media/"; then
 		pulled=yes
-		say "pulled: $(find "$dest" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l | tr -d ' ') dumps on the Mac"
+		say "pulled: $(find "$dest" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l | tr -d ' ') dumps, $(find "$dest/media" -type f -name '*.webp.age' 2>/dev/null | wc -l | tr -d ' ') photos on the Mac"
 		break
 	fi
 	say "pull attempt $attempt failed"
@@ -105,6 +112,75 @@ if [ -n "$last_failure" ]; then
 		fail "le dump nocturne du serveur a échoué ($last_failure)"
 	fi
 fi
+
+# The photos: the newest copy must decrypt to a WebP file (RIFF....WEBP),
+# and the server must have brought the copy up to date in the last 36 hours.
+newest_photo=$(find "$dest/media" -type f -name '*.webp.age' -exec stat -f '%m %N' {} + 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)
+if [ -n "$newest_photo" ]; then
+	head12=$(age --decrypt --identity "$conf/backup-age.key" "$newest_photo" 2>/dev/null | head -c 12 | LC_ALL=C tr -c 'A-Z' '.')
+	case "$head12" in
+	RIFF....WEBP) say "verified the newest photo copy: decrypted, WebP" ;;
+	*) fail "la copie la plus récente d'une photo ne se déchiffre pas en WebP" ;;
+	esac
+fi
+media_success=$(read_stamp "$dest/media/last-success")
+media_at=$(stamp_seconds "$media_success")
+if [ -z "$media_at" ] || [ $(( (now - media_at) / 3600 )) -ge 36 ]; then
+	fail "la copie chiffrée des photos n'a pas été mise à jour depuis 36 heures (${media_success:-jamais})"
+fi
+# Photos deleted on the server. macOS's rsync (openrsync) sends --delete to
+# the server even on a pull, and the ops server's read-only rrsync refuses
+# it: a copy the server's list (media/manifest) no longer names is filed
+# under the day the backend deleted its photo (media/deletions) in
+# media-deleted/<day>, and dropped 26 days after that day, however long this
+# Mac was off; a copy the deletions do not name goes now. Both lists come
+# from the ops server: they are used only when every line has the form the
+# backend writes, and a run that would remove more than 50 copies and more
+# than 5% of them removes nothing and fails.
+manifest="$dest/media/manifest"
+deletions="$dest/media/deletions"
+held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
+photo_re='photos/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.webp\.age'
+if [ "$pulled" = yes ] && [ -f "$manifest" ]; then
+	if grep -qvE "^$photo_re\$" "$manifest" || { [ -f "$deletions" ] && grep -qvE "^[0-9]{8} $photo_re\$" "$deletions"; }; then
+		fail "la liste des photos du serveur a une forme inattendue ; rien n'est retiré"
+	else
+		(cd "$dest/media" && find photos -type f -name '*.webp.age' | grep -E "^$photo_re\$" | LC_ALL=C sort) > "$dest/.local-photos"
+		LC_ALL=C comm -23 "$dest/.local-photos" "$manifest" > "$dest/.gone-photos"
+		gone=$(wc -l < "$dest/.gone-photos" | tr -d ' ')
+		local_count=$(wc -l < "$dest/.local-photos" | tr -d ' ')
+		if [ "$gone" -gt 50 ] && [ $((gone * 100)) -gt $((local_count * 5)) ]; then
+			fail "le serveur ne liste plus $gone des $local_count photos copiées sur le Mac ; rien n'est retiré"
+		else
+			while IFS= read -r rel; do
+				day=$(awk -v p="$rel" '$2 == p { print $1; exit }' "$deletions" 2>/dev/null)
+				if [ -z "$day" ] || [ "$day" -lt "$held_cutoff" ]; then
+					rm -f "$dest/media/$rel"
+				else
+					mkdir -p "$dest/media-deleted/$day/$(dirname "$rel")"
+					mv "$dest/media/$rel" "$dest/media-deleted/$day/$rel"
+				fi
+			done < "$dest/.gone-photos"
+			[ "$gone" = 0 ] || say "$gone photo copies deleted on the server set aside or dropped"
+		fi
+	fi
+elif [ "$pulled" = yes ]; then
+	fail "aucune liste des photos sur le serveur ops"
+fi
+# Held copies 26 days after their deletion day, then dropped.
+for d in "$dest"/media-deleted/*; do
+	[ -d "$d" ] || continue
+	day=$(basename "$d")
+	case "$day" in
+	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+	*) continue ;;
+	esac
+	if [ "$day" -lt "$held_cutoff" ]; then
+		find "$d" -type f -delete
+		find "$d" -depth -type d -empty -delete
+		say "dropped the photos deleted on $day"
+	fi
+done
 
 # Retention: the dumps whose date is more than keep_days days old.
 cutoff=$(date -u -v-"${keep_days}"d +%Y%m%d)

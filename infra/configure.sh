@@ -55,7 +55,12 @@ case "$role" in
     [[ "${LUNAWAY_HOSTNAME:-}" =~ ^[0-9]+-[0-9]+-[0-9]+-[0-9]+\.sslip\.io$ ]] || die "unexpected LUNAWAY_HOSTNAME"
     tiles_volume_id="$(role_var backend TILES_VOLUME_ID)"
     [[ "$tiles_volume_id" =~ ^[0-9]+$ ]] || die "no tile volume id for the backend; run infra/provision.sh backend"
+    # The public address of the photos: the sslip.io name until DNS exists,
+    # then https://api.lunaway.net/media/.
+    media_base="${LUNAWAY_MEDIA_BASE_URL:-https://${LUNAWAY_HOSTNAME}/media/}"
+    [[ "$media_base" =~ ^https://[a-z0-9.-]+/media/$ ]] || die "unexpected LUNAWAY_MEDIA_BASE_URL: $media_base"
     vars+=(
+      "LUNAWAY_MEDIA_BASE_URL=$media_base"
       "LUNAWAY_TILES_VOLUME_ID=$tiles_volume_id"
       "LUNAWAY_HOSTNAME=$LUNAWAY_HOSTNAME"
       "LUNAWAY_OPS_PRIVATE_IP=$LUNAWAY_OPS_PRIVATE_IP"

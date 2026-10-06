@@ -1,0 +1,50 @@
+# Encrypts the new photos into the off-site copy and drops the copies of
+# deleted ones (/usr/local/sbin/lunaway-media-offsite). Runs as root without
+# capabilities, so file permissions bind it like any user: it reads the
+# photos (world-readable) and the age recipient (root 0600), enters the
+# off-site directory as a member of lunaway-pull, and writes only its own
+# /srv/data/backups/offsite/media (root:lunaway-pull 2750). Installed by
+# infra/server/backups.sh.
+[Unit]
+Description=Lunaway photos, encrypted off-site copy
+RequiresMountsFor=/srv/data
+After=lunaway-pgdump.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lunaway-media-offsite
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+UMask=0027
+
+SupplementaryGroups=lunaway-pull
+
+ProtectSystem=strict
+ReadWritePaths=/srv/data/backups/offsite/media
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+MemoryMax=512M

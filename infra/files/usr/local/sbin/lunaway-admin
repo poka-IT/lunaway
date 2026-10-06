@@ -1,0 +1,74 @@
+#!/bin/bash
+# The lunaway CLI of the current release, for an operator, with the identity,
+# database role and sandbox each command needs. Run with sudo:
+#
+#   sudo lunaway-admin moderation list
+#   sudo lunaway-admin moderation approve|reject <entry> [--note TEXT]
+#   sudo lunaway-admin moderation ban <account> --reason TEXT
+#   sudo lunaway-admin accounts create-demo --level 2
+#   sudo lunaway-admin accounts set-level <account> <level>
+#       as the API: user lunaway-api, role lunaway_app (/etc/lunaway/api.env),
+#       write access to the photos only (a removal deletes their files)
+#   sudo lunaway-admin ingest osm-extract|atout-france|municipalities [--refresh]
+#   sudo lunaway-admin conflate [--full]
+#   sudo lunaway-admin stats
+#       as the imports: user lunaway-ingest, role lunaway_ingest
+#       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
+#       private ranges
+#   sudo lunaway-admin migrate
+#       starts lunaway-migrate.service (role lunaway_owner)
+#
+# The command runs as a transient systemd service (systemd-run), so it gets
+# the same kind of sandbox as the units, and its output comes back here.
+# Every writer of the catalogue waits on the same database lock, so a
+# conflation started here queues behind the worker or an import.
+set -euo pipefail
+cli=/opt/lunaway/current/lunaway
+[ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
+[ -x "$cli" ] || { echo "no lunaway CLI in the current release (infra/deploy-api.sh)" >&2; exit 1; }
+
+# The unit's description names the command only: its arguments (a ban
+# reason, an account) stay out of the journal's start and stop lines.
+sandbox=(
+  --quiet --wait --pipe --collect --description="lunaway-admin ${1:-}"
+  -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes
+  -p PrivateTmp=yes -p PrivateDevices=yes -p ProtectKernelTunables=yes
+  -p ProtectKernelModules=yes -p ProtectKernelLogs=yes -p ProtectControlGroups=yes
+  -p ProtectClock=yes -p ProtectHostname=yes -p RestrictSUIDSGID=yes
+  -p LockPersonality=yes -p MemoryDenyWriteExecute=yes -p RestrictRealtime=yes
+  -p RestrictNamespaces=yes -p SystemCallArchitectures=native
+  -p "SystemCallFilter=@system-service" -p "CapabilityBoundingSet="
+  -p MemoryMax=2G
+  -E NO_COLOR=1 -E RUST_LOG=info
+)
+
+case "${1:-}" in
+  moderation|accounts)
+    exec systemd-run "${sandbox[@]}" \
+      -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 \
+      -p EnvironmentFile=/etc/lunaway/api.env -p EnvironmentFile=/etc/lunaway/media.env \
+      -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/media \
+      -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+      -p IPAddressDeny=any -p IPAddressAllow=localhost \
+      "$cli" "$@"
+    ;;
+  ingest|conflate|stats)
+    exec systemd-run "${sandbox[@]}" \
+      -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+      -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+      -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
+      -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
+      -p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
+      -p IPAddressAllow=localhost \
+      "$cli" "$@"
+    ;;
+  migrate)
+    systemctl reset-failed lunaway-migrate 2>/dev/null || true
+    systemctl start lunaway-migrate.service
+    journalctl -u lunaway-migrate -n 5 --no-pager -o cat
+    ;;
+  *)
+    sed -n '2,20p' "$0" >&2
+    exit 2
+    ;;
+esac

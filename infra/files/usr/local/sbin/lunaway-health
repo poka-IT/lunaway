@@ -13,6 +13,12 @@
 #   tiles              whether the tile volume is mounted, how full it is
 #                      (two planets fill it to about 90% after a refresh, by
 #                      design), the planet build served and its age in days
+#   worker.ok          true when lunaway-conflate-worker is active, its queues
+#                      were measured less than 5 minutes ago
+#                      (lunaway-worker-status, every minute) and nothing has
+#                      waited there for 15 minutes
+#   media_backup.ok    true when the encrypted copy of the photos was brought
+#                      up to date less than 26 hours ago
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -55,6 +61,43 @@ if [ -n "$tiles_build" ]; then
 	tiles_age=$(( ($(date -u +%s) - $(date -u -d "$tiles_build" +%s)) / 86400 ))
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s}}\n' \
+# The conflation worker: its unit, and the queue measure written by postgres
+# (counts and ages only; digits are all that is taken from it).
+worker_state="$(systemctl show -p ActiveState --value lunaway-conflate-worker 2>/dev/null | tr -dc 'a-z')"
+worker_restarts="$(systemctl show -p NRestarts --value lunaway-conflate-worker 2>/dev/null | tr -dc '0-9')"
+worker_status=/var/lib/lunaway-status/worker.json
+status_age=-1
+queue_oldest=-1
+flagged=-1
+field() { sed -nE "s/.*\"$1\" *: *([0-9]+).*/\1/p" "$worker_status" | head -n 1; }
+if [ -r "$worker_status" ]; then
+	status_age=$(( $(date -u +%s) - $(stat -c %Y "$worker_status") ))
+	refresh_oldest="$(field refresh_oldest_s)"
+	submissions_oldest="$(field submissions_oldest_s)"
+	flagged="$(field records_flagged)"
+	queue_oldest="${refresh_oldest:-0}"
+	[ "${submissions_oldest:-0}" -gt "$queue_oldest" ] && queue_oldest="$submissions_oldest"
+	[ -n "$flagged" ] || flagged=-1
+fi
+worker_ok=false
+if [ "$worker_state" = active ] && [ "$status_age" -ge 0 ] && [ "$status_age" -lt 300 ] && [ "$queue_oldest" -lt 900 ]; then
+	worker_ok=true
+fi
+
+# The encrypted copy of the photos (lunaway-media-offsite, nightly).
+media_success="$(read_stamp "$offsite/media/last-success")"
+media_ok=false
+media_age=-1
+if [ -n "$media_success" ]; then
+	media_at="$(stamp_seconds "$media_success")"
+	if [ -n "$media_at" ]; then
+		media_age=$(( ($(date -u +%s) - media_at) / 3600 ))
+		[ "$media_age" -lt 26 ] && media_ok=true
+	fi
+fi
+
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
-	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age"
+	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age" \
+	"$worker_ok" "${worker_state:-unknown}" "${worker_restarts:-0}" "$status_age" "$queue_oldest" "$flagged" \
+	"$media_ok" "$media_success" "$media_age"

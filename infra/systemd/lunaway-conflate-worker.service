@@ -1,0 +1,77 @@
+# The conflation worker: `lunaway conflate --watch` applies the community's
+# submissions, conflates the records the imports flagged, refreshes the
+# community summaries and slides the opening-hours window to today. The API
+# wakes it with a NOTIFY when it commits work; it also runs at least every 5
+# minutes. Installed by infra/server/pipeline.sh, started once the release's
+# CLI has --watch, restarted by each deploy (install-release.sh).
+#
+# It writes the catalogue as lunaway_ingest, like the imports and
+# lunaway-conflate.service: every writer takes the same transaction-level
+# advisory lock (lunaway_db::begin_locked) and waits for it up to 30 minutes,
+# so they run one after the other, never in opposite lock orders.
+[Unit]
+Description=Lunaway conflation worker
+After=postgresql.service network-online.target
+Wants=postgresql.service
+ConditionPathExists=/opt/lunaway/current/lunaway
+# A crash loop stops after 10 starts in 15 minutes: the unit then shows as
+# failed, which the status page reports (Conflation worker), rather than
+# spinning. A database restart does not stop it: the worker logs the error
+# and tries again at its next period.
+StartLimitIntervalSec=15min
+StartLimitBurst=10
+
+[Service]
+Type=exec
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0077
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway conflate --watch
+Restart=always
+RestartSec=15s
+TimeoutStopSec=30s
+Nice=5
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryHigh=1536M
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

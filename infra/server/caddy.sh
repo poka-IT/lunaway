@@ -2,7 +2,7 @@
 # Caddy on the backend, run as root by setup.sh: the package (pinned signing
 # key, common.sh), the rendered Caddyfile, the lunaway.net sites (available,
 # enabled only by infra/enable-domain.sh), the web roots with a placeholder
-# page, the media directory, and a sandbox drop-in for the service.
+# page, and a sandbox drop-in for the service.
 #
 #   LUNAWAY_HOSTNAME   the a-b-c-d.sslip.io name of the server (provision.sh)
 . "$(dirname "$0")/common.sh"
@@ -22,10 +22,9 @@ install -d -m 0755 /etc/caddy/sites-enabled
 install_file systemd/caddy.service.d/lunaway.conf /etc/systemd/system/caddy.service.d/lunaway.conf 0644 && restart=1
 [ "$restart" = 1 ] && systemctl daemon-reload
 
-log "web roots and media"
-# Photos served under /media/ (the api snippet of the Caddyfile). Nothing
-# writes there yet; community photos will.
-install -d -m 0755 -o root -g root /srv/data/media
+log "web roots"
+# Photos are served under /media/ (the api snippet of the Caddyfile) from
+# /srv/data/media, which infra/server/api.sh creates for the API to write.
 # /srv/lunaway/site (lunaway.net/) and /srv/lunaway/web (lunaway.net/app/)
 # are symlinks into /srv/lunaway/releases/, switched by infra/deploy-web.sh.
 # A placeholder release fills a root that was never deployed; an existing

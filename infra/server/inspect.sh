@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-tiles lunaway-tiles-refresh ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
@@ -105,9 +105,19 @@ systemctl is-active lunaway-api caddy postgresql@18-main
 readlink /opt/lunaway/current
 ls /opt/lunaway/current/
 echo "--- data pipeline"
-systemctl is-enabled lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-conflate.timer 2>&1 | tr '\n' ' '
+systemctl is-enabled lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-worker-status.timer 2>&1 | tr '\n' ' '
 echo
-stat -c '%a %U:%G %n' /srv/data/ingest /srv/data/media
+echo "nightly conflation timer (retired): $(systemctl is-enabled lunaway-conflate.timer 2>&1 | head -n 1)"
+echo "conflation worker: $(systemctl is-active lunaway-conflate-worker), restarts $(systemctl show -p NRestarts --value lunaway-conflate-worker), user $(systemctl show -p User --value lunaway-conflate-worker)"
+echo "worker queues: $(cat /var/lib/lunaway-status/worker.json 2>/dev/null || echo none)"
+journalctl -u lunaway-conflate-worker -n 2 --no-pager -o cat
+echo "connection limits: $(runuser -u postgres -- psql -X -At -d postgres -c "select string_agg(rolname || ' ' || rolconnlimit, ', ' order by rolname) from pg_roles where rolname like 'lunaway%'")"
+echo "--- photos"
+echo "API user: $(systemctl show -p User --value lunaway-api), dynamic: $(systemctl show -p DynamicUser --value lunaway-api)"
+stat -c '%a %U:%G %n' /srv/data/ingest /srv/data/media /etc/lunaway/media.env /usr/local/sbin/lunaway-admin
+sed -n 's/^LUNAWAY_MEDIA_BASE_URL=//p' /etc/lunaway/media.env
+echo "photo files: $(find /srv/data/media/photos -type f 2>/dev/null | wc -l), $(du -sh /srv/data/media 2>/dev/null | cut -f1)"
+echo "encrypted copy: $(find /srv/data/backups/offsite/media -type f -name '*.webp.age' 2>/dev/null | wc -l) files, last-success $(cat /srv/data/backups/offsite/media/last-success 2>/dev/null || echo none)"
 echo "--- basemap"
 systemctl is-active lunaway-tiles
 echo "refresh timer: $(systemctl is-enabled lunaway-tiles-refresh.timer), next $(systemctl list-timers --no-pager --no-legend lunaway-tiles-refresh.timer | awk '{ print $1, $2, $3 }')"

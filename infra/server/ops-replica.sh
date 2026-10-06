@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The dump replica of the ops server, run as root by setup.sh: a second copy
 # of the backend's encrypted dumps in another datacenter, 14 days kept, and
-# the read-only account the maintainer's Mac pulls them through.
+# of its encrypted photos (media/, deletions held 26 days), and the
+# read-only account the maintainer's Mac pulls them through.
 #
 #   lunaway-backup            static user of lunaway-replica.service; owns the
 #                             replica and the replica key
@@ -40,6 +41,15 @@ fi
 install -d -m 0755 -o root -g root /srv/data/backups
 # Group lunaway-pull reads it (setgid: new files take the group).
 install -d -m 2750 -o lunaway-backup -g lunaway-pull /srv/data/backups/postgresql
+# Photos deleted on the backend, held 26 days (lunaway-replica); the Mac's
+# key does not reach them.
+install -d -m 0750 -o lunaway-backup -g lunaway-backup /srv/data/backups/media-deleted
+# The photos' copy: plain 0755 directories, without the setgid bit the
+# replica directory would hand down. rsync keeps a setgid bit it finds on a
+# directory, and the replica unit's RestrictSUIDSGID refuses that chmod.
+# The replica directory (2750) still keeps everyone but lunaway-pull out.
+install -d -m 0755 -o lunaway-backup -g lunaway-pull /srv/data/backups/postgresql/media
+find /srv/data/backups/postgresql/media -type d -perm -2000 -exec chmod g-s {} +
 
 log "replica key and the backend's host key"
 install -d -m 0755 -o root -g root /etc/lunaway-ops

@@ -1,0 +1,96 @@
+#!/bin/bash
+# Keeps an age-encrypted copy of every photo in /srv/data/backups/offsite/media,
+# one file for one file, which the ops server pulls with the dumps and the
+# Mac pulls from the ops server. Runs nightly from lunaway-media-offsite.timer;
+# installed by infra/server/backups.sh.
+#
+# Photos are content-addressed (photos/<2 hex>/<2 hex>/<64 hex>.webp, the
+# SHA-256 of the file): a name never changes content, so a photo already
+# encrypted is never encrypted again, and the night's work is the new photos.
+# A photo deleted on the backend (moderation, an account deleted) loses its
+# encrypted copy here the same night, and the night's date goes with its name
+# into media/deletions (kept 30 days). The ops server and the Mac keep a
+# deleted copy until 26 days after that date, whenever they run, then drop
+# it, so a deletion reaches every copy within 30 days (docs/deploy.md,
+# "Backups and restore").
+#
+# A run that would remove more than 50 copies and more than 5% of them
+# refuses, removes nothing and fails (no success marker, so the status page
+# turns red): an emptied or unmounted photo directory must not empty the
+# backups. LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1 lets a deliberate one through.
+set -euo pipefail
+umask 027
+src=/srv/data/media/photos
+media=/srv/data/backups/offsite/media
+dst="$media/photos"
+marker="$media/last-success"
+deletions="$media/deletions"
+recipients=/etc/lunaway/backup-recipient
+today="$(date -u +%Y%m%d)"
+
+[ -s "$recipients" ] || { echo "no age recipient in $recipients" >&2; exit 1; }
+mountpoint -q /srv/data || { echo "/srv/data is not mounted" >&2; exit 1; }
+# /srv/data/backups/offsite/media is created by infra/server/backups.sh
+# (root:lunaway-pull 2750). mkdir under umask 027 gives 0750, and Linux hands
+# the setgid bit and the group down to new directories. (install -d fails in
+# this unit's sandbox: its chmod after the mkdir does not find the path.)
+mkdir -p "$dst"
+
+# A run cut short leaves .partial files: they go first.
+find "$dst" -type f -name '*.partial' -delete
+
+added=0 removed=0
+if [ -d "$src" ]; then
+  while IFS= read -r -d '' rel; do
+    # Only the names the API writes; anything else is not ours to copy.
+    [[ "$rel" =~ ^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\.webp$ ]] || continue
+    [ -f "$dst/$rel.age" ] && continue
+    mkdir -p "$dst/${rel%/*}"
+    age --encrypt --recipients-file "$recipients" -o "$dst/$rel.age.partial" "$src/$rel"
+    mv -f "$dst/$rel.age.partial" "$dst/$rel.age"
+    added=$((added + 1))
+  done < <(find "$src" -type f -name '*.webp' -printf '%P\0')
+fi
+
+# Copies whose photo is gone: counted first, removed only below the
+# threshold.
+copies=0
+gone=()
+while IFS= read -r -d '' rel; do
+  copies=$((copies + 1))
+  [ -f "$src/${rel%.age}" ] || gone+=("$rel")
+done < <(find "$dst" -type f -name '*.webp.age' -printf '%P\0')
+if [ "$copies" -gt 0 ] && [ ! -d "$src" ]; then
+  echo "refused: $src is missing while the copy holds $copies photos; nothing removed" >&2
+  exit 1
+fi
+if [ "${#gone[@]}" -gt 50 ] && [ $(( ${#gone[@]} * 100 )) -gt $(( copies * 5 )) ] \
+  && [ "${LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL:-0}" != 1 ]; then
+  echo "refused: ${#gone[@]} of $copies photo copies would go (is /srv/data/media complete?); nothing removed" >&2
+  exit 1
+fi
+# The deletions of the last 30 days, then today's.
+cutoff="$(date -u -d '30 days ago' +%Y%m%d)"
+{
+  if [ -f "$deletions" ]; then
+    awk -v cutoff="$cutoff" '$1 ~ /^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/ && $1 >= cutoff' "$deletions"
+  fi
+  for rel in "${gone[@]}"; do
+    rm -f "$dst/$rel"
+    removed=$((removed + 1))
+    echo "$today photos/$rel"
+  done
+} > "$deletions.new"
+mv -f "$deletions.new" "$deletions"
+find "$dst" -mindepth 1 -type d -empty -delete
+
+# The list of the photos the copy holds now. The Mac's rsync (openrsync)
+# cannot delete through the ops server's read-only rrsync: it moves aside the
+# copies this list no longer names (infra/ops/mac/lunaway-ops.sh).
+find "$dst" -type f -name '*.webp.age' -printf 'photos/%P\n' | LC_ALL=C sort > "$media/manifest.new"
+mv -f "$media/manifest.new" "$media/manifest"
+files="$(wc -l < "$media/manifest")"
+bytes="$(du -sb "$dst" | cut -f1)"
+date -u +%Y%m%dT%H%M%SZ > "$marker.new"
+mv -f "$marker.new" "$marker"
+echo "photos: $added encrypted, $removed removed, $files in the copy ($bytes bytes)"

@@ -12,18 +12,19 @@ only what differs from the files in the repository.
  lunaway-backend-1, fsn1 (10.42.0.2)           lunaway-sync-1, nbg1 (10.42.0.3), role "ops"
    nftables, fail2ban                            nftables, fail2ban
    Caddy :80 :443 ── 127.0.0.1:8484 lunaway-api  Caddy :80 :443 ── 127.0.0.1:8080 Gatus
-     /media/ from /srv/data/media                  public status page, checks from outside
-     /tiles/ ── 127.0.0.1:8485 pmtiles serve       dump replica, 14 days (/srv/data/backups)
+     /upload ── lunaway-api, writes the photos     public status page, checks from outside
+     /media/ from /srv/data/media
+     /tiles/ ── 127.0.0.1:8485 pmtiles serve       dump replica, 14 days, and photos (/srv/data/backups)
        planet archive on /srv/tiles (own volume),
        refreshed monthly from Protomaps
    PostgreSQL 18 + PostGIS (localhost)
-   lunaway CLI timers: ingest, conflate
-   nightly dump, age-encrypted copy
+   lunaway CLI timers: ingest; conflation worker (NOTIFY, 5 min)
+   nightly dump and photo copy, age-encrypted
    lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
-                    (10.42.0.0/16), forced ─────── replica key: rrsync -ro, encrypted dumps
+                    (10.42.0.0/16), forced ─────── replica key: rrsync -ro, encrypted dumps and photos
                     commands, from 10.42.0.3 only
 
- maintainer's Mac, 04:30 local ── SSH, rrsync -ro ──► ops replica ──► ~/Backups/lunaway, 30 days
+ maintainer's Mac, 04:30 local ── SSH, rrsync -ro ──► ops replica ──► ~/Backups/lunaway, 29 days
                                 ── HTTPS ───────────► status page API
                                 ── gh ──────────────► GitHub issue "ops: alerte"
 ```
@@ -44,6 +45,8 @@ only (`.claude/rules/data-sources.md`); the imports run on the backend.
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
+| `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
+| `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
 | `infra/verify.sh` | here | external and internal checks of both servers, the status page, the pulls, and what each database role may do (`infra/server/test-grants.sh`) |
@@ -70,6 +73,7 @@ in `~/.config/lunaway/env` (directory 0700, file 0600):
 | `LUNAWAY_SSH_ALLOW` | CIDRs allowed to reach SSH (written by `provision.sh`, `ssh-access.sh`) |
 | `LUNAWAY_BACKUP_RECIPIENT` | the age public key the dumps are encrypted to (written by `infra/ops/mac/install.sh keys`) |
 | `LUNAWAY_API_HOST`, `LUNAWAY_WEB_URL`, `LUNAWAY_TILES_URL`, `LUNAWAY_STATUS_DOMAIN` | optional: what the status page checks and its public name (see "Status page") |
+| `LUNAWAY_MEDIA_BASE_URL` | optional: the public URL of the photos the API writes, `https://<backend sslip.io name>/media/` by default, `https://api.lunaway.net/media/` once DNS exists (see "Photos") |
 | `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*`, `LUNAWAY_HOSTNAME` | addresses, volume ids (the backend's tile volume in `LUNAWAY_BACKEND_TILES_VOLUME_ID`), types, written by `provision.sh` |
 
 `~/.config/lunaway/ssh_config` (written by the scripts) defines the hosts
@@ -97,7 +101,7 @@ infra/configure.sh ops          # first: generates the probe and replica keys, p
 infra/configure.sh backend      # every backend step; lunaway-pull takes the ops server's keys;
                                 # the tiles step starts the first planet download and its checks (about 45 minutes)
 infra/deploy-api.sh             # builds HEAD, migrates, deploys, checks https://<ip>.sslip.io
-infra/configure.sh backend pipeline   # turns the import timers on, now that the CLI is there
+infra/configure.sh backend pipeline   # turns the import timers and the conflation worker on, now that the CLI is there
 infra/deploy-gatus.sh           # the status page's engine
 infra/ops/mac/install.sh        # the nightly job on the Mac
 infra/verify.sh                 # both servers, the status page, the pulls
@@ -181,6 +185,43 @@ migrations stay after such a rollback: they are additive
 (`.claude/rules/sqlx.md`), so the previous API runs on the newer schema. Old
 releases stay until removed by name.
 
+## Photos
+
+The API takes a photo on `POST /upload` (`multipart/form-data`, a place and
+an image, a session of trust level 1), rewrites it as two WebP files without
+any metadata (2048 px and 512 px) and writes them under
+`/srv/data/media/photos/<2 hex>/<2 hex>/<SHA-256>.webp`; Caddy serves them
+under `/media/` with a year of cache.
+
+- Caddy routes `/upload` to the API on the API hosts (the sslip.io name and
+  `api.lunaway.net`): `POST`, and `OPTIONS` for the web app's preflight,
+  anything else 405. The body may reach 10304 KiB there (10 MiB of image
+  and 64 KiB of form, what the API accepts). A `/graphql` body may reach
+  64 KiB (the API's own limit) and Caddy reads it whole before it opens a
+  request to the API (`request_buffers`), so a slow client never holds a
+  connection or a task of the API; 1 MB elsewhere.
+- Caddy 2.11 has no per-route read timeout (`request_body` takes no
+  `read_timeout`, in the Caddyfile or in JSON, checked on 2.11.7), so the
+  server's `read_body` is 3 minutes for every request; headers still have
+  10 seconds. The API gives an upload 120 seconds to arrive, so a 10 MiB
+  photo needs about 700 kbit/s; the app should shrink photos first.
+- The API runs as the static user `lunaway-api`, which owns
+  `/srv/data/media` (0755, files 0644 for Caddy). Its unit sees nothing else
+  of `/srv` and may write only there. `/etc/lunaway/media.env` gives it
+  `LUNAWAY_MEDIA_DIR` and `LUNAWAY_MEDIA_BASE_URL`, rendered by
+  `infra/server/api.sh` from `LUNAWAY_MEDIA_BASE_URL` (configure.sh). URLs
+  are built at each answer from the stored paths, so changing the base later
+  changes every URL at once.
+- Two photo decodes at once take up to about 1 GB: the API's memory cap is
+  1.5 GB (`MemoryHigh` 1.25 GB).
+- Measured on 2026-10-06 with a 1600 by 1200 test JPEG: 0.9 to 1 second
+  per upload, 517 to 529 KB for the large WebP and 104 KB for the thumbnail.
+  At about 0.63 MB a photo, 10,000 photos take 6.3 GB in each of four
+  places: `/srv/data/media`, its encrypted copy on the backend, the ops
+  server's replica, the Mac. The ops server's 20 GB volume is the first to
+  fill (about 25,000 photos with the deleted ones it holds); grow it with
+  `hcloud volume resize lunaway-sync-data --size <GB>` and `resize2fs`.
+
 ## Data pipeline
 
 The `lunaway` CLI of the current release runs from systemd on the backend,
@@ -196,15 +237,44 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --refresh`: the Geofabrik France extract, streamed to disk and resumed after an interruption |
 | `lunaway-ingest-atout-france.timer` | Sundays, 04:00 UTC | `lunaway ingest atout-france --refresh`: the classified campsites, geocoded |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
-| `lunaway-conflate.timer` | daily, 00:05 Europe/Paris | `lunaway conflate`, so the opening hours the API serves start from the new day |
+| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day. The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
+| `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, into `/var/lib/lunaway-status/worker.json` for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
-An import and a conflation may overlap: every writer of places waits for
-one PostgreSQL advisory lock, and the conflation locks the records it reads
-(`backend/crates/lunaway-db/src/conflation.rs`). The timers stay off while the
-release carries no CLI; `infra/configure.sh backend pipeline` turns them on
-once it does. By hand: `sudo systemctl start lunaway-ingest-osm` (and
-`journalctl -u lunaway-ingest-osm -f`).
+The nightly conflation timer of earlier versions is gone: the worker runs at
+least every 5 minutes and recomputes "today" at each run.
+
+Every writer of the catalogue (an import, a conflation, the worker) takes
+the same transaction-level advisory lock (`pg_advisory_xact_lock`,
+`backend/crates/lunaway-db/src/lib.rs`) and waits for it up to 30 minutes,
+so they run one after the other and never lock records in opposite orders.
+The worker, `lunaway-conflate.service` and the import units run the same
+binary, so they agree on the lock. The worker needs no network but loopback.
+The connection caps leave room for all of them at once (`lunaway_ingest` 15:
+the worker's pool of 4 and its `LISTEN` connection, an import, a
+conflation). The timers stay off while the release carries no CLI, and the
+worker while its CLI has no `conflate --watch`;
+`infra/configure.sh backend pipeline` turns them on. `install-release.sh`
+restarts the worker on each deploy.
+
+### `lunaway-admin`: the CLI by hand
+
+`/usr/local/sbin/lunaway-admin` runs the current release's CLI as a
+transient systemd service with the identity, role and sandbox the command
+needs, and passes its output back:
+
+```bash
+sudo lunaway-admin moderation list                       # as the API: user lunaway-api, role lunaway_app,
+sudo lunaway-admin moderation approve <entry> --note TEXT  # write access to /srv/data/media only (a
+sudo lunaway-admin moderation ban <account> --reason TEXT # removal deletes the photo files)
+sudo lunaway-admin accounts create-demo --level 2        # the store reviewers' account: prints its recovery code
+sudo lunaway-admin accounts set-level <account> 4        # a moderator
+sudo lunaway-admin ingest osm-extract                    # as the imports: user lunaway-ingest, role lunaway_ingest,
+sudo lunaway-admin ingest municipalities                 # the import cache, HTTPS out (no private ranges)
+sudo lunaway-admin conflate --full
+sudo lunaway-admin stats
+sudo lunaway-admin migrate                               # starts lunaway-migrate.service
+```
 
 ## Status page
 
@@ -222,6 +292,8 @@ Mac's nightly job reads.
 | public | Web app | 200 and the certificate, off until `LUNAWAY_WEB_URL` is set |
 | public | Basemap TileJSON | `<tiles>/planet.json` answers 200, TileJSON 3.0.0, tile URLs naming a build |
 | public | Basemap tile | a z14 tile over Paris (`<tiles>/planet/14/8299/5636.mvt`) answers 200, more than 1000 bytes, within 2 s |
+| backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
+| backend | Photo backup | the probe: the encrypted copy of the photos brought up to date less than 26 hours ago |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
 | backend | Data volume | mounted, under 80% full; root disk under 85% |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
@@ -266,11 +338,22 @@ local time, launchd runs `infra/ops/mac/lunaway-ops.sh` (label
 1. pulls the ops server's replica into `~/Backups/lunaway/` with the pull
    key, which the ops server forces to `rrsync -ro` on the replica and
    accepts only from the admin sources; three attempts two minutes apart
-   (the ops server may be rebooting for an update at 02:30 UTC);
+   (the ops server may be rebooting for an update at 02:30 UTC). The
+   encrypted photos go to `~/Backups/lunaway/media/`. macOS's rsync
+   (openrsync) sends `--delete` to the server even on a pull, which
+   `rrsync -ro` refuses, so the job pulls without it: a copy the server's
+   list (`media/manifest`) no longer names goes to `media-deleted/<day>/`,
+   `<day>` being the backend's deletion date (`media/deletions`), and is
+   dropped 26 days after it, or at once when the list of the last 30 days
+   does not name it. A run that would set aside more than 50 copies and
+   more than 5% of them sets none aside and fails. It decrypts the newest
+   photo copy (it must be a WebP file) and fails when the copy is more than
+   36 hours old;
 2. checks the newest dump: decrypts and lists it with `pg_restore --list`,
    without writing the plaintext; created less than 36 hours ago according
    to the archive itself (age authenticates it, so a renamed old dump fails);
-   no failure recorded after the last success; drops what is older than 30
+   no failure recorded after the last success; drops what is older than 29
+   days, so no dump outlives an account deleted after it by more than 30
    days. What comes from the ops server (markers, names) reaches the issue
    only when it has the expected form;
 3. reads every check of the status page;
@@ -366,7 +449,9 @@ CORS requests from `https://lunaway.net` only (the web app's origin);
 `LUNAWAY_DEV_CORS=1` in its environment adds pages served from
 `localhost` and `127.0.0.1`, for development, never on the server. Then set
 `LUNAWAY_API_HOST=api.lunaway.net`, `LUNAWAY_TILES_URL=https://tiles.lunaway.net`
-and `LUNAWAY_WEB_URL`, and rerun `infra/configure.sh ops ops-status`.
+and `LUNAWAY_WEB_URL`, and rerun `infra/configure.sh ops ops-status`; set
+`LUNAWAY_MEDIA_BASE_URL=https://api.lunaway.net/media/` and rerun
+`infra/configure.sh backend api`.
 
 ### Deploying the landing site and the web app
 
@@ -391,7 +476,8 @@ encrypted:
 |---|---|---|
 | plaintext dump and roles | backend data volume, `/srv/data/backups/postgresql/` (postgres, 0700) | 7 |
 | plaintext, on the root disk | backend, `/var/backups/lunaway/postgresql/`, captured by Hetzner's daily server backup (7 images, taken between 06:00 and 10:00 UTC) | 3 |
-| age-encrypted | backend `/srv/data/backups/offsite/` (7), pulled at 01:15 UTC into the ops server's volume in nbg1 (14 days), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (30 days) | |
+| age-encrypted | backend `/srv/data/backups/offsite/` (7), pulled at 01:15 UTC into the ops server's volume in nbg1 (14 days), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (29 days) | |
+| photos, age-encrypted | backend `/srv/data/backups/offsite/media/`, the ops server's `/srv/data/backups/postgresql/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date |
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
   (`pg_dump --format=custom`, zstd) and the roles (without password hashes),
@@ -404,8 +490,32 @@ encrypted:
   needrestart after a library update). It is ordered after the dump
   (`apt-daily-upgrade.service.d/lunaway-pgdump.conf`): a dump still running
   then delays the upgrade.
-- The images under `/srv/data/media` are not backed up yet: nothing writes
-  there before community photos.
+- The photos (`/srv/data/media/photos`): `lunaway-media-offsite.timer`
+  (00:45 UTC) encrypts each new photo file with age, to the same recipient,
+  into `/srv/data/backups/offsite/media/photos/` (one `.age` file for one
+  photo; a photo never changes, so each is encrypted once), removes the
+  copies of photos deleted since and notes them with the date in
+  `media/deletions` (30 days of entries), and writes `media/manifest` (the
+  list of copies) and `media/last-success`. It runs as root without
+  capabilities, as a member of `lunaway-pull`, and writes only that
+  directory. A run that would remove more than 50 copies and more than 5%
+  of them, or that finds `/srv/data/media/photos` missing, removes nothing
+  and fails (the Photo backup check turns red);
+  `LUNAWAY_MEDIA_ALLOW_MASS_REMOVAL=1` in the unit's environment lets a
+  deliberate one through. The ops server pulls the copy at 01:15 UTC with
+  `--delete`, setting what disappeared aside in
+  `/srv/data/backups/media-deleted/<deletion date>/`; the Mac does the same
+  in `~/Backups/lunaway/media-deleted/<deletion date>/` (see "The nightly
+  job on the Mac"). Both drop a deleted photo's copy 26 days after the
+  backend's deletion date, however late they run, and at once when the
+  last 30 days of the list do not name it: a photo deleted on the backend
+  (an account deleted, a moderation) leaves every copy within 29 days,
+  inside the 30 days the privacy page announces, and a mistaken deletion
+  can be restored meanwhile. The status page checks the copy (Photo
+  backup).
+- A dump restored brings back the accounts deleted after it was taken: the
+  backend has no record of those deletions to apply again yet (an open
+  point for the backend).
 - The ops server has no Hetzner backup: everything on it but its volume is
   rebuilt by `provision.sh` and `configure.sh ops`, and its volume holds
   ciphertext only.
@@ -452,6 +562,22 @@ skip every change made between the backup and its last sync.
 
 `globals-<stamp>.sql.age` holds the roles and their settings, without
 passwords; `infra/server/postgres.sh` sets the passwords again.
+
+Photos come back from the Mac's copy: decrypt each file to its name without
+`.age` (its SHA-256 must equal its name), then copy the tree into
+`/srv/data/media/photos/` on the backend, owned by `lunaway-api`:
+
+```bash
+cd ~/Backups/lunaway/media
+find photos -name '*.webp.age' | while read -r f; do
+  mkdir -p "$HOME/restore-media/$(dirname "$f")"
+  age --decrypt --identity ~/.config/lunaway/backup-age.key -o "$HOME/restore-media/${f%.age}" "$f"
+done
+```
+
+A photo deleted by mistake is in `media-deleted/<day>/` (Mac or ops server)
+for 26 days; its database row comes back with the dump of before the
+deletion.
 
 ## Resizing and rebuilding
 
@@ -657,10 +783,12 @@ decisions are taken:
 | system | sysctl hardening (rp_filter, no redirects or source routing, syncookies, kptr and dmesg restriction, BPF and ptrace limits, protected links), unused protocols and filesystems blacklisted, no core dumps, AppArmor, chrony, persistent journal capped at 1 GB and one month, swap on zram (compressed memory, never on a disk) |
 | packages | the Caddy repository's signing key accepted only with its pinned fingerprint, the source line written from the repository; Gatus and the Rust build image pinned by digest |
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
-| PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 30, imports 10, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
+| PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, 1 MB request bodies on the API, header and body read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, kept 14 days |
-| API | systemd sandbox: dynamic user, no capabilities, read-only system, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1 GB; CORS for `https://lunaway.net` only |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, kept 14 days |
+| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
+| conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
+| photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
 | imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 2 GB |
 | status page | Gatus under its own user with the same sandbox, listening on loopback; Caddy in front refuses anything but GET and HEAD |
 | basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), the tile volume read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates and byte ranges never logged |

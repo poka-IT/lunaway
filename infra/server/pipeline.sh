@@ -6,15 +6,20 @@
 #
 #   lunaway-ingest-osm              daily 03:00 UTC, the OpenStreetMap France extract
 #   lunaway-ingest-atout-france     weekly, Sunday 04:00 UTC
-#   lunaway-conflate                after each successful import, and nightly
-#                                   just after midnight in France
+#   lunaway-conflate                after each successful import
+#   lunaway-conflate-worker         always: the community's submissions and
+#                                   summaries, woken by the API's NOTIFY, and
+#                                   at least every 5 minutes (which also slides
+#                                   the opening hours to the new day: the
+#                                   nightly conflation timer is gone)
 #   lunaway-migrate                 started by install-release.sh, as lunaway_owner
 #
 #   lunaway-ingest     static user of the imports and the conflation; owns
 #                      /srv/data/ingest (raw payload cache, the extract)
 #
 # The timers stay off while the release carries no `lunaway` binary: a run
-# before the first migration would only fail.
+# before the first migration would only fail. The worker starts only with a
+# CLI that has `conflate --watch`.
 . "$(dirname "$0")/common.sh"
 need_root
 mountpoint -q /srv/data || die "/srv/data is not mounted; run data-volume.sh first"
@@ -29,15 +34,26 @@ install -d -m 0750 -o lunaway-ingest -g lunaway-ingest /srv/data/ingest
 
 log "units"
 changed=0
-units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate.timer
+units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.service
   lunaway-ingest-osm.service lunaway-ingest-osm.timer
   lunaway-ingest-atout-france.service lunaway-ingest-atout-france.timer"
+worker_changed=0
 for unit in $units; do
-  install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && changed=1
+  if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
+    changed=1
+    if [ "$unit" = lunaway-conflate-worker.service ]; then worker_changed=1; fi
+  fi
 done
+# The nightly conflation timer of earlier versions: the worker does its job.
+if [ -f /etc/systemd/system/lunaway-conflate.timer ]; then
+  systemctl disable --quiet --now lunaway-conflate.timer 2>/dev/null || true
+  rm -f /etc/systemd/system/lunaway-conflate.timer
+  changed=1
+  echo "    removed lunaway-conflate.timer (the worker runs at least every 5 minutes)"
+fi
 [ "$changed" = 1 ] && systemctl daemon-reload
 
-timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-conflate.timer"
+timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer"
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
   systemctl enable --quiet --now $timers
@@ -47,5 +63,29 @@ else
   # shellcheck disable=SC2086 # one unit per word
   systemctl disable --quiet --now $timers 2>/dev/null || true
   log "no lunaway CLI in the release yet: the timers stay off (infra/deploy-api.sh, then this step again)"
+fi
+
+# The worker's queues, measured every minute for the health probe.
+status_changed=0
+install_file files/usr/local/sbin/lunaway-worker-status /usr/local/sbin/lunaway-worker-status 0755 && status_changed=1
+for unit in lunaway-worker-status.service lunaway-worker-status.timer; do
+  install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && status_changed=1
+done
+[ "$status_changed" = 1 ] && systemctl daemon-reload
+
+# The release's CLI is asked about --watch as the imports' user, never as root.
+if [ -x /opt/lunaway/current/lunaway ] \
+  && runuser -u lunaway-ingest -- /opt/lunaway/current/lunaway conflate --help 2>/dev/null | grep -q -- '--watch'; then
+  systemctl enable --quiet lunaway-conflate-worker
+  systemctl reset-failed lunaway-conflate-worker 2>/dev/null || true
+  if [ "$worker_changed" = 1 ] || ! systemctl is-active --quiet lunaway-conflate-worker; then
+    systemctl restart lunaway-conflate-worker
+  fi
+  systemctl enable --quiet --now lunaway-worker-status.timer
+  log "conflation worker $(systemctl is-active lunaway-conflate-worker), queue measure every minute"
+else
+  systemctl disable --quiet --now lunaway-worker-status.timer 2>/dev/null || true
+  systemctl disable --quiet --now lunaway-conflate-worker 2>/dev/null || true
+  log "the release's CLI has no conflate --watch: the worker stays off"
 fi
 log "disk: $(df -h --output=avail /srv/data | tail -n 1 | tr -d ' ') free on /srv/data, $(du -sh /srv/data/ingest | cut -f1) in /srv/data/ingest"

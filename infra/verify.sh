@@ -86,6 +86,12 @@ for r in json.load(sys.stdin)["rules"]:
     echo "other path: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$host/admin")"
     echo "media miss: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$host/media/none.jpg")"
     echo "body over 1 MB: $(head -c 2000000 /dev/zero | curl -sS -o /dev/null -w '%{http_code}' -m 20 -H 'Content-Type: application/json' --data-binary @- "https://$host/graphql")"
+    # Photo uploads: routed to the API, which asks for a session; 10 MiB of
+    # image at most; POST only. The full path (sign-in, upload, a WebP without
+    # metadata) is infra/tests/api-flow.py, which creates and deletes an account.
+    echo "upload without a session: $(head -c 1000 /dev/zero | curl -sS -o /dev/null -w '%{http_code}' -m 20 -F placeId=00000000-0000-0000-0000-000000000000 -F file=@- "https://$host/upload")"
+    echo "upload body over 10 MiB: $(head -c 11000000 /dev/zero | curl -sS -o /dev/null -w '%{http_code}' -m 60 -H 'Content-Type: multipart/form-data; boundary=x' --data-binary @- "https://$host/upload")"
+    echo "upload by GET: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$host/upload")"
     echo "certificate: $(echo | openssl s_client -connect "$ip4:443" -servername "$host" 2>/dev/null | openssl x509 -noout -issuer -enddate | tr '\n' ' ')"
     # The versions and suites the server offers, measured by nmap (a local
     # openssl may refuse an old version on its own side, which proves nothing).

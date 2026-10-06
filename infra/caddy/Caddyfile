@@ -15,9 +15,15 @@
 
 	servers {
 		protocols h1 h2 h3
+		# read_body bounds the whole request. A photo upload (10 MiB) needs
+		# time on a slow mobile link, and Caddy 2.11 has no per-route read
+		# timeout (request_body accepts no read_timeout, in the Caddyfile or
+		# in JSON), so the server-wide bound is 3 minutes, above the API's own
+		# 120 s for an upload. The other bodies stay capped at 1 MB below, and
+		# headers must still arrive within 10 s.
 		timeouts {
 			read_header 10s
-			read_body 30s
+			read_body 3m
 			idle 2m
 		}
 		max_header_size 16KB
@@ -229,9 +235,9 @@
 	}
 }
 
-# The API: /health and /graphql proxied to lunaway-api, /media/ served from
-# the data volume, everything else 404. The API serves JSON only, so its CSP
-# allows nothing at all.
+# The API: /health, /graphql and /upload proxied to lunaway-api, /media/
+# served from the data volume, everything else 404. The API serves JSON
+# only, so its CSP allows nothing at all.
 (api) {
 	import access_log
 	encode zstd gzip
@@ -245,12 +251,38 @@
 	# Alone, because a deletion defers its whole header block to write time,
 	# where it would override the per-route headers below.
 	header -Server
-	request_body {
+	# 1 MB for every request but a photo upload.
+	@not_upload not path /upload
+	request_body @not_upload {
 		max_size 1MB
 	}
+	# GraphQL bodies are small (the API takes 64 KiB at most,
+	# LUNAWAY_MAX_BODY_BYTES): Caddy reads one whole before it opens a
+	# request to the API, so a client sending slowly (the read timeout is 3
+	# minutes, for uploads) holds a Caddy goroutine, never a connection or a
+	# task of the API.
 	@api path /health /graphql
 	handle @api {
-		reverse_proxy 127.0.0.1:8484
+		request_body {
+			max_size 64KiB
+		}
+		reverse_proxy 127.0.0.1:8484 {
+			request_buffers 64KiB
+		}
+	}
+	# Photo uploads: multipart/form-data, 10 MiB of image and 64 KiB of form
+	# around it, what the API accepts (LUNAWAY_MAX_UPLOAD_BYTES plus its
+	# framing). POST, and OPTIONS for the web app's CORS preflight, which the
+	# API answers; any other method 405.
+	handle /upload {
+		@send method POST OPTIONS
+		@other not method POST OPTIONS
+		request_body {
+			max_size 10304KiB
+		}
+		header @other Allow "POST, OPTIONS"
+		respond @other 405
+		reverse_proxy @send 127.0.0.1:8484
 	}
 	# Photos: a file present under /srv/data/media is served as is, cached
 	# for a year (its name never changes content) and inert (the sandbox CSP

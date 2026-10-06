@@ -18,7 +18,7 @@ IOSchedulingClass=idle
 UMask=0027
 
 ProtectSystem=strict
-ReadWritePaths=/srv/data/backups/postgresql
+ReadWritePaths=/srv/data/backups/postgresql /srv/data/backups/media-deleted
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

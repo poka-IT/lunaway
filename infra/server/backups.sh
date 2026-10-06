@@ -8,6 +8,9 @@
 #   /srv/data/backups/offsite      age-encrypted copies, 7 kept, and the
 #                                  last-success / last-failure markers; group
 #                                  lunaway-pull reads it (infra/server/ops-access.sh)
+#   /srv/data/backups/offsite/media   the photos, one age-encrypted file per
+#                                  photo, kept in step with /srv/data/media every
+#                                  night by lunaway-media-offsite (00:45 UTC)
 #
 #   LUNAWAY_BACKUP_RECIPIENT   the age public key the copies are encrypted to;
 #                              its private half exists only on the Mac
@@ -25,6 +28,7 @@ getent group lunaway-pull >/dev/null || groupadd --system lunaway-pull
 install -d -m 0755 /srv/data/backups /var/backups/lunaway
 install -d -o postgres -g postgres -m 0700 /srv/data/backups/postgresql /var/backups/lunaway/postgresql
 install -d -o postgres -g lunaway-pull -m 2750 /srv/data/backups/offsite
+install -d -o root -g lunaway-pull -m 2750 /srv/data/backups/offsite/media
 
 install -d -m 0700 -o root -g root /etc/lunaway
 echo "$recipient" > "$STAGING/backup-recipient"
@@ -32,16 +36,18 @@ install_file "$STAGING/backup-recipient" /etc/lunaway/backup-recipient 0600 || t
 
 changed=0
 install_file files/usr/local/sbin/lunaway-pgdump /usr/local/sbin/lunaway-pgdump 0755 || true
+install_file files/usr/local/sbin/lunaway-media-offsite /usr/local/sbin/lunaway-media-offsite 0755 || true
 for unit in lunaway-pgdump.service lunaway-pgdump-failed.service lunaway-pgdump.timer \
+  lunaway-media-offsite.service lunaway-media-offsite.timer \
   apt-daily-upgrade.service.d/lunaway-pgdump.conf; do
   install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && changed=1
 done
 [ "$changed" = 1 ] && systemctl daemon-reload
-systemctl enable --quiet --now lunaway-pgdump.timer
+systemctl enable --quiet --now lunaway-pgdump.timer lunaway-media-offsite.timer
 
 if ! ls /srv/data/backups/offsite/lunaway-*.dump.age >/dev/null 2>&1; then
   log "first dump"
   systemctl start lunaway-pgdump.service
 fi
 log "encrypted copies: $(find /srv/data/backups/offsite -maxdepth 1 -type f -printf '%f ' | tr -s ' ')"
-log "next run: $(systemctl show lunaway-pgdump.timer -p NextElapseUSecRealtime --value)"
+log "next run: $(systemctl show lunaway-pgdump.timer -p NextElapseUSecRealtime --value); photos: $(systemctl show lunaway-media-offsite.timer -p NextElapseUSecRealtime --value)"

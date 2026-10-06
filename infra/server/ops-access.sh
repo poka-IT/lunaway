@@ -7,7 +7,8 @@
 #   probe key     /usr/local/sbin/lunaway-health: the health facts as JSON,
 #                 which Gatus checks every few minutes
 #   replica key   rrsync -ro /srv/data/backups/offsite: the age-encrypted
-#                 dumps and their markers, pulled every night
+#                 dumps and their markers, and the age-encrypted photos
+#                 (media/), pulled every night
 #
 # The backend never connects to the ops server.
 #

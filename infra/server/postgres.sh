@@ -124,13 +124,16 @@ BEGIN
   END IF;
 END
 $$;
--- Caps under max_connections (50, 3 kept for superusers): the API's pool
--- (LUNAWAY_DB_POOL_SIZE, 16) with room, and two CLI runs at once for
--- lunaway_ingest (an import and the conflation its success starts while
--- another import runs), each opening 4 connections.
+-- Caps under max_connections (50, 3 kept for superusers), 45 in all:
+--   lunaway_app 25: the API's pool (LUNAWAY_DB_POOL_SIZE, 16) and one
+--     lunaway-admin moderation or accounts run (4);
+--   lunaway_ingest 15: the conflation worker (a pool of 4 and its LISTEN
+--     connection), an import (4) and the conflation its success starts or a
+--     lunaway-admin run (4);
+--   lunaway_owner 5: the migrations.
 ALTER ROLE lunaway_owner NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 5;
-ALTER ROLE lunaway_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 30;
-ALTER ROLE lunaway_ingest NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 10;
+ALTER ROLE lunaway_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 25;
+ALTER ROLE lunaway_ingest NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 15;
 -- An import or a conflation runs longer than an API request.
 ALTER ROLE lunaway_ingest SET statement_timeout = '10min';
 ALTER ROLE lunaway_ingest SET idle_in_transaction_session_timeout = '5min';

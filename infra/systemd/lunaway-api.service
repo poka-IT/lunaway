@@ -5,6 +5,8 @@ Description=Lunaway API (GraphQL over HTTP)
 Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
 After=network-online.target postgresql.service
 Wants=network-online.target
+# Photos are written to the data volume.
+RequiresMountsFor=/srv/data
 StartLimitIntervalSec=60
 StartLimitBurst=5
 # Before the first deploy there is no binary: skip the unit instead of
@@ -15,8 +17,10 @@ ConditionPathExists=/opt/lunaway/current/lunaway-api
 Type=exec
 ExecStart=/opt/lunaway/current/lunaway-api
 # DATABASE_URL and other secrets, root-owned 0600, read by systemd before the
-# process drops to its dynamic user.
+# process drops to its user. media.env: LUNAWAY_MEDIA_DIR and
+# LUNAWAY_MEDIA_BASE_URL, rendered by infra/server/api.sh.
 EnvironmentFile=/etc/lunaway/api.env
+EnvironmentFile=/etc/lunaway/media.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484
 Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
@@ -25,14 +29,20 @@ Restart=on-failure
 RestartSec=2s
 TimeoutStopSec=20s
 
-# Identity: a throwaway user allocated at start, owning nothing on disk.
-DynamicUser=yes
+# Identity: a static system user, because the photos it writes outlive any
+# run of the service. It owns /srv/data/media and nothing else; the files it
+# writes are world-readable (UMask 0022) so Caddy can serve them.
 User=lunaway-api
-UMask=0077
+Group=lunaway-api
+UMask=0022
 
-# Filesystem: the whole tree read-only, no home, private /tmp and /dev.
+# Filesystem: the whole tree read-only, no home, private /tmp and /dev. Of
+# /srv it sees only the photos, and may write there only.
 ProtectSystem=strict
 ProtectHome=yes
+TemporaryFileSystem=/srv:ro
+BindPaths=/srv/data/media
+ReadWritePaths=/srv/data/media
 PrivateTmp=yes
 PrivateDevices=yes
 DevicePolicy=closed
@@ -73,9 +83,11 @@ IPAddressAllow=localhost
 SocketBindDeny=any
 SocketBindAllow=tcp:8484
 
-# Resources: a runaway process is stopped before it starves PostgreSQL.
-MemoryHigh=768M
-MemoryMax=1G
+# Resources: a runaway process is stopped before it starves PostgreSQL. Two
+# photo decodes at once (LUNAWAY_MEDIA_WORKERS) take up to 256 MB each plus
+# their copies: about 1 GB at the peak (report of backend iteration 2).
+MemoryHigh=1280M
+MemoryMax=1536M
 TasksMax=512
 LimitNOFILE=65536
 

@@ -9,8 +9,10 @@
 #      never touched
 #   3. the API restarts and must answer /health on 127.0.0.1:8484 within 20
 #      seconds, or current goes back to the previous release and the API
-#      restarts on it. Migrations already applied stay: they are additive
-#      (.claude/rules/sqlx.md), so the previous API runs on the new schema.
+#      restarts on it; the conflation worker, when it runs, restarts on
+#      whichever release current ends on. Migrations already applied stay:
+#      they are additive (.claude/rules/sqlx.md), so the previous API runs on
+#      the new schema.
 #
 # Old releases stay in /opt/lunaway/releases (a few tens of MB each) until
 # someone removes one by its name.
@@ -69,9 +71,17 @@ if [ -x "$release/lunaway" ]; then
   journalctl -u lunaway-migrate -n 3 --no-pager -o cat
 fi
 
+# The conflation worker runs the CLI of current: restart it on the new one
+# (no-op when it is not running, before infra/configure.sh backend pipeline
+# has started it).
+restart_worker() {
+  systemctl try-restart lunaway-conflate-worker.service 2>/dev/null || true
+}
+
 restart_api
 if answers; then
-  log "release $name answers on 127.0.0.1:8484"
+  restart_worker
+  log "release $name answers on 127.0.0.1:8484; worker $(systemctl is-active lunaway-conflate-worker 2>/dev/null || true)"
   exit 0
 fi
 echo "error: release $name does not answer; rolling back to ${previous:-nothing}" >&2
@@ -79,6 +89,7 @@ journalctl -u lunaway-api -n 20 --no-pager >&2
 if [ -n "$previous" ]; then
   point_at "$previous"
   restart_api
+  restart_worker
   answers && log "back on $previous"
 fi
 exit 1

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Writes how far behind the conflation worker is, for the health probe
+# (lunaway-health), which cannot read the database. Runs as postgres every
+# minute from lunaway-worker-status.timer; installed by infra/server/pipeline.sh.
+#
+# One JSON object in /var/lib/lunaway-status/worker.json:
+#   refresh_queue, refresh_oldest_s           places waiting for their community
+#                                             summary, and the oldest wait
+#   submissions_waiting, submissions_oldest_s accepted submissions not yet
+#                                             applied, and the oldest wait
+#   records_flagged                           records an import flagged and no
+#                                             conflation took yet
+#   at                                        when it was measured (UTC)
+# A healthy worker empties both queues within seconds of the API's NOTIFY,
+# and at least every 5 minutes.
+set -eu
+out=/var/lib/lunaway-status/worker.json
+psql -X -At -v ON_ERROR_STOP=1 -d lunaway -c "
+SELECT json_build_object(
+  'refresh_queue', (SELECT count(*) FROM place_refresh_queue),
+  'refresh_oldest_s', (SELECT coalesce(floor(extract(epoch FROM now() - min(queued_at))), 0)::bigint
+                       FROM place_refresh_queue),
+  'submissions_waiting', (SELECT count(*) FROM place_submissions WHERE status = 'accepted'),
+  'submissions_oldest_s', (SELECT coalesce(floor(extract(epoch FROM now() - min(coalesce(decided_at, created_at)))), 0)::bigint
+                           FROM place_submissions WHERE status = 'accepted'),
+  'records_flagged', (SELECT count(*) FROM source_records WHERE needs_conflation),
+  'at', to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD\"T\"HH24MISS\"Z\"'))" > "$out.new"
+mv -f "$out.new" "$out"

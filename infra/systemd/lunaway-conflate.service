@@ -1,7 +1,8 @@
 # Merges the changed records into places, and slides the opening-hours
 # window to today. Started after each successful import (OnSuccess= of the
-# import units) and every night by lunaway-conflate.timer. Installed by
-# infra/server/pipeline.sh.
+# import units), so an import lands even while the worker
+# (lunaway-conflate-worker.service) is down; the two wait for each other on
+# the writers' lock. Installed by infra/server/pipeline.sh.
 [Unit]
 Description=Lunaway conflation
 After=postgresql.service

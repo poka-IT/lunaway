@@ -59,6 +59,14 @@ echo '<!doctype html><base href="/app/"><title>app</title>' > "$SCRATCH/web/inde
 echo 'console.log(1)' > "$SCRATCH/web/main.dart.js"
 echo '{}' > "$SCRATCH/web/assets/AssetManifest.json"
 printf 'JPEG' > "$SCRATCH/data/media/ab/0123abcd.jpg"
+# A photo as the API writes it: content-addressed WebP.
+mkdir -p "$SCRATCH/data/media/photos/ab/cd"
+printf 'RIFF\x0c\x00\x00\x00WEBPVP8 ' > "$SCRATCH/data/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp"
+# Bodies for the size limits: /graphql takes 64 KiB, /upload 10304 KiB.
+head -c 2000000 /dev/zero > "$SCRATCH/body-2mb"
+head -c 60000 /dev/zero > "$SCRATCH/body-60kb"
+head -c 70000 /dev/zero > "$SCRATCH/body-70kb"
+head -c 11000000 /dev/zero > "$SCRATCH/body-11mb"
 
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
@@ -70,6 +78,16 @@ sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|127.0.0.1:8485|lunaway-pmtiles-test:8485|g' \
     -e 's|output file /var/log/caddy/access.log|output file /tmp/access.log|' \
     "$INFRA/caddy/Caddyfile" > "$SCRATCH/Caddyfile"
+# A stand-in for the API on its port: it reads the whole body (the
+# placeholder does), so the body limits in front of it act as they do in
+# production, and it names itself in a header.
+cat >> "$SCRATCH/Caddyfile" <<'EOF'
+
+http://:8484 {
+	header X-Test-Upstream api
+	respond "{http.request.body}" 200
+}
+EOF
 sed -e 's|^api.lunaway.net {|http://api.lunaway.net:8080 {|' \
     -e 's|^lunaway.net {|http://lunaway.net:8080 {|' \
     -e 's|^www.lunaway.net {|http://www.lunaway.net:8080 {|' \
@@ -135,7 +153,7 @@ check "headers" http://lunaway.net:8080/ 200 "strict-transport-security: max-age
 check "no server header" http://lunaway.net:8080/ 200 "^x-frame-options: DENY"
 check "www redirect" http://www.lunaway.net:8080/privacy 301 "location: https://lunaway.net/privacy"
 check "api other path" http://api.lunaway.net:8080/admin 404 "content-security-policy: default-src 'none'"
-check "api health proxied" http://api.lunaway.net:8080/health 502
+check "api health proxied" http://api.lunaway.net:8080/health 200 "x-test-upstream: api"
 check "sslip api other path" http://sslip.test:8080/ 404
 
 # The basemap. T is the tiles host, S the sslip.io host's /tiles/ prefix.
@@ -164,7 +182,33 @@ check "packs not listed" "$T/packs/" 404
 check "tiles host csp" "$T/planet.json" 200 "content-security-policy: default-src 'none'.*sandbox"
 check "tiles host other path" "$T/admin" 404
 check "sslip tiles other path" "$S/admin" 404
-check "sslip health still proxied" http://sslip.test:8080/health 502
+check "sslip health still proxied" http://sslip.test:8080/health 200 "x-test-upstream: api"
+
+# sent NAME METHOD URL EXPECTED_STATUS [CURL ARGS...]: the status of a
+# request with a method and a body. 200 comes from the stand-in API.
+sent() {
+  local name="$1" method="$2" url="$3" status="$4" host got
+  shift 4
+  host="$(echo "$url" | sed -E 's|^http://([^:/]+):8080.*|\1|')"
+  got="$(curl -sS -o /dev/null -w '%{http_code}' -X "$method" --connect-to "$host:8080:127.0.0.1:$PORT" "$@" "$url")"
+  if [ "$got" = "$status" ]; then
+    echo "ok   $name: $got"
+  else
+    echo "FAIL $name: status $got (want $status)"
+    failures=$((failures + 1))
+  fi
+}
+A=http://api.lunaway.net:8080
+sent "upload of 2 MB routed to the API" POST "$A/upload" 200 -F placeId=x -F file=@"$SCRATCH/body-2mb"
+sent "upload on the sslip host" POST http://sslip.test:8080/upload 200 -F placeId=x -F file=@"$SCRATCH/body-2mb"
+sent "upload preflight routed" OPTIONS "$A/upload" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: POST'
+sent "upload of 11 MB" POST "$A/upload" 413 --data-binary @"$SCRATCH/body-11mb" -H 'Content-Type: multipart/form-data; boundary=x'
+sent "upload by GET" GET "$A/upload" 405
+sent "graphql body of 2 MB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-2mb" -H 'Content-Type: application/json'
+sent "graphql body of 60 KB" POST "$A/graphql" 200 --data-binary @"$SCRATCH/body-60kb" -H 'Content-Type: application/json'
+sent "graphql body of 70 KB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-70kb" -H 'Content-Type: application/json'
+check "photo type" http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp 200 "content-type: image/webp"
+check "upload by GET says what it allows" "$A/upload" 405 "allow: POST, OPTIONS"
 
 # fetch NAME URL [CURL ARGS...]: the body of a response, in a file.
 fetch() {
