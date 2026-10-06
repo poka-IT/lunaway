@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"

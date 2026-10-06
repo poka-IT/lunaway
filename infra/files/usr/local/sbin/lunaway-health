@@ -11,8 +11,14 @@
 #   dump.ok            true when the last nightly dump succeeded less than
 #                      26 hours ago and no failure was recorded after it
 #   tiles              whether the tile volume is mounted, how full it is
-#                      (two planets fill it to about 90% after a refresh, by
-#                      design), the planet build served and its age in days
+#                      (two planets and two sets of offline packs fill it to
+#                      about 90% after a refresh, by design), the planet build
+#                      served and its age in days
+#   packs.ok           true when the offline packs' manifest names as many
+#                      packs as there are outlines, its build is less than 35
+#                      days old, and it is the planet build served (or the
+#                      planet switched less than a day ago: the packs follow
+#                      within minutes, lunaway-tiles-packs)
 #   worker.ok          true when lunaway-conflate-worker is active, its queues
 #                      were measured less than 5 minutes ago
 #                      (lunaway-worker-status, every minute) and nothing has
@@ -65,6 +71,24 @@ tiles_build="$(readlink /srv/tiles/serve/planet.pmtiles 2>/dev/null | sed -nE 's
 tiles_age=-1
 if [ -n "$tiles_build" ]; then
 	tiles_age=$(( ($(date -u +%s) - $(date -u -d "$tiles_build" +%s)) / 86400 ))
+fi
+
+# The offline packs (docs/deploy.md, "Offline packs"): the manifest's own
+# build, read from its head (the top-level key comes first), its number of
+# packs against the number of outlines installed.
+packs_manifest=/srv/tiles/packs/manifest.json
+packs_build="$(head -c 2048 "$packs_manifest" 2>/dev/null | sed -nE 's/^ *"build": *"([0-9]{8})",?$/\1/p' | head -n 1)"
+packs_count="$(grep -c '"sha256":' "$packs_manifest" 2>/dev/null || true)"
+packs_expected="$(grep -o '"kind":' /usr/local/share/lunaway/pack-regions.geojson 2>/dev/null | wc -l)"
+packs_age=-1
+if [ -n "$packs_build" ]; then
+	packs_age=$(( ($(date -u +%s) - $(date -u -d "$packs_build" +%s)) / 86400 ))
+fi
+planet_switched_s=$(( $(date -u +%s) - $(stat -c %Y /srv/tiles/serve/planet.pmtiles 2>/dev/null || echo 0) ))
+packs_ok=false
+if [ "$packs_age" -ge 0 ] && [ "$packs_age" -lt 35 ] && [ "${packs_count:-0}" -gt 0 ] && [ "${packs_count:-0}" -eq "$packs_expected" ] \
+	&& { [ "$packs_build" = "$tiles_build" ] || [ "$planet_switched_s" -lt 86400 ]; }; then
+	packs_ok=true
 fi
 
 # The conflation worker: its unit, and the queue measure written by postgres
@@ -128,9 +152,10 @@ if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" 
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age" \
+	"$packs_ok" "$packs_build" "$packs_age" "${packs_count:-0}" "${packs_expected:-0}" \
 	"$worker_ok" "${worker_state:-unknown}" "${worker_restarts:-0}" "$status_age" "$queue_oldest" "$flagged" \
 	"$media_ok" "$media_success" "$media_age" \
 	"$fuel_ok" "$fuel_age" \

@@ -49,7 +49,7 @@ echo "mode: $MODE"
 mkdir -p "$SCRATCH/site" "$SCRATCH/web/assets" "$SCRATCH/data/media/ab"
 mkdir -p "$SCRATCH/bin" "$SCRATCH/tiles/builds" "$SCRATCH/tiles/serve" "$SCRATCH/tiles/tilejson" \
   "$SCRATCH/tiles/assets/fonts/Noto Sans Regular" "$SCRATCH/tiles/assets/sprites/protomaps-v4" \
-  "$SCRATCH/tiles/assets/styles" "$SCRATCH/tiles/packs"
+  "$SCRATCH/tiles/assets/styles" "$SCRATCH/tiles/packs" "$SCRATCH/fdroid/repo/diff"
 
 # fetch_pinned URL SHA256 FILE: downloads once, and checks the hash each run.
 fetch_pinned() {
@@ -81,7 +81,17 @@ fi
 fetch_pinned "$PMTILES_TEST_FIXTURE_URL" "$PMTILES_TEST_FIXTURE_SHA256" "$SCRATCH/tiles/builds/$BUILD.pmtiles"
 ln -sfn "../builds/$BUILD.pmtiles" "$SCRATCH/tiles/serve/planet-$BUILD.pmtiles"
 ln -sfn "../builds/$BUILD.pmtiles" "$SCRATCH/tiles/serve/planet.pmtiles"
-cp "$SCRATCH/tiles/builds/$BUILD.pmtiles" "$SCRATCH/tiles/packs/test.pmtiles"
+# An offline pack named as lunaway-tiles-packs names them, and its manifest.
+PACK="fr-bre-$BUILD-0123abcd.pmtiles"
+rm -f "$SCRATCH/tiles/packs/test.pmtiles"
+cp "$SCRATCH/tiles/builds/$BUILD.pmtiles" "$SCRATCH/tiles/packs/$PACK"
+printf '{"version": 1, "build": "%s", "packs": [{"id": "fr-bre", "url": "%s"}]}\n' "$BUILD" "$PACK" > "$SCRATCH/tiles/packs/manifest.json"
+# The F-Droid repository as infra/fdroid/publish.sh deploys it: stand-ins
+# for the signed index, a diff and an APK.
+printf 'PK' > "$SCRATCH/fdroid/repo/index-v1.jar"
+printf '{}' > "$SCRATCH/fdroid/repo/index-v2.json"
+printf '{}' > "$SCRATCH/fdroid/repo/diff/1.json"
+printf 'PK' > "$SCRATCH/fdroid/repo/legal.p2p.lunaway_1.apk"
 # Compressible stand-ins for a glyph range and a sprite index, and a style
 # that names its host the way the TileJSON does.
 head -c 4096 /dev/zero > "$SCRATCH/tiles/assets/fonts/Noto Sans Regular/0-255.pbf"
@@ -118,6 +128,7 @@ sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/lunaway.net.caddy|" \
     -e "s|/srv/data|$W/data|g" \
     -e "s|/srv/tiles|$W/tiles|g" \
+    -e "s|/srv/lunaway/fdroid|$W/fdroid|g" \
     -e "s|127.0.0.1:8485|$PMTILES_UP|g" \
     -e "s|127.0.0.1:8484|$API_UP|g" \
     -e "s|output file /var/log/caddy/access.log|output file $ACCESS_LOG|" \
@@ -312,12 +323,35 @@ check "font cache" "$T/fonts/Noto%20Sans%20Regular/0-255.pbf" 200 "cache-control
 check "font miss" "$T/fonts/Noto%20Sans%20Regular/65280-65535.pbf" 404
 check "sprite" "$T/sprites/protomaps-v4/light.json" 200 "cache-control: public, max-age=86400"
 check "style" "$T/styles/test.json" 200 "cache-control: public, max-age=3600"
-check "pack" "$T/packs/test.pmtiles" 200 "accept-ranges: bytes"
+check "pack" "$T/packs/$PACK" 200 "accept-ranges: bytes"
+check "pack cache" "$T/packs/$PACK" 200 "cache-control: public, max-age=31536000, immutable"
+check "pack on sslip" "$S/packs/$PACK" 200 "immutable"
+check "pack manifest" "$T/packs/manifest.json" 200 "cache-control: public, max-age=300"
+check "pack manifest cors" "$T/packs/manifest.json" 200 "access-control-allow-origin: \\*"
+check "pack manifest on sslip" "$S/packs/manifest.json" 200 "cache-control: public, max-age=300"
+check "pack miss" "$T/packs/fr-bre-20000101-0123abcd.pmtiles" 404
+check "not a pack name" "$T/packs/FR.pmtiles" 404
+check "not a pack file" "$T/packs/manifest.txt" 404
 check "packs not listed" "$T/packs/" 404
 check "tiles host csp" "$T/planet.json" 200 "content-security-policy: default-src 'none'.*sandbox"
 check "tiles host other path" "$T/admin" 404
 check "sslip tiles other path" "$S/admin" 404
 check "sslip health still proxied" http://sslip.test:8080/health 200 "x-test-upstream: api"
+
+# The F-Droid repository: on lunaway.net under /fdroid/repo/, and on the
+# sslip.io name for tests before DNS exists.
+check "fdroid index" "$L/fdroid/repo/index-v1.jar" 200 "cache-control: no-cache"
+check "fdroid index csp" "$L/fdroid/repo/index-v1.jar" 200 "content-security-policy: default-src 'none'; frame-ancestors 'none'; sandbox"
+check "fdroid index v2" "$L/fdroid/repo/index-v2.json" 200 "content-type: application/json"
+check "fdroid diff" "$L/fdroid/repo/diff/1.json" 200 "cache-control: no-cache"
+check "fdroid apk" "$L/fdroid/repo/legal.p2p.lunaway_1.apk" 200 "cache-control: public, max-age=86400"
+check "fdroid apk range" "$L/fdroid/repo/legal.p2p.lunaway_1.apk" 200 "accept-ranges: bytes"
+check "fdroid miss" "$L/fdroid/repo/nope.apk" 404
+check "fdroid repo not listed on sslip" http://sslip.test:8080/fdroid/repo/ 404
+check "fdroid bare address" "$L/fdroid/repo" 302 "location: /fdroid/"
+check "fdroid address with a slash" "$L/fdroid/repo/" 302 "location: /fdroid/"
+check "fdroid page still served" "$L/fdroid/" 200 "$NO_SCRIPT"
+check "fdroid on sslip" http://sslip.test:8080/fdroid/repo/index-v1.jar 200 "cache-control: no-cache"
 
 # sent NAME METHOD URL EXPECTED_STATUS [CURL ARGS...]: the status of a
 # request with a method and a body. 200 comes from the stand-in API.
@@ -339,6 +373,8 @@ sent "upload on the sslip host" POST http://sslip.test:8080/upload 200 -F placeI
 sent "upload preflight routed" OPTIONS "$A/upload" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: POST'
 sent "upload of 11 MB" POST "$A/upload" 413 --data-binary @"$SCRATCH/body-11mb" -H 'Content-Type: multipart/form-data; boundary=x'
 sent "upload by GET" GET "$A/upload" 405
+sent "fdroid repository by POST" POST "$L/fdroid/repo/index-v1.jar" 405 -d x
+sent "fdroid repository by PUT on sslip" PUT http://sslip.test:8080/fdroid/repo/index-v1.jar 405 -d x
 sent "graphql body of 2 MB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-2mb" -H 'Content-Type: application/json'
 sent "graphql body of 60 KB" POST "$A/graphql" 200 --data-binary @"$SCRATCH/body-60kb" -H 'Content-Type: application/json'
 sent "graphql body of 70 KB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-70kb" -H 'Content-Type: application/json'
@@ -402,7 +438,7 @@ body style-body "json.loads(b)['glyphs'] == 'https://tiles.lunaway.net/fonts/{fo
 # A missing page answers with the site's 404 page, in both languages.
 fetch page-404 "$L/nope"
 body page-404 "b'<title>Page introuvable' in b and b'This page does not exist' in b"
-fetch pack-range "$T/packs/test.pmtiles" -r 0-6 -D "$SCRATCH/pack-headers.out"
+fetch pack-range "$T/packs/$PACK" -r 0-6 -D "$SCRATCH/pack-headers.out"
 body pack-range "b == b'PMTiles'"
 if grep -q '^HTTP/1.1 206' "$SCRATCH/pack-headers.out" && grep -qi '^content-range: bytes 0-6/' "$SCRATCH/pack-headers.out"; then
   echo "ok   pack range: 206 with content-range"
@@ -412,7 +448,7 @@ else
 fi
 preflight="$(curl -sS -D - -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -X OPTIONS \
   -H 'Origin: https://example.org' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: range' \
-  "$T/packs/test.pmtiles")"
+  "$T/packs/$PACK")"
 if grep -q '^HTTP/1.1 204' <<<"$preflight" && grep -qi '^access-control-allow-headers:.*Range' <<<"$preflight"; then
   echo "ok   preflight for a range request: 204, Range allowed"
 else
@@ -465,7 +501,7 @@ fi
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" "$T/planet-$BUILD/14/8345/5678.mvt"
 curl -sS -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" \
   http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp
-curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -r 123-234 "$T/packs/test.pmtiles"
+curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -r 123-234 "$T/packs/$PACK"
 etag="$(grep -i '^etag:' "$SCRATCH/tile-headers.out" | sed -E 's/^[Ee][Tt][Aa][Gg]: *"?([^"]*)"?.*/\1/' | tr -d '\r')"
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -H "If-None-Match: \"$etag\"" "$T/planet-$BUILD/0/0/0.mvt"
 sleep 1
@@ -483,6 +519,8 @@ grep -q '"uri":"/poi/3/13/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
+grep -q 'fr-bre' <<<"$access_log" && leaks="$leaks pack-region"
+grep -q '"uri":"/packs/\[pack\].pmtiles"' <<<"$access_log" || leaks="$leaks no-masked-pack-line"
 [ -n "$etag" ] && grep -qF "$etag" <<<"$access_log" && leaks="$leaks etag"
 python3 -c '
 import json, sys
@@ -494,7 +532,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt) and /media/[photo]: no range, ETag, size or photo name"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo] and /packs/[pack].pmtiles: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

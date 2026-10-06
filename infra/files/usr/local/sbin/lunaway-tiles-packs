@@ -1,0 +1,282 @@
+#!/bin/bash
+# Builds the offline basemap packs from the planet build being served and
+# publishes them with their manifest. Run as lunaway-tiles by
+# lunaway-tiles-packs.service: after each successful planet refresh
+# (OnSuccess= of lunaway-tiles-refresh.service) and daily by its timer, which
+# finds nothing to do when the manifest already names the served build.
+# Installed by infra/server/tiles.sh; docs/deploy.md, "Offline packs".
+#
+#   lunaway-tiles-packs
+#
+# One pack per outline of /usr/local/share/lunaway/pack-regions.geojson
+# (built from open sources by infra/tiles/packs/regions.py): a `pmtiles
+# extract` of the local planet archive, zoom 0 to LUNAWAY_PACKS_MAXZOOM.
+#
+# Layout of /srv/tiles:
+#   packs/<id>-<build>-<digest>.pmtiles   served by Caddy under /packs/, whole
+#                                         or by byte range; the digest covers
+#                                         the outline, the zoom and the
+#                                         pmtiles release, so a name never
+#                                         changes content (extract output is
+#                                         byte for byte reproducible)
+#   packs/manifest.json                   what the app reads, switched by an
+#                                         atomic rename once every pack of the
+#                                         new set is in place
+#   packs/.work/<build>/                  the set being built, never served
+#                                         (Caddy serves the manifest and pack
+#                                         names only); an interrupted run
+#                                         resumes from the packs it finished.
+#                                         Inside packs/ so that publishing is
+#                                         a rename: the unit's sandbox makes
+#                                         each writable path its own mount,
+#                                         and a move between two of them is a
+#                                         copy (19 GB, measured 2026-10-06)
+#
+# Two sets stay: the one the manifest names and the previous one, so a
+# download started before the switch can still resume for a month. A set
+# older than that goes when the next one is built.
+set -euo pipefail
+umask 022
+
+TILES=/srv/tiles
+# Another directory on the volume only for a test run (docs/deploy.md).
+PACKS="${LUNAWAY_PACKS_DIR:-$TILES/packs}"
+WORK="$PACKS/.work"
+SERVE="$TILES/serve"
+REGIONS="${LUNAWAY_PACKS_REGIONS:-/usr/local/share/lunaway/pack-regions.geojson}"
+PMTILES=/usr/local/bin/pmtiles
+MAXZOOM="${LUNAWAY_PACKS_MAXZOOM:-14}"
+# Left free after the new set, for the manifest and the filesystem itself.
+MARGIN=$((2 * 1024 * 1024 * 1024))
+
+die() { echo "error: $*" >&2; exit 1; }
+log() { echo "$*"; }
+
+[[ "$MAXZOOM" =~ ^[0-9]+$ ]] && [ "$MAXZOOM" -ge 10 ] && [ "$MAXZOOM" -le 15 ] \
+  || die "LUNAWAY_PACKS_MAXZOOM must be a zoom from 10 to 15"
+mountpoint -q "$TILES" || die "$TILES is not mounted"
+[[ "$PACKS" =~ ^/srv/tiles/packs(-test)?$ ]] || die "LUNAWAY_PACKS_DIR must be /srv/tiles/packs or /srv/tiles/packs-test"
+[ -d "$PACKS" ] && [ -w "$PACKS" ] || die "$PACKS is missing or not writable; run infra/configure.sh backend tiles"
+install -d -m 0750 "$WORK"
+[ -r "$REGIONS" ] || die "no region outlines at $REGIONS"
+
+exec 9>"$WORK/.lock"
+flock -n 9 || die "another pack run is running"
+
+# The build behind the stable alias, as lunaway-tiles-refresh names it.
+key="$(readlink "$SERVE/planet.pmtiles" 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p' || true)"
+[ -n "$key" ] || die "no planet is served yet"
+planet="$TILES/builds/$key.pmtiles"
+[ -f "$planet" ] || die "$planet is missing"
+release="$("$PMTILES" version | sed -nE 's/^pmtiles ([0-9.]+),.*/\1/p')"
+[ -n "$release" ] || die "cannot read the pmtiles release"
+
+setdir="$WORK/$key"
+install -d -m 0755 "$setdir" "$setdir/regions"
+
+# The plan: one line per region (id, published file name), and one
+# geometry file per region for --region. The outlines are checked here:
+# ids, names, bounding boxes, polygons only.
+python3 - "$REGIONS" "$setdir" "$key" "$MAXZOOM" "$release" > "$setdir/plan.tsv" <<'EOF'
+import hashlib, json, re, sys
+regions, setdir, key, maxzoom, release = sys.argv[1:]
+data = json.load(open(regions))
+seen = set()
+plan = []
+for f in data["features"]:
+    p, g = f["properties"], f["geometry"]
+    rid = p["id"]
+    if not re.fullmatch(r"[a-z]{2}(-[a-z0-9]{2,3})?", rid) or rid in seen:
+        sys.exit("bad or repeated region id %r" % rid)
+    seen.add(rid)
+    if g["type"] not in ("Polygon", "MultiPolygon"):
+        sys.exit("region %s is a %s" % (rid, g["type"]))
+    for field in ("name_fr", "name_en", "kind", "country"):
+        if not isinstance(p.get(field), str) or not p[field] or "{{" in p[field]:
+            sys.exit("region %s: bad %s" % (rid, field))
+    bbox = p.get("bbox")
+    if not (isinstance(bbox, list) and len(bbox) == 4 and -180 <= bbox[0] < bbox[2] <= 180 and -90 <= bbox[1] < bbox[3] <= 90):
+        sys.exit("region %s: bad bbox" % rid)
+    geometry = json.dumps(g, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256("\n".join([geometry, maxzoom, release]).encode()).hexdigest()[:8]
+    with open("%s/regions/%s.geojson" % (setdir, rid), "w") as out:
+        out.write(geometry)
+    plan.append((rid, "%s-%s-%s.pmtiles" % (rid, key, digest)))
+if not plan:
+    sys.exit("no region in %s" % regions)
+for rid, name in plan:
+    print("%s\t%s" % (rid, name))
+EOF
+mapfile -t plan < "$setdir/plan.tsv"
+
+# The work directory of this set, file by file: what a run writes there.
+clean_setdir() {
+  local line id
+  for line in "${plan[@]}"; do
+    id="${line%%$'\t'*}"
+    rm -f "$setdir/regions/$id.geojson" "$setdir/$id.sum" "$setdir/$id.dry.pmtiles" \
+      "$setdir/$id.partial.pmtiles" "$setdir/$id.pmtiles"
+  done
+  rm -f "$setdir/plan.tsv" "$setdir/planet-metadata.json"
+  rmdir "$setdir/regions" "$setdir" 2>/dev/null || log "left $setdir (unexpected files in it)"
+}
+log "planet $key, pmtiles $release, zoom 0 to $MAXZOOM: ${#plan[@]} packs"
+
+# Nothing to do when the manifest already names every pack of this plan and
+# each file is there with the size it lists.
+if python3 - "$PACKS" "$setdir/plan.tsv" <<'EOF'
+import json, os, sys
+packs, plan = sys.argv[1:]
+try:
+    manifest = json.load(open(os.path.join(packs, "manifest.json")))
+except (OSError, ValueError):
+    sys.exit(1)
+want = sorted(line.split("\t")[1].strip() for line in open(plan) if line.strip())
+have = sorted(p["url"] for p in manifest.get("packs", []))
+if want != have:
+    sys.exit(1)
+for p in manifest["packs"]:
+    path = os.path.join(packs, p["url"])
+    if not os.path.isfile(path) or os.path.getsize(path) != p["size"]:
+        sys.exit(1)
+EOF
+then
+  clean_setdir
+  log "the manifest already names these ${#plan[@]} packs; nothing to do"
+  exit 0
+fi
+
+# Room: the sizes pmtiles announces for the packs still to build (a dry run
+# reads the directories only), plus a tenth, plus the margin. When short,
+# sets older than the one the manifest names go first; that one is never
+# touched before the switch.
+free_bytes() { df --output=avail -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
+named_by_manifest() {
+  python3 - "$PACKS/manifest.json" <<'EOF' 2>/dev/null || true
+import json, sys
+for p in json.load(open(sys.argv[1])).get("packs", []):
+    print(p["url"])
+EOF
+}
+estimate=0
+for line in "${plan[@]}"; do
+  id="${line%%$'\t'*}"
+  [ -f "$setdir/$id.pmtiles" ] && continue
+  out="$("$PMTILES" extract "$planet" "$setdir/$id.dry.pmtiles" --region="$setdir/regions/$id.geojson" \
+    --maxzoom="$MAXZOOM" --dry-run 2>&1)" || die "dry run of $id failed: $(tail -n 2 <<<"$out")"
+  bytes="$(sed -nE 's/.*for an archive size of ([0-9.]+) ([kMGT]?B)$/\1 \2/p' <<<"$out" | tail -n 1 \
+    | awk '{ m = 1; if ($2 == "kB") m = 1e3; if ($2 == "MB") m = 1e6; if ($2 == "GB") m = 1e9; if ($2 == "TB") m = 1e12; printf "%d", $1 * m }')"
+  [ -n "$bytes" ] || die "cannot read the size pmtiles announces for $id"
+  estimate=$((estimate + bytes))
+done
+need=$((estimate + estimate / 10 + MARGIN))
+log "estimated size of the packs to build: $((estimate / 1000000)) MB"
+if [ "$(free_bytes)" -lt "$need" ]; then
+  keep="$(named_by_manifest)"
+  for f in "$PACKS"/*.pmtiles; do
+    [ -f "$f" ] || continue
+    grep -qxF "$(basename "$f")" <<<"$keep" && continue
+    rm -f "$f"
+    log "removed $(basename "$f") to make room"
+  done
+fi
+[ "$(free_bytes)" -ge "$need" ] || die "not enough room on $TILES: $(free_bytes) bytes free, $need needed"
+
+# Each pack: extracted, verified, its header checked, hashed, then renamed
+# into the set. A pack already finished by an interrupted run is kept.
+start=$(date +%s)
+for line in "${plan[@]}"; do
+  id="${line%%$'\t'*}"
+  [ -f "$setdir/$id.pmtiles" ] && [ -f "$setdir/$id.sum" ] && continue
+  t0=$(date +%s)
+  rm -f "$setdir/$id.partial.pmtiles"
+  "$PMTILES" extract "$planet" "$setdir/$id.partial.pmtiles" --region="$setdir/regions/$id.geojson" \
+    --maxzoom="$MAXZOOM" --quiet || die "extract of $id failed"
+  out="$("$PMTILES" verify "$setdir/$id.partial.pmtiles" 2>&1)" || die "pmtiles verify of $id failed: $(tail -n 3 <<<"$out")"
+  if grep -q 'Invalid' <<<"$out"; then
+    die "pmtiles verify reports invalid entries in $id: $(grep -m 3 'Invalid' <<<"$out")"
+  fi
+  "$PMTILES" show --header-json "$setdir/$id.partial.pmtiles" | python3 -c '
+import json, sys
+h = json.load(sys.stdin)
+if h.get("tile_type") != "mvt" or h.get("tile_compression") != "gzip" or h.get("minzoom") != 0 or h.get("maxzoom") != int(sys.argv[1]):
+    sys.exit("unexpected header: %r" % h)' "$MAXZOOM"
+  sum="$(sha256sum "$setdir/$id.partial.pmtiles" | awk '{ print $1 }')"
+  printf '%s %s\n' "$sum" "$(stat -c %s "$setdir/$id.partial.pmtiles")" > "$setdir/$id.sum"
+  chmod 0644 "$setdir/$id.partial.pmtiles"
+  mv -f "$setdir/$id.partial.pmtiles" "$setdir/$id.pmtiles"
+  log "$id: $(stat -c %s "$setdir/$id.pmtiles") bytes in $(( $(date +%s) - t0 )) s"
+done
+log "all ${#plan[@]} packs built in $(( $(date +%s) - start )) s"
+
+# Into the served directory under their final names (same filesystem: a
+# rename), then the manifest that names them, by an atomic rename.
+previous="$(named_by_manifest)"
+for line in "${plan[@]}"; do
+  id="${line%%$'\t'*}"
+  name="${line#*$'\t'}"
+  mv -f "$setdir/$id.pmtiles" "$PACKS/$name"
+done
+"$PMTILES" show --metadata "$planet" > "$setdir/planet-metadata.json"
+python3 - "$REGIONS" "$setdir" "$key" "$MAXZOOM" "$PACKS" > "$PACKS/.manifest.json.new" <<'EOF'
+import datetime, json, os, re, sys
+regions, setdir, key, maxzoom, packs = sys.argv[1:]
+props = {f["properties"]["id"]: f["properties"] for f in json.load(open(regions))["features"]}
+meta = json.load(open(os.path.join(setdir, "planet-metadata.json")))
+schema = str(meta.get("version", ""))
+osm = str(meta.get("planetiler:osm:osmosisreplicationtime", ""))
+if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", schema):
+    sys.exit("unexpected schema version %r in the planet's metadata" % schema)
+if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z", osm):
+    osm = ""
+entries = []
+for line in open(os.path.join(setdir, "plan.tsv")):
+    rid, name = line.rstrip("\n").split("\t")
+    digest, size = open(os.path.join(setdir, rid + ".sum")).read().split()
+    if os.path.getsize(os.path.join(packs, name)) != int(size):
+        sys.exit("%s does not have the size recorded when it was built" % name)
+    p = props[rid]
+    entries.append({
+        "id": rid,
+        "name": {"fr": p["name_fr"], "en": p["name_en"]},
+        "kind": p["kind"],
+        "country": p["country"],
+        "bbox": p["bbox"],
+        "url": name,
+        "size": int(size),
+        "sha256": digest,
+        "build": key,
+        "min_zoom": 0,
+        "max_zoom": int(maxzoom),
+    })
+manifest = {
+    "version": 1,
+    "build": key,
+    "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "schema": schema,
+    "osm_timestamp": osm,
+    "max_zoom": int(maxzoom),
+    "attribution": "© OpenStreetMap",
+    "packs": entries,
+}
+json.dump(manifest, sys.stdout, ensure_ascii=False, indent=1)
+sys.stdout.write("\n")
+EOF
+chmod 0644 "$PACKS/.manifest.json.new"
+mv -f "$PACKS/.manifest.json.new" "$PACKS/manifest.json"
+log "manifest switched to $key: ${#plan[@]} packs, $(du -cb "$PACKS"/*.pmtiles | tail -n 1 | cut -f1) bytes of packs on the volume"
+
+# What neither this manifest nor the previous one names goes: the set
+# before last.
+current="$(named_by_manifest)"
+for f in "$PACKS"/*.pmtiles; do
+  [ -f "$f" ] || continue
+  name="$(basename "$f")"
+  grep -qxF "$name" <<<"$current" && continue
+  grep -qxF "$name" <<<"$previous" && continue
+  rm -f "$f"
+  log "removed $name, of an older set"
+done
+
+clean_setdir
+log "volume: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"

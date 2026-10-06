@@ -11,6 +11,8 @@
 #              /account/delete runs a script (its form calls the API)
 #   /app/      the Flutter web build (/srv/lunaway/web), every unknown path
 #              falling back to /app/index.html for the app's router
+#   /fdroid/repo/  Lunaway's F-Droid repository (/srv/lunaway/fdroid), the
+#              fdroid_repo snippet of the main Caddyfile
 # Photos are served by the API host (api.lunaway.net/media/, see the api
 # snippet of the main Caddyfile), the basemap by tiles.lunaway.net (the tiles
 # snippet).
@@ -63,6 +65,13 @@ lunaway.net {
 	}
 
 	redir /app /app/ permanent
+
+	# The F-Droid repository under /fdroid/repo/ (the fdroid_repo snippet of
+	# the main Caddyfile). Its address, which a phone without F-Droid opens
+	# in the browser, leads to the page that explains it.
+	redir /fdroid/repo /fdroid/ 302
+	redir /fdroid/repo/ /fdroid/ 302
+	import fdroid_repo
 
 	# The web app. The CSP allows what a Flutter web app with MapLibre needs:
 	# WebAssembly compilation, blob: workers, the inline styles the engine
