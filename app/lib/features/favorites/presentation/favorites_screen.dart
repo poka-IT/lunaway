@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
@@ -11,6 +13,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -80,23 +83,29 @@ class _Loaded extends ConsumerWidget {
         Space.m,
         Space.s,
       ),
-      // A wrap: at a large text size the button goes under the title
-      // rather than squeezing it.
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: Space.s,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Semantics(
-            header: true,
-            child: Text(t.favorites.title, style: theme.textTheme.headlineMedium),
+          // A wrap: at a large text size the button goes under the title
+          // rather than squeezing it.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: Space.s,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(t.favorites.title, style: theme.textTheme.headlineMedium),
+              ),
+              // In the header, so it is never cut at the end of the cards.
+              TextButton.icon(
+                onPressed: () => _newList(context, ref),
+                icon: const Icon(AppIcons.add),
+                label: Text(t.favorites.newList),
+              ),
+            ],
           ),
-          // In the header, so it is never cut at the end of the cards.
-          TextButton.icon(
-            onPressed: () => _newList(context, ref),
-            icon: const Icon(AppIcons.add),
-            label: Text(t.favorites.newList),
-          ),
+          const _SyncLine(),
         ],
       ),
     );
@@ -149,6 +158,81 @@ class _Loaded extends ConsumerWidget {
           child: _Entries(key: ValueKey(selected.id), list: selected),
         ),
       ],
+    );
+  }
+}
+
+/// Where the lists live: on this device only (with the way to keep them
+/// with an account), or with the account, and when they last synced.
+class _SyncLine extends ConsumerWidget {
+  const new();
+
+  Future<void> _start(BuildContext context, WidgetRef ref) async {
+    final t = context.t;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(AppIcons.sync, size: 32),
+        title: Text(t.favoritesSync.title),
+        content: Text(t.favoritesSync.body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.common.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(t.favoritesSync.confirm),
+          ),
+        ],
+      ),
+    );
+    if (!(ok ?? false)) return;
+    try {
+      await ref.read(favoritesSyncControllerProvider.notifier).syncNow();
+    } on Object catch (e) {
+      _log.info('favourites sync not started: $e');
+      showMessage(messenger, t.common.offline);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final signedIn = ref.watch(accountControllerProvider) is SignedIn;
+    final status = ref.watch(favoritesSyncControllerProvider);
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    if (!signedIn) {
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: Space.xs,
+        children: [
+          Icon(AppIcons.device, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          Text(t.favoritesSync.local, style: muted),
+          TextButton(onPressed: () => _start(context, ref), child: Text(t.favoritesSync.action)),
+        ],
+      );
+    }
+    final (icon, text) = switch (status) {
+      FavoritesSynced(:final at) => (
+        AppIcons.checkCircle,
+        t.favoritesSync.synced(when: t.ago(at, now)),
+      ),
+      FavoritesSyncFailed() => (AppIcons.offline, t.favoritesSync.failed),
+      _ => (AppIcons.sync, t.favoritesSync.syncing),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.xs),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: Space.xs),
+          Expanded(child: Text(text, style: muted)),
+        ],
+      ),
     );
   }
 }

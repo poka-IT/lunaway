@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The lunaway-api service, run as root by setup.sh: release directories, the
-# service's user and the photo directory it writes, the sandboxed unit, the
-# environment files, and lunaway-admin (the CLI run as the API or as the
-# imports, for an operator). The binary itself arrives with
+# service's user, the photo directory and the account deletion journal it
+# writes, the sandboxed unit, the environment files, and lunaway-admin (the
+# CLI run as the API or as the imports, for an operator). The binary itself arrives with
 # infra/deploy-api.sh; until then the unit is enabled but not started.
 #
 #   LUNAWAY_MEDIA_BASE_URL   public URL of /srv/data/media: the sslip.io name's
@@ -25,7 +25,7 @@ if [ ! -f /etc/lunaway/api.env ]; then
 fi
 chmod 0600 /etc/lunaway/api.env
 
-log "account and photos"
+log "account, photos and deletion journal"
 # Static, not dynamic: the photos it writes stay on the volume across runs,
 # and the moderation commands (lunaway-admin) delete them as the same user.
 # The passwd file only (getent -s files): while the unit of an earlier
@@ -38,10 +38,18 @@ if ! getent -s files passwd lunaway-api >/dev/null; then
 fi
 # Owned by the API, readable by everyone (Caddy serves it under /media/).
 install -d -m 0755 -o lunaway-api -g lunaway-api /srv/data/media
+# The account deletion journal, outside the dumps so a restore cannot bring
+# a deleted account back (docs/deploy.md, "Backups and restore"). Written by
+# the API, which refuses to start without it; read by group
+# lunaway-deletions only (setgid: the API's 0640 files take that group), the
+# encrypted copy's unit, lunaway-deletions-offsite (infra/server/backups.sh).
+getent group lunaway-deletions >/dev/null || groupadd --system lunaway-deletions
+install -d -m 2750 -o lunaway-api -g lunaway-deletions /srv/data/account-deletions
 cat > "$STAGING/media.env" <<EOF
 LUNAWAY_MEDIA_DIR=/srv/data/media
 LUNAWAY_MEDIA_BASE_URL=$media_base
 LUNAWAY_PUBLIC_URL=${media_base%/media/}
+LUNAWAY_DELETION_JOURNAL=/srv/data/account-deletions
 EOF
 
 changed=0

@@ -1,0 +1,137 @@
+{
+ "version": 1,
+ "build": "20261005",
+ "generated_at": "2026-10-06T13:42:14Z",
+ "schema": "4.15.2",
+ "osm_timestamp": "2026-10-05T04:00:00Z",
+ "max_zoom": 14,
+ "attribution": "© OpenStreetMap",
+ "packs": [
+  {
+   "id": "fr-bre",
+   "name": {
+    "fr": "Bretagne",
+    "en": "Brittany"
+   },
+   "kind": "region",
+   "country": "fr",
+   "bbox": [
+    -5.1809,
+    47.2531,
+    -0.9787,
+    48.9108
+   ],
+   "url": "fr-bre-20261005-e4fa3cea.pmtiles",
+   "size": 162863132,
+   "sha256": "229ee8aa6bfb1428bf83ed56adceb99691f1f059ed79f1fbb4129c49dec24e3a",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  },
+  {
+   "id": "fr-20r",
+   "name": {
+    "fr": "Corse",
+    "en": "Corsica"
+   },
+   "kind": "region",
+   "country": "fr",
+   "bbox": [
+    8.4999,
+    41.3091,
+    9.596,
+    43.0385
+   ],
+   "url": "fr-20r-20261005-78b49820.pmtiles",
+   "size": 23440542,
+   "sha256": "63bc0dcf0e5337b2cd6218bd437bd06b2a2d34d498773da23dc988eb9c6979a5",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  },
+  {
+   "id": "fr-pdl",
+   "name": {
+    "fr": "Pays de la Loire",
+    "en": "Pays de la Loire"
+   },
+   "kind": "region",
+   "country": "fr",
+   "bbox": [
+    -2.6637,
+    46.2434,
+    0.9552,
+    48.5911
+   ],
+   "url": "fr-pdl-20261005-6f8a42ba.pmtiles",
+   "size": 189930518,
+   "sha256": "951d5a04b1d6283c1208eb6a562c1fd1949859227100217890757c32163f63b7",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  },
+  {
+   "id": "fr-974",
+   "name": {
+    "fr": "La Réunion",
+    "en": "Réunion"
+   },
+   "kind": "region",
+   "country": "fr",
+   "bbox": [
+    55.1881,
+    -21.4159,
+    55.8626,
+    -20.8456
+   ],
+   "url": "fr-974-20261005-2f5048ca.pmtiles",
+   "size": 8636754,
+   "sha256": "4b858c4f7661360dd3c7b82619b5688488ca336b0fdd371a4296d746369793bd",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  },
+  {
+   "id": "es",
+   "name": {
+    "fr": "Espagne",
+    "en": "Spain"
+   },
+   "kind": "country",
+   "country": "es",
+   "bbox": [
+    -18.2465,
+    27.5708,
+    4.4306,
+    43.8646
+   ],
+   "url": "es-20261005-34b9138c.pmtiles",
+   "size": 1197270745,
+   "sha256": "bb4d8870803535ec616f599cd29fa75842ba06e83e9e27b359ce962368a24975",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  },
+  {
+   "id": "ad",
+   "name": {
+    "fr": "Andorre",
+    "en": "Andorra"
+   },
+   "kind": "country",
+   "country": "ad",
+   "bbox": [
+    1.3112,
+    42.3581,
+    1.8608,
+    42.7204
+   ],
+   "url": "ad-20261005-6a260625.pmtiles",
+   "size": 7297600,
+   "sha256": "6c3bf8fd13836fe1291e5685788fb0eb0a6a6b2ff97a48e32de0b9b6cd3b1278",
+   "build": "20261005",
+   "min_zoom": 0,
+   "max_zoom": 14
+  }
+ ]
+}

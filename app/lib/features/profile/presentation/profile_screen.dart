@@ -6,9 +6,12 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/navigation/presentation/route_entry.dart';
 import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
+import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -26,9 +29,9 @@ import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
-/// The user's vehicle, the data kept on the device, how the app looks and
-/// speaks, and where everything comes from. No account: everything here
-/// stays on this device.
+/// The account (when there is one), the user's vehicle, the data kept on
+/// the device, how the app looks and speaks, and where everything comes
+/// from.
 class ProfileScreen extends ConsumerWidget {
   const new({super.key});
 
@@ -49,13 +52,21 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Space.xxs),
           Text(
-            t.profile.noAccountNeeded,
+            ref.watch(accountControllerProvider) is SignedIn
+                ? t.profile.noTracking
+                : t.profile.noAccountNeeded,
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
-    const left = [_Vehicle(), _OfflineData(), _Directions(), RouteSettingsSection()];
+    const left = [
+      AccountSection(),
+      _Vehicle(),
+      _OfflineData(),
+      _Directions(),
+      RouteSettingsSection(),
+    ];
     const right = [_Appearance(), _Language(), _About(), _Attributions()];
     final padding = EdgeInsets.fromLTRB(
       size == .compact ? Space.l : Space.xxl,
@@ -321,6 +332,8 @@ class _OfflineData extends ConsumerWidget {
               icon: const Icon(AppIcons.sync),
               label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
             ),
+            const Divider(height: Space.xxl),
+            const OfflineMapsEntry(),
           ],
         ),
       ),
@@ -542,6 +555,17 @@ class _Attributions extends ConsumerWidget {
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
           entry(t.profile.attributionCommunes, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(
+            t.profile.attributionBdTopo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
+          ),
+          entry(t.profile.attributionPoiOdbl, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(
+            t.profile.attributionPoiLo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
+          ),
+          entry(t.profile.attributionPacks, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(t.profile.attributionOfflineLabels, 'https://github.com/protomaps/basemaps-assets'),
           entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
           entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
           entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),

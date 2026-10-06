@@ -19,3 +19,43 @@ LatLng centerForPadding(LatLng target, double zoom, EdgeInsets padding) {
   final lat = 180 / math.pi * math.atan(0.5 * (math.exp(n) - math.exp(-n)));
   return LatLng(lat, lon);
 }
+
+/// The camera that shows [bounds] whole in the part of a map of [size] left
+/// visible by [padding], no closer than [maxZoom].
+///
+/// Computed here rather than with MapLibre's bounds update: on Android and
+/// iOS that update leaves its padding on the camera, so every later move
+/// would centre on the part of the map that was free at the time of the fit
+/// (a target then lands under the search bar once a sheet has risen).
+({LatLng center, double zoom}) cameraForBounds(
+  GeoBounds bounds,
+  Size size,
+  EdgeInsets padding, {
+  double maxZoom = 18,
+}) {
+  double mercatorY(double lat) {
+    final s = math.sin(lat * math.pi / 180).clamp(-0.9999, 0.9999);
+    return 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi);
+  }
+
+  final x0 = (bounds.west + 180) / 360;
+  final x1 = (bounds.east + 180) / 360;
+  final y0 = mercatorY(bounds.north);
+  final y1 = mercatorY(bounds.south);
+  // A padding larger than the map (a window being resized) leaves one
+  // pixel, rather than a negative size.
+  final width = math.max(size.width - padding.horizontal, 1);
+  final height = math.max(size.height - padding.vertical, 1);
+  final spanX = math.max(x1 - x0, 1e-9);
+  final spanY = math.max(y1 - y0, 1e-9);
+  final zoom = math
+      .min(math.log(width / (512 * spanX)) / math.ln2, math.log(height / (512 * spanY)) / math.ln2)
+      .clamp(0.0, maxZoom);
+  final cy = (y0 + y1) / 2;
+  final n = math.pi - 2 * math.pi * cy;
+  final middle = LatLng(
+    180 / math.pi * math.atan(0.5 * (math.exp(n) - math.exp(-n))),
+    (x0 + x1) / 2 * 360 - 180,
+  );
+  return (center: centerForPadding(middle, zoom, padding), zoom: zoom);
+}

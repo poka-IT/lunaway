@@ -33,7 +33,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <li>Lunaway n'affiche aucune publicité, n'utilise aucun pisteur ni outil de mesure d'audience, et ne vend aucune donnée.</li>
 <li>Consulter la carte ne demande pas de compte. Tant que vous n'en créez pas, vos favoris, vos réglages et votre véhicule restent sur votre appareil.</li>
 <li>Le compte se crée quand vous contribuez pour la première fois ou synchronisez vos favoris. Il ne demande ni e-mail, ni téléphone, ni mot de passe.</li>
-<li>Votre position sert sur l'appareil. Quand elle part vers nos serveurs, pour un itinéraire, elle n'est ni enregistrée ni journalisée.</li>
+<li>Votre position sert sur l'appareil. Quand elle part vers nos serveurs pour un itinéraire, elle n'est ni enregistrée ni journalisée. Un signalement routier garde l'endroit signalé, relié à votre compte, pendant 14&nbsp;jours.</li>
 <li>Nos serveurs sont en Allemagne. Les journaux d'accès tronquent les adresses IP et sont effacés au bout de 14&nbsp;jours.</li>
 <li>Vous pouvez supprimer votre compte à tout moment, dans l'app ou sur la page <a href="/account/delete">Supprimer mon compte</a>.</li>
 </ul>
@@ -62,7 +62,9 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <li><strong>L'ouverture d'une fiche</strong> demande ses avis et ses photos. Le contenu de ces requêtes n'est ni enregistré ni journalisé&nbsp;; le journal d'accès garde l'adresse des fichiers photo téléchargés (voir <a href="#journaux">Journaux</a>).</li>
 <li><strong>Le fond de carte</strong> vient de tiles.lunaway.net. Chaque morceau de carte affiché correspond à une zone&nbsp;: le journal n'en garde que le niveau de zoom, jamais la zone.</li>
 <li><strong>Un itinéraire</strong>, fonction en préparation&nbsp;: le départ, l'arrivée, les étapes et les dimensions du véhicule partent dans le corps de la requête. Notre propre moteur calcule la route sur notre serveur, et ni la requête ni la route ne sont enregistrées ou journalisées.</li>
+<li><strong>Les travaux et fermetures de routes</strong>, fonction en préparation&nbsp;: pendant le guidage, l'app télécharge toutes les trois minutes les changements de toute la France. La requête ne contient aucune position.</li>
 <li><strong>La recherche</strong> de lieux et de communes se fait sur l'appareil. Quand l'app web interroge notre serveur, le texte cherché et le centre de la carte, qui sert à classer les résultats, partent dans le corps de la requête, sans être enregistrés ni journalisés.</li>
+<li><strong>La recherche de commerces et de services</strong> interroge notre serveur : le texte cherché et le centre de la carte, arrondi à environ 5 km pour classer les résultats, partent dans le corps de la requête, sans être enregistrés ni journalisés. Votre position n'en fait pas partie : les distances affichées sont calculées sur l'appareil.</li>
 </ul>
 
 <h2 id="compte">Votre compte, sans e-mail</h2>
@@ -88,6 +90,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <tr><td>Photo</td><td>l'image réencodée, avec votre pseudonyme</td><td>CC&nbsp;BY&nbsp;4.0</td></tr>
 <tr><td>Confirmation «&nbsp;toujours là&nbsp;?&nbsp;»</td><td>la date de la dernière confirmation du lieu, sans votre nom&nbsp;; votre note éventuelle ne va qu'aux modérateurs</td><td>base des lieux, ODbL&nbsp;1.0</td></tr>
 <tr><td>Signalement d'un problème (nuit interdite, service en panne, accès impossible, danger)</td><td>le nombre de signalements récents de chaque type, sans votre nom&nbsp;; votre note éventuelle ne va qu'aux modérateurs</td><td>base des lieux, ODbL&nbsp;1.0</td></tr>
+<tr><td>Signalement routier (route fermée, travaux, passage étroit, hauteur limitée, fin de l'évènement)</td><td>l'évènement, sans votre nom&nbsp;: sa position arrondie à une dizaine de mètres, le sens de circulation, la hauteur ou la largeur indiquée, et les heures du premier et du dernier signalement arrondies à l'heure</td><td>ODbL&nbsp;1.0</td></tr>
 <tr><td>Nouveau lieu, modification d'un lieu</td><td>les informations du lieu, dans la base des lieux, créditées aux «&nbsp;contributeurs Lunaway&nbsp;»</td><td>ODbL&nbsp;1.0</td></tr>
 <tr><td>Signalement d'un avis, d'une photo ou d'un lieu</td><td>rien&nbsp;: seuls les modérateurs le lisent</td><td>aucune</td></tr>
 </tbody>
@@ -95,13 +98,14 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 </section>
 <p>Les lieux, avec leurs ajouts et leurs modifications, forment une base de données ouverte sous licence <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, comme OpenStreetMap dont elle reprend des données. Les avis et les photos sont publiés sous licence <a href="https://creativecommons.org/licenses/by/4.0/deed.fr">CC&nbsp;BY&nbsp;4.0</a>, crédités à votre pseudonyme. Notre serveur garde aussi, pour chaque ajout ou modification de lieu, une révision qui le relie à votre compte&nbsp;; elle n'est pas publique.</p>
 <p><strong>Photos.</strong> Une photo part vers notre serveur telle qu'elle est sur votre appareil, avec ses métadonnées, dont la position GPS si l'appareil l'a notée. Le serveur la décode, puis la réencode à partir des seuls pixels en deux fichiers WebP (2048 et 512 pixels de côté)&nbsp;: aucune métadonnée ne survit, ni position, ni date, ni modèle d'appareil. L'original n'est pas conservé.</p>
+<p><strong>Signalements routiers.</strong> Un signalement enregistre, relié à votre compte, l'endroit signalé, votre sens de circulation, le type d'évènement, la hauteur ou la largeur indiquée et l'heure. Ces enregistrements ne sont pas publics. Ils servent à décider si l'évènement bloque les itinéraires de tous, ce qui demande deux comptes de niveau&nbsp;1 ou plus, et à la modération. Ils sont effacés au bout de 14&nbsp;jours, ou avec votre compte. Mis bout à bout, ceux d'un même compte montreraient par où il est passé&nbsp;: l'évènement publié ne porte donc ni votre nom, ni l'endroit exact, ni l'heure exacte.</p>
 <p><strong>Ce que vos contributions montrent.</strong> Vos avis et vos photos sont publics avec votre pseudonyme, et un identifiant de compte stable les relie entre eux. Mis bout à bout, avec leurs dates, ils peuvent montrer par où vous êtes passé. La date de visite d'un avis est facultative.</p>
 <p><strong>Modération.</strong> Les textes passent par des règles automatiques simples (liens, coordonnées de contact, répétitions, liste de mots). Un texte qui les déclenche attend un modérateur avant d'être publié. Un avis ou une photo signalé par trois comptes de confiance est masqué jusqu'à la décision d'un modérateur. Les modérateurs, l'éditeur et les contributeurs qu'il désigne, lisent les contenus signalés et les notes jointes aux confirmations et aux signalements.</p>
 <p>Vous pouvez supprimer chacune de vos contributions, ou tout votre compte&nbsp;: la page <a href="/account/delete">Supprimer mon compte</a> détaille ce qui part et ce qui reste.</p>
 
 <h2 id="position">Votre position</h2>
 <p>Si vous l'autorisez, l'app lit la position de l'appareil pour vous situer sur la carte, calculer les distances et suivre le coucher du soleil. Ces calculs se font sur l'appareil, qui ne garde qu'une position arrondie à une dizaine de kilomètres. L'app ne demande pas l'accès à la position en arrière-plan.</p>
-<p>Votre position ne quitte l'appareil que si vous demandez un itinéraire depuis l'endroit où vous êtes, et seulement dans cette requête, qui n'est ni enregistrée ni journalisée. Les confirmations «&nbsp;toujours là&nbsp;?&nbsp;» ne contiennent aucune position. Vous pouvez retirer l'autorisation à tout moment dans les réglages du système.</p>
+<p>Votre position ne quitte l'appareil que dans deux cas. Un itinéraire demandé depuis l'endroit où vous êtes l'emporte dans cette seule requête, qui n'est ni enregistrée ni journalisée. Un signalement routier l'enregistre, comme décrit dans <a href="#contributions">Ce que vous publiez</a>. Les confirmations «&nbsp;toujours là&nbsp;?&nbsp;» ne contiennent aucune position. Vous pouvez retirer l'autorisation à tout moment dans les réglages du système.</p>
 
 <h2 id="journaux">Journaux et limites anti-abus</h2>
 <p>Comme tout serveur web, les nôtres notent les requêtes reçues, pour la sécurité et le dépannage&nbsp;:</p>
@@ -118,6 +122,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <li>chiffrées avec age, sur un second serveur chez Hetzner à Nuremberg pendant 14&nbsp;jours, puis sur un ordinateur de l'éditeur, seul à détenir la clé de déchiffrement, pendant 29&nbsp;jours.</li>
 </ul>
 <p>Une donnée supprimée de la base, ou une photo supprimée, disparaît ainsi de toutes les sauvegardes en 30&nbsp;jours au plus.</p>
+<p>La suppression d'un compte est aussi notée, avec l'identifiant du compte et l'heure, dans un journal tenu hors des copies de la base et gardé 45&nbsp;jours au plus&nbsp;; une copie chiffrée en est faite chaque heure et part chaque nuit avec les sauvegardes, où elle remplace la précédente (46&nbsp;jours au plus). Si une panne nous oblige à remettre en service une sauvegarde, les suppressions de comptes faites depuis sa date sont appliquées de nouveau avant la remise en service. Une seule panne y échappe&nbsp;: la perte du disque de données du serveur lui-même. Les suppressions faites après la dernière copie recueillie hors de ce serveur (jusqu'à 25&nbsp;heures environ) reviendraient alors avec la sauvegarde.</p>
 
 <h2 id="hebergement">Hébergement et prestataires</h2>
 <ul>
@@ -136,10 +141,13 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <tr><td>Compte&nbsp;: clés publiques, pseudonyme, niveau, favoris synchronisés, auteurs masqués</td><td>jusqu'à la suppression du compte</td></tr>
 <tr><td>Sessions</td><td>60&nbsp;jours après leur dernière utilisation</td></tr>
 <tr><td>Contributions</td><td>jusqu'à leur suppression ou celle du compte&nbsp;; certaines restent alors sans auteur (voir <a href="/account/delete">Supprimer mon compte</a>)</td></tr>
+<tr><td>Signalements routiers&nbsp;: endroit, sens de circulation, heure, reliés au compte</td><td>14&nbsp;jours, ou jusqu'à la suppression du compte si elle vient avant</td></tr>
+<tr><td>Évènements routiers publiés, sans lien avec un compte</td><td>7&nbsp;jours après leur fin</td></tr>
 <tr><td>Journal d'accès</td><td>14&nbsp;jours</td></tr>
 <tr><td>Journal système</td><td>1&nbsp;mois au plus</td></tr>
 <tr><td>Compteurs anti-abus</td><td>en mémoire, de une minute à une journée, effacés à chaque redémarrage</td></tr>
 <tr><td>Sauvegardes</td><td>30&nbsp;jours au plus</td></tr>
+<tr><td>Journal des suppressions de comptes&nbsp;: identifiant du compte supprimé et heure</td><td>45&nbsp;jours au plus (46 dans ses copies)</td></tr>
 <tr><td>E-mails reçus à contact@lunaway.net</td><td>le temps de traiter votre demande</td></tr>
 <tr><td>Données sur votre appareil</td><td>jusqu'à la désinstallation de l'app, ou l'effacement des données du site dans le navigateur</td></tr>
 </tbody>

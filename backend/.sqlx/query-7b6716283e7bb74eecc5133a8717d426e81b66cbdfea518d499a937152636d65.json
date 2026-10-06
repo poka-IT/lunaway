@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO road_events AS r (id, source, external_id, external_version, situation_id,\n                class, detail, carriageway, direction, road_number, road_name, max_height_m,\n                max_width_m, max_length_m, max_weight_t, applies_to, valid_from, valid_to,\n                schedule, schedule_assumed, geom_source, match_quality, confidence, description,\n                detour, url, source_updated_at, first_seen_at, last_seen_at, ended_at,\n                end_reason, content_hash, raw, revision)\n            SELECT e.id, $1, e.external_id, e.external_version, e.situation_id, e.class,\n                e.detail, e.carriageway, e.direction, e.road_number, e.road_name,\n                e.max_height_m, e.max_width_m, e.max_length_m, e.max_weight_t, e.applies_to,\n                e.valid_from, e.valid_to, e.schedule, e.schedule_assumed,\n                ST_GeomFromText(e.geometry, 4326)::geography, e.match_quality, e.confidence,\n                e.description, e.detour, e.url, e.source_updated_at, $3, $3,\n                CASE WHEN e.end_reason IS NULL THEN NULL ELSE $3::timestamptz END,\n                e.end_reason, e.content_hash, e.raw, 0\n            FROM jsonb_to_recordset($2::jsonb) AS e(id uuid, external_id text,\n                external_version text, situation_id text, class text, detail text,\n                carriageway text, direction text, road_number text, road_name text,\n                max_height_m float8, max_width_m float8, max_length_m float8,\n                max_weight_t float8, applies_to text, valid_from timestamptz,\n                valid_to timestamptz, schedule jsonb, schedule_assumed boolean, geometry text,\n                match_quality text, confidence text, description text, detour text, url text,\n                source_updated_at timestamptz, end_reason text, content_hash text, raw text)\n            ON CONFLICT (source, external_id) DO UPDATE SET\n                external_version = EXCLUDED.external_version,\n                situation_id = EXCLUDED.situation_id,\n                class = EXCLUDED.class,\n                detail = EXCLUDED.detail,\n                carriageway = EXCLUDED.carriageway,\n                direction = EXCLUDED.direction,\n                road_number = EXCLUDED.road_number,\n                road_name = EXCLUDED.road_name,\n                max_height_m = EXCLUDED.max_height_m,\n                max_width_m = EXCLUDED.max_width_m,\n                max_length_m = EXCLUDED.max_length_m,\n                max_weight_t = EXCLUDED.max_weight_t,\n                applies_to = EXCLUDED.applies_to,\n                valid_from = EXCLUDED.valid_from,\n                valid_to = EXCLUDED.valid_to,\n                schedule = EXCLUDED.schedule,\n                schedule_assumed = EXCLUDED.schedule_assumed,\n                geom_source = EXCLUDED.geom_source,\n                -- The same place keeps its match; a new one is matched\n                -- again.\n                geom_matched = CASE\n                    WHEN ST_AsBinary(r.geom_source) = ST_AsBinary(EXCLUDED.geom_source)\n                        AND r.direction = EXCLUDED.direction\n                        AND r.carriageway = EXCLUDED.carriageway\n                    THEN r.geom_matched END,\n                match_quality = CASE\n                    WHEN ST_AsBinary(r.geom_source) = ST_AsBinary(EXCLUDED.geom_source)\n                        AND r.direction = EXCLUDED.direction\n                        AND r.carriageway = EXCLUDED.carriageway\n                        AND EXCLUDED.match_quality = 'pending'\n                        AND r.match_quality IN ('matched', 'unmatched')\n                    THEN r.match_quality ELSE EXCLUDED.match_quality END,\n                matched_graph_id = CASE\n                    WHEN ST_AsBinary(r.geom_source) = ST_AsBinary(EXCLUDED.geom_source)\n                        AND r.direction = EXCLUDED.direction\n                        AND r.carriageway = EXCLUDED.carriageway\n                    THEN r.matched_graph_id END,\n                confidence = EXCLUDED.confidence,\n                description = EXCLUDED.description,\n                detour = EXCLUDED.detour,\n                url = EXCLUDED.url,\n                source_updated_at = EXCLUDED.source_updated_at,\n                last_seen_at = EXCLUDED.last_seen_at,\n                -- An event the source carries again is live again, unless\n                -- this version ends it or its end is newer than this\n                -- publication.\n                ended_at = CASE\n                    WHEN EXCLUDED.end_reason IS NOT NULL\n                        THEN coalesce(r.ended_at, EXCLUDED.ended_at)\n                    WHEN r.ended_at IS NULL OR r.ended_at < $5\n                        OR ($4 AND EXCLUDED.external_version > r.external_version)\n                        THEN NULL\n                    ELSE r.ended_at END,\n                end_reason = CASE\n                    WHEN EXCLUDED.end_reason IS NOT NULL\n                        THEN coalesce(r.end_reason, EXCLUDED.end_reason)\n                    WHEN r.ended_at IS NULL OR r.ended_at < $5\n                        OR ($4 AND EXCLUDED.external_version > r.external_version)\n                        THEN NULL\n                    ELSE r.end_reason END,\n                content_hash = EXCLUDED.content_hash,\n                raw = EXCLUDED.raw\n            WHERE NOT ($4 AND r.external_version > EXCLUDED.external_version)\n            RETURNING old.id IS NULL AS \"inserted!\",\n                (old.content_hash IS DISTINCT FROM new.content_hash\n                    OR old.ended_at IS DISTINCT FROM new.ended_at) AS \"changed!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inserted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "changed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "7b6716283e7bb74eecc5133a8717d426e81b66cbdfea518d499a937152636d65"
+}

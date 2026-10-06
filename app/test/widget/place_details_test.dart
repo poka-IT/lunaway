@@ -56,6 +56,22 @@ void main() {
     expect(find.text('Confirmé il y a 3 mois'), findsOneWidget);
   });
 
+  testWidgets('a place missing after a finished download is said to be gone', (tester) async {
+    final app = await pumpLunaway(tester, size: const Size(1280, 2400));
+    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    await settleShort(tester);
+    expect(find.text(AppLocale.fr.buildSync().place.gone), findsOneWidget);
+  });
+
+  testWidgets('a place missing during the first download is said to be on its way', (tester) async {
+    final app = await pumpLunaway(tester, size: const Size(1280, 2400), neverSynced: true);
+    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    await settleShort(tester);
+    final t = AppLocale.fr.buildSync();
+    expect(find.text(t.place.arriving), findsOneWidget);
+    expect(find.text(t.place.gone), findsNothing);
+  });
+
   testWidgets('information unconfirmed for over a year is flagged', (tester) async {
     await openPlace(tester, campsite);
     expect(find.text("Pas confirmé depuis plus d'un an"), findsOneWidget);

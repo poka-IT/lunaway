@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
+import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
@@ -13,6 +15,7 @@ import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
+import 'package:lunaway/features/poi/presentation/place_surroundings.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -71,7 +74,14 @@ class PlaceDetails extends ConsumerWidget {
                 onClose: onClose,
                 bottomPadding: bottomPadding,
               ),
-      AsyncData() => _Gone(scrollController: scrollController, onClose: onClose),
+      // Not on the device yet while the first download runs (a shared link
+      // opened at first launch): it arrives with the download, and the page
+      // follows the stored place, so it opens by itself.
+      AsyncData() => _Gone(
+        scrollController: scrollController,
+        onClose: onClose,
+        arriving: ref.watch(syncStateProvider).value?.completedAt == null,
+      ),
       AsyncError() => ListView(
         controller: scrollController,
         children: [
@@ -90,10 +100,13 @@ class PlaceDetails extends ConsumerWidget {
 }
 
 class _Gone extends StatelessWidget {
-  const new({this.scrollController, this.onClose});
+  const new({this.scrollController, this.onClose, this.arriving = false});
 
   final ScrollController? scrollController;
   final VoidCallback? onClose;
+
+  /// The first download has not finished: the place may still come.
+  final bool arriving;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -107,7 +120,14 @@ class _Gone extends StatelessWidget {
             child: _CloseButton(onClose: onClose!),
           ),
         ),
-      MessageView(title: context.t.place.gone, hint: context.t.place.goneHint, compact: true),
+      if (arriving)
+        MessageView(
+          title: context.t.place.arriving,
+          hint: context.t.place.arrivingHint,
+          compact: true,
+        )
+      else
+        MessageView(title: context.t.place.gone, hint: context.t.place.goneHint, compact: true),
     ],
   );
 }
@@ -140,6 +160,7 @@ class PlaceDetailsBody extends ConsumerWidget {
         _Header(place: place, onClose: onClose),
         const SizedBox(height: Space.l),
         _NightCard(place: place, now: now),
+        PlaceCommunityNotes(place: place),
         PlacePhotos(place: place),
         gap,
         _Facts(place: place),
@@ -157,6 +178,7 @@ class PlaceDetailsBody extends ConsumerWidget {
                   ],
                 ),
         ),
+        PlaceSurroundings(place: place),
         gap,
         CoordinatesCard(position: place.position),
         if (place.descriptions.isNotEmpty || place.description != null)
@@ -313,7 +335,9 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        if (onClose != null) _CloseButton(onClose: onClose!),
+        const SizedBox(width: Space.xs),
+        PlaceMoreMenu(place: place),
+        if (onClose != null) ...[const SizedBox(width: Space.xs), _CloseButton(onClose: onClose!)],
       ],
     );
   }
@@ -383,6 +407,16 @@ class _NightCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          // Where a traveller judges how fresh the page is, the way to
+          // refresh it: two taps, no position sent.
+          Padding(
+            padding: const EdgeInsets.only(top: Space.xs),
+            child: OutlinedButton.icon(
+              onPressed: () => showConfirmSheet(context, placeId: place.id),
+              icon: const Icon(AppIcons.confirmed),
+              label: Text(t.contribute.stillThere),
+            ),
           ),
         ],
       ),

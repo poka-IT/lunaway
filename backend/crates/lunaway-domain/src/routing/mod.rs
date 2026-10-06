@@ -26,7 +26,10 @@ pub mod restriction;
 pub mod tags;
 pub mod vehicle;
 
-pub use corridor::{Hit, RouteLine, exclusion_ring, match_route};
+pub use corridor::{
+    Hit, Projection, RouteLine, exclusion_ring, heading, match_route, match_route_directed,
+    turn_between,
+};
 pub use record::{InvalidRecord, RestrictionRecord};
 pub use restriction::{
     Certainty, Finding, FindingKind, Restriction, RestrictionFeature, RestrictionKind,

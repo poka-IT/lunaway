@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/database/cache_database.dart';
@@ -11,9 +14,16 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/data/account_service.dart';
+import 'package:lunaway/features/account/data/device_keys.dart';
+import 'package:lunaway/features/account/data/secret_store.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -21,11 +31,15 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
+import 'fake_api.dart';
 import 'fakes.dart';
+import 'poi_fakes.dart';
 import 'samples.dart';
 
 const phone = Size(400, 860);
@@ -86,6 +100,9 @@ final class TestApp {
     required this.cache,
     required this.user,
     required this.location,
+    required this.secrets,
+    required this.files,
+    this.api,
   });
 
   final FakePlacesRepository places;
@@ -97,6 +114,11 @@ final class TestApp {
   final CacheDatabase cache;
   final UserDatabase user;
   final FakeLocationPermissions location;
+  final MemorySecretStore secrets;
+  final MemoryPendingFiles files;
+
+  /// The account and community API, when the test talks to one.
+  final FakeApi? api;
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
@@ -127,6 +149,12 @@ Future<TestApp> pumpLunaway(
   bool settle = true,
   BasemapTemplates basemap = BasemapTemplates.blank,
   AppConfig? config,
+  FakeApi? api,
+  bool signedIn = false,
+  FakePoiSource? pois,
+  MemoryPackFiles? packFiles,
+  bool? reachable = true,
+  http.Client? httpClient,
   // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
 }) async {
@@ -160,7 +188,14 @@ Future<TestApp> pumpLunaway(
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
     location: FakeLocationPermissions(),
+    secrets: MemorySecretStore(),
+    files: MemoryPendingFiles(),
+    api: api,
   );
+  if (api != null) {
+    addTearDown(() => expect(api.violations, isEmpty, reason: 'the API schema'));
+    if (signedIn) await seedAccount(app.secrets, api);
+  }
   // The in-memory databases are left to the garbage collector: closing one
   // waits for its queries, and a query the failed test left pending under
   // the fake clock never ends, which would hang the whole run.
@@ -182,16 +217,24 @@ Future<TestApp> pumpLunaway(
         userDatabaseProvider.overrideWithValue(app.user),
         locationPermissionsProvider.overrideWithValue(app.location),
         syncRetryDelaysProvider.overrideWithValue(const []),
+        // The account's secrets in memory: no keychain in a widget test.
+        secretStoreProvider.overrideWithValue(app.secrets),
+        pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
-        httpClientProvider.overrideWithValue(
-          demoApiClient(const [], apiBase: Uri.parse(testApiBase), latency: Duration.zero),
-        ),
+        httpClientProvider.overrideWithValue(httpClient ?? api?.client(_demo) ?? _demo),
         placeExtrasRepositoryProvider.overrideWithValue(
           PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
+        // The points of interest in memory, the basemap's host answering
+        // (or not, as the test says), the offline maps' folder in memory.
+        poiRepositoryProvider.overrideWithValue(
+          PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
+        ),
+        basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
+        packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
@@ -199,6 +242,29 @@ Future<TestApp> pumpLunaway(
   );
   if (settle) await settleShort(tester);
   return app;
+}
+
+final http.Client _demo = demoApiClient(
+  const [],
+  apiBase: Uri.parse(testApiBase),
+  latency: Duration.zero,
+);
+
+/// A device that already holds an account of [api]: its key, the account
+/// and a session, as a sign-in would have left them.
+Future<void> seedAccount(MemorySecretStore secrets, FakeApi api) async {
+  final key = SoftwareDeviceKey(BigInt.parse('1234567890abcdef1234567890abcdef', radix: 16));
+  api.addSession('seeded', key.publicJwk.thumbprint);
+  await secrets.write('device_key', key.toStored());
+  await secrets.write('account', jsonEncode(api.account()));
+  await secrets.write(
+    'session',
+    Session(
+      token: 'seeded',
+      expiresAt: testNow.add(const Duration(days: 30)),
+      openedAt: testNow.subtract(const Duration(hours: 1)),
+    ).toStored(),
+  );
 }
 
 /// Lets streams, futures and short animations finish; skeletons pulse for

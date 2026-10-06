@@ -19,8 +19,13 @@
 //! lunaway moderation ban <account-id> --reason TEXT
 //! lunaway moderation dismiss-issues <place-id>
 //! lunaway moderation hide-poi|show-poi <poi-id> [--note TEXT]
+//! lunaway moderation confirmations <place-id> [--limit 50]
+//! lunaway moderation remove-confirmation <confirmation-id>
 //! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
 //! lunaway accounts set-level <account-id> <level>
+//! lunaway accounts find <pseudonym>
+//! lunaway accounts delete <account-id> [--yes]
+//! lunaway accounts replay-deletions [--dry-run]
 //! lunaway routing fetch-ign [--refresh]
 //! lunaway routing prepare --pbf FILE --out DIR --graph-id ID --engine TEXT [--no-ign]
 //! lunaway routing test-routes --url http://127.0.0.1:8002 --cases FILE
@@ -28,6 +33,11 @@
 //! lunaway routing activate <graph id>
 //! lunaway routing graphs
 //! lunaway routing disputes [--limit 50]
+//! lunaway road-events poll [--only dir,dialog,...] [--force]
+//! lunaway road-events dialog-permanent
+//! lunaway road-events match [--limit 400]
+//! lunaway road-events stats
+//! lunaway moderation remove-road-report|end-road-event <id>
 //! ```
 //!
 //! The imports and the conflation run with the import role
@@ -35,11 +45,20 @@
 //! contributions, so they run with the API's role (`lunaway_app`), whose
 //! `DATABASE_URL` the API uses, and remove photo files under
 //! `LUNAWAY_MEDIA_DIR` like the API, so they run as the API's user.
+//! `accounts delete` writes the deletion to the journal under
+//! `LUNAWAY_DELETION_JOURNAL` first, as the API does, and `accounts
+//! replay-deletions` reads it after a restore (docs/deploy.md, "Backups
+//! and restore").
 //!
 //! The `routing` commands build and publish the motorhome routing graph
 //! (docs/deploy.md, "Routing"): `fetch-ign`, `prepare` and `test-routes`
 //! need no database, so a build machine runs them without one; `load`,
 //! `activate`, `graphs` and `disputes` run with the import role.
+//!
+//! The `road-events` commands read the feeds of closures and works
+//! (`docs/data-sources.md`, "Road events") with the import role; `poll`
+//! runs every three minutes on the server and matches the new events on
+//! the routing engine at `LUNAWAY_VALHALLA_URL` (loopback only).
 //!
 //! `DATABASE_URL` points at the database. Raw payloads are cached under
 //! `LUNAWAY_DATA_DIR/raw` (default: the repository's gitignored `data/`), so
@@ -76,6 +95,12 @@ struct Cli {
     /// moderation removes the files of removed photos.
     #[arg(long, env = "LUNAWAY_MEDIA_DIR", default_value_os_t = default_data_dir().join("media"))]
     media_dir: PathBuf,
+    /// Directory of the account deletion journal (the API's
+    /// `LUNAWAY_DELETION_JOURNAL`, with the same default): `accounts
+    /// delete` writes to it, `accounts replay-deletions` reads it after a
+    /// restore.
+    #[arg(long, env = "LUNAWAY_DELETION_JOURNAL", default_value_os_t = default_data_dir().join("account-deletions"))]
+    deletion_journal: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -125,6 +150,51 @@ enum Command {
         #[command(subcommand)]
         action: Routing,
     },
+    /// Road events: closures, works, temporary limits (with the import
+    /// role).
+    RoadEvents {
+        #[command(subcommand)]
+        action: RoadEvents,
+    },
+}
+
+#[derive(Subcommand)]
+enum RoadEvents {
+    /// Reads each feed when it is due (the DIR's increments at every run,
+    /// its aggregate hourly, DiaLog every 15 minutes, the cities hourly),
+    /// matches new events to the routing graph, ends and purges old ones.
+    /// Exits with an error when a feed failed, after the others ran.
+    Poll {
+        /// Only these sources (`dir`, `dialog`, `paris-fermetures`...),
+        /// comma separated.
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+        /// Reads every selected source now, due or not.
+        #[arg(long)]
+        force: bool,
+        /// An event without an end not seen for this many hours ends.
+        #[arg(long, default_value_t = 6)]
+        expire_after_hours: i64,
+        /// The routing engine for the matching (loopback only); none skips
+        /// it.
+        #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
+        valhalla_url: Option<String>,
+    },
+    /// Reads DiaLog's permanent orders and replaces their limits among the
+    /// restrictions every route is checked against. Weekly.
+    DialogPermanent,
+    /// Matches waiting events to the routing graph.
+    Match {
+        /// Events matched at most.
+        #[arg(long, default_value_t = 400)]
+        limit: i64,
+        /// The routing engine (loopback only).
+        #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
+        valhalla_url: String,
+    },
+    /// Prints the live events by source, class and placement, and each
+    /// feed's freshness.
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -264,6 +334,33 @@ enum Moderation {
         /// The point.
         poi: Uuid,
     },
+    /// Removes a user's road report: the community event it supported is
+    /// weighed again without it, and ends when none is left.
+    RemoveRoadReport {
+        /// The report.
+        report: Uuid,
+    },
+    /// Ends a community road event and removes its reports.
+    EndRoadEvent {
+        /// The event.
+        event: Uuid,
+    },
+    /// Prints the "still there?" answers of a place, newest first, with
+    /// their author (none once the account is deleted).
+    Confirmations {
+        /// The place.
+        place: Uuid,
+        /// Answers printed at most.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Removes a "still there?" answer, whoever wrote it (a false one, a
+    /// test left without author); the place's "last confirmed" date is
+    /// computed again.
+    RemoveConfirmation {
+        /// The answer.
+        confirmation: Uuid,
+    },
 }
 
 #[derive(Subcommand)]
@@ -286,6 +383,41 @@ enum Accounts {
         /// The level.
         #[arg(value_parser = clap::value_parser!(i16).range(0..=4))]
         level: i16,
+    },
+    /// Prints the accounts of a pseudonym (case aside), with what each
+    /// holds.
+    Find {
+        /// The pseudonym.
+        pseudonym: String,
+    },
+    /// Deletes an account exactly as `deleteAccount` does (published
+    /// reviews, confirmations and applied edits stay without author, the
+    /// rest goes, photo files included), written first to the deletion
+    /// journal. Without `--yes`, prints what it would delete.
+    Delete {
+        /// The account.
+        account: Uuid,
+        /// Deletes for real.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Writes into the deletion journal, each in the day it was made, the
+    /// deletions read from standard input: the lines of the journal's
+    /// off-site copy, decrypted. After the loss of the data volume, before
+    /// `replay-deletions`.
+    ImportDeletions,
+    /// After a restore, deletes again every account the deletion journal
+    /// names that the restored database still holds. Run it before the API
+    /// serves the restored database.
+    ReplayDeletions {
+        /// Counts them without deleting.
+        #[arg(long)]
+        dry_run: bool,
+        /// Accepts a journal that names no deletion (none in the days it
+        /// keeps); otherwise refused, since a journal not put back after
+        /// the loss of the data volume would bring deletions back.
+        #[arg(long)]
+        allow_empty: bool,
     },
 }
 
@@ -405,6 +537,17 @@ fn check_retirement(refused: &[&str]) -> anyhow::Result<()> {
 
 /// The repository's `data/` directory, known at build time: a development
 /// default. A deployment sets `LUNAWAY_DATA_DIR`.
+/// The journal's directory as the API reads `LUNAWAY_DELETION_JOURNAL`:
+/// trimmed, and `off` (how the API runs without a journal) or empty names
+/// none, so a deletion is refused rather than journaled into `./off`.
+fn journal_dir(raw: PathBuf) -> Option<PathBuf> {
+    match raw.to_str().map(str::trim) {
+        Some("off" | "") => None,
+        Some(trimmed) => Some(PathBuf::from(trimmed)),
+        None => Some(raw),
+    }
+}
+
 fn default_data_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data"))
 }
@@ -885,8 +1028,157 @@ async fn main() -> anyhow::Result<()> {
             let media = lunaway_media::MediaStore::new(cli.media_dir);
             moderation(&pool, &media, action).await?;
         }
-        Command::Accounts { action } => accounts(&pool, action).await?,
+        Command::Accounts { action } => {
+            let media = lunaway_media::MediaStore::new(cli.media_dir);
+            let journal =
+                journal_dir(cli.deletion_journal).map(lunaway_db::deletions::DeletionJournal::new);
+            accounts(&pool, &media, journal.as_ref(), action).await?;
+        }
+        Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Routing { .. } => unreachable!("handled before connecting"),
+    }
+    Ok(())
+}
+
+fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
+    println!(
+        "source             read  events  inserted  changed  unchanged  older  ended  increments  seconds"
+    );
+    for (id, r) in &report.sources {
+        println!(
+            "{:<18} {:<5} {:>6}  {:>8}  {:>7}  {:>9}  {:>5}  {:>5}  {:>10}  {:>7.2}{}{}",
+            id,
+            r.read,
+            r.events,
+            r.upsert.inserted,
+            r.upsert.changed,
+            r.upsert.unchanged,
+            r.upsert.older,
+            r.ended,
+            r.increments,
+            r.elapsed.as_secs_f64(),
+            r.refused
+                .map(|(live, seen)| format!(
+                    "  (snapshot of {seen} against {live} live: nothing ended)"
+                ))
+                .unwrap_or_default(),
+            r.error
+                .as_ref()
+                .map(|e| format!("  FAILED: {e}"))
+                .unwrap_or_default(),
+        );
+        if !r.skipped.is_empty() {
+            println!("  left out: {:?}", r.skipped);
+        }
+        if r.upsert.refused > 0 || r.upsert.duplicates > 0 {
+            println!(
+                "  refused by the store: {}, given twice: {}",
+                r.upsert.refused, r.upsert.duplicates
+            );
+        }
+    }
+    if let Some(m) = &report.matching {
+        println!(
+            "matched {}, could not place {}, refused by the engine {}, changed meanwhile {}{}",
+            m.matched,
+            m.unmatched,
+            m.refused,
+            m.stale,
+            if m.more { ", more waiting" } else { "" }
+        );
+    }
+    if let Some(l) = &report.lifecycle {
+        println!(
+            "lifecycle: {} past their end, {} expired, {} purged, {} reports purged",
+            l.past_end, l.expired, l.purged, l.reports_purged
+        );
+    }
+}
+
+async fn road_events(
+    pool: &lunaway_db::PgPool,
+    cache: &Cache,
+    action: RoadEvents,
+) -> anyhow::Result<()> {
+    use lunaway_ingest::road_events::{
+        matching::{self, Valhalla},
+        poll::{self, PollConfig},
+    };
+    let engine_of = |url: &str| {
+        Valhalla::new(url, Duration::from_secs(10))
+            .context("the routing engine must be a loopback http URL")
+    };
+    match action {
+        RoadEvents::Poll {
+            only,
+            force,
+            expire_after_hours,
+            valhalla_url,
+        } => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            let config = PollConfig {
+                only,
+                force,
+                expire_after: chrono::Duration::hours(expire_after_hours.max(1)),
+                ..PollConfig::default()
+            };
+            let engine = valhalla_url.as_deref().map(engine_of).transpose()?;
+            let report = poll::poll(pool, &client, cache, &config, engine.as_ref())
+                .await
+                .context("road events poll failed")?;
+            print_poll(&report);
+            if report.failed() {
+                anyhow::bail!("a road events feed failed or looked truncated; the others ran");
+            }
+        }
+        RoadEvents::DialogPermanent => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            let r = poll::dialog_permanent(
+                pool,
+                &client,
+                cache,
+                poll::DIALOG_PERMANENT_URL,
+                &["dialog.beta.gouv.fr".to_owned()],
+                RetryPolicy::PATIENT,
+            )
+            .await
+            .context("DiaLog permanent orders failed")?;
+            println!(
+                "DiaLog permanent orders: {} read, {} restrictions stored; left out: {:?}",
+                r.orders, r.stored, r.skipped
+            );
+        }
+        RoadEvents::Match {
+            limit,
+            valhalla_url,
+        } => {
+            let engine = engine_of(&valhalla_url)?;
+            let r = matching::match_pending(pool, &engine, limit, Duration::from_secs(3_600))
+                .await
+                .context("matching failed")?;
+            println!(
+                "matched {}, could not place {}, refused by the engine {}, changed meanwhile {}{}",
+                r.matched,
+                r.unmatched,
+                r.refused,
+                r.stale,
+                if r.more { ", more waiting" } else { "" }
+            );
+        }
+        RoadEvents::Stats => {
+            let now = chrono::Utc::now();
+            for s in lunaway_db::road_events::sources(pool).await? {
+                let age = s.last_success_at.map_or_else(
+                    || "never read".to_owned(),
+                    |t| format!("read {} s ago", (now - t).num_seconds()),
+                );
+                println!("{:<18} {age}, stale after {} s", s.id, s.stale_after_s);
+            }
+            println!("source             class             placement  live");
+            for (source, class, quality, n) in lunaway_db::road_events::live_counts(pool).await? {
+                println!("{source:<18} {class:<17} {quality:<10} {n:>5}");
+            }
+        }
     }
     Ok(())
 }
@@ -1190,6 +1482,51 @@ async fn moderation(
             println!("point {poi} shown again; the worker applies it within seconds");
             return Ok(());
         }
+        Moderation::RemoveRoadReport { report } => {
+            if !lunaway_db::road_events::remove_report(pool, report).await? {
+                anyhow::bail!("no active road report {report}");
+            }
+            println!("road report {report} removed; its event weighed again");
+            return Ok(());
+        }
+        Moderation::EndRoadEvent { event } => {
+            if !lunaway_db::road_events::end_community_event(pool, event).await? {
+                anyhow::bail!("no live community road event {event}");
+            }
+            println!("community road event {event} ended, its reports removed");
+            return Ok(());
+        }
+        Moderation::Confirmations { place, limit } => {
+            let rows =
+                lunaway_db::moderation::confirmations_of_place(pool, place, limit.clamp(1, 1_000))
+                    .await?;
+            if rows.is_empty() {
+                println!("no confirmation of {place}");
+            }
+            for c in rows {
+                println!(
+                    "{}  {}  {:<8}  {}  by {}",
+                    c.id,
+                    c.created_at.format("%Y-%m-%d %H:%M:%S UTC"),
+                    c.status,
+                    c.place_id,
+                    match (&c.author, c.account_id) {
+                        (Some(name), Some(id)) => format!("{name} ({id})"),
+                        _ => "a deleted account".to_owned(),
+                    }
+                );
+            }
+            return Ok(());
+        }
+        Moderation::RemoveConfirmation { confirmation } => {
+            let Some(place) =
+                lunaway_db::moderation::remove_confirmation(pool, confirmation).await?
+            else {
+                anyhow::bail!("no confirmation {confirmation}");
+            };
+            println!("confirmation {confirmation} removed; place {place} queued for the worker");
+            return Ok(());
+        }
     };
     match decide(pool, id, decision, note.as_deref()).await? {
         Decided::NotFound => anyhow::bail!("no open entry {id}"),
@@ -1206,7 +1543,32 @@ async fn moderation(
     Ok(())
 }
 
-async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result<()> {
+fn print_summary(s: &lunaway_db::accounts::AccountSummary) {
+    let a = &s.account;
+    println!(
+        "{}  {}  created {}  level {} (granted {}){}",
+        a.id,
+        a.pseudonym,
+        a.created_at.format("%Y-%m-%d %H:%M UTC"),
+        a.trust_level,
+        a.granted_level,
+        a.banned_at
+            .map(|b| format!("  banned {}", b.format("%Y-%m-%d")))
+            .unwrap_or_default()
+    );
+    println!(
+        "    devices {}  reviews {}  photos {}  confirmations {}  issues {}  \
+         submissions {}  road reports {}",
+        s.devices, s.reviews, s.photos, s.confirmations, s.issues, s.submissions, s.road_reports
+    );
+}
+
+async fn accounts(
+    pool: &lunaway_db::PgPool,
+    media: &lunaway_media::MediaStore,
+    journal: Option<&lunaway_db::deletions::DeletionJournal>,
+    action: Accounts,
+) -> anyhow::Result<()> {
     match action {
         Accounts::CreateDemo { level, pseudonym } => {
             let pseudonym = match pseudonym {
@@ -1234,6 +1596,93 @@ async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result
                 "no account {account}"
             );
             println!("account {account}: level {level} granted");
+        }
+        Accounts::Find { pseudonym } => {
+            let found = lunaway_db::accounts::find_by_pseudonym(pool, &pseudonym).await?;
+            if found.is_empty() {
+                println!("no account named {pseudonym:?}");
+            }
+            for s in &found {
+                print_summary(s);
+            }
+        }
+        Accounts::Delete { account, yes } => {
+            let Some(summary) = lunaway_db::accounts::summary(pool, account).await? else {
+                anyhow::bail!("no account {account}");
+            };
+            print_summary(&summary);
+            if !yes {
+                println!(
+                    "not deleted: run again with --yes to delete it as deleteAccount does \
+                     (published reviews, confirmations and applied edits stay without author)"
+                );
+                return Ok(());
+            }
+            // A deletion missing from the journal would come back with the
+            // next restore: on the server the journal is required.
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: a deletion must be journaled \
+                 (--deletion-journal DIR)",
+            )?;
+            let deleted =
+                lunaway_db::deletions::delete_recorded(pool, Some(journal), account).await?;
+            let Some(d) = deleted else {
+                anyhow::bail!("account {account} disappeared meanwhile");
+            };
+            println!(
+                "account {account} deleted: {} published reviews kept without author, \
+                 {} photos deleted",
+                d.anonymised_reviews, d.deleted_photos
+            );
+            remove_files(media, &d.orphan_files).await?;
+        }
+        Accounts::ImportDeletions => {
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: name the journal's directory \
+                 (--deletion-journal DIR)",
+            )?;
+            let lines = tokio::task::spawn_blocking(|| {
+                let mut lines = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut lines).map(|_| lines)
+            })
+            .await?
+            .context("reading the deletions from standard input")?;
+            let imported = journal.import(lines).await?;
+            println!(
+                "journal {}: {} deletions written into their days, {} unreadable lines",
+                journal.dir().display(),
+                imported.written,
+                imported.unreadable
+            );
+        }
+        Accounts::ReplayDeletions {
+            dry_run,
+            allow_empty,
+        } => {
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: name the journal's directory \
+                 (--deletion-journal DIR)",
+            )?;
+            let r = lunaway_db::deletions::replay(pool, journal, dry_run, allow_empty).await?;
+            if dry_run {
+                println!(
+                    "journal {}: {} accounts, {} of them still in this database \
+                     (nothing deleted: dry run), {} unreadable lines",
+                    journal.dir().display(),
+                    r.accounts,
+                    r.deleted,
+                    r.unreadable
+                );
+            } else {
+                println!(
+                    "journal {}: {} accounts, {} deleted again, {} unreadable lines",
+                    journal.dir().display(),
+                    r.accounts,
+                    r.deleted,
+                    r.unreadable
+                );
+                remove_files(media, &r.orphan_files).await?;
+            }
         }
     }
     Ok(())

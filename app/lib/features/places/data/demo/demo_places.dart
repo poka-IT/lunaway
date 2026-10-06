@@ -1,8 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' show Color;
+
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/shared/images/thumbhash.dart';
 
 /// Synthetic places for the demo mode and the tests: real towns, invented
 /// spots. Every name ends with "(démo)" so no one mistakes them for real
@@ -395,6 +400,12 @@ const List<_Text> _descriptions = [
           sourceId: demoCommunitySource.id,
           thumbUrl: '$apiBase/media/demo-$n/thumb',
           largeUrl: '$apiBase/media/demo-$n/large',
+          width: 1200,
+          height: 900,
+          thumbhash: _sceneHash(n),
+          authorId: _demoId(3, (seed + i) % 400),
+          authorName: 'Voyageur démo ${1 + (seed + i) % 400}',
+          createdAt: DateTime.utc(2026, 9, 3).subtract(Duration(days: i * 11)),
         );
       }(),
   ];
@@ -415,6 +426,40 @@ const List<_Text> _descriptions = [
   ];
   return (photos: photos, reviews: reviews);
 }
+
+/// The sky and the ground of each drawn demo landscape
+/// (`demo_server.dart`), for its placeholder.
+const _sceneColours = [
+  (0xFF9CC9E8, 0xFFF5D9A8, 0xFF3F6B4F),
+  (0xFFF2A65A, 0xFFF7D08A, 0xFF4B3F63),
+  (0xFF061F43, 0xFF15576D, 0xFF15576D),
+  (0xFFA8D5E2, 0xFFE8F1F2, 0xFF2F5D50),
+  (0xFFC9E4CA, 0xFF87BBA2, 0xFF364958),
+  (0xFF0B2A52, 0xFF2C5F8A, 0xFF123A4E),
+];
+
+final _sceneHashes = <int, String>{};
+
+/// The ThumbHash of demo landscape [n] (1 to 6): its sky over its ground.
+String _sceneHash(int n) => _sceneHashes.putIfAbsent(n, () {
+  final (top, bottom, ground) = _sceneColours[(n - 1) % _sceneColours.length];
+  const w = 32;
+  const h = 24;
+  final rgba = Uint8List(w * h * 4);
+  for (var y = 0; y < h; y++) {
+    final t = y / (h * 0.65);
+    final c = y > h * 0.65 ? ground : Color.lerp(Color(top), Color(bottom), t)!.toARGB32();
+    for (var x = 0; x < w; x++) {
+      final i = (y * w + x) * 4;
+      rgba
+        ..[i] = (c >> 16) & 255
+        ..[i + 1] = (c >> 8) & 255
+        ..[i + 2] = c & 255
+        ..[i + 3] = 255;
+    }
+  }
+  return base64.encode(ThumbHash.encode(w, h, rgba));
+});
 
 const _reviews = [
   'Avis inventé pour la démo. Nuit calme, accueil sympathique, on reviendra.',

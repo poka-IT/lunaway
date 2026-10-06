@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO road_events (id, source, external_id, external_version, class, detail,\n                carriageway, direction, heading_deg, valid_from, valid_to, geom_source,\n                match_quality, confidence, first_seen_at, last_seen_at, content_hash, raw,\n                revision)\n            VALUES ($1, 'community', $7, '0000000001', 'closure', $2, 'unknown',\n                'unknown', NULL, $3, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography,\n                'point', 'reported', $3, $3, 'new', $6, 0)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Float8",
+        "Float8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cebf02d32c4d973ed1bf581ea2b680cf1dbeb28ed6e1fc09f274107f089e2267"
+}

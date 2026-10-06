@@ -9,11 +9,55 @@ import 'package:meta/meta.dart';
 /// test validates against `schema/lunaway.graphql`.
 @immutable
 final class GraphQLOperation<T> {
-  const new({required this.name, required this.document, required this.parse});
+  const new({required this.name, required this.document, required this.parse, this.older});
 
   final String name;
   final String document;
   final T Function(Map<String, dynamic> data) parse;
+
+  /// The same request for an API that predates an argument or an input
+  /// field this one sends: the client sends it when the server answers that
+  /// it does not know one (an app published before the API it was built
+  /// against).
+  final OlderForm? older;
+}
+
+/// An operation as an older API reads it: [document] without the arguments
+/// it does not know, and [variables] that drops what they carried.
+@immutable
+final class OlderForm {
+  const new({required this.document, required this.variables, this.usable = _always});
+
+  /// The form of [document] without [arguments]: their variables and their
+  /// uses, wherever they stand on a line. [usable] says which requests may
+  /// go in it: one whose meaning needs an argument the older API lacks
+  /// waits for the API instead.
+  factory without(
+    String document,
+    Set<String> arguments, {
+    bool Function(Map<String, Object?> variables) usable = _always,
+  }) {
+    var older = document;
+    for (final a in arguments) {
+      older = older
+          .replaceAll(RegExp(r',?\s*\$' + a + r':\s*[A-Za-z_!\[\]]+'), '')
+          .replaceAll(RegExp(r',?\s*\b' + a + r':\s*\$' + a + r'\b'), '');
+    }
+    return OlderForm(
+      document: older,
+      variables: (v) => {
+        for (final MapEntry(:key, :value) in v.entries)
+          if (!arguments.contains(key)) key: value,
+      },
+      usable: usable,
+    );
+  }
+
+  final String document;
+  final Map<String, Object?> Function(Map<String, Object?> variables) variables;
+  final bool Function(Map<String, Object?> variables) usable;
+
+  static bool _always(Map<String, Object?> _) => true;
 }
 
 /// Everything the offline store keeps of a place. Photos and reviews are
@@ -55,15 +99,38 @@ fragment PlaceFields on Place {
   descriptions { lang text sourceId }
   ratings { sourceId average count }
   externalLinks { sourceId url label }
+  verification
+  reviewCount
+  photoCount
+  coverPhotos { id sourceId thumbUrl largeUrl width height thumbhash authorId }
+  reportedIssues { kind count lastReportedAt }
 }
 ''';
 
 const _reviewFields = '''
 fragment ReviewFields on ReviewConnection {
-  nodes { id sourceId rating text lang authorName authorVehicle visitedAt createdAt }
+  nodes { id sourceId rating text lang authorName authorId authorVehicle visitedAt createdAt }
   endCursor
   hasNextPage
   totalCount
+}
+''';
+
+/// The reader's own review of a place: every status, with the place.
+const myReviewFields = '''
+fragment MyReviewFields on Review {
+  id
+  sourceId
+  placeId
+  rating
+  text
+  lang
+  authorName
+  authorId
+  authorVehicle
+  visitedAt
+  createdAt
+  status
 }
 ''';
 
@@ -115,23 +182,31 @@ Map<String, Object?> changesVariables({required GeoBounds bbox, String? since, i
       'first': first,
     };
 
-/// The photos and the first page of reviews of a place; null when the place
-/// no longer exists.
-final extrasOperation = GraphQLOperation<({List<Photo> photos, ReviewPage reviews})?>(
+/// What a place shows online: its photos, the first page of reviews, and
+/// the reader's own review (null when anonymous); null when the place no
+/// longer exists.
+typedef PlaceExtrasRead = ({List<Photo> photos, ReviewPage reviews, Review? myReview});
+
+final extrasOperation = GraphQLOperation<PlaceExtrasRead?>(
   name: 'PlaceExtras',
   document: '''
 query PlaceExtras(\$id: UUID!, \$first: Int) {
   place(id: \$id) {
     id
-    photos { id sourceId thumbUrl largeUrl }
+    photos { id sourceId thumbUrl largeUrl width height thumbhash authorId authorName createdAt }
     reviews(first: \$first) { ...ReviewFields }
+    myReview { ...MyReviewFields }
   }
 }
-$_reviewFields''',
+$_reviewFields$myReviewFields''',
   parse: (data) {
     final place = data['place'];
     if (place is! Map<String, dynamic>) return null;
-    return (photos: photosFromJson(place['photos']), reviews: reviewPageFromJson(place['reviews']));
+    return (
+      photos: photosFromJson(place['photos']),
+      reviews: reviewPageFromJson(place['reviews']),
+      myReview: reviewFromJson(place['myReview']),
+    );
   },
 );
 

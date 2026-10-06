@@ -23,8 +23,12 @@ impl SourceId {
     pub const OSM: Self = Self(Cow::Borrowed("osm"));
     /// Atout France, classified accommodation.
     pub const ATOUT_FRANCE: Self = Self(Cow::Borrowed("atout-france"));
-    /// Contributions of Lunaway users.
+    /// Contributions of Lunaway users that join the databases under the
+    /// ODbL: new places, place edits, the points they add, road reports.
     pub const COMMUNITY: Self = Self(Cow::Borrowed("community"));
+    /// Reviews, ratings and photos of Lunaway users, published under
+    /// CC BY 4.0 outside the places database.
+    pub const COMMUNITY_CC_BY: Self = Self(Cow::Borrowed("community-cc-by"));
     /// The fuel price feed of the French ministry of the economy, joined to
     /// fuel stations by their id in the feed.
     pub const FUEL_PRICES: Self = Self(Cow::Borrowed("prix-carburants"));
@@ -89,6 +93,7 @@ mod tests {
             SourceId::OSM,
             SourceId::ATOUT_FRANCE,
             SourceId::COMMUNITY,
+            SourceId::COMMUNITY_CC_BY,
             SourceId::FUEL_PRICES,
             SourceId::LAPOSTE,
             SourceId::FINESS,

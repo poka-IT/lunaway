@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
-import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
 /// The fuel stations around a point, with their prices and whether they
 /// are open now (`nearbyPois`).
@@ -65,7 +65,7 @@ final class NearbyFuelStations implements FuelStationsSource {
   Future<List<FuelOffer>> along({
     required List<LatLng> route,
     required double fromM,
-    required VehicleFuel fuel,
+    required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
   }) async {
     final points = [for (var i = 0; i < _samples; i++) ?_pointAt(route, fromM + i * _spacingM)];
@@ -91,7 +91,7 @@ final class NearbyFuelStations implements FuelStationsSource {
     Map<String, dynamic> poi, {
     required List<LatLng> route,
     required double fromM,
-    required VehicleFuel fuel,
+    required FuelType fuel,
   }) {
     final info = poi['fuel'];
     if (info is! Map<String, dynamic>) return null;

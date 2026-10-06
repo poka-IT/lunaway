@@ -338,7 +338,7 @@ final class FuelOffersProvider
   }
 }
 
-String _$fuelOffersHash() => r'c5af96b734965b6963a21a987d90c30898eea96c';
+String _$fuelOffersHash() => r'3a2b1ad7361dec9ca5ef510372e016a20a9ed325';
 
 /// The stations of [query], cheapest first, the detour counted at the
 /// vehicle's consumption. A failure shows at once (`noRetry`).

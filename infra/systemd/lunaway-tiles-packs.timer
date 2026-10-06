@@ -1,0 +1,15 @@
+# Daily, after the monthly refresh's window (the 2nd, 05:00 UTC plus up to
+# 30 minutes, about 45 minutes of work): a run that finds the manifest
+# naming the served build does nothing; one after a failed pack run, or
+# after a refresh whose own trigger did not fire, builds the packs. A missed
+# run happens at the next boot.
+[Unit]
+Description=Lunaway basemap: daily check of the offline packs
+
+[Timer]
+OnCalendar=*-*-* 07:15
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

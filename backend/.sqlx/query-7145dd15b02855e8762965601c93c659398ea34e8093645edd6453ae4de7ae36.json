@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT match_quality FROM road_events WHERE external_id = 'r1'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "match_quality",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_quality"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7145dd15b02855e8762965601c93c659398ea34e8093645edd6453ae4de7ae36"
+}

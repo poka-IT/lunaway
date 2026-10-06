@@ -533,13 +533,13 @@ final class FakeFuelStations implements FuelStationsSource {
   new(this.offers);
 
   final List<FuelOffer> offers;
-  final List<({double fromM, VehicleFuel fuel})> queries = [];
+  final List<({double fromM, FuelType fuel})> queries = [];
 
   @override
   Future<List<FuelOffer>> along({
     required List<LatLng> route,
     required double fromM,
-    required VehicleFuel fuel,
+    required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
   }) async {
     queries.add((fromM: fromM, fuel: fuel));

@@ -528,13 +528,13 @@ impl Place {
             .collect()
     }
 
-    /// Ratings by source: Lunaway users' under `community`; empty while
-    /// nobody rated the place.
+    /// Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+    /// 4.0, with their reviews); empty while nobody rated the place.
     async fn ratings(&self) -> Vec<SourceRating> {
         let c = &self.0.community;
         match c.rating_avg {
             Some(average) if c.rating_count > 0 => vec![SourceRating {
-                source_id: lunaway_domain::SourceId::COMMUNITY.to_string(),
+                source_id: lunaway_domain::SourceId::COMMUNITY_CC_BY.to_string(),
                 average,
                 count: c.rating_count,
             }],

@@ -32,9 +32,18 @@ VIEWPORTS = {"phone": (412, 732, 2.625, True), "tablet": (800, 1280, 2, True), "
 PAGES = {
     "map": "#/map",
     "place": "#/map?place={place}",
+    "poi": "#/map?poi={poi}",
+    "route": "#/route?{route}",
+    "offline-maps": "#/profile/offline-maps",
     "favorites": "#/favorites",
     "profile": "#/profile",
-    "route": "#/route?{route}",
+    # The account's pages, by their links (reached from the profile in the app).
+    "recover": "#/profile/recover",
+    "recovery-card": "#/profile/recovery-card",
+    "contributions": "#/profile/contributions",
+    "devices": "#/profile/devices",
+    "muted": "#/profile/muted",
+    "delete-account": "#/profile/delete-account",
 }
 
 
@@ -109,11 +118,57 @@ async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, w
         print(f"captured {path}", flush=True)
 
 
+async def recover(ws_url, base_url, code, out):
+    """Brings the account of [code] into the browser profile, as a person
+    would: the recovery page, the code typed into its field, the keyboard's
+    go key. The key then stays in the profile's IndexedDB for the shots."""
+    import websockets
+
+    async with websockets.connect(ws_url, max_size=100_000_000) as ws:
+        ids = iter(range(1, 1_000_000))
+
+        async def call(method, params=None):
+            mid = next(ids)
+            await ws.send(json.dumps({"id": mid, "method": method, "params": params or {}}))
+            while True:
+                msg = json.loads(await ws.recv())
+                if msg.get("id") == mid:
+                    return msg.get("result", {})
+
+        width, height, scale, mobile = VIEWPORTS["phone"]
+        await call("Emulation.setDeviceMetricsOverride", {
+            "width": width, "height": height, "deviceScaleFactor": scale, "mobile": mobile,
+        })
+        await call("Page.enable")
+        await call("Page.navigate", {"url": "about:blank"})
+        await asyncio.sleep(0.3)
+        await call("Page.navigate", {"url": base_url + PAGES["recover"]})
+        await asyncio.sleep(12)
+        # The code field sits under the page title and its two lines of
+        # introduction, across the width of the phone.
+        for kind in ("mousePressed", "mouseReleased"):
+            await call("Input.dispatchMouseEvent", {
+                "type": kind, "x": width / 2, "y": 160, "button": "left", "clickCount": 1,
+            })
+        await asyncio.sleep(1)
+        await call("Input.insertText", {"text": code})
+        await asyncio.sleep(1)
+        for kind in ("keyDown", "keyUp"):
+            await call("Input.dispatchKeyEvent", {
+                "type": kind, "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13,
+            })
+        await asyncio.sleep(8)
+        shot = await call("Page.captureScreenshot", {"format": "png"})
+        with open(os.path.join(out, "recover-step.png"), "wb") as f:
+            f.write(base64.b64decode(shot["data"]))
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--url", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--place", default="demo-0002")
+    p.add_argument("--poi", default="", help="a point of interest to open (the poi page)")
     p.add_argument("--route", default="45.845089,1.286339,Rue Maurice Utrillo",
                    help="lat,lon,name of the destination of the route page")
     p.add_argument("--geo", help="lat,lon: the browser's position")
@@ -122,6 +177,7 @@ def main():
     p.add_argument("--schemes", default="light,dark")
     p.add_argument("--viewports", default=",".join(VIEWPORTS))
     p.add_argument("--pages", default=",".join(PAGES))
+    p.add_argument("--recover", help="a recovery code to bring its account into the profile first")
     p.add_argument("--profile", default="web-capture-browser",
                    help="browser profile directory under data/tmp; a new name starts from an empty store")
     args = p.parse_args()
@@ -151,13 +207,15 @@ def main():
             except OSError:
                 time.sleep(0.2)
         page = next(t for t in tabs if t["type"] == "page")["webSocketDebuggerUrl"]
+        if args.recover:
+            asyncio.run(recover(page, args.url, args.recover, out))
         for lang in args.langs.split(","):
             for scheme in args.schemes.split(","):
                 for vp in args.viewports.split(","):
                     w, h, scale, mobile = VIEWPORTS[vp]
                     for name in args.pages.split(","):
                         frag = PAGES[name]
-                        url = args.url + frag.format(place=args.place, route=route)
+                        url = args.url + frag.format(place=args.place, poi=args.poi, route=route)
                         path = os.path.join(out, f"{lang}-{vp}-{scheme}-{name}.png")
                         asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir, geo))
     finally:

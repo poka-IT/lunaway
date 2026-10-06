@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<d2:payload
+  modelBaseVersion="3"
+  lang="FR"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:d2="http://datex2.eu/schema/3/d2Payload"
+  xmlns:com="http://datex2.eu/schema/3/common"
+  xmlns:comx="http://datex2.eu/schema/3/commonExtension"
+  xmlns:loc="http://datex2.eu/schema/3/locationReferencing"
+  xmlns:dx="https://raw.githubusercontent.com/MTES-MCT/dialog/main/docs/spec/datex2"
+  xmlns="http://datex2.eu/schema/3/trafficRegulation"
+  xsi:schemaLocation="http://datex2.eu/schema/3/d2Payload/DATEXII_3_D2Payload.xsd"
+  xsi:type="TrafficRegulationPublication"
+  id="910928b3-58a1-4462-881b-53dec84602f9"
+>
+    <com:publicationTime>2026-10-06T10:02:09+00:00</com:publicationTime>
+    <com:publicationCreator>
+        <com:country>fr</com:country>
+        <com:nationalIdentifier>DiaLog</com:nationalIdentifier>
+    </com:publicationCreator>
+
+    <trafficRegulationsFromCompetentAuthorities>
+                                            <trafficRegulationOrder id="019f1d8d-83a6-74d1-96de-dedd283865da" version="1">
+                <description>
+                    <com:values>
+                        <com:value>LYON_2009RP06836</com:value>
+                    </com:values>
+                </description>
+                <issuingAuthority>
+                    <com:values>
+                        <com:value>Lyon (métropole)</com:value>
+                    </com:values>
+                </issuingAuthority>
+                <regulationId>LYON_2009RP06836#01939c68-7a18-7263-a901-e8464281371b</regulationId>
+                <status>madeAndImplemented</status>
+
+                <validityByOrder>
+                    <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                    <com:validityTimeSpecification>
+                        <com:overallStartTime>2011-04-26T22:00:00+00:00</com:overallStartTime>
+                                            </com:validityTimeSpecification>
+                </validityByOrder>
+
+                                    <trafficRegulation>
+                        <status>active</status>
+                                                    <typeOfRegulation xsi:type="AccessRestriction">
+                                <accessRestrictionType>noEntry</accessRestrictionType>
+                            </typeOfRegulation>
+                        
+                        <condition xsi:type="ConditionSet">
+                            <operator>and</operator>
+
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                            <conditions xsi:type="ValidityCondition">
+                                            <validityByOrder>
+                                                <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                                                <com:validityTimeSpecification>
+                                                    <com:overallStartTime>2011-04-26T22:00:00+00:00</com:overallStartTime>
+
+                                                    
+                                                                                                    </com:validityTimeSpecification>
+                                            </validityByOrder>
+                                        </conditions>
+                                                                    </conditions>
+                            
+                            <conditions xsi:type="ConditionSet">
+                                <operator>or</operator>
+                                                                    <conditions xsi:type="LocationCondition">
+                                        <locationByOrder xsi:type="loc:LinearLocation">
+                                            <loc:supplementaryPositionalDescription>
+                                                                                                    <loc:locationDescription>
+                                                        <com:values>
+                                                            <com:value>pont Masaryk</com:value>
+                                                        </com:values>
+                                                    </loc:locationDescription>
+                                                                                            </loc:supplementaryPositionalDescription>
+                                            <loc:_linearLocationExtension>
+                                                <loc:linearLocationExtended>
+                                                    <dx:geoJsonGeometry>{&quot;type&quot;:&quot;MultiLineString&quot;,&quot;coordinates&quot;:[[[4.810382947,45.778128454],[4.808175688,45.778506378]]]}</dx:geoJsonGeometry>
+                                                </loc:linearLocationExtended>
+                                            </loc:_linearLocationExtension>
+                                        </locationByOrder>
+                                    </conditions>
+                                                            </conditions>
+
+                            
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                                                                        <conditions xsi:type="VehicleCondition">
+                                                <negate>false</negate>
+                                                <vehicleCharacteristics>
+                                                                                                                                                                                                                                        <com:heightCharacteristic>
+                                                                    <com:comparisonOperator>lessThanOrEqualTo</com:comparisonOperator>
+                                                                    <com:vehicleHeight>1.9</com:vehicleHeight>
+                                                                </com:heightCharacteristic>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                </vehicleCharacteristics>
+                                            </conditions>
+                                                                                                            </conditions>
+                                                    </condition>
+                    </trafficRegulation>
+                
+                <_trafficRegulationOrderExtension>
+                    <trafficRegulationOrderExtended>
+                        <dx:source>api</dx:source>
+                        <dx:publicUrl>https://dialog.beta.gouv.fr/regulations/019f1d8d-83a6-76ad-96de-dedd284e2244</dx:publicUrl>
+                    </trafficRegulationOrderExtended>
+                </_trafficRegulationOrderExtension>
+            </trafficRegulationOrder>
+<trafficRegulationOrder id="019f1d93-36f4-7802-ac4b-0b1b7538d3fe" version="1">
+                <description>
+                    <com:values>
+                        <com:value>VILLEURBANNE_2016P0037</com:value>
+                    </com:values>
+                </description>
+                <issuingAuthority>
+                    <com:values>
+                        <com:value>Lyon (métropole)</com:value>
+                    </com:values>
+                </issuingAuthority>
+                <regulationId>VILLEURBANNE_2016P0037#01939c68-7a18-7263-a901-e8464281371b</regulationId>
+                <status>madeAndImplemented</status>
+
+                <validityByOrder>
+                    <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                    <com:validityTimeSpecification>
+                        <com:overallStartTime>2016-04-25T22:00:00+00:00</com:overallStartTime>
+                                            </com:validityTimeSpecification>
+                </validityByOrder>
+
+                                    <trafficRegulation>
+                        <status>active</status>
+                                                    <typeOfRegulation xsi:type="AccessRestriction">
+                                <accessRestrictionType>noEntry</accessRestrictionType>
+                            </typeOfRegulation>
+                        
+                        <condition xsi:type="ConditionSet">
+                            <operator>and</operator>
+
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                            <conditions xsi:type="ValidityCondition">
+                                            <validityByOrder>
+                                                <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                                                <com:validityTimeSpecification>
+                                                    <com:overallStartTime>2016-04-25T22:00:00+00:00</com:overallStartTime>
+
+                                                    
+                                                                                                    </com:validityTimeSpecification>
+                                            </validityByOrder>
+                                        </conditions>
+                                                                    </conditions>
+                            
+                            <conditions xsi:type="ConditionSet">
+                                <operator>or</operator>
+                                                                    <conditions xsi:type="LocationCondition">
+                                        <locationByOrder xsi:type="loc:LinearLocation">
+                                            <loc:supplementaryPositionalDescription>
+                                                                                                    <loc:locationDescription>
+                                                        <com:values>
+                                                            <com:value>32 rue Séverine</com:value>
+                                                        </com:values>
+                                                    </loc:locationDescription>
+                                                                                            </loc:supplementaryPositionalDescription>
+                                            <loc:_linearLocationExtension>
+                                                <loc:linearLocationExtended>
+                                                    <dx:geoJsonGeometry>{&quot;type&quot;:&quot;Point&quot;,&quot;coordinates&quot;:[4.91405653,45.752692733]}</dx:geoJsonGeometry>
+                                                </loc:linearLocationExtended>
+                                            </loc:_linearLocationExtension>
+                                        </locationByOrder>
+                                    </conditions>
+                                                            </conditions>
+
+                            
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                                                                        <conditions xsi:type="VehicleCondition">
+                                                <negate>false</negate>
+                                                <vehicleCharacteristics>
+                                                                                                                                                                                                                                                                                                                                                                <com:widthCharacteristic>
+                                                                    <com:comparisonOperator>lessThanOrEqualTo</com:comparisonOperator>
+                                                                    <com:vehicleWidth>4.45</com:vehicleWidth>
+                                                                </com:widthCharacteristic>
+                                                                                                                                                                                                                                                                                                                                        </vehicleCharacteristics>
+                                            </conditions>
+                                                                                                            </conditions>
+                                                    </condition>
+                    </trafficRegulation>
+                
+                <_trafficRegulationOrderExtension>
+                    <trafficRegulationOrderExtended>
+                        <dx:source>api</dx:source>
+                        <dx:publicUrl>https://dialog.beta.gouv.fr/regulations/019f1d93-36f4-79d2-ac4b-0b1b760ef140</dx:publicUrl>
+                    </trafficRegulationOrderExtended>
+                </_trafficRegulationOrderExtension>
+            </trafficRegulationOrder>
+<trafficRegulationOrder id="01a03cd3-5eed-74fc-bbf7-01470ac5ffbf" version="1">
+                <description>
+                    <com:values>
+                        <com:value>Circulation interdite aux véhicules de +5m</com:value>
+                    </com:values>
+                </description>
+                <issuingAuthority>
+                    <com:values>
+                        <com:value>Belfort</com:value>
+                    </com:values>
+                </issuingAuthority>
+                <regulationId>261764#019e1c5b-4679-7bed-b7ae-60b62aa45d0d</regulationId>
+                <status>madeAndImplemented</status>
+
+                <validityByOrder>
+                    <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                    <com:validityTimeSpecification>
+                        <com:overallStartTime>2026-08-24T22:00:00+00:00</com:overallStartTime>
+                                            </com:validityTimeSpecification>
+                </validityByOrder>
+
+                                    <trafficRegulation>
+                        <status>active</status>
+                                                    <typeOfRegulation xsi:type="AccessRestriction">
+                                <accessRestrictionType>noEntry</accessRestrictionType>
+                            </typeOfRegulation>
+                        
+                        <condition xsi:type="ConditionSet">
+                            <operator>and</operator>
+
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                            <conditions xsi:type="ValidityCondition">
+                                            <validityByOrder>
+                                                <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                                                <com:validityTimeSpecification>
+                                                    <com:overallStartTime>2026-08-24T22:00:00+00:00</com:overallStartTime>
+
+                                                    
+                                                                                                    </com:validityTimeSpecification>
+                                            </validityByOrder>
+                                        </conditions>
+                                                                    </conditions>
+                            
+                            <conditions xsi:type="ConditionSet">
+                                <operator>or</operator>
+                                                                    <conditions xsi:type="LocationCondition">
+                                        <locationByOrder xsi:type="loc:LinearLocation">
+                                            <loc:supplementaryPositionalDescription>
+                                                                                                    <loc:roadInformation>
+                                                        <loc:roadName>Rue du Quai</loc:roadName>
+                                                    </loc:roadInformation>
+                                                                                            </loc:supplementaryPositionalDescription>
+                                            <loc:_linearLocationExtension>
+                                                <loc:linearLocationExtended>
+                                                    <dx:geoJsonGeometry>{&quot;type&quot;:&quot;LineString&quot;,&quot;coordinates&quot;:[[6.863427822,47.639210995],[6.863405238,47.638844063]]}</dx:geoJsonGeometry>
+                                                </loc:linearLocationExtended>
+                                            </loc:_linearLocationExtension>
+                                        </locationByOrder>
+                                    </conditions>
+                                                            </conditions>
+
+                            
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                                                                        <conditions xsi:type="VehicleCondition">
+                                                <negate>false</negate>
+                                                <vehicleCharacteristics>
+                                                                                                                                                                                                                                                                                                    <com:lengthCharacteristic>
+                                                                    <com:comparisonOperator>lessThanOrEqualTo</com:comparisonOperator>
+                                                                    <com:vehicleLength>5</com:vehicleLength>
+                                                                </com:lengthCharacteristic>
+                                                                                                                                                                                                                                                                                                                                                                                                    </vehicleCharacteristics>
+                                            </conditions>
+                                                                                                            </conditions>
+                                                    </condition>
+                    </trafficRegulation>
+                
+                <_trafficRegulationOrderExtension>
+                    <trafficRegulationOrderExtended>
+                        <dx:source>dialog</dx:source>
+                        <dx:publicUrl>https://dialog.beta.gouv.fr/regulations/01a03cd3-5eed-75e8-bbf7-01470b424dde</dx:publicUrl>
+                    </trafficRegulationOrderExtended>
+                </_trafficRegulationOrderExtension>
+            </trafficRegulationOrder>
+<trafficRegulationOrder id="01a01b4f-2b8c-76e7-8d01-f78d9fc6a03a" version="1">
+                <description>
+                    <com:values>
+                        <com:value>Ames_20252062025</com:value>
+                    </com:values>
+                </description>
+                <issuingAuthority>
+                    <com:values>
+                        <com:value>CA de Béthune-Bruay, Artois-Lys Romane</com:value>
+                    </com:values>
+                </issuingAuthority>
+                <regulationId>Ames_20252062025#019b22d3-c855-719f-bbb1-cdb6c8075b5a</regulationId>
+                <status>madeAndImplemented</status>
+
+                <validityByOrder>
+                    <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                    <com:validityTimeSpecification>
+                        <com:overallStartTime>2025-06-19T22:00:00+00:00</com:overallStartTime>
+                                            </com:validityTimeSpecification>
+                </validityByOrder>
+
+                                    <trafficRegulation>
+                        <status>active</status>
+                                                    <typeOfRegulation xsi:type="AccessRestriction">
+                                <accessRestrictionType>noEntry</accessRestrictionType>
+                            </typeOfRegulation>
+                        
+                        <condition xsi:type="ConditionSet">
+                            <operator>and</operator>
+
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                            <conditions xsi:type="ValidityCondition">
+                                            <validityByOrder>
+                                                <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                                                <com:validityTimeSpecification>
+                                                    <com:overallStartTime>2025-06-19T22:00:00+00:00</com:overallStartTime>
+
+                                                    
+                                                                                                    </com:validityTimeSpecification>
+                                            </validityByOrder>
+                                        </conditions>
+                                                                    </conditions>
+                            
+                            <conditions xsi:type="ConditionSet">
+                                <operator>or</operator>
+                                                                    <conditions xsi:type="LocationCondition">
+                                        <locationByOrder xsi:type="loc:LinearLocation">
+                                            <loc:supplementaryPositionalDescription>
+                                                                                                    <loc:locationDescription>
+                                                        <com:values>
+                                                            <com:value>Pont de la rue de l&#039;église</com:value>
+                                                        </com:values>
+                                                    </loc:locationDescription>
+                                                                                            </loc:supplementaryPositionalDescription>
+                                            <loc:_linearLocationExtension>
+                                                <loc:linearLocationExtended>
+                                                    <dx:geoJsonGeometry>{&quot;type&quot;:&quot;MultiLineString&quot;,&quot;coordinates&quot;:[[[2.415244795,50.541062179],[2.415382085,50.540978489]]]}</dx:geoJsonGeometry>
+                                                </loc:linearLocationExtended>
+                                            </loc:_linearLocationExtension>
+                                        </locationByOrder>
+                                    </conditions>
+                                                            </conditions>
+
+                            
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                                                                        <conditions xsi:type="VehicleCondition">
+                                                <negate>false</negate>
+                                                <vehicleCharacteristics>
+                                                                                                                                                                        <com:vehicleType>heavyGoodsVehicle</com:vehicleType>
+                                                                                                                                                                                                                                            <com:grossWeightCharacteristic>
+                                                                    <com:comparisonOperator>lessThanOrEqualTo</com:comparisonOperator>
+                                                                    <com:grossVehicleWeight>3.5</com:grossVehicleWeight>
+                                                                    <com:typeOfWeight>maximumPermitted</com:typeOfWeight>
+                                                                </com:grossWeightCharacteristic>
+                                                                                                                                                                                                                                                                                </vehicleCharacteristics>
+                                            </conditions>
+                                                                                                            </conditions>
+                                                    </condition>
+                    </trafficRegulation>
+                                    <trafficRegulation>
+                        <status>active</status>
+                                                    <typeOfRegulation xsi:type="AccessRestriction">
+                                <accessRestrictionType>noEntry</accessRestrictionType>
+                            </typeOfRegulation>
+                        
+                        <condition xsi:type="ConditionSet">
+                            <operator>and</operator>
+
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                            <conditions xsi:type="ValidityCondition">
+                                            <validityByOrder>
+                                                <com:validityStatus>definedByValidityTimeSpec</com:validityStatus>
+                                                <com:validityTimeSpecification>
+                                                    <com:overallStartTime>2025-06-19T22:00:00+00:00</com:overallStartTime>
+
+                                                    
+                                                                                                    </com:validityTimeSpecification>
+                                            </validityByOrder>
+                                        </conditions>
+                                                                    </conditions>
+                            
+                            <conditions xsi:type="ConditionSet">
+                                <operator>or</operator>
+                                                                    <conditions xsi:type="LocationCondition">
+                                        <locationByOrder xsi:type="loc:LinearLocation">
+                                            <loc:supplementaryPositionalDescription>
+                                                                                                    <loc:locationDescription>
+                                                        <com:values>
+                                                            <com:value>Pont de la place du 14 Juillet</com:value>
+                                                        </com:values>
+                                                    </loc:locationDescription>
+                                                                                            </loc:supplementaryPositionalDescription>
+                                            <loc:_linearLocationExtension>
+                                                <loc:linearLocationExtended>
+                                                    <dx:geoJsonGeometry>{&quot;type&quot;:&quot;MultiLineString&quot;,&quot;coordinates&quot;:[[[2.415716884,50.54159285],[2.415818179,50.541548538]]]}</dx:geoJsonGeometry>
+                                                </loc:linearLocationExtended>
+                                            </loc:_linearLocationExtension>
+                                        </locationByOrder>
+                                    </conditions>
+                                                            </conditions>
+
+                            
+                                                            <conditions xsi:type="ConditionSet">
+                                    <operator>or</operator>
+                                                                                                                        <conditions xsi:type="VehicleCondition">
+                                                <negate>false</negate>
+                                                <vehicleCharacteristics>
+                                                                                                                                                                        <com:vehicleType>heavyGoodsVehicle</com:vehicleType>
+                                                                                                                                                                                                                                            <com:grossWeightCharacteristic>
+                                                                    <com:comparisonOperator>lessThanOrEqualTo</com:comparisonOperator>
+                                                                    <com:grossVehicleWeight>3.5</com:grossVehicleWeight>
+                                                                    <com:typeOfWeight>maximumPermitted</com:typeOfWeight>
+                                                                </com:grossWeightCharacteristic>
+                                                                                                                                                                                                                                                                                </vehicleCharacteristics>
+                                            </conditions>
+                                                                                                            </conditions>
+                                                    </condition>
+                    </trafficRegulation>
+                
+                <_trafficRegulationOrderExtension>
+                    <trafficRegulationOrderExtended>
+                        <dx:source>api</dx:source>
+                        <dx:publicUrl>https://dialog.beta.gouv.fr/regulations/01a01b4f-2b8c-791b-8d01-f78da0628a1e</dx:publicUrl>
+                    </trafficRegulationOrderExtended>
+                </_trafficRegulationOrderExtension>
+            </trafficRegulationOrder>
+</trafficRegulationsFromCompetentAuthorities>
+</d2:payload>

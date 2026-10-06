@@ -5,9 +5,12 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/filters_sheet.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
+import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
+import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/pump.dart';
@@ -21,6 +24,24 @@ Future<void> openTab(WidgetTester tester, String label) async {
   await settleShort(tester);
 }
 
+/// Scrolls the profile until [finder] is built and clear of the dock.
+Future<void> showInProfile(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    200,
+    scrollable: find
+        .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.ensureVisible(finder);
+  await tester.pump();
+}
+
+/// The editor's own list: the last scrollable of the screen may be one of
+/// its text fields, depending on how far its lazy list has built.
+Finder get editorList =>
+    find.descendant(of: find.byType(VehicleEditor), matching: find.byType(Scrollable)).first;
+
 void main() {
   group('filters', () {
     testWidgets('the sheet counts the places before applying, and applying remembers', (
@@ -30,8 +51,11 @@ void main() {
       await tester.tap(find.text('Filtres'));
       await settleShort(tester);
       expect(find.text('Afficher 5 lieux'), findsOneWidget);
-      // The family card, before the services section of the same name.
-      await tester.tap(find.text('Services').first);
+      // The family card, before the services section of the same name (the
+      // map's "Services" chip of the shops and services stays behind).
+      await tester.tap(
+        find.descendant(of: find.byType(FiltersPanel), matching: find.text('Services')).first,
+      );
       await settleShort(tester);
       expect(find.text('Afficher 1 lieu'), findsOneWidget);
       await tester.tap(find.text('Nuit autorisée').last);
@@ -88,7 +112,7 @@ void main() {
       await tester.scrollUntilVisible(
         find.widgetWithText(TextFormField, 'Hauteur'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: editorList,
       );
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '2,40');
       await tester.tap(find.text('Enregistrer').last);
@@ -105,18 +129,52 @@ void main() {
     testWidgets('a height out of range is refused with the range', (tester) async {
       final app = await pumpLunaway(tester);
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
       await tester.tap(find.text('Décrire mon véhicule'));
       await settleShort(tester);
       await tester.scrollUntilVisible(
         find.widgetWithText(TextFormField, 'Hauteur'),
         200,
-        scrollable: find.byType(Scrollable).last,
+        scrollable: editorList,
       );
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '29');
       await tester.tap(find.text('Enregistrer').last);
       await settleShort(tester);
       expect(find.textContaining('Entre'), findsOneWidget);
       expect(app.container(tester).read(vehicleProvider).value, isNull);
+    });
+
+    testWidgets('its fuel, consumption and LPG heating are kept with it for the prices', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
+      await tester.tap(find.text('Décrire mon véhicule'));
+      await settleShort(tester);
+      final scroll = editorList;
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ChoiceChip, 'Gazole'),
+        200,
+        scrollable: scroll,
+      );
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Gazole'));
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.widgetWithText(TextFormField, 'Consommation'),
+        200,
+        scrollable: scroll,
+      );
+      await tester.enterText(find.widgetWithText(TextFormField, 'Consommation'), '11,5');
+      await tester.scrollUntilVisible(find.text('Chauffage au GPL'), 200, scrollable: scroll);
+      await tester.tap(find.text('Chauffage au GPL'));
+      await tester.pump();
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      expect(
+        app.container(tester).read(vehicleFuelProvider),
+        const VehicleFuel(fuel: FuelType.diesel, consumptionL100: 11.5, lpgHeating: true),
+      );
     });
 
     testWidgets('the profile shows the vehicle described, its type and size', (tester) async {
@@ -287,6 +345,7 @@ void main() {
     testWidgets('the offline data panel tells the count, the size and the age', (tester) async {
       await pumpLunaway(tester);
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('5 lieux sur cet appareil'));
       expect(find.text('5 lieux sur cet appareil'), findsOneWidget);
       expect(find.text('Espace utilisé : 3,3 Mo'), findsOneWidget);
       expect(find.text("Dernière mise à jour aujourd'hui"), findsOneWidget);
@@ -300,6 +359,7 @@ void main() {
         sync: const SyncState(cursor: '600', fullSync: true, running: true),
       );
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Téléchargement incomplet'));
       expect(find.text('Téléchargement incomplet'), findsOneWidget);
       expect(find.text('Reprendre'), findsOneWidget);
     });
@@ -315,8 +375,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Mettre à jour'),
         200,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find
+            .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+            .first,
       );
+      // The last jump of the scroll lays out on the next frame.
+      await tester.pump();
       await tester.tap(find.text('Mettre à jour'));
       await settleShort(tester);
       expect(source.requests, 1);

@@ -12,7 +12,19 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
   return switch (sourceId) {
     'osm' => 'OpenStreetMap',
     'atout-france' => 'Atout France',
-    communitySourceId => t.appTitle,
+    'prix-carburants' => t.poi.fuelPrices,
+    'laposte' => 'La Poste',
+    'finess' => 'FINESS',
+    _ when isLunawayCommunity(sourceId) => t.appTitle,
     _ => sourceId,
   };
+}
+
+/// What a badge says of an item of [sourceId]: its source's name, and its
+/// licence for the reviews, ratings and photos Lunaway users publish under
+/// CC BY 4.0, which differs from the places' ODbL.
+String itemSourceLabel(Translations t, String sourceId, {List<PlaceSource> sources = const []}) {
+  final name = sourceName(t, sourceId, sources: sources);
+  if (sourceId != communityCcBySourceId) return name;
+  return t.place.sourceWithLicence(source: name, licence: t.place.licenceCcBy);
 }

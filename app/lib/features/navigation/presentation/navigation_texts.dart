@@ -128,16 +128,6 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
-  /// "Gazole", "SP95-E10".
-  String fuelName(VehicleFuel fuel) => switch (fuel) {
-    VehicleFuel.diesel => _t.navigation.fuel.kinds.diesel,
-    VehicleFuel.e10 => _t.navigation.fuel.kinds.e10,
-    VehicleFuel.sp95 => _t.navigation.fuel.kinds.sp95,
-    VehicleFuel.sp98 => _t.navigation.fuel.kinds.sp98,
-    VehicleFuel.e85 => _t.navigation.fuel.kinds.e85,
-    VehicleFuel.lpg => _t.navigation.fuel.kinds.lpg,
-  };
-
   /// "1,789 €/L": to the tenth of a cent, as stations show it.
   String litrePrice(double euros) =>
       _t.navigation.fuel.price(price: NumberFormat('0.000', _locale).format(euros));

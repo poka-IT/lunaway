@@ -1,6 +1,11 @@
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:meta/meta.dart';
+
+/// Litres per 100 km of a motorhome of 3.5 t on the road: what a detour to
+/// a cheaper station is weighed with until the vehicle's own figure is
+/// given (in the vehicle's editor).
+const defaultConsumptionL100 = 11.0;
 
 /// Whether a station is open now, as its opening hours read (`openNow` of
 /// the API).
@@ -29,7 +34,7 @@ final class FuelOffer {
   final String id;
 
   /// The fuel the price is for.
-  final VehicleFuel fuel;
+  final FuelType fuel;
   final String? name;
   final String? brand;
   final LatLng position;
@@ -99,7 +104,7 @@ abstract interface class FuelStationsSource {
   Future<List<FuelOffer>> along({
     required List<LatLng> route,
     required double fromM,
-    required VehicleFuel fuel,
+    required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
   });
 }

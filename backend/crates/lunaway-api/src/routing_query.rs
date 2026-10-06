@@ -12,14 +12,16 @@ use crate::{
     client::ClientKey,
     error::{internal, invalid_input, quota_spent, rate_limited_error, unavailable},
     quota::{Action, Subject},
+    road_event_types::{RoadEvent, RoadEventSourceStatus},
     routing::{
         MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest,
+        events::Freshness,
         valhalla::{Avoid, EngineError, Stop},
     },
     routing_types::{
         CoveredArea, DISCLAIMER_KEY, RerouteParameters, RouteInput, RouteOptions, RoutePointInput,
         RouteResult, RouteStatus, RouteSummary, RouteWarning, RoutingGraph, RoutingInfo,
-        VehicleBounds, VehicleProfileInput, presets,
+        VehicleBounds, VehicleProfileInput, presets, road_event_warning,
     },
     schema::{RouteOnce, db as db_share, state},
 };
@@ -33,6 +35,9 @@ const MAX_TRIP_M: f64 = 2_500_000.0;
 pub(crate) const MAX_WAYPOINTS: usize = 5;
 /// Alternatives accepted besides the best route.
 pub(crate) const MAX_ALTERNATIVES: i32 = 2;
+/// How far ahead a trip may be planned: the feeds publish works weeks
+/// ahead, but a route is computed on today's graph.
+const MAX_DEPART_AHEAD_DAYS: i64 = 14;
 
 fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
     let at = Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("{name}: {e}")))?;
@@ -82,6 +87,19 @@ fn vehicle(v: &VehicleProfileInput) -> Result<VehicleProfile> {
 
 /// Checks the input and builds the request, before anything is spent.
 fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
+    let now = chrono::Utc::now();
+    let depart_at = match input.depart_at {
+        None => now,
+        Some(t)
+            if t < now - chrono::Duration::hours(1)
+                || t > now + chrono::Duration::days(MAX_DEPART_AHEAD_DAYS) =>
+        {
+            return Err(invalid_input(format!(
+                "departAt must lie between an hour ago and {MAX_DEPART_AHEAD_DAYS} days ahead"
+            )));
+        }
+        Some(t) => t,
+    };
     let waypoints = input.waypoints.as_deref().unwrap_or_default();
     if waypoints.len() > MAX_WAYPOINTS {
         return Err(invalid_input(format!(
@@ -121,6 +139,7 @@ fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
             },
             alternatives: u8::try_from(input.alternatives).unwrap_or(0),
             language: input.language.tag(),
+            depart_at,
         },
         options,
     ))
@@ -159,7 +178,18 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             return Err(internal(&e));
         }
     };
-    let outcome = match st.routing.route(pool, &graph.id, &request).await {
+    // The freshness of each feed of road events: a closure whose feed is
+    // stale warns instead of blocking.
+    let sources = match lunaway_db::road_events::sources(pool).await {
+        Ok(s) => s,
+        Err(e) => {
+            refund();
+            return Err(internal(&e));
+        }
+    };
+    let now = chrono::Utc::now();
+    let fresh = Freshness::of(&sources, now);
+    let outcome = match st.routing.route(pool, &graph.id, &request, &fresh).await {
         Ok(o) => o,
         Err(RouteError::Busy) => {
             refund();
@@ -208,11 +238,18 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         )
         .to_string(),
     };
+    let road_event_sources: Vec<RoadEventSourceStatus> = sources
+        .iter()
+        .map(|s| RoadEventSourceStatus::of(s, now))
+        .collect();
     let base = |status, recalculations: usize| RouteResult {
         status,
         osrm_json: None,
         routes: Vec::new(),
         blockers: Vec::new(),
+        road_event_blockers: Vec::new(),
+        avoided_road_events: Vec::new(),
+        road_event_sources: road_event_sources.clone(),
         recalculations: i32::try_from(recalculations.min(MAX_ATTEMPTS)).unwrap_or(0),
         reroute: reroute.clone(),
         graph: RoutingGraph::from(graph.clone()),
@@ -223,18 +260,28 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             osrm,
             routes,
             recalculations,
+            avoided,
         } => RouteResult {
             osrm_json: Some(osrm.to_string()),
-            routes: routes.iter().map(RouteSummary::from).collect(),
+            routes: routes
+                .iter()
+                .map(|r| RouteSummary::of(r, &fresh, now))
+                .collect(),
+            avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
             ..base(RouteStatus::Ok, recalculations)
         },
         Outcome::NoRoute(NoRoute::Unreachable) => base(RouteStatus::NoRoute, 0),
         Outcome::NoRoute(NoRoute::OffNetwork) => base(RouteStatus::OffNetwork, 0),
         Outcome::NoSafeRoute {
             blockers,
+            event_blockers,
             recalculations,
         } => RouteResult {
             blockers: blockers.iter().map(RouteWarning::from).collect(),
+            road_event_blockers: event_blockers
+                .iter()
+                .map(|h| road_event_warning(h, &fresh, now))
+                .collect(),
             ..base(RouteStatus::NoSafeRoute, recalculations)
         },
     })
@@ -307,6 +354,7 @@ mod tests {
             options: None,
             alternatives: 0,
             language: RouteLanguage::Fr,
+            depart_at: None,
         }
     }
 
@@ -336,6 +384,9 @@ mod tests {
         let mut heading = input();
         heading.origin.heading_deg = Some(400.0);
         assert!(message(request(&heading)).contains("headingDeg"));
+        let mut later = input();
+        later.depart_at = Some(chrono::Utc::now() + chrono::Duration::days(30));
+        assert!(message(request(&later)).contains("departAt"));
         let mut trailer = input();
         trailer.vehicle.trailer = Some(TrailerInput {
             length_m: 4.78,

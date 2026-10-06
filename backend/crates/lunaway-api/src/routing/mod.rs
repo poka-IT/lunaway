@@ -11,12 +11,18 @@
 //! each blocker, a bounded number of times. A route with a blocker never
 //! reaches the app: either a route without one comes back, or no route
 //! with the blockers that stopped every attempt.
+//!
+//! Road events (closures, works, temporary limits) are checked the same
+//! way ([`events`]), at the time the vehicle gets to each: a closure active
+//! then, or a limit the vehicle exceeds, is a blocker too.
 
+pub(crate) mod events;
 pub(crate) mod valhalla;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use lunaway_db::{PgPool, routing as db};
+use chrono::{DateTime, Utc};
+use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
@@ -27,26 +33,30 @@ use lunaway_domain::{
 use serde_json::Value;
 use tokio::sync::Semaphore;
 
-use self::valhalla::{Answer, Avoid, Engine, EngineError, Stop};
+use self::{
+    events::{EventHit, Freshness, Timing},
+    valhalla::{Answer, Avoid, Engine, EngineError, Stop},
+};
 use crate::config::RoutingConfig;
 
-/// Engine calls for one route at most: the first, and two more with the
-/// blockers excluded.
-pub(crate) const MAX_ATTEMPTS: usize = 3;
+/// Engine calls for one route at most: the first, and three more with the
+/// blockers excluded. Road events add blockers the physical limits did not
+/// have (a closure met only once the route avoids a bridge), hence one
+/// more than the three of the restrictions alone.
+pub(crate) const MAX_ATTEMPTS: usize = 4;
 /// Longest a route may take, everything together (waits for an engine slot,
 /// engine calls, corridor queries, matching): under the API's request
 /// timeout (20 s by default), so a slow engine ends in `UNAVAILABLE` and a
 /// refunded quota rather than a cut connection.
 const ROUTE_DEADLINE: Duration = Duration::from_secs(15);
-/// Most exclusion rings sent at once.
-const MAX_EXCLUSIONS: usize = 100;
+/// Most exclusion rings sent at once: 200 octagons of 9 points are 1 800
+/// vertices, within the 2 000 of `max_exclude_polygons_vertices` in
+/// `infra/routing/valhalla.json` (a test reads it), and 6.2 km of
+/// perimeter within its 50 km.
+pub(crate) const MAX_EXCLUSIONS: usize = 200;
 /// Radius of the ring around a blocker, metres: enough to catch the road
 /// the route used, small enough to spare a road crossing a few metres away.
 const RING_M: f64 = 5.0;
-/// A blocker this close to the centre of a ring already sent is inside it
-/// (an OpenStreetMap way and the IGN section of the same bridge): no second
-/// ring. A blocker farther away gets its own, even on the next road.
-const SAME_PLACE_M: f64 = RING_M / 2.0;
 /// How far from a route the database looks for restrictions, metres: the
 /// widest tolerance of a source (`RestrictionSource::tolerance_m`).
 const CORRIDOR_M: f64 = 15.0;
@@ -68,6 +78,9 @@ pub(crate) struct RouteRequest {
     pub(crate) alternatives: u8,
     /// The engine's language tag (`fr-FR`, `en-US`).
     pub(crate) language: &'static str,
+    /// When the trip starts: road events count at the time the vehicle
+    /// reaches them.
+    pub(crate) depart_at: DateTime<Utc>,
 }
 
 /// A restriction met along a route, and what it means for the vehicle.
@@ -99,6 +112,8 @@ pub(crate) struct CheckedRoute {
     /// The restrictions the vehicle passes with little margin, or whose
     /// figure is unknown, in driving order.
     pub(crate) warnings: Vec<Met>,
+    /// The road events met that warn or inform, in driving order.
+    pub(crate) events: Vec<EventHit>,
 }
 
 /// Why no route came back.
@@ -121,6 +136,8 @@ pub(crate) enum Outcome {
         routes: Vec<CheckedRoute>,
         /// Engine calls after the first.
         recalculations: usize,
+        /// The road events an earlier attempt met and the routes avoid.
+        avoided: Vec<Arc<EventRow>>,
     },
     /// No route at all.
     NoRoute(NoRoute),
@@ -128,6 +145,8 @@ pub(crate) enum Outcome {
     NoSafeRoute {
         /// The limits that stopped the last attempt.
         blockers: Vec<Met>,
+        /// The road events that stopped the last attempt.
+        event_blockers: Vec<EventHit>,
         /// Engine calls after the first.
         recalculations: usize,
     },
@@ -230,19 +249,28 @@ impl Routing {
         pool: &PgPool,
         graph_id: &str,
         request: &RouteRequest,
+        fresh: &Freshness,
     ) -> Result<Outcome, RouteError> {
         // One deadline for everything a route does: waits for an engine
         // slot, engine calls, corridor queries, the matching.
-        tokio::time::timeout(ROUTE_DEADLINE, self.route_within(pool, graph_id, request))
-            .await
-            .map_err(|_| RouteError::Deadline)?
+        tokio::time::timeout(
+            ROUTE_DEADLINE,
+            self.route_within(pool, graph_id, request, fresh),
+        )
+        .await
+        .map_err(|_| RouteError::Deadline)?
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one loop of attempts, each step of which reads the previous one"
+    )]
     async fn route_within(
         &self,
         pool: &PgPool,
         graph_id: &str,
         request: &RouteRequest,
+        fresh: &Freshness,
     ) -> Result<Outcome, RouteError> {
         let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
         let dims = request.vehicle.routing();
@@ -250,6 +278,8 @@ impl Routing {
         let mut exclusions: Vec<Vec<Position>> = Vec::new();
         let mut centres: Vec<Position> = Vec::new();
         let mut blockers: Vec<Met> = Vec::new();
+        let mut event_blockers: Vec<EventHit> = Vec::new();
+        let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
         for attempt in 0..MAX_ATTEMPTS {
@@ -280,6 +310,7 @@ impl Routing {
                 Answer::NoRoute | Answer::NoSegment => {
                     return Ok(Outcome::NoSafeRoute {
                         blockers: distinct(blockers),
+                        event_blockers: distinct_events(event_blockers),
                         recalculations: attempt,
                     });
                 }
@@ -298,35 +329,62 @@ impl Routing {
                     if moved {
                         return Ok(Outcome::NoSafeRoute {
                             blockers: distinct(blockers),
+                            event_blockers: distinct_events(event_blockers),
                             recalculations: attempt,
                         });
                     }
                 }
             }
-            let checked = check_routes(pool, graph_id, &osrm, &dims).await?;
+            // Shared with the checks off the async threads rather than copied
+            // for each route: 1.3 ms for a 650 km route (measured, test
+            // `copying_a_long_route_costs_little`).
+            let osrm = Arc::new(osrm);
+            let checked =
+                check_routes(pool, graph_id, &osrm, &dims, request.depart_at, fresh).await?;
+            // The checks are over and dropped their shares: no copy.
+            let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
                 .into_iter()
-                .partition(|(_, blocking)| blocking.is_empty());
+                .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
             if !safe.is_empty() {
-                let routes = safe.into_iter().map(|(r, _)| r).collect();
+                let routes = safe.into_iter().map(|(r, _, _)| r).collect();
                 let (osrm, routes) = keep_routes(osrm, routes, request.language)?;
                 return Ok(Outcome::Found {
                     osrm,
                     routes,
                     recalculations: attempt,
+                    avoided,
                 });
             }
-            blockers = blocked.into_iter().flat_map(|(_, b)| b).collect();
+            blockers = Vec::new();
+            event_blockers = Vec::new();
+            for (_, b, e) in blocked {
+                blockers.extend(b);
+                event_blockers.extend(e);
+            }
+            for e in &event_blockers {
+                if !avoided.iter().any(|a| a.id == e.event.id) {
+                    avoided.push(Arc::clone(&e.event));
+                }
+            }
             let before = exclusions.len();
-            for b in &blockers {
-                let centre = b.hit.middle;
+            let rings = blockers.iter().map(|b| (b.hit.middle, RING_M)).chain(
+                event_blockers
+                    .iter()
+                    .flat_map(|e| e.rings.iter().map(|r| (*r, events::RING_M))),
+            );
+            // A blocker within half a radius of a ring already sent is
+            // inside it (an OpenStreetMap way and the IGN section of the same
+            // bridge): no second ring. One farther away gets its own, even on
+            // the next road.
+            for (centre, radius) in rings {
                 if exclusions.len() >= MAX_EXCLUSIONS
-                    || centres.iter().any(|c| c.distance_m(centre) < SAME_PLACE_M)
+                    || centres.iter().any(|c| c.distance_m(centre) < radius / 2.0)
                 {
                     continue;
                 }
                 centres.push(centre);
-                exclusions.push(exclusion_ring(centre, RING_M));
+                exclusions.push(exclusion_ring(centre, radius));
             }
             if exclusions.len() == before {
                 // Nothing new to exclude: the engine keeps going through.
@@ -335,15 +393,24 @@ impl Routing {
             tracing::info!(
                 attempt,
                 blockers = blockers.len(),
+                road_events = event_blockers.len(),
                 exclusions = exclusions.len(),
-                "route recalculated around limits the vehicle exceeds"
+                "route recalculated around limits the vehicle exceeds or closed roads"
             );
         }
         Ok(Outcome::NoSafeRoute {
             blockers: distinct(blockers),
+            event_blockers: distinct_events(event_blockers),
             recalculations: calls.saturating_sub(1),
         })
     }
+}
+
+/// Each road event once, at its first place, in driving order.
+fn distinct_events(mut hits: Vec<EventHit>) -> Vec<EventHit> {
+    let mut seen = std::collections::HashSet::new();
+    hits.retain(|h| seen.insert(h.event.id));
+    hits
 }
 
 /// How much farther a stop may be snapped after a recalculation than at
@@ -371,13 +438,19 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
     blockers
 }
 
+/// A route as checked: what the app receives, the restrictions that block
+/// it, the road events that block it.
+type Checked = (CheckedRoute, Vec<Met>, Vec<EventHit>);
+
 /// Each route of `osrm`, with its warnings and its blockers.
 async fn check_routes(
     pool: &PgPool,
     graph_id: &str,
-    osrm: &Value,
+    osrm: &Arc<Value>,
     dims: &RoutingDimensions,
-) -> Result<Vec<(CheckedRoute, Vec<Met>)>, RouteError> {
+    depart_at: DateTime<Utc>,
+    fresh: &Freshness,
+) -> Result<Vec<Checked>, RouteError> {
     let routes = osrm
         .get("routes")
         .and_then(Value::as_array)
@@ -398,6 +471,12 @@ async fn check_routes(
             continue;
         }
         let near = db::restrictions_near(pool, graph_id, &points, CORRIDOR_M).await?;
+        let near_events: Vec<Arc<EventRow>> =
+            lunaway_db::road_events::events_near(pool, &points, events::CORRIDOR_M, events::WIDE_M)
+                .await?
+                .into_iter()
+                .map(Arc::new)
+                .collect();
         let legs: Vec<f64> = route
             .get("legs")
             .and_then(Value::as_array)
@@ -408,12 +487,33 @@ async fn check_routes(
             })
             .unwrap_or_default();
         let dims = *dims;
-        // Indexing a long shape and matching hundreds of restrictions takes
-        // milliseconds to tens of milliseconds of CPU: off the async threads.
-        let (warnings, blocking) =
-            tokio::task::spawn_blocking(move || match_restrictions(points, &legs, near, &dims))
-                .await
-                .map_err(RouteError::Blocking)??;
+        let shared = Arc::clone(osrm);
+        let fresh = fresh.clone();
+        // Indexing a long shape and matching hundreds of restrictions and
+        // events takes milliseconds to tens of milliseconds of CPU: off the
+        // async threads.
+        let ((warnings, blocking), (events, event_blocking)) =
+            tokio::task::spawn_blocking(move || {
+                let route_value = &shared["routes"][index];
+                let line = RouteLine::new(points)
+                    .ok_or(RouteError::Malformed("a route of one point"))?
+                    .with_legs(&legs);
+                let restrictions = match_restrictions(&line, near, &dims);
+                let steps = events::steps_of(route_value, &line);
+                let timing = Timing::of(route_value, &line, depart_at);
+                let met = events::check(
+                    &line,
+                    &steps,
+                    &timing,
+                    &near_events,
+                    &dims,
+                    &fresh,
+                    Utc::now(),
+                );
+                Ok::<_, RouteError>((restrictions, met))
+            })
+            .await
+            .map_err(RouteError::Blocking)??;
         let (has_toll, has_ferry, has_motorway) = classes(route);
         out.push((
             CheckedRoute {
@@ -424,8 +524,10 @@ async fn check_routes(
                 has_ferry,
                 has_motorway,
                 warnings,
+                events,
             },
             blocking,
+            event_blocking,
         ));
     }
     Ok(out)
@@ -435,18 +537,14 @@ async fn check_routes(
 /// the vehicle: (warnings, blockers), each in driving order. Fails closed: a
 /// severity this code does not know blocks.
 fn match_restrictions(
-    points: Vec<Position>,
-    legs: &[f64],
+    line: &RouteLine,
     near: Vec<db::NearRestriction>,
     dims: &RoutingDimensions,
-) -> Result<(Vec<Met>, Vec<Met>), RouteError> {
-    let line = RouteLine::new(points)
-        .ok_or(RouteError::Malformed("a route of one point"))?
-        .with_legs(legs);
+) -> (Vec<Met>, Vec<Met>) {
     let mut warnings = Vec::new();
     let mut blocking = Vec::new();
     for r in near {
-        let hits = match_route(&line, &r.geometry, r.restriction.source.tolerance_m());
+        let hits = match_route(line, &r.geometry, r.restriction.source.tolerance_m());
         let Some(hit) = hits.first().copied() else {
             continue;
         };
@@ -465,7 +563,7 @@ fn match_restrictions(
     }
     warnings.sort_by(|a, b| a.hit.start_m.total_cmp(&b.hit.start_m));
     blocking.sort_by(|a, b| a.hit.start_m.total_cmp(&b.hit.start_m));
-    Ok((warnings, blocking))
+    (warnings, blocking)
 }
 
 /// Whether a route of the OSRM answer uses a toll road, a ferry, a
@@ -511,14 +609,15 @@ fn keep_routes(
     mut routes: Vec<CheckedRoute>,
     language: &str,
 ) -> Result<(Value, Vec<CheckedRoute>), RouteError> {
-    let all = osrm
+    let mut all = osrm
         .get_mut("routes")
         .and_then(Value::as_array_mut)
         .map(std::mem::take)
         .unwrap_or_default();
+    // Taken, not copied: the routes not kept are dropped with `all`.
     let mut kept: Vec<Value> = routes
         .iter()
-        .filter_map(|r| all.get(r.index).cloned())
+        .filter_map(|r| all.get_mut(r.index).map(Value::take))
         .collect();
     for (i, r) in routes.iter_mut().enumerate() {
         r.index = i;
@@ -617,6 +716,53 @@ fn fix_instructions(route: &mut Value) {
 mod tests {
     use super::*;
 
+    /// Measures what copying a long route's answer costs before its check
+    /// leaves the async threads (`check_routes`), against the steps and
+    /// timing read from it: run with `--run-ignored only --no-capture`.
+    #[test]
+    #[ignore = "a measurement, printed"]
+    fn copying_a_long_route_costs_little() {
+        // A 650 km route as the engine answers it: one point every 40 m,
+        // a duration and a distance per segment, 400 steps.
+        let points: Vec<Position> = (0..16_000)
+            .map(|i| Position::new(43.0 + f64::from(i) * 0.000_36, 1.0).unwrap())
+            .collect();
+        let segments = points.len() - 1;
+        let steps: Vec<Value> = (0..400)
+            .map(|i| {
+                serde_json::json!({
+                    "distance": 1_600.0, "duration": 60.0, "ref": "A 20; E 09",
+                    "name": format!("Route {i}"),
+                    "maneuver": {"type": "turn", "modifier": "right", "location": [1.0, 43.0],
+                                 "bearing_before": 0, "bearing_after": 90,
+                                 "instruction": "Tournez à droite sur la route"},
+                    "intersections": [{"location": [1.0, 43.0], "bearings": [0, 90, 180],
+                                       "entry": [true, true, false]}],
+                })
+            })
+            .collect();
+        let route = serde_json::json!({
+            "distance": 650_000.0, "duration": 25_000.0,
+            "geometry": polyline::encode(&points),
+            "legs": [{"steps": steps, "annotation": {
+                "duration": vec![1.5; segments], "distance": vec![40.0; segments]}}],
+        });
+        let line = RouteLine::new(points).unwrap();
+        let rounds: u32 = 50;
+        let t = std::time::Instant::now();
+        for _ in 0..rounds {
+            std::hint::black_box(route.clone());
+        }
+        let clone = t.elapsed() / rounds;
+        let t = std::time::Instant::now();
+        for _ in 0..rounds {
+            std::hint::black_box(events::steps_of(&route, &line));
+            std::hint::black_box(Timing::of(&route, &line, Utc::now()));
+        }
+        let read = t.elapsed() / rounds;
+        println!("route of {segments} segments: clone {clone:?}, steps and timing {read:?}");
+    }
+
     #[test]
     fn french_instructions_lose_their_two_defects() {
         assert_eq!(
@@ -631,6 +777,32 @@ mod tests {
             fix_french("Prenez la sortie, Rue Victor Hugo."),
             "Prenez la sortie, Rue Victor Hugo.",
             "a street name keeps its capital"
+        );
+    }
+
+    #[test]
+    fn the_rings_sent_stay_within_the_engine_s_limits() {
+        // The configuration the backend serves the engine with.
+        let config: Value =
+            serde_json::from_str(include_str!("../../../../../infra/routing/valhalla.json"))
+                .unwrap();
+        let limits = &config["service_limits"];
+        let vertices = limits["max_exclude_polygons_vertices"].as_u64().unwrap();
+        let perimeter = limits["max_exclude_polygons_length"].as_f64().unwrap();
+        let ring = exclusion_ring(Position::new(45.8, 1.25).unwrap(), RING_M);
+        let ring_perimeter: f64 = ring.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "a count of rings of a few hundred"
+        )]
+        let all = MAX_EXCLUSIONS as f64;
+        assert!(
+            (MAX_EXCLUSIONS * ring.len()) as u64 <= vertices,
+            "the engine refuses more vertices than its limit: the whole route request fails"
+        );
+        assert!(
+            all * ring_perimeter <= perimeter,
+            "nor more perimeter than its limit"
         );
     }
 

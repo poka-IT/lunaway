@@ -22,5 +22,13 @@ void registerBundledLicences() {
     yield LicenseEntryWithLineBreaks([
       'Protomaps basemaps',
     ], await rootBundle.loadString('assets/map/styles/LICENSE-protomaps-basemaps.md'));
+    // What the offline map draws its labels and icons with
+    // (tool/map_offline/vendor.py).
+    yield LicenseEntryWithLineBreaks([
+      'Noto Sans (offline map glyphs)',
+    ], await rootBundle.loadString('assets/map/offline/glyphs/OFL.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'tangrams/icons (offline map sprites)',
+    ], await rootBundle.loadString('assets/map/offline/sprites/LICENSE.md'));
   });
 }

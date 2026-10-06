@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
@@ -101,6 +102,46 @@ abstract final class AppIcons {
   static const IconData magicEarth = PhosphorRegular.globeHemisphereEast;
   static const IconData osmWeb = PhosphorRegular.globe;
   static const IconData towing = PhosphorRegular.truckTrailer;
+  static const IconData closed = PhosphorRegular.prohibit;
+  static const IconData calendar = PhosphorRegular.calendarBlank;
+  static const IconData camera = PhosphorRegular.camera;
+  static const IconData addPhoto = PhosphorRegular.cameraPlus;
+  static const IconData gallery = PhosphorRegular.images;
+  static const IconData pickFile = PhosphorRegular.fileImage;
+  static const IconData recoveryCard = PhosphorRegular.key;
+  static const IconData qrCode = PhosphorRegular.qrCode;
+  static const IconData scan = PhosphorRegular.scan;
+  static const IconData signOut = PhosphorRegular.signOut;
+  static const IconData device = PhosphorRegular.deviceMobile;
+  static const IconData muted = PhosphorRegular.eyeSlash;
+  static const IconData contributions = PhosphorRegular.listChecks;
+  static const IconData addPlace = PhosphorRegular.mapPinPlus;
+  static const IconData uploading = PhosphorRegular.cloudArrowUp;
+  static const IconData waiting = PhosphorRegular.clockCountdown;
+  static const IconData report = PhosphorRegular.flag;
+  static const IconData trust = PhosphorRegular.shieldStar;
+  static const IconData print = PhosphorRegular.printer;
+  static const IconData account = PhosphorRegular.userCircle;
+  static const IconData writeReview = PhosphorRegular.notePencil;
+  static const IconData toVerify = PhosphorRegular.sealQuestion;
+  static const IconData warning = PhosphorRegular.warning;
+
+  /// A problem met at a place.
+  static IconData issue(IssueKind k) => switch (k) {
+    .nightBan => PhosphorRegular.prohibit,
+    .serviceBroken => PhosphorRegular.wrench,
+    .noAccess => PhosphorRegular.barricade,
+    .danger => PhosphorRegular.warning,
+  };
+
+  /// Why something is reported to the moderators.
+  static IconData reportReason(ReportReason r) => switch (r) {
+    .spam => PhosphorRegular.megaphone,
+    .offensive => PhosphorRegular.smileyAngry,
+    .wrong => PhosphorRegular.sealQuestion,
+    .privacy => PhosphorRegular.eyeSlash,
+    .other => PhosphorRegular.dotsThree,
+  };
 
   /// The glyph of a kind, inside its pin and its avatar.
   static IconData kind(PlaceKind k) => switch (k) {

@@ -15,6 +15,10 @@
   var longPressTimer = null;
   var suppressClick = false;
   var popFrame = null;
+  // The last state of the points of interest the app sent (filters, fading,
+  // the open point), put back after each style change.
+  var poiUpdate = null;
+  var poiProbed = null;
 
   function send(event) {
     if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
@@ -54,12 +58,77 @@
     return Promise.all(ids.map(function (id) { return loadImage(id, images[id]); })).then(function () {
       spec.sources.forEach(function (source) {
         if (map.getSource(source.id)) return;
-        var options = Object.assign({ type: 'geojson', data: data[source.id] || emptyCollection() }, source.options);
+        // The points of interest are vector tiles named by a TileJSON; the
+        // rest is GeoJSON the app sends.
+        var options = source.vector
+          ? { type: 'vector', url: source.url }
+          : Object.assign({ type: 'geojson', data: data[source.id] || emptyCollection() }, source.options);
         map.addSource(source.id, options);
       });
       spec.layers.forEach(function (layer) {
-        if (!map.getLayer(layer.id)) map.addLayer(layer);
+        if (map.getLayer(layer.id)) return;
+        var copy = Object.assign({}, layer);
+        var before = copy.before;
+        delete copy.before;
+        map.addLayer(copy, before && map.getLayer(before) ? before : undefined);
       });
+      poiProbed = null;
+      applyPois();
+    });
+  }
+
+  function applyPois() {
+    if (!poiUpdate || !map) return;
+    Object.keys(poiUpdate.filters || {}).forEach(function (id) {
+      if (map.getLayer(id)) map.setFilter(id, poiUpdate.filters[id]);
+    });
+    Object.keys(poiUpdate.layout || {}).forEach(function (id) {
+      if (!map.getLayer(id)) return;
+      Object.keys(poiUpdate.layout[id]).forEach(function (key) {
+        map.setLayoutProperty(id, key, poiUpdate.layout[id][key]);
+      });
+    });
+    Object.keys(poiUpdate.paint || {}).forEach(function (id) {
+      if (!map.getLayer(id)) return;
+      Object.keys(poiUpdate.paint[id]).forEach(function (key) {
+        map.setPaintProperty(id, key, poiUpdate.paint[id][key]);
+      });
+    });
+    if (spec.pois) {
+      var selection = map.getSource(spec.pois.selectionSource);
+      if (selection) selection.setData(poiUpdate.selection || emptyCollection());
+    }
+    // The prices of the fuel stations, kept for the next style change too.
+    Object.keys(poiUpdate.data || {}).forEach(function (id) {
+      data[id] = poiUpdate.data[id];
+      var source = map.getSource(id);
+      if (source) source.setData(poiUpdate.data[id]);
+    });
+  }
+
+  // Once the map rests: the points under the view whose hours or
+  // neighbours decide how they are drawn, the same reading as
+  // GlPoiLayers.probe in the app.
+  function probePois() {
+    if (!spec || !spec.pois || !poiUpdate || !map.getSource(spec.pois.source)) return;
+    var c = map.getCenter();
+    var zoom = map.getZoom();
+    var category = poiUpdate.probe.category;
+    var key = [c.lat, c.lng, zoom, category].join(',');
+    if (key === poiProbed) return;
+    poiProbed = key;
+    var drawn = category ? zoom >= spec.pois.pointsMinZoom : zoom >= spec.pois.quietMinZoom;
+    var found = drawn
+      ? map.querySourceFeatures(spec.pois.source, {
+          sourceLayer: spec.pois.sourceLayer,
+          filter: poiUpdate.probe.filter
+        })
+      : [];
+    send({
+      type: 'pois',
+      features: found.map(function (f) {
+        return { geometry: { coordinates: f.geometry.coordinates }, properties: f.properties };
+      })
     });
   }
 
@@ -82,14 +151,32 @@
     var layers = spec.tappable.filter(function (id) { return map.getLayer(id); });
     var features = map.queryRenderedFeatures(box, { layers: layers });
     if (features.length === 0) { send({ type: 'empty' }); return; }
-    var f = features[0];
-    var p = f.properties || {};
-    if (p.point_count !== undefined) {
-      map.getSource(spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
-        map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.3, duration: reducedMotion ? 0 : 600 });
-      });
-    } else if (p.kind === 'place' && p.id !== undefined) {
-      send({ type: 'place', id: p.id });
+    // Topmost first: the first feature that means something decides.
+    for (var i = 0; i < features.length; i++) {
+      var f = features[i];
+      var p = f.properties || {};
+      if (p.point_count !== undefined) {
+        map.getSource(spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
+          map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.3, duration: reducedMotion ? 0 : 600 });
+        });
+        return;
+      }
+      if (p.kind === 'place' && p.id !== undefined) {
+        send({ type: 'place', id: p.id });
+        return;
+      }
+      if (p.kind === 'point') return;
+      // A point of interest, or where a category's points gather (the
+      // same rule as poiTapFor in lib/features/poi/presentation).
+      if (p.count !== undefined && p.id === undefined && spec.pois) {
+        var next = Math.min(map.getZoom() + 2, spec.pois.pointsMinZoom + 0.5);
+        map.easeTo({ center: f.geometry.coordinates, zoom: next, duration: reducedMotion ? 0 : 600 });
+        return;
+      }
+      if (p.id !== undefined && p.kind !== undefined) {
+        send({ type: 'poi', properties: p, coordinates: f.geometry.coordinates });
+        return;
+      }
     }
   }
 
@@ -150,6 +237,7 @@
         });
       });
       map.on('moveend', function () { send(viewport()); });
+      map.on('idle', probePois);
       map.on('click', onClick);
       map.on('contextmenu', function (e) { send({ type: 'longpress', lat: e.lngLat.lat, lon: e.lngLat.lng }); });
       map.on('mousedown', startLongPress);
@@ -170,8 +258,15 @@
       if (source) source.setData(collection);
       return true;
     },
+    setPois: function (update) {
+      poiUpdate = update;
+      poiProbed = null;
+      applyPois();
+      if (map && map.loaded()) probePois();
+      return true;
+    },
     setSelection: function (collection) {
-      window.lunaway.setData(spec.sources[1].id, collection);
+      window.lunaway.setData(spec.placeSelectionSource, collection);
       if (collection.features.length > 0) popSelection();
       return true;
     },

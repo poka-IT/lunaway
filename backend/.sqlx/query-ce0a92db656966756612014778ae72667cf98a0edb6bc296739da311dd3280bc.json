@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET ended_at = $4, end_reason = 'disappeared'\n        WHERE source = $1 AND ended_at IS NULL AND NOT (external_id = ANY($2))\n          AND coalesce(source_updated_at, last_seen_at) < $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ce0a92db656966756612014778ae72667cf98a0edb6bc296739da311dd3280bc"
+}

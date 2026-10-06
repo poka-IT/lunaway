@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- image_picker names the Google Play Services backport of the photo
+         picker; the F-Droid build carries nothing of Play Services, and
+         Android's own photo picker (or the documents picker) answers. -->
+    <application>
+        <!-- Which distribution this build is: the version name is the same
+             in both, so a release check reads this instead (aapt2 dump
+             xmltree). -->
+        <meta-data
+            android:name="legal.p2p.lunaway.DISTRIBUTION"
+            android:value="fdroid" />
+        <service
+            android:name="com.google.android.gms.metadata.ModuleDependencies"
+            tools:node="remove" />
+    </application>
+</manifest>

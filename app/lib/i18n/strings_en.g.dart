@@ -70,6 +70,25 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$units$en units = Translations$units$en.internal(_root);
 	late final Translations$languages$en languages = Translations$languages$en.internal(_root);
 	late final Translations$locale$en locale = Translations$locale$en.internal(_root);
+	late final Translations$account$en account = Translations$account$en.internal(_root);
+	late final Translations$recovery$en recovery = Translations$recovery$en.internal(_root);
+	late final Translations$recover$en recover = Translations$recover$en.internal(_root);
+	late final Translations$deletion$en deletion = Translations$deletion$en.internal(_root);
+	late final Translations$devices$en devices = Translations$devices$en.internal(_root);
+	late final Translations$muted$en muted = Translations$muted$en.internal(_root);
+	late final Translations$mine$en mine = Translations$mine$en.internal(_root);
+	late final Translations$outbox$en outbox = Translations$outbox$en.internal(_root);
+	late final Translations$contribute$en contribute = Translations$contribute$en.internal(_root);
+	late final Translations$confirmSheet$en confirmSheet = Translations$confirmSheet$en.internal(_root);
+	late final Translations$issueSheet$en issueSheet = Translations$issueSheet$en.internal(_root);
+	late final Translations$reportSheet$en reportSheet = Translations$reportSheet$en.internal(_root);
+	late final Translations$reviewSheet$en reviewSheet = Translations$reviewSheet$en.internal(_root);
+	late final Translations$gate$en gate = Translations$gate$en.internal(_root);
+	late final Translations$photoFlow$en photoFlow = Translations$photoFlow$en.internal(_root);
+	late final Translations$placeForm$en placeForm = Translations$placeForm$en.internal(_root);
+	late final Translations$favoritesSync$en favoritesSync = Translations$favoritesSync$en.internal(_root);
+	late final Translations$poi$en poi = Translations$poi$en.internal(_root);
+	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
 }
 
 // Path: nav
@@ -121,6 +140,21 @@ class Translations$common$en {
 
 	/// en: 'The change could not be saved.'
 	String get saveFailed => 'The change could not be saved.';
+
+	/// en: 'Send'
+	String get send => 'Send';
+
+	/// en: 'Later'
+	String get later => 'Later';
+
+	/// en: 'Continue'
+	String get next => 'Continue';
+
+	/// en: 'That did not go through. Try again in a moment.'
+	String get failed => 'That did not go through. Try again in a moment.';
+
+	/// en: 'No network right now. Try again once the connection is back.'
+	String get offline => 'No network right now. Try again once the connection is back.';
 }
 
 // Path: kinds
@@ -819,6 +853,12 @@ class Translations$place$en {
 	/// en: 'It was removed or merged with another since the last update.'
 	String get goneHint => 'It was removed or merged with another since the last update.';
 
+	/// en: 'This place comes with the download of the places'
+	String get arriving => 'This place comes with the download of the places';
+
+	/// en: 'The places of France are downloading so the map works without a network. The page opens as soon as this one is here.'
+	String get arrivingHint => 'The places of France are downloading so the map works without a network. The page opens as soon as this one is here.';
+
 	/// en: 'This place could not be read.'
 	String get loadError => 'This place could not be read.';
 
@@ -843,6 +883,9 @@ class Translations$place$en {
 	/// en: 'No reviews yet.'
 	String get noReviews => 'No reviews yet.';
 
+	/// en: 'No other reviews yet.'
+	String get noOtherReviews => 'No other reviews yet.';
+
 	/// en: 'More reviews'
 	String get moreReviews => 'More reviews';
 
@@ -865,6 +908,12 @@ class Translations$place$en {
 
 	/// en: 'Elsewhere'
 	String get links => 'Elsewhere';
+
+	/// en: '$source · $licence'
+	String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
+
+	/// en: 'CC BY 4.0'
+	String get licenceCcBy => 'CC BY 4.0';
 }
 
 // Path: hours
@@ -1150,6 +1199,24 @@ class Translations$vehicle$en {
 
 	/// en: 'Clear'
 	String get clear => 'Clear';
+
+	/// en: 'Fuel'
+	String get fuelTitle => 'Fuel';
+
+	/// en: 'The price of your fuel shows on the stations of the map, and the cheapest come first.'
+	String get fuelHint => 'The price of your fuel shows on the stations of the map, and the cheapest come first.';
+
+	/// en: 'Consumption'
+	String get consumption => 'Consumption';
+
+	/// en: 'L/100 km'
+	String get consumptionUnit => 'L/100 km';
+
+	/// en: 'Heating on LPG'
+	String get lpgHeating => 'Heating on LPG';
+
+	/// en: 'The price of LPG matters to you too.'
+	String get lpgHeatingHint => 'The price of LPG matters to you too.';
 }
 
 // Path: profile
@@ -1261,6 +1328,24 @@ class Translations$profile$en {
 
 	/// en: 'Phosphor icons, MIT licence.'
 	String get attributionIcons => 'Phosphor icons, MIT licence.';
+
+	/// en: 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.'
+	String get noTracking => 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.';
+
+	/// en: 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.'
+	String get attributionBdTopo => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.';
+
+	/// en: 'Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.'
+	String get attributionPoiOdbl => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.';
+
+	/// en: 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).'
+	String get attributionPoiLo => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).';
+
+	/// en: 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).'
+	String get attributionPacks => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).';
+
+	/// en: 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).'
+	String get attributionOfflineLabels => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).';
 }
 
 // Path: units
@@ -1318,6 +1403,1314 @@ class Translations$locale$en {
 
 	/// en: 'Français'
 	String get fr => 'Français';
+}
+
+// Path: account
+class Translations$account$en {
+	Translations$account$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your account'
+	String get title => 'Your account';
+
+	/// en: 'No account yet'
+	String get noneTitle => 'No account yet';
+
+	/// en: 'The map, search and favourites work without an account. One is made for you at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists then join it.'
+	String get noneBody => 'The map, search and favourites work without an account. One is made for you at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists then join it.';
+
+	/// en: 'Recover my account'
+	String get recover => 'Recover my account';
+
+	/// en: 'Member since $date'
+	String memberSince({required Object date}) => 'Member since ${date}';
+
+	/// en: 'Change the pseudonym'
+	String get editPseudonym => 'Change the pseudonym';
+
+	/// en: 'Your pseudonym'
+	String get pseudonymTitle => 'Your pseudonym';
+
+	/// en: 'Public: it goes with your reviews and photos. 3 to 32 characters.'
+	String get pseudonymHint => 'Public: it goes with your reviews and photos. 3 to 32 characters.';
+
+	/// en: '3 to 32 characters, at least two of them letters.'
+	String get pseudonymInvalid => '3 to 32 characters, at least two of them letters.';
+
+	/// en: 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.'
+	String get pseudonymRefused => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.';
+
+	/// en: 'Pseudonym saved'
+	String get pseudonymSaved => 'Pseudonym saved';
+
+	/// en: 'Trust level $level'
+	String level({required Object level}) => 'Trust level ${level}';
+
+	late final Translations$account$levelOpens$en levelOpens = Translations$account$levelOpens$en.internal(_root);
+
+	/// en: 'For level $level'
+	String nextLevel({required Object level}) => 'For level ${level}';
+
+	/// en: 'You are at the highest level.'
+	String get levelTop => 'You are at the highest level.';
+
+	late final Translations$account$requirement$en requirement = Translations$account$requirement$en.internal(_root);
+
+	/// en: 'Or instead: $requirement'
+	String orInstead({required Object requirement}) => 'Or instead: ${requirement}';
+
+	/// en: 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.'
+	String get recoveryNone => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.';
+
+	/// en: 'Make my recovery card'
+	String get recoveryCreate => 'Make my recovery card';
+
+	/// en: 'Recovery card made on $date'
+	String recoveryMade({required Object date}) => 'Recovery card made on ${date}';
+
+	/// en: 'Make a new card'
+	String get recoveryRemake => 'Make a new card';
+
+	/// en: 'My contributions'
+	String get contributions => 'My contributions';
+
+	/// en: '(one) {$n contribution waiting to be sent} (other) {$n contributions waiting to be sent}'
+	String pending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} contribution waiting to be sent',
+		other: '${n} contributions waiting to be sent',
+	);
+
+	/// en: 'Hidden authors'
+	String get mutedAuthors => 'Hidden authors';
+
+	/// en: 'Devices'
+	String get devices => 'Devices';
+
+	/// en: 'Sign out'
+	String get signOut => 'Sign out';
+
+	/// en: 'Delete my account'
+	String get delete => 'Delete my account';
+
+	/// en: 'Sign out of this device?'
+	String get signOutTitle => 'Sign out of this device?';
+
+	/// en: 'The account's key leaves this device. To come back, you will need your recovery card. Your favourites stay here.'
+	String get signOutBody => 'The account\'s key leaves this device. To come back, you will need your recovery card. Your favourites stay here.';
+
+	/// en: 'You have not made a recovery card on this device. Without one, this account will be lost for good.'
+	String get signOutNoCard => 'You have not made a recovery card on this device. Without one, this account will be lost for good.';
+
+	/// en: '(one) {One contribution waiting to be sent will not be sent.} (other) {$n contributions waiting to be sent will not be sent.}'
+	String signOutPending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'One contribution waiting to be sent will not be sent.',
+		other: '${n} contributions waiting to be sent will not be sent.',
+	);
+
+	/// en: 'Signed out. Your favourites stay on this device.'
+	String get signedOut => 'Signed out. Your favourites stay on this device.';
+
+	/// en: 'This account no longer opens on this device. Your recovery card brings it back.'
+	String get lost => 'This account no longer opens on this device. Your recovery card brings it back.';
+
+	/// en: 'Thank you for your first contribution'
+	String get welcomeTitle => 'Thank you for your first contribution';
+
+	/// en: 'It made your account, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.'
+	String welcomeBody({required Object name}) => 'It made your account, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.';
+
+	/// en: 'Make your recovery card to find this account on another device.'
+	String get welcomeCard => 'Make your recovery card to find this account on another device.';
+
+	/// en: 'Your favourite lists are now kept with your account.'
+	String get welcomeFavorites => 'Your favourite lists are now kept with your account.';
+}
+
+// Path: recovery
+class Translations$recovery$en {
+	Translations$recovery$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Recovery card'
+	String get title => 'Recovery card';
+
+	/// en: 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it: nobody can give it back to you.'
+	String get intro => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it: nobody can give it back to you.';
+
+	/// en: 'A new card replaces the previous one, which stops working.'
+	String get replaces => 'A new card replaces the previous one, which stops working.';
+
+	/// en: 'Make the card'
+	String get make => 'Make the card';
+
+	/// en: 'Your recovery code'
+	String get codeLabel => 'Your recovery code';
+
+	/// en: 'This code shows only once. Write it down, or save the image, before closing.'
+	String get shownOnce => 'This code shows only once. Write it down, or save the image, before closing.';
+
+	/// en: 'Save the image'
+	String get saveImage => 'Save the image';
+
+	/// en: 'I have it'
+	String get done => 'I have it';
+
+	/// en: 'Did you keep the code?'
+	String get doneTitle => 'Did you keep the code?';
+
+	/// en: 'Once this page is closed, it will not show again.'
+	String get doneBody => 'Once this page is closed, it will not show again.';
+
+	/// en: 'Stay on the page'
+	String get keep => 'Stay on the page';
+
+	/// en: 'Lunaway recovery card'
+	String get cardHeading => 'Lunaway recovery card';
+
+	/// en: 'Account: $name'
+	String cardAccount({required Object name}) => 'Account: ${name}';
+
+	/// en: 'To recover the account: Profile, Recover my account, then type or read this code.'
+	String get cardHow => 'To recover the account: Profile, Recover my account, then type or read this code.';
+
+	/// en: 'Made on $date'
+	String cardMade({required Object date}) => 'Made on ${date}';
+
+	/// en: 'This code opens the account: entrust it to nobody.'
+	String get cardWarning => 'This code opens the account: entrust it to nobody.';
+
+	/// en: 'The card could not be made. A connection is needed.'
+	String get failed => 'The card could not be made. A connection is needed.';
+
+	/// en: 'lunaway-recovery-card'
+	String get fileName => 'lunaway-recovery-card';
+
+	/// en: 'Make the card: the code shows only once.'
+	String get step1 => 'Make the card: the code shows only once.';
+
+	/// en: 'Save the image, print it, or copy the code by hand.'
+	String get step2 => 'Save the image, print it, or copy the code by hand.';
+
+	/// en: 'Keep it in the glovebox, with the vehicle's papers.'
+	String get step3 => 'Keep it in the glovebox, with the vehicle\'s papers.';
+}
+
+// Path: recover
+class Translations$recover$en {
+	Translations$recover$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Recover my account'
+	String get title => 'Recover my account';
+
+	/// en: 'Type the code of your recovery card, or read it from a photo of the card.'
+	String get intro => 'Type the code of your recovery card, or read it from a photo of the card.';
+
+	/// en: 'Recovery code'
+	String get field => 'Recovery code';
+
+	/// en: '27 characters, in groups of four'
+	String get fieldHint => '27 characters, in groups of four';
+
+	/// en: '(one) {$n more character} (other) {$n more characters}'
+	String remaining({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} more character',
+		other: '${n} more characters',
+	);
+
+	/// en: 'This code matches no card: check each character.'
+	String get invalid => 'This code matches no card: check each character.';
+
+	/// en: 'Code complete'
+	String get valid => 'Code complete';
+
+	/// en: 'Read the card from a photo'
+	String get scan => 'Read the card from a photo';
+
+	/// en: 'Choose the card's image'
+	String get scanFile => 'Choose the card\'s image';
+
+	/// en: 'Reading the card'
+	String get reading => 'Reading the card';
+
+	/// en: 'No readable code in this picture. Try a sharper photo, with the card held flat.'
+	String get scanFailed => 'No readable code in this picture. Try a sharper photo, with the card held flat.';
+
+	/// en: 'My old device is lost or stolen: sign it out'
+	String get revoke => 'My old device is lost or stolen: sign it out';
+
+	/// en: 'Every other key of the account will be removed.'
+	String get revokeHint => 'Every other key of the account will be removed.';
+
+	/// en: 'Recover the account'
+	String get submit => 'Recover the account';
+
+	/// en: 'No account has this code. Check the card, or make a new one from a signed-in device.'
+	String get notFound => 'No account has this code. Check the card, or make a new one from a signed-in device.';
+
+	/// en: 'Too many attempts for now. Try again in an hour.'
+	String get tooMany => 'Too many attempts for now. Try again in an hour.';
+
+	/// en: 'Account recovered: $name'
+	String done({required Object name}) => 'Account recovered: ${name}';
+}
+
+// Path: deletion
+class Translations$deletion$en {
+	Translations$deletion$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Delete my account'
+	String get title => 'Delete my account';
+
+	/// en: 'Deletion is immediate and final.'
+	String get intro => 'Deletion is immediate and final.';
+
+	/// en: 'What goes'
+	String get goneTitle => 'What goes';
+
+	late final Translations$deletion$gone$en gone = Translations$deletion$gone$en.internal(_root);
+
+	/// en: 'What stays, without your name'
+	String get keptTitle => 'What stays, without your name';
+
+	/// en: 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers' map.'
+	String get kept => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.';
+
+	/// en: 'The server's backups are cleared within 30 days.'
+	String get backups => 'The server\'s backups are cleared within 30 days.';
+
+	/// en: 'On this device, your favourites stay; the account's key is erased.'
+	String get device => 'On this device, your favourites stay; the account\'s key is erased.';
+
+	/// en: 'You can also delete it on lunaway.net with your recovery code.'
+	String get web => 'You can also delete it on lunaway.net with your recovery code.';
+
+	/// en: 'lunaway.net/account/delete'
+	String get webLink => 'lunaway.net/account/delete';
+
+	/// en: 'Delete for good?'
+	String get confirmTitle => 'Delete for good?';
+
+	/// en: 'The account “$name” and everything listed go now. Nobody can bring it back.'
+	String confirmBody({required Object name}) => 'The account “${name}” and everything listed go now. Nobody can bring it back.';
+
+	/// en: 'I understand this is final'
+	String get confirmCheck => 'I understand this is final';
+
+	/// en: 'Delete the account'
+	String get confirm => 'Delete the account';
+
+	/// en: 'Account deleted'
+	String get done => 'Account deleted';
+
+	/// en: 'The account could not be deleted. A connection is needed.'
+	String get failed => 'The account could not be deleted. A connection is needed.';
+}
+
+// Path: devices
+class Translations$devices$en {
+	Translations$devices$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Devices'
+	String get title => 'Devices';
+
+	/// en: 'Each device has its own key. Remove a lost device, or one you no longer use.'
+	String get intro => 'Each device has its own key. Remove a lost device, or one you no longer use.';
+
+	/// en: 'This device'
+	String get thisDevice => 'This device';
+
+	/// en: 'Other device'
+	String get other => 'Other device';
+
+	/// en: 'Added on $date'
+	String added({required Object date}) => 'Added on ${date}';
+
+	/// en: 'Last used $when'
+	String lastUsed({required Object when}) => 'Last used ${when}';
+
+	/// en: 'Remove'
+	String get revoke => 'Remove';
+
+	/// en: 'Remove this device?'
+	String get revokeTitle => 'Remove this device?';
+
+	/// en: 'It will be signed out and can no longer use the account.'
+	String get revokeBody => 'It will be signed out and can no longer use the account.';
+
+	/// en: 'Device removed'
+	String get revoked => 'Device removed';
+
+	/// en: 'Sign out every other device'
+	String get signOutOthers => 'Sign out every other device';
+
+	/// en: '(zero) {No other session open} (one) {$n session closed} (other) {$n sessions closed}'
+	String signedOutOthers({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		zero: 'No other session open',
+		one: '${n} session closed',
+		other: '${n} sessions closed',
+	);
+
+	/// en: 'The devices could not be read. A connection is needed.'
+	String get error => 'The devices could not be read. A connection is needed.';
+}
+
+// Path: muted
+class Translations$muted$en {
+	Translations$muted$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Hidden authors'
+	String get title => 'Hidden authors';
+
+	/// en: 'Nobody is hidden'
+	String get empty => 'Nobody is hidden';
+
+	/// en: 'From a review or a photo, the menu hides everything its author posts, for you only.'
+	String get emptyHint => 'From a review or a photo, the menu hides everything its author posts, for you only.';
+
+	/// en: 'Show again'
+	String get unmute => 'Show again';
+
+	/// en: 'Contributions by $name will show again'
+	String unmuted({required Object name}) => 'Contributions by ${name} will show again';
+}
+
+// Path: mine
+class Translations$mine$en {
+	Translations$mine$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'My contributions'
+	String get title => 'My contributions';
+
+	/// en: 'Waiting to be sent'
+	String get pending => 'Waiting to be sent';
+
+	/// en: 'They leave as soon as the network is back.'
+	String get pendingHint => 'They leave as soon as the network is back.';
+
+	/// en: 'Send now'
+	String get sendNow => 'Send now';
+
+	/// en: 'Try again'
+	String get retry => 'Try again';
+
+	/// en: 'Give up'
+	String get discard => 'Give up';
+
+	/// en: 'Give up this contribution?'
+	String get discardTitle => 'Give up this contribution?';
+
+	/// en: 'It will not be sent.'
+	String get discardBody => 'It will not be sent.';
+
+	/// en: 'Reviews and ratings'
+	String get reviews => 'Reviews and ratings';
+
+	/// en: 'Photos'
+	String get photos => 'Photos';
+
+	/// en: 'Confirmations'
+	String get confirmations => 'Confirmations';
+
+	/// en: 'Problems reported'
+	String get issues => 'Problems reported';
+
+	/// en: 'Places added and edits'
+	String get places => 'Places added and edits';
+
+	/// en: 'Nothing yet'
+	String get empty => 'Nothing yet';
+
+	/// en: 'Rating a place or confirming it is still there already counts as a contribution.'
+	String get emptyHint => 'Rating a place or confirming it is still there already counts as a contribution.';
+
+	/// en: 'The latest $shown of $total'
+	String latest({required Object shown, required Object total}) => 'The latest ${shown} of ${total}';
+
+	/// en: 'Your contributions could not be read. A connection is needed.'
+	String get error => 'Your contributions could not be read. A connection is needed.';
+
+	/// en: 'Delete this contribution?'
+	String get deleteTitle => 'Delete this contribution?';
+
+	/// en: 'It goes from Lunaway.'
+	String get deleteBody => 'It goes from Lunaway.';
+
+	/// en: 'This place is already part of the map: it stays there, without your name.'
+	String get deleteApplied => 'This place is already part of the map: it stays there, without your name.';
+
+	/// en: 'Contribution deleted'
+	String get deleted => 'Contribution deleted';
+
+	/// en: 'Rating only'
+	String get ratingOnly => 'Rating only';
+
+	late final Translations$mine$status$en status = Translations$mine$status$en.internal(_root);
+	late final Translations$mine$submission$en submission = Translations$mine$submission$en.internal(_root);
+
+	/// en: 'New place'
+	String get newPlace => 'New place';
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'A place'
+	String get aPlace => 'A place';
+
+	/// en: 'New vending machine'
+	String get newVendingMachine => 'New vending machine';
+}
+
+// Path: outbox
+class Translations$outbox$en {
+	Translations$outbox$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$outbox$kind$en kind = Translations$outbox$kind$en.internal(_root);
+
+	/// en: 'Waiting for the network'
+	String get waiting => 'Waiting for the network';
+
+	/// en: 'Sending'
+	String get sending => 'Sending';
+
+	late final Translations$outbox$error$en error = Translations$outbox$error$en.internal(_root);
+
+	/// en: 'Thank you, it is sent'
+	String get sent => 'Thank you, it is sent';
+
+	/// en: 'No network: it leaves as soon as it is back'
+	String get queued => 'No network: it leaves as soon as it is back';
+
+	/// en: 'Not sent. $reason'
+	String refused({required Object reason}) => 'Not sent. ${reason}';
+}
+
+// Path: contribute
+class Translations$contribute$en {
+	Translations$contribute$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your rating'
+	String get yourRating => 'Your rating';
+
+	/// en: 'Tap a star to rate'
+	String get rateHint => 'Tap a star to rate';
+
+	/// en: '(one) {Rate $n star} (other) {Rate $n stars}'
+	String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Rate ${n} star',
+		other: 'Rate ${n} stars',
+	);
+
+	/// en: 'Write a review'
+	String get writeReview => 'Write a review';
+
+	/// en: 'Edit your review'
+	String get editReview => 'Edit your review';
+
+	/// en: 'Delete your review'
+	String get deleteReview => 'Delete your review';
+
+	/// en: 'Delete your review?'
+	String get deleteReviewTitle => 'Delete your review?';
+
+	/// en: 'The text and the rating go from the page.'
+	String get deleteReviewBody => 'The text and the rating go from the page.';
+
+	/// en: 'Remove your rating'
+	String get deleteRating => 'Remove your rating';
+
+	/// en: 'Remove your rating?'
+	String get deleteRatingTitle => 'Remove your rating?';
+
+	/// en: 'Your rating leaves the place's page.'
+	String get deleteRatingBody => 'Your rating leaves the place\'s page.';
+
+	/// en: 'Waiting to be sent'
+	String get pendingSend => 'Waiting to be sent';
+
+	/// en: 'Under review: visible to you only for now'
+	String get statusPending => 'Under review: visible to you only for now';
+
+	/// en: 'Hidden after reports, waiting for a moderator'
+	String get statusHidden => 'Hidden after reports, waiting for a moderator';
+
+	/// en: 'Removed by moderation'
+	String get statusRemoved => 'Removed by moderation';
+
+	/// en: 'Add a photo'
+	String get addPhoto => 'Add a photo';
+
+	/// en: 'Add the first photo'
+	String get firstPhoto => 'Add the first photo';
+
+	/// en: 'Still there?'
+	String get stillThere => 'Still there?';
+
+	/// en: 'More actions'
+	String get more => 'More actions';
+
+	/// en: 'Report a problem'
+	String get reportIssue => 'Report a problem';
+
+	/// en: 'Suggest a change'
+	String get proposeEdit => 'Suggest a change';
+
+	/// en: 'Edit the place'
+	String get editPlace => 'Edit the place';
+
+	/// en: 'Report this place to the moderators'
+	String get reportPlace => 'Report this place to the moderators';
+
+	/// en: 'To verify'
+	String get toVerifyTitle => 'To verify';
+
+	/// en: 'Added by the community, waiting for two confirmations. Been there? Say so.'
+	String get toVerifyBody => 'Added by the community, waiting for two confirmations. Been there? Say so.';
+
+	/// en: 'Reported over the last 30 days'
+	String get issuesTitle => 'Reported over the last 30 days';
+
+	/// en: '$kind ($count)'
+	String issueCount({required Object kind, required Object count}) => '${kind} (${count})';
+
+	/// en: 'Add a place'
+	String get addPlace => 'Add a place';
+
+	/// en: 'Add a place here'
+	String get addPlaceHere => 'Add a place here';
+
+	/// en: 'A long press on the map moves the point.'
+	String get addPlaceHint => 'A long press on the map moves the point.';
+}
+
+// Path: confirmSheet
+class Translations$confirmSheet$en {
+	Translations$confirmSheet$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Still there?'
+	String get title => 'Still there?';
+
+	/// en: 'Been there recently? Your answer dates the page for the next travellers. No position is sent.'
+	String get body => 'Been there recently? Your answer dates the page for the next travellers. No position is sent.';
+
+	/// en: 'Yes, as described'
+	String get stillOk => 'Yes, as described';
+
+	/// en: 'Closed'
+	String get closed => 'Closed';
+
+	/// en: 'Changed'
+	String get changed => 'Changed';
+
+	/// en: 'No longer takes visitors'
+	String get closedHint => 'No longer takes visitors';
+
+	/// en: 'Still there, but something changed'
+	String get changedHint => 'Still there, but something changed';
+
+	/// en: 'A note for the moderators (optional)'
+	String get note => 'A note for the moderators (optional)';
+
+	/// en: 'For instance: a height barrier put up, a service point moved'
+	String get noteHint => 'For instance: a height barrier put up, a service point moved';
+
+	late final Translations$confirmSheet$status$en status = Translations$confirmSheet$status$en.internal(_root);
+}
+
+// Path: issueSheet
+class Translations$issueSheet$en {
+	Translations$issueSheet$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Report a problem'
+	String get title => 'Report a problem';
+
+	/// en: 'Your report counts in the warning shown on the page. Your note goes to the moderators only.'
+	String get body => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.';
+
+	late final Translations$issueSheet$kind$en kind = Translations$issueSheet$kind$en.internal(_root);
+	late final Translations$issueSheet$hint$en hint = Translations$issueSheet$hint$en.internal(_root);
+
+	/// en: 'A note (optional)'
+	String get note => 'A note (optional)';
+
+	/// en: 'Report'
+	String get send => 'Report';
+}
+
+// Path: reportSheet
+class Translations$reportSheet$en {
+	Translations$reportSheet$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Report this review'
+	String get review => 'Report this review';
+
+	/// en: 'Report this photo'
+	String get photo => 'Report this photo';
+
+	/// en: 'Report this place'
+	String get place => 'Report this place';
+
+	/// en: 'The moderators will read it. The author will not know who reported it.'
+	String get body => 'The moderators will read it. The author will not know who reported it.';
+
+	late final Translations$reportSheet$reason$en reason = Translations$reportSheet$reason$en.internal(_root);
+
+	/// en: 'Tell more (optional)'
+	String get note => 'Tell more (optional)';
+
+	/// en: 'Say what is wrong'
+	String get noteOther => 'Say what is wrong';
+
+	/// en: 'Thank you, the moderators will look'
+	String get sent => 'Thank you, the moderators will look';
+
+	/// en: 'Hide reviews and photos by $name'
+	String mute({required Object name}) => 'Hide reviews and photos by ${name}';
+
+	/// en: 'Hide this author'
+	String get muteAuthor => 'Hide this author';
+
+	/// en: 'Hide $name?'
+	String muteTitle({required Object name}) => 'Hide ${name}?';
+
+	/// en: 'Their reviews and photos will no longer show for you. You can change your mind in your profile.'
+	String get muteBody => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.';
+
+	/// en: '$name is hidden'
+	String muted({required Object name}) => '${name} is hidden';
+
+	/// en: 'Delete my photo'
+	String get deletePhoto => 'Delete my photo';
+
+	/// en: 'Delete this photo?'
+	String get deletePhotoTitle => 'Delete this photo?';
+
+	/// en: 'It goes from the page and from our servers.'
+	String get deletePhotoBody => 'It goes from the page and from our servers.';
+}
+
+// Path: reviewSheet
+class Translations$reviewSheet$en {
+	Translations$reviewSheet$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your review'
+	String get titleNew => 'Your review';
+
+	/// en: 'Edit your review'
+	String get titleEdit => 'Edit your review';
+
+	/// en: 'Choose a rating from 1 to 5'
+	String get starsRequired => 'Choose a rating from 1 to 5';
+
+	/// en: 'Your review'
+	String get text => 'Your review';
+
+	/// en: 'The quiet, the welcome, the room to manoeuvre, what was useful'
+	String get textHint => 'The quiet, the welcome, the room to manoeuvre, what was useful';
+
+	/// en: '(one) {At least $n more character} (other) {At least $n more characters}'
+	String tooShort({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'At least ${n} more character',
+		other: 'At least ${n} more characters',
+	);
+
+	/// en: 'Date of the stay'
+	String get visited => 'Date of the stay';
+
+	/// en: 'Not given'
+	String get visitedNone => 'Not given';
+
+	/// en: 'Your vehicle'
+	String get vehicle => 'Your vehicle';
+
+	/// en: 'Do not say'
+	String get vehicleNone => 'Do not say';
+
+	/// en: 'Published under CC BY 4.0, with your pseudonym. Put together, your reviews and their dates can show where you went: the date of the stay is optional.'
+	String get licence => 'Published under CC BY 4.0, with your pseudonym. Put together, your reviews and their dates can show where you went: the date of the stay is optional.';
+
+	/// en: 'Publish the review'
+	String get publish => 'Publish the review';
+}
+
+// Path: gate
+class Translations$gate$en {
+	Translations$gate$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Written reviews open at level 1'
+	String get review => 'Written reviews open at level 1';
+
+	/// en: 'Photos open at level 1'
+	String get photo => 'Photos open at level 1';
+
+	/// en: 'Adding places opens at level 2'
+	String get addPlace => 'Adding places opens at level 2';
+
+	/// en: 'Suggesting changes opens at level 1'
+	String get edit => 'Suggesting changes opens at level 1';
+
+	/// en: 'Levels keep abuse off the map. They come with time and contributions, with nothing to buy.'
+	String get why => 'Levels keep abuse off the map. They come with time and contributions, with nothing to buy.';
+
+	/// en: 'Your level: $level'
+	String yourLevel({required Object level}) => 'Your level: ${level}';
+
+	/// en: 'No account yet: an account starts at level 0.'
+	String get noAccount => 'No account yet: an account starts at level 0.';
+
+	/// en: 'Level $level comes after the previous ones, with time and published contributions.'
+	String later({required Object level}) => 'Level ${level} comes after the previous ones, with time and published contributions.';
+
+	/// en: 'Meanwhile, you can rate this place, confirm it is still there or report a problem.'
+	String get meanwhile => 'Meanwhile, you can rate this place, confirm it is still there or report a problem.';
+}
+
+// Path: photoFlow
+class Translations$photoFlow$en {
+	Translations$photoFlow$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Add a photo'
+	String get title => 'Add a photo';
+
+	/// en: 'Take a photo'
+	String get camera => 'Take a photo';
+
+	/// en: 'Choose from the gallery'
+	String get gallery => 'Choose from the gallery';
+
+	/// en: 'Preparing the photo'
+	String get preparing => 'Preparing the photo';
+
+	/// en: 'Published under CC BY 4.0, with your pseudonym. Avoid faces and number plates.'
+	String get licence => 'Published under CC BY 4.0, with your pseudonym. Avoid faces and number plates.';
+
+	/// en: 'The position and the device's data are removed before sending.'
+	String get stripped => 'The position and the device\'s data are removed before sending.';
+
+	/// en: 'Send the photo'
+	String get send => 'Send the photo';
+
+	/// en: 'This picture cannot be read on this device. Try a JPEG or PNG photo.'
+	String get unreadable => 'This picture cannot be read on this device. Try a JPEG or PNG photo.';
+
+	/// en: 'Sending $percent %'
+	String sending({required Object percent}) => 'Sending ${percent} %';
+
+	/// en: 'Photo waiting to be sent'
+	String get pending => 'Photo waiting to be sent';
+}
+
+// Path: placeForm
+class Translations$placeForm$en {
+	Translations$placeForm$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Add a place'
+	String get addTitle => 'Add a place';
+
+	/// en: 'Edit the place'
+	String get editTitle => 'Edit the place';
+
+	/// en: 'Suggest a change'
+	String get proposeTitle => 'Suggest a change';
+
+	/// en: 'Location'
+	String get position => 'Location';
+
+	/// en: 'Kind of place'
+	String get kind => 'Kind of place';
+
+	/// en: 'Choose a kind of place'
+	String get kindRequired => 'Choose a kind of place';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'The name shown on site, or a short description'
+	String get nameHint => 'The name shown on site, or a short description';
+
+	/// en: '2 to 120 characters'
+	String get nameInvalid => '2 to 120 characters';
+
+	/// en: 'The night'
+	String get night => 'The night';
+
+	/// en: 'Services on site'
+	String get services => 'Services on site';
+
+	/// en: 'Description'
+	String get description => 'Description';
+
+	/// en: 'What helps to find and choose the place'
+	String get descriptionHint => 'What helps to find and choose the place';
+
+	/// en: 'Details'
+	String get details => 'Details';
+
+	/// en: 'Price of a night (€)'
+	String get priceNight => 'Price of a night (€)';
+
+	/// en: 'Price of the services (€)'
+	String get priceServices => 'Price of the services (€)';
+
+	/// en: 'Maximum height (m)'
+	String get maxHeight => 'Maximum height (m)';
+
+	/// en: 'Pitches'
+	String get capacity => 'Pitches';
+
+	/// en: 'Website'
+	String get website => 'Website';
+
+	/// en: 'Phone'
+	String get phone => 'Phone';
+
+	/// en: 'Photo (optional)'
+	String get photo => 'Photo (optional)';
+
+	/// en: 'Photo ready'
+	String get photoReady => 'Photo ready';
+
+	/// en: 'Remove the photo'
+	String get removePhoto => 'Remove the photo';
+
+	/// en: 'The place will show as “to verify” until two other travellers confirm it.'
+	String get toVerify => 'The place will show as “to verify” until two other travellers confirm it.';
+
+	/// en: 'Places are published under the ODbL, credited to the Lunaway contributors.'
+	String get licence => 'Places are published under the ODbL, credited to the Lunaway contributors.';
+
+	/// en: 'A website or a phone number goes through a moderator before it is published.'
+	String get moderated => 'A website or a phone number goes through a moderator before it is published.';
+
+	/// en: 'Your level applies the change at once.'
+	String get direct => 'Your level applies the change at once.';
+
+	/// en: 'A moderator will review your suggestion before it applies.'
+	String get proposal => 'A moderator will review your suggestion before it applies.';
+
+	/// en: 'Add the place'
+	String get submitAdd => 'Add the place';
+
+	/// en: 'Save the change'
+	String get submitEdit => 'Save the change';
+
+	/// en: 'Send the suggestion'
+	String get submitPropose => 'Send the suggestion';
+
+	/// en: 'Nothing has changed'
+	String get nothingChanged => 'Nothing has changed';
+
+	/// en: 'A number, please'
+	String get invalidNumber => 'A number, please';
+
+	/// en: 'An address starting with http:// or https://'
+	String get invalidWebsite => 'An address starting with http:// or https://';
+
+	/// en: 'Thank you: the place reaches the map in a moment'
+	String get added => 'Thank you: the place reaches the map in a moment';
+
+	/// en: 'Thank you: your suggestion goes to review'
+	String get proposed => 'Thank you: your suggestion goes to review';
+}
+
+// Path: favoritesSync
+class Translations$favoritesSync$en {
+	Translations$favoritesSync$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'On this device only'
+	String get local => 'On this device only';
+
+	/// en: 'Sync'
+	String get action => 'Sync';
+
+	/// en: 'Syncing'
+	String get syncing => 'Syncing';
+
+	/// en: 'Kept with your account, synced $when'
+	String synced({required Object when}) => 'Kept with your account, synced ${when}';
+
+	/// en: 'Cannot sync right now'
+	String get failed => 'Cannot sync right now';
+
+	/// en: 'Sync your favourites?'
+	String get title => 'Sync your favourites?';
+
+	/// en: 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.'
+	String get body => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.';
+
+	/// en: 'Make the account and sync'
+	String get confirm => 'Make the account and sync';
+}
+
+// Path: poi
+class Translations$poi$en {
+	Translations$poi$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$poi$category$en category = Translations$poi$category$en.internal(_root);
+	late final Translations$poi$kind$en kind = Translations$poi$kind$en.internal(_root);
+
+	/// en: 'Shops and services around'
+	String get chipsLabel => 'Shops and services around';
+
+	/// en: 'Open now'
+	String get openNow => 'Open now';
+
+	/// en: 'Open day and night'
+	String get alwaysOpen => 'Open day and night';
+
+	/// en: 'Opening hours unknown'
+	String get hoursUnknown => 'Opening hours unknown';
+
+	/// en: 'Listed as closed by FINESS: it may have shut for good.'
+	String get maybeClosed => 'Listed as closed by FINESS: it may have shut for good.';
+
+	/// en: 'Listed as closed by FINESS since $date: it may have shut for good.'
+	String maybeClosedSince({required Object date}) => 'Listed as closed by FINESS since ${date}: it may have shut for good.';
+
+	/// en: 'Seasonal: it may be shut in winter.'
+	String get seasonal => 'Seasonal: it may be shut in winter.';
+
+	/// en: 'Paying'
+	String get fee => 'Paying';
+
+	/// en: 'Free'
+	String get free => 'Free';
+
+	/// en: 'Still there?'
+	String get stillThereTitle => 'Still there?';
+
+	/// en: 'Seen it lately? Your answer helps the next travellers. No position is sent.'
+	String get stillThereHint => 'Seen it lately? Your answer helps the next travellers. No position is sent.';
+
+	/// en: 'Still there'
+	String get stillThere => 'Still there';
+
+	/// en: 'Gone'
+	String get gone => 'Gone';
+
+	/// en: 'Said to be there $when'
+	String lastConfirmed({required Object when}) => 'Said to be there ${when}';
+
+	/// en: 'Checked on the spot on $date'
+	String checkedOn({required Object date}) => 'Checked on the spot on ${date}';
+
+	/// en: 'Thank you: noted as still there.'
+	String get thanksThere => 'Thank you: noted as still there.';
+
+	/// en: 'Thank you: noted as gone.'
+	String get thanksGone => 'Thank you: noted as gone.';
+
+	/// en: 'Fuel prices'
+	String get fuelPrices => 'Fuel prices';
+
+	/// en: '$price/L'
+	String perLitre({required Object price}) => '${price}/L';
+
+	/// en: 'Price updated $when'
+	String priceUpdated({required Object when}) => 'Price updated ${when}';
+
+	/// en: 'Price feed read $when'
+	String feedRead({required Object when}) => 'Price feed read ${when}';
+
+	/// en: 'Out of stock for now'
+	String get shortageTemporary => 'Out of stock for now';
+
+	/// en: 'No longer sold'
+	String get shortageDefinitive => 'No longer sold';
+
+	/// en: 'Card pump day and night'
+	String get selfService24h => 'Card pump day and night';
+
+	/// en: 'On a motorway'
+	String get highway => 'On a motorway';
+
+	/// en: 'Sells LPG'
+	String get lpgYes => 'Sells LPG';
+
+	late final Translations$poi$fuel$en fuel = Translations$poi$fuel$en.internal(_root);
+
+	/// en: 'Sells'
+	String get products => 'Sells';
+
+	/// en: 'Payment'
+	String get paymentTitle => 'Payment';
+
+	late final Translations$poi$product$en product = Translations$poi$product$en.internal(_root);
+	late final Translations$poi$payment$en payment = Translations$poi$payment$en.internal(_root);
+
+	/// en: 'just now'
+	String get justNow => 'just now';
+
+	/// en: '(one) {$n minute ago} (other) {$n minutes ago}'
+	String minutesAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} minute ago',
+		other: '${n} minutes ago',
+	);
+
+	/// en: '(one) {$n hour ago} (other) {$n hours ago}'
+	String hoursAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} hour ago',
+		other: '${n} hours ago',
+	);
+
+	/// en: 'Read $when: no network now'
+	String readOffline({required Object when}) => 'Read ${when}: no network now';
+
+	/// en: 'Read $when: it could not be read again now.'
+	String readStale({required Object when}) => 'Read ${when}: it could not be read again now.';
+
+	/// en: 'This point is no longer on the map'
+	String get goneTitle => 'This point is no longer on the map';
+
+	/// en: 'Travellers said it is gone, or the last update removed it.'
+	String get goneHint => 'Travellers said it is gone, or the last update removed it.';
+
+	/// en: 'The details could not be read. What the map knows is above.'
+	String get loadError => 'The details could not be read. What the map knows is above.';
+
+	/// en: 'Around this place'
+	String get around => 'Around this place';
+
+	/// en: 'No shop or service known around here.'
+	String get aroundEmpty => 'No shop or service known around here.';
+
+	/// en: 'What is around could not be read.'
+	String get aroundError => 'What is around could not be read.';
+
+	/// en: 'On site'
+	String get onSite => 'On site';
+
+	/// en: 'Back to $name'
+	String backTo({required Object name}) => 'Back to ${name}';
+
+	/// en: 'Back to the place'
+	String get backToPlace => 'Back to the place';
+
+	/// en: 'This shop or service could not be opened: no network, or it is no longer on the map.'
+	String get linkError => 'This shop or service could not be opened: no network, or it is no longer on the map.';
+
+	/// en: 'Shops and services'
+	String get searchSection => 'Shops and services';
+
+	/// en: 'Looking for shops and services'
+	String get searching => 'Looking for shops and services';
+
+	/// en: 'Shops and services are searched online: no network now.'
+	String get searchOffline => 'Shops and services are searched online: no network now.';
+
+	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
+	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
+}
+
+// Path: offlineMaps
+class Translations$offlineMaps$en {
+	Translations$offlineMaps$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Offline maps'
+	String get title => 'Offline maps';
+
+	/// en: 'Download a region before you leave: the map then shows without network, every street included.'
+	String get intro => 'Download a region before you leave: the map then shows without network, every street included.';
+
+	/// en: 'Offline maps are in the app'
+	String get webTitle => 'Offline maps are in the app';
+
+	/// en: 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.'
+	String get web => 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.';
+
+	/// en: 'Offline maps are on the phone'
+	String get desktopTitle => 'Offline maps are on the phone';
+
+	/// en: 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.'
+	String get desktop => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.';
+
+	/// en: 'The offline maps of this device could not be read.'
+	String get unreadable => 'The offline maps of this device could not be read.';
+
+	/// en: 'No region on this device yet.'
+	String get none => 'No region on this device yet.';
+
+	/// en: 'Space used: $size'
+	String used({required Object size}) => 'Space used: ${size}';
+
+	/// en: 'Downloading'
+	String get downloads => 'Downloading';
+
+	/// en: 'On this device'
+	String get installed => 'On this device';
+
+	/// en: 'Suggested'
+	String get suggested => 'Suggested';
+
+	/// en: 'Where you are'
+	String get here => 'Where you are';
+
+	/// en: '(one) {$n favourite here} (other) {$n favourites here}'
+	String favoritesHere({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} favourite here',
+		other: '${n} favourites here',
+	);
+
+	/// en: 'France'
+	String get france => 'France';
+
+	/// en: 'Overseas France'
+	String get overseas => 'Overseas France';
+
+	/// en: 'Countries'
+	String get countries => 'Countries';
+
+	/// en: 'Download $name, $size'
+	String downloadNamed({required Object name, required Object size}) => 'Download ${name}, ${size}';
+
+	/// en: 'Pause'
+	String get pause => 'Pause';
+
+	/// en: 'Resume'
+	String get resume => 'Resume';
+
+	/// en: 'Stop and remove the download'
+	String get cancel => 'Stop and remove the download';
+
+	/// en: 'Waiting for its turn'
+	String get waiting => 'Waiting for its turn';
+
+	/// en: '$done of $total'
+	String progress({required Object done, required Object total}) => '${done} of ${total}';
+
+	/// en: 'Paused at $done of $total'
+	String paused({required Object done, required Object total}) => 'Paused at ${done} of ${total}';
+
+	/// en: 'Checking the file'
+	String get verifying => 'Checking the file';
+
+	/// en: 'Stopped: no network. It resumes where it stopped once the network is back.'
+	String get failedNetwork => 'Stopped: no network. It resumes where it stopped once the network is back.';
+
+	/// en: 'The server sent something else than the map. Try again later.'
+	String get failedServer => 'The server sent something else than the map. Try again later.';
+
+	/// en: 'The file arrived damaged and was removed. Try again.'
+	String get failedCorrupt => 'The file arrived damaged and was removed. Try again.';
+
+	/// en: 'Not enough room left on the device.'
+	String get failedStorage => 'Not enough room left on the device.';
+
+	/// en: 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.'
+	String get keepOpen => 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.';
+
+	/// en: 'data of $date'
+	String dataOf({required Object date}) => 'data of ${date}';
+
+	/// en: 'Update, $size'
+	String update({required Object size}) => 'Update, ${size}';
+
+	/// en: 'Remove $name'
+	String deleteNamed({required Object name}) => 'Remove ${name}';
+
+	/// en: 'Remove $name from this device?'
+	String deleteTitle({required Object name}) => 'Remove ${name} from this device?';
+
+	/// en: 'It will no longer show without network. You can download it again.'
+	String get deleteBody => 'It will no longer show without network. You can download it again.';
+
+	/// en: 'The list of regions needs the network.'
+	String get listOffline => 'The list of regions needs the network.';
+
+	/// en: 'List kept from the last connection.'
+	String get listCopy => 'List kept from the last connection.';
+
+	/// en: 'To travel without network'
+	String get entryHint => 'To travel without network';
+
+	/// en: '(one) {$n region, $size} (other) {$n regions, $size}'
+	String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} region, ${size}',
+		other: '${n} regions, ${size}',
+	);
+
+	/// en: 'Offline: downloaded map, $name'
+	String noticePack({required Object name}) => 'Offline: downloaded map, ${name}';
+
+	/// en: 'Offline: this area is not downloaded'
+	String get noticeOutside => 'Offline: this area is not downloaded';
+
+	/// en: 'Offline: download a region for next time'
+	String get noticeNone => 'Offline: download a region for next time';
+
+	/// en: 'Offline: the map needs the network'
+	String get noticeOnline => 'Offline: the map needs the network';
 }
 
 // Path: place.reviewVehicle
@@ -1546,8 +2939,6 @@ class Translations$navigation$fuel$en {
 
 	/// en: 'Fuel along the route'
 	String get title => 'Fuel along the route';
-
-	late final Translations$navigation$fuel$kinds$en kinds = Translations$navigation$fuel$kinds$en.internal(_root);
 
 	/// en: '$price €/L'
 	String price({required Object price}) => '${price} €/L';
@@ -2004,21 +3395,6 @@ class Translations$navigation$settings$en {
 
 	/// en: 'Miles'
 	String get imperial => 'Miles';
-
-	/// en: 'Vehicle fuel'
-	String get fuel => 'Vehicle fuel';
-
-	/// en: 'Consumption'
-	String get consumption => 'Consumption';
-
-	/// en: 'L/100 km'
-	String get consumptionUnit => 'L/100 km';
-
-	/// en: 'To weigh the detour to a cheaper station.'
-	String get consumptionHint => 'To weigh the detour to a cheaper station.';
-
-	/// en: 'Between $min and $max L/100 km'
-	String consumptionRange({required Object min, required Object max}) => 'Between ${min} and ${max} L/100 km';
 }
 
 // Path: vehicle.types
@@ -2063,9 +3439,456 @@ class Translations$vehicle$towing$en {
 	String get trailer => 'A trailer';
 }
 
-// Path: navigation.fuel.kinds
-class Translations$navigation$fuel$kinds$en {
-	Translations$navigation$fuel$kinds$en.internal(this._root);
+// Path: account.levelOpens
+class Translations$account$levelOpens$en {
+	Translations$account$levelOpens$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'You can rate places, confirm they are still there, report a problem and sync your favourites.'
+	String get l0 => 'You can rate places, confirm they are still there, report a problem and sync your favourites.';
+
+	/// en: 'You can also write reviews, add photos and suggest changes to places.'
+	String get l1 => 'You can also write reviews, add photos and suggest changes to places.';
+
+	/// en: 'You can also add places.'
+	String get l2 => 'You can also add places.';
+
+	/// en: 'Your edits of places apply without review.'
+	String get l3 => 'Your edits of places apply without review.';
+
+	/// en: 'You take part in moderation.'
+	String get l4 => 'You take part in moderation.';
+}
+
+// Path: account.requirement
+class Translations$account$requirement$en {
+	Translations$account$requirement$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'An account at least $needed days old ($current so far)'
+	String age({required Object needed, required Object current}) => 'An account at least ${needed} days old (${current} so far)';
+
+	/// en: '$needed confirmations of different places ($current so far)'
+	String confirmations({required Object needed, required Object current}) => '${needed} confirmations of different places (${current} so far)';
+
+	/// en: '$needed published contributions ($current so far)'
+	String contributions({required Object needed, required Object current}) => '${needed} published contributions (${current} so far)';
+
+	/// en: '$needed days of activity ($current so far)'
+	String activeDays({required Object needed, required Object current}) => '${needed} days of activity (${current} so far)';
+
+	/// en: 'No contribution removed by moderation'
+	String get noRemoval => 'No contribution removed by moderation';
+
+	/// en: 'A sponsor at level 2'
+	String get sponsor => 'A sponsor at level 2';
+
+	/// en: 'A nomination by a moderator'
+	String get nomination => 'A nomination by a moderator';
+
+	/// en: 'An appointment by the Lunaway team'
+	String get administration => 'An appointment by the Lunaway team';
+}
+
+// Path: deletion.gone
+class Translations$deletion$gone$en {
+	Translations$deletion$gone$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your pseudonym and the keys of your devices'
+	String get identity => 'Your pseudonym and the keys of your devices';
+
+	/// en: 'Your sessions and your recovery code'
+	String get sessions => 'Your sessions and your recovery code';
+
+	/// en: 'Your synced favourite lists and your hidden authors'
+	String get lists => 'Your synced favourite lists and your hidden authors';
+
+	/// en: 'Your photos, your ratings without text and your reports'
+	String get photos => 'Your photos, your ratings without text and your reports';
+
+	/// en: 'Your proposals waiting for review'
+	String get pending => 'Your proposals waiting for review';
+}
+
+// Path: mine.status
+class Translations$mine$status$en {
+	Translations$mine$status$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Published'
+	String get published => 'Published';
+
+	/// en: 'Under review'
+	String get pending => 'Under review';
+
+	/// en: 'Hidden after reports'
+	String get hidden => 'Hidden after reports';
+
+	/// en: 'Removed by moderation'
+	String get removed => 'Removed by moderation';
+}
+
+// Path: mine.submission
+class Translations$mine$submission$en {
+	Translations$mine$submission$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Waiting for review'
+	String get proposed => 'Waiting for review';
+
+	/// en: 'Accepted'
+	String get accepted => 'Accepted';
+
+	/// en: 'On the map'
+	String get applied => 'On the map';
+
+	/// en: 'Refused'
+	String get rejected => 'Refused';
+
+	/// en: 'Withdrawn'
+	String get withdrawn => 'Withdrawn';
+}
+
+// Path: outbox.kind
+class Translations$outbox$kind$en {
+	Translations$outbox$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Rating of $stars out of 5'
+	String rate({required Object stars}) => 'Rating of ${stars} out of 5';
+
+	/// en: 'Review'
+	String get review => 'Review';
+
+	/// en: 'Deleting a review'
+	String get deleteReview => 'Deleting a review';
+
+	/// en: 'Still there? $status'
+	String confirm({required Object status}) => 'Still there? ${status}';
+
+	/// en: 'Deleting a confirmation'
+	String get deleteConfirmation => 'Deleting a confirmation';
+
+	/// en: 'Problem reported: $kind'
+	String reportIssue({required Object kind}) => 'Problem reported: ${kind}';
+
+	/// en: 'Deleting a report'
+	String get deleteIssueReport => 'Deleting a report';
+
+	/// en: 'Report to the moderators'
+	String get reportContent => 'Report to the moderators';
+
+	/// en: 'New place: $name'
+	String addPlace({required Object name}) => 'New place: ${name}';
+
+	/// en: 'Edit of a place'
+	String get editPlace => 'Edit of a place';
+
+	/// en: 'Withdrawing a proposed place'
+	String get deletePlaceSubmission => 'Withdrawing a proposed place';
+
+	/// en: 'Photo'
+	String get photo => 'Photo';
+
+	/// en: 'Deleting a photo'
+	String get deletePhoto => 'Deleting a photo';
+
+	/// en: 'Hiding an author'
+	String get mute => 'Hiding an author';
+
+	/// en: 'Showing an author again'
+	String get unmute => 'Showing an author again';
+
+	/// en: 'Still there: a shop or service'
+	String get poiThere => 'Still there: a shop or service';
+
+	/// en: 'Gone: a shop or service'
+	String get poiGone => 'Gone: a shop or service';
+
+	/// en: 'New vending machine'
+	String get addVendingMachine => 'New vending machine';
+}
+
+// Path: outbox.error
+class Translations$outbox$error$en {
+	Translations$outbox$error$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Refused: your level does not allow it yet.'
+	String get forbidden => 'Refused: your level does not allow it yet.';
+
+	/// en: 'Refused: the place or the content no longer exists.'
+	String get notFound => 'Refused: the place or the content no longer exists.';
+
+	/// en: 'Refused: check the text (length, links, contact details).'
+	String get invalid => 'Refused: check the text (length, links, contact details).';
+
+	/// en: 'Photo refused: unreadable, or already sent.'
+	String get unreadablePhoto => 'Photo refused: unreadable, or already sent.';
+
+	/// en: 'Photo refused: too large.'
+	String get photoTooLarge => 'Photo refused: too large.';
+
+	/// en: 'The new place of this photo was refused.'
+	String get placeRefused => 'The new place of this photo was refused.';
+
+	/// en: 'The photo is no longer on the device.'
+	String get fileLost => 'The photo is no longer on the device.';
+
+	/// en: 'Made for another account: it will not be sent.'
+	String get otherAccount => 'Made for another account: it will not be sent.';
+
+	/// en: 'Refused by the server.'
+	String get other => 'Refused by the server.';
+
+	/// en: 'Refused: the same machine is already listed within 25 m.'
+	String get duplicate => 'Refused: the same machine is already listed within 25 m.';
+}
+
+// Path: confirmSheet.status
+class Translations$confirmSheet$status$en {
+	Translations$confirmSheet$status$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'still there'
+	String get stillOk => 'still there';
+
+	/// en: 'closed'
+	String get closed => 'closed';
+
+	/// en: 'changed'
+	String get changed => 'changed';
+}
+
+// Path: issueSheet.kind
+class Translations$issueSheet$kind$en {
+	Translations$issueSheet$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Nights now forbidden'
+	String get nightBan => 'Nights now forbidden';
+
+	/// en: 'Service out of order'
+	String get serviceBroken => 'Service out of order';
+
+	/// en: 'No access'
+	String get noAccess => 'No access';
+
+	/// en: 'Danger'
+	String get danger => 'Danger';
+}
+
+// Path: issueSheet.hint
+class Translations$issueSheet$hint$en {
+	Translations$issueSheet$hint$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'A sign, a by-law, a police visit'
+	String get nightBan => 'A sign, a by-law, a police visit';
+
+	/// en: 'Service point, water, dump or power out of order'
+	String get serviceBroken => 'Service point, water, dump or power out of order';
+
+	/// en: 'A barrier, roadworks, a closed road'
+	String get noAccess => 'A barrier, roadworks, a closed road';
+
+	/// en: 'Theft, assault, unstable ground'
+	String get danger => 'Theft, assault, unstable ground';
+}
+
+// Path: reportSheet.reason
+class Translations$reportSheet$reason$en {
+	Translations$reportSheet$reason$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Advertising or repetition'
+	String get spam => 'Advertising or repetition';
+
+	/// en: 'Insulting, hateful or shocking'
+	String get offensive => 'Insulting, hateful or shocking';
+
+	/// en: 'False or misleading'
+	String get wrong => 'False or misleading';
+
+	/// en: 'Shows or names a person, a plate, a private address'
+	String get privacy => 'Shows or names a person, a plate, a private address';
+
+	/// en: 'Another reason'
+	String get other => 'Another reason';
+}
+
+// Path: poi.category
+class Translations$poi$category$en {
+	Translations$poi$category$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Groceries'
+	String get groceries => 'Groceries';
+
+	/// en: 'Vending machines'
+	String get vending => 'Vending machines';
+
+	/// en: 'Water and dump'
+	String get water => 'Water and dump';
+
+	/// en: 'Fuel and energy'
+	String get fuel => 'Fuel and energy';
+
+	/// en: 'Health'
+	String get health => 'Health';
+
+	/// en: 'Services'
+	String get services => 'Services';
+}
+
+// Path: poi.kind
+class Translations$poi$kind$en {
+	Translations$poi$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Supermarket'
+	String get supermarket => 'Supermarket';
+
+	/// en: 'Convenience store'
+	String get convenience => 'Convenience store';
+
+	/// en: 'Bakery'
+	String get bakery => 'Bakery';
+
+	/// en: 'Butcher'
+	String get butcher => 'Butcher';
+
+	/// en: 'Greengrocer'
+	String get greengrocer => 'Greengrocer';
+
+	/// en: 'Farm shop'
+	String get farmShop => 'Farm shop';
+
+	/// en: 'Market'
+	String get marketplace => 'Market';
+
+	/// en: 'Pizza vending machine'
+	String get vendingPizza => 'Pizza vending machine';
+
+	/// en: 'Bread vending machine'
+	String get vendingBread => 'Bread vending machine';
+
+	/// en: 'Farm produce machine'
+	String get vendingFarmProducts => 'Farm produce machine';
+
+	/// en: 'Eggs or milk machine'
+	String get vendingEggsMilk => 'Eggs or milk machine';
+
+	/// en: 'Ice machine'
+	String get vendingIce => 'Ice machine';
+
+	/// en: 'Food vending machine'
+	String get vendingOther => 'Food vending machine';
+
+	/// en: 'Drinking water'
+	String get drinkingWater => 'Drinking water';
+
+	/// en: 'Water point'
+	String get waterPoint => 'Water point';
+
+	/// en: 'Dump station'
+	String get dumpStation => 'Dump station';
+
+	/// en: 'Toilets'
+	String get toilets => 'Toilets';
+
+	/// en: 'Showers'
+	String get shower => 'Showers';
+
+	/// en: 'Fuel station'
+	String get fuelStation => 'Fuel station';
+
+	/// en: 'Charging station'
+	String get evCharging => 'Charging station';
+
+	/// en: 'Gas bottles'
+	String get gasBottles => 'Gas bottles';
+
+	/// en: 'Pharmacy'
+	String get pharmacy => 'Pharmacy';
+
+	/// en: 'Doctor'
+	String get doctor => 'Doctor';
+
+	/// en: 'Hospital'
+	String get hospital => 'Hospital';
+
+	/// en: 'Vet'
+	String get veterinary => 'Vet';
+
+	/// en: 'Laundry'
+	String get laundry => 'Laundry';
+
+	/// en: 'Cash machine'
+	String get atm => 'Cash machine';
+
+	/// en: 'Post office'
+	String get postOffice => 'Post office';
+
+	/// en: 'Tourist office'
+	String get touristOffice => 'Tourist office';
+
+	/// en: 'Recycling centre'
+	String get recyclingCentre => 'Recycling centre';
+
+	/// en: 'Garage'
+	String get carRepair => 'Garage';
+
+	/// en: 'Vehicle wash'
+	String get carWash => 'Vehicle wash';
+
+	/// en: 'Motorhome dealer and workshop'
+	String get motorhomeShop => 'Motorhome dealer and workshop';
+}
+
+// Path: poi.fuel
+class Translations$poi$fuel$en {
+	Translations$poi$fuel$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -2074,11 +3897,11 @@ class Translations$navigation$fuel$kinds$en {
 	/// en: 'Diesel'
 	String get diesel => 'Diesel';
 
-	/// en: 'Unleaded E10'
-	String get e10 => 'Unleaded E10';
-
 	/// en: 'Unleaded 95'
 	String get sp95 => 'Unleaded 95';
+
+	/// en: 'E10'
+	String get e10 => 'E10';
 
 	/// en: 'Unleaded 98'
 	String get sp98 => 'Unleaded 98';
@@ -2088,6 +3911,147 @@ class Translations$navigation$fuel$kinds$en {
 
 	/// en: 'LPG'
 	String get lpg => 'LPG';
+}
+
+// Path: poi.product
+class Translations$poi$product$en {
+	Translations$poi$product$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Eggs'
+	String get eggs => 'Eggs';
+
+	/// en: 'Milk'
+	String get milk => 'Milk';
+
+	/// en: 'Cheese'
+	String get cheese => 'Cheese';
+
+	/// en: 'Meat'
+	String get meat => 'Meat';
+
+	/// en: 'Vegetables'
+	String get vegetables => 'Vegetables';
+
+	/// en: 'Fruit'
+	String get fruit => 'Fruit';
+
+	/// en: 'Honey'
+	String get honey => 'Honey';
+
+	/// en: 'Ice'
+	String get ice => 'Ice';
+
+	/// en: 'Potatoes'
+	String get potatoes => 'Potatoes';
+
+	/// en: 'Food'
+	String get food => 'Food';
+}
+
+// Path: poi.payment
+class Translations$poi$payment$en {
+	Translations$poi$payment$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cash'
+	String get cash => 'Cash';
+
+	/// en: 'Coins'
+	String get coins => 'Coins';
+
+	/// en: 'Notes'
+	String get notes => 'Notes';
+
+	/// en: 'Card'
+	String get cards => 'Card';
+
+	/// en: 'Contactless'
+	String get contactless => 'Contactless';
+
+	/// en: 'Phone app'
+	String get app => 'Phone app';
+}
+
+// Path: poi.add
+class Translations$poi$add$en {
+	Translations$poi$add$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'A vending machine here?'
+	String get title => 'A vending machine here?';
+
+	/// en: 'Pick what it sells: it goes on the map for every traveller.'
+	String get hint => 'Pick what it sells: it goes on the map for every traveller.';
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Other food'
+	String get other => 'Other food';
+
+	/// en: 'Adding a vending machine'
+	String get gate => 'Adding a vending machine';
+
+	/// en: 'Thank you: the machine shows on the map within a few minutes.'
+	String get sent => 'Thank you: the machine shows on the map within a few minutes.';
+
+	/// en: 'Already on the map'
+	String get duplicateTitle => 'Already on the map';
+
+	/// en: 'A machine of the same kind is already listed within 25 m. Is it still there?'
+	String get duplicateBody => 'A machine of the same kind is already listed within 25 m. Is it still there?';
+
+	/// en: 'Yes, still there'
+	String get duplicateThere => 'Yes, still there';
+
+	/// en: 'No, it is gone'
+	String get duplicateGone => 'No, it is gone';
+}
+
+// Path: poi.cheapest
+class Translations$poi$cheapest$en {
+	Translations$poi$cheapest$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cheapest around me'
+	String get title => 'Cheapest around me';
+
+	/// en: 'Cheapest around'
+	String get show => 'Cheapest around';
+
+	/// en: 'Zoom in to compare the stations' prices.'
+	String get zoomIn => 'Zoom in to compare the stations\' prices.';
+
+	/// en: 'No station on the map sells this fuel.'
+	String get none => 'No station on the map sells this fuel.';
+
+	/// en: 'Move the map or pick another fuel.'
+	String get noneHint => 'Move the map or pick another fuel.';
+
+	/// en: 'The stations' prices could not be read.'
+	String get error => 'The stations\' prices could not be read.';
 }
 
 // Path: navigation.states.dimension
@@ -2158,6 +4122,11 @@ extension on Translations {
 			'common.undo' => 'Undo',
 			'common.ok' => 'Got it',
 			'common.saveFailed' => 'The change could not be saved.',
+			'common.send' => 'Send',
+			'common.later' => 'Later',
+			'common.next' => 'Continue',
+			'common.failed' => 'That did not go through. Try again in a moment.',
+			'common.offline' => 'No network right now. Try again once the connection is back.',
 			'kinds.motorhomeArea' => 'Motorhome area',
 			'kinds.serviceArea' => 'Service area',
 			'kinds.campsite' => 'Campsite',
@@ -2340,6 +4309,8 @@ extension on Translations {
 			'place.viewSource' => 'View at the source',
 			'place.gone' => 'This place is no longer in the data',
 			'place.goneHint' => 'It was removed or merged with another since the last update.',
+			'place.arriving' => 'This place comes with the download of the places',
+			'place.arrivingHint' => 'The places of France are downloading so the map works without a network. The page opens as soon as this one is here.',
 			'place.loadError' => 'This place could not be read.',
 			'place.openFailed' => 'No app could open this link.',
 			'place.photos' => 'Photos',
@@ -2347,6 +4318,7 @@ extension on Translations {
 			'place.reviewsTitle' => 'Reviews',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} review', other: '${n} reviews', ), 
 			'place.noReviews' => 'No reviews yet.',
+			'place.noOtherReviews' => 'No other reviews yet.',
 			'place.moreReviews' => 'More reviews',
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
@@ -2359,6 +4331,8 @@ extension on Translations {
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
 			'place.links' => 'Elsewhere',
+			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
+			'place.licenceCcBy' => 'CC BY 4.0',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Open, closes ${day} at ${time}',
@@ -2441,12 +4415,6 @@ extension on Translations {
 			'navigation.fuel.action' => 'Fuel',
 			'navigation.fuel.nextCheap' => 'Cheapest fuel ahead',
 			'navigation.fuel.title' => 'Fuel along the route',
-			'navigation.fuel.kinds.diesel' => 'Diesel',
-			'navigation.fuel.kinds.e10' => 'Unleaded E10',
-			'navigation.fuel.kinds.sp95' => 'Unleaded 95',
-			'navigation.fuel.kinds.sp98' => 'Unleaded 98',
-			'navigation.fuel.kinds.e85' => 'E85',
-			'navigation.fuel.kinds.lpg' => 'LPG',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L counting the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -2587,11 +4555,6 @@ extension on Translations {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
-			'navigation.settings.fuel' => 'Vehicle fuel',
-			'navigation.settings.consumption' => 'Consumption',
-			'navigation.settings.consumptionUnit' => 'L/100 km',
-			'navigation.settings.consumptionHint' => 'To weigh the detour to a cheaper station.',
-			'navigation.settings.consumptionRange' => ({required Object min, required Object max}) => 'Between ${min} and ${max} L/100 km',
 			'list.title' => 'Places around',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -2642,6 +4605,12 @@ extension on Translations {
 			'vehicle.navigationLater' => 'Lunaway\'s guidance takes all these dimensions into account.',
 			'vehicle.save' => 'Save',
 			'vehicle.clear' => 'Clear',
+			'vehicle.fuelTitle' => 'Fuel',
+			'vehicle.fuelHint' => 'The price of your fuel shows on the stations of the map, and the cheapest come first.',
+			'vehicle.consumption' => 'Consumption',
+			'vehicle.consumptionUnit' => 'L/100 km',
+			'vehicle.lpgHeating' => 'Heating on LPG',
+			'vehicle.lpgHeatingHint' => 'The price of LPG matters to you too.',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers: everything stays on this device.',
 			'profile.language' => 'Language',
@@ -2653,13 +4622,13 @@ extension on Translations {
 			'profile.themeAutoHint' => 'Light by day, dark after sunset where you are.',
 			'profile.themeLightHint' => 'Always light, day and night.',
 			'profile.themeDarkHint' => 'Always dark, easy on the eyes at night.',
+			_ => null,
+		} ?? switch (path) {
 			'profile.offline' => 'Offline data',
 			'profile.placesOnDevice' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place on this device', other: 'places on this device', ), 
 			'profile.offlineSize' => ({required Object size}) => 'Storage used: ${size}',
 			'profile.lastSync' => ({required Object when}) => 'Last update ${when}',
 			'profile.neverSynced' => 'Never downloaded',
-			_ => null,
-		} ?? switch (path) {
 			'profile.syncNow' => 'Update now',
 			'profile.syncing' => 'Updating',
 			'profile.about' => 'About',
@@ -2677,6 +4646,12 @@ extension on Translations {
 			'profile.attributionTiles' => 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.',
 			'profile.attributionFonts' => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
+			'profile.noTracking' => 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.',
+			'profile.attributionBdTopo' => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',
+			'profile.attributionPoiOdbl' => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.',
+			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
+			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -2687,6 +4662,518 @@ extension on Translations {
 			'languages.nl' => 'Dutch',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
+			'account.title' => 'Your account',
+			'account.noneTitle' => 'No account yet',
+			'account.noneBody' => 'The map, search and favourites work without an account. One is made for you at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists then join it.',
+			'account.recover' => 'Recover my account',
+			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
+			'account.editPseudonym' => 'Change the pseudonym',
+			'account.pseudonymTitle' => 'Your pseudonym',
+			'account.pseudonymHint' => 'Public: it goes with your reviews and photos. 3 to 32 characters.',
+			'account.pseudonymInvalid' => '3 to 32 characters, at least two of them letters.',
+			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
+			'account.pseudonymSaved' => 'Pseudonym saved',
+			'account.level' => ({required Object level}) => 'Trust level ${level}',
+			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
+			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
+			'account.levelOpens.l2' => 'You can also add places.',
+			'account.levelOpens.l3' => 'Your edits of places apply without review.',
+			'account.levelOpens.l4' => 'You take part in moderation.',
+			'account.nextLevel' => ({required Object level}) => 'For level ${level}',
+			'account.levelTop' => 'You are at the highest level.',
+			'account.requirement.age' => ({required Object needed, required Object current}) => 'An account at least ${needed} days old (${current} so far)',
+			'account.requirement.confirmations' => ({required Object needed, required Object current}) => '${needed} confirmations of different places (${current} so far)',
+			'account.requirement.contributions' => ({required Object needed, required Object current}) => '${needed} published contributions (${current} so far)',
+			'account.requirement.activeDays' => ({required Object needed, required Object current}) => '${needed} days of activity (${current} so far)',
+			'account.requirement.noRemoval' => 'No contribution removed by moderation',
+			'account.requirement.sponsor' => 'A sponsor at level 2',
+			'account.requirement.nomination' => 'A nomination by a moderator',
+			'account.requirement.administration' => 'An appointment by the Lunaway team',
+			'account.orInstead' => ({required Object requirement}) => 'Or instead: ${requirement}',
+			'account.recoveryNone' => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.',
+			'account.recoveryCreate' => 'Make my recovery card',
+			'account.recoveryMade' => ({required Object date}) => 'Recovery card made on ${date}',
+			'account.recoveryRemake' => 'Make a new card',
+			'account.contributions' => 'My contributions',
+			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
+			'account.mutedAuthors' => 'Hidden authors',
+			'account.devices' => 'Devices',
+			'account.signOut' => 'Sign out',
+			'account.delete' => 'Delete my account',
+			'account.signOutTitle' => 'Sign out of this device?',
+			'account.signOutBody' => 'The account\'s key leaves this device. To come back, you will need your recovery card. Your favourites stay here.',
+			'account.signOutNoCard' => 'You have not made a recovery card on this device. Without one, this account will be lost for good.',
+			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'One contribution waiting to be sent will not be sent.', other: '${n} contributions waiting to be sent will not be sent.', ), 
+			'account.signedOut' => 'Signed out. Your favourites stay on this device.',
+			'account.lost' => 'This account no longer opens on this device. Your recovery card brings it back.',
+			'account.welcomeTitle' => 'Thank you for your first contribution',
+			'account.welcomeBody' => ({required Object name}) => 'It made your account, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
+			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
+			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
+			'recovery.title' => 'Recovery card',
+			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it: nobody can give it back to you.',
+			'recovery.replaces' => 'A new card replaces the previous one, which stops working.',
+			'recovery.make' => 'Make the card',
+			'recovery.codeLabel' => 'Your recovery code',
+			'recovery.shownOnce' => 'This code shows only once. Write it down, or save the image, before closing.',
+			'recovery.saveImage' => 'Save the image',
+			'recovery.done' => 'I have it',
+			'recovery.doneTitle' => 'Did you keep the code?',
+			'recovery.doneBody' => 'Once this page is closed, it will not show again.',
+			'recovery.keep' => 'Stay on the page',
+			'recovery.cardHeading' => 'Lunaway recovery card',
+			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
+			'recovery.cardHow' => 'To recover the account: Profile, Recover my account, then type or read this code.',
+			'recovery.cardMade' => ({required Object date}) => 'Made on ${date}',
+			'recovery.cardWarning' => 'This code opens the account: entrust it to nobody.',
+			'recovery.failed' => 'The card could not be made. A connection is needed.',
+			'recovery.fileName' => 'lunaway-recovery-card',
+			'recovery.step1' => 'Make the card: the code shows only once.',
+			'recovery.step2' => 'Save the image, print it, or copy the code by hand.',
+			'recovery.step3' => 'Keep it in the glovebox, with the vehicle\'s papers.',
+			'recover.title' => 'Recover my account',
+			'recover.intro' => 'Type the code of your recovery card, or read it from a photo of the card.',
+			'recover.field' => 'Recovery code',
+			'recover.fieldHint' => '27 characters, in groups of four',
+			'recover.remaining' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} more character', other: '${n} more characters', ), 
+			'recover.invalid' => 'This code matches no card: check each character.',
+			'recover.valid' => 'Code complete',
+			'recover.scan' => 'Read the card from a photo',
+			'recover.scanFile' => 'Choose the card\'s image',
+			'recover.reading' => 'Reading the card',
+			'recover.scanFailed' => 'No readable code in this picture. Try a sharper photo, with the card held flat.',
+			'recover.revoke' => 'My old device is lost or stolen: sign it out',
+			'recover.revokeHint' => 'Every other key of the account will be removed.',
+			'recover.submit' => 'Recover the account',
+			'recover.notFound' => 'No account has this code. Check the card, or make a new one from a signed-in device.',
+			'recover.tooMany' => 'Too many attempts for now. Try again in an hour.',
+			'recover.done' => ({required Object name}) => 'Account recovered: ${name}',
+			'deletion.title' => 'Delete my account',
+			'deletion.intro' => 'Deletion is immediate and final.',
+			'deletion.goneTitle' => 'What goes',
+			'deletion.gone.identity' => 'Your pseudonym and the keys of your devices',
+			'deletion.gone.sessions' => 'Your sessions and your recovery code',
+			'deletion.gone.lists' => 'Your synced favourite lists and your hidden authors',
+			'deletion.gone.photos' => 'Your photos, your ratings without text and your reports',
+			'deletion.gone.pending' => 'Your proposals waiting for review',
+			'deletion.keptTitle' => 'What stays, without your name',
+			'deletion.kept' => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.',
+			'deletion.backups' => 'The server\'s backups are cleared within 30 days.',
+			'deletion.device' => 'On this device, your favourites stay; the account\'s key is erased.',
+			'deletion.web' => 'You can also delete it on lunaway.net with your recovery code.',
+			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.confirmTitle' => 'Delete for good?',
+			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed go now. Nobody can bring it back.',
+			'deletion.confirmCheck' => 'I understand this is final',
+			'deletion.confirm' => 'Delete the account',
+			'deletion.done' => 'Account deleted',
+			'deletion.failed' => 'The account could not be deleted. A connection is needed.',
+			'devices.title' => 'Devices',
+			'devices.intro' => 'Each device has its own key. Remove a lost device, or one you no longer use.',
+			'devices.thisDevice' => 'This device',
+			'devices.other' => 'Other device',
+			'devices.added' => ({required Object date}) => 'Added on ${date}',
+			'devices.lastUsed' => ({required Object when}) => 'Last used ${when}',
+			'devices.revoke' => 'Remove',
+			'devices.revokeTitle' => 'Remove this device?',
+			'devices.revokeBody' => 'It will be signed out and can no longer use the account.',
+			'devices.revoked' => 'Device removed',
+			'devices.signOutOthers' => 'Sign out every other device',
+			'devices.signedOutOthers' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'No other session open', one: '${n} session closed', other: '${n} sessions closed', ), 
+			'devices.error' => 'The devices could not be read. A connection is needed.',
+			'muted.title' => 'Hidden authors',
+			'muted.empty' => 'Nobody is hidden',
+			'muted.emptyHint' => 'From a review or a photo, the menu hides everything its author posts, for you only.',
+			'muted.unmute' => 'Show again',
+			'muted.unmuted' => ({required Object name}) => 'Contributions by ${name} will show again',
+			'mine.title' => 'My contributions',
+			'mine.pending' => 'Waiting to be sent',
+			'mine.pendingHint' => 'They leave as soon as the network is back.',
+			'mine.sendNow' => 'Send now',
+			'mine.retry' => 'Try again',
+			'mine.discard' => 'Give up',
+			'mine.discardTitle' => 'Give up this contribution?',
+			'mine.discardBody' => 'It will not be sent.',
+			'mine.reviews' => 'Reviews and ratings',
+			'mine.photos' => 'Photos',
+			'mine.confirmations' => 'Confirmations',
+			'mine.issues' => 'Problems reported',
+			'mine.places' => 'Places added and edits',
+			'mine.empty' => 'Nothing yet',
+			'mine.emptyHint' => 'Rating a place or confirming it is still there already counts as a contribution.',
+			'mine.latest' => ({required Object shown, required Object total}) => 'The latest ${shown} of ${total}',
+			'mine.error' => 'Your contributions could not be read. A connection is needed.',
+			'mine.deleteTitle' => 'Delete this contribution?',
+			'mine.deleteBody' => 'It goes from Lunaway.',
+			'mine.deleteApplied' => 'This place is already part of the map: it stays there, without your name.',
+			'mine.deleted' => 'Contribution deleted',
+			'mine.ratingOnly' => 'Rating only',
+			'mine.status.published' => 'Published',
+			'mine.status.pending' => 'Under review',
+			'mine.status.hidden' => 'Hidden after reports',
+			'mine.status.removed' => 'Removed by moderation',
+			'mine.submission.proposed' => 'Waiting for review',
+			'mine.submission.accepted' => 'Accepted',
+			'mine.submission.applied' => 'On the map',
+			'mine.submission.rejected' => 'Refused',
+			'mine.submission.withdrawn' => 'Withdrawn',
+			'mine.newPlace' => 'New place',
+			'mine.edit' => 'Edit',
+			'mine.aPlace' => 'A place',
+			'mine.newVendingMachine' => 'New vending machine',
+			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
+			'outbox.kind.review' => 'Review',
+			'outbox.kind.deleteReview' => 'Deleting a review',
+			'outbox.kind.confirm' => ({required Object status}) => 'Still there? ${status}',
+			'outbox.kind.deleteConfirmation' => 'Deleting a confirmation',
+			'outbox.kind.reportIssue' => ({required Object kind}) => 'Problem reported: ${kind}',
+			'outbox.kind.deleteIssueReport' => 'Deleting a report',
+			'outbox.kind.reportContent' => 'Report to the moderators',
+			'outbox.kind.addPlace' => ({required Object name}) => 'New place: ${name}',
+			'outbox.kind.editPlace' => 'Edit of a place',
+			'outbox.kind.deletePlaceSubmission' => 'Withdrawing a proposed place',
+			'outbox.kind.photo' => 'Photo',
+			'outbox.kind.deletePhoto' => 'Deleting a photo',
+			'outbox.kind.mute' => 'Hiding an author',
+			'outbox.kind.unmute' => 'Showing an author again',
+			'outbox.kind.poiThere' => 'Still there: a shop or service',
+			'outbox.kind.poiGone' => 'Gone: a shop or service',
+			'outbox.kind.addVendingMachine' => 'New vending machine',
+			'outbox.waiting' => 'Waiting for the network',
+			'outbox.sending' => 'Sending',
+			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
+			'outbox.error.notFound' => 'Refused: the place or the content no longer exists.',
+			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
+			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
+			'outbox.error.photoTooLarge' => 'Photo refused: too large.',
+			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
+			'outbox.error.fileLost' => 'The photo is no longer on the device.',
+			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
+			'outbox.error.other' => 'Refused by the server.',
+			'outbox.error.duplicate' => 'Refused: the same machine is already listed within 25 m.',
+			'outbox.sent' => 'Thank you, it is sent',
+			'outbox.queued' => 'No network: it leaves as soon as it is back',
+			'outbox.refused' => ({required Object reason}) => 'Not sent. ${reason}',
+			'contribute.yourRating' => 'Your rating',
+			'contribute.rateHint' => 'Tap a star to rate',
+			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Rate ${n} star', other: 'Rate ${n} stars', ), 
+			'contribute.writeReview' => 'Write a review',
+			'contribute.editReview' => 'Edit your review',
+			'contribute.deleteReview' => 'Delete your review',
+			'contribute.deleteReviewTitle' => 'Delete your review?',
+			'contribute.deleteReviewBody' => 'The text and the rating go from the page.',
+			'contribute.deleteRating' => 'Remove your rating',
+			'contribute.deleteRatingTitle' => 'Remove your rating?',
+			'contribute.deleteRatingBody' => 'Your rating leaves the place\'s page.',
+			'contribute.pendingSend' => 'Waiting to be sent',
+			'contribute.statusPending' => 'Under review: visible to you only for now',
+			'contribute.statusHidden' => 'Hidden after reports, waiting for a moderator',
+			'contribute.statusRemoved' => 'Removed by moderation',
+			'contribute.addPhoto' => 'Add a photo',
+			'contribute.firstPhoto' => 'Add the first photo',
+			'contribute.stillThere' => 'Still there?',
+			'contribute.more' => 'More actions',
+			'contribute.reportIssue' => 'Report a problem',
+			'contribute.proposeEdit' => 'Suggest a change',
+			'contribute.editPlace' => 'Edit the place',
+			'contribute.reportPlace' => 'Report this place to the moderators',
+			'contribute.toVerifyTitle' => 'To verify',
+			'contribute.toVerifyBody' => 'Added by the community, waiting for two confirmations. Been there? Say so.',
+			'contribute.issuesTitle' => 'Reported over the last 30 days',
+			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
+			'contribute.addPlace' => 'Add a place',
+			'contribute.addPlaceHere' => 'Add a place here',
+			'contribute.addPlaceHint' => 'A long press on the map moves the point.',
+			'confirmSheet.title' => 'Still there?',
+			'confirmSheet.body' => 'Been there recently? Your answer dates the page for the next travellers. No position is sent.',
+			'confirmSheet.stillOk' => 'Yes, as described',
+			'confirmSheet.closed' => 'Closed',
+			'confirmSheet.changed' => 'Changed',
+			'confirmSheet.closedHint' => 'No longer takes visitors',
+			'confirmSheet.changedHint' => 'Still there, but something changed',
+			'confirmSheet.note' => 'A note for the moderators (optional)',
+			'confirmSheet.noteHint' => 'For instance: a height barrier put up, a service point moved',
+			'confirmSheet.status.stillOk' => 'still there',
+			'confirmSheet.status.closed' => 'closed',
+			'confirmSheet.status.changed' => 'changed',
+			'issueSheet.title' => 'Report a problem',
+			'issueSheet.body' => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.',
+			'issueSheet.kind.nightBan' => 'Nights now forbidden',
+			'issueSheet.kind.serviceBroken' => 'Service out of order',
+			'issueSheet.kind.noAccess' => 'No access',
+			'issueSheet.kind.danger' => 'Danger',
+			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
+			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
+			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',
+			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
+			'issueSheet.note' => 'A note (optional)',
+			'issueSheet.send' => 'Report',
+			'reportSheet.review' => 'Report this review',
+			'reportSheet.photo' => 'Report this photo',
+			'reportSheet.place' => 'Report this place',
+			'reportSheet.body' => 'The moderators will read it. The author will not know who reported it.',
+			'reportSheet.reason.spam' => 'Advertising or repetition',
+			'reportSheet.reason.offensive' => 'Insulting, hateful or shocking',
+			'reportSheet.reason.wrong' => 'False or misleading',
+			'reportSheet.reason.privacy' => 'Shows or names a person, a plate, a private address',
+			'reportSheet.reason.other' => 'Another reason',
+			'reportSheet.note' => 'Tell more (optional)',
+			'reportSheet.noteOther' => 'Say what is wrong',
+			'reportSheet.sent' => 'Thank you, the moderators will look',
+			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
+			'reportSheet.muteAuthor' => 'Hide this author',
+			'reportSheet.muteTitle' => ({required Object name}) => 'Hide ${name}?',
+			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',
+			'reportSheet.muted' => ({required Object name}) => '${name} is hidden',
+			'reportSheet.deletePhoto' => 'Delete my photo',
+			'reportSheet.deletePhotoTitle' => 'Delete this photo?',
+			'reportSheet.deletePhotoBody' => 'It goes from the page and from our servers.',
+			'reviewSheet.titleNew' => 'Your review',
+			'reviewSheet.titleEdit' => 'Edit your review',
+			'reviewSheet.starsRequired' => 'Choose a rating from 1 to 5',
+			'reviewSheet.text' => 'Your review',
+			'reviewSheet.textHint' => 'The quiet, the welcome, the room to manoeuvre, what was useful',
+			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'At least ${n} more character', other: 'At least ${n} more characters', ), 
+			'reviewSheet.visited' => 'Date of the stay',
+			'reviewSheet.visitedNone' => 'Not given',
+			'reviewSheet.vehicle' => 'Your vehicle',
+			'reviewSheet.vehicleNone' => 'Do not say',
+			'reviewSheet.licence' => 'Published under CC BY 4.0, with your pseudonym. Put together, your reviews and their dates can show where you went: the date of the stay is optional.',
+			'reviewSheet.publish' => 'Publish the review',
+			'gate.review' => 'Written reviews open at level 1',
+			'gate.photo' => 'Photos open at level 1',
+			'gate.addPlace' => 'Adding places opens at level 2',
+			'gate.edit' => 'Suggesting changes opens at level 1',
+			'gate.why' => 'Levels keep abuse off the map. They come with time and contributions, with nothing to buy.',
+			'gate.yourLevel' => ({required Object level}) => 'Your level: ${level}',
+			'gate.noAccount' => 'No account yet: an account starts at level 0.',
+			'gate.later' => ({required Object level}) => 'Level ${level} comes after the previous ones, with time and published contributions.',
+			'gate.meanwhile' => 'Meanwhile, you can rate this place, confirm it is still there or report a problem.',
+			'photoFlow.title' => 'Add a photo',
+			'photoFlow.camera' => 'Take a photo',
+			'photoFlow.gallery' => 'Choose from the gallery',
+			'photoFlow.preparing' => 'Preparing the photo',
+			'photoFlow.licence' => 'Published under CC BY 4.0, with your pseudonym. Avoid faces and number plates.',
+			'photoFlow.stripped' => 'The position and the device\'s data are removed before sending.',
+			'photoFlow.send' => 'Send the photo',
+			'photoFlow.unreadable' => 'This picture cannot be read on this device. Try a JPEG or PNG photo.',
+			'photoFlow.sending' => ({required Object percent}) => 'Sending ${percent} %',
+			'photoFlow.pending' => 'Photo waiting to be sent',
+			'placeForm.addTitle' => 'Add a place',
+			'placeForm.editTitle' => 'Edit the place',
+			'placeForm.proposeTitle' => 'Suggest a change',
+			'placeForm.position' => 'Location',
+			'placeForm.kind' => 'Kind of place',
+			'placeForm.kindRequired' => 'Choose a kind of place',
+			'placeForm.name' => 'Name',
+			'placeForm.nameHint' => 'The name shown on site, or a short description',
+			'placeForm.nameInvalid' => '2 to 120 characters',
+			'placeForm.night' => 'The night',
+			'placeForm.services' => 'Services on site',
+			'placeForm.description' => 'Description',
+			'placeForm.descriptionHint' => 'What helps to find and choose the place',
+			'placeForm.details' => 'Details',
+			'placeForm.priceNight' => 'Price of a night (€)',
+			'placeForm.priceServices' => 'Price of the services (€)',
+			'placeForm.maxHeight' => 'Maximum height (m)',
+			'placeForm.capacity' => 'Pitches',
+			'placeForm.website' => 'Website',
+			'placeForm.phone' => 'Phone',
+			'placeForm.photo' => 'Photo (optional)',
+			'placeForm.photoReady' => 'Photo ready',
+			'placeForm.removePhoto' => 'Remove the photo',
+			'placeForm.toVerify' => 'The place will show as “to verify” until two other travellers confirm it.',
+			'placeForm.licence' => 'Places are published under the ODbL, credited to the Lunaway contributors.',
+			'placeForm.moderated' => 'A website or a phone number goes through a moderator before it is published.',
+			'placeForm.direct' => 'Your level applies the change at once.',
+			'placeForm.proposal' => 'A moderator will review your suggestion before it applies.',
+			'placeForm.submitAdd' => 'Add the place',
+			'placeForm.submitEdit' => 'Save the change',
+			'placeForm.submitPropose' => 'Send the suggestion',
+			'placeForm.nothingChanged' => 'Nothing has changed',
+			'placeForm.invalidNumber' => 'A number, please',
+			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
+			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
+			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
+			'favoritesSync.local' => 'On this device only',
+			'favoritesSync.action' => 'Sync',
+			'favoritesSync.syncing' => 'Syncing',
+			'favoritesSync.synced' => ({required Object when}) => 'Kept with your account, synced ${when}',
+			'favoritesSync.failed' => 'Cannot sync right now',
+			'favoritesSync.title' => 'Sync your favourites?',
+			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
+			'favoritesSync.confirm' => 'Make the account and sync',
+			'poi.category.groceries' => 'Groceries',
+			'poi.category.vending' => 'Vending machines',
+			'poi.category.water' => 'Water and dump',
+			'poi.category.fuel' => 'Fuel and energy',
+			'poi.category.health' => 'Health',
+			'poi.category.services' => 'Services',
+			'poi.kind.supermarket' => 'Supermarket',
+			'poi.kind.convenience' => 'Convenience store',
+			'poi.kind.bakery' => 'Bakery',
+			'poi.kind.butcher' => 'Butcher',
+			'poi.kind.greengrocer' => 'Greengrocer',
+			'poi.kind.farmShop' => 'Farm shop',
+			'poi.kind.marketplace' => 'Market',
+			'poi.kind.vendingPizza' => 'Pizza vending machine',
+			'poi.kind.vendingBread' => 'Bread vending machine',
+			'poi.kind.vendingFarmProducts' => 'Farm produce machine',
+			'poi.kind.vendingEggsMilk' => 'Eggs or milk machine',
+			'poi.kind.vendingIce' => 'Ice machine',
+			'poi.kind.vendingOther' => 'Food vending machine',
+			'poi.kind.drinkingWater' => 'Drinking water',
+			'poi.kind.waterPoint' => 'Water point',
+			'poi.kind.dumpStation' => 'Dump station',
+			'poi.kind.toilets' => 'Toilets',
+			'poi.kind.shower' => 'Showers',
+			'poi.kind.fuelStation' => 'Fuel station',
+			'poi.kind.evCharging' => 'Charging station',
+			'poi.kind.gasBottles' => 'Gas bottles',
+			'poi.kind.pharmacy' => 'Pharmacy',
+			'poi.kind.doctor' => 'Doctor',
+			'poi.kind.hospital' => 'Hospital',
+			'poi.kind.veterinary' => 'Vet',
+			'poi.kind.laundry' => 'Laundry',
+			'poi.kind.atm' => 'Cash machine',
+			'poi.kind.postOffice' => 'Post office',
+			'poi.kind.touristOffice' => 'Tourist office',
+			'poi.kind.recyclingCentre' => 'Recycling centre',
+			'poi.kind.carRepair' => 'Garage',
+			'poi.kind.carWash' => 'Vehicle wash',
+			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
+			'poi.chipsLabel' => 'Shops and services around',
+			'poi.openNow' => 'Open now',
+			'poi.alwaysOpen' => 'Open day and night',
+			'poi.hoursUnknown' => 'Opening hours unknown',
+			'poi.maybeClosed' => 'Listed as closed by FINESS: it may have shut for good.',
+			'poi.maybeClosedSince' => ({required Object date}) => 'Listed as closed by FINESS since ${date}: it may have shut for good.',
+			'poi.seasonal' => 'Seasonal: it may be shut in winter.',
+			'poi.fee' => 'Paying',
+			'poi.free' => 'Free',
+			'poi.stillThereTitle' => 'Still there?',
+			'poi.stillThereHint' => 'Seen it lately? Your answer helps the next travellers. No position is sent.',
+			'poi.stillThere' => 'Still there',
+			'poi.gone' => 'Gone',
+			'poi.lastConfirmed' => ({required Object when}) => 'Said to be there ${when}',
+			'poi.checkedOn' => ({required Object date}) => 'Checked on the spot on ${date}',
+			'poi.thanksThere' => 'Thank you: noted as still there.',
+			'poi.thanksGone' => 'Thank you: noted as gone.',
+			'poi.fuelPrices' => 'Fuel prices',
+			'poi.perLitre' => ({required Object price}) => '${price}/L',
+			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
+			'poi.feedRead' => ({required Object when}) => 'Price feed read ${when}',
+			'poi.shortageTemporary' => 'Out of stock for now',
+			'poi.shortageDefinitive' => 'No longer sold',
+			'poi.selfService24h' => 'Card pump day and night',
+			'poi.highway' => 'On a motorway',
+			'poi.lpgYes' => 'Sells LPG',
+			'poi.fuel.diesel' => 'Diesel',
+			'poi.fuel.sp95' => 'Unleaded 95',
+			'poi.fuel.e10' => 'E10',
+			'poi.fuel.sp98' => 'Unleaded 98',
+			'poi.fuel.e85' => 'E85',
+			'poi.fuel.lpg' => 'LPG',
+			'poi.products' => 'Sells',
+			'poi.paymentTitle' => 'Payment',
+			'poi.product.pizza' => 'Pizza',
+			'poi.product.bread' => 'Bread',
+			'poi.product.eggs' => 'Eggs',
+			'poi.product.milk' => 'Milk',
+			'poi.product.cheese' => 'Cheese',
+			'poi.product.meat' => 'Meat',
+			'poi.product.vegetables' => 'Vegetables',
+			'poi.product.fruit' => 'Fruit',
+			'poi.product.honey' => 'Honey',
+			'poi.product.ice' => 'Ice',
+			'poi.product.potatoes' => 'Potatoes',
+			'poi.product.food' => 'Food',
+			'poi.payment.cash' => 'Cash',
+			'poi.payment.coins' => 'Coins',
+			'poi.payment.notes' => 'Notes',
+			'poi.payment.cards' => 'Card',
+			'poi.payment.contactless' => 'Contactless',
+			'poi.payment.app' => 'Phone app',
+			'poi.justNow' => 'just now',
+			'poi.minutesAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} minute ago', other: '${n} minutes ago', ), 
+			'poi.hoursAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} hour ago', other: '${n} hours ago', ), 
+			'poi.readOffline' => ({required Object when}) => 'Read ${when}: no network now',
+			'poi.readStale' => ({required Object when}) => 'Read ${when}: it could not be read again now.',
+			'poi.goneTitle' => 'This point is no longer on the map',
+			'poi.goneHint' => 'Travellers said it is gone, or the last update removed it.',
+			'poi.loadError' => 'The details could not be read. What the map knows is above.',
+			'poi.around' => 'Around this place',
+			'poi.aroundEmpty' => 'No shop or service known around here.',
+			'poi.aroundError' => 'What is around could not be read.',
+			'poi.onSite' => 'On site',
+			'poi.backTo' => ({required Object name}) => 'Back to ${name}',
+			'poi.backToPlace' => 'Back to the place',
+			'poi.linkError' => 'This shop or service could not be opened: no network, or it is no longer on the map.',
+			'poi.searchSection' => 'Shops and services',
+			'poi.searching' => 'Looking for shops and services',
+			'poi.searchOffline' => 'Shops and services are searched online: no network now.',
+			'poi.add.title' => 'A vending machine here?',
+			'poi.add.hint' => 'Pick what it sells: it goes on the map for every traveller.',
+			'poi.add.pizza' => 'Pizza',
+			'poi.add.bread' => 'Bread',
+			'poi.add.other' => 'Other food',
+			'poi.add.gate' => 'Adding a vending machine',
+			'poi.add.sent' => 'Thank you: the machine shows on the map within a few minutes.',
+			'poi.add.duplicateTitle' => 'Already on the map',
+			'poi.add.duplicateBody' => 'A machine of the same kind is already listed within 25 m. Is it still there?',
+			'poi.add.duplicateThere' => 'Yes, still there',
+			'poi.add.duplicateGone' => 'No, it is gone',
+			'poi.cheapest.title' => 'Cheapest around me',
+			'poi.cheapest.show' => 'Cheapest around',
+			'poi.cheapest.zoomIn' => 'Zoom in to compare the stations\' prices.',
+			'poi.cheapest.none' => 'No station on the map sells this fuel.',
+			'poi.cheapest.noneHint' => 'Move the map or pick another fuel.',
+			'poi.cheapest.error' => 'The stations\' prices could not be read.',
+			'offlineMaps.title' => 'Offline maps',
+			'offlineMaps.intro' => 'Download a region before you leave: the map then shows without network, every street included.',
+			'offlineMaps.webTitle' => 'Offline maps are in the app',
+			'offlineMaps.web' => 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.',
+			'offlineMaps.desktopTitle' => 'Offline maps are on the phone',
+			'offlineMaps.desktop' => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.',
+			'offlineMaps.unreadable' => 'The offline maps of this device could not be read.',
+			_ => null,
+		} ?? switch (path) {
+			'offlineMaps.none' => 'No region on this device yet.',
+			'offlineMaps.used' => ({required Object size}) => 'Space used: ${size}',
+			'offlineMaps.downloads' => 'Downloading',
+			'offlineMaps.installed' => 'On this device',
+			'offlineMaps.suggested' => 'Suggested',
+			'offlineMaps.here' => 'Where you are',
+			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} favourite here', other: '${n} favourites here', ), 
+			'offlineMaps.france' => 'France',
+			'offlineMaps.overseas' => 'Overseas France',
+			'offlineMaps.countries' => 'Countries',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
+			'offlineMaps.pause' => 'Pause',
+			'offlineMaps.resume' => 'Resume',
+			'offlineMaps.cancel' => 'Stop and remove the download',
+			'offlineMaps.waiting' => 'Waiting for its turn',
+			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} of ${total}',
+			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',
+			'offlineMaps.verifying' => 'Checking the file',
+			'offlineMaps.failedNetwork' => 'Stopped: no network. It resumes where it stopped once the network is back.',
+			'offlineMaps.failedServer' => 'The server sent something else than the map. Try again later.',
+			'offlineMaps.failedCorrupt' => 'The file arrived damaged and was removed. Try again.',
+			'offlineMaps.failedStorage' => 'Not enough room left on the device.',
+			'offlineMaps.keepOpen' => 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.',
+			'offlineMaps.dataOf' => ({required Object date}) => 'data of ${date}',
+			'offlineMaps.update' => ({required Object size}) => 'Update, ${size}',
+			'offlineMaps.deleteNamed' => ({required Object name}) => 'Remove ${name}',
+			'offlineMaps.deleteTitle' => ({required Object name}) => 'Remove ${name} from this device?',
+			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
+			'offlineMaps.listOffline' => 'The list of regions needs the network.',
+			'offlineMaps.listCopy' => 'List kept from the last connection.',
+			'offlineMaps.entryHint' => 'To travel without network',
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} region, ${size}', other: '${n} regions, ${size}', ), 
+			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
+			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
+			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
+			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
 			_ => null,
 		};
 	}

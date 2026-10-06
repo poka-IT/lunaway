@@ -143,6 +143,19 @@ pub async fn load_graph(
     )
     .execute(&mut *tx)
     .await?;
+    let stored = insert_restrictions(&mut tx, Some(&graph.id), records).await?;
+    tx.commit().await?;
+    Ok(stored)
+}
+
+/// Inserts `records` (each already checked, with its points) for graph
+/// `graph_id`, or outside any graph (`None`: the community's, DiaLog's), in
+/// batches inside `tx`. How many were stored.
+pub(crate) async fn insert_restrictions(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    graph_id: Option<&str>,
+    records: &[(RestrictionRecord, Vec<Position>)],
+) -> Result<u64, DbError> {
     let mut stored = 0;
     // Loading 300 000 rows takes longer than a role's statement limit
     // allows one statement; each batch stays well under it.
@@ -187,7 +200,7 @@ pub async fn load_graph(
                 AS u(id, source, external_id, kind, limit_value, certainty, feature, name,
                      other_value, other_source, geometry, observed_at)
             "#,
-            graph.id,
+            graph_id,
             &ids,
             &sources,
             &external_ids,
@@ -201,11 +214,10 @@ pub async fn load_graph(
             &geometries,
             &observed,
         )
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
         stored += done.rows_affected();
     }
-    tx.commit().await?;
     Ok(stored)
 }
 
@@ -268,6 +280,21 @@ pub async fn activate(pool: &PgPool, id: &str) -> Result<Option<Activated>, DbEr
     .await?;
     tx.commit().await?;
     Ok(Some(Activated { previous, dropped }))
+}
+
+/// How many restrictions of `source` are stored (DiaLog's, outside any
+/// graph).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn count_source(pool: &PgPool, source: &str) -> Result<i64, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM route_restrictions WHERE source = $1"#,
+        source
+    )
+    .fetch_one(pool)
+    .await?)
 }
 
 /// The active graph, if any.

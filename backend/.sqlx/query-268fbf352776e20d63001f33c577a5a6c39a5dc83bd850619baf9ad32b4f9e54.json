@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE road_events SET ended_at = now(), end_reason = 'moderated' WHERE external_id = 'p'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "268fbf352776e20d63001f33c577a5a6c39a5dc83bd850619baf9ad32b4f9e54"
+}

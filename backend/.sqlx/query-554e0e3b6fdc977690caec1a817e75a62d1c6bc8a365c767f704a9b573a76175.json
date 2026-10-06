@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT match_quality, match_error, match_attempts,\n                      match_retry_at > now() + interval '20 minutes' AS \"later?\"\n               FROM road_events WHERE external_id = '260122-001799-1'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "match_quality",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_quality"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "match_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_error"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "match_attempts",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "later?",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "554e0e3b6fdc977690caec1a817e75a62d1c6bc8a365c767f704a9b573a76175"
+}

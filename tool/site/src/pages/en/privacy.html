@@ -33,7 +33,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <li>Lunaway shows no advertising, uses no tracker or audience measurement, and sells no data.</li>
 <li>Browsing the map needs no account. Until you create one, your favourites, settings and vehicle stay on your device.</li>
 <li>The account is created when you first contribute or sync your favourites. It asks for no email, no phone number and no password.</li>
-<li>Your location is used on the device. When it goes to our servers, for directions, it is neither stored nor logged.</li>
+<li>Your location is used on the device. When it goes to our servers for directions, it is neither stored nor logged. A road report keeps the place reported, linked to your account, for 14&nbsp;days.</li>
 <li>Our servers are in Germany. The access logs truncate IP addresses and are erased after 14&nbsp;days.</li>
 <li>You can delete your account at any time, in the app or on the <a href="/en/account/delete">Delete my account</a> page.</li>
 </ul>
@@ -62,7 +62,9 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <li><strong>Opening a place</strong> asks for its reviews and photos. The content of these requests is neither stored nor logged; the access log keeps the address of the photo files downloaded (see <a href="#logs">Logs</a>).</li>
 <li><strong>The basemap</strong> comes from tiles.lunaway.net. Each piece of map shown covers an area: the log keeps only its zoom level, never the area.</li>
 <li><strong>Directions</strong>, a feature in preparation: the start, the destination, the stops and the vehicle's dimensions travel in the body of the request. Our own engine computes the route on our server, and neither the request nor the route is stored or logged.</li>
+<li><strong>Roadworks and road closures</strong>, a feature in preparation: during guidance, the app downloads the changes for the whole of France every three minutes. The request contains no location.</li>
 <li><strong>Search</strong> for places and towns runs on the device. When the web app asks our server instead, the text searched and the centre of the map, used to rank the results, travel in the body of the request, and are neither stored nor logged.</li>
+<li><strong>Search for shops and services</strong> asks our server: the text searched and the centre of the map, rounded to about 5 km to rank the results, travel in the body of the request, and are neither stored nor logged. Your position is not part of it: the distances shown are computed on the device.</li>
 </ul>
 
 <h2 id="account">Your account, without email</h2>
@@ -88,6 +90,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <tr><td>Photo</td><td>the re-encoded image, with your pseudonym</td><td>CC&nbsp;BY&nbsp;4.0</td></tr>
 <tr><td>"Still there?" confirmation</td><td>the date the place was last confirmed, without your name; your note, if any, goes to moderators only</td><td>places database, ODbL&nbsp;1.0</td></tr>
 <tr><td>Problem report (night ban, broken service, no access, danger)</td><td>the number of recent reports of each kind, without your name; your note, if any, goes to moderators only</td><td>places database, ODbL&nbsp;1.0</td></tr>
+<tr><td>Road report (closed road, roadworks, narrow passage, low clearance, end of the event)</td><td>the event, without your name: its position rounded to about ten metres, the direction of travel, the height or width given, and the times of the first and last reports rounded to the hour</td><td>ODbL&nbsp;1.0</td></tr>
 <tr><td>New place, place edit</td><td>the place's information, in the places database, credited to the "Lunaway contributors"</td><td>ODbL&nbsp;1.0</td></tr>
 <tr><td>Report of a review, a photo or a place</td><td>nothing: only moderators read it</td><td>none</td></tr>
 </tbody>
@@ -95,13 +98,14 @@ description: What the Lunaway app and its servers store, where, for how long, an
 </section>
 <p>The places, with their additions and edits, form an open database under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, like OpenStreetMap, whose data it includes. Reviews and photos are published under <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>, credited to your pseudonym. For each new place or edit, our server also keeps a revision that links it to your account; it is not public.</p>
 <p><strong>Photos.</strong> A photo travels to our server as it is on your device, with its metadata, including the GPS position if the device recorded one. The server decodes it, then re-encodes it from the pixels alone into two WebP files (2048 and 512 pixels on the long side): no metadata survives, no position, no date, no camera model. The original is not kept.</p>
+<p><strong>Road reports.</strong> A report stores, linked to your account, the place reported, your direction of travel, the kind of event, the height or width given and the time. These records are not public. They decide whether the event blocks everyone's routes, which takes two accounts of level&nbsp;1 or more, and serve moderation. They are deleted after 14&nbsp;days, or with your account. Put side by side, one account's reports would show where it has been: the published event therefore carries neither your name, nor the exact place, nor the exact time.</p>
 <p><strong>What your contributions show.</strong> Your reviews and photos are public with your pseudonym, and a stable account identifier links them together. Put side by side, with their dates, they can show where you have been. The date of visit of a review is optional.</p>
 <p><strong>Moderation.</strong> Texts go through simple automatic rules (links, contact details, repetition, a word list). A text that trips them waits for a moderator before it is published. A review or a photo reported by three trusted accounts is hidden until a moderator decides. Moderators, the publisher and the contributors it appoints, read reported content and the notes attached to confirmations and reports.</p>
 <p>You can delete each of your contributions, or your whole account: the <a href="/en/account/delete">Delete my account</a> page details what goes and what stays.</p>
 
 <h2 id="location">Your location</h2>
 <p>If you allow it, the app reads the device's location to show where you are on the map, compute distances and follow sunset. These computations run on the device, which keeps only a position rounded to about ten kilometres. The app does not ask for background location access.</p>
-<p>Your location leaves the device only when you ask for directions from where you are, and only in that request, which is neither stored nor logged. "Still there?" confirmations contain no location. You can withdraw the permission at any time in the system settings.</p>
+<p>Your location leaves the device in two cases only. Directions asked from where you are carry it in that request alone, which is neither stored nor logged. A road report stores it, as described in <a href="#contributions">What you publish</a>. "Still there?" confirmations contain no location. You can withdraw the permission at any time in the system settings.</p>
 
 <h2 id="logs">Logs and abuse limits</h2>
 <p>Like any web server, ours record the requests they receive, for security and troubleshooting:</p>
@@ -118,6 +122,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <li>encrypted with age, on a second server at Hetzner in Nuremberg for 14&nbsp;days, then on a computer of the publisher, the only holder of the decryption key, for 29&nbsp;days.</li>
 </ul>
 <p>Data deleted from the database, or a deleted photo, thus leaves every backup within 30&nbsp;days at most.</p>
+<p>The deletion of an account is also noted, with the account's identifier and the time, in a journal kept outside the copies of the database for 45&nbsp;days at most; an encrypted copy of it is made every hour and leaves every night with the backups, where it replaces the previous one (46&nbsp;days at most). If a failure makes us bring a backup back into service, the account deletions made since its date are applied again before the service resumes. One failure escapes this: the loss of the server's data disk itself. The deletions made after the last copy collected away from that server (up to about 25&nbsp;hours) would then come back with the backup.</p>
 
 <h2 id="hosting">Hosting and providers</h2>
 <ul>
@@ -136,10 +141,13 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <tr><td>Account: public keys, pseudonym, level, synced favourites, muted authors</td><td>until the account is deleted</td></tr>
 <tr><td>Sessions</td><td>60&nbsp;days after their last use</td></tr>
 <tr><td>Contributions</td><td>until you delete them or the account; some then stay without author (see <a href="/en/account/delete">Delete my account</a>)</td></tr>
+<tr><td>Road reports: place, direction of travel, time, linked to the account</td><td>14&nbsp;days, or until the account is deleted if that comes first</td></tr>
+<tr><td>Published road events, not linked to an account</td><td>7&nbsp;days after their end</td></tr>
 <tr><td>Access log</td><td>14&nbsp;days</td></tr>
 <tr><td>System journal</td><td>1&nbsp;month at most</td></tr>
 <tr><td>Abuse counters</td><td>in memory, from one minute to one day, cleared at every restart</td></tr>
 <tr><td>Backups</td><td>30&nbsp;days at most</td></tr>
+<tr><td>Journal of account deletions: the deleted account's identifier and the time</td><td>45&nbsp;days at most (46 in its copies)</td></tr>
 <tr><td>Emails received at contact@lunaway.net</td><td>as long as it takes to handle your request</td></tr>
 <tr><td>Data on your device</td><td>until you uninstall the app, or clear the site's data in the browser</td></tr>
 </tbody>

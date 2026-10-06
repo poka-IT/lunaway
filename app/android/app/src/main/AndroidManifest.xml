@@ -55,6 +55,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- A photo of a place, or of the recovery card, is taken by the
+             system's camera app (image_picker): no camera permission. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
         <!-- Links, geo: points and phone numbers open in their apps.
              url_launcher checks and opens every URL with ACTION_VIEW, tel:
              included. -->

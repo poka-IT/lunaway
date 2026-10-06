@@ -11,7 +11,9 @@
 //! (`LUNAWAY_SESSION_DAYS`), the photos (`LUNAWAY_MEDIA_DIR`,
 //! `LUNAWAY_MEDIA_BASE_URL`, `LUNAWAY_MAX_UPLOAD_BYTES`) and the routing
 //! engine (`LUNAWAY_VALHALLA_URL`, loopback only, `LUNAWAY_VALHALLA_TIMEOUT_MS`,
-//! `LUNAWAY_ROUTING_*`).
+//! `LUNAWAY_ROUTING_*`), the account deletion journal and the idempotency
+//! keys (`LUNAWAY_DELETION_JOURNAL`, `LUNAWAY_DELETION_JOURNAL_DAYS`,
+//! `LUNAWAY_IDEMPOTENCY_DAYS`).
 
 use std::{net::SocketAddr, time::Duration};
 
@@ -56,15 +58,55 @@ async fn main() -> anyhow::Result<()> {
     .await
     .context("cannot reach the database")?;
 
-    // Expired sessions are never used again; dropping them hourly keeps the
-    // table to the live ones.
+    let keeping = config.keeping.clone();
+    match keeping.journal() {
+        Some(journal) => {
+            // A journal it cannot write would refuse every deletion: the
+            // start fails instead, and a deploy goes back to the release
+            // before.
+            journal
+                .check_writable(chrono::Utc::now())
+                .with_context(|| {
+                    format!(
+                        "the account deletion journal {} cannot be written",
+                        journal.dir().display()
+                    )
+                })?;
+            tracing::info!(
+                dir = %journal.dir().display(),
+                days = keeping.deletion_journal_days,
+                "account deletions are journaled"
+            );
+        }
+        None => tracing::warn!(
+            "LUNAWAY_DELETION_JOURNAL is off: account deletions are not journaled, \
+             and a restored backup would bring back the accounts deleted since"
+        ),
+    }
+
+    // Hourly upkeep: expired sessions are never used again, idempotency keys
+    // answer for a bounded time, and the deletion journal keeps its days
+    // only as long as a backup could need them.
     let purge_pool = pool.clone();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_secs(3_600)).await;
-            match lunaway_db::accounts::purge_expired_sessions(&purge_pool).await {
-                Ok(n) => tracing::info!(sessions = n, "expired sessions dropped"),
-                Err(error) => tracing::error!(%error, "cannot drop expired sessions"),
+            upkeep(&purge_pool, &keeping).await;
+        }
+    });
+    // The community's road events are weighed again every three minutes,
+    // here rather than by the importers, whose role does not read who
+    // reported what: a banned or deleted account stops counting.
+    let weigh_pool = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(180)).await;
+            match lunaway_db::road_events::reweigh_community(&weigh_pool).await {
+                Ok(n) => tracing::debug!(changed = n, "community road events weighed again"),
+                Err(error) if lunaway_db::road_events::is_busy(&error) => {
+                    tracing::debug!("the road events are being written; weighed at the next round");
+                }
+                Err(error) => tracing::error!(%error, "cannot weigh the community road events"),
             }
         }
     });
@@ -83,6 +125,32 @@ async fn main() -> anyhow::Result<()> {
     .with_graceful_shutdown(shutdown_signal())
     .await
     .context("server stopped with an error")
+}
+
+/// One round of the hourly upkeep; each step logs its own failure.
+async fn upkeep(pool: &lunaway_db::PgPool, keeping: &lunaway_api::config::KeepingConfig) {
+    match lunaway_db::accounts::purge_expired_sessions(pool).await {
+        Ok(n) => tracing::info!(sessions = n, "expired sessions dropped"),
+        Err(error) => tracing::error!(%error, "cannot drop expired sessions"),
+    }
+    let now = chrono::Utc::now();
+    let keys_before = now - chrono::Duration::days(i64::from(keeping.idempotency_days));
+    // A road report's key goes with the report: it names the account and
+    // the time of a report the privacy page says is erased.
+    let road_keys_before = now - chrono::Duration::days(lunaway_db::road_events::REPORT_KEEP_DAYS);
+    match lunaway_db::idempotency::purge(pool, keys_before, road_keys_before).await {
+        Ok(n) => tracing::info!(keys = n, "old idempotency keys dropped"),
+        Err(error) => tracing::error!(%error, "cannot drop old idempotency keys"),
+    }
+    if let Some(journal) = keeping.journal() {
+        let keep = chrono::Duration::days(i64::from(keeping.deletion_journal_days));
+        let pruned = tokio::task::spawn_blocking(move || journal.prune(keep, now)).await;
+        match pruned {
+            Ok(Ok(n)) => tracing::info!(days = n, "old days of the deletion journal removed"),
+            Ok(Err(error)) => tracing::error!(%error, "cannot prune the deletion journal"),
+            Err(error) => tracing::error!(%error, "the deletion journal's pruning stopped"),
+        }
+    }
 }
 
 /// Resolves on Ctrl-C in a terminal or SIGTERM from a container runtime.

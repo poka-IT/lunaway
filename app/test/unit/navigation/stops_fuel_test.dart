@@ -18,6 +18,7 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
 import '../../helpers/fakes.dart';
 import '../../helpers/navigation.dart';
@@ -33,7 +34,7 @@ FuelOffer offer(String id, {required double price, double detourM = 0}) => FuelO
   detourM: detourM,
   detourS: detourM / 14,
   alongM: 400,
-  fuel: VehicleFuel.diesel,
+  fuel: FuelType.diesel,
 );
 
 void main() {
@@ -98,21 +99,11 @@ void main() {
         detourM: 0,
         detourS: 0,
         alongM: 400,
-        fuel: VehicleFuel.diesel,
+        fuel: FuelType.diesel,
         open: StationOpen.closed,
       );
       final withClosed = rankOffers([closed, ...ranked], consumptionL100: 11);
       expect(withClosed.last.id, 'closed', reason: 'cheapest, but closed now');
-    });
-
-    test('the fuel and the consumption are kept with the route settings', () {
-      const settings = NavigationSettings(fuel: VehicleFuel.lpg, consumptionL100: 13.5);
-      final back = NavigationSettings.decode(settings.encode());
-      expect(back.fuel, VehicleFuel.lpg);
-      expect(back.consumptionL100, 13.5);
-      final odd = NavigationSettings.decode('{"fuel":"KEROSENE","consumptionL100":400}');
-      expect(odd.fuel, VehicleFuel.diesel);
-      expect(odd.consumptionL100, NavigationSettings.defaultConsumptionL100);
     });
 
     test('stations around the route ahead, with their price, open state and detour', () async {
@@ -159,7 +150,7 @@ void main() {
         userAgent: AppConfig.userAgent('1.0.0'),
       );
       final offers = await NearbyFuelStations(client)
-          .along(route: road, fromM: 1000, fuel: VehicleFuel.diesel);
+          .along(route: road, fromM: 1000, fuel: FuelType.diesel);
       expect(asked, isNotEmpty);
       // 1 km along the road, rounded to the hundredth of a degree before it
       // leaves the device.

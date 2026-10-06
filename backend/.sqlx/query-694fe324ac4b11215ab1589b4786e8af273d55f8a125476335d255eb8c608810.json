@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET ended_at = $1, end_reason = 'past_end'\n        WHERE ended_at IS NULL AND valid_to < $1::timestamptz - interval '1 hour'\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "694fe324ac4b11215ab1589b4786e8af273d55f8a125476335d255eb8c608810"
+}

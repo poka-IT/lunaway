@@ -9,7 +9,10 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// The stations along [line] from [fromM], cheapest first with the detour
@@ -40,7 +43,7 @@ class FuelSheet extends ConsumerStatefulWidget {
 
 class _FuelSheetState extends ConsumerState<FuelSheet> {
   /// Another fuel than the vehicle's, chosen here (LPG for the heating).
-  VehicleFuel? _fuel;
+  FuelType? _fuel;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +51,8 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final settings = ref.watch(routeSettingsControllerProvider).value ?? const NavigationSettings();
-    final fuel = _fuel ?? settings.fuel;
+    final vehicle = ref.watch(vehicleFuelProvider);
+    final fuel = _fuel ?? vehicle.fuel ?? FuelType.diesel;
     final query = FuelQuery(line: widget.line, fromM: widget.fromM, fuel: fuel);
     final offers = ref.watch(fuelOffersProvider(query));
     ref.listen(fuelOffersProvider(query), (_, next) {
@@ -81,11 +85,11 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  for (final f in VehicleFuel.values)
+                  for (final f in FuelType.values)
                     Padding(
                       padding: const EdgeInsets.only(right: Space.s),
                       child: ChoiceChip(
-                        label: Text(t.fuelName(f)),
+                        label: Text(t.fuelType(f)),
                         selected: f == fuel,
                         onSelected: (_) => setState(() => _fuel = f),
                       ),
@@ -104,7 +108,7 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, i) => _OfferTile(
                     offer: value[i],
-                    consumption: settings.consumptionL100,
+                    consumption: vehicle.consumptionL100 ?? defaultConsumptionL100,
                     units: settings.units,
                     now: now,
                     onAdd: () {

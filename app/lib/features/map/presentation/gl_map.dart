@@ -12,6 +12,8 @@ import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -34,6 +36,15 @@ class GlLunaMap extends StatefulWidget {
 class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
+
+  /// The first view still has to be fitted to the region. Decided when the
+  /// map is made, not read from the props at style load: the map can
+  /// report its first camera (which ends `fitInitial`) before a slow first
+  /// setup reaches the fit. In the tours on the emulator and the iOS
+  /// simulator, whose setup a theme and language change slows, France
+  /// stayed at the default camera.
+  late bool _fitPending = widget.props.fitInitial;
+
   bool _locationOn = false;
 
   // What the style currently holds, to send only what changed.
@@ -43,6 +54,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   // Updates run one after the other: a newer one never races an older one.
   Future<void> _queue = Future.value();
+
+  // The points of interest: their source, layers and selection.
+  final _poi = GlPoiLayers();
 
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
@@ -71,6 +85,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
+      _poi.forget();
     }
     _scheduleSync();
   }
@@ -87,8 +102,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
 
   double get _pinScale {
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    return (android ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
+    // Both native plugins read an image pixel as a physical one: Android
+    // directly, iOS through the UIImage it makes at the screen's scale.
+    final native =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
   gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
@@ -128,6 +148,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await add();
       }
 
+      // The points of interest go under the places: the night spots keep
+      // the map.
+      if (_props.pois case final pois?) {
+        await _poi.installBelowPlaces(
+          c,
+          pois,
+          pinScale: _pinScale,
+          current: current,
+          dark: dark,
+          below: PoiMapStyle.firstLabelLayer(_props.style),
+        );
+      }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
         MapStyle.selectionPinLayer,
@@ -173,7 +205,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           MapStyle.placesSource,
           MapStyle.clusterCountLayer,
           gl.SymbolLayerProperties(
-            textField: const ['get', 'point_count_abbreviated'],
+            // The iOS plugin crashes on any expression that writes a number
+            // as text (`to-string`, `concat`, `number-format`; measured on
+            // the simulator, 2026-10-06): there the count stays a number.
+            textField: defaultTargetPlatform == TargetPlatform.iOS && !kIsWeb
+                ? const ['get', 'point_count']
+                : MapLook.clusterLabel(_props.language),
             textFont: MapLook.clusterFont,
             textSize: MapLook.clusterTextSize,
             textColor: MapLook.clusterText(dark: dark),
@@ -208,6 +245,27 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.selectionPinLayer,
       );
+      if (_props.pois != null) {
+        await _poi.installSelection(c, pinScale: _pinScale, current: current);
+      }
+      if (!current()) return;
+      if (_fitPending) {
+        final size = mounted ? context.size : null;
+        if (size != null) {
+          _fitPending = false;
+          final camera = cameraForBounds(
+            GeoBounds.metropolitanFrance,
+            size,
+            _props.padding + const EdgeInsets.all(16),
+          );
+          await c.moveCamera(
+            gl.CameraUpdate.newLatLngZoom(
+              gl.LatLng(camera.center.lat, camera.center.lon),
+              camera.zoom,
+            ),
+          );
+        }
+      }
       if (!current()) return;
       _ready = true;
       _sentPlaces = null;
@@ -252,6 +310,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       );
       if (selected != null || props.markedPoint != null) await _popSelection(c);
     }
+    if (props.pois case final pois?) await _poi.sync(c, pois, pinScale: _pinScale);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye
@@ -274,27 +333,64 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const slop = 14.0;
     final features = await c.queryRenderedFeaturesInRect(
       Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
-      MapStyle.tappableLayers,
+      [...MapStyle.tappableLayers, if (_props.pois != null) ...PoiMapStyle.tappable],
       null,
     );
     if (features.isEmpty) {
       _props.onEmptyTap?.call();
       return;
     }
-    final feature = features.first as Map<Object?, Object?>;
-    final geometry = feature['geometry'] as Map<Object?, Object?>?;
-    final tap = mapTapFor(
-      feature['properties'] as Map<Object?, Object?>?,
-      geometry?['coordinates'] as List<Object?>?,
-    );
-    switch (tap) {
-      case TapCluster(:final clusterId, :final at):
-        final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
-        await moveTo(at, zoom: zoom + 0.3);
-      case TapPlace(:final id):
-        _props.onPlaceTap(id);
-      case TapNothing():
-        break;
+    // Topmost first: the first feature that means something decides.
+    for (final raw in features) {
+      final feature = raw as Map<Object?, Object?>;
+      final geometry = feature['geometry'] as Map<Object?, Object?>?;
+      final properties = feature['properties'] as Map<Object?, Object?>?;
+      final coordinates = geometry?['coordinates'] as List<Object?>?;
+      switch (mapTapFor(properties, coordinates)) {
+        case TapCluster(:final clusterId, :final at):
+          final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
+          await moveTo(at, zoom: zoom + 0.3);
+          return;
+        case TapPlace(:final id):
+          _props.onPlaceTap(id);
+          return;
+        case TapNothing():
+          break;
+      }
+      switch (poiTapFor(properties, coordinates)) {
+        case TapPoi(:final feature):
+          _props.onPoiTap?.call(feature);
+          return;
+        case TapPoiDot(:final lat, :final lon):
+          final zoom = c.cameraPosition?.zoom ?? 10;
+          await moveTo(LatLng(lat, lon), zoom: math.min(zoom + 2, PoiMapStyle.pointsMinZoom + 0.5));
+          return;
+        case null:
+          break;
+      }
+      // The marker of a long-pressed point: its details are already open.
+      if (properties?['kind'] == 'point') return;
+    }
+  }
+
+  /// Reports the points under the view once the map rests after a move or a
+  /// change of chip.
+  Future<void> _onMapIdle() async {
+    final c = _controller;
+    final pois = _props.pois;
+    final report = _props.onPoisInView;
+    final camera = c?.cameraPosition;
+    if (c == null || !_ready || pois == null || report == null || camera == null) return;
+    try {
+      final found = await _poi.probe(
+        c,
+        pois,
+        zoom: camera.zoom,
+        camera: (camera.target.latitude, camera.target.longitude, camera.zoom),
+      );
+      if (found != null && mounted) report(found);
+    } on Object catch (e) {
+      _log.info('could not read the points in view: $e');
     }
   }
 
@@ -348,19 +444,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   Future<void> fitBounds(GeoBounds bounds) async {
     final c = _controller;
-    if (c == null) return;
-    final p = _props.padding;
+    if (c == null || !mounted) return;
+    final size = context.size;
+    if (size == null) return;
+    final camera = cameraForBounds(bounds, size, _props.padding + const EdgeInsets.all(40));
     await c.animateCamera(
-      gl.CameraUpdate.newLatLngBounds(
-        gl.LatLngBounds(
-          southwest: gl.LatLng(bounds.south, bounds.west),
-          northeast: gl.LatLng(bounds.north, bounds.east),
-        ),
-        left: p.left + 40,
-        top: p.top + 40,
-        right: p.right + 40,
-        bottom: p.bottom + 40,
-      ),
+      gl.CameraUpdate.newLatLngZoom(gl.LatLng(camera.center.lat, camera.center.lon), camera.zoom),
+      duration: Motion.of(context, Motion.camera),
     );
   }
 
@@ -412,12 +502,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick: (point, _) => _onTap(point),
+      // Every tap comes to onMapClick, on a layer's feature too: the plugins
+      // otherwise send a tap on any layer they count as interactive (the
+      // pins, the points of interest) to onFeatureTapped only, which
+      // _onTap's own query replaces.
+      featureTapsTriggersMapClick: true,
       // On the web the plugin reports a double click here, which also zooms:
       // the web long press comes from listenWebMapLongPress instead.
       onMapLongClick: kIsWeb
           ? null
           : (_, position) => _props.onLongPress(LatLng(position.latitude, position.longitude)),
       onCameraIdle: _onCameraIdle,
+      onMapIdle: _onMapIdle,
     );
   }
 }

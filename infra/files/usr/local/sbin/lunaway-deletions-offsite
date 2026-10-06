@@ -1,0 +1,100 @@
+#!/bin/bash
+# Keeps an age-encrypted copy of the account deletion journal,
+# /srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age,
+# which the ops server pulls with the dumps and the Mac pulls from the ops
+# server. Runs hourly from lunaway-deletions-offsite.timer; installed by
+# infra/server/backups.sh.
+#
+# The journal (/srv/data/account-deletions, one file per UTC day, written by
+# the API and by `lunaway-admin accounts delete`) lives outside the dumps:
+# after a restore, `lunaway accounts replay-deletions` deletes again the
+# accounts deleted since the dump (docs/deploy.md, "Backups and restore").
+# The copy is a single file, every day of the journal in order, written
+# again at each run. The pulls (rsync without --delete) replace it, so a day
+# the API pruned leaves the ops server and the Mac at their next pull; one
+# file per day would pile up there for ever.
+#
+# Since each pull replaces the copy, a journal that lost days must not
+# reach it: on a new data volume the journal is empty until the operator
+# puts it back from the copy, and an empty or partial copy pulled meanwhile
+# would replace the only good one. Two guards:
+#   - a journal that names no deletion never makes the first copy (no copy
+#     on this volume yet): a server that never deleted an account, or a new
+#     volume, writes nothing;
+#   - the days of the last copy are kept on the root disk
+#     (/var/lib/lunaway-deletions-offsite/days, dates only), and a day that
+#     began less than 30 days ago and is gone from the journal stops the run:
+#     the API keeps a day 31 days at least (LUNAWAY_DELETION_JOURNAL_DAYS),
+#     so only a lost or emptied journal loses one that young.
+# LUNAWAY_DELETIONS_ALLOW_LOSS=1 lets a deliberate loss through.
+#
+# The plaintext goes from the journal to age through a pipe, never to a
+# file. Each day is read without following a symbolic link: the API owns the
+# directory, and this runs as root.
+set -euo pipefail
+umask 027
+src=/srv/data/account-deletions
+dst=/srv/data/backups/offsite/account-deletions
+copy="$dst/account-deletions.jsonl.age"
+state="${STATE_DIRECTORY:-/var/lib/lunaway-deletions-offsite}/days"
+recipients=/etc/lunaway/backup-recipient
+
+[ -s "$recipients" ] || { echo "no age recipient in $recipients" >&2; exit 1; }
+mountpoint -q /srv/data || { echo "/srv/data is not mounted" >&2; exit 1; }
+[ -d "$dst" ] || { echo "no $dst (infra/server/backups.sh)" >&2; exit 1; }
+if [ ! -d "$src" ] || [ ! -r "$src" ] || [ ! -x "$src" ]; then
+  echo "cannot read the journal directory $src (infra/server/api.sh)" >&2
+  exit 1
+fi
+trap 'rm -f "$copy.partial"' EXIT
+
+mark_success() {
+  date -u +%Y%m%dT%H%M%SZ > "$dst/last-success.new"
+  mv -f "$dst/last-success.new" "$dst/last-success"
+}
+
+# Only the names the journal writes, oldest day first; anything else in the
+# directory is not ours to copy.
+days=()
+while IFS= read -r name; do
+  [[ "$name" =~ ^accounts-[0-9]{8}\.jsonl$ ]] && days+=("$name")
+done < <(find "$src" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+
+# Every day in order. awk gives back the newline of a last line a crash cut
+# short, so it and the next day's first line stay two lines: the replay
+# skips the cut one and reads the other.
+journal() {
+  local name
+  for name in "${days[@]}"; do
+    dd if="$src/$name" iflag=nofollow status=none | awk 1
+  done
+}
+lines="$(journal | grep -c . || true)"
+
+if [ "$lines" = 0 ] && [ ! -e "$copy" ]; then
+  mark_success
+  echo "account deletion journal: no deletion and no copy yet, nothing written"
+  exit 0
+fi
+
+if [ -s "$state" ] && [ "${LUNAWAY_DELETIONS_ALLOW_LOSS:-0}" != 1 ]; then
+  young="$(date -u -d '30 days ago' +%Y%m%d)"
+  lost=()
+  while IFS= read -r name; do
+    [[ "$name" =~ ^accounts-([0-9]{8})\.jsonl$ ]] || continue
+    [ "${BASH_REMATCH[1]}" -gt "$young" ] || continue
+    [ -f "$src/$name" ] || lost+=("$name")
+  done < "$state"
+  if [ "${#lost[@]}" -gt 0 ]; then
+    echo "the journal lost ${#lost[*]} day(s) younger than 30 days (${lost[*]}): the copy is left as it was." >&2
+    echo "Put the journal back (docs/deploy.md, \"Backups and restore\"), or run with LUNAWAY_DELETIONS_ALLOW_LOSS=1 for a deliberate loss." >&2
+    exit 1
+  fi
+fi
+
+journal | age --encrypt --recipients-file "$recipients" -o "$copy.partial"
+mv -f "$copy.partial" "$copy"
+printf '%s\n' "${days[@]}" > "$state.new"
+mv -f "$state.new" "$state"
+mark_success
+echo "account deletion journal: ${#days[@]} days, $lines lines, encrypted into $copy"

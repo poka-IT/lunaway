@@ -17,6 +17,7 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/navigation.dart';
@@ -43,7 +44,7 @@ FuelOffer station(String id, {required double price, double detourM = 0, double 
       detourM: detourM,
       detourS: detourM / 14,
       alongM: at,
-      fuel: VehicleFuel.e10,
+      fuel: FuelType.e10,
       open: StationOpen.open,
       detourEstimated: true,
     );
@@ -59,7 +60,7 @@ void main() {
       List<Object>? answers,
       List<PlaceSummary> places = const [],
       FakeFuelStations? fuel,
-      MemoryRouteSettings? settings,
+      Vehicle vehicle = motorhome,
       bool cached = false,
       Size size = tallPhone,
     }) async {
@@ -71,7 +72,7 @@ void main() {
           routes: routes,
           placesNearRoute: places,
           fuel: fuel,
-          settings: settings,
+          vehicle: vehicle,
           service: cached ? CachingRouteService(routes) : null,
         ),
       );
@@ -272,12 +273,12 @@ void main() {
         tester,
         answers: [routeFixture('utrillo_motorhome'), routeFixture('limoges_drive')],
         fuel: fuel,
-        settings: MemoryRouteSettings(const NavigationSettings(fuel: VehicleFuel.e10)),
+        vehicle: motorhome.copyWith(fuel: () => FuelType.e10),
       );
       await tester.tap(find.text('Carburant'));
       await settleShort(tester);
       expect(find.text('Carburant sur le trajet'), findsOneWidget);
-      expect(fuel.queries.single.fuel, VehicleFuel.e10, reason: "the vehicle's fuel first");
+      expect(fuel.queries.single.fuel, FuelType.e10, reason: "the vehicle's fuel first");
       final names = tester
           .widgetList<Text>(find.textContaining('Station '))
           .map((t) => t.data)
@@ -594,35 +595,32 @@ void main() {
     });
   });
 
-  testWidgets('the profile keeps the fuel and the consumption', (tester) async {
-    final settings = MemoryRouteSettings();
-    await pumpLunaway(
+  testWidgets("the detour to a station is weighed with the vehicle's own consumption", (
+    tester,
+  ) async {
+    // 3 km of detour for 4 cents a litre: worth it at 11 L/100 km, not at 40.
+    final fuel = FakeFuelStations([
+      station('detour', price: 1.700, detourM: 3000),
+      station('bord', price: 1.740),
+    ]);
+    final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+    final app = await pumpLunaway(
       tester,
-      size: const Size(1280, 2400),
-      overrides: navigationOverrides(routes: FakeRouteService(const []), settings: settings),
+      size: tallPhone,
+      overrides: navigationOverrides(
+        routes: routes,
+        fuel: fuel,
+        vehicle: motorhome.copyWith(fuel: () => FuelType.e10, consumptionL100: () => 40),
+      ),
     );
-    await tester.tap(find.text('Profil').last);
+    unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)));
     await settleShort(tester);
-    await tester.tap(find.text('Gazole'));
+    await tester.tap(find.text('Carburant'));
     await settleShort(tester);
-    await tester.tap(find.text('GPL').last);
-    await settleShort(tester);
-    expect(settings.value.fuel, VehicleFuel.lpg);
-    await tester.enterText(find.widgetWithText(TextField, '11'), '13,5');
-    await settleShort(tester);
-    expect(settings.value.consumptionL100, 13.5);
-    await tester.enterText(find.widgetWithText(TextField, '13,5'), '45');
-    await settleShort(tester);
-    expect(find.text('Entre 4 et 40 L/100 km'), findsOneWidget);
-    expect(settings.value.consumptionL100, 13.5, reason: 'a refused value is not kept');
-    await tester.enterText(find.widgetWithText(TextField, '45'), '');
-    await settleShort(tester);
-    expect(find.text('Entre 4 et 40 L/100 km'), findsNothing, reason: 'an empty field is retyped');
-    final handle = tester.ensureSemantics();
-    expect(
-      tester.getSemantics(find.byType(TextField).last),
-      isSemantics(label: 'Consommation', isTextField: true),
-    );
-    handle.dispose();
+    final names = tester
+        .widgetList<Text>(find.textContaining('Station '))
+        .map((t) => t.data)
+        .toList();
+    expect(names, ['Station bord', 'Station detour']);
   });
 }

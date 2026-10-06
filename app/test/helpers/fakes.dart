@@ -7,6 +7,7 @@ import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -296,11 +297,14 @@ final class FakeLocationPermissions implements LocationPermissions {
 /// Photos and reviews served from memory; [online] false makes the network
 /// fail.
 final class FakeExtrasSource implements PlaceExtrasSource {
-  new({this.photos = const [], this.reviews = const [], this.pageSize = 2});
+  new({this.photos = const [], this.reviews = const [], this.pageSize = 2, this.myReview});
 
   final List<Photo> photos;
   final List<Review> reviews;
   final int pageSize;
+
+  /// The reader's own review, as the server would add it with a session.
+  Review? myReview;
   bool online = true;
   int fetches = 0;
 
@@ -315,13 +319,10 @@ final class FakeExtrasSource implements PlaceExtrasSource {
   }
 
   @override
-  Future<({List<Photo> photos, ReviewPage reviews})?> fetch(
-    String placeId, {
-    required int first,
-  }) async {
+  Future<PlaceExtrasRead?> fetch(String placeId, {required int first}) async {
     fetches++;
     if (!online) throw StateError('offline');
-    return (photos: photos, reviews: _page(0, pageSize));
+    return (photos: photos, reviews: _page(0, pageSize), myReview: myReview);
   }
 
   @override

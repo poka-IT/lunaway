@@ -54,7 +54,7 @@ final class RoutePoints {
           position: s.position,
           title: s.name ?? s.brand ?? t.navigation.fuel.station,
           subtitle:
-              '${t.fuelName(s.fuel)} ${t.litrePrice(s.priceEur)} · '
+              '${t.fuelType(s.fuel)} ${t.litrePrice(s.priceEur)} · '
               '${t.priceAge(s.priceUpdatedAt, now)}',
           credit: '${t.navigation.fuel.attribution}\n${t.navigation.preview.attributionOsm}',
           poiId: s.id,

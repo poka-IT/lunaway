@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
@@ -114,10 +114,11 @@ journalctl -u lunaway-conflate-worker -n 2 --no-pager -o cat
 echo "connection limits: $(runuser -u postgres -- psql -X -At -d postgres -c "select string_agg(rolname || ' ' || rolconnlimit, ', ' order by rolname) from pg_roles where rolname like 'lunaway%'")"
 echo "--- photos"
 echo "API user: $(systemctl show -p User --value lunaway-api), dynamic: $(systemctl show -p DynamicUser --value lunaway-api)"
-stat -c '%a %U:%G %n' /srv/data/ingest /srv/data/media /etc/lunaway/media.env /usr/local/sbin/lunaway-admin
+stat -c '%a %U:%G %n' /srv/data/ingest /srv/data/media /srv/data/account-deletions /etc/lunaway/media.env /usr/local/sbin/lunaway-admin
 sed -n 's/^LUNAWAY_MEDIA_BASE_URL=//p' /etc/lunaway/media.env
 echo "photo files: $(find /srv/data/media/photos -type f 2>/dev/null | wc -l), $(du -sh /srv/data/media 2>/dev/null | cut -f1)"
 echo "encrypted copy: $(find /srv/data/backups/offsite/media -type f -name '*.webp.age' 2>/dev/null | wc -l) files, last-success $(cat /srv/data/backups/offsite/media/last-success 2>/dev/null || echo none)"
+echo "deletion journal: $(find /srv/data/account-deletions -maxdepth 1 -type f -name 'accounts-*.jsonl' 2>/dev/null | wc -l) days, encrypted copy last-success $(cat /srv/data/backups/offsite/account-deletions/last-success 2>/dev/null || echo none)"
 echo "--- basemap"
 systemctl is-active lunaway-tiles
 echo "refresh timer: $(systemctl is-enabled lunaway-tiles-refresh.timer), next $(systemctl list-timers --no-pager --no-legend lunaway-tiles-refresh.timer | awk '{ print $1, $2, $3 }')"
@@ -136,6 +137,14 @@ done
 echo "fuel feed age: $(sed -nE 's/.*"fuel_age_s" *: *(-?[0-9]+).*/\1/p' /var/lib/lunaway-status/worker.json 2>/dev/null) s"
 echo "layer: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' points, ' || count(*) filter (where hidden) || ' hidden, version ' || (select max(version) from poi_layer) from pois where deleted_at is null" 2>&1 | head -n 1)"
 echo "cache: $(du -sh /srv/data/ingest/raw/fuel /srv/data/ingest/raw/laposte /srv/data/ingest/raw/finess 2>/dev/null | awk '{ print $2 " " $1 }' | tr '\n' ' ')"
+echo "--- road events"
+for t in lunaway-road-events lunaway-road-events-dialog lunaway-road-events-ndw; do
+  echo "$t: timer $(systemctl is-enabled "$t.timer" 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend "$t.timer" | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value "$t")"
+done
+echo "matching: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(match_quality || ' ' || n, ', ' order by match_quality) from (select match_quality, count(*) n from road_events where ended_at is null group by 1) s" 2>&1 | head -n 1)"
+echo "engine in the last hour: $(journalctl -u lunaway-road-events --since -1h --no-pager -o cat | grep -c 'the routing engine refused a road event') events refused, $(journalctl -u lunaway-road-events --since -1h --no-pager -o cat | grep -c 'the routing engine failed') passes stopped by a failure"
+echo "refused and unplaced: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' events, ' || count(*) filter (where match_attempts >= 3) || ' given up on this graph' from road_events where ended_at is null and match_error is not null" 2>&1 | head -n 1)"
+echo "cache: $(du -sh /srv/data/ingest/raw/road-events 2>/dev/null | cut -f1)"
 echo "--- routing"
 echo "valhalla: $(systemctl is-active valhalla), candidate: $(systemctl is-active valhalla-candidate), podman $(podman --version 2>/dev/null | awk '{ print $3 }')"
 echo "image: $(podman image inspect --format '{{.Digest}}' "$(sed -n 's/^Image=//p' /etc/containers/systemd/valhalla.container)" 2>&1 | head -n 1)"

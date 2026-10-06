@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/poi/presentation/add_vending.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -73,6 +75,20 @@ class PointDetails extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: Space.l),
+        // A point on the map is where a missing place goes: the second
+        // gesture of adding one (the first was the long press).
+        Consumer(
+          // Outlined: the route below stays the one primary action.
+          builder: (context, ref, _) => OutlinedButton.icon(
+            onPressed: () => startAddPlace(context, ref, position),
+            icon: const Icon(AppIcons.addPlace),
+            label: Text(t.contribute.addPlaceHere),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+          ),
+        ),
+        const SizedBox(height: Space.l),
+        VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
       ],

@@ -395,19 +395,25 @@ final class BasemapTemplatesProvider
 String _$basemapTemplatesHash() => r'270783c70eba3bef13f43889b25816b10b3d5542';
 
 /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-/// pointed at the configured tile host, labelled in [language].
+/// pointed at the configured tile host, labelled in [language]; while the
+/// host does not answer, at the pack downloaded for the view, with the
+/// glyphs and sprites the app carries.
 
 @ProviderFor(basemapStyle)
 final basemapStyleProvider = BasemapStyleFamily._();
 
 /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-/// pointed at the configured tile host, labelled in [language].
+/// pointed at the configured tile host, labelled in [language]; while the
+/// host does not answer, at the pack downloaded for the view, with the
+/// glyphs and sprites the app carries.
 
 final class BasemapStyleProvider
     extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-  /// pointed at the configured tile host, labelled in [language].
+  /// pointed at the configured tile host, labelled in [language]; while the
+  /// host does not answer, at the pack downloaded for the view, with the
+  /// glyphs and sprites the app carries.
   BasemapStyleProvider._({
     required BasemapStyleFamily super.from,
     required ({bool dark, String language}) super.argument,
@@ -459,10 +465,12 @@ final class BasemapStyleProvider
   }
 }
 
-String _$basemapStyleHash() => r'208b71ba132d2f2dd482a93df11da6880073b4ae';
+String _$basemapStyleHash() => r'85c6cdeb962da3c0b119e50a6cffc33acae65e95';
 
 /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-/// pointed at the configured tile host, labelled in [language].
+/// pointed at the configured tile host, labelled in [language]; while the
+/// host does not answer, at the pack downloaded for the view, with the
+/// glyphs and sprites the app carries.
 
 final class BasemapStyleFamily extends $Family
     with $FunctionalFamilyOverride<String, ({bool dark, String language})> {
@@ -476,7 +484,9 @@ final class BasemapStyleFamily extends $Family
       );
 
   /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-  /// pointed at the configured tile host, labelled in [language].
+  /// pointed at the configured tile host, labelled in [language]; while the
+  /// host does not answer, at the pack downloaded for the view, with the
+  /// glyphs and sprites the app carries.
 
   BasemapStyleProvider call({required bool dark, required String language}) =>
       BasemapStyleProvider._(

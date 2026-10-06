@@ -27,6 +27,8 @@ pub struct ApiConfig {
     pub routing: RoutingConfig,
     /// The map tiles of the points of interest.
     pub tiles: TilesConfig,
+    /// What is kept of the accounts deleted, and of the contributions sent.
+    pub keeping: KeepingConfig,
 }
 
 impl Default for ApiConfig {
@@ -41,7 +43,85 @@ impl Default for ApiConfig {
             media: MediaConfig::default(),
             routing: RoutingConfig::default(),
             tiles: TilesConfig::default(),
+            keeping: KeepingConfig::default(),
         }
+    }
+}
+
+/// The records kept outside the contributions themselves: the journal of
+/// account deletions a restore replays, and the idempotency keys of the
+/// contributions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeepingConfig {
+    /// The directory of the account deletion journal
+    /// (`LUNAWAY_DELETION_JOURNAL`; production
+    /// `/srv/data/account-deletions`, outside the dumps; the repository's
+    /// `data/account-deletions` when unset, `off` for none). Without one,
+    /// a restored dump would bring the accounts deleted since back: the
+    /// API says so at start. One it cannot write stops the start.
+    pub deletion_journal: Option<PathBuf>,
+    /// How long the journal keeps a line at most (`LUNAWAY_DELETION_JOURNAL_DAYS`,
+    /// 45, 31 at least): a day goes whole, up to a day sooner for its last
+    /// lines, so the minimum outlasts the oldest dump copy that can be
+    /// restored (29 days on the maintainer's Mac, `docs/deploy.md`).
+    pub deletion_journal_days: u32,
+    /// How long an idempotency key answers for its contribution
+    /// (`LUNAWAY_IDEMPOTENCY_DAYS`, 30): an outbox that waited longer for
+    /// the network may send a contribution twice.
+    pub idempotency_days: u32,
+}
+
+impl Default for KeepingConfig {
+    fn default() -> Self {
+        Self {
+            deletion_journal: None,
+            deletion_journal_days: 45,
+            idempotency_days: 30,
+        }
+    }
+}
+
+impl KeepingConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let days = |key: &str, default: u32, least: u32| {
+            lookup(key)
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| (least..=3_650).contains(n))
+                .unwrap_or(default)
+        };
+        // A journal by default, in the repository's gitignored `data/`
+        // for development, so that one left unset in production is a
+        // directory the API cannot write: it then refuses to start,
+        // instead of deleting accounts that a restore would bring back.
+        let deletion_journal = match lookup("LUNAWAY_DELETION_JOURNAL")
+            .map(|v| v.trim().to_owned())
+            .filter(|v| !v.is_empty())
+        {
+            Some(off) if off == "off" => None,
+            Some(dir) => Some(PathBuf::from(dir)),
+            None => Some(PathBuf::from(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../../data/account-deletions"
+            ))),
+        };
+        Self {
+            deletion_journal,
+            deletion_journal_days: days(
+                "LUNAWAY_DELETION_JOURNAL_DAYS",
+                d.deletion_journal_days,
+                31,
+            ),
+            idempotency_days: days("LUNAWAY_IDEMPOTENCY_DAYS", d.idempotency_days, 1),
+        }
+    }
+
+    /// The deletion journal, when one is configured.
+    #[must_use]
+    pub fn journal(&self) -> Option<lunaway_db::deletions::DeletionJournal> {
+        self.deletion_journal
+            .as_ref()
+            .map(lunaway_db::deletions::DeletionJournal::new)
     }
 }
 
@@ -280,6 +360,16 @@ pub struct Quotas {
     /// (`plan/research/07-navigation.md`, C.3), so the burst covers five
     /// minutes lost in a town.
     pub route: Quota,
+    /// Road events reported or said over, per account
+    /// (`LUNAWAY_QUOTA_ROAD_REPORT`, 30 a day): a driver meets a few a
+    /// day, and a burst of reports is what a vandal does.
+    pub road_report: Quota,
+    /// Road events reported or said over, per client
+    /// (`LUNAWAY_QUOTA_ROAD_REPORT_CLIENT`, 100 a day): accounts are cheap
+    /// to create, so one network must not report for a crowd. A campsite
+    /// or a mobile operator puts several drivers behind one address, hence
+    /// more than one account's quota.
+    pub road_report_client: Quota,
 }
 
 impl Default for Quotas {
@@ -299,6 +389,8 @@ impl Default for Quotas {
             account: Quota::per(100, DAY),
             endorsement: Quota::per(5, DAY),
             route: Quota::per(30, 10 * MINUTE),
+            road_report: Quota::per(30, DAY),
+            road_report_client: Quota::per(100, DAY),
         }
     }
 }
@@ -331,6 +423,8 @@ impl Quotas {
             account: read("ACCOUNT", d.account),
             endorsement: read("ENDORSEMENT", d.endorsement),
             route: read("ROUTE", d.route),
+            road_report: read("ROAD_REPORT", d.road_report),
+            road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
         }
     }
 }
@@ -571,6 +665,7 @@ impl ApiConfig {
             media: MediaConfig::from_lookup(&lookup),
             routing: RoutingConfig::from_lookup(&lookup),
             tiles: TilesConfig::from_lookup(&lookup),
+            keeping: KeepingConfig::from_lookup(&lookup),
         }
     }
 
@@ -715,6 +810,48 @@ mod tests {
         );
         assert_eq!(c.quotas.route, Quota::per(5, 60));
         assert_eq!(with(&[]).routing, RoutingConfig::default());
+    }
+
+    #[test]
+    fn the_deletion_journal_and_the_keys_are_kept_as_configured() {
+        let c = with(&[]).keeping;
+        assert!(
+            c.deletion_journal
+                .as_deref()
+                .is_some_and(|d| d.ends_with("data/account-deletions")),
+            "unset, the journal goes to the repository's data/: never none by mistake"
+        );
+        assert_eq!(
+            with(&[("LUNAWAY_DELETION_JOURNAL", "off")])
+                .keeping
+                .deletion_journal,
+            None
+        );
+        assert!(
+            c.deletion_journal_days > 30,
+            "a day pruned up to a day early still outlives the oldest dump copy (29 days on the Mac)"
+        );
+        let c = with(&[
+            ("LUNAWAY_DELETION_JOURNAL", " /srv/data/account-deletions "),
+            ("LUNAWAY_DELETION_JOURNAL_DAYS", "0"),
+            ("LUNAWAY_IDEMPOTENCY_DAYS", "7"),
+        ])
+        .keeping;
+        assert_eq!(
+            c.deletion_journal.as_deref(),
+            Some(std::path::Path::new("/srv/data/account-deletions"))
+        );
+        assert_eq!(c.deletion_journal_days, 45, "zero would drop every day");
+        for short in ["20", "30"] {
+            assert_eq!(
+                with(&[("LUNAWAY_DELETION_JOURNAL_DAYS", short)])
+                    .keeping
+                    .deletion_journal_days,
+                45,
+                "{short} days, a day sooner at worst, could fall short of the oldest dump copy"
+            );
+        }
+        assert_eq!(c.idempotency_days, 7);
     }
 
     #[test]

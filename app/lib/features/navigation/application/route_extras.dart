@@ -5,10 +5,11 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/domain/danger_zones.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
-import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -96,7 +97,7 @@ final class FuelQuery {
   /// The route's own list of points, compared by identity.
   final List<LatLng> line;
   final double fromM;
-  final VehicleFuel fuel;
+  final FuelType fuel;
 
   @override
   bool operator ==(Object other) =>
@@ -113,14 +114,12 @@ final class FuelQuery {
 /// vehicle's consumption. A failure shows at once (`noRetry`).
 @Riverpod(retry: noRetry)
 Future<List<FuelOffer>> fuelOffers(Ref ref, FuelQuery query) async {
-  // Both watched before the first await; the consumption only, so another
-  // setting leaves the list alone.
-  final consumptionFuture = ref.watch(
-    routeSettingsControllerProvider.selectAsync((s) => s.consumptionL100),
-  );
+  // The vehicle's consumption, read before the first await (its fuel side
+  // only: its size leaves the list alone).
+  final consumption = ref.watch(vehicleFuelProvider).consumptionL100 ?? defaultConsumptionL100;
   final source = ref.watch(fuelStationsProvider);
   final offers = await source.along(route: query.line, fromM: query.fromM, fuel: query.fuel);
-  return rankOffers(offers, consumptionL100: await consumptionFuture);
+  return rankOffers(offers, consumptionL100: consumption);
 }
 
 /// The stations the fuel list showed last for the route [line], drawn on

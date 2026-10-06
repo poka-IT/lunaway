@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT purged_through FROM road_event_purges",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "purged_through",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "road_event_purges",
+            "name": "purged_through"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7c6268cf6b7d626c803ce112adb9140100209358801bd56de228cd9341c729ae"
+}

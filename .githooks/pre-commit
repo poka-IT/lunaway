@@ -21,16 +21,34 @@ sh tool/harness/git/check_leaks.sh --cached || exit 1
 tool/harness/git/check_lock.sh --cached || exit 1
 tool/harness/git/check_harness.sh >/dev/null || exit 1
 
+# Prints the files of the list (one per line) whose working tree equals the
+# index, and warns about the others.
+whole_files() {
+  printf '%s\n' "$1" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if git diff --quiet -- "$f"; then
+      printf '%s\n' "$f"
+    else
+      warn "pre-commit: $f has unstaged changes; not reformatted, the CI checks its format."
+    fi
+  done
+}
+
 # Generated files are left as their generator wrote them.
 dart_files=$(printf '%s\n' "$staged" | grep '\.dart$' | grep -vE '\.(g|freezed)\.dart$' || true)
 if [ -z "$DART" ]; then
   [ -n "$dart_files" ] && warn "pre-commit: no dart toolchain on PATH (fvm or dart); format, translation and structure gates skipped, the CI will run them."
 else
-  if [ -n "$dart_files" ]; then
+  # Formatting rewrites the working-tree file and stages it again: only files
+  # whose working tree equals the index qualify, or a partial commit would
+  # pick up unstaged work (another agent's work in progress in the same
+  # tree). The others are left to the CI's format check.
+  dart_whole=$(whole_files "$dart_files")
+  if [ -n "$dart_whole" ]; then
     # shellcheck disable=SC2086
-    $DART format $dart_files >/dev/null || exit 1
+    $DART format $dart_whole >/dev/null || exit 1
     # shellcheck disable=SC2086
-    git add $dart_files
+    git add $dart_whole
   fi
   # These gates read files from disk. When the tree holds changes that are
   # not staged (another agent's work in progress), they run on a snapshot of
@@ -55,11 +73,15 @@ if [ -n "$rs_files" ]; then
   if [ -z "$CARGO" ]; then
     warn "pre-commit: no cargo on PATH; rustfmt skipped, the CI will run it."
   else
-    # rustfmt reads backend/rustfmt.toml from the file's directory upwards.
-    # shellcheck disable=SC2086
-    (cd backend && rustfmt --edition 2024 $(printf '%s\n' "$rs_files" | sed 's#^backend/##')) || exit 1
-    # shellcheck disable=SC2086
-    git add $rs_files
+    # Same rule as for Dart: a partially staged file is not reformatted.
+    rs_whole=$(whole_files "$rs_files")
+    if [ -n "$rs_whole" ]; then
+      # rustfmt reads backend/rustfmt.toml from the file's directory upwards.
+      # shellcheck disable=SC2046,SC2086
+      (cd backend && rustfmt --edition 2024 $(printf '%s\n' "$rs_whole" | sed 's#^backend/##')) || exit 1
+      # shellcheck disable=SC2086
+      git add $rs_whole
+    fi
   fi
 fi
 if printf '%s\n' "$staged" | grep -qE '^backend/|^tool/structure_rs\.sh$'; then

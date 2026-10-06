@@ -251,4 +251,111 @@ void main() {
     );
     expect(config.isApiMedia(Uri.parse('https://188-245-10-130.sslip.io/media/x/thumb')), isFalse);
   });
+
+  group('an API older than an operation', () {
+    const document = r'''
+mutation Edit($id: UUID!, $patch: PatchInput!, $key: String) {
+  edit(id: $id, patch: $patch, key: $key)
+}''';
+    final op = GraphQLOperation<bool>(
+      name: 'Edit',
+      document: document,
+      parse: (data) => data['edit'] == true,
+      older: OlderForm.without(document, const {
+        'key',
+      }, usable: (v) => !(v['patch']! as Map).containsKey('clear')),
+    );
+    String refusal(String message) => jsonEncode({
+      'data': null,
+      'errors': [
+        {
+          'message': message,
+          'extensions': {'code': 'INVALID_INPUT'},
+        },
+      ],
+    });
+    // As async-graphql answers an argument, then an input field, it does
+    // not know.
+    http.Response older(http.Request r) {
+      final body = jsonDecode(r.body) as Map<String, dynamic>;
+      if (body['query'].toString().contains('key')) {
+        return json(refusal('Unknown argument "key" on field "edit" of type "Mutation".'));
+      }
+      if (((body['variables'] as Map)['patch'] as Map).containsKey('clear')) {
+        return json(
+          refusal('Invalid value for argument "patch", unknown field "clear" of type "PatchInput"'),
+        );
+      }
+      return json('{"data":{"edit":true}}');
+    }
+
+    test('gets the older form when it does not know an argument', () async {
+      final c = client(older);
+      final done = await c.execute(op, {
+        'id': 'p1',
+        'patch': {'name': 'A'},
+        'key': 'k-12345678',
+      });
+      expect(done, isTrue);
+      expect(sent, hasLength(2));
+      final second = jsonDecode(sent.last.body) as Map<String, dynamic>;
+      expect(
+        second['query'],
+        'mutation Edit(\$id: UUID!, \$patch: PatchInput!) {\n  edit(id: \$id, patch: \$patch)\n}',
+      );
+      expect(second['variables'], {
+        'id': 'p1',
+        'patch': {'name': 'A'},
+      });
+    });
+
+    test('a request whose meaning needs what the API lacks waits for it', () async {
+      final c = client(older);
+      await expectLater(
+        c.execute(op, {
+          'id': 'p1',
+          'patch': {
+            'clear': ['WEBSITE'],
+          },
+          'key': 'k-12345678',
+        }),
+        throwsA(
+          isA<GraphQLResponseException>().having(
+            (e) => e.errors.single.unknownInput,
+            'unknown input',
+            isTrue,
+          ),
+        ),
+      );
+      expect(sent, hasLength(1));
+    });
+
+    test('an unknown input field is an older API too', () {
+      expect(
+        const GraphQLError(
+          'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"',
+          code: 'INVALID_INPUT',
+        ).unknownInput,
+        isTrue,
+      );
+      expect(const GraphQLError('name: too long', code: 'INVALID_INPUT').unknownInput, isFalse);
+      expect(
+        const GraphQLError(
+          'Unknown field "confirmPoi" on type "Mutation".',
+          code: 'INVALID_INPUT',
+        ).unknownInput,
+        isFalse,
+        reason: 'a whole operation the API lacks: no older form helps',
+      );
+    });
+
+    test('another refusal of the input is the answer: nothing is sent again', () async {
+      final c = client((_) => json(refusal('name: too long')));
+      await expectLater(
+        c.execute(op, {'id': 'p1', 'patch': <String, Object?>{}}),
+        throwsA(isA<GraphQLResponseException>()),
+      );
+      expect(sent, hasLength(1));
+    });
+  });
 }

@@ -29,7 +29,7 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, the fuel price feed, La Poste, FINESS), paced HTTP client, raw payload cache |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, the fuel price feed, La Poste, FINESS, the road event feeds), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
@@ -103,6 +103,72 @@ vending machines, water, fuel, health, services).
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
   the worker writes as a point of the `community` source, ODbL).
+
+## Road events
+
+Closures, works, lane restrictions, temporary vehicle limits and detours,
+so that a motorhome is never sent into a closed road or under a works
+zone's limit (`plan/research/20-travaux-temps-reel.md`,
+`plan/research/21-backend-travaux.md`).
+
+- **Sources.** The DIR's DATEX II feed of the national roads (an hourly
+  aggregate and increments a few minutes apart), DiaLog's traffic orders,
+  city and département datasets, and the users' reports
+  (`docs/data-sources.md`, "Road events"). `lunaway road-events poll`
+  reads each feed when it is due, every three minutes, resumed from its
+  cursor (`road_event_sources.state`, stored in the transaction of each
+  publication applied). A feed is asked at its own pace whether its last
+  read failed or not, and a record the table cannot hold is refused alone,
+  never its batch.
+- **Storage.** `road_events`, one row per source record, bounded in time
+  (validity, weekly windows, lifted periods), with the source's geometry
+  and the lines of the routing graph it covers, in driving order. An event
+  ends when its source says so, when a complete snapshot no longer carries
+  it, past its end date, or, open-ended, when unseen for six hours; ended
+  rows stay a week. A feed whose data has not been current for longer
+  than its staleness (`road_event_sources.data_at` and `stale_after_s`)
+  blocks no route: a read that brings nothing new does not count.
+- **Placement on the graph.** Lines are matched by the routing engine on
+  loopback (`lunaway_ingest::road_events::matching`): a route from the
+  section's start to its end leaving in its direction, kept when it stays
+  on the section's road number and length. A slip road closure is located
+  on the main road by the DIR; it closes only the slip roads a route takes
+  near it, never the main carriageway (`lunaway_domain::road_events::along`):
+  each route step is placed at its maneuver point, and a slip road that
+  runs too close to the carriageway it leaves for a ring to spare it
+  warns instead.
+- **Routes.** Every route is checked against the events near it at the
+  time the vehicle reaches each (`Query.route`, `departAt`): a closure or a
+  limit the vehicle exceeds is a blocker, computed around with 3 m rings
+  on the road the route used; the rest warns with the age of its data.
+- **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
+  of the events that can block, France-wide, without the phone's position
+  (only the sources on the routing graph, `road_event_sources.routed`: the
+  Dutch and Spanish events are stored but not handed out while the graph
+  covers France only);
+  the phone checks its remaining route itself and asks for a new route
+  when a blocker appears ahead (the contract is in
+  `plan/research/21-backend-travaux.md`, part 5).
+- **Community.** `reportRoadEvent`: one account warns the others; two
+  accounts of level 1 or more at the same spot within two hours, agreeing
+  on a measured figure within 0.2 m, block; a moderator is told. A
+  confirmed event lives from its last confirming pair, so one account
+  cannot keep it blocking or lower its figure. `clearRoadEvent`: the only
+  reporter ends its event; one trusted account makes a blocker a warning,
+  two end it. The API weighs the community's events again every three
+  minutes (`road_events::reweigh_community`), so a banned or deleted
+  account stops counting within minutes. It reads the reports through a
+  view that gives a key per account and event instead of the account
+  (`road_event_report_facts`); the importers' role, which parses untrusted
+  payloads, reads neither that view nor any report's account, so it never
+  links an account to a time and a place. What it still reads, each
+  account's level and ban (the merge rules use them) and each event's
+  confidence, ties an account to an event only coarsely: a change of the
+  account followed by a confidence crossing a threshold at the next
+  weighing, at the published position. A community event keeps, and
+  the feed publishes, its position to about ten metres and no heading;
+  the exact report stays with the report, for the API only. The feed
+  publishes its times to the hour.
 
 ## Conflation
 
@@ -182,6 +248,17 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 5. Fediverse and Bluesky accounts can be linked later.
 
 Trust levels (from 0 to 4) unlock reviews, new places, edits and moderation.
+
+Deleting an account (`deleteAccount`, the recovery-code page, or `lunaway
+accounts delete`) writes the account's id to a journal outside the
+database first (`lunaway_db::deletions`, one file per day on the data
+volume, copied off-site every hour, encrypted, with the backups); after a
+restore, `lunaway accounts replay-deletions` deletes again every account
+the journal names, so a restored dump never brings a deleted account back
+(`docs/deploy.md`, "Backups and restore"). A contribution the app may send
+twice (a new place, an edit, a confirmation, an issue, a road report)
+carries the outbox entry's id as an idempotency key: the same request
+again returns what the first made (`lunaway_db::idempotency`, 30 days).
 Anti-abuse measures:
 
 - rate limits per account, device and network;
@@ -207,6 +284,8 @@ Anti-abuse measures:
 
 - Code: AGPL-3.0-or-later.
 - The places database: ODbL 1.0 (it merges OpenStreetMap).
-- Reviews and photos: CC BY 4.0.
+- Reviews and photos: CC BY 4.0, under a source of their own
+  (`community-cc-by`); the community's places, edits and reports stay
+  under the ODbL (`community`).
 
 The sources and their terms are listed in `docs/data-sources.md`.

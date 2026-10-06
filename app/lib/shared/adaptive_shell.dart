@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -17,6 +20,31 @@ import 'package:lunaway/shared/widgets/over_map.dart';
 /// margins included. Screens read it through `MediaQuery.paddingOf`, which
 /// the shell grows by this much, so nothing hides under the dock.
 const double dockSpace = 64 + Space.m * 2;
+
+/// The page's own colour rising from the bottom edge behind a floating bar
+/// (the dock, a place's actions): the content scrolling under the bar
+/// fades out instead of showing between it and the edge.
+class BottomFade extends StatelessWidget {
+  const new({super.key});
+
+  /// How far above the bar the fade begins.
+  static const double lead = Space.xxl;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [surface.withValues(alpha: 0), surface.withValues(alpha: 0.92), surface],
+          stops: const [0, 0.45, 1],
+        ),
+      ),
+    );
+  }
+}
 
 /// The frame around the top-level destinations: a floating dock on a phone,
 /// a rail on a tablet, an extended rail on a desktop or a wide browser
@@ -33,6 +61,23 @@ class AdaptiveShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    // The first contribution made the account: say so once, with its name
+    // and the recovery card, wherever the user is.
+    ref.listen(accountControllerProvider, (previous, next) {
+      // The key stopped opening the account (removed from another device,
+      // deleted elsewhere): the profile now offers the recovery card.
+      if (next is NoAccount && next.lost && previous is SignedIn) {
+        showMessage(ScaffoldMessenger.maybeOf(context), t.account.lost);
+        return;
+      }
+      final fresh = next is SignedIn && next.justCreated;
+      final before = previous is SignedIn && previous.justCreated;
+      if (!fresh || before) return;
+      ref.read(accountControllerProvider.notifier).welcomed();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) unawaited(showAccountWelcome(context, next.account));
+      });
+    });
     final destinations = [
       _Destination(AppIcons.map, AppIcons.mapSelected, t.nav.map),
       _Destination(AppIcons.favorite, AppIcons.favoriteSelected, t.nav.favorites),
@@ -68,17 +113,28 @@ class AdaptiveShell extends ConsumerWidget {
               opacity: placeOpen ? 0 : 1,
               child: IgnorePointer(
                 ignoring: placeOpen,
-                child: SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.only(bottom: Space.m),
-                  child: Center(
-                    heightFactor: 1,
-                    child: _Dock(
-                      destinations: destinations,
-                      selected: shell.currentIndex,
-                      onSelected: _go,
+                child: Stack(
+                  children: [
+                    // What scrolls under the dock fades into the page rather
+                    // than running under it and under the system's gesture
+                    // bar; taps go through the fade.
+                    const Positioned.fill(child: IgnorePointer(child: BottomFade())),
+                    Padding(
+                      padding: const EdgeInsets.only(top: BottomFade.lead),
+                      child: SafeArea(
+                        top: false,
+                        minimum: const EdgeInsets.only(bottom: Space.m),
+                        child: Center(
+                          heightFactor: 1,
+                          child: _Dock(
+                            destinations: destinations,
+                            selected: shell.currentIndex,
+                            onSelected: _go,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
@@ -249,7 +250,12 @@ Future<int> storageSize(Ref ref) {
 @Riverpod(keepAlive: true)
 PlaceExtrasRepository placeExtrasRepository(Ref ref) => PlaceExtrasRepository(
   db: ref.watch(cacheDatabaseProvider),
-  source: GraphQLPlaceExtrasSource(ref.watch(graphQLClientProvider)),
+  // With the account's session when the device has one: the server then
+  // adds the reader's own review and leaves out the authors it muted.
+  source: GraphQLPlaceExtrasSource(
+    ref.watch(graphQLClientProvider),
+    headers: () => ref.read(accountServiceProvider).readHeaders(),
+  ),
   clock: ref.watch(clockProvider),
 );
 

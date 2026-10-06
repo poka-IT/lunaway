@@ -27,11 +27,15 @@ pub enum RestrictionKind {
     /// No vehicle towing a caravan or a trailer over 250 kg (B9i,
     /// `caravan=no`).
     CaravanBan,
+    /// Total authorised mass of a heavy goods vehicle, tonnes: a DiaLog
+    /// order that names goods vehicles. A motorhome is not one, so the
+    /// limit is announced, never blocking.
+    MaxWeightGoods,
 }
 
 impl RestrictionKind {
     /// Every kind.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::MaxHeight,
         Self::MaxWidth,
         Self::MaxLength,
@@ -40,6 +44,7 @@ impl RestrictionKind {
         Self::MotorhomeBan,
         Self::TrailerBan,
         Self::CaravanBan,
+        Self::MaxWeightGoods,
     ];
 
     /// The kinds that carry a figure.
@@ -63,6 +68,7 @@ impl RestrictionKind {
             Self::MotorhomeBan => "motorhome_ban",
             Self::TrailerBan => "trailer_ban",
             Self::CaravanBan => "caravan_ban",
+            Self::MaxWeightGoods => "max_weight_goods",
         }
     }
 
@@ -84,7 +90,8 @@ impl RestrictionKind {
             // in France"); Valhalla reads `maxweight` only.
             Self::MaxWeight => &["maxweight", "maxweightrating"],
             Self::MaxAxleLoad => &["maxaxleload"],
-            Self::MotorhomeBan | Self::TrailerBan | Self::CaravanBan => &[],
+            // Not an OpenStreetMap key: read from DiaLog only.
+            Self::MotorhomeBan | Self::TrailerBan | Self::CaravanBan | Self::MaxWeightGoods => &[],
         }
     }
 
@@ -109,11 +116,13 @@ pub enum RestrictionSource {
     Ign,
     /// A Lunaway user's report, once validated.
     Community,
+    /// A permanent traffic order of DiaLog (Licence Ouverte 2.0).
+    Dialog,
 }
 
 impl RestrictionSource {
     /// Every source.
-    pub const ALL: [Self; 3] = [Self::Osm, Self::Ign, Self::Community];
+    pub const ALL: [Self; 4] = [Self::Osm, Self::Ign, Self::Community, Self::Dialog];
 
     /// The code stored in the database.
     #[must_use]
@@ -122,6 +131,7 @@ impl RestrictionSource {
             Self::Osm => "osm",
             Self::Ign => "ign",
             Self::Community => "community",
+            Self::Dialog => "dialog",
         }
     }
 
@@ -138,7 +148,9 @@ impl RestrictionSource {
     pub const fn tolerance_m(self) -> f64 {
         match self {
             Self::Osm => 3.0,
-            Self::Ign => 12.0,
+            // DiaLog draws its sections from the address and road
+            // referentials, a few metres off OpenStreetMap like IGN.
+            Self::Ign | Self::Dialog => 12.0,
             Self::Community => 15.0,
         }
     }
@@ -276,6 +288,9 @@ pub enum FindingKind {
     MotorhomeBan,
     /// No trailers, or no caravans and trailers over 250 kg.
     TrailerBan,
+    /// A weight limit for heavy goods vehicles the vehicle exceeds: it
+    /// does not apply to a motorhome, but the driver checks the signs.
+    GoodsVehicleWeight,
 }
 
 /// A restriction weighed against a vehicle.
@@ -383,6 +398,17 @@ pub fn assess(restriction: &Restriction, dims: &RoutingDimensions) -> Option<Fin
             .trailer_weight_t
             .filter(|w| *w > CARAVAN_SIGN_ABOVE_T)
             .and_then(|_| ban(FindingKind::TrailerBan)),
+        // An order for goods vehicles: told, never blocking.
+        RestrictionKind::MaxWeightGoods => {
+            limit
+                .filter(|l| dims.weight_t > *l + 1e-9)
+                .map(|l| Finding {
+                    kind: FindingKind::GoodsVehicleWeight,
+                    severity: Severity::Warning,
+                    limit: Some(l),
+                    vehicle_value: Some(dims.weight_t),
+                })
+        }
     }
 }
 
@@ -507,6 +533,19 @@ mod tests {
         assert_eq!(assess(&r, &dims(3.0, 5.0)), None, "5 t in total cannot");
         d.axle_load_t = Some(6.5);
         assert_eq!(assess(&r, &d).map(|f| f.severity), Some(Severity::Blocking));
+    }
+
+    #[test]
+    fn a_goods_vehicle_weight_limit_warns_a_heavy_motorhome_and_never_blocks() {
+        let order = limit(RestrictionKind::MaxWeightGoods, Some(3.5));
+        let heavy = assess(&order, &dims(3.0, 4.5)).unwrap();
+        assert_eq!(heavy.kind, FindingKind::GoodsVehicleWeight);
+        assert_eq!(
+            heavy.severity,
+            Severity::Warning,
+            "a motorhome is not a goods vehicle: the order cannot close the road to it"
+        );
+        assert_eq!(assess(&order, &dims(3.0, 3.5)), None);
     }
 
     #[test]

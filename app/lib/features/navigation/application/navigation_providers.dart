@@ -45,18 +45,6 @@ class RouteSettingsController extends _$RouteSettingsController {
 
   Future<void> setUnits(DistanceUnits units) => _update((s) => s.copyWith(units: units));
 
-  Future<void> setFuel(VehicleFuel fuel) => _update((s) => s.copyWith(fuel: fuel));
-
-  /// Litres per 100 km, kept within the range the form accepts.
-  Future<void> setConsumption(double litres) => _update(
-    (s) => s.copyWith(
-      consumptionL100: litres.clamp(
-        NavigationSettings.consumptionRange.min,
-        NavigationSettings.consumptionRange.max,
-      ),
-    ),
-  );
-
   /// Records that the user read the disclaimer of [key].
   Future<void> acceptDisclaimer(String key) => _update((s) => s.copyWith(acceptedDisclaimer: key));
 

@@ -6,12 +6,15 @@
 pub mod accounts;
 pub mod community;
 pub mod conflation;
+pub mod deletions;
+pub mod idempotency;
 pub mod lists;
 pub mod moderation;
 pub mod municipalities;
 pub mod places;
 pub mod pois;
 pub mod records;
+pub mod road_events;
 pub mod routing;
 pub mod search;
 pub mod sources;

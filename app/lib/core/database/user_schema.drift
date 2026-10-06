@@ -13,7 +13,10 @@ CREATE TABLE favorite_lists (
   -- Null for the default list, whose name follows the app language.
   name TEXT,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  -- The account's copy of the list (its UUID) once the favourites are
+  -- synced; null for a list the account has not seen yet. Added in version 2.
+  server_id TEXT
 ) AS FavoriteListRow;
 
 -- A favourite keeps a snapshot of the place, so it still shows (and can be
@@ -44,5 +47,66 @@ CREATE TABLE vehicles (
   width_m REAL,
   length_m REAL,
   weight_t REAL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  -- The engine's fuel (`FuelType.wire`), the litres per 100 km and whether
+  -- the living area heats on LPG (added in version 3).
+  fuel TEXT,
+  consumption_l100 REAL,
+  lpg_heating BOOLEAN NOT NULL DEFAULT FALSE
 ) AS VehicleRow;
+
+-- The account's lists as the last favourites sync left them: the common
+-- ancestor of the device's lists and the server's. A change on either side
+-- since is a change to carry to the other; a list or a place on neither
+-- side was removed on one of them. Added in version 2.
+CREATE TABLE favorite_sync_base (
+  server_id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  -- JSON array of place ids, sorted.
+  place_ids TEXT NOT NULL,
+  -- JSON array of the places of this list the server does not know (gone
+  -- from the data since they were saved): kept on the device, never sent
+  -- again.
+  local_only TEXT NOT NULL DEFAULT '[]'
+) AS FavoriteSyncBaseRow;
+
+-- Contributions made on this device and not yet accepted by the server:
+-- sent as soon as the network allows, in the order they were made. The id
+-- is the contribution's own: a replay updates this row, never adds one.
+-- Added in version 2.
+CREATE TABLE outbox (
+  id TEXT NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  -- The place it is about, to show it on the place and to merge two
+  -- ratings of one place into the last one.
+  place_id TEXT,
+  -- The variables of the request, JSON.
+  payload TEXT NOT NULL,
+  -- A photo's bytes, in the pending files (outside this database).
+  file_id TEXT,
+  -- The account it was made for; null when it was made before the account
+  -- existed. A contribution of another account is never sent as this one.
+  account_id TEXT,
+  created_at INTEGER NOT NULL,
+  -- pending, sending (an attempt under way, or cut by the app's end), or
+  -- failed (refused by the server: shown to the user, never resent alone).
+  state TEXT NOT NULL DEFAULT 'pending',
+  -- An attempt may have reached the server without its answer reaching
+  -- the device: the next attempt looks for it first.
+  uncertain BOOLEAN NOT NULL DEFAULT FALSE,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at INTEGER NOT NULL DEFAULT 0,
+  attempt_started_at INTEGER,
+  error_code TEXT,
+  error_detail TEXT
+) AS OutboxRow;
+
+CREATE INDEX outbox_order ON outbox (state, created_at);
+
+-- The bytes of the photos waiting in the outbox, on the web only: native
+-- builds keep them as files in the app's support directory, out of the
+-- device backups that carry this database. Added in version 2.
+CREATE TABLE outbox_files (
+  id TEXT NOT NULL PRIMARY KEY,
+  bytes BLOB NOT NULL
+) AS OutboxFileRow;

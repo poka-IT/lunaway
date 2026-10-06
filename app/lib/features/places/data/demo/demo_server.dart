@@ -84,6 +84,7 @@ Map<String, Object?> _extras(Place? place, Map<String, dynamic> variables, Uri a
   return {
     'place': {
       'id': place.id,
+      'myReview': null,
       'photos': photosToJson(extras.photos),
       'reviews': reviewPageToJson(
         ReviewPage(

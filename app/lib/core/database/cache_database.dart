@@ -43,12 +43,37 @@ final class CacheDatabase extends _$CacheDatabase {
       platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
 
   // Version 1 is the first shipped schema: earlier ones never left a
-  // developer's device, so they get no migration.
+  // developer's device, so they get no migration. Version 2 keeps what the
+  // community says of each place, version 3 the points of interest read
+  // around them.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        for (final column in [
+          places.verification,
+          places.reviewCount,
+          places.photoCount,
+          places.coverPhotosJson,
+          places.issuesJson,
+        ]) {
+          await m.addColumn(places, column);
+        }
+        // The places on the device lack the new columns: a full sync of
+        // each region starts at the next launch, the places staying on the
+        // map until it sweeps, and the date of the last sync kept for the
+        // screens.
+        await customStatement(
+          'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
+          'generation = generation + 1',
+        );
+      }
+      if (from < 3) await m.createTable(poiCache);
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_event_sources SET state = $2, data_at = greatest(data_at, $3)\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5cd7659870f9e77c26e52e22d276352c0537268e429c9f83f6049cbc38f9bf1d"
+}

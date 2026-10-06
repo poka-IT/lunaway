@@ -65,9 +65,11 @@ role_get() {
     backend:volume) echo lunaway-data ;;
     backend:volume_gb) echo "${LUNAWAY_BACKEND_VOLUME_GB:-150}" ;;
     # The basemap: two planet archives (the one served and the next, about
-    # 139 GB each in October 2026) and some margin (docs/deploy.md, "Basemap").
+    # 139 GB each in October 2026), two sets of offline packs (about 19 GB
+    # each) and room for growth (docs/deploy.md, "Basemap"). Grown from 300
+    # to 350 GB on 2026-10-06 for the packs.
     backend:tiles_volume) echo lunaway-tiles ;;
-    backend:tiles_volume_gb) echo "${LUNAWAY_TILES_VOLUME_GB:-300}" ;;
+    backend:tiles_volume_gb) echo "${LUNAWAY_TILES_VOLUME_GB:-350}" ;;
     backend:private_ip) echo "$LUNAWAY_BACKEND_PRIVATE_IP" ;;
     backend:alias) echo lunaway ;;
     backend:env) echo LUNAWAY_BACKEND ;;

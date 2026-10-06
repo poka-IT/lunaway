@@ -101,7 +101,7 @@ fn build(https_only: bool) -> Result<reqwest::Client, IngestError> {
 
 /// reqwest is built without a bundled crypto provider (see the workspace
 /// manifest); ring is installed once per process.
-fn install_crypto_provider() {
+pub(crate) fn install_crypto_provider() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         // An error means another provider is already installed, which is
@@ -270,8 +270,8 @@ async fn read_prefix(mut response: reqwest::Response, limit: usize) -> Vec<u8> {
 ///
 /// # Errors
 ///
-/// [`IngestError::TooLarge`] past `limit`, and [`IngestError::Http`] when
-/// the transfer fails.
+/// [`IngestError::TooLarge`] past `limit`, and [`IngestError::Body`] when
+/// the transfer is cut (transient: [`with_retry`] asks again).
 pub(crate) async fn read_capped(
     url: &str,
     mut response: reqwest::Response,
@@ -288,7 +288,7 @@ pub(crate) async fn read_capped(
         return Err(too_large());
     }
     let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|source| IngestError::Http {
+    while let Some(chunk) = response.chunk().await.map_err(|source| IngestError::Body {
         url: url.to_owned(),
         source,
     })? {
