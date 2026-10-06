@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -285,6 +287,105 @@ void main() {
       await send(along(a.routes.single, fromM: 720, toM: 1000));
       expect(routes.requests, hasLength(1));
     });
+
+    /// Three fixes 330 m north of where the vehicle was: off the route.
+    Future<void> leave(Fix last) => send([
+      for (var i = 1; i <= 3; i++)
+        Fix(
+          position: LatLng(last.position.lat + 0.003, last.position.lon),
+          accuracyM: 5,
+          at: last.at.add(Duration(seconds: i)),
+          courseDeg: 0,
+          speedMps: 9,
+        ),
+    ]);
+
+    test('a closure learnt during a recalculation is checked on the new route', () async {
+      final a = routeFixture('limoges_drive');
+      final detour = routeFixture('closure_detour');
+      final nothing = RoadEventsDelta(cursor: 'c0', asOf: t0);
+      final events = ScriptedRoadEvents([nothing, closureAt(a, 1700)]);
+      // Off the route, the answer is the same road again; then the detour.
+      await start(a, answers: [a, detour], events: events, more: [a, detour]);
+      final fixes = along(a.routes.single, toM: 600);
+      await send(fixes);
+      routes.gate = Completer<void>();
+      await leave(fixes.last);
+      expect(session().phase, GuidancePhase.rerouting);
+      await container.read(guidanceControllerProvider.notifier).refreshRoadEvents();
+      await settle();
+      expect(routes.requests, hasLength(1), reason: 'the old route is not worth a check');
+      routes.gate!.complete();
+      await settle();
+      expect(routes.requests, hasLength(2), reason: 'the new route meets the closure');
+      expect(session().plan, same(detour));
+      expect((session().alert! as ReroutedAlert).reason, RerouteReason.roadEvent);
+    });
+
+    test(
+      'a closure recalculation without an answer is asked again later, shown meanwhile',
+      () async {
+        final a = routeFixture('limoges_drive');
+        final detour = routeFixture('closure_detour');
+        final nothing = RoadEventsDelta(cursor: 'c0', asOf: t0);
+        final events = ScriptedRoadEvents([nothing, closureAt(a, 1700)]);
+        await start(
+          a,
+          answers: [const RouteFailure(RouteFailureKind.offline), detour],
+          events: events,
+          more: [detour],
+        );
+        await send(along(a.routes.single, toM: 700));
+        await container.read(guidanceControllerProvider.notifier).refreshRoadEvents();
+        await settle();
+        expect(routes.requests, hasLength(1));
+        final failed = session().alert! as RerouteFailedAlert;
+        expect(failed.cause?.event.id, 'naveix');
+        expect(session().eventAlerts.map((e) => e.event.id), ['naveix'], reason: 'still on screen');
+        expect(voice.said.last, isNot(contains("pas d'autre chemin")));
+        // Within the doubled wait of 40 s, no new try.
+        await send(along(a.routes.single, fromM: 720, toM: 1000));
+        expect(routes.requests, hasLength(1));
+        expect(session().eventAlerts.map((e) => e.event.id), ['naveix']);
+        await send(along(a.routes.single, fromM: 1020, toM: 1200));
+        expect(routes.requests, hasLength(2));
+        expect(session().plan, same(detour));
+      },
+    );
+  });
+
+  test('a new route that comes after the arrival is dropped', () async {
+    final a = routeFixture('limoges_drive');
+    final detour = routeFixture('missed_turn');
+    await start(a, answers: [detour], more: [detour]);
+    final fixes = along(a.routes.single, toM: 600);
+    await send(fixes);
+    routes.gate = Completer<void>();
+    await send([
+      for (var i = 1; i <= 3; i++)
+        Fix(
+          position: LatLng(fixes.last.position.lat + 0.003, fixes.last.position.lon),
+          accuracyM: 5,
+          at: fixes.last.at.add(Duration(seconds: i)),
+          speedMps: 9,
+        ),
+    ]);
+    expect(routes.requests, hasLength(1));
+    final rest = along(a.routes.single, fromM: 620, step: 40);
+    await send([
+      ...rest,
+      Fix(
+        position: a.routes.single.line.last,
+        accuracyM: 5,
+        at: rest.last.at.add(const Duration(seconds: 4)),
+        speedMps: 5,
+      ),
+    ]);
+    expect(session().phase, GuidancePhase.arrived);
+    routes.gate!.complete();
+    await settle();
+    expect(session().phase, GuidancePhase.arrived);
+    expect(session().plan, same(a));
   });
 
   test('the arrival stops the position and says so; the end releases the rest', () async {

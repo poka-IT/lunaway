@@ -84,10 +84,13 @@ final class NoDetourAlert extends GuidanceAlert {
 
 /// A recalculation failed; the guidance keeps the route it had.
 final class RerouteFailedAlert extends GuidanceAlert {
-  const new({required this.failure, required super.until});
+  const new({required this.failure, required super.until, this.cause});
 
   /// Null when the server answered without a route for the vehicle.
   final RouteFailure? failure;
+
+  /// The road event the recalculation was for, when one was.
+  final RoadEventFinding? cause;
 }
 
 /// A restriction of the route ahead, with its distance.
@@ -114,7 +117,6 @@ final class GuidanceSession {
     this.alert,
     this.ahead = const [],
     this.eventAlerts = const [],
-    this.eventsAsOf,
     this.reroutes = 0,
     this.overview = false,
     this.positionLost = false,
@@ -133,11 +135,11 @@ final class GuidanceSession {
   /// The restrictions within reach ahead, nearest first.
   final List<WarningAhead> ahead;
 
-  /// Road events ahead that do not stop the vehicle (a lane closed).
+  /// Road events ahead worth a word, nearest first: those in force that do
+  /// not stop the vehicle (a lane closed), and the closures it meets still
+  /// (no other way, or a new route not found yet).
   final List<RoadEventFinding> eventAlerts;
 
-  /// When the server last read its road event sources.
-  final DateTime? eventsAsOf;
   final int reroutes;
 
   /// The whole route on the map instead of the vehicle.
@@ -168,7 +170,6 @@ final class GuidanceSession {
     GuidanceAlert? Function()? alert,
     List<WarningAhead>? ahead,
     List<RoadEventFinding>? eventAlerts,
-    DateTime? eventsAsOf,
     int? reroutes,
     bool? overview,
     bool? positionLost,
@@ -184,7 +185,6 @@ final class GuidanceSession {
     alert: alert == null ? this.alert : alert(),
     ahead: ahead ?? this.ahead,
     eventAlerts: eventAlerts ?? this.eventAlerts,
-    eventsAsOf: eventsAsOf ?? this.eventsAsOf,
     reroutes: reroutes ?? this.reroutes,
     overview: overview ?? this.overview,
     positionLost: positionLost ?? this.positionLost,
@@ -212,6 +212,9 @@ const _movingMps = 1.5;
 
 const _alertFor = Duration(seconds: 10);
 
+/// After the position stream fails, how long before it is asked for again.
+const _fixRetryAfter = Duration(seconds: 10);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
@@ -226,6 +229,7 @@ class GuidanceController extends _$GuidanceController {
   GuidanceTrack? _track;
   StreamSubscription<Fix>? _fixes;
   Timer? _poll;
+  Timer? _fixRetry;
   GuidanceWording? _words;
   VoiceOutput? _voice;
   ScreenWake? _wake;
@@ -238,6 +242,10 @@ class GuidanceController extends _$GuidanceController {
   DateTime? _lastEventCheck;
   Duration _backoff = _minBackoff;
   bool _rerouting = false;
+
+  /// Counts the guidances: an answer that comes back after its guidance
+  /// ended (stopped, arrived, another started) is dropped.
+  int _generation = 0;
 
   @override
   GuidanceSession? build() {
@@ -257,6 +265,8 @@ class GuidanceController extends _$GuidanceController {
     final engine = await ref.read(guidanceEngineProvider.future);
     if (!ref.mounted || engine == null || json == null) return false;
     _release();
+    state = null;
+    final generation = _generation;
     final GuidanceTrack track;
     try {
       track = engine.start(json, routeIndex);
@@ -266,8 +276,10 @@ class GuidanceController extends _$GuidanceController {
     }
     _track = track;
     _words = words;
-    _voice = ref.read(voiceOutputProvider);
-    _wake = ref.read(screenWakeProvider);
+    final voice = ref.read(voiceOutputProvider);
+    final wake = ref.read(screenWakeProvider);
+    _voice = voice;
+    _wake = wake;
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
     state = GuidanceSession(
       target: target,
@@ -277,15 +289,14 @@ class GuidanceController extends _$GuidanceController {
       voiceOn: settings.voice,
       voice: VoiceReadiness.none,
     );
-    final readiness = await ref.read(voiceOutputProvider).prepare(plan.applied.language);
-    if (!ref.mounted || state == null) return false;
+    final readiness = await voice.prepare(plan.applied.language);
+    if (!ref.mounted || generation != _generation) return false;
     state = state!.copyWith(voice: readiness);
-    await ref.read(screenWakeProvider).keepOn(on: true);
-    if (!ref.mounted || _track != track) return false;
-    _fixes = ref
-        .read(locationFeedProvider)
-        .guidance(words.notice)
-        .listen(_onFix, onError: _onPositionError);
+    await wake.keepOn(on: true);
+    if (!ref.mounted || generation != _generation) return false;
+    await ref.read(appForegroundProvider).resumed();
+    if (!ref.mounted || generation != _generation) return false;
+    _listenFixes();
     unawaited(_pollEvents());
     return true;
   }
@@ -300,7 +311,9 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     if (s == null) return;
     state = s.copyWith(voiceOn: on);
-    if (!on) await ref.read(voiceOutputProvider).stop();
+    final voice = _voice;
+    if (!on && voice != null) await voice.stop();
+    if (!ref.mounted) return;
     await ref.read(routeSettingsControllerProvider.notifier).setVoice(on: on);
   }
 
@@ -311,17 +324,20 @@ class GuidanceController extends _$GuidanceController {
 
   /// Opens the system's voice installer, then tries the voice again.
   Future<void> installVoices() async {
-    final voice = ref.read(voiceOutputProvider);
+    final voice = _voice;
+    if (voice == null) return;
     await voice.installVoices();
-    final s = state;
-    if (s == null) return;
-    final readiness = await voice.prepare(s.plan.applied.language);
+    if (!ref.mounted || state == null) return;
+    final readiness = await voice.prepare(state!.plan.applied.language);
     if (ref.mounted && state != null) state = state!.copyWith(voice: readiness);
   }
 
   void _release() {
+    _generation++;
     unawaited(_fixes?.cancel());
     _fixes = null;
+    _fixRetry?.cancel();
+    _fixRetry = null;
     _poll?.cancel();
     _poll = null;
     _track?.dispose();
@@ -347,21 +363,48 @@ class GuidanceController extends _$GuidanceController {
     if (wake != null) unawaited(wake.keepOn(on: false));
   }
 
-  bool get _speaking {
-    final s = state;
-    return s != null && s.voiceOn && s.voice == VoiceReadiness.ready;
-  }
+  /// Whether the guidance of [generation] is still the one running, short
+  /// of its arrival.
+  bool _current(int generation) =>
+      ref.mounted &&
+      generation == _generation &&
+      state != null &&
+      state!.phase != GuidancePhase.arrived;
 
   void _say(String text, {bool queue = false}) {
-    if (_speaking) unawaited(ref.read(voiceOutputProvider).say(text, queue: queue));
+    final s = state;
+    final voice = _voice;
+    if (voice != null && s != null && s.voiceOn && s.voice == VoiceReadiness.ready) {
+      unawaited(voice.say(text, queue: queue));
+    }
+  }
+
+  void _listenFixes() {
+    final words = _words;
+    if (words == null) return;
+    unawaited(_fixes?.cancel());
+    _fixes = ref
+        .read(locationFeedProvider)
+        .guidance(words.notice)
+        .listen(_onFix, onError: _onPositionError);
   }
 
   @visibleForTesting
   void onFix(Fix fix) => _onFix(fix);
 
+  /// The position stream failed: location turned off, or its permission
+  /// taken back. geolocator ends its updates then, so the stream is asked
+  /// for again, with the app in front, until fixes come back.
   void _onPositionError(Object e) {
     _log.warning('position stream: $e');
-    if (ref.mounted && state != null) state = state!.copyWith(positionLost: true);
+    final generation = _generation;
+    if (!_current(generation)) return;
+    state = state!.copyWith(positionLost: true);
+    _fixRetry?.cancel();
+    _fixRetry = Timer(_fixRetryAfter, () async {
+      await ref.read(appForegroundProvider).resumed();
+      if (_current(generation) && state!.positionLost) _listenFixes();
+    });
   }
 
   void _onFix(Fix fix) {
@@ -375,9 +418,15 @@ class GuidanceController extends _$GuidanceController {
       // the screen stays on for the arrival card.
       unawaited(_fixes?.cancel());
       _fixes = null;
+      _fixRetry?.cancel();
       _poll?.cancel();
       _poll = null;
-      state = next.copyWith(phase: GuidancePhase.arrived, ahead: const [], alert: () => null);
+      state = next.copyWith(
+        phase: GuidancePhase.arrived,
+        ahead: const [],
+        eventAlerts: const [],
+        alert: () => null,
+      );
       _say(_words!.arrived);
       return;
     }
@@ -411,8 +460,7 @@ class GuidanceController extends _$GuidanceController {
     state = next;
     if (_shouldReroute(fix)) {
       unawaited(_reroute(RerouteReason.offRoute, fix));
-    } else if (!_rerouting &&
-        (_lastEventCheck == null || fix.at.difference(_lastEventCheck!) >= _eventCheckEvery)) {
+    } else if (_lastEventCheck == null || fix.at.difference(_lastEventCheck!) >= _eventCheckEvery) {
       // The events known stay put while the vehicle moves on: their
       // distances, and whether one now lies ahead, follow it.
       _checkEvents();
@@ -431,22 +479,30 @@ class GuidanceController extends _$GuidanceController {
     if (_rerouting || _offRoute < _offRouteFixes) return false;
     final speed = fix.speedMps;
     if (speed != null && speed < _movingMps) return false;
+    return !_waiting(fix);
+  }
+
+  /// Whether the last recalculation is too recent to ask for another.
+  bool _waiting(Fix fix) {
     final last = _lastReroute;
-    return last == null || fix.at.difference(last) >= _backoff;
+    return last != null && fix.at.difference(last) < _backoff;
   }
 
   Future<void> _reroute(RerouteReason reason, Fix fix, {RoadEventFinding? cause}) async {
     final s = state;
     final words = _words;
-    if (_rerouting || s == null || words == null) return;
+    final generation = _generation;
+    if (_rerouting || words == null || !_current(generation)) return;
     _rerouting = true;
     _lastReroute = fix.at;
     final alertUntil = fix.at.add(_alertFor);
-    state = s.copyWith(
+    state = s!.copyWith(
       phase: GuidancePhase.rerouting,
       alert: () => cause == null ? s.alert : ClosureAheadAlert(finding: cause, until: alertUntil),
     );
     _say(cause == null ? words.rerouting : words.closureAhead(cause));
+    Duration? extra;
+    var landed = false;
     try {
       final plan = await ref
           .read(routeServiceProvider)
@@ -460,11 +516,11 @@ class GuidanceController extends _$GuidanceController {
               headingDeg: fix.courseDeg,
             ),
           );
-      if (!ref.mounted || state == null) return;
+      if (!_current(generation)) return;
       final engine = await ref.read(guidanceEngineProvider.future);
+      if (!_current(generation)) return;
       final json = plan.osrmJson;
-      if (!ref.mounted || state == null) return;
-      if (plan.status != RouteStatus.ok || json == null || engine == null) {
+      if (plan.status != RouteStatus.ok || json == null || engine == null || plan.routes.isEmpty) {
         _failed(null, fix, cause: cause);
         return;
       }
@@ -477,9 +533,7 @@ class GuidanceController extends _$GuidanceController {
       _events.resetHandled();
       final before = state!.snapshot?.durationRemainingS;
       final snap = track.update(fix);
-      final extra = before == null
-          ? null
-          : Duration(seconds: (snap.durationRemainingS - before).round());
+      extra = before == null ? null : Duration(seconds: (snap.durationRemainingS - before).round());
       state = state!.copyWith(
         plan: plan,
         routeIndex: plan.routes.first.index,
@@ -488,32 +542,51 @@ class GuidanceController extends _$GuidanceController {
         reroutes: state!.reroutes + 1,
         alert: () => ReroutedAlert(reason: reason, extra: extra, until: alertUntil),
       );
-      // The new route is checked at once: the server may not have known
-      // the closure, and a route back through it is no detour.
-      if (!_checkEvents(afterReroute: cause != null)) _say(words.rerouted(extra));
+      landed = true;
     } on RouteFailure catch (f) {
-      if (ref.mounted && state != null) _failed(f, fix, cause: cause);
-    } on GuidanceUnavailable catch (e) {
-      _log.warning('the new route could not be guided: $e');
-      if (ref.mounted && state != null) _failed(null, fix, cause: cause);
+      if (_current(generation)) _failed(f, fix, cause: cause);
+    } on Object catch (e, st) {
+      // An answer the engine cannot guide, or one this app cannot read:
+      // the route kept, as after a failure.
+      _log.warning('the new route could not be guided', e, st);
+      if (_current(generation)) {
+        _failed(const RouteFailure(RouteFailureKind.unavailable), fix, cause: cause);
+      }
     } finally {
-      _rerouting = false;
+      if (generation == _generation) _rerouting = false;
     }
+    if (!landed || !_current(generation)) return;
+    // The new route is checked at once, against every event known by now:
+    // the server may not have known the closure, and a route back through
+    // it is no detour.
+    if (!_checkEvents(afterReroute: cause != null)) _say(words.rerouted(extra));
   }
 
   void _failed(RouteFailure? failure, Fix fix, {RoadEventFinding? cause}) {
-    _backoff = Duration(
+    final doubled = Duration(
       milliseconds: math.min(_backoff.inMilliseconds * 2, _maxBackoff.inMilliseconds),
     );
+    final asked = failure?.retryAfter;
+    _backoff = asked != null && asked > doubled ? asked : doubled;
+    final noRoute = failure == null;
+    if (cause != null && !noRoute) {
+      // No answer is not "no other way": the closure is asked about again
+      // once the wait is over, and shows meanwhile.
+      _events.unmarkHandled(cause.event.id);
+      _reroutedFor.remove(cause.event.id);
+    }
     final s = state!;
     final until = fix.at.add(_alertFor * 3);
     state = s.copyWith(
       phase: (s.snapshot?.offRoute ?? false) ? GuidancePhase.offRoute : GuidancePhase.navigating,
-      alert: () => cause != null && failure == null
+      eventAlerts: cause == null
+          ? null
+          : [cause, ...s.eventAlerts.where((e) => e.event.id != cause.event.id)],
+      alert: () => cause != null && noRoute
           ? NoDetourAlert(finding: cause, until: until)
-          : RerouteFailedAlert(failure: failure, until: until),
+          : RerouteFailedAlert(failure: failure, cause: cause, until: until),
     );
-    if (cause != null && failure == null) _say(_words!.noDetour(cause));
+    if (cause != null && noRoute) _say(_words!.noDetour(cause));
   }
 
   /// Asks for the road events now rather than at the next poll: when the
@@ -529,6 +602,7 @@ class GuidanceController extends _$GuidanceController {
   /// server's rhythm when it gives one, after its wait when it asks for one.
   /// No position goes with the request.
   Future<void> _pollEvents() async {
+    final generation = _generation;
     var wait = ref.read(roadEventsPollProvider);
     try {
       final source = ref.read(roadEventsSourceProvider);
@@ -536,9 +610,8 @@ class GuidanceController extends _$GuidanceController {
       // keeps a misbehaving server from holding the loop.
       for (var page = 0; page < 20; page++) {
         final delta = await source.delta(cursor: _events.cursor);
-        if (!ref.mounted || state == null) return;
+        if (!_current(generation)) return;
         _events.apply(delta);
-        state = state!.copyWith(eventsAsOf: delta.asOf);
         wait = delta.pollInterval ?? wait;
         if (!delta.hasMore) break;
       }
@@ -551,9 +624,7 @@ class GuidanceController extends _$GuidanceController {
       // The last events stay valid; the next poll tries again.
       _log.info('road events poll failed: $e');
     } finally {
-      if (ref.mounted && state != null && state!.phase != GuidancePhase.arrived) {
-        _schedulePoll(wait);
-      }
+      if (_current(generation)) _schedulePoll(wait);
     }
   }
 
@@ -564,9 +635,10 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     final track = _track;
     final fix = s?.lastFix;
-    if (s == null || track == null || fix == null || s.phase == GuidancePhase.arrived) {
-      return false;
-    }
+    // While a new route is on its way, the old one is not worth checking:
+    // the new one is, when it lands.
+    if (_rerouting || s == null || track == null || fix == null) return false;
+    if (s.phase == GuidancePhase.arrived) return false;
     final snap = s.snapshot;
     _lastEventCheck = fix.at;
     final found = _events.check(
@@ -579,26 +651,32 @@ class GuidanceController extends _$GuidanceController {
           ? 0
           : snap.durationRemainingS / snap.distanceRemainingM,
     );
-    var next = s.copyWith(eventAlerts: found.alerts);
     final blocking = found.blocking;
-    var stuck = false;
-    if (blocking.isNotEmpty) {
-      _events.markHandled(blocking.map((f) => f.event.id));
-      final first = blocking.first;
-      if (afterReroute || _reroutedFor.contains(first.event.id)) {
-        next = next.copyWith(
-          alert: () => NoDetourAlert(finding: first, until: fix.at.add(_alertFor * 3)),
-        );
-        _say(_words!.noDetour(first));
-        stuck = true;
-      } else {
-        _reroutedFor.add(first.event.id);
-        state = next;
-        unawaited(_reroute(RerouteReason.roadEvent, fix, cause: first));
-        return false;
-      }
+    final shown = [...blocking, ...found.alerts]..sort((a, b) => a.aheadM.compareTo(b.aheadM));
+    final next = s.copyWith(eventAlerts: shown);
+    if (blocking.isEmpty) {
+      state = next;
+      return false;
     }
+    final first = blocking.first;
+    if (afterReroute || _reroutedFor.contains(first.event.id)) {
+      _events.markHandled(blocking.map((f) => f.event.id));
+      state = next.copyWith(
+        alert: () => NoDetourAlert(finding: first, until: fix.at.add(_alertFor * 3)),
+      );
+      _say(_words!.noDetour(first));
+      return true;
+    }
+    if (_backoff > _minBackoff && _waiting(fix)) {
+      // A recalculation failed lately: the next waits its turn, the
+      // closure on screen meanwhile.
+      state = next;
+      return false;
+    }
+    _events.markHandled([first.event.id]);
+    _reroutedFor.add(first.event.id);
     state = next;
-    return stuck;
+    unawaited(_reroute(RerouteReason.roadEvent, fix, cause: first));
+    return false;
   }
 }

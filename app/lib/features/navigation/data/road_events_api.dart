@@ -44,7 +44,7 @@ query RoadEvents($since: String) {
       firstSeenAt
       source
     }
-    sources { id lastReadAt dataAt staleAfterSeconds fresh }
+    sources { id name attribution lastReadAt dataAt staleAfterSeconds fresh }
   }
 }
 ''',
@@ -96,6 +96,8 @@ RoadEventsDelta roadEventsDeltaFromJson(Map<String, dynamic> json) {
           RoadEventSourceStatus(
             id: s['id'] as String,
             fresh: s['fresh'] == true,
+            name: s['name'] as String?,
+            attribution: s['attribution'] as String?,
             lastReadAt: _date(s['lastReadAt']),
             dataAt: _date(s['dataAt']),
             staleAfter: (s['staleAfterSeconds'] as num?) == null

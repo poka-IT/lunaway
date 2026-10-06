@@ -96,10 +96,10 @@ extension NavigationTexts on Translations {
       final half = _half(miles);
       return _t.navigation.voice.miles(count: half, n: NumberFormat('0.#', _locale).format(half));
     }
-    if (metres < 1000) {
-      final step = metres < 200 ? 10 : 50;
-      return _t.navigation.voice.metres(n: '${(metres / step).round() * step}');
-    }
+    final step = metres < 200 ? 10 : 50;
+    final rounded = (metres / step).round() * step;
+    // 990 m is said "1 kilomètre", not "1000 mètres".
+    if (rounded < 1000) return _t.navigation.voice.metres(n: '$rounded');
     // French counts 1.5 kilometres in the singular, English in the plural:
     // the plural rule of each language decides.
     final half = _half(metres / 1000);
@@ -111,8 +111,10 @@ extension NavigationTexts on Translations {
 
   /// A height or a width as spoken: "3 mètres 20", "3.20 metres".
   String spokenSize(double metres) {
-    final whole = metres.floor();
-    final cm = ((metres - whole) * 100).round();
+    // From whole centimetres: 2.996 m is "3 mètres", not "2 mètres 100".
+    final total = (metres * 100).round();
+    final whole = total ~/ 100;
+    final cm = total % 100;
     if (cm == 0) return _t.navigation.voice.sizeWhole(metres: '$whole');
     return _t.navigation.voice.size(metres: '$whole', cm: cm.toString().padLeft(2, '0'));
   }

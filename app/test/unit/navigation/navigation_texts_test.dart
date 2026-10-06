@@ -97,6 +97,7 @@ void main() {
       expect(fr.spokenDistance(1450, DistanceUnits.metric), '1,5 kilomètre');
       expect(en.spokenDistance(1450, DistanceUnits.metric), '1.5 kilometres');
       expect(en.spokenDistance(160, DistanceUnits.metric), '160 metres');
+      expect(fr.spokenDistance(990, DistanceUnits.metric), '1 kilomètre');
       expect(en.spokenDistance(1609.344 * 2, DistanceUnits.imperial), '2 miles');
     });
 
@@ -104,6 +105,7 @@ void main() {
       expect(fr.spokenSize(3.2), '3 mètres 20');
       expect(fr.spokenSize(3.05), '3 mètres 05');
       expect(fr.spokenSize(4), '4 mètres');
+      expect(fr.spokenSize(2.996), '3 mètres');
       expect(en.spokenSize(3.2), '3.20 metres');
     });
   });

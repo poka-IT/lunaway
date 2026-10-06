@@ -10,6 +10,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
@@ -38,7 +39,13 @@ class GuidanceScreen extends ConsumerWidget {
     return PopScope(
       canPop: session.phase == GuidancePhase.arrived,
       onPopInvokedWithResult: (popped, _) async {
-        if (!popped && await _confirmEnd(context) && context.mounted) _end(context, ref);
+        // Back from the arrival card ends the guidance as "Terminer" does:
+        // the screen may sleep again.
+        if (popped) {
+          ref.read(guidanceControllerProvider.notifier).stop();
+        } else if (await _confirmEnd(context) && context.mounted) {
+          _end(context, ref);
+        }
       },
       child: Scaffold(
         body: OrientationBuilder(
@@ -283,7 +290,8 @@ class _ManeuverBanner extends ConsumerWidget {
         session.phase == GuidancePhase.offRoute || session.phase == GuidancePhase.rerouting;
     return Semantics(
       liveRegion: true,
-      label: [?distance, road].join(', '),
+      // The arrow is a picture: the instruction says the turn in words.
+      label: [?distance, next?.instruction ?? road].join(', '),
       excludeSemantics: true,
       child: Material(
         color: colors.surface,
@@ -383,16 +391,29 @@ class _Notices extends ConsumerWidget {
             _ => AppIcons.error,
           },
           text: switch (alert) {
-            ReroutedAlert(:final extra) =>
-              extra != null && extra.inMinutes >= 1
-                  ? t.navigation.guidance.reroutedLonger(minutes: '${extra.inMinutes}')
-                  : t.navigation.guidance.rerouted,
+            // Rounded as the voice rounds them: 90 seconds are 2 minutes.
+            ReroutedAlert(:final extra) => switch (extra == null
+                ? 0
+                : (extra.inSeconds / 60).round()) {
+              final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
+                minutes: '$minutes',
+              ),
+              _ => t.navigation.guidance.rerouted,
+            },
             ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
               distance: t.routeDistance(finding.aheadM, units),
             ),
             NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
               distance: t.routeDistance(finding.aheadM, units),
             ),
+            RerouteFailedAlert(:final failure, :final cause?) =>
+              failure?.kind == RouteFailureKind.offline
+                  ? t.navigation.guidance.closureOffline(
+                      distance: t.routeDistance(cause.aheadM, units),
+                    )
+                  : t.navigation.guidance.closureFailed(
+                      distance: t.routeDistance(cause.aheadM, units),
+                    ),
             RerouteFailedAlert(:final failure) =>
               failure?.kind == RouteFailureKind.offline
                   ? t.navigation.guidance.rerouteOffline
@@ -408,10 +429,26 @@ class _Notices extends ConsumerWidget {
       for (final e in session.eventAlerts.take(1))
         _Notice(
           icon: AppIcons.error,
+          strong: e.event.eventClass == RoadEventClass.closure,
           text: [
-            t.navigation.guidance.eventAhead(distance: t.routeDistance(e.aheadM, units)),
-            if (session.eventsAsOf != null)
-              t.navigation.guidance.eventsAsOf(time: t.clockTime(session.eventsAsOf!.toLocal())),
+            switch (e.event.eventClass) {
+              RoadEventClass.closure => t.navigation.guidance.eventClosure(
+                distance: t.routeDistance(e.aheadM, units),
+              ),
+              RoadEventClass.vehicleLimit => t.navigation.guidance.eventLimit(
+                distance: t.routeDistance(e.aheadM, units),
+              ),
+              _ => t.navigation.guidance.eventAhead(distance: t.routeDistance(e.aheadM, units)),
+            },
+            if (e.source case final source?)
+              if (source.name ?? source.attribution case final name?)
+                switch (source.dataAt ?? source.lastReadAt) {
+                  final at? => t.navigation.guidance.eventSource(
+                    source: name,
+                    time: t.clockTime(at.toLocal()),
+                  ),
+                  null => name,
+                },
           ].join('\n'),
         ),
       if (session.voiceOn && session.voice != VoiceReadiness.ready) _VoiceNotice(session: session),

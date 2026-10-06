@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
@@ -94,15 +96,21 @@ final class FakeLocationFeed implements LocationFeed {
   new({this.position});
 
   LatLng? position;
-  final StreamController<Fix> _fixes = StreamController.broadcast();
+  StreamController<Fix> _fixes = StreamController.broadcast();
   final List<BackgroundNotice> notices = [];
 
   bool get listening => _fixes.hasListener;
 
   void send(Fix fix) => _fixes.add(fix);
 
-  /// The stream fails, as when location is turned off.
-  void fail(Object error) => _fixes.addError(error);
+  /// The stream fails and ends, as geolocator's does when location is
+  /// turned off; the guidance must ask for it again.
+  void fail(Object error) {
+    final failed = _fixes;
+    _fixes = StreamController.broadcast();
+    failed.addError(error);
+    unawaited(failed.close());
+  }
 
   @override
   Future<Fix?> current() async =>
@@ -487,6 +495,7 @@ List<Override> navigationOverrides({
   MemoryRouteSettings? settings,
   Vehicle? vehicle = motorhome,
   Duration poll = const Duration(hours: 1),
+  CountedNotificationAccess? notifications,
 }) => [
   routeServiceProvider.overrideWithValue(routes),
   locationFeedProvider.overrideWithValue(
@@ -500,4 +509,22 @@ List<Override> navigationOverrides({
   routeMapBuilderProvider.overrideWithValue(schematicRouteMap),
   routeSettingsStoreProvider.overrideWithValue(settings ?? MemoryRouteSettings()),
   vehicleProvider.overrideWith((ref) => Stream.value(vehicle)),
+  appForegroundProvider.overrideWithValue(const InFront()),
+  notificationAccessProvider.overrideWithValue(notifications ?? CountedNotificationAccess()),
 ];
+
+/// The notification permission, asked and counted.
+final class CountedNotificationAccess implements NotificationAccess {
+  int asked = 0;
+
+  @override
+  Future<void> ask() async => asked++;
+}
+
+/// The app always in front.
+final class InFront implements AppForeground {
+  const new();
+
+  @override
+  Future<void> resumed() async {}
+}

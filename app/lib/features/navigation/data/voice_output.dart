@@ -52,6 +52,9 @@ final class PlatformVoiceOutput implements VoiceOutput {
       _tag = best?.locale ?? language.speechTag;
       _voiceId = best?.id;
       if (best != null) return VoiceReadiness.ready;
+      // Voices of the language, each speaking through its vendor's server:
+      // the one to install works offline and keeps the words on the device.
+      if (voices.any((v) => !v.notInstalled)) return VoiceReadiness.missingData;
       return switch (await _voice.languageStatus(language.speechTag)) {
         nav.PlatformLanguageStatus.available => VoiceReadiness.ready,
         nav.PlatformLanguageStatus.missingData => VoiceReadiness.missingData,
@@ -93,21 +96,19 @@ final class PlatformVoiceOutput implements VoiceOutput {
   }
 }
 
-/// The voice to speak with among [voices]: installed ones only; one that
-/// needs no network first (it works in a valley without signal and keeps
-/// the instructions on the device); the exact [preferred] tag first (fr-FR
-/// before fr-CA); then the best quality.
+/// The voice to speak with among [voices]: installed ones on the device
+/// only (one that speaks through its vendor's server fails in a valley
+/// without signal and sends the road names there); the exact [preferred]
+/// tag first (fr-FR before fr-CA); then the best quality.
 @visibleForTesting
 nav.PlatformVoiceInfo? pickVoice(List<nav.PlatformVoiceInfo> voices, {required String preferred}) {
   final usable = [
     for (final v in voices)
-      if (!v.notInstalled) v,
+      if (!v.notInstalled && !v.networkRequired) v,
   ];
   if (usable.isEmpty) return null;
   int score(nav.PlatformVoiceInfo v) =>
-      (v.networkRequired ? 0 : 10000) +
-      (v.locale.toLowerCase() == preferred.toLowerCase() ? 1000 : 0) +
-      v.quality;
+      (v.locale.toLowerCase() == preferred.toLowerCase() ? 1000 : 0) + v.quality;
   usable.sort((a, b) => score(b).compareTo(score(a)));
   return usable.first;
 }

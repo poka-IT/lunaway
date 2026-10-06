@@ -449,6 +449,95 @@ final class ScreenWakeProvider
 
 String _$screenWakeHash() => r'52a14e528c239808da4b03caf9757bcdd7140556';
 
+@ProviderFor(appForeground)
+final appForegroundProvider = AppForegroundProvider._();
+
+final class AppForegroundProvider
+    extends $FunctionalProvider<AppForeground, AppForeground, AppForeground>
+    with $Provider<AppForeground> {
+  AppForegroundProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'appForegroundProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$appForegroundHash();
+
+  @$internal
+  @override
+  $ProviderElement<AppForeground> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  AppForeground create(Ref ref) {
+    return appForeground(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(AppForeground value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AppForeground>(value),
+    );
+  }
+}
+
+String _$appForegroundHash() => r'ed81b3ea1368862459d2e2f5f4742caf86407957';
+
+@ProviderFor(notificationAccess)
+final notificationAccessProvider = NotificationAccessProvider._();
+
+final class NotificationAccessProvider
+    extends
+        $FunctionalProvider<
+          NotificationAccess,
+          NotificationAccess,
+          NotificationAccess
+        >
+    with $Provider<NotificationAccess> {
+  NotificationAccessProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'notificationAccessProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$notificationAccessHash();
+
+  @$internal
+  @override
+  $ProviderElement<NotificationAccess> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  NotificationAccess create(Ref ref) {
+    return notificationAccess(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(NotificationAccess value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<NotificationAccess>(value),
+    );
+  }
+}
+
+String _$notificationAccessHash() =>
+    r'b0d02c4bc9b7e39b5840b362504748b162ff9661';
+
 /// The road events of the area, from the API's `roadEvents` delta. Until
 /// the server serves it, its refusal leaves the guidance without events,
 /// as before.
@@ -733,7 +822,7 @@ final class RoutePreviewControllerProvider
 }
 
 String _$routePreviewControllerHash() =>
-    r'1ec0961b6e4eafb73e68e3b9f4638ff933b795b8';
+    r'43abaa2aa9f09714671061a0d5025cbb3f3e32c2';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A

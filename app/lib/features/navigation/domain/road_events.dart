@@ -239,10 +239,24 @@ final class RoadEvent {
 /// How fresh a source's events are.
 @immutable
 final class RoadEventSourceStatus {
-  const new({required this.id, required this.fresh, this.lastReadAt, this.dataAt, this.staleAfter});
+  const new({
+    required this.id,
+    required this.fresh,
+    this.name,
+    this.attribution,
+    this.lastReadAt,
+    this.dataAt,
+    this.staleAfter,
+  });
 
   final String id;
   final bool fresh;
+
+  /// "DIR Centre-Est", as the source names itself.
+  final String? name;
+
+  /// What its licence asks to show with its data.
+  final String? attribution;
 
   /// The last successful read of the source: the poller is alive.
   final DateTime? lastReadAt;
@@ -303,13 +317,17 @@ abstract interface class RoadEventsSource {
 /// What the check found on the route ahead.
 @immutable
 final class RoadEventFinding {
-  const new({required this.event, required this.hit, required this.aheadM});
+  const new({required this.event, required this.hit, required this.aheadM, this.source});
 
   final RoadEvent event;
   final EventHit hit;
 
   /// Metres from the vehicle to where the route meets it.
   final double aheadM;
+
+  /// Where the event comes from and how recent its data is, as the server
+  /// last said.
+  final RoadEventSourceStatus? source;
 }
 
 /// The road events known during one guidance, kept between polls, and the
@@ -359,7 +377,8 @@ final class RoadEventsTracker {
   /// The events ahead on [track], from [alongM] metres, at the vehicle's
   /// arrival there ([now] plus [secondsPerMetre] of the remaining route):
   /// those that stop [vehicle] and that the guidance has not acted on yet
-  /// (`blocking`), and those in force worth a word (`alerts`).
+  /// (`blocking`), and those in force worth a word (`alerts`), the closures
+  /// acted on among them.
   ({List<RoadEventFinding> blocking, List<RoadEventFinding> alerts}) check({
     required GuidanceTrack track,
     required double alongM,
@@ -384,9 +403,15 @@ final class RoadEventsTracker {
       if (event == null) continue;
       final aheadM = (hit.startM - alongM).clamp(0, double.infinity).toDouble();
       final arrival = now.add(Duration(seconds: (aheadM * secondsPerMetre).round()));
-      final finding = RoadEventFinding(event: event, hit: hit, aheadM: aheadM);
+      final finding = RoadEventFinding(
+        event: event,
+        hit: hit,
+        aheadM: aheadM,
+        source: _sources[event.source],
+      );
       if (event.blocks(vehicle, arrival)) {
-        if (!_handled.contains(event.id)) blocking.add(finding);
+        // Acted on already, it still deserves a word while the route meets it.
+        (_handled.contains(event.id) ? alerts : blocking).add(finding);
       } else if (event.activeAt(arrival) &&
           (event.schedule.inForce(arrival) || event.schedule.assumed)) {
         // Outside hours that were only supposed ("de nuit"), the event
@@ -399,6 +424,9 @@ final class RoadEventsTracker {
 
   /// Marks [ids] as acted on: a recalculation was asked for them.
   void markHandled(Iterable<String> ids) => _handled.addAll(ids);
+
+  /// The recalculation for [id] got no answer: it is to be asked again.
+  void unmarkHandled(String id) => _handled.remove(id);
 }
 
 /// The source could not answer; the last known events stay valid.

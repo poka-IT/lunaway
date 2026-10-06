@@ -30,7 +30,9 @@ abstract final class NavigationRoutes {
     final q = uri.queryParameters;
     final lat = double.tryParse(q['lat'] ?? '');
     final lon = double.tryParse(q['lon'] ?? '');
-    if (lat == null || lon == null || lat.abs() > 90 || lon.abs() > 180) return null;
+    // NaN passes a range check: it is no number to compare.
+    if (lat == null || lon == null || !lat.isFinite || !lon.isFinite) return null;
+    if (lat.abs() > 90 || lon.abs() > 180) return null;
     return RouteTarget(destination: LatLng(lat, lon), label: q['name'], placeId: q['place']);
   }
 }

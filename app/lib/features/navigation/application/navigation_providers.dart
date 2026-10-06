@@ -2,8 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/ferrostar_engine.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -96,6 +98,14 @@ VoiceOutput voiceOutput(Ref ref) {
 // keepAlive: stateless, wired once.
 @Riverpod(keepAlive: true)
 ScreenWake screenWake(Ref ref) => const WakelockScreenWake();
+
+// keepAlive: stateless, wired once.
+@Riverpod(keepAlive: true)
+AppForeground appForeground(Ref ref) => const LifecycleAppForeground();
+
+// keepAlive: stateless, wired once.
+@Riverpod(keepAlive: true)
+NotificationAccess notificationAccess(Ref ref) => const SystemNotificationAccess();
 
 /// The road events of the area, from the API's `roadEvents` delta. Until
 /// the server serves it, its refusal leaves the guidance without events,
@@ -231,9 +241,11 @@ class RoutePreviewController extends _$RoutePreviewController {
     );
   }
 
+  /// Chooses another route. Ignored while routes are computed: the ones on
+  /// screen are those of the vehicle or the options before the change.
   void select(int index) {
     final current = state.value;
-    if (current != null) state = AsyncData(current.select(index));
+    if (current != null && !state.isLoading) state = AsyncData(current.select(index));
   }
 }
 

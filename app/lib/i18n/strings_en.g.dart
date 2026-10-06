@@ -554,8 +554,8 @@ class Translations$location$en {
 	/// en: 'Show your position?'
 	String get rationaleTitle => 'Show your position?';
 
-	/// en: 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.'
-	String get rationale => 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.';
+	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway's server, which keeps nothing of it.'
+	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway\'s server, which keeps nothing of it.';
 
 	/// en: 'Continue'
 	String get allow => 'Continue';
@@ -1653,8 +1653,20 @@ class Translations$navigation$guidance$en {
 	/// en: 'Works in $distance'
 	String eventAhead({required Object distance}) => 'Works in ${distance}';
 
-	/// en: 'Road works: data of $time'
-	String eventsAsOf({required Object time}) => 'Road works: data of ${time}';
+	/// en: 'Road closed in $distance'
+	String eventClosure({required Object distance}) => 'Road closed in ${distance}';
+
+	/// en: 'Size limited by roadworks in $distance'
+	String eventLimit({required Object distance}) => 'Size limited by roadworks in ${distance}';
+
+	/// en: '$source, data of $time'
+	String eventSource({required Object source, required Object time}) => '${source}, data of ${time}';
+
+	/// en: 'Road closed in $distance: no network to look for another way'
+	String closureOffline({required Object distance}) => 'Road closed in ${distance}: no network to look for another way';
+
+	/// en: 'Road closed in $distance: no other way yet'
+	String closureFailed({required Object distance}) => 'Road closed in ${distance}: no other way yet';
 
 	/// en: 'Turn the voice on'
 	String get voiceOn => 'Turn the voice on';
@@ -2066,7 +2078,7 @@ extension on Translations {
 			'sync.resuming' => ({required Object count}) => 'Downloading: ${count} places',
 			'sync.resume' => 'Resume',
 			'location.rationaleTitle' => 'Show your position?',
-			'location.rationale' => 'Lunaway uses it to centre the map on you and sort places by distance. Your position stays on the device.',
+			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway\'s server, which keeps nothing of it.',
 			'location.allow' => 'Continue',
 			'location.notNow' => 'Not now',
 			'location.deniedTitle' => 'Position turned off for Lunaway',
@@ -2284,7 +2296,11 @@ extension on Translations {
 			'navigation.guidance.closureAhead' => ({required Object distance}) => 'Road closed in ${distance}: finding another way',
 			'navigation.guidance.noDetour' => ({required Object distance}) => 'Road closed in ${distance}: no other way',
 			'navigation.guidance.eventAhead' => ({required Object distance}) => 'Works in ${distance}',
-			'navigation.guidance.eventsAsOf' => ({required Object time}) => 'Road works: data of ${time}',
+			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Road closed in ${distance}',
+			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Size limited by roadworks in ${distance}',
+			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, data of ${time}',
+			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
+			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',

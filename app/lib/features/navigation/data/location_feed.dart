@@ -76,16 +76,15 @@ final class GeolocatorFeed implements LocationFeed {
   Stream<Fix> guidance(BackgroundNotice notice) =>
       GeolocatorPlatform.instance.getPositionStream(locationSettings: _settings(notice)).map(_fix);
 
-  /// A fix a second while moving and none while parked, the satellites at
-  /// full precision: the cost of guidance is the GPS, and it stops with
-  /// the guidance.
+  /// A fix a second at full precision, standing still too (no distance
+  /// filter): the arrival time and the alerts follow the fixes' clock,
+  /// which must not stop in a queue. The cost of guidance is the GPS, on
+  /// either way, and it stops with the guidance.
   static LocationSettings _settings(BackgroundNotice notice) {
     const accuracy = LocationAccuracy.bestForNavigation;
-    const distanceFilter = 2;
     if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidSettings(
         accuracy: accuracy,
-        distanceFilter: distanceFilter,
         forceLocationManager: true,
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: ForegroundNotificationConfig(
@@ -103,14 +102,13 @@ final class GeolocatorFeed implements LocationFeed {
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       return AppleSettings(
         accuracy: accuracy,
-        distanceFilter: distanceFilter,
         activityType: ActivityType.automotiveNavigation,
         // Background updates are on by default (UIBackgroundModes location
         // in Info.plist); the blue pill tells the driver the position is in use.
         showBackgroundLocationIndicator: true,
       );
     }
-    return const LocationSettings(accuracy: accuracy, distanceFilter: distanceFilter);
+    return const LocationSettings(accuracy: accuracy);
   }
 
   static Fix _fix(Position p) => Fix(

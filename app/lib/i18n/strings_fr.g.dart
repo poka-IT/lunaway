@@ -312,7 +312,7 @@ class _Translations$location$fr extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Afficher votre position ?';
-	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous et trier les lieux par distance. Votre position reste sur l\'appareil.';
+	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position part vers le serveur de Lunaway, qui n\'en garde rien.';
 	@override String get allow => 'Continuer';
 	@override String get notNow => 'Pas maintenant';
 	@override String get deniedTitle => 'Position désactivée pour Lunaway';
@@ -821,7 +821,11 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String closureAhead({required Object distance}) => 'Route fermée dans ${distance} : recherche d\'un autre chemin';
 	@override String noDetour({required Object distance}) => 'Route fermée dans ${distance} : aucun autre chemin';
 	@override String eventAhead({required Object distance}) => 'Travaux dans ${distance}';
-	@override String eventsAsOf({required Object time}) => 'Travaux : données de ${time}';
+	@override String eventClosure({required Object distance}) => 'Route fermée dans ${distance}';
+	@override String eventLimit({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}';
+	@override String eventSource({required Object source, required Object time}) => '${source}, données de ${time}';
+	@override String closureOffline({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin';
+	@override String closureFailed({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin';
 	@override String get voiceOn => 'Activer la voix';
 	@override String get voiceOff => 'Couper la voix';
 	@override String get overview => 'Tout le trajet';
@@ -1093,7 +1097,7 @@ extension on TranslationsFr {
 			'sync.resuming' => ({required Object count}) => 'Téléchargement en cours : ${count} lieux',
 			'sync.resume' => 'Reprendre',
 			'location.rationaleTitle' => 'Afficher votre position ?',
-			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous et trier les lieux par distance. Votre position reste sur l\'appareil.',
+			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position part vers le serveur de Lunaway, qui n\'en garde rien.',
 			'location.allow' => 'Continuer',
 			'location.notNow' => 'Pas maintenant',
 			'location.deniedTitle' => 'Position désactivée pour Lunaway',
@@ -1311,7 +1315,11 @@ extension on TranslationsFr {
 			'navigation.guidance.closureAhead' => ({required Object distance}) => 'Route fermée dans ${distance} : recherche d\'un autre chemin',
 			'navigation.guidance.noDetour' => ({required Object distance}) => 'Route fermée dans ${distance} : aucun autre chemin',
 			'navigation.guidance.eventAhead' => ({required Object distance}) => 'Travaux dans ${distance}',
-			'navigation.guidance.eventsAsOf' => ({required Object time}) => 'Travaux : données de ${time}',
+			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Route fermée dans ${distance}',
+			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}',
+			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, données de ${time}',
+			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin',
+			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin',
 			'navigation.guidance.voiceOn' => 'Activer la voix',
 			'navigation.guidance.voiceOff' => 'Couper la voix',
 			'navigation.guidance.overview' => 'Tout le trajet',

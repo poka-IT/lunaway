@@ -11,6 +11,7 @@ import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -46,6 +47,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
   GuidanceEngine? engine,
   MemoryRouteSettings? settings,
   RouteTarget target = utrillo,
+  CountedNotificationAccess? notifications,
 }) async {
   final routes = FakeRouteService(answers ?? [routeFixture('utrillo_motorhome')]);
   final app = await pumpLunaway(
@@ -57,6 +59,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
       feed: feed,
       engine: engine,
       settings: settings,
+      notifications: notifications,
     ),
   );
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
@@ -309,11 +312,13 @@ void main() {
     testWidgets('on a phone, it starts after the disclaimer, read once', (tester) async {
       final plan = routeFixture('utrillo_motorhome');
       final settings = MemoryRouteSettings();
+      final notifications = CountedNotificationAccess();
       final (app, _) = await openPreview(
         tester,
         size: phone,
         engine: LineEngine([plan]),
         settings: settings,
+        notifications: notifications,
       );
       await tester.tap(find.text('Démarrer'));
       await settleShort(tester);
@@ -325,6 +330,26 @@ void main() {
       expect(session, isNotNull);
       expect(session!.target, utrillo);
       expect(find.byTooltip('Terminer'), findsOneWidget, reason: 'the guidance screen');
+      expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
+    });
+
+    testWidgets('while a route is computed again, the one on screen cannot be started', (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final (app, routes) = await openPreview(tester, engine: LineEngine([plan]));
+      FilledButton start() => tester.widget<FilledButton>(
+        find.ancestor(of: find.text('Démarrer'), matching: find.bySubtype<FilledButton>()),
+      );
+      expect(start().onPressed, isNotNull);
+      routes.gate = Completer<void>();
+      await tester.tap(find.text('Péages'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(start().onPressed, isNull, reason: 'the route of the old options');
+      routes.gate!.complete();
+      await settleShort(tester);
+      expect(start().onPressed, isNotNull);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
     });
   });
 
@@ -340,6 +365,7 @@ void main() {
       VoiceReadiness readiness = VoiceReadiness.ready,
       Size size = phone,
       List<RoutePlan> more = const [],
+      RoadEventsSource? events,
     }) async {
       feed = FakeLocationFeed(position: plan.routes.first.line.first);
       voice = RecordingVoice(readiness: readiness);
@@ -352,6 +378,7 @@ void main() {
           feed: feed,
           engine: LineEngine([plan, ...more]),
           voice: voice,
+          events: events,
         ),
       );
       final container = app.container(tester);
@@ -405,7 +432,11 @@ void main() {
         start += session.route.steps[i].distanceM;
       }
       await drive(tester, plan, toM: start + 20);
-      expect(find.byType(LanesRow), findsOneWidget);
+      // Place Jourdan: the left-turn lane is not the route's, the two
+      // others are, and the route goes on straight from them.
+      final lanes = tester.widget<LanesRow>(find.byType(LanesRow)).lanes;
+      expect([for (final l in lanes) l.active], [false, true, true]);
+      expect([for (final l in lanes) l.follows], [null, 'straight', 'straight']);
     });
 
     testWidgets('off the route, then a new route, said and shown', (tester) async {
@@ -446,6 +477,38 @@ void main() {
       expect(tester.widget<AnimatedOpacity>(banner).opacity, 1);
     });
 
+    testWidgets('roadworks ahead show with their source and the date of its data', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final events = ScriptedRoadEvents([
+        RoadEventsDelta(
+          cursor: 'c1',
+          asOf: DateTime.utc(2026, 10, 6, 9),
+          upserts: [
+            RoadEvent(
+              id: 'works',
+              eventClass: RoadEventClass.laneRestriction,
+              placement: RoadEventPlacement.point,
+              source: 'dir',
+              position: LineTrack(plan.routes.first).at(1500),
+            ),
+          ],
+          sources: [
+            RoadEventSourceStatus(
+              id: 'dir',
+              name: 'DIR Centre-Ouest',
+              fresh: true,
+              lastReadAt: DateTime.utc(2026, 10, 6, 8, 59),
+              dataAt: DateTime.utc(2026, 10, 6, 8, 30),
+            ),
+          ],
+        ),
+      ]);
+      await guide(tester, plan, events: events);
+      await drive(tester, plan, toM: 700);
+      expect(find.textContaining('Travaux dans 800 m'), findsOneWidget);
+      expect(find.textContaining('DIR Centre-Ouest, données de'), findsOneWidget);
+    });
+
     testWidgets('the restriction coming up shows with its distance', (tester) async {
       final plan = routeFixture('utrillo_van');
       await guide(tester, plan);
@@ -473,6 +536,10 @@ void main() {
       feed.fail(StateError('location turned off'));
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.text(lost), findsOneWidget);
+      // The failed stream has ended; the guidance asks for a new one.
+      expect(feed.listening, isFalse);
+      await tester.pump(const Duration(seconds: 11));
+      expect(feed.listening, isTrue);
       feed.send(driveFixes(plan.routes.first, toM: 240).last);
       await settleShort(tester);
       expect(find.text(lost), findsNothing);
@@ -523,6 +590,22 @@ void main() {
       await tester.tap(find.text('Terminer'));
       await settleShort(tester);
       expect(container.read(guidanceControllerProvider), isNull);
+    });
+
+    testWidgets('back from the arrival card ends the guidance, the screen may sleep', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final app = await guide(tester, plan);
+      await drive(tester, plan);
+      final container = app.container(tester);
+      expect(container.read(guidanceControllerProvider)?.phase, GuidancePhase.arrived);
+      final wake = container.read(screenWakeProvider) as FakeScreenWake;
+      expect(wake.on, isTrue);
+      await tester.binding.handlePopRoute();
+      await settleShort(tester);
+      expect(container.read(guidanceControllerProvider), isNull);
+      expect(wake.on, isFalse);
     });
 
     testWidgets('ending asks first, then leaves the guidance', (tester) async {

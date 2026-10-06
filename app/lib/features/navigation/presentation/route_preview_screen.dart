@@ -74,7 +74,7 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     final preview = ref.watch(routePreviewControllerProvider(target));
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final panel = _Panel(target: target, preview: preview, units: units);
-    final action = _ActionBar(target: target, preview: preview.value);
+    final action = _ActionBar(target: target, preview: preview.value, computing: preview.isLoading);
     if (size == WindowSize.compact) {
       return Scaffold(
         body: LayoutBuilder(
@@ -647,20 +647,40 @@ class _Failure extends StatelessWidget {
 
 /// The foot of the preview: "Démarrer" where the device guides; elsewhere
 /// the note that guidance starts from a phone, and the other apps.
-class _ActionBar extends ConsumerWidget {
-  const new({required this.target, required this.preview});
+class _ActionBar extends ConsumerStatefulWidget {
+  const new({required this.target, required this.preview, required this.computing});
 
   final RouteTarget target;
   final RoutePreview? preview;
 
+  /// A route is being computed: the one on screen is that of the vehicle
+  /// or the options before the change, not to be started.
+  final bool computing;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ActionBar> createState() => _ActionBarState();
+}
+
+class _ActionBarState extends ConsumerState<_ActionBar> {
+  bool _starting = false;
+
+  RouteTarget get target => widget.target;
+  RoutePreview? get preview => widget.preview;
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final engine = ref.watch(guidanceEngineProvider).value;
+    final engineState = ref.watch(guidanceEngineProvider);
+    final engine = engineState.value;
     final plan = preview?.plan;
-    final ready = plan != null && plan.status == RouteStatus.ok && plan.osrmJson != null;
+    final ready =
+        !widget.computing &&
+        !_starting &&
+        plan != null &&
+        plan.status == RouteStatus.ok &&
+        plan.osrmJson != null;
     // Where Lunaway found no road the vehicle may take, the other apps,
     // which know nothing of its size, are not offered a tap away; the
     // place's directions still lead to them.
@@ -690,9 +710,10 @@ class _ActionBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (engine != null)
+                // While the engine loads, the button holds its place.
+                if (engine != null || engineState.isLoading)
                   FilledButton.icon(
-                    onPressed: ready ? () => _start(context, ref, plan) : null,
+                    onPressed: ready && engine != null ? () => _start(plan) : null,
                     icon: const Icon(AppIcons.directions),
                     label: Text(t.navigation.preview.start),
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
@@ -712,18 +733,29 @@ class _ActionBar extends ConsumerWidget {
     );
   }
 
-  Future<void> _start(BuildContext context, WidgetRef ref, RoutePlan plan) async {
+  Future<void> _start(RoutePlan plan) async {
+    setState(() => _starting = true);
+    try {
+      await _startGuidance(plan);
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  Future<void> _startGuidance(RoutePlan plan) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
     if (settings.acceptedDisclaimer != plan.disclaimerKey) {
       final accepted = await showDisclaimer(context);
-      if (!accepted || !context.mounted) return;
+      if (!accepted || !mounted) return;
       await ref.read(routeSettingsControllerProvider.notifier).acceptDisclaimer(plan.disclaimerKey);
-      if (!context.mounted) return;
+      if (!mounted) return;
     }
-    if (!await ensureLocationAccess(context, ref) || !context.mounted) return;
+    if (!await ensureLocationAccess(context, ref) || !mounted) return;
+    await ref.read(notificationAccessProvider).ask();
+    if (!mounted) return;
     final started = await ref
         .read(guidanceControllerProvider.notifier)
         .start(
