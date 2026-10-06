@@ -64,7 +64,10 @@ pub async fn begin_writer(pool: &PgPool) -> Result<WriterTx, DbError> {
 /// [`DbError`] when the query fails.
 pub async fn dirty(tx: &mut WriterTx) -> Result<Vec<Uuid>, DbError> {
     Ok(sqlx::query_scalar!(
-        "SELECT id FROM source_records WHERE needs_conflation ORDER BY id FOR UPDATE"
+        r#"
+        SELECT id FROM source_records WHERE needs_conflation AND taken_down_at IS NULL
+        ORDER BY id FOR UPDATE
+        "#
     )
     .fetch_all(tx.conn())
     .await?)
@@ -123,7 +126,8 @@ pub struct StoredRecord {
     pub external_id: String,
     /// Its page at the source.
     pub external_url: Option<String>,
-    /// When it was read.
+    /// When it was last read (`lunaway_read_at`): the field resolution
+    /// prefers the latest read between sources it trusts alike.
     pub fetched_at: DateTime<Utc>,
     /// Whether the source no longer lists it.
     pub deleted: bool,
@@ -139,7 +143,9 @@ pub struct StoredRecord {
 pub async fn records(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<StoredRecord>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT id, source_id, external_id, external_url, fetched_at,
+        SELECT id, source_id, external_id, external_url,
+               lunaway_read_at('records', source_id, scope, fetched_at, deleted_at)
+                   AS "fetched_at!",
                deleted_at IS NOT NULL AS "deleted!", data
         FROM source_records WHERE id = ANY($1) ORDER BY id
         "#,
@@ -437,7 +443,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         serde_json::to_value(p.external_links).map_err(|e| DbError::decode("external links", e))?;
     let capacity = c.capacity.and_then(|v| i32::try_from(v).ok());
     let stars = c.stars.map(i16::from);
-    sqlx::query!(
+    let written = sqlx::query!(
         r#"
         WITH m AS (
             -- The commune that covers the point, else, for a French place,
@@ -490,6 +496,8 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             municipality_code = EXCLUDED.municipality_code,
             updated_at = now(), updated_seq = nextval('place_change_seq'),
             deleted_at = NULL, merged_into = NULL
+        -- A place taken down stays empty, whatever links to its id.
+        WHERE places.taken_down_at IS NULL
         "#,
         p.id,
         c.kind.code(),
@@ -527,6 +535,12 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
     )
     .execute(tx.conn())
     .await?;
+    if written.rows_affected() == 0 {
+        // Only a group that kept the id of a place taken down gets here:
+        // its links were removed with the takedown, so this is a bug to
+        // see, not a state to repair.
+        tracing::warn!(place = %p.id, "a write to a place taken down was refused");
+    }
     Ok(())
 }
 
@@ -557,7 +571,8 @@ pub async fn tombstone(
 
 /// Replaces the links of the records `record_ids`: they are removed from
 /// whatever place held them, then `links` (record, place, score) are
-/// written.
+/// written. A record left without a place remembers the one it leaves
+/// (`source_records.last_place_id`).
 ///
 /// # Errors
 ///
@@ -567,11 +582,11 @@ pub async fn relink(
     record_ids: &[Uuid],
     links: &[(Uuid, Uuid, Option<f64>)],
 ) -> Result<(), DbError> {
-    sqlx::query!(
-        "DELETE FROM place_sources WHERE record_id = ANY($1)",
+    let left = sqlx::query!(
+        "DELETE FROM place_sources WHERE record_id = ANY($1) RETURNING record_id, place_id",
         record_ids
     )
-    .execute(tx.conn())
+    .fetch_all(tx.conn())
     .await?;
     let records: Vec<Uuid> = links.iter().map(|l| l.0).collect();
     let places: Vec<Uuid> = links.iter().map(|l| l.1).collect();
@@ -587,6 +602,27 @@ pub async fn relink(
     )
     .execute(tx.conn())
     .await?;
+    // A record unlinked here (retired by its source, held back) still names
+    // its place, which a takedown empties it with (`takedowns::take_down`).
+    let relinked: std::collections::HashSet<Uuid> = records.iter().copied().collect();
+    let (orphans, homes): (Vec<Uuid>, Vec<Uuid>) = left
+        .into_iter()
+        .filter(|l| !relinked.contains(&l.record_id))
+        .map(|l| (l.record_id, l.place_id))
+        .unzip();
+    if !orphans.is_empty() {
+        sqlx::query!(
+            r#"
+            UPDATE source_records sr SET last_place_id = l.place_id
+            FROM UNNEST($1::uuid[], $2::uuid[]) AS l(record_id, place_id)
+            WHERE sr.id = l.record_id AND sr.last_place_id IS DISTINCT FROM l.place_id
+            "#,
+            &orphans,
+            &homes,
+        )
+        .execute(tx.conn())
+        .await?;
+    }
     Ok(())
 }
 

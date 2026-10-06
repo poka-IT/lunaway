@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE source_records sr SET last_place_id = l.place_id\n            FROM UNNEST($1::uuid[], $2::uuid[]) AS l(record_id, place_id)\n            WHERE sr.id = l.record_id AND sr.last_place_id IS DISTINCT FROM l.place_id\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "318549ac2a67d62b7949de247aa46f1e38d45f07eb08a04238a5161bb0baf5c0"
+}

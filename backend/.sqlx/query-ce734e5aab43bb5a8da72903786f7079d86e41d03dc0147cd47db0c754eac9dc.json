@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE chain(id, next, depth) AS (\n            SELECT id, merged_into, 0 FROM places WHERE id = $1\n            UNION ALL\n            SELECT p.id, p.merged_into, c.depth + 1\n            FROM chain c JOIN places p ON p.id = c.next\n            WHERE c.depth < 64\n        )\n        SELECT id AS \"id!\" FROM chain ORDER BY depth DESC LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ce734e5aab43bb5a8da72903786f7079d86e41d03dc0147cd47db0c754eac9dc"
+}

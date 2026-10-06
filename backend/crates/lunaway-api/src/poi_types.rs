@@ -1,16 +1,23 @@
 //! The GraphQL types of the points of interest: a point, its open state,
 //! what other sources say of it, and the layer's tiles.
 
-use async_graphql::{Enum, InputObject, Object, SimpleObject};
+use async_graphql::{
+    ComplexObject, Context, Enum, InputObject, Object, Result, SimpleObject, dataloader::DataLoader,
+};
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_db::pois::PoiRow;
+use lunaway_db::pois::{self, PoiRow};
 use lunaway_domain::{
     SourceId,
     poi::{FinessEstablishment, FuelStation, OpenState, PostOfficeDays, open_state},
 };
 use uuid::Uuid;
 
-use crate::types::{Address, OpeningInterval};
+use crate::{
+    error::internal,
+    loaders::PoiLoader,
+    schema::db,
+    types::{Address, OpeningInterval},
+};
 
 /// The family of a point of interest, one map chip each.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
@@ -734,6 +741,7 @@ pub struct NewVendingMachineInput {
 
 /// A "still there?" answer about a point.
 #[derive(SimpleObject, Debug, Clone)]
+#[graphql(complex)]
 pub struct PoiConfirmation {
     /// Stable identifier.
     pub id: Uuid,
@@ -743,4 +751,50 @@ pub struct PoiConfirmation {
     pub still_there: bool,
     /// When.
     pub created_at: DateTime<Utc>,
+}
+
+#[ComplexObject]
+impl PoiConfirmation {
+    /// The point, as `poi(id)` serves it: null once it is gone, or while
+    /// it is hidden.
+    async fn poi(&self, ctx: &Context<'_>) -> Result<Option<Poi>> {
+        let row = match ctx.data_opt::<DataLoader<PoiLoader>>() {
+            Some(loader) => loader
+                .load_one(self.poi_id)
+                .await
+                .map_err(|e| internal(e.as_ref()))?,
+            None => {
+                let (pool, _permit) = db(ctx).await?;
+                pois::by_id(pool, self.poi_id)
+                    .await
+                    .map_err(|e| internal(&e))?
+            }
+        };
+        Ok(row.map(Poi::new))
+    }
+}
+
+impl From<pois::PoiConfirmationRow> for PoiConfirmation {
+    fn from(r: pois::PoiConfirmationRow) -> Self {
+        Self {
+            id: r.id,
+            poi_id: r.poi_id,
+            still_there: r.still_there,
+            created_at: r.created_at,
+        }
+    }
+}
+
+/// A page of the account's "still there?" answers about points, newest
+/// first.
+#[derive(SimpleObject)]
+pub struct PoiConfirmationConnection {
+    /// The answers.
+    pub nodes: Vec<PoiConfirmation>,
+    /// Pass it as `after` for the next page.
+    pub end_cursor: Option<String>,
+    /// Whether more follow.
+    pub has_next_page: bool,
+    /// Answers in the whole list.
+    pub total_count: i32,
 }

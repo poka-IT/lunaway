@@ -177,10 +177,12 @@ pub fn build_schema(state: ApiState) -> LunawaySchema {
         crate::loaders::FuelTrendLoader(state.pool.clone()),
         tokio::spawn,
     );
+    let points = DataLoader::new(crate::loaders::PoiLoader(state.pool.clone()), tokio::spawn);
     schema_builder()
         .data(state)
         .data(loader)
         .data(trends)
+        .data(points)
         .finish()
 }
 

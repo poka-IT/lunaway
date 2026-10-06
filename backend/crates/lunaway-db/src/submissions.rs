@@ -363,8 +363,10 @@ pub async fn apply_accepted(tx: &mut WriterTx) -> Result<ApplyStats, DbError> {
                         s.created_at,
                     )
                     .await?;
-                    stats.created += 1;
-                    Some(id)
+                    if id.is_some() {
+                        stats.created += 1;
+                    }
+                    id
                 }
                 Err(error) => {
                     // Written by the API from a checked input, so only a
@@ -416,14 +418,15 @@ pub async fn apply_accepted(tx: &mut WriterTx) -> Result<ApplyStats, DbError> {
     Ok(stats)
 }
 
-/// Inserts or rewrites a community record, flagged for the conflation.
+/// Inserts or rewrites a community record, flagged for the conflation;
+/// `None` when the record was taken down (`takedowns`), which stays empty.
 async fn write_record(
     tx: &mut WriterTx,
     external_id: &str,
     record: &NormalizedRecord,
     raw: &serde_json::Value,
     at: DateTime<Utc>,
-) -> Result<Uuid, DbError> {
+) -> Result<Option<Uuid>, DbError> {
     let data = serde_json::to_value(record).map_err(|e| DbError::decode("record", e))?;
     Ok(sqlx::query_scalar!(
         r#"
@@ -435,6 +438,7 @@ async fn write_record(
             kind = EXCLUDED.kind, name = EXCLUDED.name, geom = EXCLUDED.geom,
             data = EXCLUDED.data, raw = EXCLUDED.raw, fetched_at = EXCLUDED.fetched_at,
             changed_at = now(), needs_conflation = true, deleted_at = NULL
+        WHERE sr.taken_down_at IS NULL
         RETURNING id
         "#,
         Uuid::now_v7(),
@@ -448,7 +452,7 @@ async fn write_record(
         raw,
         at,
     )
-    .fetch_one(tx.conn())
+    .fetch_optional(tx.conn())
     .await?)
 }
 
@@ -499,9 +503,7 @@ async fn apply_edit(
         let mut record: NormalizedRecord =
             serde_json::from_value(e.data).map_err(|err| DbError::decode("record", err))?;
         submission::apply(&mut record, patch);
-        return Ok(Some(
-            write_record(tx, &e.external_id, &record, raw, at).await?,
-        ));
+        return write_record(tx, &e.external_id, &record, raw, at).await;
     }
     let kind: PlaceKind = live
         .kind
@@ -511,7 +513,9 @@ async fn apply_edit(
         Position::new(live.lat, live.lon).map_err(|e| DbError::decode("place position", e))?;
     let mut record = NormalizedRecord::new(kind, position);
     submission::apply(&mut record, patch);
-    let id = write_record(tx, &format!("place/{}", live.id), &record, raw, at).await?;
+    let Some(id) = write_record(tx, &format!("place/{}", live.id), &record, raw, at).await? else {
+        return Ok(None);
+    };
     // Tie the new record to the place: one of the place's live records, the
     // oldest, becomes its must_link partner.
     let anchor = sqlx::query_scalar!(

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO source_reads AS r (target, source_id, scope, read_at)\n        SELECT $1, $2, u.scope, u.read_at\n        FROM UNNEST($3::text[], $4::timestamptz[]) AS u(scope, read_at)\n        ON CONFLICT (target, source_id, scope) DO UPDATE\n        SET read_at = greatest(r.read_at, EXCLUDED.read_at)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "TextArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "367c1bac844e1de65b28b3d540f8e483ea5ad9aa4f6bff0095f7e1c7039ba2c6"
+}

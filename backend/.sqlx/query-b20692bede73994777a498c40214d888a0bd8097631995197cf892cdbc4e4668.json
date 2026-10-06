@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT external_id, fetched_at,\n               lunaway_read_at('records', source_id, scope, fetched_at, deleted_at) AS \"seen!\"\n        FROM source_records\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "fetched_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "seen!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "b20692bede73994777a498c40214d888a0bd8097631995197cf892cdbc4e4668"
+}

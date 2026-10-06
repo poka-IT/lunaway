@@ -4,7 +4,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::dataloader::Loader;
-use lunaway_db::{DbError, PgPool, fuel, places};
+use lunaway_db::{DbError, PgPool, fuel, places, pois};
 use lunaway_domain::poi::FuelKind;
 use uuid::Uuid;
 
@@ -65,5 +65,19 @@ impl Loader<(String, FuelKind)> for FuelTrendLoader {
                 .push(row.day);
         }
         Ok(out)
+    }
+}
+
+/// The points of interest by id, for the account's "still there?" answers:
+/// a page of them costs one query.
+pub(crate) struct PoiLoader(pub(crate) PgPool);
+
+impl Loader<Uuid> for PoiLoader {
+    type Value = pois::PoiRow;
+    type Error = Arc<DbError>;
+
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+        let rows = pois::by_ids(&self.0, keys).await.map_err(Arc::new)?;
+        Ok(rows.into_iter().map(|r| (r.id, r)).collect())
     }
 }

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records SET\n            name = NULL, external_url = NULL,\n            geom = ST_SetSRID(ST_MakePoint(0, 0), 4326)::geography, accuracy_m = 0,\n            data = jsonb_build_object('kind', data->'kind',\n                                      'position', jsonb_build_object('lat', 0, 'lon', 0)),\n            raw = '{}', deleted_at = coalesce(deleted_at, now()),\n            taken_down_at = coalesce(taken_down_at, now()), needs_conflation = false,\n            changed_at = now()\n        WHERE id = ANY($1)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ca55dc00d3856b9659913ee4c5610fa3212f225cc4fa6dbb3de80934b4bb848c"
+}

@@ -2,9 +2,10 @@
 
 use std::collections::BTreeMap;
 
+use chrono::{DateTime, Utc};
 use lunaway_db::{
     PgPool,
-    records::{self, NewRecord, UpsertStats},
+    records::{self, NewRecord, ReadTarget, UpsertStats, WHOLE_SOURCE},
 };
 use lunaway_domain::SourceId;
 
@@ -118,10 +119,17 @@ async fn store(
         .map(|f| f.fetched_at)
         .max()
         .unwrap_or_else(chrono::Utc::now);
-    let retired = match covers {
-        Covers::Scope(s) => records::retire_missing(pool, source, s, &seen, at).await?,
-        Covers::Source => records::retire_missing_in_source(pool, source, &seen, at).await?,
+    let (retired, read) = match covers {
+        Covers::Scope(s) => (
+            records::retire_missing(pool, source, s, &seen, at).await?,
+            s.unwrap_or_default(),
+        ),
+        Covers::Source => (
+            records::retire_missing_in_source(pool, source, &seen, at).await?,
+            WHOLE_SOURCE,
+        ),
     };
+    records::mark_read(pool, ReadTarget::Records, source, &[(read.to_owned(), at)]).await?;
     Ok(StoreReport {
         upsert,
         retired,
@@ -194,7 +202,10 @@ fn guarded(
 
 /// Retires the records of `source` in the scopes `coverage` speaks for that
 /// the run did not see, scope by scope, unless the run saw less than
-/// [`RETIRE_GUARD_PERCENT`] of what is stored in a scope.
+/// [`RETIRE_GUARD_PERCENT`] of what is stored in a scope; then records the
+/// date of the read of each scope retired over (`reads`: a scope, or
+/// [`WHOLE_SOURCE`] for a continent, and the date of the file that holds it
+/// whole).
 ///
 /// # Errors
 ///
@@ -205,21 +216,53 @@ pub async fn retire_in_coverage(
     coverage: &crate::osm_extract::Coverage,
     seen: &[String],
     seen_by_scope: &BTreeMap<String, usize>,
-    at: chrono::DateTime<chrono::Utc>,
+    reads: &BTreeMap<String, DateTime<Utc>>,
+    at: DateTime<Utc>,
 ) -> Result<Retirement, IngestError> {
     let stored = records::live_counts_by_scope(pool, source).await?;
     let (passing, refused) = guarded(coverage, seen_by_scope, &stored);
     warn_refused(source, &refused, seen_by_scope, &stored);
+    let whole = !passing.is_empty() && refused.is_empty() && coverage.scopes().is_none();
     let retired = if passing.is_empty() {
         0
-    } else if refused.is_empty() && coverage.scopes().is_none() {
+    } else if whole {
         // A continent speaks for the whole source, whatever scope a record
         // was stored under.
         records::retire_missing_in_source(pool, source, seen, at).await?
     } else {
         records::retire_missing_in_scopes(pool, source, &passing, seen, at).await?
     };
+    let read = reads_of(&passing, whole, reads);
+    records::mark_read(pool, ReadTarget::Records, source, &read).await?;
     Ok(Retirement { retired, refused })
+}
+
+/// The reads to record after a retirement over `passing` (over the whole
+/// source when `whole`): each scope with the date of the read that holds it
+/// whole, a continent's when no country extract does. A retirement over the
+/// whole source takes the oldest file of the run: a live record may have
+/// been in only one of them.
+fn reads_of(
+    passing: &[String],
+    whole: bool,
+    reads: &BTreeMap<String, DateTime<Utc>>,
+) -> Vec<(String, DateTime<Utc>)> {
+    if whole {
+        return reads
+            .values()
+            .min()
+            .map(|at| vec![(WHOLE_SOURCE.to_owned(), *at)])
+            .unwrap_or_default();
+    }
+    passing
+        .iter()
+        .filter_map(|s| {
+            reads
+                .get(s)
+                .or_else(|| reads.get(WHOLE_SOURCE))
+                .map(|at| (s.clone(), *at))
+        })
+        .collect()
 }
 
 fn warn_refused(
@@ -281,8 +324,9 @@ pub async fn upsert_pois_by_country(
 
 /// Retires the points of `source` in the countries `coverage` speaks for
 /// that the run did not see, unless the run saw less than
-/// [`RETIRE_GUARD_PERCENT`] of what is stored there; marks the layer when
-/// a point went.
+/// [`RETIRE_GUARD_PERCENT`] of what is stored there, and records the date
+/// of each read as [`retire_in_coverage`] does; marks the layer when a
+/// point went.
 ///
 /// # Errors
 ///
@@ -293,18 +337,22 @@ pub async fn retire_pois_in_coverage(
     coverage: &crate::osm_extract::Coverage,
     seen: &[String],
     seen_by_scope: &BTreeMap<String, usize>,
-    at: chrono::DateTime<chrono::Utc>,
+    reads: &BTreeMap<String, DateTime<Utc>>,
+    at: DateTime<Utc>,
 ) -> Result<Retirement, IngestError> {
     let stored = lunaway_db::pois::live_counts_by_scope(pool, source).await?;
     let (passing, refused) = guarded(coverage, seen_by_scope, &stored);
     warn_refused(source, &refused, seen_by_scope, &stored);
+    let whole = !passing.is_empty() && refused.is_empty() && coverage.scopes().is_none();
     let retired = if passing.is_empty() {
         0
-    } else if refused.is_empty() && coverage.scopes().is_none() {
+    } else if whole {
         lunaway_db::pois::retire_missing(pool, source, None, seen, at).await?
     } else {
         lunaway_db::pois::retire_missing(pool, source, Some(&passing), seen, at).await?
     };
+    let read = reads_of(&passing, whole, reads);
+    records::mark_read(pool, ReadTarget::Pois, source, &read).await?;
     if retired > 0 {
         lunaway_db::pois::mark_layer_now(pool).await?;
     }
@@ -356,12 +404,14 @@ pub async fn store_pois(
         .max()
         .unwrap_or_else(chrono::Utc::now);
     let by_scope = count_scopes(points.iter().map(poi_scope));
+    let reads = BTreeMap::from([(WHOLE_SOURCE.to_owned(), at)]);
     let r = retire_pois_in_coverage(
         pool,
         source,
         &crate::osm_extract::Coverage::Everywhere,
         &seen,
         &by_scope,
+        &reads,
         at,
     )
     .await?;

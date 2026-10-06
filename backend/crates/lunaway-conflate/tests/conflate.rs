@@ -1375,3 +1375,540 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
             .is_empty()
     );
 }
+
+/// Each of `records` is emptied, retired, unlinked and taken down, and the
+/// conflation can still read what is left of it.
+async fn assert_emptied(pool: &PgPool, records: &[Uuid]) {
+    for r in records {
+        let row = sqlx::query!(
+            r#"
+            SELECT name, raw::text AS "raw!", data, deleted_at IS NOT NULL AS "deleted!",
+                   taken_down_at IS NOT NULL AS "taken!",
+                   EXISTS (SELECT 1 FROM place_sources WHERE record_id = $1) AS "linked!"
+            FROM source_records WHERE id = $1
+            "#,
+            r
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            (
+                row.name,
+                row.raw.as_str(),
+                row.deleted,
+                row.taken,
+                row.linked
+            ),
+            (None, "{}", true, true, false),
+            "a record of the place is emptied, retired and unlinked"
+        );
+        let record: NormalizedRecord = serde_json::from_value(row.data).unwrap();
+        assert_eq!(record.position, Position::new(0.0, 0.0).unwrap());
+    }
+}
+
+/// A place taken down (a private home, a legal request) keeps nothing of
+/// its content in the database, leaves every device through the change
+/// feed, and stays gone: the next import finds its records, the one its
+/// source had retired included, and leaves them empty, and a full
+/// conflation makes no place of them. The API's role cannot start it.
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool) {
+    use lunaway_db::{
+        conflation::begin_writer,
+        submissions::{self, NewSubmission, Submitted},
+        takedowns::{self, Purge},
+    };
+    use lunaway_domain::{
+        BBox,
+        community::{ConfirmationStatus, IssueKind, submission::PlacePatch},
+    };
+    ingest_fixtures(&pool).await;
+    run(&pool, at(2)).await.unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let names = ["Aire Val-du-Layon", "Nature Camp Anjou"];
+    let (a, b) = (
+        place_named(&pool, names[0]).await,
+        place_named(&pool, names[1]).await,
+    );
+    let first_record = |place: Uuid| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query_scalar!(
+                "SELECT record_id FROM place_sources WHERE place_id = $1 ORDER BY record_id LIMIT 1",
+                place
+            )
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+        }
+    };
+    let (record_a, record_b) = (first_record(a).await, first_record(b).await);
+    records::set_constraint(&pool, record_a, record_b, ConstraintKind::MustLink, None)
+        .await
+        .unwrap();
+    run(&pool, at(2)).await.unwrap();
+    let heir = places::by_id(&pool, a).await.unwrap().unwrap().id;
+    let absorbed = if heir == a { b } else { a };
+
+    // The source drops the absorbed place's element before the request:
+    // the conflation unlinks its record, which keeps its name and position.
+    let dropped = if absorbed == a { record_a } else { record_b };
+    let source: String = sqlx::query_scalar!(
+        "SELECT source_id FROM source_records WHERE id = $1",
+        dropped
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let dropped_external: String = sqlx::query_scalar!(
+        "SELECT external_id FROM source_records WHERE id = $1",
+        dropped
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let (fixtures, scope, source) = if source == "osm" {
+        (osm_records(), Some("FR-PDL"), SourceId::OSM)
+    } else {
+        (atout_records(), None, SourceId::ATOUT_FRANCE)
+    };
+    let without: Vec<FetchedRecord> = fixtures
+        .into_iter()
+        .filter(|r| r.external_id != dropped_external)
+        .collect();
+    store_complete(&pool, &source, scope, &without)
+        .await
+        .unwrap();
+    run(&pool, at(2)).await.unwrap();
+    let still_linked: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM place_sources WHERE record_id = $1"#,
+        dropped
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(still_linked, 0, "the retired record left its place");
+
+    // The community's content, and an edit applied and one waiting.
+    let author = account(&app, 1).await;
+    let device: Uuid = sqlx::query_scalar!("SELECT id FROM device_keys")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let review = lunaway_db::community::rate(&app, author, heir, 4)
+        .await
+        .unwrap()
+        .id;
+    lunaway_db::community::confirm(&app, author, heir, ConfirmationStatus::StillOk, None)
+        .await
+        .unwrap();
+    lunaway_db::community::report_issue(&app, author, heir, IssueKind::Danger, None)
+        .await
+        .unwrap();
+    let file = |c: char| format!("photos/ab/cd/{}.webp", c.to_string().repeat(64));
+    let photo = Uuid::now_v7();
+    sqlx::query!(
+        r#"
+        INSERT INTO photos (id, place_id, account_id, status, path, thumb_path, width, height,
+                            thumb_width, thumb_height, thumbhash)
+        VALUES ($1, $2, $3, 'published', $4, $5, 2048, 1536, 512, 384, '\x01')
+        "#,
+        photo,
+        heir,
+        author,
+        file('a'),
+        file('b'),
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"
+        INSERT INTO content_reports (id, target_type, target_id, reporter_id, reason)
+        VALUES ($1, 'review', $2, $3, 'privacy')
+        "#,
+        Uuid::now_v7(),
+        review,
+        author
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!(
+        r#"
+        INSERT INTO moderation_queue (id, kind, target_type, target_id, reason)
+        VALUES ($1, 'reported_content', 'review', $2, 'privacy')
+        "#,
+        Uuid::now_v7(),
+        review
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    for accepted in [true, false] {
+        let patch = PlacePatch {
+            name: Some("Chez les Martin".into()),
+            ..PlacePatch::default()
+        };
+        submissions::submit(
+            &app,
+            NewSubmission {
+                account: author,
+                device_key: device,
+                what: Submitted::Edit {
+                    place: heir,
+                    patch: &patch,
+                },
+                accepted,
+                held_for: (!accepted).then_some("first edit"),
+            },
+        )
+        .await
+        .unwrap();
+        run(&pool, at(2)).await.unwrap();
+    }
+    let live_before = live_places(&pool).await;
+    let cursor = places::last_seq(&pool).await.unwrap();
+    let described_by: Vec<Uuid> = sqlx::query_scalar!(
+        "SELECT record_id FROM place_sources WHERE place_id = $1",
+        heir
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let community: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM source_records WHERE id = ANY($1) AND source_id = 'community'"#,
+        &described_by
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        described_by.len() >= 2 && community == 1,
+        "the record left of the two merged places and the edit's community record describe \
+         the heir: {described_by:?}"
+    );
+
+    let preview = takedowns::preview(&ingest, absorbed)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (
+            preview.place,
+            preview.live,
+            preview.taken_down,
+            preview.merged
+        ),
+        (heir, true, false, 1)
+    );
+    assert_eq!(
+        preview.records,
+        i64::try_from(described_by.len() + 1).unwrap(),
+        "the linked records and the one retired from the place"
+    );
+    assert!(preview.nearby.is_empty() && preview.unconflated == 0);
+    assert_eq!(
+        (
+            preview.reviews,
+            preview.photos,
+            preview.confirmations,
+            preview.issue_reports
+        ),
+        (1, 1, 1, 1)
+    );
+    assert_eq!(preview.submissions, 2);
+    // A record unlinked before `last_place_id` existed names no place: the
+    // takedown finds it by its position, near the place.
+    let hint = |last: Option<Uuid>| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query!(
+                "UPDATE source_records SET last_place_id = $2 WHERE id = $1",
+                dropped,
+                last
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+    };
+    hint(None).await;
+    let older = takedowns::preview(&ingest, absorbed)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(older.records, preview.records - 1);
+    assert_eq!(
+        older.nearby.iter().map(|n| n.id).collect::<Vec<_>>(),
+        [dropped],
+        "an older retired record of the place is listed by its position, for the moderator"
+    );
+    hint(Some(heir)).await;
+
+    // Another spot's record, retired before Lunaway kept the place a record
+    // leaves, 30 m away: listed, and emptied only on request. While it
+    // waits for the conflation, the takedown waits too.
+    let spot = sqlx::query!(
+        r#"SELECT ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!" FROM places WHERE id = $1"#,
+        heir
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let mut neighbour = NormalizedRecord::new(
+        PlaceKind::Parking,
+        Position::new(spot.lat + 0.000_27, spot.lon).unwrap(),
+    );
+    neighbour.name = Some("Parking de la mairie".into());
+    let raw = serde_json::json!({});
+    records::upsert(
+        &pool,
+        &SourceId::OSM,
+        &[records::NewRecord {
+            external_id: "node/4242",
+            external_url: None,
+            record: &neighbour,
+            raw: &raw,
+            fetched_at: at(2),
+            scope: Some("FR-PDL"),
+        }],
+    )
+    .await
+    .unwrap();
+    let mut tx = begin_writer(&ingest).await.unwrap();
+    assert_eq!(
+        takedowns::take_down(&mut tx, heir, "court order 2026-123", false)
+            .await
+            .unwrap(),
+        takedowns::TakeDown::Unconflated(1),
+        "a record not read yet by the conflation could become the place again"
+    );
+    drop(tx);
+    sqlx::query!(
+        "UPDATE source_records SET deleted_at = now(), needs_conflation = false \
+         WHERE external_id = 'node/4242'"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let listed = takedowns::preview(&ingest, absorbed)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        listed
+            .nearby
+            .iter()
+            .map(|n| n.external_id.as_str())
+            .collect::<Vec<_>>(),
+        ["node/4242"]
+    );
+
+    // The API's role starts nothing.
+    assert_eq!(
+        takedowns::purge_community(&app, heir).await.unwrap(),
+        Purge::NotTakenDown,
+        "the community's step waits for the catalogue's"
+    );
+    let mut as_api = begin_writer(&app).await.unwrap();
+    let refused = takedowns::take_down(&mut as_api, heir, "forged", false).await;
+    assert!(
+        matches!(&refused, Err(lunaway_db::DbError::Query(e))
+            if e.as_database_error().and_then(|d| d.code()).as_deref() == Some("42501")),
+        "a leak of the API's credentials does not empty the catalogue: {refused:?}"
+    );
+    drop(as_api);
+
+    let mut tx = begin_writer(&ingest).await.unwrap();
+    let takedowns::TakeDown::Done(done) =
+        takedowns::take_down(&mut tx, absorbed, "court order 2026-123", false)
+            .await
+            .unwrap()
+    else {
+        panic!("the place is taken down");
+    };
+    tx.commit().await.unwrap();
+    let neighbour_now = sqlx::query!(
+        r#"SELECT name, taken_down_at IS NULL AS "kept!" FROM source_records WHERE external_id = 'node/4242'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        (neighbour_now.name.as_deref(), neighbour_now.kept),
+        (Some("Parking de la mairie"), true),
+        "another spot's record is not emptied without the moderator's say"
+    );
+    assert_eq!(
+        done.place, heir,
+        "a place merged into another takes down the one that absorbed it"
+    );
+    assert_eq!(
+        (done.places, done.records),
+        (2, u64::try_from(described_by.len() + 1).unwrap())
+    );
+    for id in [heir, absorbed] {
+        assert!(places::by_id(&pool, id).await.unwrap().is_none());
+        let row = sqlx::query!(
+            r#"
+            SELECT name, ST_X(geom::geometry) AS "lon!", ST_Y(geom::geometry) AS "lat!",
+                   street, city, municipality_code, provenance::text AS "provenance!",
+                   deleted_at IS NOT NULL AS "deleted!", taken_down_at IS NOT NULL AS "taken!"
+            FROM places WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            (
+                row.name,
+                row.lon,
+                row.lat,
+                row.street,
+                row.city,
+                row.municipality_code
+            ),
+            (None, 0.0, 0.0, None, None, None),
+            "the tombstone keeps neither name nor position nor address"
+        );
+        assert_eq!(
+            (row.provenance.as_str(), row.deleted, row.taken),
+            ("[]", true, true)
+        );
+    }
+    let mut emptied = described_by.clone();
+    emptied.push(dropped);
+    assert_emptied(&pool, &emptied).await;
+    let submitted = sqlx::query!(
+        r#"SELECT payload::text AS "payload!", status FROM place_submissions ORDER BY id"#
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        submitted
+            .iter()
+            .map(|s| (s.payload.as_str(), s.status.as_str()))
+            .collect::<Vec<_>>(),
+        [("{}", "applied"), ("{}", "rejected")],
+        "the edits lose their content, and the one waiting is refused"
+    );
+    assert!(
+        lunaway_db::community::live_place(&app, heir)
+            .await
+            .unwrap()
+            .is_none(),
+        "the place takes no new contribution"
+    );
+
+    let purged = takedowns::purge_community(&app, absorbed).await.unwrap();
+    let Purge::Done {
+        place,
+        reviews,
+        photos,
+        confirmations,
+        issue_reports,
+        orphan_files,
+    } = purged
+    else {
+        panic!("the purge runs once the place is taken down: {purged:?}");
+    };
+    assert_eq!(
+        (place, reviews, photos, confirmations, issue_reports),
+        (heir, 1, 1, 1, 1)
+    );
+    assert_eq!(
+        orphan_files,
+        [file('a'), file('b')],
+        "the caller removes these files"
+    );
+    let about_review: i64 = sqlx::query_scalar!(
+        r#"SELECT (SELECT count(*) FROM content_reports WHERE target_id = $1)
+                + (SELECT count(*) FROM moderation_queue WHERE target_id = $1) AS "n!""#,
+        review
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        about_review, 0,
+        "nothing about the review is left to decide"
+    );
+
+    // Far from the place, a device syncing Lyon is told too: the tombstone
+    // keeps no position to filter on.
+    let lyon = BBox::new(45.7, 4.8, 45.8, 4.9).unwrap();
+    let (changes, _) = places::changes(&app, lyon, cursor, 100, true)
+        .await
+        .unwrap();
+    assert!(
+        changes
+            .iter()
+            .any(|c| matches!(c, places::Change::Delete { id, .. } if *id == heir)),
+        "{changes:?}"
+    );
+    let region = done.region.expect("an Anjou place has a sync region");
+    let (in_region, _) = places::changes_in_region(&app, &region, cursor, 100, true)
+        .await
+        .unwrap();
+    assert!(
+        in_region.iter().any(|c| matches!(
+            c,
+            places::Change::Delete { id, .. } | places::Change::Left { id, .. } if *id == heir
+        )),
+        "the devices keeping {region} drop it: {in_region:?}"
+    );
+
+    // Again: the first reason and date stay, nothing else changes.
+    let first_at: chrono::DateTime<Utc> =
+        sqlx::query_scalar!("SELECT taken_down_at FROM places WHERE id = $1", heir)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+            .unwrap();
+    let mut tx = begin_writer(&ingest).await.unwrap();
+    takedowns::take_down(&mut tx, heir, "second request", false)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let logged = sqlx::query!("SELECT reason, taken_down_at FROM place_takedowns")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(logged.len(), 1);
+    assert_eq!(logged[0].reason, "court order 2026-123");
+    let again_at: Option<chrono::DateTime<Utc>> =
+        sqlx::query_scalar!("SELECT taken_down_at FROM places WHERE id = $1", heir)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(again_at, Some(first_at));
+
+    // The next import lists every record again, the retired one included;
+    // a full conflation follows.
+    ingest_fixtures(&ingest).await;
+    records::mark_all_dirty(&ingest).await.unwrap();
+    run(&ingest, at(3)).await.unwrap();
+    assert_emptied(&pool, &emptied).await;
+    for name in names {
+        let back: i64 = sqlx::query_scalar!(
+            r#"SELECT count(*) AS "n!" FROM places WHERE deleted_at IS NULL AND name = $1"#,
+            name
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(back, 0, "{name} does not come back");
+    }
+    assert_eq!(
+        live_places(&pool).await,
+        live_before - 1,
+        "the place taken down, and nothing else, is gone"
+    );
+}

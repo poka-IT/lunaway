@@ -8,7 +8,7 @@
 //! | `RESYNC` | drops its cursor and syncs again from scratch (`since: null`) |
 //! | `UNAUTHENTICATED` | signs in again (`authChallenge`, `signIn`): no session, or an expired or unknown one, on a field that needs an account; with `extensions.reason` `FRESH_SIGN_IN`, the action needs a session opened in the last ten minutes, so the device signs in again and retries |
 //! | `FORBIDDEN` | does not offer the action: the account's level is below `extensions.requiredLevel` (its level is `extensions.level`), or the account is banned |
-//! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's |
+//! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's; with `extensions.reason` `UNKNOWN_KEY` (`signIn` with `createIfUnknown: false`), no account holds the device key: the account was deleted, or the key detached from another device |
 //! | `UNAVAILABLE` | tries again later: a service behind the API (the routing engine, or its data) is down or not installed; the request itself was fine |
 //! | `PERSISTED_QUERY_NOT_FOUND` | sends the request again with the document beside its hash (`crate::persisted`): the server does not know that hash, or forgot it |
 //! | `INTERNAL` | tries again later; the server logged the cause |
@@ -78,6 +78,16 @@ pub(crate) fn forbidden(message: impl Into<String>) -> Error {
 /// The target does not exist or belongs to someone else.
 pub(crate) fn not_found(what: &str) -> Error {
     Error::new(format!("no such {what}")).extend_with(|_, e| e.set("code", NOT_FOUND))
+}
+
+/// No account holds the device key that signed in, and the client asked
+/// not to create one: a reason of its own, so the app does not take it for
+/// a place or a list that went away.
+pub(crate) fn unknown_key() -> Error {
+    Error::new("no account for this device key").extend_with(|_, e| {
+        e.set("code", NOT_FOUND);
+        e.set("reason", "UNKNOWN_KEY");
+    })
 }
 
 /// A per-account or per-client quota is spent: the same shape as the cost

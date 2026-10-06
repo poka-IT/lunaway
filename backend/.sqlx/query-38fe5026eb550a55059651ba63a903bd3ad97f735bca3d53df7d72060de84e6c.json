@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO source_records AS sr\n            (id, source_id, external_id, external_url, kind, name, geom, accuracy_m, data, raw,\n             scope, fetched_at)\n        SELECT u.id, $1, u.external_id, u.external_url, u.kind, u.name,\n               ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.accuracy_m, u.data,\n               u.raw, u.scope, u.fetched_at\n        FROM UNNEST($2::text[], $3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[],\n                    $8::float8[], $9::float8[], $10::float8[], $11::jsonb[], $12::jsonb[],\n                    $13::timestamptz[])\n             AS u(scope, id, external_id, external_url, kind, name, lat, lon, accuracy_m, data,\n                  raw, fetched_at)\n        ON CONFLICT (source_id, external_id) DO UPDATE SET\n            external_url = EXCLUDED.external_url,\n            kind = EXCLUDED.kind,\n            name = EXCLUDED.name,\n            geom = EXCLUDED.geom,\n            accuracy_m = EXCLUDED.accuracy_m,\n            data = EXCLUDED.data,\n            raw = EXCLUDED.raw,\n            scope = EXCLUDED.scope,\n            fetched_at = EXCLUDED.fetched_at,\n            changed_at = CASE\n                WHEN sr.data IS DISTINCT FROM EXCLUDED.data OR sr.deleted_at IS NOT NULL\n                THEN now() ELSE sr.changed_at END,\n            needs_conflation = sr.needs_conflation\n                OR sr.data IS DISTINCT FROM EXCLUDED.data\n                OR sr.deleted_at IS NOT NULL,\n            deleted_at = NULL\n        WHERE sr.taken_down_at IS NULL\n          AND (sr.deleted_at IS NOT NULL\n               OR sr.data IS DISTINCT FROM EXCLUDED.data\n               OR sr.raw IS DISTINCT FROM EXCLUDED.raw\n               OR sr.external_url IS DISTINCT FROM EXCLUDED.external_url\n               OR sr.scope IS DISTINCT FROM EXCLUDED.scope)\n        RETURNING (xmax = 0) AS \"inserted!\", (changed_at = now()) AS \"touched!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "inserted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "touched!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "UuidArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Float8Array",
+        "Float8Array",
+        "Float8Array",
+        "JsonbArray",
+        "JsonbArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "38fe5026eb550a55059651ba63a903bd3ad97f735bca3d53df7d72060de84e6c"
+}

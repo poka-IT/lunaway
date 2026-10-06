@@ -810,6 +810,29 @@ impl Account {
         })
     }
 
+    /// The account's "still there?" answers about points of interest,
+    /// newest first.
+    #[graphql(complexity = "crate::schema::cost(first, 50, child_complexity)")]
+    async fn poi_confirmations(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 50)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<crate::poi_types::PoiConfirmationConnection> {
+        let first = own_page(first)?;
+        let after = parse_item_cursor(after.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        let page = lunaway_db::pois::confirmations_of_account(pool, self.viewer.id(), first, after)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(crate::poi_types::PoiConfirmationConnection {
+            end_cursor: page.nodes.last().map(|c| format!("{ITEM_CURSOR}{}", c.id)),
+            has_next_page: page.has_next_page,
+            total_count: count(page.total_count),
+            nodes: page.nodes.into_iter().map(Into::into).collect(),
+        })
+    }
+
     /// The account's issue reports, newest first.
     #[graphql(complexity = "crate::schema::cost(first, 50, child_complexity)")]
     async fn issue_reports(

@@ -8,6 +8,16 @@ license.workspace = true
 homepage.workspace = true
 repository.workspace = true
 publish.workspace = true
+# Every integration test of the crate links into one binary, each file of
+# tests/ a module of tests/main.rs: one link step, one copy of the
+# dependencies on disk and one first-launch scan by macOS, instead of one
+# per file. A file not declared in tests/main.rs would never run; the
+# test every_integration_test_file_is_compiled (lunaway-domain) fails then.
+autotests = false
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"
 
 [dependencies]
 backon.workspace = true

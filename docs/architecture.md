@@ -45,7 +45,13 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 
 - `sources`: one row per source, with its licence and attribution text.
 - `source_records`: what a source said about a spot, normalised, with the raw
-  payload and the fetch date.
+  payload and the date of the read that last changed it. An import writes
+  only the records whose content changed; `source_reads` keeps the date of
+  each complete read of a slice of a source (a country, a region). Every
+  query that serves a record's or a point's date reads it through the SQL
+  function `lunaway_read_at`, which gives a live row the later of its own
+  date and its slice's: the date Lunaway last read it. The points of
+  interest work the same way.
 - `places`: the canonical spot, typed and filterable columns (kind, services,
   activities, prices, maximum height and length, capacity, opening periods,
   overnight status), plus freshness (`last_confirmed_at`).
@@ -55,6 +61,11 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   (occupancy, service status), lists of favourites, accounts and their
   credentials, the moderation queue. The API writes them; it never writes a
   record or a place.
+- `place_takedowns`: places taken down (a private home, a request under
+  the GDPR, a court order). The import role empties the place, the places
+  merged into it and their records, which keep a `taken_down_at` that
+  every later import and conflation respects; the API's role then deletes
+  the community's content (`docs/deploy.md`, "Taking a place down").
 - `place_submissions`: new places and edits, kept as revisions. The
   conflation worker (`lunaway conflate --watch`, woken by the API through
   `NOTIFY`) writes each accepted one into a record of the `community` source

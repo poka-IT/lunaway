@@ -20,7 +20,10 @@
 use std::collections::{BTreeMap, HashSet};
 
 use chrono::{DateTime, Utc};
-use lunaway_db::{PgPool, records::UpsertStats};
+use lunaway_db::{
+    PgPool,
+    records::{UpsertStats, WHOLE_SOURCE},
+};
 use lunaway_domain::SourceId;
 use serde::{Deserialize, Serialize};
 
@@ -227,6 +230,10 @@ pub async fn run(
     let mut state = load_state(cache, layer, plan).await?;
     let mut seen = Seen::default();
     let mut latest: Option<DateTime<Utc>> = None;
+    // The date each scope was read whole: its extract's file, the oldest
+    // when several hold it whole (a record kept may have been in the older
+    // one only), a continent's under `WHOLE_SOURCE`.
+    let mut reads: BTreeMap<String, DateTime<Utc>> = BTreeMap::new();
     let mut reports = Vec::with_capacity(plan.extracts.len());
     // Only a prefix of the extracts resumes: once one is read again (its
     // file changed), a later one stored by the stopped attempt was
@@ -243,6 +250,17 @@ pub async fn run(
         )
         .await?;
         latest = latest.max(Some(file.fetched_at));
+        let held: Vec<&str> = if spec.covers.is_empty() {
+            vec![WHOLE_SOURCE]
+        } else {
+            spec.covers.to_vec()
+        };
+        for scope in held {
+            reads
+                .entry(scope.to_owned())
+                .and_modify(|at| *at = (*at).min(file.fetched_at))
+                .or_insert(file.fetched_at);
+        }
         let resumed = if resuming {
             resumed_ids(cache, layer, &state, spec.name, file.fetched_at).await?
         } else {
@@ -305,11 +323,20 @@ pub async fn run(
     let ids: Vec<String> = ids.into_iter().collect();
     let retirement = match layer {
         Layer::Places => {
-            store::retire_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, at).await?
+            store::retire_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, &reads, at)
+                .await?
         }
         Layer::Pois => {
-            store::retire_pois_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, at)
-                .await?
+            store::retire_pois_in_coverage(
+                pool,
+                &SourceId::OSM,
+                &coverage,
+                &ids,
+                &by_scope,
+                &reads,
+                at,
+            )
+            .await?
         }
     };
     // The run is complete: the next one starts over.

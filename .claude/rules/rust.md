@@ -37,7 +37,9 @@ Edition 2024, toolchain pinned in `backend/rust-toolchain.toml`, lints in
 ## Tests
 
 - `#[tokio::test]` for async tests; never `block_on` inside one.
-- Integration tests in `crates/<crate>/tests/<scenario>.rs`; database tests
+- Integration tests in `crates/<crate>/tests/<scenario>.rs`, declared as a
+  module in that crate's `tests/main.rs` (one test binary per crate: fewer
+  links, less disk; a guard test fails on a file left out); database tests
   with `#[sqlx::test]` (`.claude/rules/sqlx.md`).
 - `proptest` for parsers and encode/decode pairs.
 - Fakes are a trait plus a local implementation in the test; no mock crate

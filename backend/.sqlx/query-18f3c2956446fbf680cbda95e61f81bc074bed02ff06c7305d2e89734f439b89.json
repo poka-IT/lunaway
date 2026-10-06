@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE source_records SET deleted_at = now(), needs_conflation = false WHERE external_id = 'node/4242'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "18f3c2956446fbf680cbda95e61f81bc074bed02ff06c7305d2e89734f439b89"
+}

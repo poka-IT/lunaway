@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM content_reports WHERE target_id = $1)\n                + (SELECT count(*) FROM moderation_queue WHERE target_id = $1) AS \"n!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "dc9167fc17a8bdfbc7d792ecaa8e468fb5e6c595a9fe35f2604c4bb6c28130f0"
+}

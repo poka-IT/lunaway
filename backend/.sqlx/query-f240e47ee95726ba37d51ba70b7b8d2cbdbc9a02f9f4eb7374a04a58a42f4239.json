@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO content_reports (id, target_type, target_id, reporter_id, reason)\n        VALUES ($1, 'review', $2, $3, 'privacy')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f240e47ee95726ba37d51ba70b7b8d2cbdbc9a02f9f4eb7374a04a58a42f4239"
+}

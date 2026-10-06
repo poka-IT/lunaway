@@ -39,6 +39,11 @@ type Account {
 	"""
 	confirmations(first: Int = 50, after: String): ConfirmationConnection!
 	"""
+	The account's "still there?" answers about points of interest,
+	newest first.
+	"""
+	poiConfirmations(first: Int = 50, after: String): PoiConfirmationConnection!
+	"""
 	The account's issue reports, newest first.
 	"""
 	issueReports(first: Int = 50, after: String): IssueReportConnection!
@@ -1336,8 +1341,9 @@ type Mutation {
 	the challenge's `message` (raw r||s or DER, base64url). An unknown
 	key creates an account at level 0 with a generated pseudonym in
 	`locale` (`fr` or `en`); with `createIfUnknown: false` it creates
-	nothing and answers `NOT_FOUND` (a device signing in again to an
-	account that may have been deleted or detached elsewhere). 10
+	nothing and answers `NOT_FOUND` with `reason` `UNKNOWN_KEY` (a
+	device signing in again to an account that may have been deleted or
+	detached elsewhere). 10
 	sign-ins a minute and 5 new accounts an hour per client.
 	"""
 	signIn(publicKeyJwk: String!, nonce: String!, signature: String!, locale: String, createIfUnknown: Boolean! = true): SignInResult!
@@ -2556,6 +2562,34 @@ type PoiConfirmation {
 	When.
 	"""
 	createdAt: DateTime!
+	"""
+	The point, as `poi(id)` serves it: null once it is gone, or while
+	it is hidden.
+	"""
+	poi: Poi
+}
+
+"""
+A page of the account's "still there?" answers about points, newest
+first.
+"""
+type PoiConfirmationConnection {
+	"""
+	The answers.
+	"""
+	nodes: [PoiConfirmation!]!
+	"""
+	Pass it as `after` for the next page.
+	"""
+	endCursor: String
+	"""
+	Whether more follow.
+	"""
+	hasNextPage: Boolean!
+	"""
+	Answers in the whole list.
+	"""
+	totalCount: Int!
 }
 
 """

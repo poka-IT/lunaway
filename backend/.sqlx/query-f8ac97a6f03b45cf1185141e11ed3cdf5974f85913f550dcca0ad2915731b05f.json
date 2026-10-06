@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records\n        SET deleted_at = $4, needs_conflation = true, changed_at = now(),\n            fetched_at = lunaway_read_at('records', source_id, scope, fetched_at, NULL)\n        WHERE source_id = $1 AND deleted_at IS NULL AND coalesce(scope, 'FR') = ANY($2)\n          AND NOT (external_id = ANY($3))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f8ac97a6f03b45cf1185141e11ed3cdf5974f85913f550dcca0ad2915731b05f"
+}

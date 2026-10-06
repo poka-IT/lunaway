@@ -13,13 +13,19 @@ use lunaway_db::{
     community::{MAX_SETTLE, WORK_CHANNEL, WorkListener},
 };
 
+/// The bound itself (the worker runs `MAX_SETTLE` after the first write)
+/// is held on a paused clock by the tests of `lunaway_db::community`; here,
+/// real notifications from another connection, and a wait that must end
+/// although the writes never stop. Only a worker kept asleep for good fails
+/// it, however loaded the machine is.
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_steady_stream_of_writes_does_not_keep_the_worker_asleep(pool: PgPool) {
     let mut listener = WorkListener::connect(&pool).await.unwrap();
     let sender = pool.clone();
     let writes = tokio::spawn(async move {
-        // A write every 100 ms for 6 s: more than one per settle window.
-        for _ in 0..60 {
+        // A write every 100 ms, more than one per settle window, until the
+        // test ends.
+        loop {
             sqlx::query("SELECT pg_notify($1, '')")
                 .bind(WORK_CHANNEL)
                 .execute(&sender)
@@ -28,17 +34,15 @@ async fn a_steady_stream_of_writes_does_not_keep_the_worker_asleep(pool: PgPool)
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
-    let started = Instant::now();
-    let woken = listener
-        .wait(Duration::from_secs(60), Duration::from_millis(300))
-        .await
-        .unwrap();
-    let took = started.elapsed();
+    let woken = tokio::time::timeout(
+        MAX_SETTLE * 15,
+        listener.wait(Duration::from_secs(60), Duration::from_millis(300)),
+    )
+    .await;
     writes.abort();
-    assert!(woken);
     assert!(
-        took < MAX_SETTLE + Duration::from_secs(1),
-        "the worker runs within its settle bound even while writes keep coming: {took:?}"
+        matches!(woken, Ok(Ok(true))),
+        "the worker wakes while writes keep coming: {woken:?}"
     );
 }
 

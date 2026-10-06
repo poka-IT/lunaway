@@ -65,6 +65,9 @@ pub struct Stats {
     pub constraints: i64,
     /// Live places with opening hours, and how many of them parse.
     pub opening_hours: (i64, i64),
+    /// Places taken down that still hold reviews, photos, confirmations or
+    /// issue reports: the second step of their takedown was not run.
+    pub takedowns_unpurged: i64,
 }
 
 /// Reads the counts.
@@ -146,6 +149,18 @@ pub async fn read(pool: &PgPool) -> Result<Stats, DbError> {
     let constraints = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM conflation_constraints"#)
         .fetch_one(pool)
         .await?;
+    let takedowns_unpurged = sqlx::query_scalar!(
+        r#"
+        SELECT count(*) AS "n!" FROM places p
+        WHERE p.taken_down_at IS NOT NULL
+          AND (EXISTS (SELECT 1 FROM reviews WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM photos WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM confirmations WHERE place_id = p.id)
+               OR EXISTS (SELECT 1 FROM issue_reports WHERE place_id = p.id))
+        "#
+    )
+    .fetch_one(pool)
+    .await?;
     Ok(Stats {
         sources,
         places: totals.places,
@@ -156,5 +171,6 @@ pub async fn read(pool: &PgPool) -> Result<Stats, DbError> {
         review,
         constraints,
         opening_hours: (totals.oh, totals.oh_parsed),
+        takedowns_unpurged,
     })
 }
