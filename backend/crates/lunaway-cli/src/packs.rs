@@ -20,9 +20,10 @@ pub(crate) enum Packs {
         /// Only this region (`FR-BRE`, `ES`); repeat for several.
         #[arg(long = "region")]
         only: Vec<String>,
-        /// Rebuilds the regions named even if nothing changed, and removes
-        /// their previous packs at once: after a place was taken down. A
-        /// region left without a live place loses its pack and its files.
+        /// After a place was taken down: rebuilds the regions named even if
+        /// nothing changed, and every region whose pack is behind, and
+        /// removes every previous pack at once. A region left without a
+        /// live place loses its pack and its files.
         #[arg(long, requires = "only")]
         takedown: bool,
     },
@@ -63,6 +64,9 @@ pub(crate) async fn run(pool: &PgPool, action: Packs) -> anyhow::Result<()> {
                 for old in &d.removed {
                     println!("  removed {old}");
                 }
+            }
+            for old in &report.pruned {
+                println!("previous file removed: {old}");
             }
         }
         Packs::List => {

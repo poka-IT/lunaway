@@ -37,13 +37,16 @@ use sha2::{Digest, Sha256};
 
 use crate::client::ClientKey;
 
-/// Documents kept at most: the app sends about twenty.
+/// Documents kept at most: the app names 41 operations (`app/lib`,
+/// 2026-10-06).
 pub const MAX_ENTRIES: usize = 512;
 /// New documents kept per minute, all clients together: the app's twenty
 /// after a restart fit in the first minute; a flood needs over eight
 /// minutes to replace the whole registry.
 pub const NEW_PER_MINUTE: u32 = 60;
-/// New documents kept per minute from one client: the app's twenty fit.
+/// New documents kept per minute from one client: a device that runs more
+/// new operations in a minute sends the others whole until a later minute
+/// keeps them.
 pub const NEW_PER_CLIENT_MINUTE: u32 = 20;
 
 /// The code of the answer to an unknown hash, as Apollo clients expect it.
@@ -205,6 +208,16 @@ mod tests {
             kept(&r, "app", 30),
             NEW_PER_MINUTE - 2 * NEW_PER_CLIENT_MINUTE,
             "what is left of the minute goes to the next client"
+        );
+        let late = ClientKey::of("192.0.2.44".parse().unwrap());
+        for i in 0..5 {
+            let doc = format!("{{ late{i} }}");
+            r.put_at(&hash(&doc), &doc, late, now);
+        }
+        assert_eq!(
+            kept(&r, "late", 5),
+            0,
+            "the minute's budget is spent, whoever asks"
         );
         r.put_at(
             &hash("{ next }"),

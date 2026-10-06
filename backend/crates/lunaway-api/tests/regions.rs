@@ -319,6 +319,7 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
             .to_owned()],
         "no earlier pack of the region still serves what was taken down"
     );
+    let pdl_after_takedown = left[0].clone();
 
     // A commune of Brittany now covers one place: it leaves the Pays de la
     // Loire. Its old region's feed says so, its new one has it, and the old
@@ -388,7 +389,9 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     );
 
     // Brittany's only place is taken down: a takedown leaves the region
-    // without a pack and without a file, rather than its last pack.
+    // without a pack and without a file, rather than its last pack, and
+    // the Pays de la Loire, which the place left, without the previous
+    // file that still holds it.
     let brittany_file = moved
         .iter()
         .find(|b| b.pack.region == "FR-BRE")
@@ -416,7 +419,24 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
                 region: "FR-BRE".into(),
                 removed: vec![brittany_file],
             }],
+            pruned: vec![pdl_after_takedown],
         }
+    );
+    let mut files: Vec<String> = std::fs::read_dir(dir.path().join("places"))
+        .unwrap()
+        .map(|e| format!("places/{}", e.unwrap().file_name().to_string_lossy()))
+        .collect();
+    files.sort_unstable();
+    let mut recorded: Vec<String> = lunaway_db::packs::all(&pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|p| p.file)
+        .collect();
+    recorded.sort_unstable();
+    assert_eq!(
+        files, recorded,
+        "after a takedown, the files left are the packs the manifest names"
     );
     let regions = gql(&app, "{ regions { code pack { url } } }", json!({})).await;
     let brittany = regions["data"]["regions"]

@@ -229,9 +229,11 @@ pub struct PackOptions {
     pub dir: PathBuf,
     /// Only these regions; every region with places when empty.
     pub only: Vec<String>,
-    /// Builds the packs of `only` even when nothing changed in them, and
-    /// removes their previous files at once: after a place was taken down
-    /// (personal data, a court order), no file still serves it.
+    /// After a place was taken down (personal data, a court order): builds
+    /// the packs of `only` even when nothing changed in them, builds every
+    /// other region whose pack is behind (the place may have left one of
+    /// them), and leaves no region its previous file, so no file still
+    /// serves the place.
     pub takedown: bool,
 }
 
@@ -260,6 +262,8 @@ pub struct BuildReport {
     pub built: Vec<Built>,
     /// The regions whose packs were withdrawn.
     pub dropped: Vec<Dropped>,
+    /// Previous files of regions not built again, removed by a takedown.
+    pub pruned: Vec<String>,
 }
 
 /// The root of the schema a build runs the places through: it answers the
@@ -404,7 +408,9 @@ fn column(place: &Value, field: Field) -> Result<rusqlite::types::Value, PackErr
 /// `region_packs` and removes the files of the packs before the previous
 /// one: a device that read the manifest just before a build still finds the
 /// file it names. A region nothing changed in keeps its pack, so a device
-/// that has it finds no new version.
+/// that has it finds no new version. A region left without a live place
+/// loses its pack and every file of it. One build runs at a time
+/// ([`packs::BuildLock`]); a second waits for the first.
 ///
 /// # Errors
 ///
@@ -416,13 +422,30 @@ pub async fn build(
     config: ApiConfig,
     options: &PackOptions,
 ) -> Result<BuildReport, PackError> {
-    if let Some(unknown) = options
+    // The codes as the catalogue writes them: `fr-bre` names `FR-BRE`.
+    let only: Vec<String> = options
         .only
         .iter()
-        .find(|r| lunaway_domain::region::sync_region(r).is_none())
-    {
-        return Err(PackError::UnknownRegion(unknown.clone()));
-    }
+        .map(|r| {
+            lunaway_domain::region::sync_region(r)
+                .map(|s| s.code.to_owned())
+                .ok_or_else(|| PackError::UnknownRegion(r.clone()))
+        })
+        .collect::<Result<_, _>>()?;
+    let lock = packs::BuildLock::acquire(pool).await?;
+    let built = build_locked(pool, config, options, &only).await;
+    let released = lock.release().await;
+    let built = built?;
+    released?;
+    Ok(built)
+}
+
+async fn build_locked(
+    pool: &PgPool,
+    config: ApiConfig,
+    options: &PackOptions,
+    only: &[String],
+) -> Result<BuildReport, PackError> {
     let dir = options.dir.join("places");
     tokio::fs::create_dir_all(&dir)
         .await
@@ -443,7 +466,7 @@ pub async fn build(
         .await?
         .into_iter()
         .filter(|r| lunaway_domain::region::sync_region(&r.region).is_some())
-        .filter(|r| options.only.is_empty() || options.only.contains(&r.region))
+        .filter(|r| only.is_empty() || options.takedown || only.contains(&r.region))
         .collect();
     let query = format!("{{ places {{ {PLACE_SELECTION} }} }}");
     let cursor = crate::schema::changes_cursor(&head, head.last_seq);
@@ -451,7 +474,8 @@ pub async fn build(
     let state = ApiState::new(pool.clone(), config);
     let mut built = Vec::with_capacity(regions.len());
     for extent in &regions {
-        let up_to_date = !options.takedown
+        let forced = options.takedown && only.contains(&extent.region);
+        let up_to_date = !forced
             && current.get(&extent.region).is_some_and(|p| {
                 p.feed_identity == identity
                     && p.seq >= extent.last_seq
@@ -478,7 +502,9 @@ pub async fn build(
             ))
             .data(state.clone())
             .finish();
-        let raw_path = dir.join(format!("{}.sqlite.building", extent.region));
+        // Outside the served directory, under a name nobody can guess: the
+        // raw database of a build that stopped must not be downloadable.
+        let raw_path = std::env::temp_dir().join(format!("lunaway-pack-{}.sqlite", Uuid::now_v7()));
         let generated_at = Utc::now();
         let describe = vec![
             ("format", FORMAT.to_owned()),
@@ -581,24 +607,38 @@ pub async fn build(
         let removed = remove_older(&dir, &pack, keep_previous).await?;
         out.built.push(Built { pack, removed });
     }
-    // A region whose last place went (taken down, moved, retired) keeps no
-    // pack: its last file would still serve the place.
     let keep: Vec<String> = regions.iter().map(|r| r.region.clone()).collect();
-    let mut gone: Vec<String> = if options.only.is_empty() {
-        packs::forget_others(pool, &keep).await?;
-        current.into_keys().collect()
-    } else {
-        options.only.clone()
-    };
+    if options.takedown {
+        // The place may have left another region, whose previous file
+        // still holds it.
+        for pack in current.values() {
+            if keep.contains(&pack.region)
+                && !out.built.iter().any(|b| b.pack.region == pack.region)
+            {
+                out.pruned.extend(remove_older(&dir, pack, None).await?);
+            }
+        }
+    }
+    // A region whose last place went (taken down, moved, retired) keeps no
+    // pack: its last file would still serve the place. Its files go before
+    // its row, so a removal that fails is tried again by the next build.
+    let whole = only.is_empty() || options.takedown;
+    let mut gone: Vec<String> = current.keys().filter(|_| whole).cloned().collect();
+    gone.extend(only.iter().cloned());
     gone.retain(|r| !keep.contains(r));
     gone.sort_unstable();
     gone.dedup();
-    if !options.only.is_empty() {
-        packs::forget(pool, &gone).await?;
+    for region in &gone {
+        let removed = remove_region(&dir, region).await?;
+        out.dropped.push(Dropped {
+            region: region.clone(),
+            removed,
+        });
     }
-    for region in gone {
-        let removed = remove_region(&dir, &region).await?;
-        out.dropped.push(Dropped { region, removed });
+    if whole {
+        packs::forget_others(pool, &keep).await?;
+    } else if !gone.is_empty() {
+        packs::forget(pool, &gone).await?;
     }
     Ok(out)
 }
@@ -639,8 +679,16 @@ async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), PackError> {
         source,
     };
     let tmp = path.with_extension("partial");
-    tokio::fs::write(&tmp, bytes).await.map_err(io)?;
-    tokio::fs::rename(&tmp, path).await.map_err(io)
+    let written = match tokio::fs::write(&tmp, bytes).await {
+        Ok(()) => tokio::fs::rename(&tmp, path).await,
+        Err(e) => Err(e),
+    };
+    if written.is_err() {
+        // A disk full or a rename refused leaves no half file behind; one
+        // left by a crash is removed with the region's other files.
+        let _ignored = tokio::fs::remove_file(&tmp).await;
+    }
+    written.map_err(io)
 }
 
 async fn remove_file(path: &Path) -> Result<(), PackError> {
@@ -656,13 +704,17 @@ async fn remove_file(path: &Path) -> Result<(), PackError> {
 
 /// Whether the file `name` is a pack of the region whose prefix (its code
 /// and a dash) is `prefix`, named as a build names it:
-/// `<prefix><seq>-<12 hex>.sqlite.gz`. `FR-` also starts `FR-BRE-` and
-/// `FR-20R-`, whose next part is not all digits; any other file in the
-/// directory is left alone.
+/// `<prefix><seq>-<12 hex>.sqlite.gz`, or the `.sqlite.partial` a write
+/// that failed left. `FR-` also starts `FR-BRE-` and `FR-20R-`, whose
+/// next part is not all digits; any other file in the directory is left
+/// alone.
 fn is_pack_of(name: &str, prefix: &str) -> bool {
     let Some((seq, hash)) = name
         .strip_prefix(prefix)
-        .and_then(|rest| rest.strip_suffix(".sqlite.gz"))
+        .and_then(|rest| {
+            rest.strip_suffix(".sqlite.gz")
+                .or_else(|| rest.strip_suffix(".sqlite.partial"))
+        })
         .and_then(|rest| rest.split_once('-'))
     else {
         return false;
@@ -736,7 +788,14 @@ mod tests {
         assert!(!is_pack_of("FR-BRE-18415-4f2777014568.sqlite.gz", "FR-"));
         assert!(is_pack_of("FR-20R-18415-5649afa75e53.sqlite.gz", "FR-20R-"));
         assert!(!is_pack_of("FR-20R.sqlite.building", "FR-20R-"));
-        assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.partial", "FR-"));
+        assert!(
+            is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.partial", "FR-"),
+            "a write that failed leaves a file a takedown must remove"
+        );
+        assert!(!is_pack_of(
+            "FR-20R-18415-5649afa75e53.sqlite.partial",
+            "FR-"
+        ));
         assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.gz.bak", "FR-"));
         assert!(!is_pack_of("FR-18415-notes.sqlite.gz", "FR-"));
     }

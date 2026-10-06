@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM region_packs WHERE region = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "44eaaf5cd8ed1d9e4178bbeb74f9a5f88a8b7f8a113b8d15d4e4b223f0ce9b45"
+}

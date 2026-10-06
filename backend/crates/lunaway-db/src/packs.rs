@@ -312,31 +312,79 @@ pub async fn record(pool: &PgPool, p: &RegionPack) -> Result<Option<String>, DbE
     Ok(previous.filter(|f| *f != p.file))
 }
 
-/// Forgets the packs of `regions`; returns their files.
+/// Forgets the packs of `regions`; returns how many.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the statement fails.
-pub async fn forget(pool: &PgPool, regions: &[String]) -> Result<Vec<String>, DbError> {
-    Ok(sqlx::query_scalar!(
-        "DELETE FROM region_packs WHERE region = ANY($1) RETURNING file",
-        regions
+pub async fn forget(pool: &PgPool, regions: &[String]) -> Result<u64, DbError> {
+    Ok(
+        sqlx::query!("DELETE FROM region_packs WHERE region = ANY($1)", regions)
+            .execute(pool)
+            .await?
+            .rows_affected(),
     )
-    .fetch_all(pool)
-    .await?)
 }
 
 /// Forgets the packs of the regions not in `keep` (a region left without
-/// places), returning their files.
+/// places); returns how many.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the statement fails.
-pub async fn forget_others(pool: &PgPool, keep: &[String]) -> Result<Vec<String>, DbError> {
-    Ok(sqlx::query_scalar!(
-        "DELETE FROM region_packs WHERE NOT (region = ANY($1)) RETURNING file",
+pub async fn forget_others(pool: &PgPool, keep: &[String]) -> Result<u64, DbError> {
+    Ok(sqlx::query!(
+        "DELETE FROM region_packs WHERE NOT (region = ANY($1))",
         keep
     )
-    .fetch_all(pool)
-    .await?)
+    .execute(pool)
+    .await?
+    .rows_affected())
+}
+
+/// Key of the advisory lock that serialises pack builds (`lunapack` in
+/// ASCII).
+const BUILD_LOCK: i64 = 0x6c75_6e61_7061_636b;
+
+/// The pack builders' lock, held for a whole build: a daily build that took
+/// its snapshot before a takedown would otherwise record, after it, a pack
+/// that still holds the place taken down.
+pub struct BuildLock(PgConnection);
+
+impl std::fmt::Debug for BuildLock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("BuildLock")
+    }
+}
+
+impl BuildLock {
+    /// Waits for the lock, on a connection taken out of the pool: a
+    /// session lock on a pooled connection would outlive a build that
+    /// failed, while a process that dies closes this connection and frees
+    /// the lock.
+    ///
+    /// # Errors
+    ///
+    /// [`DbError`] when no connection is available or the lock fails.
+    pub async fn acquire(pool: &PgPool) -> Result<Self, DbError> {
+        let mut conn = pool.acquire().await?.detach();
+        sqlx::query!("SELECT pg_advisory_lock($1)", BUILD_LOCK)
+            .execute(&mut conn)
+            .await?;
+        Ok(Self(conn))
+    }
+
+    /// Frees the lock and closes its connection.
+    ///
+    /// # Errors
+    ///
+    /// [`DbError`] when the server cannot be told; the lock then goes
+    /// with the connection.
+    pub async fn release(mut self) -> Result<(), DbError> {
+        sqlx::query_scalar!("SELECT pg_advisory_unlock($1)", BUILD_LOCK)
+            .fetch_one(&mut self.0)
+            .await?;
+        sqlx::Connection::close(self.0).await?;
+        Ok(())
+    }
 }
