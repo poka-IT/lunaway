@@ -12,6 +12,7 @@ library;
 export 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary, PlatformInt64Util;
 
+export 'src/rust/api/country.dart';
 export 'src/rust/api/engine.dart';
 export 'src/rust/frb_generated.dart' show RustLib;
 export 'src/voice.dart';

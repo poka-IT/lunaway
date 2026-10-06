@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/country.dart';
 import 'api/engine.dart';
 
 import 'dart:async';
@@ -64,7 +65,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 316891524;
+  int get rustContentHash => 1834818909;
 
   static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
     stem: 'lunaway_nav',
@@ -95,7 +96,11 @@ abstract class RustLibApi extends BaseApi {
 
   GuidanceState crateApiEngineGuidanceUpdate({required Guidance that, required Fix fix});
 
+  CountriesAround crateApiCountryCountriesAround({required double lat, required double lon});
+
   GuidanceSettings crateApiEngineDefaultGuidanceSettings();
+
+  EmbeddedRules crateApiCountryEmbeddedRules();
 
   Future<GuidanceSettings> crateApiEngineGuidanceSettingsDefault();
 
@@ -252,12 +257,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "Guidance_update", argNames: ["that", "fix"]);
 
   @override
+  CountriesAround crateApiCountryCountriesAround({required double lat, required double lon}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_f_64(lat, serializer);
+          sse_encode_f_64(lon, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_countries_around, decodeErrorData: null),
+        constMeta: kCrateApiCountryCountriesAroundConstMeta,
+        argValues: [lat, lon],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCountryCountriesAroundConstMeta =>
+      const TaskConstMeta(debugName: "countries_around", argNames: ["lat", "lon"]);
+
+  @override
   GuidanceSettings crateApiEngineDefaultGuidanceSettings() {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
         },
         codec: SseCodec(decodeSuccessData: sse_decode_guidance_settings, decodeErrorData: null),
         constMeta: kCrateApiEngineDefaultGuidanceSettingsConstMeta,
@@ -271,12 +297,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "default_guidance_settings", argNames: []);
 
   @override
+  EmbeddedRules crateApiCountryEmbeddedRules() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        },
+        codec: SseCodec(decodeSuccessData: sse_decode_embedded_rules, decodeErrorData: null),
+        constMeta: kCrateApiCountryEmbeddedRulesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCountryEmbeddedRulesConstMeta =>
+      const TaskConstMeta(debugName: "embedded_rules", argNames: []);
+
+  @override
   Future<GuidanceSettings> crateApiEngineGuidanceSettingsDefault() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
+          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9, port: port_);
         },
         codec: SseCodec(decodeSuccessData: sse_decode_guidance_settings, decodeErrorData: null),
         constMeta: kCrateApiEngineGuidanceSettingsDefaultConstMeta,
@@ -391,6 +436,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Utterance dco_decode_box_autoadd_utterance(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_utterance(raw);
+  }
+
+  @protected
+  CountriesAround dco_decode_countries_around(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CountriesAround(at: dco_decode_opt_String(arr[0]), near: dco_decode_list_String(arr[1]));
+  }
+
+  @protected
+  CountryMode dco_decode_country_mode(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return CountryMode(country: dco_decode_String(arr[0]), mode: dco_decode_String(arr[1]));
+  }
+
+  @protected
+  EmbeddedRules dco_decode_embedded_rules(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return EmbeddedRules(
+      version: dco_decode_u_32(arr[0]),
+      reviewedOn: dco_decode_String(arr[1]),
+      countries: dco_decode_list_country_mode(arr[2]),
+    );
   }
 
   @protected
@@ -532,6 +605,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<CountryMode> dco_decode_list_country_mode(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_country_mode).toList();
   }
 
   @protected
@@ -752,6 +831,35 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  CountriesAround sse_decode_countries_around(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_at = sse_decode_opt_String(deserializer);
+    var var_near = sse_decode_list_String(deserializer);
+    return CountriesAround(at: var_at, near: var_near);
+  }
+
+  @protected
+  CountryMode sse_decode_country_mode(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_country = sse_decode_String(deserializer);
+    var var_mode = sse_decode_String(deserializer);
+    return CountryMode(country: var_country, mode: var_mode);
+  }
+
+  @protected
+  EmbeddedRules sse_decode_embedded_rules(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_version = sse_decode_u_32(deserializer);
+    var var_reviewedOn = sse_decode_String(deserializer);
+    var var_countries = sse_decode_list_country_mode(deserializer);
+    return EmbeddedRules(
+      version: var_version,
+      reviewedOn: var_reviewedOn,
+      countries: var_countries,
+    );
+  }
+
+  @protected
   EventHit sse_decode_event_hit(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
@@ -910,6 +1018,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<CountryMode> sse_decode_list_country_mode(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <CountryMode>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_country_mode(deserializer));
     }
     return ans_;
   }
@@ -1159,6 +1279,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_countries_around(CountriesAround self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_String(self.at, serializer);
+    sse_encode_list_String(self.near, serializer);
+  }
+
+  @protected
+  void sse_encode_country_mode(CountryMode self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.country, serializer);
+    sse_encode_String(self.mode, serializer);
+  }
+
+  @protected
+  void sse_encode_embedded_rules(EmbeddedRules self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.version, serializer);
+    sse_encode_String(self.reviewedOn, serializer);
+    sse_encode_list_country_mode(self.countries, serializer);
+  }
+
+  @protected
   void sse_encode_event_hit(EventHit self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
@@ -1273,6 +1415,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_country_mode(List<CountryMode> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_country_mode(item, serializer);
     }
   }
 

@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 316891524;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1834818909;
 
 // Section: executor
 
@@ -286,6 +286,38 @@ fn wire__crate__api__engine__Guidance_update_impl(
         },
     )
 }
+fn wire__crate__api__country__countries_around_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "countries_around",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_lat = <f64>::sse_decode(&mut deserializer);
+            let api_lon = <f64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok =
+                    Ok::<_, ()>(crate::api::country::countries_around(api_lat, api_lon))?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__engine__default_guidance_settings_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -310,6 +342,35 @@ fn wire__crate__api__engine__default_guidance_settings_impl(
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Ok::<_, ()>(crate::api::engine::default_guidance_settings())?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__country__embedded_rules_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "embedded_rules",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::country::embedded_rules())?;
                 std::result::Result::Ok(output_ok)
             })())
         },
@@ -408,6 +469,44 @@ impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u8().unwrap() != 0
+    }
+}
+
+impl SseDecode for crate::api::country::CountriesAround {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_at = <Option<String>>::sse_decode(deserializer);
+        let mut var_near = <Vec<String>>::sse_decode(deserializer);
+        return crate::api::country::CountriesAround {
+            at: var_at,
+            near: var_near,
+        };
+    }
+}
+
+impl SseDecode for crate::api::country::CountryMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_country = <String>::sse_decode(deserializer);
+        let mut var_mode = <String>::sse_decode(deserializer);
+        return crate::api::country::CountryMode {
+            country: var_country,
+            mode: var_mode,
+        };
+    }
+}
+
+impl SseDecode for crate::api::country::EmbeddedRules {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_version = <u32>::sse_decode(deserializer);
+        let mut var_reviewedOn = <String>::sse_decode(deserializer);
+        let mut var_countries = <Vec<crate::api::country::CountryMode>>::sse_decode(deserializer);
+        return crate::api::country::EmbeddedRules {
+            version: var_version,
+            reviewed_on: var_reviewedOn,
+            countries: var_countries,
+        };
     }
 }
 
@@ -610,6 +709,18 @@ impl SseDecode for Vec<String> {
     }
 }
 
+impl SseDecode for Vec<crate::api::country::CountryMode> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::country::CountryMode>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::engine::EventHit> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -781,7 +892,7 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        7 => wire__crate__api__engine__guidance_settings_default_impl(
+        9 => wire__crate__api__engine__guidance_settings_default_impl(
             port,
             ptr,
             rust_vec_len,
@@ -804,7 +915,9 @@ fn pde_ffi_dispatcher_sync_impl(
         3 => wire__crate__api__engine__Guidance_route_length_m_impl(ptr, rust_vec_len, data_len),
         4 => wire__crate__api__engine__Guidance_step_count_impl(ptr, rust_vec_len, data_len),
         5 => wire__crate__api__engine__Guidance_update_impl(ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__engine__default_guidance_settings_impl(ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__country__countries_around_impl(ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__engine__default_guidance_settings_impl(ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__country__embedded_rules_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -843,6 +956,70 @@ impl flutter_rust_bridge::IntoDart for crate::api::engine::Banner {
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::engine::Banner {}
 impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::Banner> for crate::api::engine::Banner {
     fn into_into_dart(self) -> crate::api::engine::Banner {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::country::CountriesAround {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.at.into_into_dart().into_dart(),
+            self.near.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::country::CountriesAround
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::country::CountriesAround>
+    for crate::api::country::CountriesAround
+{
+    fn into_into_dart(self) -> crate::api::country::CountriesAround {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::country::CountryMode {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.country.into_into_dart().into_dart(),
+            self.mode.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::country::CountryMode
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::country::CountryMode>
+    for crate::api::country::CountryMode
+{
+    fn into_into_dart(self) -> crate::api::country::CountryMode {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::country::EmbeddedRules {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.version.into_into_dart().into_dart(),
+            self.reviewed_on.into_into_dart().into_dart(),
+            self.countries.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::country::EmbeddedRules
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::country::EmbeddedRules>
+    for crate::api::country::EmbeddedRules
+{
+    fn into_into_dart(self) -> crate::api::country::EmbeddedRules {
         self
     }
 }
@@ -1125,6 +1302,31 @@ impl SseEncode for bool {
     }
 }
 
+impl SseEncode for crate::api::country::CountriesAround {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.at, serializer);
+        <Vec<String>>::sse_encode(self.near, serializer);
+    }
+}
+
+impl SseEncode for crate::api::country::CountryMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.country, serializer);
+        <String>::sse_encode(self.mode, serializer);
+    }
+}
+
+impl SseEncode for crate::api::country::EmbeddedRules {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.version, serializer);
+        <String>::sse_encode(self.reviewed_on, serializer);
+        <Vec<crate::api::country::CountryMode>>::sse_encode(self.countries, serializer);
+    }
+}
+
 impl SseEncode for crate::api::engine::EventHit {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1271,6 +1473,16 @@ impl SseEncode for Vec<String> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <String>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::country::CountryMode> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::country::CountryMode>::sse_encode(item, serializer);
         }
     }
 }
