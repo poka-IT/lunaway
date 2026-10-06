@@ -359,6 +359,54 @@
       "otherApps": "Open in another app",
       "back": "Back"
     },
+    "stops": {
+      "title": "Stops",
+      "add": "Add a stop",
+      "addCost": "Add a stop · +$minutes min",
+      "addFree": "Add a stop · no detour",
+      "quoting": "Add a stop · working out the detour",
+      "noRoute": "No route through this point for your vehicle.",
+      "full": "Five stops at most.",
+      "goDirectly": "Go there directly",
+      "openCard": "See the details",
+      "point": "Point on the map",
+      "remove": "Remove the stop",
+      "reorder": "Drag to change the order",
+      "added": "Stop added",
+      "removed": "Stop removed",
+      "moved": "Stops reordered",
+      "destinationChanged": "New destination",
+      "failed": "The route could not be changed."
+    },
+    "fuel": {
+      "action": "Fuel",
+      "nextCheap": "Cheapest fuel ahead",
+      "title": "Fuel along the route",
+      "kinds": {
+        "diesel": "Diesel",
+        "e10": "Unleaded E10",
+        "sp95": "Unleaded 95",
+        "sp98": "Unleaded 98",
+        "e85": "E85",
+        "lpg": "LPG"
+      },
+      "price": "$price €/L",
+      "withDetour": "$price €/L counting the detour",
+      "detour": "+$distance · +$minutes min",
+      "onRoute": "on the route",
+      "open": "Open",
+      "closed": "Closed",
+      "unknownHours": "Hours unknown",
+      "add": "Add",
+      "station": "Fuel station",
+      "empty": "No station selling this fuel near the route.",
+      "failed": "The stations could not be loaded.",
+      "estimated": "Detours estimated from the distance to the route.",
+      "attribution": "Prices: Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)",
+      "minutesAgo": "$n min ago",
+      "hoursAgo": "$n h ago",
+      "daysAgo": "$n d ago"
+    },
     "states": {
       "vehicleTitle": "What do you drive?",
       "vehicleHint": "The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.",
@@ -460,7 +508,9 @@
       "unavailable": "Guidance could not start on this device.",
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
       "firstTitle": "Before you set off",
-      "firstAccept": "I understand"
+      "firstAccept": "I understand",
+      "dangerZone": "Danger zone in $distance",
+      "inDangerZone": "Danger zone"
     },
     "voice": {
       "rerouting": "Recalculating.",
@@ -504,7 +554,11 @@
       "voiceHint": "With the phone's own voice",
       "units": "Distances",
       "metric": "Kilometres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "fuel": "Vehicle fuel",
+      "consumption": "Consumption",
+      "consumptionUnit": "L/100 km",
+      "consumptionHint": "To weigh the detour to a cheaper station."
     }
   },
   "list": {

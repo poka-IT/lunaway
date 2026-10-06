@@ -6,6 +6,7 @@ import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_pla
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/external_actions.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -120,12 +121,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     });
   }
 
-  /// The route layers in the GL JS style syntax. Nothing is tappable: the
-  /// cards beside the map pick the route.
+  /// The route layers in the GL JS style syntax. The marks with an id
+  /// (places, stations, stops) are tappable; the cards beside the map pick
+  /// the route.
   static Map<String, Object?> _spec({required bool dark}) => {
     'clusterSource': RouteLayers.routeSource,
     'selectionLayer': RouteLayers.marks,
-    'tappable': const <String>[],
+    'tappable': const [RouteLayers.marks],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.marksSource, 'options': <String, Object?>{}},
@@ -191,6 +193,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           _setStyle();
         } else {
           _schedule();
+        }
+      case 'place':
+        if (event['id'] case final String id) _props.onMarkTap?.call(id);
+      case 'longpress':
+        if ((event['lat'], event['lon']) case (final num lat, final num lon)) {
+          _props.onLongPress?.call(LatLng(lat.toDouble(), lon.toDouble()));
         }
       case 'link':
         if (Uri.tryParse('${event['url']}') case final url?) {

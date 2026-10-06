@@ -981,6 +981,8 @@ class Translations$navigation$en {
 	// Translations
 	late final Translations$navigation$entry$en entry = Translations$navigation$entry$en.internal(_root);
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
+	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
+	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
 	late final Translations$navigation$warning$en warning = Translations$navigation$warning$en.internal(_root);
 	late final Translations$navigation$guidance$en guidance = Translations$navigation$guidance$en.internal(_root);
@@ -1462,6 +1464,134 @@ class Translations$navigation$preview$en {
 	String get back => 'Back';
 }
 
+// Path: navigation.stops
+class Translations$navigation$stops$en {
+	Translations$navigation$stops$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Stops'
+	String get title => 'Stops';
+
+	/// en: 'Add a stop'
+	String get add => 'Add a stop';
+
+	/// en: 'Add a stop · +$minutes min'
+	String addCost({required Object minutes}) => 'Add a stop · +${minutes} min';
+
+	/// en: 'Add a stop · no detour'
+	String get addFree => 'Add a stop · no detour';
+
+	/// en: 'Add a stop · working out the detour'
+	String get quoting => 'Add a stop · working out the detour';
+
+	/// en: 'No route through this point for your vehicle.'
+	String get noRoute => 'No route through this point for your vehicle.';
+
+	/// en: 'Five stops at most.'
+	String get full => 'Five stops at most.';
+
+	/// en: 'Go there directly'
+	String get goDirectly => 'Go there directly';
+
+	/// en: 'See the details'
+	String get openCard => 'See the details';
+
+	/// en: 'Point on the map'
+	String get point => 'Point on the map';
+
+	/// en: 'Remove the stop'
+	String get remove => 'Remove the stop';
+
+	/// en: 'Drag to change the order'
+	String get reorder => 'Drag to change the order';
+
+	/// en: 'Stop added'
+	String get added => 'Stop added';
+
+	/// en: 'Stop removed'
+	String get removed => 'Stop removed';
+
+	/// en: 'Stops reordered'
+	String get moved => 'Stops reordered';
+
+	/// en: 'New destination'
+	String get destinationChanged => 'New destination';
+
+	/// en: 'The route could not be changed.'
+	String get failed => 'The route could not be changed.';
+}
+
+// Path: navigation.fuel
+class Translations$navigation$fuel$en {
+	Translations$navigation$fuel$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fuel'
+	String get action => 'Fuel';
+
+	/// en: 'Cheapest fuel ahead'
+	String get nextCheap => 'Cheapest fuel ahead';
+
+	/// en: 'Fuel along the route'
+	String get title => 'Fuel along the route';
+
+	late final Translations$navigation$fuel$kinds$en kinds = Translations$navigation$fuel$kinds$en.internal(_root);
+
+	/// en: '$price €/L'
+	String price({required Object price}) => '${price} €/L';
+
+	/// en: '$price €/L counting the detour'
+	String withDetour({required Object price}) => '${price} €/L counting the detour';
+
+	/// en: '+$distance · +$minutes min'
+	String detour({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min';
+
+	/// en: 'on the route'
+	String get onRoute => 'on the route';
+
+	/// en: 'Open'
+	String get open => 'Open';
+
+	/// en: 'Closed'
+	String get closed => 'Closed';
+
+	/// en: 'Hours unknown'
+	String get unknownHours => 'Hours unknown';
+
+	/// en: 'Add'
+	String get add => 'Add';
+
+	/// en: 'Fuel station'
+	String get station => 'Fuel station';
+
+	/// en: 'No station selling this fuel near the route.'
+	String get empty => 'No station selling this fuel near the route.';
+
+	/// en: 'The stations could not be loaded.'
+	String get failed => 'The stations could not be loaded.';
+
+	/// en: 'Detours estimated from the distance to the route.'
+	String get estimated => 'Detours estimated from the distance to the route.';
+
+	/// en: 'Prices: Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)'
+	String get attribution => 'Prices: Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)';
+
+	/// en: '$n min ago'
+	String minutesAgo({required Object n}) => '${n} min ago';
+
+	/// en: '$n h ago'
+	String hoursAgo({required Object n}) => '${n} h ago';
+
+	/// en: '$n d ago'
+	String daysAgo({required Object n}) => '${n} d ago';
+}
+
 // Path: navigation.states
 class Translations$navigation$states$en {
 	Translations$navigation$states$en.internal(this._root);
@@ -1739,6 +1869,12 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'I understand'
 	String get firstAccept => 'I understand';
+
+	/// en: 'Danger zone in $distance'
+	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
+
+	/// en: 'Danger zone'
+	String get inDangerZone => 'Danger zone';
 }
 
 // Path: navigation.voice
@@ -1862,6 +1998,18 @@ class Translations$navigation$settings$en {
 
 	/// en: 'Miles'
 	String get imperial => 'Miles';
+
+	/// en: 'Vehicle fuel'
+	String get fuel => 'Vehicle fuel';
+
+	/// en: 'Consumption'
+	String get consumption => 'Consumption';
+
+	/// en: 'L/100 km'
+	String get consumptionUnit => 'L/100 km';
+
+	/// en: 'To weigh the detour to a cheaper station.'
+	String get consumptionHint => 'To weigh the detour to a cheaper station.';
 }
 
 // Path: vehicle.types
@@ -1904,6 +2052,33 @@ class Translations$vehicle$towing$en {
 
 	/// en: 'A trailer'
 	String get trailer => 'A trailer';
+}
+
+// Path: navigation.fuel.kinds
+class Translations$navigation$fuel$kinds$en {
+	Translations$navigation$fuel$kinds$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Diesel'
+	String get diesel => 'Diesel';
+
+	/// en: 'Unleaded E10'
+	String get e10 => 'Unleaded E10';
+
+	/// en: 'Unleaded 95'
+	String get sp95 => 'Unleaded 95';
+
+	/// en: 'Unleaded 98'
+	String get sp98 => 'Unleaded 98';
+
+	/// en: 'E85'
+	String get e85 => 'E85';
+
+	/// en: 'LPG'
+	String get lpg => 'LPG';
 }
 
 // Path: navigation.states.dimension
@@ -2235,6 +2410,48 @@ extension on Translations {
 			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
 			'navigation.preview.otherApps' => 'Open in another app',
 			'navigation.preview.back' => 'Back',
+			'navigation.stops.title' => 'Stops',
+			'navigation.stops.add' => 'Add a stop',
+			'navigation.stops.addCost' => ({required Object minutes}) => 'Add a stop · +${minutes} min',
+			'navigation.stops.addFree' => 'Add a stop · no detour',
+			'navigation.stops.quoting' => 'Add a stop · working out the detour',
+			'navigation.stops.noRoute' => 'No route through this point for your vehicle.',
+			'navigation.stops.full' => 'Five stops at most.',
+			'navigation.stops.goDirectly' => 'Go there directly',
+			'navigation.stops.openCard' => 'See the details',
+			'navigation.stops.point' => 'Point on the map',
+			'navigation.stops.remove' => 'Remove the stop',
+			'navigation.stops.reorder' => 'Drag to change the order',
+			'navigation.stops.added' => 'Stop added',
+			'navigation.stops.removed' => 'Stop removed',
+			'navigation.stops.moved' => 'Stops reordered',
+			'navigation.stops.destinationChanged' => 'New destination',
+			'navigation.stops.failed' => 'The route could not be changed.',
+			'navigation.fuel.action' => 'Fuel',
+			'navigation.fuel.nextCheap' => 'Cheapest fuel ahead',
+			'navigation.fuel.title' => 'Fuel along the route',
+			'navigation.fuel.kinds.diesel' => 'Diesel',
+			'navigation.fuel.kinds.e10' => 'Unleaded E10',
+			'navigation.fuel.kinds.sp95' => 'Unleaded 95',
+			'navigation.fuel.kinds.sp98' => 'Unleaded 98',
+			'navigation.fuel.kinds.e85' => 'E85',
+			'navigation.fuel.kinds.lpg' => 'LPG',
+			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
+			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L counting the detour',
+			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
+			'navigation.fuel.onRoute' => 'on the route',
+			'navigation.fuel.open' => 'Open',
+			'navigation.fuel.closed' => 'Closed',
+			'navigation.fuel.unknownHours' => 'Hours unknown',
+			'navigation.fuel.add' => 'Add',
+			'navigation.fuel.station' => 'Fuel station',
+			'navigation.fuel.empty' => 'No station selling this fuel near the route.',
+			'navigation.fuel.failed' => 'The stations could not be loaded.',
+			'navigation.fuel.estimated' => 'Detours estimated from the distance to the route.',
+			'navigation.fuel.attribution' => 'Prices: Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)',
+			'navigation.fuel.minutesAgo' => ({required Object n}) => '${n} min ago',
+			'navigation.fuel.hoursAgo' => ({required Object n}) => '${n} h ago',
+			'navigation.fuel.daysAgo' => ({required Object n}) => '${n} d ago',
 			'navigation.states.vehicleTitle' => 'What do you drive?',
 			'navigation.states.vehicleHint' => 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.',
 			'navigation.states.vehicleMissing' => ({required Object list}) => 'Missing: ${list}',
@@ -2328,6 +2545,8 @@ extension on Translations {
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.firstTitle' => 'Before you set off',
 			'navigation.guidance.firstAccept' => 'I understand',
+			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
+			'navigation.guidance.inDangerZone' => 'Danger zone',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -2357,6 +2576,10 @@ extension on Translations {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
+			'navigation.settings.fuel' => 'Vehicle fuel',
+			'navigation.settings.consumption' => 'Consumption',
+			'navigation.settings.consumptionUnit' => 'L/100 km',
+			'navigation.settings.consumptionHint' => 'To weigh the detour to a cheaper station.',
 			'list.title' => 'Places around',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -2426,6 +2649,8 @@ extension on Translations {
 			'profile.syncNow' => 'Update now',
 			'profile.syncing' => 'Updating',
 			'profile.about' => 'About',
+			_ => null,
+		} ?? switch (path) {
 			'profile.version' => ({required Object version}) => 'Version ${version}',
 			'profile.website' => 'Website',
 			'profile.privacy' => 'Privacy policy',

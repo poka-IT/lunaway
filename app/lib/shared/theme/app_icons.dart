@@ -89,6 +89,8 @@ abstract final class AppIcons {
   static const IconData activities = PhosphorRegular.personSimpleHike;
   static const IconData navigationApps = PhosphorRegular.signpost;
   static const IconData inAppNavigation = PhosphorRegular.path;
+  static const IconData fuel = PhosphorRegular.gasPump;
+  static const IconData reorder = PhosphorRegular.listBullets;
   static const IconData voiceOn = PhosphorRegular.speakerHigh;
   static const IconData voiceOff = PhosphorRegular.speakerSlash;
   static const IconData appleMaps = PhosphorRegular.mapTrifold;

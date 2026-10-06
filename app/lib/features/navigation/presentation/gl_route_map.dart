@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/palette.dart';
@@ -273,16 +274,34 @@ class _GlRouteMapState extends State<GlRouteMap> {
     }
   }
 
+  /// A mark first (a place, a station, a stop), then another route.
   Future<void> _onTap(math.Point<double> point) async {
     final c = _controller;
-    final onLineTap = _props.onLineTap;
-    if (c == null || !_ready || onLineTap == null) return;
+    if (c == null || !_ready) return;
     const slop = 16.0;
-    final features = await c.queryRenderedFeaturesInRect(
-      Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
-      const [RouteLayers.alternatives, RouteLayers.alternativesCasing],
-      null,
+    final box = Rect.fromCenter(
+      center: Offset(point.x, point.y),
+      width: slop * 2,
+      height: slop * 2,
     );
+    final onMarkTap = _props.onMarkTap;
+    if (onMarkTap != null) {
+      final marks = await c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null);
+      for (final f in marks) {
+        final properties = (f as Map<Object?, Object?>)['properties'];
+        final id = properties is Map<Object?, Object?> ? properties['id'] : null;
+        if (id is String) {
+          onMarkTap(id);
+          return;
+        }
+      }
+    }
+    final onLineTap = _props.onLineTap;
+    if (onLineTap == null) return;
+    final features = await c.queryRenderedFeaturesInRect(box, const [
+      RouteLayers.alternatives,
+      RouteLayers.alternativesCasing,
+    ], null);
     if (features.isEmpty) return;
     final properties = (features.first as Map<Object?, Object?>)['properties'];
     final index = properties is Map<Object?, Object?> ? properties['index'] : null;
@@ -315,7 +334,12 @@ class _GlRouteMapState extends State<GlRouteMap> {
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
       onMapCreated: (c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
-      onMapClick: kIsWeb && p.onLineTap == null ? null : (point, _) => _onTap(point),
+      onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null
+          ? null
+          : (point, _) => _onTap(point),
+      onMapLongClick: p.onLongPress == null
+          ? null
+          : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
     );
   }
 }

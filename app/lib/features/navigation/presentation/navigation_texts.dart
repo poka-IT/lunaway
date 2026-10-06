@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -124,6 +127,53 @@ extension NavigationTexts on Translations {
 
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
+
+  /// "Gazole", "SP95-E10".
+  String fuelName(VehicleFuel fuel) => switch (fuel) {
+    VehicleFuel.diesel => _t.navigation.fuel.kinds.diesel,
+    VehicleFuel.e10 => _t.navigation.fuel.kinds.e10,
+    VehicleFuel.sp95 => _t.navigation.fuel.kinds.sp95,
+    VehicleFuel.sp98 => _t.navigation.fuel.kinds.sp98,
+    VehicleFuel.e85 => _t.navigation.fuel.kinds.e85,
+    VehicleFuel.lpg => _t.navigation.fuel.kinds.lpg,
+  };
+
+  /// "1,789 €/L": to the tenth of a cent, as stations show it.
+  String litrePrice(double euros) =>
+      _t.navigation.fuel.price(price: NumberFormat('0.000', _locale).format(euros));
+
+  /// "1,812 €/L avec le détour".
+  String litrePriceWithDetour(double euros) =>
+      _t.navigation.fuel.withDetour(price: NumberFormat('0.000', _locale).format(euros));
+
+  /// "il y a 40 min", "il y a 3 h", "il y a 2 j": how old a price is.
+  String priceAge(DateTime at, DateTime now) {
+    final age = now.difference(at);
+    if (age.inMinutes < 60) {
+      return _t.navigation.fuel.minutesAgo(n: '${math.max(1, age.inMinutes)}');
+    }
+    if (age.inHours < 48) return _t.navigation.fuel.hoursAgo(n: '${age.inHours}');
+    return _t.navigation.fuel.daysAgo(n: '${age.inDays}');
+  }
+
+  /// "+1,2 km · +2 min", or "sur le trajet" for a station by the road.
+  String detour(double metres, double seconds, DistanceUnits units) => metres < 100
+      ? _t.navigation.fuel.onRoute
+      : _t.navigation.fuel.detour(
+          distance: routeDistance(metres, units),
+          minutes: '${math.max(1, (seconds / 60).round())}',
+        );
+
+  /// What the "add a stop" button says once the detour is known.
+  String addStop(StopQuote? quote, {required bool quoting}) {
+    if (quoting) return _t.navigation.stops.quoting;
+    final extra = quote?.extraS;
+    if (extra == null) return _t.navigation.stops.add;
+    final minutes = (extra / 60).round();
+    return minutes < 1
+        ? _t.navigation.stops.addFree
+        : _t.navigation.stops.addCost(minutes: '$minutes');
+  }
 
   /// "Fourgon aménagé · H 2,65 m · l 2,05 m · L 6,0 m · 3,5 t": the vehicle
   /// a route is computed for, as the user entered it.

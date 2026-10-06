@@ -12,6 +12,7 @@ import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
@@ -91,6 +92,7 @@ void main() {
     List<Object> answers = const [],
     RoadEventsSource? events,
     List<RoutePlan> more = const [],
+    List<RouteStop> stops = const [],
   }) async {
     routes = FakeRouteService(answers.isEmpty ? [p] : answers);
     feed = FakeLocationFeed();
@@ -116,6 +118,7 @@ void main() {
       routeIndex: p.routes.first.index,
       target: target,
       words: TranslatedWording(fr, DistanceUnits.metric),
+      stops: stops,
     );
     expect(started, isTrue);
     await settle();
@@ -186,6 +189,43 @@ void main() {
     expect(session().alert, isA<ReroutedAlert>());
     expect(engine.tracks.first.disposed, isTrue);
     expect(voice.said, contains('Recalcul de l’itinéraire.'.replaceAll('’', "'")));
+  });
+
+  test('off the route, the new route keeps the stops not reached yet', () async {
+    final a = routeFixture('limoges_drive');
+    final detour = routeFixture('missed_turn');
+    final stop = RouteStop(position: LineTrack(a.routes.single).at(2500), label: 'Boulangerie');
+    await start(a, answers: [detour], more: [detour], stops: [stop]);
+    final fixes = along(a.routes.single, toM: 600);
+    await send(fixes);
+    final away = LatLng(fixes.last.position.lat + 0.003, fixes.last.position.lon);
+    await send([
+      for (var i = 1; i <= 3; i++)
+        Fix(
+          position: away,
+          accuracyM: 5,
+          at: fixes.last.at.add(Duration(seconds: i)),
+          speedMps: 9,
+        ),
+    ]);
+    expect(routes.requests.single.stops, [stop.position]);
+    expect(session().stops, [stop]);
+  });
+
+  test('another destination drops the stops, and the way back puts them back', () async {
+    final a = routeFixture('limoges_drive');
+    final detour = routeFixture('missed_turn');
+    final stop = RouteStop(position: LineTrack(a.routes.single).at(2500), label: 'Boulangerie');
+    final controller = await start(a, answers: [detour, a], more: [detour, a], stops: [stop]);
+    await send(along(a.routes.single, toM: 300));
+    const elsewhere = RouteTarget(destination: LatLng(45.84, 1.27), label: 'Ailleurs');
+    expect(await controller.goTo(elsewhere), isTrue);
+    expect(routes.requests.last.destination, elsewhere.destination);
+    expect(routes.requests.last.stops, isEmpty);
+    expect(session().target, elsewhere);
+    expect(await controller.goTo(target, stops: [stop]), isTrue);
+    expect(routes.requests.last.stops, [stop.position]);
+    expect(session().stops, [stop]);
   });
 
   test('parked off the route is not a wrong turn', () async {

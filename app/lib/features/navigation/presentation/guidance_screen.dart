@@ -5,19 +5,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -226,6 +234,32 @@ class _GuidanceMap extends ConsumerWidget {
     final camera = session.overview || vehicle == null
         ? FitCamera(whole)
         : FollowCamera(position: vehicle.position, course: vehicle.course);
+    final places = route.line.length < 2
+        ? const <PlaceSummary>[]
+        : ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[];
+    final stations = ref.watch(shownFuelOffersProvider);
+    final t = context.t;
+    RoutePoint? pointOf(String id) {
+      if (id.startsWith('place:')) {
+        final place = places.where((x) => 'place:${x.id}' == id).firstOrNull;
+        if (place == null) return null;
+        return RoutePoint(
+          position: LatLng(place.lat, place.lon),
+          title: t.summaryTitle(place),
+          subtitle: t.kind(place.kind),
+          placeId: place.id,
+        );
+      }
+      final station = stations.where((x) => 'poi:${x.id}' == id).firstOrNull;
+      if (station == null) return null;
+      return RoutePoint(
+        position: station.position,
+        title: station.name ?? station.brand ?? t.navigation.fuel.station,
+        subtitle: t.litrePrice(station.priceEur),
+        poiId: station.id,
+      );
+    }
+
     return ref.watch(routeMapBuilderProvider)(
       context,
       RouteMapProps(
@@ -233,6 +267,16 @@ class _GuidanceMap extends ConsumerWidget {
         dark: dark,
         lines: [RouteMapLine(index: route.index, points: route.line, selected: true)],
         marks: [
+          for (final place in places)
+            RouteMapMark(
+              position: LatLng(place.lat, place.lon),
+              kind: RouteMarkKind.place,
+              id: 'place:${place.id}',
+            ),
+          for (final s in stations)
+            RouteMapMark(position: s.position, kind: RouteMarkKind.station, id: 'poi:${s.id}'),
+          for (final s in session.stops)
+            RouteMapMark(position: s.position, kind: RouteMarkKind.stop),
           RouteMapMark(position: session.target.destination, kind: RouteMarkKind.destination),
           for (final w in route.warnings)
             RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
@@ -242,9 +286,91 @@ class _GuidanceMap extends ConsumerWidget {
         vehicle: vehicle,
         camera: camera,
         padding: padding,
+        onMarkTap: (id) {
+          if (pointOf(id) case final point?) unawaited(openGuidancePoint(context, ref, point));
+        },
+        onLongPress: (at) => unawaited(openGuidancePoint(context, ref, RoutePoint(position: at))),
       ),
     );
   }
+}
+
+/// The card of a point of the guidance's map: add it as a stop (its detour
+/// computed from where the vehicle is), go there instead, or open the place;
+/// each change with the way back.
+Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint point) async {
+  final t = context.t;
+  final router = GoRouter.of(context);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final controller = ref.read(guidanceControllerProvider.notifier);
+  final session = ref.read(guidanceControllerProvider);
+  if (session == null) return;
+  final choice = await showRoutePointCard(
+    context,
+    point: point,
+    quote: controller.quoteStop,
+    stopsFull: session.stops.length >= maxRouteStops,
+  );
+  switch (choice) {
+    case AddStopChoice(:final quote):
+      final before = session.stops;
+      _said(
+        messenger,
+        t,
+        ok: await controller.applyQuote(quote),
+        done: t.navigation.stops.added,
+        undo: () => controller.setStops(before),
+      );
+    case GoDirectlyChoice():
+      final (target, stops) = (session.target, session.stops);
+      _said(
+        messenger,
+        t,
+        ok: await controller.goTo(
+          RouteTarget(destination: point.position, label: point.title, placeId: point.placeId),
+        ),
+        done: t.navigation.stops.destinationChanged,
+        undo: () => controller.goTo(target, stops: stops),
+      );
+    case OpenCardChoice():
+      if (point.placeId case final id?) unawaited(router.push<void>('${AppRoutes.map}?place=$id'));
+    case null:
+  }
+}
+
+/// Adds [stop] in one tap (a station of the fuel list): its detour from
+/// where the vehicle is, then the route through it.
+Future<void> addGuidanceStop(BuildContext context, WidgetRef ref, RouteStop stop) async {
+  final t = context.t;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final controller = ref.read(guidanceControllerProvider.notifier);
+  final before = ref.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
+  final quote = await controller.quoteStop(stop);
+  _said(
+    messenger,
+    t,
+    ok: quote != null && quote.extraS != null && await controller.applyQuote(quote),
+    done: t.navigation.stops.added,
+    undo: () => controller.setStops(before),
+  );
+}
+
+void _said(
+  ScaffoldMessengerState? messenger,
+  Translations t, {
+  required bool ok,
+  required String done,
+  required Future<bool> Function() undo,
+}) {
+  if (!ok) {
+    showMessage(messenger, t.navigation.stops.failed);
+    return;
+  }
+  showMessage(
+    messenger,
+    done,
+    action: SnackBarAction(label: t.common.undo, onPressed: () => unawaited(undo())),
+  );
 }
 
 /// The colours of the guidance's banner and bar: the brand's navy by day
@@ -406,7 +532,19 @@ class _Notices extends ConsumerWidget {
       _ => null,
     };
     final now = ref.watch(clockProvider)().toLocal();
+    final zone = session.dangerZone;
+    final along = session.snapshot?.distanceAlongM ?? 0;
     final notices = <Widget>[
+      if (zone != null)
+        _Notice(
+          icon: AppIcons.error,
+          strong: true,
+          text: zone.startM > along
+              ? t.navigation.guidance.dangerZone(
+                  distance: t.routeDistance(zone.startM - along, units),
+                )
+              : t.navigation.guidance.inDangerZone,
+        ),
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
       if (alert != null)
@@ -602,6 +740,26 @@ class _MapButtons extends ConsumerWidget {
           style: style,
           onPressed: () => controller.setVoice(on: !session.voiceOn),
           icon: Icon(session.voiceOn ? AppIcons.voiceOn : AppIcons.voiceOff),
+        ),
+        const SizedBox(height: Space.s),
+        IconButton(
+          tooltip: t.navigation.fuel.nextCheap,
+          style: style,
+          onPressed: () => showFuelSheet(
+            context,
+            line: session.route.line,
+            fromM: session.snapshot?.distanceAlongM ?? 0,
+            onAdd: (offer) => addGuidanceStop(
+              context,
+              ref,
+              RouteStop(
+                position: offer.position,
+                label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
+                poiId: offer.id,
+              ),
+            ),
+          ),
+          icon: const Icon(AppIcons.fuel),
         ),
         const SizedBox(height: Space.s),
         IconButton(

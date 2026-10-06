@@ -359,6 +359,54 @@
       "otherApps": "Ouvrir dans une autre application",
       "back": "Retour"
     },
+    "stops": {
+      "title": "Étapes",
+      "add": "Ajouter une étape",
+      "addCost": "Ajouter une étape · +$minutes min",
+      "addFree": "Ajouter une étape · sans détour",
+      "quoting": "Ajouter une étape · calcul du détour",
+      "noRoute": "Pas d'itinéraire par ce point pour votre véhicule.",
+      "full": "Cinq étapes au plus.",
+      "goDirectly": "Y aller directement",
+      "openCard": "Voir la fiche",
+      "point": "Point de la carte",
+      "remove": "Retirer l'étape",
+      "reorder": "Glisser pour changer l'ordre",
+      "added": "Étape ajoutée",
+      "removed": "Étape retirée",
+      "moved": "Ordre des étapes changé",
+      "destinationChanged": "Nouvelle destination",
+      "failed": "L'itinéraire n'a pas pu être changé."
+    },
+    "fuel": {
+      "action": "Carburant",
+      "nextCheap": "Carburant le moins cher devant",
+      "title": "Carburant sur le trajet",
+      "kinds": {
+        "diesel": "Gazole",
+        "e10": "SP95-E10",
+        "sp95": "SP95",
+        "sp98": "SP98",
+        "e85": "E85",
+        "lpg": "GPL"
+      },
+      "price": "$price €/L",
+      "withDetour": "$price €/L avec le détour",
+      "detour": "+$distance · +$minutes min",
+      "onRoute": "sur le trajet",
+      "open": "Ouvert",
+      "closed": "Fermé",
+      "unknownHours": "Horaires inconnus",
+      "add": "Ajouter",
+      "station": "Station-service",
+      "empty": "Aucune station de ce carburant près du trajet.",
+      "failed": "Les stations n'ont pas pu être chargées.",
+      "estimated": "Détours estimés d'après la distance à la route.",
+      "attribution": "Prix : Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)",
+      "minutesAgo": "il y a $n min",
+      "hoursAgo": "il y a $n h",
+      "daysAgo": "il y a $n j"
+    },
     "states": {
       "vehicleTitle": "Quel est votre véhicule ?",
       "vehicleHint": "L'itinéraire évite les ponts trop bas, les rues trop étroites et les routes interdites à votre gabarit. Indiquez sa hauteur, sa largeur, sa longueur et son poids.",
@@ -460,7 +508,9 @@
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
       "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
       "firstTitle": "Avant de partir",
-      "firstAccept": "J'ai compris"
+      "firstAccept": "J'ai compris",
+      "dangerZone": "Zone de danger dans $distance",
+      "inDangerZone": "Zone de danger"
     },
     "voice": {
       "rerouting": "Recalcul de l'itinéraire.",
@@ -504,7 +554,11 @@
       "voiceHint": "Avec la voix du téléphone",
       "units": "Distances",
       "metric": "Kilomètres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "fuel": "Carburant du véhicule",
+      "consumption": "Consommation",
+      "consumptionUnit": "L/100 km",
+      "consumptionHint": "Pour peser le détour vers une station moins chère."
     }
   },
   "list": {

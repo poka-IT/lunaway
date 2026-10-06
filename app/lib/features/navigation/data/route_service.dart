@@ -17,6 +17,7 @@ final class RouteRequest {
     required this.language,
     this.headingDeg,
     this.alternatives = 0,
+    this.stops = const [],
   });
 
   final LatLng origin;
@@ -28,8 +29,37 @@ final class RouteRequest {
   /// The vehicle's course, for a recalculation: the route leaves that way.
   final double? headingDeg;
 
-  /// Routes wanted besides the best one (0 to 2).
+  /// Routes wanted besides the best one (0 to 2); none with [stops], as the
+  /// API requires.
   final int alternatives;
+
+  /// Stops on the way, in order (the API takes 5 at most).
+  final List<LatLng> stops;
+
+  /// The same request: a route already computed for it serves again.
+  @override
+  bool operator ==(Object other) =>
+      other is RouteRequest &&
+      other.origin == origin &&
+      other.destination == destination &&
+      other.vehicle == vehicle &&
+      other.avoid == avoid &&
+      other.language == language &&
+      other.headingDeg == headingDeg &&
+      other.alternatives == alternatives &&
+      listEquals(other.stops, stops);
+
+  @override
+  int get hashCode => Object.hash(
+    origin,
+    destination,
+    vehicle,
+    avoid,
+    language,
+    headingDeg,
+    alternatives,
+    Object.hashAll(stops),
+  );
 }
 
 /// Why a route request failed, each with its own message.
@@ -84,7 +114,8 @@ final class GraphQLRouteService implements RouteService {
           avoid: r.avoid,
           language: r.language,
           headingDeg: r.headingDeg,
-          alternatives: r.alternatives,
+          alternatives: r.stops.isEmpty ? r.alternatives : 0,
+          stops: r.stops,
         ),
       ),
     );
@@ -123,4 +154,35 @@ Future<RoutePlan> withShapes(RoutePlan plan) async {
       else
         r,
   ]);
+}
+
+/// [RouteService] that answers a request it was just asked again from
+/// memory: the route of a stop's detour, computed to show its cost, serves
+/// once the stop is added. A few answers, for two minutes.
+final class CachingRouteService implements RouteService {
+  new(this._inner, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+
+  final RouteService _inner;
+  final DateTime Function() _clock;
+  final Map<RouteRequest, ({DateTime at, RoutePlan plan})> _recent = {};
+
+  static const _keep = Duration(minutes: 2);
+  static const _size = 6;
+
+  @override
+  Future<RoutePlan> route(RouteRequest request) async {
+    final now = _clock();
+    _recent.removeWhere((_, v) => now.difference(v.at) > _keep);
+    final known = _recent[request];
+    if (known != null) return known.plan;
+    final plan = await _inner.route(request);
+    _recent[request] = (at: _clock(), plan: plan);
+    while (_recent.length > _size) {
+      _recent.remove(_recent.keys.first);
+    }
+    return plan;
+  }
+
+  @override
+  Future<RoutingInfo> info() => _inner.info();
 }

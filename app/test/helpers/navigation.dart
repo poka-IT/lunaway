@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
@@ -15,12 +16,15 @@ import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/danger_zones.dart';
+import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
@@ -498,8 +502,14 @@ List<Override> navigationOverrides({
   Duration poll = const Duration(hours: 1),
   CountedNotificationAccess? notifications,
   DateTime Function()? clock,
+  List<PlaceSummary> placesNearRoute = const [],
+  FuelStationsSource? fuel,
+  DangerZoneSource? zones,
 }) => [
   if (clock != null) clockProvider.overrideWithValue(clock),
+  placesNearRouteProvider.overrideWith((ref, line) => Stream.value(placesNearRoute)),
+  fuelStationsProvider.overrideWithValue(fuel ?? FakeFuelStations(const [])),
+  dangerZonesProvider.overrideWithValue(zones ?? const NoDangerZones()),
   routeServiceProvider.overrideWithValue(routes),
   locationFeedProvider.overrideWithValue(
     feed ?? FakeLocationFeed(position: const LatLng(45.84719, 1.28476)),
@@ -515,6 +525,43 @@ List<Override> navigationOverrides({
   appForegroundProvider.overrideWithValue(const InFront()),
   notificationAccessProvider.overrideWithValue(notifications ?? CountedNotificationAccess()),
 ];
+
+/// Stations given in advance; the queries recorded.
+final class FakeFuelStations implements FuelStationsSource {
+  new(this.offers);
+
+  final List<FuelOffer> offers;
+  final List<({double fromM, VehicleFuel fuel})> queries = [];
+
+  @override
+  Future<List<FuelOffer>> along({
+    required List<LatLng> route,
+    required double fromM,
+    required VehicleFuel fuel,
+    double maxDetourM = defaultMaxDetourM,
+  }) async {
+    queries.add((fromM: fromM, fuel: fuel));
+    return offers;
+  }
+}
+
+/// One danger zone, from [startM] for [lengthM] metres.
+final class OneDangerZone implements DangerZoneSource {
+  const new({required this.startM, this.lengthM = 1000});
+
+  final double startM;
+  final double lengthM;
+
+  @override
+  List<DangerZone> ahead({
+    required List<LatLng> line,
+    required double fromM,
+    double reachM = 2000,
+  }) => [
+    if (startM + lengthM >= fromM && startM - fromM <= reachM)
+      DangerZone(id: 'zone', startM: startM, lengthM: lengthM),
+  ];
+}
 
 /// The notification permission, asked and counted.
 final class CountedNotificationAccess implements NotificationAccess {

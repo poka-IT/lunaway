@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -34,6 +35,29 @@ void main() {
       alternatives: 2,
     );
     expect(validator.checkVariables(routeOperation.document, vars), isEmpty);
+  });
+
+  test('a route with stops sends them as the schema asks', () {
+    final vars = routeVariables(
+      origin: const LatLng(45.84719, 1.28476),
+      destination: const LatLng(45.84510, 1.28637),
+      vehicle: checkVehicle(motorhome).profile!,
+      avoid: const AvoidOptions(),
+      language: RouteLanguage.fr,
+      stops: const [LatLng(45.8335, 1.2610), LatLng(45.8409, 1.2705)],
+    );
+    expect(validator.checkVariables(routeOperation.document, vars), isEmpty);
+  });
+
+  test('the fuel stations around a point are asked as the schema allows', () {
+    expect(validator.validate(fuelNearOperation.document), isEmpty);
+    expect(
+      validator.checkVariables(fuelNearOperation.document, {
+        'at': {'lat': 45.8, 'lon': 1.26},
+        'radiusM': 5000.0,
+      }),
+      isEmpty,
+    );
   });
 
   for (final name in [

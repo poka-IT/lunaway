@@ -77,7 +77,27 @@ enum RouteLanguage {
   String get speechTag => this == fr ? 'fr-FR' : 'en-GB';
 }
 
-/// The user's route settings, kept on the device.
+/// What the vehicle burns, as the French fuel price feed names it
+/// (`FuelKind` of the API). LPG also fills the tanks of a heating system.
+enum VehicleFuel {
+  diesel('DIESEL'),
+  e10('E10'),
+  sp95('SP95'),
+  sp98('SP98'),
+  e85('E85'),
+  lpg('LPG');
+
+  new(this.wire);
+
+  /// The API's name.
+  final String wire;
+
+  static VehicleFuel? fromWire(Object? wire) => values.where((f) => f.wire == '$wire').firstOrNull;
+}
+
+/// The user's route settings, kept on the device. The fuel and the
+/// consumption belong to the vehicle; they live here, beside the route
+/// options they serve, so the vehicle's table keeps its columns.
 @immutable
 final class NavigationSettings {
   const new({
@@ -85,6 +105,8 @@ final class NavigationSettings {
     this.voice = true,
     this.units = DistanceUnits.metric,
     this.acceptedDisclaimer,
+    this.fuel = VehicleFuel.diesel,
+    this.consumptionL100 = defaultConsumptionL100,
   });
 
   /// Unknown or corrupt values fall back to the defaults, never fatal: the
@@ -101,11 +123,23 @@ final class NavigationSettings {
         voice: json['voice'] != false,
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
         acceptedDisclaimer: accepted is String ? accepted : null,
+        fuel: VehicleFuel.fromWire(json['fuel']) ?? VehicleFuel.diesel,
+        consumptionL100: switch (json['consumptionL100']) {
+          final num c when c >= consumptionRange.min && c <= consumptionRange.max => c.toDouble(),
+          _ => defaultConsumptionL100,
+        },
       );
     } on FormatException {
       return const NavigationSettings();
     }
   }
+
+  /// Litres per 100 km of a motorhome of 3.5 t on the road, the figure the
+  /// detour to a cheaper station is weighed with until the user gives his.
+  static const defaultConsumptionL100 = 11.0;
+
+  /// The consumptions the form accepts.
+  static const ({double max, double min}) consumptionRange = (min: 4.0, max: 40.0);
 
   final AvoidOptions avoid;
 
@@ -117,16 +151,26 @@ final class NavigationSettings {
   /// `routing.disclaimer.v1`): a new version is shown again.
   final String? acceptedDisclaimer;
 
+  /// The vehicle's fuel: the stations offered sell it.
+  final VehicleFuel fuel;
+
+  /// Litres per 100 km: what a detour to a station costs in fuel.
+  final double consumptionL100;
+
   NavigationSettings copyWith({
     AvoidOptions? avoid,
     bool? voice,
     DistanceUnits? units,
     String? acceptedDisclaimer,
+    VehicleFuel? fuel,
+    double? consumptionL100,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
     voice: voice ?? this.voice,
     units: units ?? this.units,
     acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
+    fuel: fuel ?? this.fuel,
+    consumptionL100: consumptionL100 ?? this.consumptionL100,
   );
 
   String encode() => jsonEncode({
@@ -134,6 +178,8 @@ final class NavigationSettings {
     'voice': voice,
     'units': units.name,
     'acceptedDisclaimer': ?acceptedDisclaimer,
+    'fuel': fuel.wire,
+    'consumptionL100': consumptionL100,
   });
 
   @override
@@ -142,10 +188,12 @@ final class NavigationSettings {
       other.avoid == avoid &&
       other.voice == voice &&
       other.units == units &&
-      other.acceptedDisclaimer == acceptedDisclaimer;
+      other.acceptedDisclaimer == acceptedDisclaimer &&
+      other.fuel == fuel &&
+      other.consumptionL100 == consumptionL100;
 
   @override
-  int get hashCode => Object.hash(avoid, voice, units, acceptedDisclaimer);
+  int get hashCode => Object.hash(avoid, voice, units, acceptedDisclaimer, fuel, consumptionL100);
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).

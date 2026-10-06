@@ -50,21 +50,34 @@ enum RouteMarkKind {
 
   /// A road event on the route.
   event,
+
+  /// A stop on the way.
+  stop,
+
+  /// A place of the map near the route: tapped, it becomes a stop.
+  place,
+
+  /// A fuel station the fuel list found.
+  station,
 }
 
 @immutable
 final class RouteMapMark {
-  const new({required this.position, required this.kind});
+  const new({required this.position, required this.kind, this.id});
 
   final LatLng position;
   final RouteMarkKind kind;
 
-  @override
-  bool operator ==(Object other) =>
-      other is RouteMapMark && other.position == position && other.kind == kind;
+  /// What a tap on it reports (`place:<id>`, `poi:<id>`, `stop:<index>`);
+  /// a mark without one is not tappable.
+  final String? id;
 
   @override
-  int get hashCode => Object.hash(position, kind);
+  bool operator ==(Object other) =>
+      other is RouteMapMark && other.position == position && other.kind == kind && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(position, kind, id);
 }
 
 /// Where the camera looks.
@@ -129,6 +142,8 @@ final class RouteMapProps {
     this.vehicle,
     this.padding = EdgeInsets.zero,
     this.onLineTap,
+    this.onMarkTap,
+    this.onLongPress,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -144,6 +159,12 @@ final class RouteMapProps {
 
   /// A tap on a route that is not the chosen one.
   final ValueChanged<int>? onLineTap;
+
+  /// A tap on a mark that has an id.
+  final ValueChanged<String>? onMarkTap;
+
+  /// A long press on the map (a right click on a desktop), at that point.
+  final ValueChanged<LatLng>? onLongPress;
 }
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);
@@ -187,11 +208,15 @@ abstract final class RouteLook {
     RouteMarkKind.warning => _hex(Palette.corail),
     RouteMarkKind.blocker => _hex(Palette.corail700),
     RouteMarkKind.event => _hex(Palette.corail800),
+    RouteMarkKind.stop => _hex(Palette.sarcelleProfonde),
+    RouteMarkKind.place => _hex(Palette.minuit400),
+    RouteMarkKind.station => _hex(Palette.lanterne700),
   };
 
   static double markRadius(RouteMarkKind kind) => switch (kind) {
     RouteMarkKind.origin => 6,
     RouteMarkKind.destination => 9,
+    RouteMarkKind.place || RouteMarkKind.station => 6,
     _ => 8,
   };
 
@@ -229,7 +254,10 @@ Map<String, Object?> routeMarksCollection(List<RouteMapMark> marks) => {
       {
         'type': 'Feature',
         'properties': {
-          'kind': m.kind.name,
+          // `place` with an id is what the desktop map page reports a tap
+          // on (assets/map/lunaway_map.js), whatever the mark is.
+          'kind': m.id == null ? m.kind.name : 'place',
+          'id': ?m.id,
           'fill': RouteLook.markFill(m.kind),
           'radius': RouteLook.markRadius(m.kind),
         },

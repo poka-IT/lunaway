@@ -293,6 +293,23 @@ void main() {
     await shot(tester, 'preview');
     expect(routes.requests.single.vehicle.heightM, 3.3);
 
+    // The fuel list asks the API for the stations around the route: real
+    // stations of Limoges, their prices of the day.
+    await tester.tap(find.text(t.navigation.fuel.action));
+    await until(
+      tester,
+      () =>
+          find.text(t.navigation.fuel.add).evaluate().isNotEmpty ||
+          find.text(t.navigation.fuel.empty).evaluate().isNotEmpty ||
+          find.text(t.navigation.fuel.failed).evaluate().isNotEmpty,
+      timeout: const Duration(seconds: 30),
+      what: 'the stations',
+    );
+    debugPrint('FUEL STATIONS ${find.text(t.navigation.fuel.add).evaluate().length}');
+    await shot(tester, 'fuel');
+    await tester.tapAt(const Offset(20, 40));
+    await settle(tester, const Duration(seconds: 1));
+
     await tester.tap(start);
     await settle(tester, const Duration(seconds: 1));
     await shot(tester, 'disclaimer');

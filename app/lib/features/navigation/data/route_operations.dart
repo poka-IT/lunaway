@@ -79,6 +79,7 @@ Map<String, Object?> routeVariables({
   required RouteLanguage language,
   double? headingDeg,
   int alternatives = 0,
+  List<LatLng> stops = const [],
 }) => {
   'input': {
     'origin': {
@@ -87,6 +88,10 @@ Map<String, Object?> routeVariables({
       if (headingDeg != null) 'headingDeg': headingDeg % 360,
     },
     'destination': {'lat': destination.lat, 'lon': destination.lon},
+    if (stops.isNotEmpty)
+      'waypoints': [
+        for (final s in stops) {'lat': s.lat, 'lon': s.lon},
+      ],
     'vehicle': vehicle.toJson(),
     'options': avoid.toJson(),
     'alternatives': alternatives,

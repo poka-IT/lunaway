@@ -5,20 +5,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -246,14 +253,51 @@ class _PreviewMap extends ConsumerWidget {
       for (final r in plan?.routes ?? const <RouteOption>[])
         RouteMapLine(index: r.index, points: r.line, selected: r.index == p?.selected),
     ];
+    final line = selected?.line ?? const <LatLng>[];
+    final places = line.length < 2
+        ? const <PlaceSummary>[]
+        : ref.watch(placesNearRouteProvider(line)).value ?? const <PlaceSummary>[];
+    final stations = ref.watch(shownFuelOffersProvider);
     final marks = [
+      for (final place in places)
+        RouteMapMark(
+          position: LatLng(place.lat, place.lon),
+          kind: RouteMarkKind.place,
+          id: 'place:${place.id}',
+        ),
+      for (final s in stations)
+        RouteMapMark(position: s.position, kind: RouteMarkKind.station, id: 'poi:${s.id}'),
       if (p?.origin != null) RouteMapMark(position: p!.origin!, kind: RouteMarkKind.origin),
+      for (final s in p?.stops ?? const <RouteStop>[])
+        RouteMapMark(position: s.position, kind: RouteMarkKind.stop),
       RouteMapMark(position: target.destination, kind: RouteMarkKind.destination),
       for (final w in selected?.warnings ?? const <RouteWarning>[])
         RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
       for (final b in plan?.blockers ?? const <RouteWarning>[])
         RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
     ];
+    final t = context.t;
+    RoutePoint? pointOf(String id) {
+      if (id.startsWith('place:')) {
+        final place = places.where((x) => 'place:${x.id}' == id).firstOrNull;
+        if (place == null) return null;
+        return RoutePoint(
+          position: LatLng(place.lat, place.lon),
+          title: t.summaryTitle(place),
+          subtitle: t.kind(place.kind),
+          placeId: place.id,
+        );
+      }
+      final station = stations.where((x) => 'poi:${x.id}' == id).firstOrNull;
+      if (station == null) return null;
+      return RoutePoint(
+        position: station.position,
+        title: station.name ?? station.brand ?? t.navigation.fuel.station,
+        subtitle: t.litrePrice(station.priceEur),
+        poiId: station.id,
+      );
+    }
+
     // Every route in view, so an alternative can be compared and tapped;
     // choosing one leaves the camera where it is.
     final routeBounds = [
@@ -277,6 +321,13 @@ class _PreviewMap extends ConsumerWidget {
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
         onLineTap: (i) => ref.read(routePreviewControllerProvider(target).notifier).select(i),
+        onMarkTap: (id) {
+          if (pointOf(id) case final point?) {
+            unawaited(openPreviewPoint(context, ref, target, point));
+          }
+        },
+        onLongPress: (at) =>
+            unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at))),
       ),
     );
   }
@@ -323,6 +374,9 @@ class _Panel extends ConsumerWidget {
       children: [
         Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
         const SizedBox(height: Space.m),
+        StopsStrip(target: target),
+        if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)
+          const SizedBox(height: Space.m),
         ...body,
       ],
     );
@@ -368,6 +422,30 @@ class _Panel extends ConsumerWidget {
     return switch (plan.status) {
       RouteStatus.ok => [
         _Routes(plan: plan, selected: p.selected, target: target, units: units),
+        if (p.route case final route?)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => showFuelSheet(
+                context,
+                line: route.line,
+                fromM: 0,
+                onAdd: (offer) async => addPreviewStop(
+                  context,
+                  ref,
+                  target,
+                  RouteStop(
+                    position: offer.position,
+                    label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
+                    poiId: offer.id,
+                  ),
+                ),
+              ),
+              icon: const Icon(AppIcons.fuel),
+              label: Text(t.navigation.fuel.action),
+              style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+            ),
+          ),
         const SizedBox(height: Space.l),
         _Warnings(route: p.route, units: units, target: target),
         const SizedBox(height: Space.l),
@@ -408,6 +486,58 @@ class _Panel extends ConsumerWidget {
       ],
     };
   }
+}
+
+/// The card of a point of the preview's map: add it as a stop (its detour
+/// computed first), go there instead, or open the place.
+Future<void> openPreviewPoint(
+  BuildContext context,
+  WidgetRef ref,
+  RouteTarget target,
+  RoutePoint point,
+) async {
+  final t = context.t;
+  final router = GoRouter.of(context);
+  final stops = ref.read(routeStopsControllerProvider(target));
+  final controller = ref.read(routePreviewControllerProvider(target).notifier);
+  final choice = await showRoutePointCard(
+    context,
+    point: point,
+    quote: controller.quoteStop,
+    stopsFull: stops.length >= maxRouteStops,
+  );
+  if (!context.mounted) return;
+  switch (choice) {
+    case AddStopChoice(:final quote):
+      changeStops(context, ref, target, quote.stops, t.navigation.stops.added);
+    case GoDirectlyChoice():
+      unawaited(
+        router.pushReplacement<void>(
+          NavigationRoutes.previewOf(
+            RouteTarget(destination: point.position, label: point.title, placeId: point.placeId),
+          ),
+        ),
+      );
+    case OpenCardChoice():
+      if (point.placeId case final id?) unawaited(router.push<void>('${AppRoutes.map}?place=$id'));
+    case null:
+  }
+}
+
+/// Adds [stop] where it lengthens the trip the least, in one tap (a fuel
+/// station picked from the list), with the way back.
+void addPreviewStop(BuildContext context, WidgetRef ref, RouteTarget target, RouteStop stop) {
+  final preview = ref.read(routePreviewControllerProvider(target)).value;
+  final origin = preview?.origin;
+  final stops = ref.read(routeStopsControllerProvider(target));
+  if (origin == null || stops.length >= maxRouteStops) return;
+  final at = bestInsertion(
+    origin: origin,
+    stops: stops,
+    destination: target.destination,
+    stop: stop.position,
+  );
+  changeStops(context, ref, target, insertStop(stops, at, stop), context.t.navigation.stops.added);
 }
 
 /// The avoid options, read and written in the route settings: a change
@@ -720,7 +850,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                 if (engine != null || engineState.isLoading)
                   FilledButton.icon(
                     onPressed: ready && engine != null
-                        ? () => _start(plan, preview!.selected)
+                        ? () => _start(plan, preview!.selected, preview!.stops)
                         : null,
                     icon: const Icon(AppIcons.directions),
                     label: Text(t.navigation.preview.start),
@@ -741,16 +871,16 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     );
   }
 
-  Future<void> _start(RoutePlan plan, int selected) async {
+  Future<void> _start(RoutePlan plan, int selected, List<RouteStop> stops) async {
     setState(() => _starting = true);
     try {
-      await _startGuidance(plan, selected);
+      await _startGuidance(plan, selected, stops);
     } finally {
       if (mounted) setState(() => _starting = false);
     }
   }
 
-  Future<void> _startGuidance(RoutePlan plan, int selected) async {
+  Future<void> _startGuidance(RoutePlan plan, int selected, List<RouteStop> stops) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
@@ -771,6 +901,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
           routeIndex: selected,
           target: target,
           words: TranslatedWording(t, settings.units),
+          stops: stops,
         );
     if (!started) {
       showMessage(messenger, t.navigation.guidance.unavailable);

@@ -4,13 +4,16 @@ import 'dart:math' as math;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/danger_zones.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -47,7 +50,16 @@ abstract interface class GuidanceWording {
 enum GuidancePhase { navigating, offRoute, rerouting, arrived }
 
 /// Why the route changed.
-enum RerouteReason { offRoute, roadEvent }
+enum RerouteReason {
+  offRoute,
+  roadEvent,
+
+  /// The user added, removed or reordered stops.
+  stops,
+
+  /// The user chose another destination.
+  destination,
+}
 
 /// A calm message over the guidance, for a while.
 @immutable
@@ -120,6 +132,8 @@ final class GuidanceSession {
     this.reroutes = 0,
     this.overview = false,
     this.positionLost = false,
+    this.stops = const [],
+    this.dangerZone,
   });
 
   final RouteTarget target;
@@ -149,6 +163,13 @@ final class GuidanceSession {
   /// taken back. The next fix clears it.
   final bool positionLost;
 
+  /// The stops still ahead, in order.
+  final List<RouteStop> stops;
+
+  /// The danger zone ahead or around the vehicle, where the law allows one
+  /// to be announced.
+  final DangerZone? dangerZone;
+
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
 
@@ -160,6 +181,7 @@ final class GuidanceSession {
   }
 
   GuidanceSession copyWith({
+    RouteTarget? target,
     RoutePlan? plan,
     int? routeIndex,
     GuidancePhase? phase,
@@ -173,8 +195,10 @@ final class GuidanceSession {
     int? reroutes,
     bool? overview,
     bool? positionLost,
+    List<RouteStop>? stops,
+    DangerZone? Function()? dangerZone,
   }) => GuidanceSession(
-    target: target,
+    target: target ?? this.target,
     plan: plan ?? this.plan,
     routeIndex: routeIndex ?? this.routeIndex,
     phase: phase ?? this.phase,
@@ -188,6 +212,8 @@ final class GuidanceSession {
     reroutes: reroutes ?? this.reroutes,
     overview: overview ?? this.overview,
     positionLost: positionLost ?? this.positionLost,
+    stops: stops ?? this.stops,
+    dangerZone: dangerZone == null ? this.dangerZone : dangerZone(),
   );
 }
 
@@ -211,6 +237,9 @@ const _offRouteFixes = 2;
 const _movingMps = 1.5;
 
 const _alertFor = Duration(seconds: 10);
+
+/// A stop counts as reached this close, metres.
+const _stopReachedM = 80.0;
 
 /// After the position stream fails, how long before it is asked for again.
 const _fixRetryAfter = Duration(seconds: 10);
@@ -262,6 +291,7 @@ class GuidanceController extends _$GuidanceController {
     required int routeIndex,
     required RouteTarget target,
     required GuidanceWording words,
+    List<RouteStop> stops = const [],
   }) async {
     final json = plan.osrmJson;
     final engine = await ref.read(guidanceEngineProvider.future);
@@ -290,6 +320,7 @@ class GuidanceController extends _$GuidanceController {
       phase: GuidancePhase.navigating,
       voiceOn: settings.voice,
       voice: VoiceReadiness.none,
+      stops: stops,
     );
     final readiness = await voice.prepare(plan.applied.language);
     if (!ref.mounted || generation != _generation) return false;
@@ -318,6 +349,76 @@ class GuidanceController extends _$GuidanceController {
     if (!ref.mounted) return;
     await ref.read(routeSettingsControllerProvider.notifier).setVoice(on: on);
   }
+
+  /// The route with [stop] added where it lengthens the rest of the trip
+  /// the least, from where the vehicle is, and what it adds; null without a
+  /// position yet, or with no room for another stop.
+  Future<StopQuote?> quoteStop(RouteStop stop) async {
+    final s = state;
+    final fix = s?.lastFix;
+    final generation = _generation;
+    if (s == null || fix == null || s.stops.length >= maxRouteStops) return null;
+    final at = bestInsertion(
+      origin: fix.position,
+      stops: s.stops,
+      destination: s.target.destination,
+      stop: stop.position,
+    );
+    final stops = insertStop(s.stops, at, stop);
+    final plan = await ref.read(routeServiceProvider).route(_request(fix, s, stops: stops));
+    if (!_current(generation)) return null;
+    final after = plan.routes.firstOrNull;
+    final before = state!.snapshot;
+    final comparable = after != null && before != null && plan.status == RouteStatus.ok;
+    return StopQuote(
+      stops: stops,
+      plan: plan,
+      extraS: comparable ? after.durationS - before.durationRemainingS : null,
+      extraM: comparable ? after.distanceM - before.distanceRemainingM : null,
+    );
+  }
+
+  /// Takes the route of [quote]: its stop is added. False when it could not
+  /// be (a recalculation running, the guidance over).
+  Future<bool> applyQuote(StopQuote quote) =>
+      _change(RerouteReason.stops, stops: quote.stops, known: quote.plan);
+
+  /// A new route through [stops], in their order.
+  Future<bool> setStops(List<RouteStop> stops) =>
+      _change(RerouteReason.stops, stops: List.unmodifiable(stops.take(maxRouteStops)));
+
+  /// A new route straight to [target], without stops unless [stops] are
+  /// given (to put a destination back, with its stops).
+  Future<bool> goTo(RouteTarget target, {List<RouteStop> stops = const []}) =>
+      _change(RerouteReason.destination, stops: stops, target: target);
+
+  Future<bool> _change(
+    RerouteReason reason, {
+    required List<RouteStop> stops,
+    RouteTarget? target,
+    RoutePlan? known,
+  }) async {
+    final fix = state?.lastFix;
+    if (fix == null || _rerouting || !_current(_generation)) return false;
+    final before = state!.reroutes;
+    await _reroute(reason, fix, stops: stops, target: target, known: known);
+    return ref.mounted && state != null && state!.reroutes > before;
+  }
+
+  RouteRequest _request(
+    Fix fix,
+    GuidanceSession s, {
+    List<RouteStop>? stops,
+    RouteTarget? target,
+  }) => RouteRequest(
+    origin: fix.position,
+    destination: (target ?? s.target).destination,
+    vehicle: s.plan.applied.vehicle,
+    avoid: s.plan.applied.avoid,
+    language: s.plan.applied.language,
+    headingDeg: fix.courseDeg,
+    stops: [for (final stop in stops ?? s.stops) stop.position],
+  );
 
   void setOverview({required bool on}) {
     final s = state;
@@ -439,6 +540,11 @@ class GuidanceController extends _$GuidanceController {
       _say(_words!.arrived);
       return;
     }
+    // A stop is behind once the vehicle has been there.
+    if (next.stops.isNotEmpty &&
+        fix.position.distanceTo(next.stops.first.position) < _stopReachedM) {
+      next = next.copyWith(stops: next.stops.sublist(1));
+    }
     final instruction = snap.instruction;
     var said = false;
     if (instruction != null && _spoken.add(instruction.id)) {
@@ -497,7 +603,14 @@ class GuidanceController extends _$GuidanceController {
     return last != null && fix.at.difference(last) < _backoff;
   }
 
-  Future<void> _reroute(RerouteReason reason, Fix fix, {RoadEventFinding? cause}) async {
+  Future<void> _reroute(
+    RerouteReason reason,
+    Fix fix, {
+    RoadEventFinding? cause,
+    List<RouteStop>? stops,
+    RouteTarget? target,
+    RoutePlan? known,
+  }) async {
     final s = state;
     final words = _words;
     final generation = _generation;
@@ -511,26 +624,19 @@ class GuidanceController extends _$GuidanceController {
     );
     // A closure is said once; a new try after a failure goes quietly, its
     // notice on screen.
-    if (cause == null) {
+    if (cause != null) {
+      if (_announced.add(cause.event.id)) _say(words.closureAhead(cause));
+    } else if (reason == RerouteReason.offRoute) {
       _say(words.rerouting);
-    } else if (_announced.add(cause.event.id)) {
-      _say(words.closureAhead(cause));
     }
     Duration? extra;
     var landed = false;
     try {
-      final plan = await ref
-          .read(routeServiceProvider)
-          .route(
-            RouteRequest(
-              origin: fix.position,
-              destination: s.target.destination,
-              vehicle: s.plan.applied.vehicle,
-              avoid: s.plan.applied.avoid,
-              language: s.plan.applied.language,
-              headingDeg: fix.courseDeg,
-            ),
-          );
+      final plan =
+          known ??
+          await ref
+              .read(routeServiceProvider)
+              .route(_request(fix, s, stops: stops, target: target));
       if (!_current(generation)) return;
       final engine = await ref.read(guidanceEngineProvider.future);
       if (!_current(generation)) return;
@@ -550,6 +656,8 @@ class GuidanceController extends _$GuidanceController {
       final snap = track.update(fix);
       extra = before == null ? null : Duration(seconds: (snap.durationRemainingS - before).round());
       state = state!.copyWith(
+        target: target,
+        stops: stops,
         plan: plan,
         routeIndex: plan.routes.first.index,
         snapshot: snap,
@@ -670,7 +778,11 @@ class GuidanceController extends _$GuidanceController {
     );
     final blocking = found.blocking;
     final shown = [...blocking, ...found.alerts]..sort((a, b) => a.aheadM.compareTo(b.aheadM));
-    final next = s.copyWith(eventAlerts: shown);
+    final zone = ref
+        .read(dangerZonesProvider)
+        .ahead(line: s.route.line, fromM: snap?.distanceAlongM ?? 0)
+        .firstOrNull;
+    final next = s.copyWith(eventAlerts: shown, dangerZone: () => zone);
     if (blocking.isEmpty) {
       state = next;
       return false;

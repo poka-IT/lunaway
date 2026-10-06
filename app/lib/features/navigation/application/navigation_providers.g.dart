@@ -96,7 +96,7 @@ final class RouteSettingsControllerProvider
 }
 
 String _$routeSettingsControllerHash() =>
-    r'7f22d693abfa7f0099c5b67f8c11d672495c21e0';
+    r'4c6a90ea9e688e4e3a46a8932cafd8429e46a8e2';
 
 /// The route settings: avoid options, voice, units. The state changes at
 /// once, the write follows.
@@ -214,7 +214,7 @@ final class RouteServiceProvider
   }
 }
 
-String _$routeServiceHash() => r'4845b72e0436447e71d49fbd59fd5d0678c35ebd';
+String _$routeServiceHash() => r'57bf564c2da41e80da3558d7562d96ab3c1b6207';
 
 /// Whether routing works now, its data and its bounds.
 
@@ -822,7 +822,7 @@ final class RoutePreviewControllerProvider
 }
 
 String _$routePreviewControllerHash() =>
-    r'43abaa2aa9f09714671061a0d5025cbb3f3e32c2';
+    r'ae83d66ad50cc5234cb61b32914ebe6c1d30d965';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A

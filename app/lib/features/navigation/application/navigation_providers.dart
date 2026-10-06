@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/ferrostar_engine.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
@@ -15,6 +16,7 @@ import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/application/places_providers.dart' show noRetry;
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -43,6 +45,18 @@ class RouteSettingsController extends _$RouteSettingsController {
 
   Future<void> setUnits(DistanceUnits units) => _update((s) => s.copyWith(units: units));
 
+  Future<void> setFuel(VehicleFuel fuel) => _update((s) => s.copyWith(fuel: fuel));
+
+  /// Litres per 100 km, kept within the range the form accepts.
+  Future<void> setConsumption(double litres) => _update(
+    (s) => s.copyWith(
+      consumptionL100: litres.clamp(
+        NavigationSettings.consumptionRange.min,
+        NavigationSettings.consumptionRange.max,
+      ),
+    ),
+  );
+
   /// Records that the user read the disclaimer of [key].
   Future<void> acceptDisclaimer(String key) => _update((s) => s.copyWith(acceptedDisclaimer: key));
 
@@ -65,9 +79,10 @@ GraphQLClient routingClient(Ref ref) => GraphQLClient(
   rateLimitRetries: 0,
 );
 
-// keepAlive: a stateless service over the routing client.
+// keepAlive: a service over the routing client, with its few recent answers.
 @Riverpod(keepAlive: true)
-RouteService routeService(Ref ref) => GraphQLRouteService(ref.watch(routingClientProvider));
+RouteService routeService(Ref ref) =>
+    CachingRouteService(GraphQLRouteService(ref.watch(routingClientProvider)));
 
 /// Whether routing works now, its data and its bounds.
 @Riverpod(retry: noRetry)
@@ -163,7 +178,13 @@ final class RouteTarget {
 /// What the preview shows: the vehicle check, the start, and the plan.
 @immutable
 final class RoutePreview {
-  const new({required this.vehicle, this.origin, this.plan, this.selected = 0});
+  const new({
+    required this.vehicle,
+    this.origin,
+    this.plan,
+    this.selected = 0,
+    this.stops = const [],
+  });
 
   final VehicleCheck vehicle;
 
@@ -176,10 +197,13 @@ final class RoutePreview {
   /// The index (in the OSRM answer) of the route chosen.
   final int selected;
 
+  /// The stops the plan was computed with.
+  final List<RouteStop> stops;
+
   RouteOption? get route => plan?.routes.where((r) => r.index == selected).firstOrNull;
 
   RoutePreview select(int index) =>
-      RoutePreview(vehicle: vehicle, origin: origin, plan: plan, selected: index);
+      RoutePreview(vehicle: vehicle, origin: origin, plan: plan, selected: index, stops: stops);
 }
 
 /// The start of the preview's route: the device position, else the one the
@@ -216,6 +240,7 @@ class RoutePreviewController extends _$RoutePreviewController {
     final avoidFuture = ref.watch(routeSettingsControllerProvider.selectAsync((s) => s.avoid));
     final originFuture = ref.watch(previewOriginProvider.future);
     final language = RouteLanguage.of(ref.watch(routeLanguageCodeProvider));
+    final stops = ref.watch(routeStopsControllerProvider(target));
     final check = checkVehicle(await vehicleFuture);
     final avoid = await avoidFuture;
     final start = await originFuture;
@@ -223,14 +248,12 @@ class RoutePreviewController extends _$RoutePreviewController {
     final plan = await ref
         .read(routeServiceProvider)
         .route(
-          RouteRequest(
+          _request(
             origin: start,
-            destination: target.destination,
             vehicle: check.profile!,
             avoid: avoid,
             language: language,
-            // The API's most, asked without waypoints as it requires.
-            alternatives: 2,
+            stops: stops,
           ),
         );
     return RoutePreview(
@@ -238,6 +261,64 @@ class RoutePreviewController extends _$RoutePreviewController {
       origin: start,
       plan: plan,
       selected: plan.routes.firstOrNull?.index ?? 0,
+      stops: stops,
+    );
+  }
+
+  RouteRequest _request({
+    required LatLng origin,
+    required VehicleProfile vehicle,
+    required AvoidOptions avoid,
+    required RouteLanguage language,
+    required List<RouteStop> stops,
+  }) => RouteRequest(
+    origin: origin,
+    destination: target.destination,
+    vehicle: vehicle,
+    avoid: avoid,
+    language: language,
+    stops: [for (final s in stops) s.position],
+    // The API's most, asked only without stops as it requires.
+    alternatives: stops.isEmpty ? 2 : 0,
+  );
+
+  /// The route with [stop] added where it lengthens the trip the least,
+  /// and what it adds; null when there is no route to change, or no room
+  /// for another stop. The answer is kept: adding the stop then asks for
+  /// nothing more.
+  Future<StopQuote?> quoteStop(RouteStop stop) async {
+    final current = state.value;
+    final origin = current?.origin;
+    final profile = current?.vehicle.profile;
+    final plan = current?.plan;
+    if (current == null || origin == null || profile == null || plan == null) return null;
+    if (current.stops.length >= maxRouteStops) return null;
+    final at = bestInsertion(
+      origin: origin,
+      stops: current.stops,
+      destination: target.destination,
+      stop: stop.position,
+    );
+    final stops = insertStop(current.stops, at, stop);
+    final next = await ref
+        .read(routeServiceProvider)
+        .route(
+          _request(
+            origin: origin,
+            vehicle: profile,
+            avoid: plan.applied.avoid,
+            language: plan.applied.language,
+            stops: stops,
+          ),
+        );
+    final before = current.route;
+    final after = next.routes.firstOrNull;
+    final comparable = before != null && after != null && next.status == RouteStatus.ok;
+    return StopQuote(
+      stops: stops,
+      plan: next,
+      extraS: comparable ? after.durationS - before.durationS : null,
+      extraM: comparable ? after.distanceM - before.distanceM : null,
     );
   }
 
