@@ -19,9 +19,9 @@ import java.util.UUID
 
 /**
  * The spoken instructions of the guidance, through Android's own speech
- * engine: nothing is downloaded by the app and nothing leaves the device
- * unless the user's engine does so itself (a voice that needs the network is
- * reported as such, and the app prefers the others).
+ * engine: nothing is downloaded by the app, and a voice that needs the
+ * network is reported as such; the app speaks with installed voices only, so
+ * the instructions stay on the device.
  *
  * The speech uses the navigation guidance audio usage and asks for a
  * transient focus that lets music duck under it, as a navigation app does.

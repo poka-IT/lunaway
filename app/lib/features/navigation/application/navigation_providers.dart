@@ -241,11 +241,14 @@ class RoutePreviewController extends _$RoutePreviewController {
     );
   }
 
-  /// Chooses another route. Ignored while routes are computed: the ones on
-  /// screen are those of the vehicle or the options before the change.
+  /// Chooses another route. Ignored while routes are computed or after a
+  /// failure: the ones on screen are those of the vehicle or the options
+  /// before the change.
   void select(int index) {
-    final current = state.value;
-    if (current != null && !state.isLoading) state = AsyncData(current.select(index));
+    final current = state;
+    if (current is AsyncData<RoutePreview> && !current.isLoading) {
+      state = AsyncData(current.value.select(index));
+    }
   }
 }
 

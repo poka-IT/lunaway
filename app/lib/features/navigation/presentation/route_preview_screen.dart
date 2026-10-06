@@ -74,7 +74,13 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     final preview = ref.watch(routePreviewControllerProvider(target));
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final panel = _Panel(target: target, preview: preview, units: units);
-    final action = _ActionBar(target: target, preview: preview.value, computing: preview.isLoading);
+    // A failed recalculation keeps the previous route as its value: only a
+    // route of the current vehicle and options may start.
+    final action = _ActionBar(
+      target: target,
+      preview: preview.value,
+      computing: preview is! AsyncData<RoutePreview> || preview.isLoading,
+    );
     if (size == WindowSize.compact) {
       return Scaffold(
         body: LayoutBuilder(
@@ -713,7 +719,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                 // While the engine loads, the button holds its place.
                 if (engine != null || engineState.isLoading)
                   FilledButton.icon(
-                    onPressed: ready && engine != null ? () => _start(plan) : null,
+                    onPressed: ready && engine != null
+                        ? () => _start(plan, preview!.selected)
+                        : null,
                     icon: const Icon(AppIcons.directions),
                     label: Text(t.navigation.preview.start),
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
@@ -733,16 +741,16 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     );
   }
 
-  Future<void> _start(RoutePlan plan) async {
+  Future<void> _start(RoutePlan plan, int selected) async {
     setState(() => _starting = true);
     try {
-      await _startGuidance(plan);
+      await _startGuidance(plan, selected);
     } finally {
       if (mounted) setState(() => _starting = false);
     }
   }
 
-  Future<void> _startGuidance(RoutePlan plan) async {
+  Future<void> _startGuidance(RoutePlan plan, int selected) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
@@ -760,7 +768,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
         .read(guidanceControllerProvider.notifier)
         .start(
           plan: plan,
-          routeIndex: preview!.selected,
+          routeIndex: selected,
           target: target,
           words: TranslatedWording(t, settings.units),
         );

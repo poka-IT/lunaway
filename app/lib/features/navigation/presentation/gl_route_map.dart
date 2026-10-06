@@ -259,15 +259,16 @@ class _GlRouteMapState extends State<GlRouteMap> {
         // A fix a second: the camera glides from one to the next instead of
         // jumping, which reads calmer at the wheel. Not awaited: the next
         // fix's glide takes over from this one.
+        final glide = Motion.reduced(context)
+            ? Duration.zero
+            : follow
+            ? const Duration(milliseconds: 950)
+            : Motion.camera;
         unawaited(
-          c.animateCamera(
-            update,
-            duration: Motion.reduced(context)
-                ? Duration.zero
-                : follow
-                ? const Duration(milliseconds: 950)
-                : Motion.camera,
-          ),
+          c.animateCamera(update, duration: glide).catchError((Object e, StackTrace st) {
+            _log.warning('camera move failed', e, st);
+            return null;
+          }),
         );
     }
   }

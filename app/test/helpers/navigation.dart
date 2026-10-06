@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
@@ -496,7 +497,9 @@ List<Override> navigationOverrides({
   Vehicle? vehicle = motorhome,
   Duration poll = const Duration(hours: 1),
   CountedNotificationAccess? notifications,
+  DateTime Function()? clock,
 }) => [
+  if (clock != null) clockProvider.overrideWithValue(clock),
   routeServiceProvider.overrideWithValue(routes),
   locationFeedProvider.overrideWithValue(
     feed ?? FakeLocationFeed(position: const LatLng(45.84719, 1.28476)),

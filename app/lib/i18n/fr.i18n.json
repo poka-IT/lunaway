@@ -435,6 +435,7 @@
       "eventClosure": "Route fermée dans $distance",
       "eventLimit": "Gabarit limité par des travaux dans $distance",
       "eventSource": "$source, données de $time",
+      "eventSourceOn": "$source, données du $day à $time",
       "closureOffline": "Route fermée dans $distance : pas de réseau pour chercher un autre chemin",
       "closureFailed": "Route fermée dans $distance : pas encore d'autre chemin",
       "voiceOn": "Activer la voix",

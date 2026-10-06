@@ -134,6 +134,8 @@ else
   if command -v cargo-deny >/dev/null 2>&1; then
     run "cargo deny guidance" cargo deny --manifest-path app/packages/lunaway_nav/rust/Cargo.toml \
       --config backend/deny.toml --log-level error check bans licenses sources advisories
+  else
+    echo "==> cargo deny guidance: skipped (cargo install cargo-deny --locked)"
   fi
   if [ "$QUICK" -eq 0 ]; then
     run "cargo test guidance" in_nav cargo test --locked

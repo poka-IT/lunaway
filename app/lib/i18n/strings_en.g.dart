@@ -1662,6 +1662,9 @@ class Translations$navigation$guidance$en {
 	/// en: '$source, data of $time'
 	String eventSource({required Object source, required Object time}) => '${source}, data of ${time}';
 
+	/// en: '$source, data of $day at $time'
+	String eventSourceOn({required Object source, required Object day, required Object time}) => '${source}, data of ${day} at ${time}';
+
 	/// en: 'Road closed in $distance: no network to look for another way'
 	String closureOffline({required Object distance}) => 'Road closed in ${distance}: no network to look for another way';
 
@@ -2299,6 +2302,7 @@ extension on Translations {
 			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Road closed in ${distance}',
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Size limited by roadworks in ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, data of ${time}',
+			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, data of ${day} at ${time}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
 			'navigation.guidance.voiceOn' => 'Turn the voice on',

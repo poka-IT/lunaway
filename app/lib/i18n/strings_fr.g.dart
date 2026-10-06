@@ -824,6 +824,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String eventClosure({required Object distance}) => 'Route fermée dans ${distance}';
 	@override String eventLimit({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}';
 	@override String eventSource({required Object source, required Object time}) => '${source}, données de ${time}';
+	@override String eventSourceOn({required Object source, required Object day, required Object time}) => '${source}, données du ${day} à ${time}';
 	@override String closureOffline({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin';
 	@override String closureFailed({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin';
 	@override String get voiceOn => 'Activer la voix';
@@ -1318,6 +1319,7 @@ extension on TranslationsFr {
 			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Route fermée dans ${distance}',
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, données de ${time}',
+			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, données du ${day} à ${time}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin',
 			'navigation.guidance.voiceOn' => 'Activer la voix',

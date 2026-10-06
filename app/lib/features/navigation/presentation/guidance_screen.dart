@@ -368,6 +368,24 @@ class _ManeuverBanner extends ConsumerWidget {
   }
 }
 
+/// Where a road event comes from and how recent its data is: the source's
+/// name, else its id, so the origin always shows; the day as well when the
+/// data is not of today.
+String _eventSource(Translations t, RoadEventFinding e, DateTime now) {
+  final source = e.source;
+  final name = source?.name ?? source?.attribution ?? e.event.source;
+  final at = (source?.dataAt ?? source?.lastReadAt)?.toLocal();
+  if (at == null) return name;
+  final today = at.year == now.year && at.month == now.month && at.day == now.day;
+  return today
+      ? t.navigation.guidance.eventSource(source: name, time: t.clockTime(at))
+      : t.navigation.guidance.eventSourceOn(
+          source: name,
+          day: t.dayMonth(at),
+          time: t.clockTime(at),
+        );
+}
+
 /// What the driver should know besides the next maneuver: a new route and
 /// why, a closure ahead, off the route, the restriction coming up, the
 /// voice that is missing.
@@ -381,6 +399,13 @@ class _Notices extends ConsumerWidget {
     final t = context.t;
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final alert = session.alert;
+    // The event an alert already speaks of is not repeated below it.
+    final alertEvent = switch (alert) {
+      ClosureAheadAlert(:final finding) || NoDetourAlert(:final finding) => finding.event.id,
+      RerouteFailedAlert(:final cause?) => cause.event.id,
+      _ => null,
+    };
+    final now = ref.watch(clockProvider)().toLocal();
     final notices = <Widget>[
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
@@ -426,7 +451,7 @@ class _Notices extends ConsumerWidget {
       else if (session.phase == GuidancePhase.offRoute)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.offRoute, strong: true),
       if (session.ahead.isNotEmpty) _WarningAhead(ahead: session.ahead.first, units: units),
-      for (final e in session.eventAlerts.take(1))
+      for (final e in session.eventAlerts.where((e) => e.event.id != alertEvent).take(1))
         _Notice(
           icon: AppIcons.error,
           strong: e.event.eventClass == RoadEventClass.closure,
@@ -440,15 +465,7 @@ class _Notices extends ConsumerWidget {
               ),
               _ => t.navigation.guidance.eventAhead(distance: t.routeDistance(e.aheadM, units)),
             },
-            if (e.source case final source?)
-              if (source.name ?? source.attribution case final name?)
-                switch (source.dataAt ?? source.lastReadAt) {
-                  final at? => t.navigation.guidance.eventSource(
-                    source: name,
-                    time: t.clockTime(at.toLocal()),
-                  ),
-                  null => name,
-                },
+            _eventSource(t, e, now),
           ].join('\n'),
         ),
       if (session.voiceOn && session.voice != VoiceReadiness.ready) _VoiceNotice(session: session),

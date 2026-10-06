@@ -351,6 +351,23 @@ void main() {
       expect(start().onPressed, isNotNull);
       expect(app.container(tester).read(guidanceControllerProvider), isNull);
     });
+
+    testWidgets('after a failed recalculation, the old route cannot be started', (tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final (_, routes) = await openPreview(
+        tester,
+        answers: [plan, const RouteFailure(RouteFailureKind.offline)],
+        engine: LineEngine([plan]),
+      );
+      await tester.tap(find.text('Péages'));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(2));
+      final start = find.ancestor(
+        of: find.text('Démarrer'),
+        matching: find.bySubtype<FilledButton>(),
+      );
+      expect(tester.widget<FilledButton>(start).onPressed, isNull, reason: 'the toll route');
+    });
   });
 
   group('the guidance', () {
@@ -506,7 +523,9 @@ void main() {
       await guide(tester, plan, events: events);
       await drive(tester, plan, toM: 700);
       expect(find.textContaining('Travaux dans 800 m'), findsOneWidget);
-      expect(find.textContaining('DIR Centre-Ouest, données de'), findsOneWidget);
+      final t = await AppLocale.fr.build();
+      final dataAt = t.clockTime(DateTime.utc(2026, 10, 6, 8, 30).toLocal());
+      expect(find.textContaining('DIR Centre-Ouest, données de $dataAt'), findsOneWidget);
     });
 
     testWidgets('the restriction coming up shows with its distance', (tester) async {

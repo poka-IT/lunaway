@@ -435,6 +435,7 @@
       "eventClosure": "Road closed in $distance",
       "eventLimit": "Size limited by roadworks in $distance",
       "eventSource": "$source, data of $time",
+      "eventSourceOn": "$source, data of $day at $time",
       "closureOffline": "Road closed in $distance: no network to look for another way",
       "closureFailed": "Road closed in $distance: no other way yet",
       "voiceOn": "Turn the voice on",

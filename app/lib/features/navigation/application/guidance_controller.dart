@@ -237,6 +237,8 @@ class GuidanceController extends _$GuidanceController {
   final Set<String> _spoken = {};
   final Map<String, int> _warned = {};
   final Set<String> _reroutedFor = {};
+  final Set<String> _announced = {};
+  int _fixRetries = 0;
   int _offRoute = 0;
   DateTime? _lastReroute;
   DateTime? _lastEventCheck;
@@ -345,6 +347,8 @@ class GuidanceController extends _$GuidanceController {
     _spoken.clear();
     _warned.clear();
     _reroutedFor.clear();
+    _announced.clear();
+    _fixRetries = 0;
     _offRoute = 0;
     _lastReroute = null;
     _lastEventCheck = null;
@@ -401,7 +405,11 @@ class GuidanceController extends _$GuidanceController {
     if (!_current(generation)) return;
     state = state!.copyWith(positionLost: true);
     _fixRetry?.cancel();
-    _fixRetry = Timer(_fixRetryAfter, () async {
+    // 10 s, then longer while location stays off: each try starts and
+    // stops the service and its notification.
+    final wait = _fixRetryAfter * math.min(1 << _fixRetries, 12);
+    _fixRetries++;
+    _fixRetry = Timer(wait, () async {
       await ref.read(appForegroundProvider).resumed();
       if (_current(generation) && state!.positionLost) _listenFixes();
     });
@@ -413,6 +421,7 @@ class GuidanceController extends _$GuidanceController {
     if (track == null || s == null || s.phase == GuidancePhase.arrived) return;
     final snap = track.update(fix);
     var next = s.copyWith(snapshot: snap, lastFix: fix, positionLost: false);
+    _fixRetries = 0;
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
       // the screen stays on for the arrival card.
@@ -500,7 +509,13 @@ class GuidanceController extends _$GuidanceController {
       phase: GuidancePhase.rerouting,
       alert: () => cause == null ? s.alert : ClosureAheadAlert(finding: cause, until: alertUntil),
     );
-    _say(cause == null ? words.rerouting : words.closureAhead(cause));
+    // A closure is said once; a new try after a failure goes quietly, its
+    // notice on screen.
+    if (cause == null) {
+      _say(words.rerouting);
+    } else if (_announced.add(cause.event.id)) {
+      _say(words.closureAhead(cause));
+    }
     Duration? extra;
     var landed = false;
     try {
@@ -559,7 +574,9 @@ class GuidanceController extends _$GuidanceController {
     // The new route is checked at once, against every event known by now:
     // the server may not have known the closure, and a route back through
     // it is no detour.
-    if (!_checkEvents(afterReroute: cause != null)) _say(words.rerouted(extra));
+    // A closure on the new route asks for another one at once: "new route"
+    // waits for that one.
+    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) _say(words.rerouted(extra));
   }
 
   void _failed(RouteFailure? failure, Fix fix, {RoadEventFinding? cause}) {
@@ -659,7 +676,9 @@ class GuidanceController extends _$GuidanceController {
       return false;
     }
     final first = blocking.first;
-    if (afterReroute || _reroutedFor.contains(first.event.id)) {
+    // "No other way" only for an event a new route was asked for already;
+    // another one met on the new route gets its own try.
+    if (_reroutedFor.contains(first.event.id)) {
       _events.markHandled(blocking.map((f) => f.event.id));
       state = next.copyWith(
         alert: () => NoDetourAlert(finding: first, until: fix.at.add(_alertFor * 3)),

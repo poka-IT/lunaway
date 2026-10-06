@@ -320,6 +320,10 @@ void main() {
       expect(routes.requests, hasLength(2), reason: 'the new route meets the closure');
       expect(session().plan, same(detour));
       expect((session().alert! as ReroutedAlert).reason, RerouteReason.roadEvent);
+      // The closure is said, then the detour; never "new route" over the
+      // closure's sentence before the detour is there.
+      final closure = voice.said.lastIndexWhere((s) => s.startsWith('Route fermée'));
+      expect(voice.said.sublist(closure + 1), [startsWith('Nouvel itinéraire')]);
     });
 
     test(

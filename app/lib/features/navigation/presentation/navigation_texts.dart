@@ -122,6 +122,9 @@ extension NavigationTexts on Translations {
   /// The arrival time, "15:42" or "3:42 PM".
   String clockTime(DateTime at) => DateFormat.jm(_locale).format(at);
 
+  /// "6 oct.", "Oct 6".
+  String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
+
   /// "Fourgon aménagé · H 2,65 m · l 2,05 m · L 6,0 m · 3,5 t": the vehicle
   /// a route is computed for, as the user entered it.
   String vehicleSummary(Vehicle v) {

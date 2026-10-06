@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- The position shows on the map and sorts the places around; it never leaves the device. -->
+    <!-- The position shows on the map and sorts the places around; it leaves the
+         device only as the start of a route the user asks for. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Backups carry the user's own database only (favourites, settings,

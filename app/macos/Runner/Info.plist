@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it. It also goes there when you add a place where you stand.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it. It also goes there when you add a place where you stand.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
