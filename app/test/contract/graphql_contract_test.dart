@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/account/data/account_operations.dart';
+import 'package:lunaway/features/community/data/community_operations.dart';
+import 'package:lunaway/features/favorites/data/favorites_sync.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -26,7 +29,12 @@ void main() {
     expect(allOperations.map((o) => o.name), contains('Changes'));
   });
 
-  for (final op in allOperations) {
+  for (final op in [
+    ...allOperations,
+    ...accountOperations,
+    ...communityOperations,
+    ...GraphQLFavoritesRemote.operations,
+  ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
     });

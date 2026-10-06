@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -37,6 +38,11 @@ final class Place {
     this.descriptions = const [],
     this.ratings = const [],
     this.externalLinks = const [],
+    this.verification = Verification.verified,
+    this.reviewCount = 0,
+    this.photoCount = 0,
+    this.coverPhotos = const [],
+    this.reportedIssues = const [],
   });
 
   final String id;
@@ -92,6 +98,21 @@ final class Place {
   /// The pages of the place on its sources' sites.
   final List<ExternalLink> externalLinks;
 
+  /// [Verification.toVerify] while a place only the community describes
+  /// waits for two confirmations.
+  final Verification verification;
+
+  /// Published reviews with text, and published photos.
+  final int reviewCount;
+  final int photoCount;
+
+  /// The latest published photos (three at most), kept offline; each names
+  /// its author so the device hides a muted author's.
+  final List<Photo> coverPhotos;
+
+  /// Issues visitors reported over the last 30 days, by kind.
+  final List<IssueSummary> reportedIssues;
+
   LatLng get position => LatLng(lat, lon);
 
   /// The freshest date that says the data still holds.
@@ -109,6 +130,7 @@ final class Place {
     priceParkingEur: priceParkingEur,
     ratingAverage: combinedRating(ratings)?.average,
     ratingCount: combinedRating(ratings)?.count ?? 0,
+    verification: verification,
   );
 
   @override
@@ -141,7 +163,12 @@ final class Place {
       const ListEquality<FieldProvenance>().equals(other.provenance, provenance) &&
       const ListEquality<LocalizedText>().equals(other.descriptions, descriptions) &&
       const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
-      const ListEquality<ExternalLink>().equals(other.externalLinks, externalLinks);
+      const ListEquality<ExternalLink>().equals(other.externalLinks, externalLinks) &&
+      other.verification == verification &&
+      other.reviewCount == reviewCount &&
+      other.photoCount == photoCount &&
+      const ListEquality<Photo>().equals(other.coverPhotos, coverPhotos) &&
+      const ListEquality<IssueSummary>().equals(other.reportedIssues, reportedIssues);
 
   @override
   int get hashCode => Object.hash(id, updatedAt, lat, lon);
@@ -284,6 +311,7 @@ final class PlaceSummary {
     this.priceParkingEur,
     this.ratingAverage,
     this.ratingCount = 0,
+    this.verification = Verification.verified,
   });
 
   final String id;
@@ -300,6 +328,9 @@ final class PlaceSummary {
   final double? ratingAverage;
   final int ratingCount;
 
+  /// Whether the place still waits for confirmations.
+  final Verification verification;
+
   LatLng get position => LatLng(lat, lon);
 
   @override
@@ -315,7 +346,8 @@ final class PlaceSummary {
       const SetEquality<Service>().equals(other.services, services) &&
       other.priceParkingEur == priceParkingEur &&
       other.ratingAverage == ratingAverage &&
-      other.ratingCount == ratingCount;
+      other.ratingCount == ratingCount &&
+      other.verification == verification;
 
   @override
   int get hashCode => Object.hash(id, lat, lon, kind, overnight);

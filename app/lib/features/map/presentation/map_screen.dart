@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -162,6 +164,13 @@ class _Map extends ConsumerWidget {
         onMapReady: (c) => ref.read(mapControllerProvider.notifier).attach(c),
         padding: padding,
         attributionInset: attributionInset,
+        language: Localizations.localeOf(context).languageCode,
+        // The first view of a run shows the whole region below the search
+        // and the chips; later ones come back where the user left the map.
+        // A map made again before its fit (a theme or language change in
+        // the first seconds) still fits: the camera it reported is only the
+        // first one.
+        fitInitial: viewport == null || isFirstCamera(viewport),
       ),
     );
     return Stack(
@@ -256,12 +265,22 @@ class _SelectionActions extends ConsumerWidget {
   };
 }
 
-/// The map's own buttons: the position, and zoom where there is a mouse.
+/// The map's own buttons: a new place, the position, and zoom where there
+/// is a mouse.
 class _MapControls extends StatelessWidget {
   const new({required this.onLocate, this.zoom = false});
 
   final VoidCallback onLocate;
   final bool zoom;
+
+  /// Marks the middle of the map as the point of a new place: the second
+  /// gesture is "Add a place here" in the point's details, and a long press
+  /// moves the point.
+  static void _addPlace(WidgetRef ref) {
+    final viewport = ref.read(viewportProvider);
+    if (viewport == null) return;
+    ref.read(selectionProvider.notifier).select(PointSelection(viewport.center));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +292,13 @@ class _MapControls extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            MapButton(
+              icon: AppIcons.addPlace,
+              tooltip: t.contribute.addPlace,
+              onPressed: () => _addPlace(ref),
+              size: 48,
+            ),
+            const SizedBox(height: Space.s),
             if (zoom) ...[
               FloatingSurface(
                 radius: LunaTokens.radiusL,
@@ -366,6 +392,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
         : [_detailsPeek(m), _detailsOpen(m), _full(m)];
     final rest = _rest ?? (selection == null ? _listPeek(m) : _detailsOpen(m));
     final top = m.padding.top + _overlayHeight;
+    final clearance = MessageClearanceScope.maybeOf(context);
     return Stack(
       children: [
         Positioned.fill(
@@ -426,12 +453,18 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                       child: NearbyCount(),
                     ),
                   )
-                : _SelectionDetails(
+                : ListenableBuilder(
                     key: ValueKey(selection),
-                    selection: selection,
-                    scrollController: scroll,
-                    onClose: widget.onClose,
-                    bottomPadding: m.padding.bottom + Space.xl,
+                    // The bar of actions grows with large text or a narrow
+                    // screen: the details end above its measured top, so
+                    // their last line is never under it.
+                    listenable: clearance ?? const AlwaysStoppedAnimation<double>(0),
+                    builder: (context, _) => _SelectionDetails(
+                      selection: selection,
+                      scrollController: scroll,
+                      onClose: widget.onClose,
+                      bottomPadding: math.max(m.padding.bottom, clearance?.value ?? 0) + Space.xl,
+                    ),
                   ),
           ),
         ),
@@ -460,7 +493,17 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                           bottom: (m.padding.bottom - dockSpace).clamp(0, double.infinity),
                         ),
                       ),
-                      child: _SelectionActions(selection: selection),
+                      child: Stack(
+                        children: [
+                          // The sheet's text fades under the bar and never
+                          // shows between it and the edge.
+                          const Positioned.fill(child: IgnorePointer(child: BottomFade())),
+                          Padding(
+                            padding: const EdgeInsets.only(top: BottomFade.lead),
+                            child: _SelectionActions(selection: selection),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
           ),

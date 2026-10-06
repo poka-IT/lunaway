@@ -75,6 +75,17 @@ def main():
     p.add_argument("--theme", default="light")
     p.add_argument("--density", type=int, help="Android only: screen density for the run")
     p.add_argument("--out", required=True)
+    p.add_argument(
+        "--test",
+        default="integration_test/screens_tour_test.dart",
+        help="the tour to run (integration_test/community_tour_test.dart: the account and contributions)",
+    )
+    p.add_argument(
+        "--define",
+        action="append",
+        default=[],
+        help="an extra --dart-define for the tour, NAME=value (repeatable)",
+    )
     p.add_argument("--api", help="API base URL for real data; demo mode without it")
     p.add_argument("--fresh", action="store_true", help="start from an empty device")
     p.add_argument(
@@ -92,13 +103,14 @@ def main():
     if kind == "android":
         target += ["--flavor", "store"]
     cmd = [
-        "fvm", "flutter", "test", "integration_test/screens_tour_test.dart", *target,
+        "fvm", "flutter", "test", args.test, *target,
         f"--dart-define=LUNAWAY_API_URL={args.api}" if args.api else "--dart-define=LUNAWAY_DEMO=true",
         f"--dart-define=LUNAWAY_TOUR_FRESH={'true' if args.fresh else 'false'}",
         *([f"--dart-define=LUNAWAY_BASEMAP_URL={args.basemap}"] if args.basemap else []),
         f"--dart-define=LUNAWAY_TOUR_LOCALE={args.locale}",
         f"--dart-define=LUNAWAY_TOUR_THEME={args.theme}",
         f"--dart-define=LUNAWAY_TOUR_TAG={tag}",
+        *[f"--dart-define={d}" for d in args.define],
     ]
     if kind == "android":
         adb = ["adb", "-s", ident, "shell", "wm"]

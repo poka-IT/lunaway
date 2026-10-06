@@ -38,23 +38,27 @@ final class GraphQLClient {
   final http.Client _http;
   final Future<void> Function(Duration wait) _sleep;
 
+  /// Sends [operation]; [headers] add to the request's (a session's
+  /// `Authorization`).
   Future<T> execute<T>(
     GraphQLOperation<T> operation, [
     Map<String, Object?> variables = const {},
+    Map<String, String> headers = const {},
   ]) async {
     final body = jsonEncode({
       'operationName': operation.name,
       'query': operation.document,
       'variables': variables,
     });
-    final headers = {
+    final sent = {
+      ...headers,
       'content-type': 'application/json',
       'accept': 'application/graphql-response+json, application/json',
       // Browsers refuse a script-set User-Agent and log an error for it.
       if (!kIsWeb) 'user-agent': userAgent,
     };
     for (var attempt = 0; ; attempt++) {
-      final response = await _post(headers, body);
+      final response = await _post(sent, body);
       final decoded = _decode(response);
       final wait = _rateLimitWait(response, decoded);
       if (wait != null) {
@@ -128,7 +132,14 @@ final class GraphQLClient {
 /// `extensions.code` so the client can act on it.
 @immutable
 final class GraphQLError {
-  const new(this.message, {this.code, this.retryAfterSeconds});
+  const new(
+    this.message, {
+    this.code,
+    this.retryAfterSeconds,
+    this.reason,
+    this.requiredLevel,
+    this.level,
+  });
 
   factory fromJson(Object? json) {
     if (json is! Map<String, dynamic>) return GraphQLError('$json');
@@ -138,6 +149,9 @@ final class GraphQLError {
       '${json['message']}',
       code: ext['code'] as String?,
       retryAfterSeconds: (ext['retryAfterSeconds'] as num?)?.toInt(),
+      reason: ext['reason'] as String?,
+      requiredLevel: (ext['requiredLevel'] as num?)?.toInt(),
+      level: (ext['level'] as num?)?.toInt(),
     );
   }
 
@@ -158,9 +172,25 @@ final class GraphQLError {
   /// later.
   static const unavailable = 'UNAVAILABLE';
 
+  /// No session, or one the server no longer knows: sign in again. With
+  /// [reason] [freshSignIn], the action needs a session opened by a signed
+  /// sign-in in the last ten minutes.
+  static const unauthenticated = 'UNAUTHENTICATED';
+  static const freshSignIn = 'FRESH_SIGN_IN';
+
+  /// The account may not do this: its level is below [requiredLevel], or
+  /// it is banned.
+  static const forbidden = 'FORBIDDEN';
+
+  /// What was asked for does not exist, or is not the caller's.
+  static const notFound = 'NOT_FOUND';
+
   final String message;
   final String? code;
   final int? retryAfterSeconds;
+  final String? reason;
+  final int? requiredLevel;
+  final int? level;
 
   @override
   String toString() => code == null ? message : '$code: $message';
@@ -197,6 +227,9 @@ final class GraphQLResponseException implements Exception {
   List<String> get messages => [for (final e in errors) e.message];
 
   bool hasCode(String code) => errors.any((e) => e.code == code);
+
+  /// The first error with [code], if any.
+  GraphQLError? withCode(String code) => errors.where((e) => e.code == code).firstOrNull;
 
   /// Every error says the server failed or a service behind it is down: the
   /// same request is worth sending again later.

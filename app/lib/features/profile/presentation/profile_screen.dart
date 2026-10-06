@@ -6,6 +6,8 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
@@ -24,9 +26,9 @@ import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
-/// The user's vehicle, the data kept on the device, how the app looks and
-/// speaks, and where everything comes from. No account: everything here
-/// stays on this device.
+/// The account (when there is one), the user's vehicle, the data kept on
+/// the device, how the app looks and speaks, and where everything comes
+/// from.
 class ProfileScreen extends ConsumerWidget {
   const new({super.key});
 
@@ -47,13 +49,15 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Space.xxs),
           Text(
-            t.profile.noAccountNeeded,
+            ref.watch(accountControllerProvider) is SignedIn
+                ? t.profile.noTracking
+                : t.profile.noAccountNeeded,
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
-    const left = [_Vehicle(), _OfflineData(), _Directions()];
+    const left = [AccountSection(), _Vehicle(), _OfflineData(), _Directions()];
     const right = [_Appearance(), _Language(), _About(), _Attributions()];
     final padding = EdgeInsets.fromLTRB(
       size == .compact ? Space.l : Space.xxl,

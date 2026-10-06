@@ -64,6 +64,13 @@ const initialViewport = MapViewport(
   zoom: initialMapZoom,
 );
 
+/// Whether [viewport] is still the map's first camera, before its fit to
+/// the region and before any move: the map reports it as soon as it is
+/// made.
+bool isFirstCamera(MapViewport viewport) =>
+    (viewport.zoom - initialMapZoom).abs() < 1e-6 &&
+    viewport.center.distanceTo(initialMapCenter) < 1;
+
 // keepAlive: the last camera position, restored when the map tab returns.
 @Riverpod(keepAlive: true)
 class Viewport extends _$Viewport {

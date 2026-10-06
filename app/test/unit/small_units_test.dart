@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -112,6 +115,72 @@ void main() {
     test('a panel on the right moves the centre east', () {
       final c = centerForPadding(const LatLng(45, 5), 10, const EdgeInsets.only(right: 380));
       expect(c.lon, greaterThan(5));
+    });
+
+    // Screen position of [p] on a map of [size] whose camera is [camera].
+    Offset onScreen(LatLng p, ({LatLng center, double zoom}) camera, Size size) {
+      final world = 512 * math.pow(2, camera.zoom).toDouble();
+      double x(LatLng q) => (q.lon + 180) / 360 * world;
+      double y(LatLng q) {
+        final s = math.sin(q.lat * math.pi / 180);
+        return (0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)) * world;
+      }
+
+      return Offset(
+        size.width / 2 + x(p) - x(camera.center),
+        size.height / 2 + y(p) - y(camera.center),
+      );
+    }
+
+    test('a fit shows the bounds whole in the part the overlays leave free', () {
+      const size = Size(411, 731);
+      const padding = EdgeInsets.fromLTRB(16, 192, 16, 298);
+      const france = GeoBounds.metropolitanFrance;
+      final camera = cameraForBounds(france, size, padding);
+      final nw = onScreen(LatLng(france.north, france.west), camera, size);
+      final se = onScreen(LatLng(france.south, france.east), camera, size);
+      expect(nw.dx, greaterThanOrEqualTo(padding.left - 0.5));
+      expect(se.dx, lessThanOrEqualTo(size.width - padding.right + 0.5));
+      expect(nw.dy, greaterThanOrEqualTo(padding.top - 0.5));
+      expect(se.dy, lessThanOrEqualTo(size.height - padding.bottom + 0.5));
+      // The tighter side touches its edges: the fit is as close as it can be.
+      final filled = math.max(
+        (se.dx - nw.dx) / (size.width - padding.horizontal),
+        (se.dy - nw.dy) / (size.height - padding.vertical),
+      );
+      expect(filled, closeTo(1, 0.002));
+      // Centred in the free part, not in the window.
+      expect((nw.dy + se.dy) / 2, closeTo((padding.top + size.height - padding.bottom) / 2, 0.5));
+    });
+
+    test('only the untouched first camera counts as one to fit', () {
+      expect(isFirstCamera(initialViewport), isTrue);
+      expect(
+        isFirstCamera(
+          const MapViewport(
+            bounds: GeoBounds.metropolitanFrance,
+            center: LatLng(45.9, 6.1),
+            zoom: 5,
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        isFirstCamera(
+          const MapViewport(
+            bounds: GeoBounds.metropolitanFrance,
+            center: initialMapCenter,
+            zoom: 6,
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('a fit never comes closer than its maximum zoom', () {
+      const tiny = GeoBounds(south: 45, west: 6, north: 45.0001, east: 6.0001);
+      final camera = cameraForBounds(tiny, const Size(400, 800), EdgeInsets.zero, maxZoom: 16);
+      expect(camera.zoom, 16);
     });
   });
 

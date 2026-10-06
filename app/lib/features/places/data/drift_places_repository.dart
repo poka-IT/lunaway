@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
@@ -22,7 +23,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
-      'p.rating_avg, p.rating_count';
+      'p.rating_avg, p.rating_count, p.verification';
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) {
@@ -284,6 +285,11 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     linksJson: Value(jsonEncode(externalLinksToJson(p.externalLinks))),
     ratingAvg: Value(combinedRating(p.ratings)?.average),
     ratingCount: Value(combinedRating(p.ratings)?.count ?? 0),
+    verification: Value(p.verification.wire),
+    reviewCount: Value(p.reviewCount),
+    photoCount: Value(p.photoCount),
+    coverPhotosJson: Value(jsonEncode(photosToJson(p.coverPhotos))),
+    issuesJson: Value(jsonEncode(issuesToJson(p.reportedIssues))),
   );
 
   Place _place(PlaceRow r) => Place(
@@ -329,6 +335,11 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     descriptions: localizedTextsFromJson(jsonDecode(r.descriptionsJson)),
     ratings: ratingsFromJson(jsonDecode(r.ratingsJson)),
     externalLinks: externalLinksFromJson(jsonDecode(r.linksJson)),
+    verification: Verification.fromWire(r.verification),
+    reviewCount: r.reviewCount,
+    photoCount: r.photoCount,
+    coverPhotos: photosFromJson(jsonDecode(r.coverPhotosJson)),
+    reportedIssues: issuesFromJson(jsonDecode(r.issuesJson)),
   );
 
   PlaceSummary _summary(QueryRow r) => PlaceSummary(
@@ -343,6 +354,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     priceParkingEur: r.readNullable<double>('price_parking'),
     ratingAverage: r.readNullable<double>('rating_avg'),
     ratingCount: r.read<int>('rating_count'),
+    verification: Verification.fromWire(r.read<String>('verification')),
   );
 }
 

@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/account/data/card_file_io.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/account/data/card_file_web.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/profile/application/appearance_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -26,7 +32,15 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
     // download, refreshes old data, and comes back on every return to the
     // foreground.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(syncControllerProvider.notifier).start();
+      if (!mounted) return;
+      ref.read(syncControllerProvider.notifier).start();
+      // The contributions made offline leave as soon as they can, and the
+      // favourites follow the account once there is one. Neither makes an
+      // account: browsing never does.
+      ref.read(outboxRunnerProvider.notifier).start();
+      ref.read(favoritesSyncControllerProvider.notifier).start();
+      // A recovery card image left by a run that ended on the card page.
+      unawaited(forgetCardFiles());
     });
   }
 

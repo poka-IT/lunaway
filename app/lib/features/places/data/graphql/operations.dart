@@ -55,15 +55,38 @@ fragment PlaceFields on Place {
   descriptions { lang text sourceId }
   ratings { sourceId average count }
   externalLinks { sourceId url label }
+  verification
+  reviewCount
+  photoCount
+  coverPhotos { id sourceId thumbUrl largeUrl width height thumbhash authorId }
+  reportedIssues { kind count lastReportedAt }
 }
 ''';
 
 const _reviewFields = '''
 fragment ReviewFields on ReviewConnection {
-  nodes { id sourceId rating text lang authorName authorVehicle visitedAt createdAt }
+  nodes { id sourceId rating text lang authorName authorId authorVehicle visitedAt createdAt }
   endCursor
   hasNextPage
   totalCount
+}
+''';
+
+/// The reader's own review of a place: every status, with the place.
+const myReviewFields = '''
+fragment MyReviewFields on Review {
+  id
+  sourceId
+  placeId
+  rating
+  text
+  lang
+  authorName
+  authorId
+  authorVehicle
+  visitedAt
+  createdAt
+  status
 }
 ''';
 
@@ -115,23 +138,31 @@ Map<String, Object?> changesVariables({required GeoBounds bbox, String? since, i
       'first': first,
     };
 
-/// The photos and the first page of reviews of a place; null when the place
-/// no longer exists.
-final extrasOperation = GraphQLOperation<({List<Photo> photos, ReviewPage reviews})?>(
+/// What a place shows online: its photos, the first page of reviews, and
+/// the reader's own review (null when anonymous); null when the place no
+/// longer exists.
+typedef PlaceExtrasRead = ({List<Photo> photos, ReviewPage reviews, Review? myReview});
+
+final extrasOperation = GraphQLOperation<PlaceExtrasRead?>(
   name: 'PlaceExtras',
   document: '''
 query PlaceExtras(\$id: UUID!, \$first: Int) {
   place(id: \$id) {
     id
-    photos { id sourceId thumbUrl largeUrl }
+    photos { id sourceId thumbUrl largeUrl width height thumbhash authorId authorName createdAt }
     reviews(first: \$first) { ...ReviewFields }
+    myReview { ...MyReviewFields }
   }
 }
-$_reviewFields''',
+$_reviewFields$myReviewFields''',
   parse: (data) {
     final place = data['place'];
     if (place is! Map<String, dynamic>) return null;
-    return (photos: photosFromJson(place['photos']), reviews: reviewPageFromJson(place['reviews']));
+    return (
+      photos: photosFromJson(place['photos']),
+      reviews: reviewPageFromJson(place['reviews']),
+      myReview: reviewFromJson(place['myReview']),
+    );
   },
 );
 

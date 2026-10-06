@@ -6,6 +6,12 @@
 	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Lunaway uses the camera when you take a photo of a place, or of your recovery card to read its code.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Lunaway opens your photos when you choose one to add to a place, or the image of your recovery card.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Lunaway saves the image of your recovery card to your photos when you choose Save Image.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

@@ -25,12 +25,23 @@ final class UserDatabase extends _$UserDatabase {
   );
 
   // Version 1 is the first shipped schema: earlier ones never left a
-  // developer's device, so they get no migration.
+  // developer's device, so they get no migration. Version 2 adds the
+  // account's favourites sync and the outbox of contributions.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(favoriteLists, favoriteLists.serverId);
+        await m.createTable(favoriteSyncBase);
+        await m.createTable(outbox);
+        await m.createIndex(outboxOrder);
+        await m.createTable(outboxFiles);
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

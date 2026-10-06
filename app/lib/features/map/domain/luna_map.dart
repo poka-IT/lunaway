@@ -59,6 +59,8 @@ final class LunaMapProps {
     this.onEmptyTap,
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
+    this.language = 'en',
+    this.fitInitial = false,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -89,6 +91,14 @@ final class LunaMapProps {
   /// Where the basemap attribution sits, from the bottom left corner: above
   /// the sheet and the dock on a phone, in the corner on a desktop.
   final EdgeInsets attributionInset;
+
+  /// The app's language, for the counts of the clusters.
+  final String language;
+
+  /// Open on the whole region within [padding] (the first view of a run),
+  /// rather than on [initialCenter] at [initialZoom], so no cluster starts
+  /// under the search and the chips.
+  final bool fitInitial;
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);

@@ -1,3 +1,4 @@
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -56,8 +57,32 @@ Place placeFromJson(Map<String, dynamic> json) {
     descriptions: localizedTextsFromJson(json['descriptions']),
     ratings: ratingsFromJson(json['ratings']),
     externalLinks: externalLinksFromJson(json['externalLinks']),
+    verification: Verification.fromWire(json['verification']),
+    reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
+    photoCount: (json['photoCount'] as num?)?.toInt() ?? 0,
+    coverPhotos: photosFromJson(json['coverPhotos']),
+    reportedIssues: issuesFromJson(json['reportedIssues']),
   );
 }
+
+List<IssueSummary> issuesFromJson(Object? json) => [
+  for (final m in _maps(json))
+    if ((IssueKind.fromWire(m['kind']), m['count'], _date(m['lastReportedAt'])) case (
+      final kind?,
+      final num count,
+      final at?,
+    ))
+      IssueSummary(kind: kind, count: count.toInt(), lastReportedAt: at),
+];
+
+List<Map<String, Object?>> issuesToJson(List<IssueSummary> issues) => [
+  for (final i in issues)
+    {
+      'kind': i.kind.wire,
+      'count': i.count,
+      'lastReportedAt': i.lastReportedAt.toUtc().toIso8601String(),
+    },
+];
 
 List<Map<String, dynamic>> _maps(Object? json) => [
   if (json is List<dynamic>)
@@ -115,36 +140,98 @@ List<Photo> photosFromJson(Object? json) => [
       final String thumb,
       final String large,
     ))
-      Photo(id: '$id', sourceId: source, thumbUrl: thumb, largeUrl: large),
+      photoFromJson(m, id: '$id', source: source, thumb: thumb, large: large),
 ];
+
+Photo photoFromJson(
+  Map<String, dynamic> m, {
+  required String id,
+  required String source,
+  required String thumb,
+  required String large,
+}) => Photo(
+  id: id,
+  sourceId: source,
+  thumbUrl: thumb,
+  largeUrl: large,
+  thumbhash: _nonEmpty(m['thumbhash']),
+  width: (m['width'] as num?)?.toInt(),
+  height: (m['height'] as num?)?.toInt(),
+  authorId: _nonEmpty(m['authorId']),
+  authorName: _nonEmpty(m['authorName']),
+  createdAt: _date(m['createdAt']),
+  status: ContributionStatus.fromWire(m['status']),
+);
 
 List<Map<String, Object?>> photosToJson(List<Photo> photos) => [
   for (final p in photos)
-    {'id': p.id, 'sourceId': p.sourceId, 'thumbUrl': p.thumbUrl, 'largeUrl': p.largeUrl},
+    {
+      'id': p.id,
+      'sourceId': p.sourceId,
+      'thumbUrl': p.thumbUrl,
+      'largeUrl': p.largeUrl,
+      'thumbhash': p.thumbhash,
+      'width': p.width,
+      'height': p.height,
+      'authorId': p.authorId,
+      'authorName': p.authorName,
+      'createdAt': p.createdAt?.toUtc().toIso8601String(),
+      'status': p.status?.wire,
+    },
 ];
+
+/// A review; null when it lacks its identity.
+Review? reviewFromJson(Object? json) {
+  if (json is! Map<String, dynamic>) return null;
+  if ((json['id'], json['sourceId'], _date(json['createdAt'])) case (
+    final Object id,
+    final String source,
+    final created?,
+  )) {
+    return Review(
+      id: '$id',
+      sourceId: source,
+      rating: (json['rating'] as num?)?.toInt(),
+      text: _nonEmpty(json['text']),
+      lang: _nonEmpty(json['lang']),
+      authorName: _nonEmpty(json['authorName']),
+      authorId: _nonEmpty(json['authorId']),
+      authorVehicle: ReviewVehicle.fromWire(json['authorVehicle']),
+      visitedAt: _day(json['visitedAt']),
+      createdAt: created,
+      placeId: _nonEmpty(json['placeId']),
+      status: ContributionStatus.fromWire(json['status']),
+    );
+  }
+  return null;
+}
+
+Map<String, Object?> reviewToJson(Review r) => {
+  'id': r.id,
+  'sourceId': r.sourceId,
+  'rating': r.rating,
+  'text': r.text,
+  'lang': r.lang,
+  'authorName': r.authorName,
+  'authorId': r.authorId,
+  'authorVehicle': r.authorVehicle?.wire,
+  'visitedAt': switch (r.visitedAt) {
+    final d? => naiveDate(d),
+    null => null,
+  },
+  'createdAt': r.createdAt.toUtc().toIso8601String(),
+  'placeId': r.placeId,
+  'status': r.status?.wire,
+};
+
+/// A calendar day as the API's `NaiveDate` (`2026-09-20`).
+String naiveDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${_two(d.month)}-${_two(d.day)}';
 
 ReviewPage reviewPageFromJson(Object? json) {
   if (json is! Map<String, dynamic>) return ReviewPage.empty;
   return ReviewPage(
-    nodes: [
-      for (final m in _maps(json['nodes']))
-        if ((m['id'], m['sourceId'], _date(m['createdAt'])) case (
-          final Object id,
-          final String source,
-          final created?,
-        ))
-          Review(
-            id: '$id',
-            sourceId: source,
-            rating: (m['rating'] as num?)?.toInt(),
-            text: _nonEmpty(m['text']),
-            lang: _nonEmpty(m['lang']),
-            authorName: _nonEmpty(m['authorName']),
-            authorVehicle: ReviewVehicle.fromWire(m['authorVehicle']),
-            visitedAt: _day(m['visitedAt']),
-            createdAt: created,
-          ),
-    ],
+    nodes: [for (final m in _maps(json['nodes'])) ?reviewFromJson(m)],
     endCursor: json['endCursor'] as String?,
     hasNextPage: json['hasNextPage'] == true,
     totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
@@ -152,23 +239,7 @@ ReviewPage reviewPageFromJson(Object? json) {
 }
 
 Map<String, Object?> reviewPageToJson(ReviewPage page) => {
-  'nodes': [
-    for (final r in page.nodes)
-      {
-        'id': r.id,
-        'sourceId': r.sourceId,
-        'rating': r.rating,
-        'text': r.text,
-        'lang': r.lang,
-        'authorName': r.authorName,
-        'authorVehicle': r.authorVehicle?.wire,
-        'visitedAt': switch (r.visitedAt) {
-          final d? => '${d.year.toString().padLeft(4, '0')}-${_two(d.month)}-${_two(d.day)}',
-          null => null,
-        },
-        'createdAt': r.createdAt.toUtc().toIso8601String(),
-      },
-  ],
+  'nodes': [for (final r in page.nodes) reviewToJson(r)],
   'endCursor': page.endCursor,
   'hasNextPage': page.hasNextPage,
   'totalCount': page.totalCount,
@@ -293,6 +364,11 @@ Map<String, Object?> placeToJson(Place p) => {
   'descriptions': localizedTextsToJson(p.descriptions),
   'ratings': ratingsToJson(p.ratings),
   'externalLinks': externalLinksToJson(p.externalLinks),
+  'verification': p.verification.wire,
+  'reviewCount': p.reviewCount,
+  'photoCount': p.photoCount,
+  'coverPhotos': photosToJson(p.coverPhotos),
+  'reportedIssues': issuesToJson(p.reportedIssues),
 };
 
 String? _nonEmpty(Object? value) {

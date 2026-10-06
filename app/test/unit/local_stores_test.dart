@@ -28,9 +28,9 @@ void main() {
     await user.close();
   });
 
-  test('both stores start at schema version 1, the first shipped one', () {
-    expect(db.schemaVersion, 1);
-    expect(user.schemaVersion, 1);
+  test('both stores are at schema version 2: the account and the community', () {
+    expect(db.schemaVersion, 2);
+    expect(user.schemaVersion, 2);
   });
 
   group('settings', () {

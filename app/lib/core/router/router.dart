@@ -1,5 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/account/presentation/account_pages.dart';
+import 'package:lunaway/features/account/presentation/contributions_screen.dart';
+import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
@@ -34,7 +37,20 @@ GoRouter router(Ref ref) {
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: AppRoutes.profile, builder: (_, _) => const ProfileScreen())],
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                builder: (_, _) => const ProfileScreen(),
+                routes: [
+                  GoRoute(path: 'recovery-card', builder: (_, _) => const RecoveryCardScreen()),
+                  GoRoute(path: 'recover', builder: (_, _) => const RecoverScreen()),
+                  GoRoute(path: 'contributions', builder: (_, _) => const ContributionsScreen()),
+                  GoRoute(path: 'muted', builder: (_, _) => const MutedAuthorsScreen()),
+                  GoRoute(path: 'devices', builder: (_, _) => const DevicesScreen()),
+                  GoRoute(path: 'delete-account', builder: (_, _) => const DeleteAccountScreen()),
+                ],
+              ),
+            ],
           ),
         ],
       ),

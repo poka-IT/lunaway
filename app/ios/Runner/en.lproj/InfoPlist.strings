@@ -3,3 +3,6 @@
    fr.lproj/InfoPlist.strings. */
 "NSLocationWhenInUseUsageDescription" = "Lunaway shows your position on the map and sorts the places around you. It stays on your device.";
 "NSLocationUsageDescription" = "Lunaway shows your position on the map and sorts the places around you. It stays on your device.";
+"NSCameraUsageDescription" = "Lunaway uses the camera when you take a photo of a place, or of your recovery card to read its code.";
+"NSPhotoLibraryUsageDescription" = "Lunaway opens your photos when you choose one to add to a place, or the image of your recovery card.";
+"NSPhotoLibraryAddUsageDescription" = "Lunaway saves the image of your recovery card to your photos when you choose Save Image.";

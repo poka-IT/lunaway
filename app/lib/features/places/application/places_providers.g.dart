@@ -712,7 +712,7 @@ final class PlaceExtrasRepositoryProvider
 }
 
 String _$placeExtrasRepositoryHash() =>
-    r'86005541e500e21f0a458613633b1fd8ca5cf711';
+    r'edcafdbd7434c0467785a2e6bd2a8759095d4ef5';
 
 /// Photos and reviews of a place, online with a cache. A failure without a
 /// cached copy surfaces, so the screen can say a connection is needed.

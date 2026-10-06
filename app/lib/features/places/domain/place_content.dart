@@ -61,6 +61,28 @@ final class ExternalLink {
   int get hashCode => Object.hash(sourceId, url, label);
 }
 
+/// Where a contribution stands on the server.
+enum ContributionStatus {
+  /// Visible to everyone.
+  published('PUBLISHED'),
+
+  /// Held by the automatic rules until a moderator decides.
+  pending('PENDING'),
+
+  /// Hidden after reports, until a moderator decides.
+  hidden('HIDDEN'),
+
+  /// Removed by a moderator.
+  removed('REMOVED');
+
+  new(this.wire);
+
+  final String wire;
+
+  static ContributionStatus? fromWire(Object? wire) =>
+      values.where((v) => v.wire == wire).firstOrNull;
+}
+
 /// A photo of a place, served by the Lunaway image proxy.
 @immutable
 final class Photo {
@@ -69,6 +91,13 @@ final class Photo {
     required this.sourceId,
     required this.thumbUrl,
     required this.largeUrl,
+    this.thumbhash,
+    this.width,
+    this.height,
+    this.authorId,
+    this.authorName,
+    this.createdAt,
+    this.status,
   });
 
   final String id;
@@ -76,16 +105,37 @@ final class Photo {
   final String thumbUrl;
   final String largeUrl;
 
+  /// A ThumbHash (base64) of the image: the placeholder while it loads.
+  final String? thumbhash;
+
+  /// The large image's size, for the ratio of its frame before it loads.
+  final int? width;
+  final int? height;
+
+  /// The author, to hide a muted author's photos; null once the account is
+  /// deleted.
+  final String? authorId;
+  final String? authorName;
+  final DateTime? createdAt;
+  final ContributionStatus? status;
+
   @override
   bool operator ==(Object other) =>
       other is Photo &&
       other.id == id &&
       other.sourceId == sourceId &&
       other.thumbUrl == thumbUrl &&
-      other.largeUrl == largeUrl;
+      other.largeUrl == largeUrl &&
+      other.thumbhash == thumbhash &&
+      other.width == width &&
+      other.height == height &&
+      other.authorId == authorId &&
+      other.authorName == authorName &&
+      other.createdAt == createdAt &&
+      other.status == status;
 
   @override
-  int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl);
+  int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId);
 }
 
 /// The source of what Lunaway users write: reviews, photos, places.
@@ -119,12 +169,24 @@ final class Review {
     this.text,
     this.lang,
     this.authorName,
+    this.authorId,
     this.authorVehicle,
     this.visitedAt,
+    this.placeId,
+    this.status,
   });
 
   final String id;
   final String sourceId;
+
+  /// The place it was written for; set on the author's own reviews.
+  final String? placeId;
+
+  /// Where it stands; the author's own reviews may be held or hidden.
+  final ContributionStatus? status;
+
+  /// The author, to mute them; null once the account is deleted.
+  final String? authorId;
 
   /// Out of 5; null when the visitor gave none.
   final int? rating;
@@ -149,9 +211,12 @@ final class Review {
       other.text == text &&
       other.lang == lang &&
       other.authorName == authorName &&
+      other.authorId == authorId &&
       other.authorVehicle == authorVehicle &&
       other.visitedAt == visitedAt &&
-      other.createdAt == createdAt;
+      other.createdAt == createdAt &&
+      other.placeId == placeId &&
+      other.status == status;
 
   @override
   int get hashCode => Object.hash(id, sourceId, rating, createdAt);
@@ -193,28 +258,33 @@ final class ReviewPage {
   int get hashCode => Object.hash(Object.hashAll(nodes), endCursor, hasNextPage, totalCount);
 }
 
-/// What the offline sync leaves out of a place: its photos and its reviews,
-/// read online and kept in a cache.
+/// What the offline sync leaves out of a place: its photos, its reviews and
+/// the reader's own review, read online and kept in a cache.
 @immutable
 final class PlaceExtras {
-  const new({required this.photos, required this.reviews, required this.fetchedAt});
+  const new({required this.photos, required this.reviews, required this.fetchedAt, this.myReview});
 
   final List<Photo> photos;
   final ReviewPage reviews;
   final DateTime fetchedAt;
 
+  /// The reader's own rating or review, whatever its status; null when
+  /// anonymous or when there is none.
+  final Review? myReview;
+
   PlaceExtras withReviews(ReviewPage reviews) =>
-      PlaceExtras(photos: photos, reviews: reviews, fetchedAt: fetchedAt);
+      PlaceExtras(photos: photos, reviews: reviews, fetchedAt: fetchedAt, myReview: myReview);
 
   @override
   bool operator ==(Object other) =>
       other is PlaceExtras &&
       const ListEquality<Photo>().equals(other.photos, photos) &&
       other.reviews == reviews &&
-      other.fetchedAt == fetchedAt;
+      other.fetchedAt == fetchedAt &&
+      other.myReview == myReview;
 
   @override
-  int get hashCode => Object.hash(Object.hashAll(photos), reviews, fetchedAt);
+  int get hashCode => Object.hash(Object.hashAll(photos), reviews, fetchedAt, myReview);
 }
 
 /// The rating of a place across its sources: the mean weighted by the number

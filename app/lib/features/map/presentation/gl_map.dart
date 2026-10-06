@@ -34,6 +34,15 @@ class GlLunaMap extends StatefulWidget {
 class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
+
+  /// The first view still has to be fitted to the region. Decided when the
+  /// map is made, not read from the props at style load: the map can
+  /// report its first camera (which ends `fitInitial`) before a slow first
+  /// setup reaches the fit. In the tours on the emulator and the iOS
+  /// simulator, whose setup a theme and language change slows, France
+  /// stayed at the default camera.
+  late bool _fitPending = widget.props.fitInitial;
+
   bool _locationOn = false;
 
   // What the style currently holds, to send only what changed.
@@ -87,8 +96,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
 
   double get _pinScale {
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    return (android ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
+    // Both native plugins read an image pixel as a physical one: Android
+    // directly, iOS through the UIImage it makes at the screen's scale.
+    final native =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
   gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
@@ -173,7 +187,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           MapStyle.placesSource,
           MapStyle.clusterCountLayer,
           gl.SymbolLayerProperties(
-            textField: const ['get', 'point_count_abbreviated'],
+            // The iOS plugin crashes on any expression that writes a number
+            // as text (`to-string`, `concat`, `number-format`; measured on
+            // the simulator, 2026-10-06): there the count stays a number.
+            textField: defaultTargetPlatform == TargetPlatform.iOS && !kIsWeb
+                ? const ['get', 'point_count']
+                : MapLook.clusterLabel(_props.language),
             textFont: MapLook.clusterFont,
             textSize: MapLook.clusterTextSize,
             textColor: MapLook.clusterText(dark: dark),
@@ -208,6 +227,24 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.selectionPinLayer,
       );
+      if (!current()) return;
+      if (_fitPending) {
+        final size = mounted ? context.size : null;
+        if (size != null) {
+          _fitPending = false;
+          final camera = cameraForBounds(
+            GeoBounds.metropolitanFrance,
+            size,
+            _props.padding + const EdgeInsets.all(16),
+          );
+          await c.moveCamera(
+            gl.CameraUpdate.newLatLngZoom(
+              gl.LatLng(camera.center.lat, camera.center.lon),
+              camera.zoom,
+            ),
+          );
+        }
+      }
       if (!current()) return;
       _ready = true;
       _sentPlaces = null;
@@ -348,19 +385,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   Future<void> fitBounds(GeoBounds bounds) async {
     final c = _controller;
-    if (c == null) return;
-    final p = _props.padding;
+    if (c == null || !mounted) return;
+    final size = context.size;
+    if (size == null) return;
+    final camera = cameraForBounds(bounds, size, _props.padding + const EdgeInsets.all(40));
     await c.animateCamera(
-      gl.CameraUpdate.newLatLngBounds(
-        gl.LatLngBounds(
-          southwest: gl.LatLng(bounds.south, bounds.west),
-          northeast: gl.LatLng(bounds.north, bounds.east),
-        ),
-        left: p.left + 40,
-        top: p.top + 40,
-        right: p.right + 40,
-        bottom: p.bottom + 40,
-      ),
+      gl.CameraUpdate.newLatLngZoom(gl.LatLng(camera.center.lat, camera.center.lon), camera.zoom),
+      duration: Motion.of(context, Motion.camera),
     );
   }
 

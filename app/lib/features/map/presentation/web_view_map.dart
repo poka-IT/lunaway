@@ -129,7 +129,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'zoom': _props.initialZoom,
         'pixelRatio': ratio,
         'images': {for (final e in images.entries) e.key: base64Encode(e.value)},
-        'spec': _spec(dark: _props.dark),
+        'spec': _spec(dark: _props.dark, language: _props.language),
         'reducedMotion': reducedMotion,
       },
     });
@@ -142,7 +142,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       _isStyleJson(style) ? jsonDecode(style) as Object : style;
 
   /// The sources and layers of [MapStyle], in the GL JS style syntax.
-  static Map<String, Object?> _spec({required bool dark}) => {
+  static Map<String, Object?> _spec({required bool dark, required String language}) => {
     'clusterSource': MapStyle.placesSource,
     'selectionLayer': MapStyle.selectionPinLayer,
     'tappable': MapStyle.tappableLayers,
@@ -177,7 +177,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'source': MapStyle.placesSource,
         'filter': MapStyle.clusterFilter,
         'layout': {
-          'text-field': ['get', 'point_count_abbreviated'],
+          'text-field': MapLook.clusterLabel(language),
           'text-font': MapLook.clusterFont,
           'text-size': MapLook.clusterTextSize,
           'text-allow-overlap': true,
@@ -265,7 +265,11 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   @override
   void didUpdateWidget(WebViewLunaMap old) {
     super.didUpdateWidget(old);
-    if (_ready && _style != null && (_props.style != _style || _props.dark != old.props.dark)) {
+    if (_ready &&
+        _style != null &&
+        (_props.style != _style ||
+            _props.dark != old.props.dark ||
+            _props.language != old.props.language)) {
       _setStyle();
       return;
     }
@@ -279,7 +283,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
-        'spec': _spec(dark: _props.dark),
+        'spec': _spec(dark: _props.dark, language: _props.language),
       }),
     );
   }

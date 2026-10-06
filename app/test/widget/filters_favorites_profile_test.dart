@@ -6,6 +6,7 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
+import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -19,6 +20,19 @@ const tallPhone = Size(400, 3200);
 Future<void> openTab(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
   await settleShort(tester);
+}
+
+/// Scrolls the profile until [finder] is built and clear of the dock.
+Future<void> showInProfile(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    200,
+    scrollable: find
+        .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.ensureVisible(finder);
+  await tester.pump();
 }
 
 void main() {
@@ -105,6 +119,7 @@ void main() {
     testWidgets('a height out of range is refused with the range', (tester) async {
       final app = await pumpLunaway(tester);
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
       await tester.tap(find.text('Décrire mon véhicule'));
       await settleShort(tester);
       await tester.scrollUntilVisible(
@@ -287,6 +302,7 @@ void main() {
     testWidgets('the offline data panel tells the count, the size and the age', (tester) async {
       await pumpLunaway(tester);
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('5 lieux sur cet appareil'));
       expect(find.text('5 lieux sur cet appareil'), findsOneWidget);
       expect(find.text('Espace utilisé : 3,3 Mo'), findsOneWidget);
       expect(find.text("Dernière mise à jour aujourd'hui"), findsOneWidget);
@@ -300,6 +316,7 @@ void main() {
         sync: const SyncState(cursor: '600', fullSync: true, running: true),
       );
       await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Téléchargement incomplet'));
       expect(find.text('Téléchargement incomplet'), findsOneWidget);
       expect(find.text('Reprendre'), findsOneWidget);
     });
@@ -315,8 +332,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.text('Mettre à jour'),
         200,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find
+            .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+            .first,
       );
+      // The last jump of the scroll lays out on the next frame.
+      await tester.pump();
       await tester.tap(find.text('Mettre à jour'));
       await settleShort(tester);
       expect(source.requests, 1);
