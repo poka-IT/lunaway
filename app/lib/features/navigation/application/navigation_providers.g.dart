@@ -173,7 +173,7 @@ final class RoutingClientProvider
   }
 }
 
-String _$routingClientHash() => r'4ee0074ab654ebe3f31548186e24e2e5bff5582a';
+String _$routingClientHash() => r'bbdf0121994a2c6df3f96f396beaba6c507cb65e';
 
 @ProviderFor(routeService)
 final routeServiceProvider = RouteServiceProvider._();

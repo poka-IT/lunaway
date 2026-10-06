@@ -585,7 +585,12 @@
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris",
       "dangerZone": "Zone de danger dans $distance",
-      "inDangerZone": "Zone de danger"
+      "inDangerZone": "Zone de danger, encore $distance",
+      "cameraAhead": "Radar dans $distance",
+      "cameraLimit": "Radar dans $distance, $limit",
+      "limitEstimated": "Limite estimée",
+      "overLimit": "au-dessus de la limite",
+      "enforcementSource": "$source, liste du $date"
     },
     "voice": {
       "rerouting": "Recalcul de l'itinéraire.",
@@ -612,7 +617,11 @@
         "other": "$n miles"
       },
       "size": "$metres mètres $cm",
-      "sizeWhole": "$metres mètres"
+      "sizeWhole": "$metres mètres",
+      "overSpeed": "Vitesse limitée à $limit.",
+      "dangerZone": "Zone de danger dans $distance.",
+      "inDangerZone": "Zone de danger.",
+      "camera": "Radar dans $distance."
     },
     "units": {
       "ft": "$n ft",
@@ -629,7 +638,11 @@
       "voiceHint": "Avec la voix du téléphone",
       "units": "Distances",
       "metric": "Kilomètres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "speedLimit": "Limite de vitesse",
+      "speedLimitHint": "La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s'affiche en gris.",
+      "speedSound": "Alertes de vitesse parlées",
+      "speedSoundHint": "Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls."
     }
   },
   "list": {
@@ -819,6 +832,7 @@
     },
     "signedOut": "Déconnecté. Vos favoris restent sur cet appareil.",
     "lost": "Ce compte ne s'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.",
+    "lostAction": "Retrouver",
     "welcomeTitle": "Merci pour votre première contribution",
     "welcomeBody": "Votre compte est créé, sous le pseudonyme « $name ». Pas d'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.",
     "welcomeCard": "Faites votre carte de secours pour retrouver ce compte sur un autre appareil.",
@@ -958,7 +972,9 @@
     "newPlace": "Nouveau lieu",
     "edit": "Modification",
     "aPlace": "Un lieu",
-    "newVendingMachine": "Nouveau distributeur"
+    "newVendingMachine": "Nouveau distributeur",
+    "poiConfirmations": "Commerces et services confirmés",
+    "aPoi": "Un commerce ou service"
   },
   "outbox": {
     "kind": {
@@ -979,7 +995,8 @@
       "unmute": "Ne plus masquer un auteur",
       "poiThere": "Toujours là : un commerce ou service",
       "poiGone": "Plus là : un commerce ou service",
-      "addVendingMachine": "Nouveau distributeur"
+      "addVendingMachine": "Nouveau distributeur",
+      "deletePoiConfirmation": "Suppression d'une réponse sur un commerce ou service"
     },
     "waiting": "En attente du réseau",
     "sending": "Envoi en cours",
@@ -1327,6 +1344,23 @@
       "none": "Aucune station de la carte ne vend ce carburant.",
       "noneHint": "Déplacez la carte ou choisissez un autre carburant.",
       "error": "Les prix des stations n'ont pas pu s'afficher."
+    },
+    "trend": {
+      "title": "$fuel : prix des derniers jours",
+      "none": "Lunaway n'a pas encore vu de prix de ce carburant ici.",
+      "failed": "Les prix des derniers jours n'ont pas pu être lus pour l'instant.",
+      "week": "7 derniers jours :",
+      "month": "30 derniers jours :",
+      "range": "de $low à $high",
+      "span": "$range, $move",
+      "oneDay": "un seul jour relevé",
+      "steady": "stable",
+      "down": "en baisse de $amount",
+      "up": "en hausse de $amount",
+      "since(param=n)": {
+        "one": "$n jour relevé depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide",
+        "other": "$n jours relevés depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide"
+      }
     }
   },
   "offlineMaps": {
@@ -1379,5 +1413,38 @@
     "noticeOutside": "Hors ligne : cette zone n'est pas téléchargée",
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
     "noticeOnline": "Hors ligne : la carte a besoin du réseau"
+  },
+  "regions": {
+    "pickerTitle": "Quels lieux garder sur cet appareil ?",
+    "pickerIntro": "Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.",
+    "nearYou": "Près de vous : $name",
+    "findMine": "Trouver ma région",
+    "locating": "Recherche de votre région",
+    "notCovered": "Pas encore de région Lunaway autour de vous",
+    "wholeFrance": "Toute la France",
+    "showFrance": "Afficher les régions de France",
+    "hideFrance": "Masquer les régions de France",
+    "packInfo(param=n)": {
+      "one": "$count lieu, $size",
+      "other": "$count lieux, $size"
+    },
+    "noPack": "Sans paquet : lieux reçus avec les mises à jour, taille inconnue",
+    "download": "Télécharger, $size",
+    "unavailable": "Le serveur ne propose pas encore de régions : Lunaway garde toute la France.",
+    "listFailed": "La liste des régions demande du réseau.",
+    "choose": "Choisir les régions",
+    "kept": "Régions sur cet appareil",
+    "noneKept": "Aucune région gardée : la carte n'a aucun lieu hors connexion.",
+    "change": "Ajouter ou retirer des régions",
+    "removeNamed": "Retirer $name",
+    "removed": "$name : lieux retirés de cet appareil",
+    "downloading": "Téléchargement, $done sur $total",
+    "updating(param=n)": {
+      "one": "Mise à jour, $count lieu",
+      "other": "Mise à jour, $count lieux"
+    },
+    "waiting": "en attente de son téléchargement",
+    "downloadingNamed": "Téléchargement des lieux : $name",
+    "updated": "mis à jour $when"
   }
 }

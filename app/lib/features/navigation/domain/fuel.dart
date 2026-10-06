@@ -28,10 +28,21 @@ final class FuelOffer {
     this.brand,
     this.open = StationOpen.unknown,
     this.detourEstimated = false,
+    this.poiId,
+    this.stationId,
   });
 
-  /// The point of interest of the station.
+  /// The station's identity among the offers: its point of interest, else
+  /// its id in the price feed.
   final String id;
+
+  /// The point of interest that describes it (`Query.poi`), when there is
+  /// one: its sheet opens from a stop made of it.
+  final String? poiId;
+
+  /// Its id in the price feed, when the offer comes from the server's
+  /// search along the route.
+  final String? stationId;
 
   /// The fuel the price is for.
   final FuelType fuel;
@@ -96,16 +107,20 @@ List<FuelOffer> rankOffers(List<FuelOffer> offers, {required double consumptionL
       return byPrice != 0 ? byPrice : a.detourM.compareTo(b.detourM);
     });
 
-/// Stations along a route. The server's search along a route is to come;
-/// until then the app asks for stations around points of the route.
+/// Stations along a route: the server's search along it, or stations
+/// around points of it from an API without that search.
 abstract interface class FuelStationsSource {
   /// Stations selling [fuel] within [maxDetourM] of the detour, along
-  /// [route] from [fromM] metres on.
+  /// [route] from [fromM] metres on; the detour priced at
+  /// [consumptionL100], measured on the roads [vehicle] (the router's
+  /// profile, as JSON) may take.
   Future<List<FuelOffer>> along({
     required List<LatLng> route,
     required double fromM,
     required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
+    double consumptionL100 = defaultConsumptionL100,
+    Map<String, Object?>? vehicle,
   });
 }
 

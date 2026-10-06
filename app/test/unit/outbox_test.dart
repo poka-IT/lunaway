@@ -184,6 +184,8 @@ final class _Server implements CommunityApi {
       issueTotal: issues.length,
       submissions: submissions.reversed.toList(),
       submissionTotal: submissions.length,
+      poiConfirmations: const <PoiConfirmation>[],
+      poiConfirmationTotal: 0,
     );
   }
 }

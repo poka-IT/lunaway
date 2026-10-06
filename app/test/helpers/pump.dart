@@ -36,6 +36,8 @@ import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import 'fake_api.dart';
@@ -156,6 +158,9 @@ Future<TestApp> pumpLunaway(
   MemoryPackFiles? packFiles,
   bool? reachable = true,
   http.Client? httpClient,
+  // The regions the API offers; null for an API without regions (the sync
+  // by box of [syncService] runs).
+  RegionCatalog? regions,
   // What the device's location permission says from the start.
   LocationAccess locationAccess = LocationAccess.granted,
   // More fakes, for a feature's own providers (the navigation's).
@@ -238,6 +243,8 @@ Future<TestApp> pumpLunaway(
         ),
         basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
         packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
+        regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(regions)),
+        deviceCountryProvider.overrideWithValue('FR'),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
@@ -246,6 +253,10 @@ Future<TestApp> pumpLunaway(
   if (settle) await settleShort(tester);
   return app;
 }
+
+/// The demo server the tests talk to by default, for a fake that answers a
+/// few operations of its own and hands it the others.
+http.Client get testDemoClient => _demo;
 
 final http.Client _demo = demoApiClient(
   const [],
@@ -338,4 +349,17 @@ final class MemorySyncStore implements SyncStore {
 
   @override
   Future<void> reset(String region, GeoBounds bounds) async => state = SyncState.none;
+}
+
+/// The manifest of the regions as a test sets it: never read online.
+final class FixedRegionCatalog extends RegionCatalogController {
+  new(this.catalog);
+
+  final RegionCatalog? catalog;
+
+  @override
+  Future<RegionCatalog?> build() async => catalog;
+
+  @override
+  Future<RegionCatalog?> refresh() async => catalog;
 }

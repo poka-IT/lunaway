@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
@@ -12,6 +13,13 @@ final _log = Logger('graphql');
 /// refuses batches and every other transport), typed results parsed by the
 /// operation itself. No cache, no normalisation: drift is the offline store,
 /// so the client only moves pages.
+///
+/// With [persistedQueries], a request carries the SHA-256 of its document
+/// instead of the document (Apollo's persisted queries, docs/region-packs.md):
+/// the server runs the document it knows under that hash, or answers
+/// `PERSISTED_QUERY_NOT_FOUND`, and the request goes again with its
+/// document. An API that refuses a request without a document gets every
+/// document whole for the rest of the run.
 final class GraphQLClient {
   new({
     required this.endpoint,
@@ -20,6 +28,7 @@ final class GraphQLClient {
     this.timeout = const Duration(seconds: 30),
     this.rateLimitRetries = 3,
     this.maxRateLimitWait = const Duration(seconds: 60),
+    this.persistedQueries = false,
     Future<void> Function(Duration wait)? sleep,
   }) : _http = httpClient,
        _sleep = sleep ?? Future<void>.delayed;
@@ -27,6 +36,16 @@ final class GraphQLClient {
   final Uri endpoint;
   final String userAgent;
   final Duration timeout;
+
+  /// Sends the hash of a document before the document itself.
+  final bool persistedQueries;
+
+  /// The SHA-256 of each document sent, computed once.
+  final Map<String, String> _hashes = {};
+
+  /// The server refused a request without its document: an API without
+  /// persisted queries, which gets every document whole from then on.
+  bool _wholeDocuments = false;
 
   /// How many times a request the server rate-limited is sent again, after
   /// the wait it asks for, before the client gives up for now.
@@ -54,7 +73,9 @@ final class GraphQLClient {
       final older = operation.older;
       if (older == null ||
           !older.usable(variables) ||
-          !e.errors.any((error) => error.unknownInput)) {
+          !e.errors.any(
+            (error) => error.unknownInput || (older.withoutFields && error.unknownField),
+          )) {
         rethrow;
       }
       _log.info('${operation.name}: the API does not know all of it yet, sent in its older form');
@@ -68,10 +89,22 @@ final class GraphQLClient {
     Map<String, Object?> variables,
     Map<String, String> headers,
   ) async {
-    final body = jsonEncode({
+    final hash = persistedQueries && !_wholeDocuments
+        ? _hashes.putIfAbsent(document, () => sha256.convert(utf8.encode(document)).toString())
+        : null;
+    // The hash alone first; the document goes with it once the server asks.
+    var withDocument = hash == null;
+    // Decided for this request alone: another one finding the server
+    // without persisted queries must not strip this one of both forms.
+    var whole = hash == null;
+    String body() => jsonEncode({
       'operationName': operation.name,
-      'query': document,
+      if (withDocument) 'query': document,
       'variables': variables,
+      if (!whole)
+        'extensions': {
+          'persistedQuery': {'version': 1, 'sha256Hash': hash},
+        },
     });
     final sent = {
       ...headers,
@@ -80,14 +113,28 @@ final class GraphQLClient {
       // Browsers refuse a script-set User-Agent and log an error for it.
       if (!kIsWeb) 'user-agent': userAgent,
     };
-    for (var attempt = 0; ; attempt++) {
-      final response = await _post(sent, body);
+    for (var limited = 0; ;) {
+      final response = await _post(sent, body());
       final decoded = _decode(response);
+      if (!withDocument) {
+        if (_hashUnknown(decoded)) {
+          withDocument = true;
+          continue;
+        }
+        if (_documentRequired(response, decoded)) {
+          _log.info('the API does not take persisted queries: documents go whole');
+          _wholeDocuments = true;
+          whole = true;
+          withDocument = true;
+          continue;
+        }
+      }
       final wait = _rateLimitWait(response, decoded);
       if (wait != null) {
-        if (attempt >= rateLimitRetries || wait > maxRateLimitWait) {
+        if (limited >= rateLimitRetries || wait > maxRateLimitWait) {
           throw GraphQLRateLimitedException(wait);
         }
+        limited++;
         _log.info('${operation.name}: rate limited, trying again in ${wait.inSeconds} s');
         await _sleep(wait);
         continue;
@@ -107,6 +154,26 @@ final class GraphQLClient {
       }
       return operation.parse(data);
     }
+  }
+
+  /// The server does not know the hash: it restarted, or never kept the
+  /// document. The same request with its document runs and teaches it.
+  static bool _hashUnknown(Map<String, dynamic>? decoded) {
+    final errors = decoded?['errors'];
+    return errors is List &&
+        errors.map(GraphQLError.fromJson).any((e) => e.code == GraphQLError.persistedQueryNotFound);
+  }
+
+  /// An API without persisted queries refuses a body without `query`
+  /// (HTTP 400, `INVALID_INPUT`, read on production on 2026-10-06).
+  static bool _documentRequired(http.Response response, Map<String, dynamic>? decoded) {
+    final errors = decoded?['errors'];
+    return response.statusCode == 400 &&
+        decoded?['data'] == null &&
+        errors is List &&
+        errors
+            .map(GraphQLError.fromJson)
+            .any((e) => e.code == GraphQLError.invalidInput && e.message.contains('`query`'));
   }
 
   Future<http.Response> _post(Map<String, String> headers, String body) async {
@@ -190,6 +257,10 @@ final class GraphQLError {
   /// sync from scratch.
   static const resync = 'RESYNC';
 
+  /// The server does not know the hash of a persisted query: send the
+  /// document with it.
+  static const persistedQueryNotFound = 'PERSISTED_QUERY_NOT_FOUND';
+
   /// The server failed; try again later.
   static const internal = 'INTERNAL';
 
@@ -210,6 +281,10 @@ final class GraphQLError {
   /// What was asked for does not exist, or is not the caller's.
   static const notFound = 'NOT_FOUND';
 
+  /// [reason] of a [notFound] sign-in that may not create: the server knows
+  /// no account behind the key.
+  static const unknownKey = 'UNKNOWN_KEY';
+
   final String message;
   final String? code;
   final int? retryAfterSeconds;
@@ -226,6 +301,11 @@ final class GraphQLError {
   bool get unknownInput =>
       code == invalidInput &&
       (message.startsWith('Unknown argument ') || message.contains(', unknown field '));
+
+  /// The server does not know a field the request selects: an API older
+  /// than the app, or one without a whole operation. The document was
+  /// refused before it ran.
+  bool get unknownField => code == invalidInput && message.startsWith('Unknown field ');
 
   @override
   String toString() => code == null ? message : '$code: $message';

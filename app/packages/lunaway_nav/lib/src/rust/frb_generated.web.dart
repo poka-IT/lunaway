@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/country.dart';
 import 'api/engine.dart';
 
 import 'dart:async';
@@ -77,6 +78,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Utterance dco_decode_box_autoadd_utterance(dynamic raw);
 
   @protected
+  CountriesAround dco_decode_countries_around(dynamic raw);
+
+  @protected
+  CountryMode dco_decode_country_mode(dynamic raw);
+
+  @protected
+  EmbeddedRules dco_decode_embedded_rules(dynamic raw);
+
+  @protected
   EventHit dco_decode_event_hit(dynamic raw);
 
   @protected
@@ -117,6 +127,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<CountryMode> dco_decode_list_country_mode(dynamic raw);
 
   @protected
   List<EventHit> dco_decode_list_event_hit(dynamic raw);
@@ -217,6 +230,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Utterance sse_decode_box_autoadd_utterance(SseDeserializer deserializer);
 
   @protected
+  CountriesAround sse_decode_countries_around(SseDeserializer deserializer);
+
+  @protected
+  CountryMode sse_decode_country_mode(SseDeserializer deserializer);
+
+  @protected
+  EmbeddedRules sse_decode_embedded_rules(SseDeserializer deserializer);
+
+  @protected
   EventHit sse_decode_event_hit(SseDeserializer deserializer);
 
   @protected
@@ -257,6 +279,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<CountryMode> sse_decode_list_country_mode(SseDeserializer deserializer);
 
   @protected
   List<EventHit> sse_decode_list_event_hit(SseDeserializer deserializer);
@@ -359,6 +384,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_utterance(Utterance self, SseSerializer serializer);
 
   @protected
+  void sse_encode_countries_around(CountriesAround self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_country_mode(CountryMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_embedded_rules(EmbeddedRules self, SseSerializer serializer);
+
+  @protected
   void sse_encode_event_hit(EventHit self, SseSerializer serializer);
 
   @protected
@@ -399,6 +433,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_country_mode(List<CountryMode> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_event_hit(List<EventHit> self, SseSerializer serializer);

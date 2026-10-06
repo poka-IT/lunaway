@@ -309,7 +309,6 @@ void main() {
       List<RoutePlan> more = const [],
       FakeFuelStations? fuel,
       List<RouteStop> stops = const [],
-      OneDangerZone? zone,
       List<PlaceSummary> places = const [],
     }) async {
       routes = FakeRouteService(answers.isEmpty ? [plan] : answers);
@@ -322,7 +321,6 @@ void main() {
           feed: feed,
           engine: LineEngine([plan, ...more]),
           fuel: fuel,
-          zones: zone,
           placesNearRoute: places,
         ),
       );
@@ -572,26 +570,6 @@ void main() {
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, hasLength(1));
       await drive(tester, plan, toM: 1000);
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
-    });
-
-    testWidgets('a danger zone ahead shows in its banner, where the law allows one', (
-      tester,
-    ) async {
-      final plan = routeFixture('limoges_drive');
-      await guide(tester, plan, zone: const OneDangerZone(startM: 1500));
-      await drive(tester, plan, toM: 1000);
-      expect(find.text('Zone de danger dans 500 m'), findsOneWidget);
-    });
-
-    testWidgets('in the zone the banner says so, and it ends with the zone', (tester) async {
-      final plan = routeFixture('limoges_drive');
-      await guide(tester, plan, zone: const OneDangerZone(startM: 1000, lengthM: 300));
-      await drive(tester, plan, toM: 1100);
-      expect(find.text('Zone de danger'), findsOneWidget);
-      // Past its end, before the next check of the zones.
-      await drive(tester, plan, toM: 1350);
-      expect(find.text('Zone de danger'), findsNothing);
-      expect(find.textContaining('Zone de danger dans'), findsNothing);
     });
   });
 

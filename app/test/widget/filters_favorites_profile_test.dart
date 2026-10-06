@@ -326,6 +326,16 @@ void main() {
     testWidgets('switching the language translates the app and is remembered', (tester) async {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
+      await tester.scrollUntilVisible(
+        find.text('English'),
+        200,
+        scrollable: find
+            .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+            .first,
+      );
+      // Clear of the bottom bar, which would take the tap.
+      await tester.drag(find.byType(ProfileScreen), const Offset(0, -200));
+      await settleShort(tester);
       await tester.tap(find.text('English'));
       await settleShort(tester);
       expect(find.text('Map'), findsOneWidget);
@@ -404,6 +414,14 @@ void main() {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
       for (final label in ['Site web', 'Politique de confidentialité', 'Code source']) {
+        await tester.scrollUntilVisible(
+          find.text(label),
+          200,
+          scrollable: find
+              .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pump();
         await tester.tap(find.text(label));
         await settleShort(tester);
       }

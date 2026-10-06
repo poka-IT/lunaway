@@ -282,6 +282,9 @@ final class PackOutlines {
 
   final Map<String, List<List<(double, double)>>> _rings;
 
+  /// The ids of the outlines held.
+  Iterable<String> get ids => _rings.keys;
+
   /// Whether the pack [id] with box [bounds] covers [point].
   bool covers(String id, GeoBounds bounds, LatLng point) {
     if (!bounds.contains(point)) return false;

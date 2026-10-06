@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/features/account/data/p256.dart';
+import 'package:lunaway/features/places/data/demo/persisted_queries.dart';
 
 import '../contract/graphql_validator.dart';
 import 'samples.dart';
@@ -30,6 +31,9 @@ final class FakeApi {
 
   int level;
   String pseudonym;
+
+  /// The documents the app named by their hash, as the API keeps them.
+  final _persisted = PersistedQueryStore();
 
   /// No answer at all, as without a network.
   bool offline = false;
@@ -68,6 +72,10 @@ final class FakeApi {
 
   /// The "still there?" answers about points of interest.
   final poiConfirmations = <Map<String, Object?>>[];
+
+  /// What `poi` answers for a point an answer is about (`name`, `kind`);
+  /// a point not listed reads as gone.
+  final poiDetails = <String, Map<String, Object?>>{};
 
   /// What the account sent, as `myAccount` lists it.
   final confirmations = <Map<String, Object?>>[];
@@ -155,11 +163,18 @@ final class FakeApi {
     }
     final body = jsonDecode(request.body) as Map<String, dynamic>;
     final name = body['operationName'] as String? ?? '';
-    final query = body['query'] as String;
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     if (!_handled.contains(name)) {
       return await fallback.send(request).then(http.Response.fromStream);
     }
+    final String? document;
+    try {
+      document = _persisted.documentOf(body);
+    } on FormatException {
+      return _json(PersistedQueryStore.mismatch);
+    }
+    if (document == null) return _json(PersistedQueryStore.notFound);
+    final query = document;
     if (offline) throw http.ClientException('offline', request.url);
     if (older) {
       // As the API before idempotency keys, `createIfUnknown` and `clear`
@@ -238,6 +253,7 @@ final class FakeApi {
     'ReportIssue',
     'DeleteIssueReport',
     'ConfirmPoi',
+    'DeletePoiConfirmation',
     'AddVendingMachine',
     'ReportContent',
     'AddPlace',
@@ -341,7 +357,7 @@ final class FakeApi {
         final unknown = !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
         // `createIfUnknown: false`: an unknown key makes nothing.
         if (v['createIfUnknown'] == false && (unknown || _keys.isEmpty)) {
-          throw const _Refused('NOT_FOUND');
+          throw const _Refused('NOT_FOUND', extensions: {'reason': 'UNKNOWN_KEY'});
         }
         if (unknown) {
           // A key it does not know: the server makes another account.
@@ -464,12 +480,18 @@ final class FakeApi {
       'ReportContent' => {'reportContent': true},
       'AddPlace' => {'addPlace': _submission('CREATE', null)},
       'ConfirmPoi' => () {
-        final c = {'id': _next(), 'poiId': v['poiId'], 'stillThere': v['stillThere']};
+        final c = {
+          'id': _next(),
+          'poiId': v['poiId'],
+          'stillThere': v['stillThere'],
+          'createdAt': testNow.toIso8601String(),
+        };
         poiConfirmations.add(c);
         return {
           'confirmPoi': {'id': c['id']},
         };
       }(),
+      'DeletePoiConfirmation' => {'deletePoiConfirmation': _remove(poiConfirmations, id())},
       'AddVendingMachine' => () {
         if (vendingDuplicateOf case final existing?) {
           throw _Refused('INVALID_INPUT', extensions: {'existingId': existing});
@@ -497,6 +519,12 @@ final class FakeApi {
           'confirmations': {'nodes': confirmations, 'totalCount': confirmations.length},
           'issueReports': {'nodes': issues, 'totalCount': issues.length},
           'placeSubmissions': {'nodes': submissions, 'totalCount': submissions.length},
+          'poiConfirmations': {
+            'nodes': [
+              for (final c in poiConfirmations.reversed) {...c, 'poi': poiDetails[c['poiId']]},
+            ],
+            'totalCount': poiConfirmations.length,
+          },
         },
       },
       'MyFavoriteLists' => {'myFavoriteLists': <Object?>[]},

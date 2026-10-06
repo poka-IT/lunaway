@@ -7,16 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
+import 'package:lunaway/features/navigation/data/country_locator.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
-import 'package:lunaway/features/navigation/domain/danger_zones.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
@@ -504,14 +507,18 @@ List<Override> navigationOverrides({
   DateTime Function()? clock,
   List<PlaceSummary> placesNearRoute = const [],
   FuelStationsSource? fuel,
-  DangerZoneSource? zones,
+  // The countries around the vehicle and the speed camera data of the
+  // trip: none by default, so every rule reads as off.
+  CountryLocator? countries,
+  EnforcementFeed? enforcement,
   // The service in place of [routes], when a test wraps it (in the cache).
   RouteService? service,
 }) => [
   if (clock != null) clockProvider.overrideWithValue(clock),
   placesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   fuelStationsProvider.overrideWithValue(fuel ?? FakeFuelStations(const [])),
-  dangerZonesProvider.overrideWithValue(zones ?? const NoDangerZones()),
+  countryLocatorProvider.overrideWith((ref) async => countries ?? const NoCountryLocator()),
+  enforcementFeedProvider.overrideWithValue(enforcement ?? FixedEnforcement()),
   routeServiceProvider.overrideWithValue(service ?? routes),
   locationFeedProvider.overrideWithValue(
     feed ?? FakeLocationFeed(position: const LatLng(45.84719, 1.28476)),
@@ -533,7 +540,7 @@ final class FakeFuelStations implements FuelStationsSource {
   new(this.offers);
 
   final List<FuelOffer> offers;
-  final List<({double fromM, FuelType fuel})> queries = [];
+  final List<({double fromM, FuelType fuel, double consumption})> queries = [];
 
   @override
   Future<List<FuelOffer>> along({
@@ -541,28 +548,57 @@ final class FakeFuelStations implements FuelStationsSource {
     required double fromM,
     required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
+    double consumptionL100 = defaultConsumptionL100,
+    Map<String, Object?>? vehicle,
   }) async {
-    queries.add((fromM: fromM, fuel: fuel));
+    queries.add((fromM: fromM, fuel: fuel, consumption: consumptionL100));
     return offers;
   }
 }
 
-/// One danger zone, from [startM] for [lengthM] metres.
-final class OneDangerZone implements DangerZoneSource {
-  const new({required this.startM, this.lengthM = 1000});
+/// Countries by a rule of the test: each position reads the country
+/// [countryOf] gives it, and those [near] adds within a kilometre.
+final class FakeCountries implements CountryLocator {
+  new(this.countryOf, {this.near, EnforcementRules? rules})
+    : builtIn = rules ?? const EnforcementRules(version: 1, countries: {});
 
-  final double startM;
-  final double lengthM;
+  final String? Function(LatLng p) countryOf;
+  final List<String> Function(LatLng p)? near;
 
   @override
-  List<DangerZone> ahead({
-    required List<LatLng> line,
-    required double fromM,
-    double reachM = 2000,
-  }) => [
-    if (startM + lengthM >= fromM && startM - fromM <= reachM)
-      DangerZone(id: 'zone', startM: startM, lengthM: lengthM),
-  ];
+  final EnforcementRules builtIn;
+
+  @override
+  ({String? at, List<String> near}) around(LatLng p) {
+    final at = countryOf(p);
+    return (at: at, near: {?at, ...?near?.call(p)}.toList());
+  }
+}
+
+/// The speed camera data of a trip, given in advance; the countries asked
+/// recorded.
+final class FixedEnforcement implements EnforcementFeed {
+  new({this.rules, this.items = const [], this.sources = const []});
+
+  EnforcementRules? rules;
+  List<EnforcementItem> items;
+  List<EnforcementSource> sources;
+  final List<Set<String>> asked = [];
+
+  @override
+  Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {
+    asked.add(countries);
+    return (
+      rules: rules,
+      items: [
+        for (final i in items)
+          if (countries.contains(i.country)) i,
+      ],
+      sources: sources,
+      pollInterval: const Duration(hours: 6),
+      polledAt: now,
+    );
+  }
 }
 
 /// The notification permission, asked and counted.

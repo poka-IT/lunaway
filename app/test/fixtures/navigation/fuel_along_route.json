@@ -1,0 +1,56 @@
+{
+  "data": {
+    "fuelAlongRoute": {
+      "stations": [
+        {
+          "stationId": "19100017",
+          "poiId": "01a110e9-f037-7172-b861-f4e0e3e52c09",
+          "name": "Total Access",
+          "brand": "TotalEnergies",
+          "lat": 45.165,
+          "lon": 1.511,
+          "fuel": "DIESEL",
+          "priceEur": 2.25,
+          "priceUpdatedAt": "2026-10-06T13:43:04+00:00",
+          "shortage": null,
+          "openNow": { "state": "OPEN" },
+          "alongKm": 77.79510240057094,
+          "detour": { "km": 2.9010000000000007, "minutes": 3.7, "measured": true },
+          "effectivePriceEur": 2.26435995
+        },
+        {
+          "stationId": "87220002",
+          "poiId": null,
+          "name": null,
+          "brand": null,
+          "lat": 45.78,
+          "lon": 1.306,
+          "fuel": "DIESEL",
+          "priceEur": 2.347,
+          "priceUpdatedAt": "2026-10-05T00:48:00+00:00",
+          "shortage": null,
+          "openNow": { "state": "UNKNOWN" },
+          "alongKm": 6.840373682766933,
+          "detour": { "km": 2.151, "minutes": 2.783333333333333, "measured": false },
+          "effectivePriceEur": 2.3581064734
+        },
+        {
+          "stationId": "87000006",
+          "poiId": "01a110ea-c736-73bd-a753-96245b126687",
+          "name": "Intermarché",
+          "brand": "Intermarché",
+          "lat": 45.815,
+          "lon": 1.269,
+          "fuel": "DIESEL",
+          "priceEur": 2.363,
+          "priceUpdatedAt": "2026-10-06T08:04:35+00:00",
+          "shortage": { "kind": "TEMPORARY" },
+          "openNow": { "state": "OPEN" },
+          "alongKm": 2.145605536304579,
+          "detour": { "km": 0.84, "minutes": 0.9833333333333333, "measured": true },
+          "effectivePriceEur": 2.367366824
+        }
+      ]
+    }
+  }
+}

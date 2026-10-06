@@ -354,5 +354,33 @@ mutation Edit($id: UUID!, $patch: PatchInput!, $key: String) {
       );
       expect(sent, hasLength(1));
     });
+
+    test('a field the API lacks calls for the form without it, when there is one', () async {
+      const withField = 'query R { route { status speedLimits } }';
+      const without = 'query R { route { status } }';
+      final selecting = GraphQLOperation<Object?>(
+        name: 'R',
+        document: withField,
+        older: OlderForm.selecting(without),
+        parse: (data) => data,
+      );
+      final c = client(
+        (r) => (jsonDecode(r.body) as Map<String, dynamic>)['query'] == withField
+            ? json(refusal('Unknown field "speedLimits" on type "RouteSummary".'))
+            : json('{"data":{"route":{"status":"OK"}}}'),
+      );
+      expect(await c.execute(selecting), {
+        'route': {'status': 'OK'},
+      });
+      expect(sent, hasLength(2));
+      // An operation with an older form of arguments only is not resent
+      // for a field: a whole operation the API lacks.
+      final args = client((_) => json(refusal('Unknown field "confirmPoi" on type "Mutation".')));
+      await expectLater(
+        args.execute(op, {'id': 'p1', 'patch': <String, Object?>{}}),
+        throwsA(isA<GraphQLResponseException>()),
+      );
+      expect(sent, hasLength(1));
+    });
   });
 }

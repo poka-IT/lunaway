@@ -114,7 +114,8 @@ final class OutboxStore {
           ContributionKind.deletePlaceSubmission ||
           ContributionKind.photo ||
           ContributionKind.deletePhoto ||
-          ContributionKind.addVendingMachine:
+          ContributionKind.addVendingMachine ||
+          ContributionKind.deletePoiConfirmation:
         break;
     }
     final now = clock().toUtc();

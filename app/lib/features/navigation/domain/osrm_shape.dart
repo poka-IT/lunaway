@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -153,4 +154,81 @@ LatLng? _location(Object? node) {
   return l is List && l.length >= 2
       ? LatLng((l[1] as num).toDouble(), (l[0] as num).toDouble())
       : null;
+}
+
+/// Encodes [points] as a polyline with [precision] decimals, the inverse of
+/// [decodePolyline]. Arithmetic rather than bit operators, as there.
+String encodePolyline(List<LatLng> points, {int precision = 6}) {
+  final factor = _pow10(precision);
+  final out = StringBuffer();
+  void put(int value) {
+    var v = value < 0 ? -value * 2 - 1 : value * 2;
+    while (v >= 32) {
+      out.writeCharCode((v % 32 + 32) + 63);
+      v ~/= 32;
+    }
+    out.writeCharCode(v + 63);
+  }
+
+  var lat = 0;
+  var lon = 0;
+  for (final p in points) {
+    final nextLat = (p.lat * factor).round();
+    final nextLon = (p.lon * factor).round();
+    put(nextLat - lat);
+    put(nextLon - lon);
+    lat = nextLat;
+    lon = nextLon;
+  }
+  return out.toString();
+}
+
+/// [line] without the points that stray less than [toleranceM] metres from
+/// the line through their neighbours (Douglas-Peucker), the ends kept.
+List<LatLng> simplifyLine(List<LatLng> line, {required double toleranceM}) {
+  if (line.length < 3) return line;
+  final keep = List<bool>.filled(line.length, false)
+    ..[0] = true
+    ..[line.length - 1] = true;
+  final stack = <(int, int)>[(0, line.length - 1)];
+  while (stack.isNotEmpty) {
+    final (first, last) = stack.removeLast();
+    var worst = 0.0;
+    var index = -1;
+    final chord = [line[first], line[last]];
+    for (var i = first + 1; i < last; i++) {
+      final off = _offChord(line[i], chord);
+      if (off > worst) {
+        worst = off;
+        index = i;
+      }
+    }
+    if (index >= 0 && worst > toleranceM) {
+      keep[index] = true;
+      stack
+        ..add((first, index))
+        ..add((index, last));
+    }
+  }
+  return [
+    for (var i = 0; i < line.length; i++)
+      if (keep[i]) line[i],
+  ];
+}
+
+/// Metres from [p] to the segment [chord], on a plane tangent at [p].
+double _offChord(LatLng p, List<LatLng> chord) {
+  const metresPerDegree = 111195.0;
+  final cosLat = math.cos(p.lat * math.pi / 180);
+  final ax = (chord[0].lon - p.lon) * metresPerDegree * cosLat;
+  final ay = (chord[0].lat - p.lat) * metresPerDegree;
+  final bx = (chord[1].lon - p.lon) * metresPerDegree * cosLat;
+  final by = (chord[1].lat - p.lat) * metresPerDegree;
+  final dx = bx - ax;
+  final dy = by - ay;
+  final len2 = dx * dx + dy * dy;
+  final t = len2 == 0 ? 0.0 : (-(ax * dx + ay * dy) / len2).clamp(0.0, 1.0);
+  final x = ax + t * dx;
+  final y = ay + t * dy;
+  return math.sqrt(x * x + y * y);
 }

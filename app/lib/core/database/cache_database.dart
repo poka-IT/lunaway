@@ -45,9 +45,10 @@ final class CacheDatabase extends _$CacheDatabase {
   // Version 1 is the first shipped schema: earlier ones never left a
   // developer's device, so they get no migration. Version 2 keeps what the
   // community says of each place, version 3 the points of interest read
-  // around them.
+  // around them, version 4 the sync region of each place and the speed
+  // camera data of the guidance.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,6 +74,14 @@ final class CacheDatabase extends _$CacheDatabase {
         );
       }
       if (from < 3) await m.createTable(poiCache);
+      if (from < 4) {
+        // The places synced by box stay on the map with no region; the sync
+        // by region writes them again with theirs, and drops those it did
+        // not write once every region kept has synced.
+        await m.addColumn(places, places.region);
+        await m.createIndex(placesRegion);
+        await m.createTable(enforcementItems);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

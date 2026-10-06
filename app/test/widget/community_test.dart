@@ -10,6 +10,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/photo_prepare.dart';
 import 'package:lunaway/features/community/data/picture_picker.dart';
@@ -390,6 +391,12 @@ void main() {
       expect(await app.secrets.read('device_key'), isNull);
       expect(find.text(t.account.lost), findsOneWidget);
       expect(find.text(t.account.recover), findsWidgets);
+      // The message leads to the recovery card's screen.
+      await tester.tap(
+        find.descendant(of: find.byType(SnackBar), matching: find.text(t.account.lostAction)),
+      );
+      await settleShort(tester);
+      expect(find.byType(RecoverScreen), findsOneWidget);
     });
 
     testWidgets('signing out says what waits, drops it, and creates no account after', (
@@ -654,6 +661,46 @@ void main() {
       await settleShort(tester, const Duration(seconds: 2));
       expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c1'});
       expect(find.text(t.mine.empty), findsOneWidget);
+    });
+
+    testWidgets('my answers about shops and services are listed, named, and deletable', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      api.poiConfirmations
+        ..add({
+          'id': '00000000-0000-7000-8000-0000000000a1',
+          'poiId': '00000000-0000-7000-8000-0000000000b1',
+          'stillThere': true,
+          'createdAt': '2026-10-05T18:00:00Z',
+        })
+        ..add({
+          'id': '00000000-0000-7000-8000-0000000000a2',
+          'poiId': '00000000-0000-7000-8000-0000000000b2',
+          'stillThere': false,
+          'createdAt': '2026-10-05T19:00:00Z',
+        });
+      api.poiDetails['00000000-0000-7000-8000-0000000000b1'] = {
+        'name': 'Boulangerie du Lac',
+        'kind': 'BAKERY',
+      };
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      expect(find.text(t.mine.poiConfirmations), findsOneWidget);
+      expect(find.text('Boulangerie du Lac'), findsOneWidget);
+      expect(find.textContaining(t.poi.stillThere), findsOneWidget);
+      // The point is gone since: the answer stays, named generically.
+      expect(find.text(t.mine.aPoi), findsOneWidget);
+      expect(find.textContaining(t.poi.gone), findsOneWidget);
+
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.last('DeletePoiConfirmation'), {'id': '00000000-0000-7000-8000-0000000000a2'});
+      expect(find.text(t.mine.aPoi), findsNothing);
+      expect(find.text('Boulangerie du Lac'), findsOneWidget);
     });
 
     testWidgets('deleting a confirmation drops the waiting request that may have made it', (

@@ -5,12 +5,12 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
-import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
-import 'package:lunaway/features/navigation/domain/danger_zones.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -43,6 +43,10 @@ abstract interface class GuidanceWording {
 
   /// "Attention, pont à 3,20 mètres dans 2 kilomètres."
   String warningAhead(RouteWarning warning, double aheadM);
+
+  /// What the aids say when their word is due ([DrivingAids.wordKind]):
+  /// "Vitesse limitée à 90.", "Zone de danger dans 800 mètres."
+  String aid(DrivingAids aids);
 
   /// "Vous êtes arrivé."
   String get arrived;
@@ -135,7 +139,7 @@ final class GuidanceSession {
     this.overview = false,
     this.positionLost = false,
     this.stops = const [],
-    this.dangerZone,
+    this.aids = DrivingAids.none,
   });
 
   final RouteTarget target;
@@ -168,9 +172,9 @@ final class GuidanceSession {
   /// The stops still ahead, in order.
   final List<RouteStop> stops;
 
-  /// The danger zone ahead or around the vehicle, where the law allows one
-  /// to be announced.
-  final DangerZone? dangerZone;
+  /// The limit, the excess, and the danger zone or camera ahead, where the
+  /// rule of the country the vehicle is in allows it.
+  final DrivingAids aids;
 
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
@@ -198,7 +202,7 @@ final class GuidanceSession {
     bool? overview,
     bool? positionLost,
     List<RouteStop>? stops,
-    DangerZone? Function()? dangerZone,
+    DrivingAids? aids,
   }) => GuidanceSession(
     target: target ?? this.target,
     plan: plan ?? this.plan,
@@ -215,7 +219,7 @@ final class GuidanceSession {
     overview: overview ?? this.overview,
     positionLost: positionLost ?? this.positionLost,
     stops: stops ?? this.stops,
-    dangerZone: dangerZone == null ? this.dangerZone : dangerZone(),
+    aids: aids ?? this.aids,
   );
 }
 
@@ -281,6 +285,8 @@ class GuidanceController extends _$GuidanceController {
   GuidanceTrack? _track;
   StreamSubscription<Fix>? _fixes;
   Timer? _poll;
+  DrivingAidsEngine? _aids;
+  Timer? _enforcementPoll;
   Timer? _fixRetry;
   GuidanceWording? _words;
   VoiceOutput? _voice;
@@ -357,8 +363,12 @@ class GuidanceController extends _$GuidanceController {
     if (!ref.mounted || generation != _generation) return false;
     await ref.read(appForegroundProvider).resumed();
     if (!ref.mounted || generation != _generation) return false;
+    final locator = await ref.read(countryLocatorProvider.future);
+    if (!ref.mounted || generation != _generation) return false;
+    _aids = DrivingAidsEngine(locator: locator);
     _listenFixes();
     unawaited(_pollEvents());
+    unawaited(_pollEnforcement());
     return true;
   }
 
@@ -530,6 +540,9 @@ class GuidanceController extends _$GuidanceController {
     _fixRetry = null;
     _poll?.cancel();
     _poll = null;
+    _enforcementPoll?.cancel();
+    _enforcementPoll = null;
+    _aids = null;
     _track?.dispose();
     _track = null;
     _spoken.clear();
@@ -620,12 +633,14 @@ class GuidanceController extends _$GuidanceController {
       _fixRetry?.cancel();
       _poll?.cancel();
       _poll = null;
+      _enforcementPoll?.cancel();
+      _enforcementPoll = null;
       state = next.copyWith(
         phase: GuidancePhase.arrived,
         ahead: const [],
         eventAlerts: const [],
         alert: () => null,
-        dangerZone: () => null,
+        aids: DrivingAids.none,
       );
       _say(_words!.arrived);
       return;
@@ -653,6 +668,25 @@ class GuidanceController extends _$GuidanceController {
       }
     }
     next = next.copyWith(ahead: ahead);
+    if (_aids?.update(
+          fix: fix,
+          snap: snap,
+          route: next.route,
+          totalWeightT: totalWeightOf(next.plan.applied.vehicle),
+        )
+        case final aids?) {
+      // The words of the aids only when the user asked for them: the
+      // banners and the sign speak for themselves. A limit the user hid is
+      // not spoken either.
+      if (aids.words > next.aids.words) {
+        final settings = ref.read(drivingAidsSettingsControllerProvider).value;
+        if ((settings?.speedSound ?? false) &&
+            (aids.wordKind != AidWord.overSpeed || settings!.showSpeedLimit)) {
+          _say(_words!.aid(aids), queue: said);
+        }
+      }
+      next = next.copyWith(aids: aids);
+    }
     if (next.alert != null && !fix.at.isBefore(next.alert!.until)) {
       next = next.copyWith(alert: () => null);
     }
@@ -792,6 +826,8 @@ class GuidanceController extends _$GuidanceController {
       if (generation == _generation) _rerouting = false;
     }
     if (!landed || !_current(generation)) return;
+    // A new route may cross other countries: their zones are asked for.
+    unawaited(_pollEnforcement());
     // The new route is checked at once, against every event known by now:
     // the server may not have known the closure, and a route back through
     // it is no detour.
@@ -830,6 +866,37 @@ class GuidanceController extends _$GuidanceController {
   /// Asks for the road events now rather than at the next poll: when the
   /// network comes back, and in tests.
   Future<void> refreshRoadEvents() => _pollEvents();
+
+  /// Brings the speed camera data of the route's countries up to date
+  /// (the countries only leave the device, never a position), hands it to
+  /// the aids, and asks again at the server's rhythm. Offline, the data
+  /// kept from an earlier trip serves.
+  Future<void> _pollEnforcement() async {
+    final generation = _generation;
+    final aids = _aids;
+    final s = state;
+    if (aids == null || s == null) return;
+    _enforcementPoll?.cancel();
+    final countries = aids.countriesOf(s.route.line);
+    // A poll that could not reach the server (offline, a refusal, a store
+    // that failed) is tried again sooner than the server's rhythm.
+    var wait = const Duration(minutes: 10);
+    try {
+      final known = await ref
+          .read(enforcementFeedProvider)
+          .refresh(countries, ref.read(clockProvider)());
+      if (!_current(generation) || !identical(aids, _aids)) return;
+      aids.setData(rules: known.rules, items: known.items, sources: known.sources);
+      final polled = known.polledAt;
+      if (polled != null && ref.read(clockProvider)().difference(polled) < known.pollInterval) {
+        wait = known.pollInterval;
+      }
+    } on Object catch (e) {
+      _log.fine('speed camera data not refreshed: $e');
+      if (!_current(generation) || !identical(aids, _aids)) return;
+    }
+    _enforcementPoll = Timer(wait, () => unawaited(_pollEnforcement()));
+  }
 
   void _schedulePoll(Duration wait) {
     _poll?.cancel();
@@ -891,11 +958,7 @@ class GuidanceController extends _$GuidanceController {
     );
     final blocking = found.blocking;
     final shown = [...blocking, ...found.alerts]..sort((a, b) => a.aheadM.compareTo(b.aheadM));
-    final zone = ref
-        .read(dangerZonesProvider)
-        .ahead(line: s.route.line, fromM: snap?.distanceAlongM ?? 0)
-        .firstOrNull;
-    final next = s.copyWith(eventAlerts: shown, dangerZone: () => zone);
+    final next = s.copyWith(eventAlerts: shown);
     if (blocking.isEmpty) {
       state = next;
       return false;

@@ -84,12 +84,12 @@ final class IoPackFiles implements PackFiles {
   }
 
   @override
-  PackSink partSink(String fileName) => _FileSink(() => _file('$fileName.part'));
+  PackSink partSink(String fileName) => FilePackSink(() => _file('$fileName.part'));
 
   @override
   Future<String> partSha256(String fileName) async {
     final path = (await _file('$fileName.part')).path;
-    return await Isolate.run(() => _sha256Of(path));
+    return await Isolate.run(() => sha256OfFile(path));
   }
 
   @override
@@ -153,7 +153,9 @@ final class IoPackFiles implements PackFiles {
   }
 }
 
-String _sha256Of(String path) {
+/// The SHA-256 of the file at [path], read by chunks; run it off the UI
+/// thread.
+String sha256OfFile(String path) {
   final out = _DigestSink();
   final input = sha256.startChunkedConversion(out);
   final file = File(path).openSync();
@@ -183,7 +185,7 @@ final class _DigestSink implements Sink<Digest> {
 
 /// The part of a pack: appended to as bytes arrive, flushed at the end of
 /// each attempt.
-final class _FileSink implements PackSink {
+final class FilePackSink implements PackSink {
   new(this._path);
 
   final Future<File> Function() _path;

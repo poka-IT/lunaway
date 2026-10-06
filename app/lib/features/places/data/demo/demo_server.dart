@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
+import 'package:lunaway/features/places/data/demo/persisted_queries.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -26,6 +27,12 @@ http.Client demoApiClient(
   DocumentValidator? validate,
 }) {
   final byId = {for (final p in places) p.id: p};
+  final persisted = PersistedQueryStore();
+  http.Response answer(Map<String, Object?> json) => http.Response(
+    jsonEncode(json),
+    200,
+    headers: {'content-type': 'application/json; charset=utf-8'},
+  );
   return MockClient((request) async {
     await Future<void>.delayed(latency);
     final path = request.url.path;
@@ -33,7 +40,14 @@ http.Client demoApiClient(
       return await _photo(path.substring('${apiBase.path}/media/'.length));
     }
     final body = jsonDecode(request.body) as Map<String, dynamic>;
-    final errors = validate?.call(body['query'] as String? ?? '') ?? const [];
+    final String? document;
+    try {
+      document = persisted.documentOf(body);
+    } on FormatException {
+      return answer(PersistedQueryStore.mismatch);
+    }
+    if (document == null) return answer(PersistedQueryStore.notFound);
+    final errors = validate?.call(document) ?? const [];
     if (errors.isNotEmpty) {
       return http.Response(
         jsonEncode({
@@ -48,6 +62,18 @@ http.Client demoApiClient(
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     final data = switch (body['operationName']) {
       'Changes' => _changes(places, variables),
+      // One region, France, with no pack: the demo syncs from its feed.
+      'Regions' => {
+        'regions': [
+          {'code': 'FR', 'country': 'FR', 'name': 'France', 'nameFr': 'France', 'pack': null},
+        ],
+      },
+      'RegionChanges' => {
+        'changes': {
+          ..._changes(places, variables)['changes']! as Map<String, Object?>,
+          'left': <String>[],
+        },
+      },
       'PlaceExtras' || 'PlaceReviews' => _extras(byId[variables['id']], variables, apiBase),
       final other => throw StateError('the demo API does not serve $other'),
     };

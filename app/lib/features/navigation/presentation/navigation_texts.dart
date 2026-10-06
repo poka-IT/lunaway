@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -21,6 +22,15 @@ extension NavigationTexts on Translations {
   // The full path of every key, `_t.navigation...`: the translation gate
   // finds a key by its dotted path.
   Translations get _t => this;
+
+  /// A speed limit in the user's units, rounded as a sign shows it: 90
+  /// km/h reads 56 in miles per hour.
+  int speedIn(int kmh, DistanceUnits units) =>
+      units == DistanceUnits.metric ? kmh : (kmh * 1000 / _metresPerMile).round();
+
+  /// "90 km/h", or "56 mph" in [DistanceUnits.imperial].
+  String speedLimit(int kmh, DistanceUnits units) =>
+      '${speedIn(kmh, units)} ${units == DistanceUnits.metric ? _t.navigation.units.kmh : _t.navigation.units.mph}';
 
   /// "350 m", "2.4 km", "48 km"; "500 ft", "1.2 mi" in [DistanceUnits.imperial].
   String routeDistance(double metres, DistanceUnits units) {
@@ -298,4 +308,25 @@ final class TranslatedWording implements GuidanceWording {
 
   @override
   String get arrived => t.navigation.voice.arrived;
+
+  @override
+  String aid(DrivingAids aids) {
+    final alert = aids.alert;
+    return switch (aids.wordKind) {
+      AidWord.overSpeed => t.navigation.voice.overSpeed(
+        limit: switch (aids.limit) {
+          null => '',
+          final l => '${t.speedIn(l.kmh, units)}',
+        },
+      ),
+      AidWord.camera when alert != null => t.navigation.voice.camera(
+        distance: t.spokenDistance(alert.aheadM, units),
+      ),
+      AidWord.zone when alert != null =>
+        alert.inside
+            ? t.navigation.voice.inDangerZone
+            : t.navigation.voice.dangerZone(distance: t.spokenDistance(alert.aheadM, units)),
+      _ => '',
+    };
+  }
 }

@@ -19,6 +19,7 @@ import 'package:lunaway/shared/labels.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/fakes.dart';
+import '../helpers/fuel_feed_server.dart';
 import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
@@ -324,10 +325,17 @@ void main() {
       WidgetTester tester, {
       Size size = _tall,
       MapViewport at = view,
+      FuelFeedServer? feed,
     }) async {
       final pois = FakePoiSource(pois: stations);
       final map = FakeMap()..viewport = at;
-      final app = await pumpLunaway(tester, size: size, map: map, pois: pois);
+      final app = await pumpLunaway(
+        tester,
+        size: size,
+        map: map,
+        pois: pois,
+        httpClient: feed?.client,
+      );
       await tester.ensureVisible(find.text(t.poi.category.fuel));
       await tester.tap(find.text(t.poi.category.fuel));
       await settleShort(tester);
@@ -368,15 +376,48 @@ void main() {
       expect(app.map.moves.last.center, const LatLng(45.91, 6.12));
     });
 
-    testWidgets('far out, the list asks to come closer and reads no price', (tester) async {
-      final (_, pois) = await fuelOn(
-        tester,
-        at: const MapViewport(
-          bounds: GeoBounds(south: 44, west: 4, north: 48, east: 8),
-          center: LatLng(46, 6),
-          zoom: 8,
-        ),
-      );
+    const farOut = MapViewport(
+      bounds: GeoBounds(south: 44, west: 4, north: 48, east: 8),
+      center: LatLng(46.012, 6.031),
+      zoom: 8,
+    );
+
+    testWidgets('far out, the server ranks the stations around the view; no tile is read', (
+      tester,
+    ) async {
+      final feed = FuelFeedServer(testDemoClient)
+        ..nearby = [
+          fuelStop(
+            '74000001',
+            'Relais du Lac',
+            1.689,
+            lat: 46.05,
+            lon: 6.05,
+            poiId: '0192f5a0-0000-7000-8000-0000000000f7',
+          ),
+          fuelStop('74000002', 'Garage des Cimes', 1.699, lat: 46.1, lon: 6),
+          fuelStop('74000003', 'Station du Bourg', 1.659, lat: 46, lon: 6, shortage: 'TEMPORARY'),
+        ];
+      final (_, pois) = await fuelOn(tester, at: farOut, feed: feed);
+      expect(find.text(t.poi.cheapest.zoomIn), findsNothing);
+      double y(String name) => tester.getTopLeft(find.text(name)).dy;
+      expect(y('Relais du Lac'), lessThan(y('Garage des Cimes')));
+      expect(y('Garage des Cimes'), lessThan(y('Station du Bourg')), reason: 'out of it: last');
+      expect(find.text(t.poi.shortageTemporary), findsOneWidget);
+      expect(pois.fuelReads, 0);
+      // The centre of the view leaves rounded to a twentieth of a degree.
+      final (name, variables) = feed.requests.single;
+      expect(name, 'FuelNearby');
+      expect(variables['at'], {'lat': 46.0, 'lon': 6.05});
+      expect(variables['fuel'], 'DIESEL');
+      expect(feed.violations, isEmpty);
+    });
+
+    testWidgets('far out, against an API without that search, the list asks to come closer', (
+      tester,
+    ) async {
+      final feed = FuelFeedServer(testDemoClient)..older = true;
+      final (_, pois) = await fuelOn(tester, at: farOut, feed: feed);
       expect(find.text(t.poi.cheapest.zoomIn), findsOneWidget);
       expect(pois.fuelReads, 0);
     });
@@ -438,6 +479,47 @@ void main() {
       await settleShort(tester);
       expect(find.text(t.poi.cheapest.title).hitTestable(), findsOneWidget);
       expect(find.text('Station du Port').hitTestable(), findsOneWidget);
+    });
+
+    testWidgets("a station's page shows how its price moved, the days seen only", (tester) async {
+      final id = stationJson['id']! as String;
+      final feed = FuelFeedServer(testDemoClient)
+        ..trends = {
+          id: {
+            'fuel': 'DIESEL',
+            'days': [
+              {'day': '2026-09-29', 'lowEur': 1.709, 'highEur': 1.719},
+              {'day': '2026-10-02', 'lowEur': 1.699, 'highEur': 1.709},
+              {'day': '2026-10-06', 'lowEur': 1.689, 'highEur': 1.699},
+            ],
+            'last7Days': {'lowEur': 1.689, 'highEur': 1.709, 'daysKnown': 2, 'changeEur': -0.01},
+            'last30Days': {'lowEur': 1.689, 'highEur': 1.719, 'daysKnown': 3, 'changeEur': -0.02},
+          },
+        };
+      final map = FakeMap();
+      final app = await pumpLunaway(tester, map: map, size: _tall, httpClient: feed.client);
+      await app
+          .container(tester)
+          .read(vehicleRepositoryProvider)
+          .save(Vehicle.typical(VehicleType.van).copyWith(fuel: () => FuelType.diesel));
+      await settleShort(tester);
+      map.lastProps!.onPoiTap!(_feature(stationJson));
+      await settleShort(tester);
+      await tester.ensureVisible(inPoi(find.text(t.poi.trend.title(fuel: 'Gazole'))));
+      await settleShort(tester);
+      Finder line(String text) => inPoi(find.textContaining(text, findRichText: true));
+      expect(
+        line(
+          '${t.poi.trend.week} de ${t.pricePerLitre(1.689)} à ${t.pricePerLitre(1.709)}, '
+          'en baisse de ${t.pricePerLitre(0.01)}',
+        ),
+        findsOneWidget,
+      );
+      expect(line('${t.poi.trend.month} de ${t.pricePerLitre(1.689)}'), findsOneWidget);
+      expect(line('en baisse de ${t.pricePerLitre(0.02)}'), findsOneWidget);
+      expect(inPoi(find.textContaining('3 jours relevés depuis le 29 septembre')), findsOneWidget);
+      expect(feed.requests.single.$2, {'id': id, 'fuel': 'DIESEL'});
+      expect(feed.violations, isEmpty);
     });
 
     testWidgets("a station's page shows the vehicle's fuel first, then LPG for its heating", (

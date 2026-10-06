@@ -89,6 +89,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$favoritesSync$en favoritesSync = Translations$favoritesSync$en.internal(_root);
 	late final Translations$poi$en poi = Translations$poi$en.internal(_root);
 	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
+	late final Translations$regions$en regions = Translations$regions$en.internal(_root);
 }
 
 // Path: nav
@@ -1547,6 +1548,9 @@ class Translations$account$en {
 	/// en: 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.'
 	String get lost => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.';
 
+	/// en: 'Recover'
+	String get lostAction => 'Recover';
+
 	/// en: 'Thank you for your first contribution'
 	String get welcomeTitle => 'Thank you for your first contribution';
 
@@ -1915,6 +1919,12 @@ class Translations$mine$en {
 
 	/// en: 'New vending machine'
 	String get newVendingMachine => 'New vending machine';
+
+	/// en: 'Shops and services confirmed'
+	String get poiConfirmations => 'Shops and services confirmed';
+
+	/// en: 'A shop or service'
+	String get aPoi => 'A shop or service';
 }
 
 // Path: outbox
@@ -2601,6 +2611,7 @@ class Translations$poi$en {
 
 	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
 	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
+	late final Translations$poi$trend$en trend = Translations$poi$trend$en.internal(_root);
 }
 
 // Path: offlineMaps
@@ -2745,6 +2756,96 @@ class Translations$offlineMaps$en {
 
 	/// en: 'Offline: the map needs the network'
 	String get noticeOnline => 'Offline: the map needs the network';
+}
+
+// Path: regions
+class Translations$regions$en {
+	Translations$regions$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Which places to keep on this device?'
+	String get pickerTitle => 'Which places to keep on this device?';
+
+	/// en: 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.'
+	String get pickerIntro => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.';
+
+	/// en: 'Near you: $name'
+	String nearYou({required Object name}) => 'Near you: ${name}';
+
+	/// en: 'Find my region'
+	String get findMine => 'Find my region';
+
+	/// en: 'Looking for your region'
+	String get locating => 'Looking for your region';
+
+	/// en: 'No Lunaway region around you yet'
+	String get notCovered => 'No Lunaway region around you yet';
+
+	/// en: 'All of France'
+	String get wholeFrance => 'All of France';
+
+	/// en: 'Show the regions of France'
+	String get showFrance => 'Show the regions of France';
+
+	/// en: 'Hide the regions of France'
+	String get hideFrance => 'Hide the regions of France';
+
+	/// en: '(one) {$count place, $size} (other) {$count places, $size}'
+	String packInfo({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${count} place, ${size}',
+		other: '${count} places, ${size}',
+	);
+
+	/// en: 'No pack: places come with the updates, size unknown'
+	String get noPack => 'No pack: places come with the updates, size unknown';
+
+	/// en: 'Download, $size'
+	String download({required Object size}) => 'Download, ${size}';
+
+	/// en: 'The server does not offer regions yet: Lunaway keeps all of France.'
+	String get unavailable => 'The server does not offer regions yet: Lunaway keeps all of France.';
+
+	/// en: 'The list of regions needs the network.'
+	String get listFailed => 'The list of regions needs the network.';
+
+	/// en: 'Choose the regions'
+	String get choose => 'Choose the regions';
+
+	/// en: 'Regions on this device'
+	String get kept => 'Regions on this device';
+
+	/// en: 'No region kept: the map has no places offline.'
+	String get noneKept => 'No region kept: the map has no places offline.';
+
+	/// en: 'Add or remove regions'
+	String get change => 'Add or remove regions';
+
+	/// en: 'Remove $name'
+	String removeNamed({required Object name}) => 'Remove ${name}';
+
+	/// en: '$name: places removed from this device'
+	String removed({required Object name}) => '${name}: places removed from this device';
+
+	/// en: 'Downloading, $done of $total'
+	String downloading({required Object done, required Object total}) => 'Downloading, ${done} of ${total}';
+
+	/// en: '(one) {Updating, $count place} (other) {Updating, $count places}'
+	String updating({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Updating, ${count} place',
+		other: 'Updating, ${count} places',
+	);
+
+	/// en: 'waiting for its download'
+	String get waiting => 'waiting for its download';
+
+	/// en: 'Downloading the places: $name'
+	String downloadingNamed({required Object name}) => 'Downloading the places: ${name}';
+
+	/// en: 'updated $when'
+	String updated({required Object when}) => 'updated ${when}';
 }
 
 // Path: place.reviewVehicle
@@ -3481,8 +3582,23 @@ class Translations$navigation$guidance$en {
 	/// en: 'Danger zone in $distance'
 	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
 
-	/// en: 'Danger zone'
-	String get inDangerZone => 'Danger zone';
+	/// en: 'Danger zone, $distance left'
+	String inDangerZone({required Object distance}) => 'Danger zone, ${distance} left';
+
+	/// en: 'Speed camera in $distance'
+	String cameraAhead({required Object distance}) => 'Speed camera in ${distance}';
+
+	/// en: 'Speed camera in $distance, $limit'
+	String cameraLimit({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}';
+
+	/// en: 'Estimated limit'
+	String get limitEstimated => 'Estimated limit';
+
+	/// en: 'over the limit'
+	String get overLimit => 'over the limit';
+
+	/// en: '$source, list of $date'
+	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
 }
 
 // Path: navigation.voice
@@ -3549,6 +3665,18 @@ class Translations$navigation$voice$en {
 
 	/// en: '$metres metres'
 	String sizeWhole({required Object metres}) => '${metres} metres';
+
+	/// en: 'Speed limit $limit.'
+	String overSpeed({required Object limit}) => 'Speed limit ${limit}.';
+
+	/// en: 'Danger zone in $distance.'
+	String dangerZone({required Object distance}) => 'Danger zone in ${distance}.';
+
+	/// en: 'Danger zone.'
+	String get inDangerZone => 'Danger zone.';
+
+	/// en: 'Speed camera in $distance.'
+	String camera({required Object distance}) => 'Speed camera in ${distance}.';
 }
 
 // Path: navigation.units
@@ -3606,6 +3734,18 @@ class Translations$navigation$settings$en {
 
 	/// en: 'Miles'
 	String get imperial => 'Miles';
+
+	/// en: 'Speed limit'
+	String get speedLimit => 'Speed limit';
+
+	/// en: 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.'
+	String get speedLimitHint => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.';
+
+	/// en: 'Spoken speed alerts'
+	String get speedSound => 'Spoken speed alerts';
+
+	/// en: 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.'
+	String get speedSoundHint => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.';
 }
 
 // Path: vehicle.types
@@ -3837,6 +3977,9 @@ class Translations$outbox$kind$en {
 
 	/// en: 'New vending machine'
 	String get addVendingMachine => 'New vending machine';
+
+	/// en: 'Deletion of an answer about a shop or service'
+	String get deletePoiConfirmation => 'Deletion of an answer about a shop or service';
 }
 
 // Path: outbox.error
@@ -4263,6 +4406,54 @@ class Translations$poi$cheapest$en {
 
 	/// en: 'The stations' prices could not be loaded.'
 	String get error => 'The stations\' prices could not be loaded.';
+}
+
+// Path: poi.trend
+class Translations$poi$trend$en {
+	Translations$poi$trend$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$fuel: prices of the last days'
+	String title({required Object fuel}) => '${fuel}: prices of the last days';
+
+	/// en: 'Lunaway has not seen a price of this fuel here yet.'
+	String get none => 'Lunaway has not seen a price of this fuel here yet.';
+
+	/// en: 'The prices of the last days could not be read now.'
+	String get failed => 'The prices of the last days could not be read now.';
+
+	/// en: 'Last 7 days:'
+	String get week => 'Last 7 days:';
+
+	/// en: 'Last 30 days:'
+	String get month => 'Last 30 days:';
+
+	/// en: 'from $low to $high'
+	String range({required Object low, required Object high}) => 'from ${low} to ${high}';
+
+	/// en: '$range, $move'
+	String span({required Object range, required Object move}) => '${range}, ${move}';
+
+	/// en: 'one day seen'
+	String get oneDay => 'one day seen';
+
+	/// en: 'unchanged'
+	String get steady => 'unchanged';
+
+	/// en: 'down $amount'
+	String down({required Object amount}) => 'down ${amount}';
+
+	/// en: 'up $amount'
+	String up({required Object amount}) => 'up ${amount}';
+
+	/// en: '(one) {$n day seen since $date, as Lunaway reads the feed; a day not seen stays empty} (other) {$n days seen since $date, as Lunaway reads the feed; a day not seen stays empty}'
+	String since({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty',
+		other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty',
+	);
 }
 
 // Path: navigation.states.dimension
@@ -4789,7 +4980,12 @@ extension on Translations {
 			'navigation.guidance.firstTitle' => 'Before you set off',
 			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
-			'navigation.guidance.inDangerZone' => 'Danger zone',
+			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Danger zone, ${distance} left',
+			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Speed camera in ${distance}',
+			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}',
+			'navigation.guidance.limitEstimated' => 'Estimated limit',
+			'navigation.guidance.overLimit' => 'over the limit',
+			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -4806,6 +5002,10 @@ extension on Translations {
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} mile', other: '${n} miles', ), 
 			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres}.${cm} metres',
 			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} metres',
+			'navigation.voice.overSpeed' => ({required Object limit}) => 'Speed limit ${limit}.',
+			'navigation.voice.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}.',
+			'navigation.voice.inDangerZone' => 'Danger zone.',
+			'navigation.voice.camera' => ({required Object distance}) => 'Speed camera in ${distance}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -4819,7 +5019,13 @@ extension on Translations {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
+			'navigation.settings.speedLimit' => 'Speed limit',
+			'navigation.settings.speedLimitHint' => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.',
+			'navigation.settings.speedSound' => 'Spoken speed alerts',
+			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.',
 			'list.title' => 'Places nearby',
+			_ => null,
+		} ?? switch (path) {
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
 			'list.downloading' => 'Places are on their way',
@@ -4833,8 +5039,6 @@ extension on Translations {
 			'favorites.listName' => 'List name',
 			'favorites.renameList' => 'Rename the list',
 			'favorites.deleteList' => 'Delete the list',
-			_ => null,
-		} ?? switch (path) {
 			'favorites.deleteListConfirm' => ({required Object name}) => 'Delete "${name}"? The places stay on the map.',
 			'favorites.listActions' => 'List options',
 			'favorites.placeActions' => 'Place options',
@@ -4972,6 +5176,7 @@ extension on Translations {
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'One contribution waiting to be sent will not be sent.', other: '${n} contributions waiting to be sent will not be sent.', ), 
 			'account.signedOut' => 'Signed out. Your favourites stay on this device.',
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
+			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
@@ -5087,6 +5292,8 @@ extension on Translations {
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',
 			'mine.newVendingMachine' => 'New vending machine',
+			'mine.poiConfirmations' => 'Shops and services confirmed',
+			'mine.aPoi' => 'A shop or service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Deleting a review',
@@ -5105,6 +5312,7 @@ extension on Translations {
 			'outbox.kind.poiThere' => 'Still there: a shop or service',
 			'outbox.kind.poiGone' => 'Gone: a shop or service',
 			'outbox.kind.addVendingMachine' => 'New vending machine',
+			'outbox.kind.deletePoiConfirmation' => 'Deletion of an answer about a shop or service',
 			'outbox.waiting' => 'Waiting for the network',
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
@@ -5330,6 +5538,8 @@ extension on Translations {
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prices checked ${when}',
 			'poi.shortageTemporary' => 'Out of stock for now',
+			_ => null,
+		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'No longer sold',
 			'poi.selfService24h' => 'Pay at pump 24/7',
 			'poi.highway' => 'On a motorway',
@@ -5347,8 +5557,6 @@ extension on Translations {
 			'poi.product.eggs' => 'Eggs',
 			'poi.product.milk' => 'Milk',
 			'poi.product.cheese' => 'Cheese',
-			_ => null,
-		} ?? switch (path) {
 			'poi.product.meat' => 'Meat',
 			'poi.product.vegetables' => 'Vegetables',
 			'poi.product.fruit' => 'Fruit',
@@ -5398,6 +5606,18 @@ extension on Translations {
 			'poi.cheapest.none' => 'No station on the map sells this fuel.',
 			'poi.cheapest.noneHint' => 'Move the map or pick another fuel.',
 			'poi.cheapest.error' => 'The stations\' prices could not be loaded.',
+			'poi.trend.title' => ({required Object fuel}) => '${fuel}: prices of the last days',
+			'poi.trend.none' => 'Lunaway has not seen a price of this fuel here yet.',
+			'poi.trend.failed' => 'The prices of the last days could not be read now.',
+			'poi.trend.week' => 'Last 7 days:',
+			'poi.trend.month' => 'Last 30 days:',
+			'poi.trend.range' => ({required Object low, required Object high}) => 'from ${low} to ${high}',
+			'poi.trend.span' => ({required Object range, required Object move}) => '${range}, ${move}',
+			'poi.trend.oneDay' => 'one day seen',
+			'poi.trend.steady' => 'unchanged',
+			'poi.trend.down' => ({required Object amount}) => 'down ${amount}',
+			'poi.trend.up' => ({required Object amount}) => 'up ${amount}',
+			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', ), 
 			'offlineMaps.title' => 'Offline maps',
 			'offlineMaps.intro' => 'Download a region before you leave: the map then shows without network, every street included.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',
@@ -5441,6 +5661,31 @@ extension on Translations {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
+			'regions.pickerTitle' => 'Which places to keep on this device?',
+			'regions.pickerIntro' => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.',
+			'regions.nearYou' => ({required Object name}) => 'Near you: ${name}',
+			'regions.findMine' => 'Find my region',
+			'regions.locating' => 'Looking for your region',
+			'regions.notCovered' => 'No Lunaway region around you yet',
+			'regions.wholeFrance' => 'All of France',
+			'regions.showFrance' => 'Show the regions of France',
+			'regions.hideFrance' => 'Hide the regions of France',
+			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${count} place, ${size}', other: '${count} places, ${size}', ), 
+			'regions.noPack' => 'No pack: places come with the updates, size unknown',
+			'regions.download' => ({required Object size}) => 'Download, ${size}',
+			'regions.unavailable' => 'The server does not offer regions yet: Lunaway keeps all of France.',
+			'regions.listFailed' => 'The list of regions needs the network.',
+			'regions.choose' => 'Choose the regions',
+			'regions.kept' => 'Regions on this device',
+			'regions.noneKept' => 'No region kept: the map has no places offline.',
+			'regions.change' => 'Add or remove regions',
+			'regions.removeNamed' => ({required Object name}) => 'Remove ${name}',
+			'regions.removed' => ({required Object name}) => '${name}: places removed from this device',
+			'regions.downloading' => ({required Object done, required Object total}) => 'Downloading, ${done} of ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Updating, ${count} place', other: 'Updating, ${count} places', ), 
+			'regions.waiting' => 'waiting for its download',
+			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
+			'regions.updated' => ({required Object when}) => 'updated ${when}',
 			_ => null,
 		};
 	}

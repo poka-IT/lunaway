@@ -113,6 +113,7 @@ extension CommunityLabels on Translations {
       .unmute => _t.outbox.kind.unmute,
       .confirmPoi => p['stillThere'] == false ? _t.outbox.kind.poiGone : _t.outbox.kind.poiThere,
       .addVendingMachine => _t.outbox.kind.addVendingMachine,
+      .deletePoiConfirmation => _t.outbox.kind.deletePoiConfirmation,
     };
   }
 

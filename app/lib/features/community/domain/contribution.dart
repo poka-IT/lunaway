@@ -23,7 +23,10 @@ enum ContributionKind {
   confirmPoi,
 
   /// A vending machine added where it stands.
-  addVendingMachine;
+  addVendingMachine,
+
+  /// One of the account's "still there?" answers about a point, removed.
+  deletePoiConfirmation;
 
   static ContributionKind? fromName(String name) => values.where((k) => k.name == name).firstOrNull;
 
@@ -48,6 +51,7 @@ enum ContributionKind {
     mute ||
     unmute ||
     confirmPoi ||
+    deletePoiConfirmation ||
     confirm ||
     reportIssue ||
     addPlace ||
@@ -67,7 +71,8 @@ enum ContributionKind {
     deleteConfirmation ||
     deleteIssueReport ||
     deletePlaceSubmission ||
-    deletePhoto => true,
+    deletePhoto ||
+    deletePoiConfirmation => true,
     _ => false,
   };
 }

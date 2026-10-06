@@ -28,8 +28,8 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 3 (the points read around places), the user store at 3 (fuel)', () {
-    expect(db.schemaVersion, 3);
+  test('the cache is at version 4 (the region of each place), the user store at 3 (fuel)', () {
+    expect(db.schemaVersion, 4);
     expect(user.schemaVersion, 3);
   });
 

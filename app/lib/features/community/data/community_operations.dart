@@ -214,6 +214,12 @@ mutation ConfirmPoi($poiId: UUID!, $stillThere: Boolean!) {
   parse: (data) => (data['confirmPoi'] as Map<String, dynamic>)['id'] as String,
 );
 
+final deletePoiConfirmationOperation = GraphQLOperation<bool>(
+  name: 'DeletePoiConfirmation',
+  document: r'mutation DeletePoiConfirmation($id: UUID!) { deletePoiConfirmation(id: $id) }',
+  parse: (data) => data['deletePoiConfirmation'] == true,
+);
+
 /// A vending machine where it stands; a machine of the same kind within
 /// 25 m is refused with `extensions.existingId`.
 final addVendingMachineOperation = GraphQLOperation<PlaceSubmission>(
@@ -238,11 +244,14 @@ typedef MyContributions = ({
   int issueTotal,
   List<PlaceSubmission> submissions,
   int submissionTotal,
+  List<PoiConfirmation> poiConfirmations,
+  int poiConfirmationTotal,
 });
 
-final myContributionsOperation = GraphQLOperation<MyContributions>(
-  name: 'MyContributions',
-  document: '''
+/// The request of [myContributionsOperation]; with the answers about
+/// points when [pois], which an API before them refuses.
+String _myContributionsDocument({required bool pois}) =>
+    '''
 query MyContributions(\$first: Int) {
   myAccount {
     id
@@ -253,15 +262,33 @@ query MyContributions(\$first: Int) {
     }
     confirmations(first: \$first) { nodes { id placeId status createdAt } totalCount }
     issueReports(first: \$first) { nodes { id placeId kind createdAt } totalCount }
-    placeSubmissions(first: \$first) { nodes { ...SubmissionFields } totalCount }
+    placeSubmissions(first: \$first) { nodes { ...SubmissionFields } totalCount }${pois ? _poiConfirmationsSelection : ''}
   }
 }
-$myReviewFields$_submissionFields''',
+$myReviewFields$_submissionFields''';
+
+const _poiConfirmationsSelection = r'''
+
+    poiConfirmations(first: $first) {
+      nodes { id poiId stillThere createdAt poi { name kind } }
+      totalCount
+    }''';
+
+final myContributionsOperation = GraphQLOperation<MyContributions>(
+  name: 'MyContributions',
+  document: _myContributionsDocument(pois: true),
+  older: OlderForm.selecting(_myContributionsDocument(pois: false)),
   parse: (data) {
     final a = data['myAccount'] as Map<String, dynamic>;
-    List<Map<String, dynamic>> nodes(String field) =>
-        ((a[field] as Map<String, dynamic>)['nodes'] as List<dynamic>).cast<Map<String, dynamic>>();
-    int total(String field) => ((a[field] as Map<String, dynamic>)['totalCount'] as num).toInt();
+    // A list the older form does not ask for reads empty.
+    List<Map<String, dynamic>> nodes(String field) => switch (a[field]) {
+      {'nodes': final List<dynamic> list} => list.cast<Map<String, dynamic>>(),
+      _ => const [],
+    };
+    int total(String field) => switch (a[field]) {
+      {'totalCount': final num n} => n.toInt(),
+      _ => 0,
+    };
     return (
       reviews: [for (final r in nodes('reviews')) ?reviewFromJson(r)],
       reviewTotal: total('reviews'),
@@ -273,9 +300,34 @@ $myReviewFields$_submissionFields''',
       issueTotal: total('issueReports'),
       submissions: [for (final s in nodes('placeSubmissions')) submissionFromJson(s)],
       submissionTotal: total('placeSubmissions'),
+      poiConfirmations: [for (final c in nodes('poiConfirmations')) ?poiConfirmationFromJson(c)],
+      poiConfirmationTotal: total('poiConfirmations'),
     );
   },
 );
+
+/// One answer about a point; null without its id, point, answer or date.
+PoiConfirmation? poiConfirmationFromJson(Map<String, dynamic> json) {
+  if (json case {
+    'id': final String id,
+    'poiId': final String poiId,
+    'stillThere': final bool stillThere,
+    'createdAt': final String createdAt,
+  }) {
+    final at = DateTime.tryParse(createdAt);
+    if (at == null) return null;
+    final poi = json['poi'];
+    return PoiConfirmation(
+      id: id,
+      poiId: poiId,
+      stillThere: stillThere,
+      createdAt: at,
+      name: poi is Map<String, dynamic> ? poi['name'] as String? : null,
+      kind: poi is Map<String, dynamic> ? (poi['kind'] as String?)?.toLowerCase() : null,
+    );
+  }
+  return null;
+}
 
 /// Every contribution operation, for the contract test.
 final communityOperations = <GraphQLOperation<Object?>>[
@@ -294,6 +346,7 @@ final communityOperations = <GraphQLOperation<Object?>>[
   muteAuthorOperation,
   unmuteAuthorOperation,
   confirmPoiOperation,
+  deletePoiConfirmationOperation,
   addVendingMachineOperation,
   myContributionsOperation,
 ];

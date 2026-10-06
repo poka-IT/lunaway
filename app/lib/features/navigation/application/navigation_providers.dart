@@ -65,6 +65,7 @@ GraphQLClient routingClient(Ref ref) => GraphQLClient(
   userAgent: ref.watch(userAgentProvider),
   timeout: const Duration(seconds: 20),
   rateLimitRetries: 0,
+  persistedQueries: true,
 );
 
 // keepAlive: a service over the routing client, with its few recent answers.

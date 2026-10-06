@@ -1,6 +1,7 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:meta/meta.dart';
 
 /// How a route request ended (`RouteStatus` of the API).
@@ -267,6 +268,7 @@ final class RouteOption {
     required this.warnings,
     this.line = const [],
     this.steps = const [],
+    this.speedLimits,
     this.roadEvents = const [],
   });
 
@@ -288,6 +290,11 @@ final class RouteOption {
   final List<LatLng> line;
   final List<RouteStep> steps;
 
+  /// The limit for the vehicle along the route, in driving order; null when
+  /// the server gave none (an older API, or an engine that did not answer
+  /// in time): the guidance then reads the sign the map gives.
+  final List<SpeedLimitSpan>? speedLimits;
+
   GeoBounds? get bounds => GeoBounds.around(line);
 
   RouteOption withShape({required List<LatLng> line, required List<RouteStep> steps}) =>
@@ -301,6 +308,7 @@ final class RouteOption {
         warnings: warnings,
         line: line,
         steps: steps,
+        speedLimits: speedLimits,
         roadEvents: roadEvents,
       );
 }

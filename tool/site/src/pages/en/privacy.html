@@ -58,11 +58,14 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <p>The app connects only to our servers, always over HTTPS. It embeds no third-party service: no advertising, no audience measurement, no crash reporting service, no basemap or font loaded from elsewhere. Only the links you choose to open (OpenStreetMap, your navigation app, the source code) lead to other sites.</p>
 <p>With or without an account:</p>
 <ul>
-<li><strong>Syncing places</strong> asks for the changes of a whole region, France today. It says nothing about where you are.</li>
+<li><strong>Syncing places</strong> downloads the regions you keep on the device (France at first, and the country where the app last located you, or the one of the device's settings, if it is elsewhere): one file per region, then its changes. The request names the region, never where you are.</li>
 <li><strong>Opening a place</strong> asks for its reviews and photos. The content of these requests is neither stored nor logged; the access log keeps the address of the photo files downloaded (see <a href="#logs">Logs</a>).</li>
 <li><strong>The basemap</strong> comes from tiles.lunaway.net. Each piece of map shown covers an area: the log keeps only its zoom level, never the area.</li>
 <li><strong>Directions</strong>, a feature in preparation: the start, the destination, the stops and the vehicle's dimensions travel in the body of the request. Our own engine computes the route on our server, and neither the request nor the route is stored or logged.</li>
 <li><strong>Roadworks and road closures</strong>, a feature in preparation: during guidance, the app downloads the changes for the whole of France every three minutes. The request contains no location.</li>
+<li><strong>Danger zones and speed cameras during guidance</strong>: when a guidance starts, then every six hours, the app asks for the data of the countries the route crosses, which it works out on the device. The request holds the list of these countries, never a location. The country you drive in, which decides what the app may show, is also worked out on the device.</li>
+<li><strong>Fuel along the route</strong>: when you open the list of stations of a route, the app sends the line of the route ahead, as our server drew it, from its first point past the vehicle, with the fuel, the consumption and the dimensions of the vehicle. Neither the request nor the line is stored or logged.</li>
+<li><strong>The cheapest fuel around you</strong>: when the map is far out, or shows too many stations to read them all, the app asks for the stations around your location or the centre of the map, rounded to about 5 km, neither stored nor logged. The distances are computed on the device. A station's page also asks for how its prices moved, without any location.</li>
 <li><strong>Search</strong> for places and towns runs on the device. When the web app asks our server instead, the text searched and the centre of the map, used to rank the results, travel in the body of the request, and are neither stored nor logged.</li>
 <li><strong>Search for shops and services</strong> asks our server: the text searched and the centre of the map, rounded to about 5 km to rank the results, travel in the body of the request, and are neither stored nor logged. Your position is not part of it: the distances shown are computed on the device.</li>
 </ul>
@@ -105,7 +108,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 
 <h2 id="location">Your location</h2>
 <p>If you allow it, the app reads the device's location to show where you are on the map, compute distances and follow sunset. These computations run on the device, which keeps only a position rounded to about ten kilometres. The app does not ask for background location access.</p>
-<p>Your location leaves the device in two cases only. Directions asked from where you are carry it in that request alone, which is neither stored nor logged. A road report stores it, as described in <a href="#contributions">What you publish</a>. "Still there?" confirmations contain no location. You can withdraw the permission at any time in the system settings.</p>
+<p>Your location leaves the device in these cases only. Directions asked from where you are carry it in that request alone, which is neither stored nor logged; the list of stations of a route starts at the point of the road past the vehicle, so near it. The list of the cheapest fuel around you carries it rounded to about 5 km. A road report stores it, as described in <a href="#contributions">What you publish</a>. "Still there?" confirmations contain no location. You can withdraw the permission at any time in the system settings.</p>
 
 <h2 id="logs">Logs and abuse limits</h2>
 <p>Like any web server, ours record the requests they receive, for security and troubleshooting:</p>

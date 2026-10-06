@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -36,11 +38,19 @@ class SyncBanner extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final status = ref.watch(syncControllerProvider);
     final sync = ref.read(syncControllerProvider.notifier);
+    final catalog = ref.watch(regionCatalogControllerProvider).value;
     final (mood, title, hint, action) = switch (status) {
-      SyncRunning(:final received) => (
+      SyncRunning(:final received, :final region, :final packBytes, :final packSize) => (
         SceneMood.empty,
-        t.map.downloading,
-        t.map.downloadingCount(n: received, count: t.number(received)),
+        switch (region == null ? null : catalog?.byCode(region)) {
+          final r? => t.regions.downloadingNamed(name: r.nameIn(t.$meta.locale.languageCode)),
+          null => t.map.downloading,
+        },
+        // A region's pack comes whole: its bytes tell the progress until
+        // its places land.
+        received == 0 && packSize > 0
+            ? t.offlineMaps.progress(done: t.fileSize(packBytes), total: t.fileSize(packSize))
+            : t.map.downloadingCount(n: received, count: t.number(received)),
         null,
       ),
       SyncFailed(:final failure) => (
@@ -68,8 +78,17 @@ class SyncBanner extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            // Which regions download: France and where the user is, until
+            // the user chooses. Above the rest: the map's sheet may cover
+            // the foot of the banner.
+            if (catalog != null)
+              TextButton.icon(
+                onPressed: () => showRegionPicker(context),
+                icon: const Icon(AppIcons.map),
+                label: Text(t.regions.choose),
+              ),
             if (status is SyncRunning) ...[
-              const SizedBox(height: Space.l),
+              const SizedBox(height: Space.s),
               const ClipRRect(
                 borderRadius: BorderRadius.all(Radius.circular(LunaTokens.radiusPill)),
                 child: LinearProgressIndicator(minHeight: 6),

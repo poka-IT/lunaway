@@ -193,7 +193,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     final generation = (await stateOf(region)).generation;
     await _db.batch((batch) {
       for (final p in page.places) {
-        final row = _companion(p, generation);
+        final row = placeCompanion(p, generation);
         batch.insert(_db.places, row, onConflict: DoUpdate((_) => row, target: [_db.places.id]));
       }
       if (page.deleted.isNotEmpty) {
@@ -241,56 +241,60 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         .go();
   });
 
-  PlacesCompanion _companion(Place p, int generation) => PlacesCompanion.insert(
-    id: p.id,
-    name: Value(p.name),
-    kind: p.kind.wire,
-    family: p.kind.family.index,
-    lat: p.lat,
-    lon: p.lon,
-    overnight: p.overnight.wire,
-    services: Value(Service.maskOf(p.services)),
-    activities: Value(Activity.maskOf(p.activities)),
-    description: Value(p.description),
-    street: Value(p.address?.street),
-    postcode: Value(p.address?.postcode),
-    city: Value(p.address?.city),
-    countryCode: Value(p.address?.countryCode),
-    priceParking: Value(p.priceParkingEur),
-    priceServices: Value(p.priceServicesEur),
-    maxHeight: Value(p.maxHeightM),
-    capacity: Value(p.capacity),
-    openingHours: Value(p.openingHours),
-    openingHoursParsed: Value(p.openingHoursParsed),
-    openingIntervalsJson: Value(
-      p.openingIntervals == null || p.openingValidUntil == null
-          ? null
-          : jsonEncode(openingIntervalsToJson(p.openingIntervals)),
-    ),
-    // The server says where its window ends; the window is meaningless
-    // without that end, so intervals without one are dropped.
-    openingValidUntil: Value(
-      p.openingIntervals == null ? null : p.openingValidUntil?.millisecondsSinceEpoch,
-    ),
-    stars: Value(p.stars),
-    syncGen: Value(generation),
-    website: Value(p.website),
-    phone: Value(p.phone),
-    lastConfirmedAt: Value(p.lastConfirmedAt?.millisecondsSinceEpoch),
-    updatedAt: p.updatedAt.millisecondsSinceEpoch,
-    sourcesJson: Value(jsonEncode([for (final s in p.sources) placeSourceToJson(s)])),
-    provenanceJson: Value(jsonEncode([for (final f in p.provenance) fieldProvenanceToJson(f)])),
-    descriptionsJson: Value(jsonEncode(localizedTextsToJson(p.descriptions))),
-    ratingsJson: Value(jsonEncode(ratingsToJson(p.ratings))),
-    linksJson: Value(jsonEncode(externalLinksToJson(p.externalLinks))),
-    ratingAvg: Value(combinedRating(p.ratings)?.average),
-    ratingCount: Value(combinedRating(p.ratings)?.count ?? 0),
-    verification: Value(p.verification.wire),
-    reviewCount: Value(p.reviewCount),
-    photoCount: Value(p.photoCount),
-    coverPhotosJson: Value(jsonEncode(photosToJson(p.coverPhotos))),
-    issuesJson: Value(jsonEncode(issuesToJson(p.reportedIssues))),
-  );
+  /// The row of [p], written by the sync of [generation]; [region] is the
+  /// sync region it came with (null for the sync by box).
+  PlacesCompanion placeCompanion(Place p, int generation, {String? region}) =>
+      PlacesCompanion.insert(
+        id: p.id,
+        region: region == null ? const Value.absent() : Value(region),
+        name: Value(p.name),
+        kind: p.kind.wire,
+        family: p.kind.family.index,
+        lat: p.lat,
+        lon: p.lon,
+        overnight: p.overnight.wire,
+        services: Value(Service.maskOf(p.services)),
+        activities: Value(Activity.maskOf(p.activities)),
+        description: Value(p.description),
+        street: Value(p.address?.street),
+        postcode: Value(p.address?.postcode),
+        city: Value(p.address?.city),
+        countryCode: Value(p.address?.countryCode),
+        priceParking: Value(p.priceParkingEur),
+        priceServices: Value(p.priceServicesEur),
+        maxHeight: Value(p.maxHeightM),
+        capacity: Value(p.capacity),
+        openingHours: Value(p.openingHours),
+        openingHoursParsed: Value(p.openingHoursParsed),
+        openingIntervalsJson: Value(
+          p.openingIntervals == null || p.openingValidUntil == null
+              ? null
+              : jsonEncode(openingIntervalsToJson(p.openingIntervals)),
+        ),
+        // The server says where its window ends; the window is meaningless
+        // without that end, so intervals without one are dropped.
+        openingValidUntil: Value(
+          p.openingIntervals == null ? null : p.openingValidUntil?.millisecondsSinceEpoch,
+        ),
+        stars: Value(p.stars),
+        syncGen: Value(generation),
+        website: Value(p.website),
+        phone: Value(p.phone),
+        lastConfirmedAt: Value(p.lastConfirmedAt?.millisecondsSinceEpoch),
+        updatedAt: p.updatedAt.millisecondsSinceEpoch,
+        sourcesJson: Value(jsonEncode([for (final s in p.sources) placeSourceToJson(s)])),
+        provenanceJson: Value(jsonEncode([for (final f in p.provenance) fieldProvenanceToJson(f)])),
+        descriptionsJson: Value(jsonEncode(localizedTextsToJson(p.descriptions))),
+        ratingsJson: Value(jsonEncode(ratingsToJson(p.ratings))),
+        linksJson: Value(jsonEncode(externalLinksToJson(p.externalLinks))),
+        ratingAvg: Value(combinedRating(p.ratings)?.average),
+        ratingCount: Value(combinedRating(p.ratings)?.count ?? 0),
+        verification: Value(p.verification.wire),
+        reviewCount: Value(p.reviewCount),
+        photoCount: Value(p.photoCount),
+        coverPhotosJson: Value(jsonEncode(photosToJson(p.coverPhotos))),
+        issuesJson: Value(jsonEncode(issuesToJson(p.reportedIssues))),
+      );
 
   Place _place(PlaceRow r) => Place(
     id: r.id,

@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
+import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -11,6 +12,9 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+
+import '../helpers/pump.dart' show FixedRegionCatalog;
 
 Place _place(int i) => Place(
   id: 'p$i',
@@ -64,6 +68,9 @@ void main() {
         clockProvider.overrideWithValue(() => now),
         syncRetryDelaysProvider.overrideWithValue(const []),
         syncServiceProvider.overrideWithValue(SyncService(source: server, store: repo)),
+        // An API without regions: the sync by box runs.
+        regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(null)),
+        userDatabaseProvider.overrideWithValue(UserDatabase(NativeDatabase.memory())),
       ],
     );
   });

@@ -2,9 +2,10 @@ import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
-import 'package:lunaway/features/navigation/domain/danger_zones.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -83,11 +84,16 @@ Iterable<List<LatLng>> _stretches(List<LatLng> line, {required double metres}) s
   if (piece.length >= 2) yield piece;
 }
 
-/// Stations along a route; the server's search along a route replaces the
-/// nearby search when it exists.
+/// Stations along a route: the server's search along it, the nearby
+/// search around points of it against an API without that search. Through
+/// the routing client, which does not wait out a rate limit: the list
+/// says at once that the server asks to wait.
 // keepAlive: stateless, wired once.
 @Riverpod(keepAlive: true)
-FuelStationsSource fuelStations(Ref ref) => NearbyFuelStations(ref.watch(graphQLClientProvider));
+FuelStationsSource fuelStations(Ref ref) {
+  final client = ref.watch(routingClientProvider);
+  return ServerFuelStations(client, fallback: NearbyFuelStations(client));
+}
 
 /// What the fuel list asks for: a route, from where, which fuel.
 @immutable
@@ -118,9 +124,19 @@ Future<List<FuelOffer>> fuelOffers(Ref ref, FuelQuery query) async {
   // waited for rather than taken as unknown while it loads, and watched
   // alone: another fuel or the LPG heating leaves the list alone.
   final consumption = ref.watch(vehicleProvider.selectAsync((v) => v?.consumptionL100));
+  // The router's profile of the vehicle: the server measures the detours
+  // on the roads it may take.
+  final profile = ref.watch(vehicleProvider.selectAsync((v) => checkVehicle(v).profile));
   final source = ref.watch(fuelStationsProvider);
-  final offers = await source.along(route: query.line, fromM: query.fromM, fuel: query.fuel);
-  return rankOffers(offers, consumptionL100: await consumption ?? defaultConsumptionL100);
+  final litres = await consumption ?? defaultConsumptionL100;
+  final offers = await source.along(
+    route: query.line,
+    fromM: query.fromM,
+    fuel: query.fuel,
+    consumptionL100: litres,
+    vehicle: (await profile)?.toJson(),
+  );
+  return rankOffers(offers, consumptionL100: litres);
 }
 
 /// The stations the fuel list showed last for the route [line], drawn on
@@ -132,9 +148,3 @@ class ShownFuelOffers extends _$ShownFuelOffers {
 
   void show(List<FuelOffer> offers) => state = offers;
 }
-
-/// The danger zones of a route: none until a source is chosen for the
-/// countries that allow them.
-// keepAlive: stateless, wired once.
-@Riverpod(keepAlive: true)
-DangerZoneSource dangerZones(Ref ref) => const NoDangerZones();

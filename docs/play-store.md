@@ -182,7 +182,7 @@ no third-party SDK for analytics, crash reports or ads.
 
 | Datum | Sent when | Kept on the server | Source |
 |---|---|---|---|
-| Region of the place sync | at launch and on resume, with or without account | nothing: a fixed box around metropolitan France, never a position | `app/lib/features/places/data/sync/sync_service.dart`, `app/lib/core/geo/geo.dart` |
+| Regions of the place sync | at launch and on resume, with or without account: the manifest of the regions, the pack file of each region kept (its URL names the region), then the feed of each region by its code (`FR-BRE`, `ES`); never a position. The first choice is France and the region of the coarse last position kept on the device, or of the device's locale | nothing in the database; the access log and the journal write every pack path as `/packs/places/[pack]`, so the region is not kept | `app/lib/features/regions/`, `app/lib/features/places/application/places_providers.dart`, `infra/caddy/Caddyfile` (`access_log`) |
 | Map area viewed | basemap tiles from tiles.lunaway.net | nothing; the access log masks tile coordinates | `infra/caddy/Caddyfile` (`access_log`) |
 | Place viewed | opening a place sheet loads its photos and reviews; with an account the request carries the session token (to show the user's own review) | nothing about the place; the session's last-use date moves at most once an hour, and the account's days of use count the day | `app/lib/features/places/application/places_providers.dart`, `backend/crates/lunaway-api/src/auth.rs`, `backend/crates/lunaway-db/src/accounts.rs` |
 | Device public key (P-256) and signatures | first contribution or favourites sync, then each sign-in | the public key, its RFC 7638 thumbprint, creation and last-use dates (`device_keys`) | `app/lib/features/account/data/account_service.dart`; `backend/migrations/20261006005548_accounts_and_contributions.sql` |
@@ -195,7 +195,10 @@ no third-party SDK for analytics, crash reports or ads.
 | "Still there?" confirmation | the user answers | `confirmations`: status and an optional note for moderators; no position sent or kept | `community_operations.dart`; `backend/migrations/20261006090000_confirmations_without_presence.sql` |
 | Problem report, content report | the user reports | `issue_reports`, `content_reports`: kind or reason, optional note | 20261006005548 |
 | Route request: start, destination, stops, the vehicle's dimensions, heading | the user asks for a route, and during guidance each new route (off the route, a closure ahead, a stop added or removed) and the route through a stop priced before it is confirmed | nothing: a POST body, and the access log keeps the method and path only | `app/lib/features/navigation/data/route_operations.dart`, `route_service.dart`; `backend/crates/lunaway-api/src/lib.rs` |
-| Points of a route, for its fuel stations | the user opens the fuel list of a route | nothing; five points of the route ahead, each rounded to a hundredth of a degree (about a kilometre) | `app/lib/features/navigation/data/fuel_stations_api.dart` |
+| The route ahead, for its fuel stations | the user opens the fuel list of a route: the line of the route ahead as the server drew it, from its first point past the vehicle (so near the vehicle), the fuel, the consumption and the vehicle's dimensions; against an API without that search, five points of the route ahead each rounded to a hundredth of a degree | nothing: a POST body | `app/lib/features/navigation/data/fuel_along_route.dart`, `fuel_stations_api.dart` |
+| The point of the cheapest fuel list | the list of the cheapest around the user, when the view is zoomed out below 10 or holds too many stations to read: the user's position, else the map centre, rounded to a twentieth of a degree (about 5 km), and the fuel | nothing: a POST body | `app/lib/features/poi/application/fuel_feed_providers.dart` |
+| Price history of a station | a station's page opens: the station's id and one fuel | nothing | `app/lib/features/poi/data/fuel_feed.dart` |
+| Speed camera data of the guidance | at the start of a guidance and every six hours during it: the country codes the route crosses (worked out on the device by the guidance library) and the delta's cursor; never a position | nothing | `app/lib/features/navigation/data/enforcement_api.dart`, `application/driving_aids.dart` |
 | Road events of the guidance | during guidance, at the start and every three minutes | nothing; the request carries no position | `app/lib/features/navigation/data/road_events_api.dart` |
 | New place, place edit | the user submits | `place_submissions`: the payload, with the position the user confirms in the form (a long press, or the map centre, which after "locate me", or a launch that opens the map on the user, is the device's own position), linked to the account and device key | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `backend/crates/lunaway-db/src/submissions.rs` |
 | Favourite lists | after the first sync | list names and place ids (`favorite_lists`, `favorite_items`) | `favorites_sync.dart` |
@@ -203,13 +206,15 @@ no third-party SDK for analytics, crash reports or ads.
 | Client address | every request | not stored: rate limits count per IPv4 address or IPv6 /64 in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
 | Request line and headers | every request | access log: date, method, path without query string, status, User-Agent and Accept-Language, IP truncated to /16 (IPv4) or /32 (IPv6), photo paths and tile coordinates masked; the file rolls at 50 MiB and rolled files go after 14 days, so the live file can hold older lines; system journal, one month at most; both also sit in Hetzner's 7 daily images of the root disk | `infra/caddy/Caddyfile` (`roll_size`, `roll_keep_for`), `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` |
 
-The device position reaches the server as the position of a new place,
-when the map is centred on the user ("locate me", or a launch that opens on
-them when the position is already allowed) and they add a place there; and
-as the start of a route the user asks for in the app (the route rows of this
-inventory). No "around me" or server search request carries it (search runs
-on the device, `app/lib/features/places/data/drift_places_repository.dart`),
-and a confirmation carries none. Not sent either: search text, contacts,
+The device position reaches the server in these cases: as the position
+of a new place, when the map is centred on the user ("locate me", or a
+launch that opens on them when the position is already allowed) and they
+add a place there; as the start of a route (and of each new route of a
+guidance); rounded to about 5 km, for the list of the cheapest fuel when
+the view cannot be read whole; and indirectly, as the start of the route
+ahead sent for its fuel stations. Search of places runs on the device
+(`app/lib/features/places/data/drift_places_repository.dart`), and a
+confirmation carries no position. Not sent either: search text, contacts,
 e-mail, phone number, crash data. The position also goes, on the device,
 to another app the user opens for directions when that app takes a start
 point (`app/lib/core/navigation_apps.dart`).

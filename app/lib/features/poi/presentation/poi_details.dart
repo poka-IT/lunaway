@@ -14,6 +14,7 @@ import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/fuel_trend.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
@@ -183,6 +184,12 @@ class _Body extends ConsumerWidget {
         if (poi?.fuel case final fuel?) ...[
           gap,
           _FuelCard(fuel: fuel, now: now, mine: mine),
+          // The vehicle's fuel when the station sells it, else the first.
+          if ((mine.isEmpty ? fuel.sortedPrices : fuel.pricesFirst(mine)).firstOrNull
+              case final shown?) ...[
+            gap,
+            FuelTrendCard(poiId: poi!.id, fuel: shown.fuel),
+          ],
         ] else if (poi?.lpg ?? feature.lpg) ...[
           gap,
           _Line(icon: PoiLookIcons.lpg, text: t.poi.lpgYes),

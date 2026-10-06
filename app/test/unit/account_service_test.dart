@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -93,6 +95,49 @@ void main() {
     expect(api.operations, isNot(contains('DeleteAccount')));
     expect(await keys.load(), isNull);
     expect(await service.restore(), isNull);
+  });
+
+  test('a refusal of the sign-in for another reason keeps the account', () async {
+    await keys.save(await keys.generate());
+    await service.ensureAccount();
+    final inner = api.client(MockClient((_) async => http.Response('', 404)));
+    var refuse = false;
+    final client = GraphQLClient(
+      endpoint: Uri.parse('$testApiBase/graphql'),
+      httpClient: MockClient((request) async {
+        if (refuse && request.body.contains('"operationName":"SignIn"')) {
+          return http.Response(
+            jsonEncode({
+              'data': null,
+              'errors': [
+                {
+                  'message': 'not found',
+                  'extensions': {'code': 'NOT_FOUND', 'reason': 'SOMETHING_ELSE'},
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        final copy = http.Request(request.method, request.url)
+          ..headers.addAll(request.headers)
+          ..body = request.body;
+        final streamed = await inner.send(copy);
+        return await http.Response.fromStream(streamed);
+      }),
+      userAgent: 'Lunaway/test (+https://lunaway.net)',
+    );
+    final other = AccountService(
+      client: client,
+      keys: keys,
+      secrets: secrets,
+      locale: () => 'fr',
+      clock: () => testNow,
+    );
+    refuse = true;
+    api.revokeAll();
+    await expectLater(other.refresh(), throwsA(isA<GraphQLResponseException>()));
+    expect(await keys.load(), isNotNull, reason: 'the key is not dropped for another refusal');
   });
 
   test('an account kept here that the key does not open is replaced, never deleted', () async {

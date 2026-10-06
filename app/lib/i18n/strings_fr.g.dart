@@ -84,6 +84,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$favoritesSync$fr favoritesSync = _Translations$favoritesSync$fr._(_root);
 	@override late final _Translations$poi$fr poi = _Translations$poi$fr._(_root);
 	@override late final _Translations$offlineMaps$fr offlineMaps = _Translations$offlineMaps$fr._(_root);
+	@override late final _Translations$regions$fr regions = _Translations$regions$fr._(_root);
 }
 
 // Path: nav
@@ -775,6 +776,7 @@ class _Translations$account$fr extends Translations$account$en {
 	);
 	@override String get signedOut => 'Déconnecté. Vos favoris restent sur cet appareil.';
 	@override String get lost => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.';
+	@override String get lostAction => 'Retrouver';
 	@override String get welcomeTitle => 'Merci pour votre première contribution';
 	@override String welcomeBody({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
 	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
@@ -940,6 +942,8 @@ class _Translations$mine$fr extends Translations$mine$en {
 	@override String get edit => 'Modification';
 	@override String get aPlace => 'Un lieu';
 	@override String get newVendingMachine => 'Nouveau distributeur';
+	@override String get poiConfirmations => 'Commerces et services confirmés';
+	@override String get aPoi => 'Un commerce ou service';
 }
 
 // Path: outbox
@@ -1249,6 +1253,7 @@ class _Translations$poi$fr extends Translations$poi$en {
 	@override String get searchOffline => 'Les commerces et services se cherchent en ligne : pas de réseau maintenant.';
 	@override late final _Translations$poi$add$fr add = _Translations$poi$add$fr._(_root);
 	@override late final _Translations$poi$cheapest$fr cheapest = _Translations$poi$cheapest$fr._(_root);
+	@override late final _Translations$poi$trend$fr trend = _Translations$poi$trend$fr._(_root);
 }
 
 // Path: offlineMaps
@@ -1307,6 +1312,46 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get noticeOutside => 'Hors ligne : cette zone n\'est pas téléchargée';
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
+}
+
+// Path: regions
+class _Translations$regions$fr extends Translations$regions$en {
+	_Translations$regions$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get pickerTitle => 'Quels lieux garder sur cet appareil ?';
+	@override String get pickerIntro => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.';
+	@override String nearYou({required Object name}) => 'Près de vous : ${name}';
+	@override String get findMine => 'Trouver ma région';
+	@override String get locating => 'Recherche de votre région';
+	@override String get notCovered => 'Pas encore de région Lunaway autour de vous';
+	@override String get wholeFrance => 'Toute la France';
+	@override String get showFrance => 'Afficher les régions de France';
+	@override String get hideFrance => 'Masquer les régions de France';
+	@override String packInfo({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${count} lieu, ${size}',
+		other: '${count} lieux, ${size}',
+	);
+	@override String get noPack => 'Sans paquet : lieux reçus avec les mises à jour, taille inconnue';
+	@override String download({required Object size}) => 'Télécharger, ${size}';
+	@override String get unavailable => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.';
+	@override String get listFailed => 'La liste des régions demande du réseau.';
+	@override String get choose => 'Choisir les régions';
+	@override String get kept => 'Régions sur cet appareil';
+	@override String get noneKept => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.';
+	@override String get change => 'Ajouter ou retirer des régions';
+	@override String removeNamed({required Object name}) => 'Retirer ${name}';
+	@override String removed({required Object name}) => '${name} : lieux retirés de cet appareil';
+	@override String downloading({required Object done, required Object total}) => 'Téléchargement, ${done} sur ${total}';
+	@override String updating({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Mise à jour, ${count} lieu',
+		other: 'Mise à jour, ${count} lieux',
+	);
+	@override String get waiting => 'en attente de son téléchargement';
+	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
+	@override String updated({required Object when}) => 'mis à jour ${when}';
 }
 
 // Path: place.reviewVehicle
@@ -1627,7 +1672,12 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get firstTitle => 'Avant de partir';
 	@override String get firstAccept => 'J\'ai compris';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}';
-	@override String get inDangerZone => 'Zone de danger';
+	@override String inDangerZone({required Object distance}) => 'Zone de danger, encore ${distance}';
+	@override String cameraAhead({required Object distance}) => 'Radar dans ${distance}';
+	@override String cameraLimit({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit}';
+	@override String get limitEstimated => 'Limite estimée';
+	@override String get overLimit => 'au-dessus de la limite';
+	@override String enforcementSource({required Object source, required Object date}) => '${source}, liste du ${date}';
 }
 
 // Path: navigation.voice
@@ -1662,6 +1712,10 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	);
 	@override String size({required Object metres, required Object cm}) => '${metres} mètres ${cm}';
 	@override String sizeWhole({required Object metres}) => '${metres} mètres';
+	@override String overSpeed({required Object limit}) => 'Vitesse limitée à ${limit}.';
+	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
+	@override String get inDangerZone => 'Zone de danger.';
+	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
 }
 
 // Path: navigation.units
@@ -1693,6 +1747,10 @@ class _Translations$navigation$settings$fr extends Translations$navigation$setti
 	@override String get units => 'Distances';
 	@override String get metric => 'Kilomètres';
 	@override String get imperial => 'Miles';
+	@override String get speedLimit => 'Limite de vitesse';
+	@override String get speedLimitHint => 'La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s\'affiche en gris.';
+	@override String get speedSound => 'Alertes de vitesse parlées';
+	@override String get speedSoundHint => 'Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls.';
 }
 
 // Path: vehicle.types
@@ -1818,6 +1876,7 @@ class _Translations$outbox$kind$fr extends Translations$outbox$kind$en {
 	@override String get poiThere => 'Toujours là : un commerce ou service';
 	@override String get poiGone => 'Plus là : un commerce ou service';
 	@override String get addVendingMachine => 'Nouveau distributeur';
+	@override String get deletePoiConfirmation => 'Suppression d\'une réponse sur un commerce ou service';
 }
 
 // Path: outbox.error
@@ -2032,6 +2091,30 @@ class _Translations$poi$cheapest$fr extends Translations$poi$cheapest$en {
 	@override String get none => 'Aucune station de la carte ne vend ce carburant.';
 	@override String get noneHint => 'Déplacez la carte ou choisissez un autre carburant.';
 	@override String get error => 'Les prix des stations n\'ont pas pu s\'afficher.';
+}
+
+// Path: poi.trend
+class _Translations$poi$trend$fr extends Translations$poi$trend$en {
+	_Translations$poi$trend$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String title({required Object fuel}) => '${fuel} : prix des derniers jours';
+	@override String get none => 'Lunaway n\'a pas encore vu de prix de ce carburant ici.';
+	@override String get failed => 'Les prix des derniers jours n\'ont pas pu être lus pour l\'instant.';
+	@override String get week => '7 derniers jours :';
+	@override String get month => '30 derniers jours :';
+	@override String range({required Object low, required Object high}) => 'de ${low} à ${high}';
+	@override String span({required Object range, required Object move}) => '${range}, ${move}';
+	@override String get oneDay => 'un seul jour relevé';
+	@override String get steady => 'stable';
+	@override String down({required Object amount}) => 'en baisse de ${amount}';
+	@override String up({required Object amount}) => 'en hausse de ${amount}';
+	@override String since({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} jour relevé depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide',
+		other: '${n} jours relevés depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide',
+	);
 }
 
 // Path: navigation.states.dimension
@@ -2538,7 +2621,12 @@ extension on TranslationsFr {
 			'navigation.guidance.firstTitle' => 'Avant de partir',
 			'navigation.guidance.firstAccept' => 'J\'ai compris',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}',
-			'navigation.guidance.inDangerZone' => 'Zone de danger',
+			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Zone de danger, encore ${distance}',
+			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Radar dans ${distance}',
+			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit}',
+			'navigation.guidance.limitEstimated' => 'Limite estimée',
+			'navigation.guidance.overLimit' => 'au-dessus de la limite',
+			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
@@ -2555,6 +2643,10 @@ extension on TranslationsFr {
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} mile', other: '${n} miles', ), 
 			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres} mètres ${cm}',
 			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} mètres',
+			'navigation.voice.overSpeed' => ({required Object limit}) => 'Vitesse limitée à ${limit}.',
+			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
+			'navigation.voice.inDangerZone' => 'Zone de danger.',
+			'navigation.voice.camera' => ({required Object distance}) => 'Radar dans ${distance}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -2568,7 +2660,13 @@ extension on TranslationsFr {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilomètres',
 			'navigation.settings.imperial' => 'Miles',
+			'navigation.settings.speedLimit' => 'Limite de vitesse',
+			'navigation.settings.speedLimitHint' => 'La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s\'affiche en gris.',
+			'navigation.settings.speedSound' => 'Alertes de vitesse parlées',
+			'navigation.settings.speedSoundHint' => 'Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls.',
 			'list.title' => 'Lieux à proximité',
+			_ => null,
+		} ?? switch (path) {
 			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
 			'list.downloading' => 'Les lieux arrivent',
@@ -2582,8 +2680,6 @@ extension on TranslationsFr {
 			'favorites.listName' => 'Nom de la liste',
 			'favorites.renameList' => 'Renommer la liste',
 			'favorites.deleteList' => 'Supprimer la liste',
-			_ => null,
-		} ?? switch (path) {
 			'favorites.deleteListConfirm' => ({required Object name}) => 'Supprimer « ${name} » ? Les lieux restent sur la carte.',
 			'favorites.listActions' => 'Options de la liste',
 			'favorites.placeActions' => 'Options du lieu',
@@ -2721,6 +2817,7 @@ extension on TranslationsFr {
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Une contribution en attente d\'envoi ne partira pas.', other: '${n} contributions en attente d\'envoi ne partiront pas.', ), 
 			'account.signedOut' => 'Déconnecté. Vos favoris restent sur cet appareil.',
 			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.',
+			'account.lostAction' => 'Retrouver',
 			'account.welcomeTitle' => 'Merci pour votre première contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
@@ -2836,6 +2933,8 @@ extension on TranslationsFr {
 			'mine.edit' => 'Modification',
 			'mine.aPlace' => 'Un lieu',
 			'mine.newVendingMachine' => 'Nouveau distributeur',
+			'mine.poiConfirmations' => 'Commerces et services confirmés',
+			'mine.aPoi' => 'Un commerce ou service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Note de ${stars} sur 5',
 			'outbox.kind.review' => 'Avis',
 			'outbox.kind.deleteReview' => 'Suppression d\'un avis',
@@ -2854,6 +2953,7 @@ extension on TranslationsFr {
 			'outbox.kind.poiThere' => 'Toujours là : un commerce ou service',
 			'outbox.kind.poiGone' => 'Plus là : un commerce ou service',
 			'outbox.kind.addVendingMachine' => 'Nouveau distributeur',
+			'outbox.kind.deletePoiConfirmation' => 'Suppression d\'une réponse sur un commerce ou service',
 			'outbox.waiting' => 'En attente du réseau',
 			'outbox.sending' => 'Envoi en cours',
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
@@ -3079,6 +3179,8 @@ extension on TranslationsFr {
 			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prix relevés ${when}',
 			'poi.shortageTemporary' => 'En rupture pour l\'instant',
+			_ => null,
+		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'N\'en vend plus',
 			'poi.selfService24h' => 'Paiement par carte 24 h/24',
 			'poi.highway' => 'Sur autoroute',
@@ -3096,8 +3198,6 @@ extension on TranslationsFr {
 			'poi.product.eggs' => 'Œufs',
 			'poi.product.milk' => 'Lait',
 			'poi.product.cheese' => 'Fromage',
-			_ => null,
-		} ?? switch (path) {
 			'poi.product.meat' => 'Viande',
 			'poi.product.vegetables' => 'Légumes',
 			'poi.product.fruit' => 'Fruits',
@@ -3147,6 +3247,18 @@ extension on TranslationsFr {
 			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',
 			'poi.cheapest.noneHint' => 'Déplacez la carte ou choisissez un autre carburant.',
 			'poi.cheapest.error' => 'Les prix des stations n\'ont pas pu s\'afficher.',
+			'poi.trend.title' => ({required Object fuel}) => '${fuel} : prix des derniers jours',
+			'poi.trend.none' => 'Lunaway n\'a pas encore vu de prix de ce carburant ici.',
+			'poi.trend.failed' => 'Les prix des derniers jours n\'ont pas pu être lus pour l\'instant.',
+			'poi.trend.week' => '7 derniers jours :',
+			'poi.trend.month' => '30 derniers jours :',
+			'poi.trend.range' => ({required Object low, required Object high}) => 'de ${low} à ${high}',
+			'poi.trend.span' => ({required Object range, required Object move}) => '${range}, ${move}',
+			'poi.trend.oneDay' => 'un seul jour relevé',
+			'poi.trend.steady' => 'stable',
+			'poi.trend.down' => ({required Object amount}) => 'en baisse de ${amount}',
+			'poi.trend.up' => ({required Object amount}) => 'en hausse de ${amount}',
+			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} jour relevé depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', other: '${n} jours relevés depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', ), 
 			'offlineMaps.title' => 'Cartes hors ligne',
 			'offlineMaps.intro' => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.',
 			'offlineMaps.webTitle' => 'Les cartes hors ligne sont dans l\'application',
@@ -3190,6 +3302,31 @@ extension on TranslationsFr {
 			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
+			'regions.pickerTitle' => 'Quels lieux garder sur cet appareil ?',
+			'regions.pickerIntro' => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.',
+			'regions.nearYou' => ({required Object name}) => 'Près de vous : ${name}',
+			'regions.findMine' => 'Trouver ma région',
+			'regions.locating' => 'Recherche de votre région',
+			'regions.notCovered' => 'Pas encore de région Lunaway autour de vous',
+			'regions.wholeFrance' => 'Toute la France',
+			'regions.showFrance' => 'Afficher les régions de France',
+			'regions.hideFrance' => 'Masquer les régions de France',
+			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu, ${size}', other: '${count} lieux, ${size}', ), 
+			'regions.noPack' => 'Sans paquet : lieux reçus avec les mises à jour, taille inconnue',
+			'regions.download' => ({required Object size}) => 'Télécharger, ${size}',
+			'regions.unavailable' => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.',
+			'regions.listFailed' => 'La liste des régions demande du réseau.',
+			'regions.choose' => 'Choisir les régions',
+			'regions.kept' => 'Régions sur cet appareil',
+			'regions.noneKept' => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.',
+			'regions.change' => 'Ajouter ou retirer des régions',
+			'regions.removeNamed' => ({required Object name}) => 'Retirer ${name}',
+			'regions.removed' => ({required Object name}) => '${name} : lieux retirés de cet appareil',
+			'regions.downloading' => ({required Object done, required Object total}) => 'Téléchargement, ${done} sur ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Mise à jour, ${count} lieu', other: 'Mise à jour, ${count} lieux', ), 
+			'regions.waiting' => 'en attente de son téléchargement',
+			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
+			'regions.updated' => ({required Object when}) => 'mis à jour ${when}',
 			_ => null,
 		};
 	}

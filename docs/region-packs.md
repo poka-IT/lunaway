@@ -176,6 +176,34 @@ the cursor belongs to another copy of the database: import the region's
 current pack again (or sync from `since: null`). `changes` takes either
 `bbox` or `region`.
 
+## In the app
+
+`app/lib/features/regions/`. The device keeps the regions the user chose,
+in the user database (`sync_regions`): at the first launch, France and
+the region of the coarse last position the map kept (or of the device's
+locale), the latter first. Each region syncs on its own: its pack when the
+device holds nothing of it (downloaded beside the place cache, resumed by
+`Range`, checked, decompressed in an isolate, imported by
+`ATTACH` and one `INSERT ... SELECT`, then removed), then its feed from the
+pack's cursor. The web, which cannot attach a file, and a region without a
+pack sync from the feed. A pack is fetched only from the API's host or
+`api.lunaway.net`, under `/packs/places/`, with the name the server gives.
+
+- The import reads every column the way `placeFromJson` reads the API's
+  JSON: the same enumerations (temporary tables of the app's values), the
+  town taken from the commune, dates cut after the millisecond as Dart's
+  `DateTime.parse` cuts them (SQLite's own reading rounds). A test holds a
+  place from a pack equal to the same place from the feed, and the packs of
+  `ES` and `FR-ARA` matched the feed place for place on 2026-10-06.
+- A row is replaced by a pack or a page of its own region, and by another
+  region's only when not older: a pack built before a place moved still
+  lists it.
+- `left` removes a place only while the device still holds it under the
+  region it left.
+- The places synced by box before regions stay until every region kept has
+  synced, then go. Against an API without `regions`, the sync by box of
+  metropolitan France runs as before.
+
 ## Persisted queries
 
 The API follows Apollo's convention (APQ). The client sends the
@@ -202,3 +230,10 @@ lowercase hexadecimal SHA-256 of its document instead of the document:
 
 The sync request of the app weighs 1 280 bytes with its document and 298
 with the hash.
+
+The app (`app/lib/features/places/data/graphql/graphql_client.dart`)
+sends the hash alone first, the document with it when the server answers
+`PERSISTED_QUERY_NOT_FOUND`, and every document whole for the rest of the
+run when an API refuses a body without `query` (HTTP 400, as before
+persisted queries). A region's page weighs 265 bytes by its hash, 1 266
+with its document.

@@ -585,7 +585,12 @@
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
       "dangerZone": "Danger zone in $distance",
-      "inDangerZone": "Danger zone"
+      "inDangerZone": "Danger zone, $distance left",
+      "cameraAhead": "Speed camera in $distance",
+      "cameraLimit": "Speed camera in $distance, $limit",
+      "limitEstimated": "Estimated limit",
+      "overLimit": "over the limit",
+      "enforcementSource": "$source, list of $date"
     },
     "voice": {
       "rerouting": "Recalculating.",
@@ -612,7 +617,11 @@
         "other": "$n miles"
       },
       "size": "$metres.$cm metres",
-      "sizeWhole": "$metres metres"
+      "sizeWhole": "$metres metres",
+      "overSpeed": "Speed limit $limit.",
+      "dangerZone": "Danger zone in $distance.",
+      "inDangerZone": "Danger zone.",
+      "camera": "Speed camera in $distance."
     },
     "units": {
       "ft": "$n ft",
@@ -629,7 +638,11 @@
       "voiceHint": "With the phone's own voice",
       "units": "Distances",
       "metric": "Kilometres",
-      "imperial": "Miles"
+      "imperial": "Miles",
+      "speedLimit": "Speed limit",
+      "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
+      "speedSound": "Spoken speed alerts",
+      "speedSoundHint": "A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only."
     }
   },
   "list": {
@@ -819,6 +832,7 @@
     },
     "signedOut": "Signed out. Your favourites stay on this device.",
     "lost": "This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.",
+    "lostAction": "Recover",
     "welcomeTitle": "Thank you for your first contribution",
     "welcomeBody": "Your account is created, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.",
     "welcomeCard": "Make your recovery card to find this account on another device.",
@@ -958,7 +972,9 @@
     "newPlace": "New place",
     "edit": "Edit",
     "aPlace": "A place",
-    "newVendingMachine": "New vending machine"
+    "newVendingMachine": "New vending machine",
+    "poiConfirmations": "Shops and services confirmed",
+    "aPoi": "A shop or service"
   },
   "outbox": {
     "kind": {
@@ -979,7 +995,8 @@
       "unmute": "Showing an author again",
       "poiThere": "Still there: a shop or service",
       "poiGone": "Gone: a shop or service",
-      "addVendingMachine": "New vending machine"
+      "addVendingMachine": "New vending machine",
+      "deletePoiConfirmation": "Deletion of an answer about a shop or service"
     },
     "waiting": "Waiting for the network",
     "sending": "Sending",
@@ -1327,6 +1344,23 @@
       "none": "No station on the map sells this fuel.",
       "noneHint": "Move the map or pick another fuel.",
       "error": "The stations' prices could not be loaded."
+    },
+    "trend": {
+      "title": "$fuel: prices of the last days",
+      "none": "Lunaway has not seen a price of this fuel here yet.",
+      "failed": "The prices of the last days could not be read now.",
+      "week": "Last 7 days:",
+      "month": "Last 30 days:",
+      "range": "from $low to $high",
+      "span": "$range, $move",
+      "oneDay": "one day seen",
+      "steady": "unchanged",
+      "down": "down $amount",
+      "up": "up $amount",
+      "since(param=n)": {
+        "one": "$n day seen since $date, as Lunaway reads the feed; a day not seen stays empty",
+        "other": "$n days seen since $date, as Lunaway reads the feed; a day not seen stays empty"
+      }
     }
   },
   "offlineMaps": {
@@ -1379,5 +1413,38 @@
     "noticeOutside": "Offline: this area is not downloaded",
     "noticeNone": "Offline: download a region for next time",
     "noticeOnline": "Offline: the map needs the network"
+  },
+  "regions": {
+    "pickerTitle": "Which places to keep on this device?",
+    "pickerIntro": "Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.",
+    "nearYou": "Near you: $name",
+    "findMine": "Find my region",
+    "locating": "Looking for your region",
+    "notCovered": "No Lunaway region around you yet",
+    "wholeFrance": "All of France",
+    "showFrance": "Show the regions of France",
+    "hideFrance": "Hide the regions of France",
+    "packInfo(param=n)": {
+      "one": "$count place, $size",
+      "other": "$count places, $size"
+    },
+    "noPack": "No pack: places come with the updates, size unknown",
+    "download": "Download, $size",
+    "unavailable": "The server does not offer regions yet: Lunaway keeps all of France.",
+    "listFailed": "The list of regions needs the network.",
+    "choose": "Choose the regions",
+    "kept": "Regions on this device",
+    "noneKept": "No region kept: the map has no places offline.",
+    "change": "Add or remove regions",
+    "removeNamed": "Remove $name",
+    "removed": "$name: places removed from this device",
+    "downloading": "Downloading, $done of $total",
+    "updating(param=n)": {
+      "one": "Updating, $count place",
+      "other": "Updating, $count places"
+    },
+    "waiting": "waiting for its download",
+    "downloadingNamed": "Downloading the places: $name",
+    "updated": "updated $when"
   }
 }

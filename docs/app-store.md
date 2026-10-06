@@ -75,11 +75,14 @@ accessible longer than needed to serve the request in real time.
 | Data not linked to you | none | |
 
 Not collected, with the reason: Coarse Location (map tiles show an area
-but nothing is kept), Contact Info (no e-mail, phone or real name is
-asked), Search History (the search of places runs on the device; the
-search of shops and services sends the text and the map centre rounded to
-0.05 degree, which the server neither stores nor logs), Diagnostics and crash
-data (none), Browsing History. The optional-disclosure exemption is not
+but nothing is kept; the list of the cheapest fuel sends the position or
+the map centre rounded to 0.05 degree, the route's fuel search the route
+ahead, neither stored nor logged), Contact Info (no e-mail, phone or real
+name is asked), Search History (the search of places runs on the device;
+the search of shops and services sends the text and the map centre
+rounded to 0.05 degree, which the server neither stores nor logs),
+Diagnostics and crash data (none), Browsing History. The speed camera data
+of the guidance is asked by country, without any position. The optional-disclosure exemption is not
 used: reviews, photos and new places are part of the app's main use.
 
 When a feature ships, revisit the label with the table "When a feature
@@ -276,6 +279,16 @@ In-app guidance (the `route` query, `docs/store-listing.md`) needs, on iOS:
   to the shipped app.
 - Data safety and privacy label: `docs/play-store.md`, "When a feature
   ships".
+- Speed cameras and limits, review notes: "During guidance only, the app
+  shows the speed limit for the vehicle and, where the law of the country
+  the vehicle is in allows it, danger zones (France: a stretch of road
+  without the camera's position or type) or fixed cameras (countries that
+  allow their positions). Nothing shows outside guidance, nor in
+  Switzerland, Germany while driving, Morocco or a country not reviewed
+  (`docs/speed-cameras.md`). No police check is reported. Spoken alerts are
+  off by default." Guideline 1.4.4 asks an app never to encourage
+  excessive speed: the excess shows as a warning only, and no feature
+  ranks speeds.
 
 ## What only the maintainer does
 

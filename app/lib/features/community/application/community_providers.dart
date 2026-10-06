@@ -303,7 +303,8 @@ class OutboxRunner extends _$OutboxRunner {
           ContributionKind.deleteIssueReport ||
           ContributionKind.reportContent ||
           ContributionKind.deletePlaceSubmission ||
-          ContributionKind.addVendingMachine:
+          ContributionKind.addVendingMachine ||
+          ContributionKind.deletePoiConfirmation:
         break;
       case ContributionKind.confirmPoi:
         // The page shows when the point was last said to be there: read it

@@ -51,6 +51,7 @@ final class GraphQLCommunityApi implements CommunityApi {
     ContributionKind.mute => muteAuthorOperation,
     ContributionKind.unmute => unmuteAuthorOperation,
     ContributionKind.confirmPoi => confirmPoiOperation,
+    ContributionKind.deletePoiConfirmation => deletePoiConfirmationOperation,
     ContributionKind.addVendingMachine => addVendingMachineOperation,
     ContributionKind.photo => throw ArgumentError('a photo goes through upload'),
   };
