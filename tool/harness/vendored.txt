@@ -1,0 +1,9 @@
+# Third-party files committed exactly as their projects publish them. They are
+# not authored here, so the writing gates (dashes) skip them. One path per
+# line; a line ending in / covers a directory. Update a file only by
+# replacing it with a new upstream release, and keep its licence beside it.
+app/web/maplibre-gl/
+app/assets/map/maplibre-gl.js
+app/assets/map/maplibre-gl.css
+app/web/drift_worker.js
+app/web/sqlite3.wasm

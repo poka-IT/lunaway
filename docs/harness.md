@@ -26,7 +26,7 @@ thing gets deleted**, not left with a note; git history keeps it.
 | `.claude/agents/` | read-only reviewers: `app-reviewer`, `rust-reviewer`, `security-auditor` |
 | `.claude/settings.json` | deny rules on secrets; hooks: bash guard, edit guard, post-edit gates, session preflight, agent liveness |
 | `tool/harness/hooks/` | the hook scripts (Python, fail open, tested by `tests/`) |
-| `tool/harness/git/` | shell checks shared by the git hooks, `tool/check.sh` and CI: dashes, secrets, lockfiles, harness wiring |
+| `tool/harness/git/` | shell checks shared by the git hooks, `tool/check.sh` and CI: dashes, secrets, lockfiles, harness wiring; `tool/harness/vendored.txt` lists the third-party files committed as published, which the dash check skips |
 | `.githooks/` | pre-commit (dashes, secrets, locks, wiring, formatting, Dart and Rust structure gates), commit-msg (subject convention), pre-push (prod tag, analyses); each chains to a machine-local hook of the same name |
 | `tool/structure_check.dart` | app invariants with remediation messages; `tool/allowed_hosts.txt`, `tool/structure_ratchet.json` |
 | `tool/i18n_check.dart` | translation gate |

@@ -1,12 +1,27 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// The release key lives in android/key.properties (storeFile, storePassword,
+// keyAlias, keyPassword), never in git. Without it, release builds are signed
+// with the debug key, so CI and fresh clones still build.
+val keyProperties = Properties()
+val keyPropertiesFile = rootProject.file("key.properties")
+val hasReleaseKey = keyPropertiesFile.exists()
+if (hasReleaseKey) {
+    FileInputStream(keyPropertiesFile).use { keyProperties.load(it) }
+}
+
 android {
     namespace = "legal.p2p.lunaway"
-    compileSdk = flutter.compileSdkVersion
+    // 37: permission_handler_android compiles against it. compileSdk only
+    // gives access to newer APIs; targetSdk sets the runtime behaviour.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -15,26 +30,66 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "legal.p2p.lunaway"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // Play requires API 35 for new apps from 2025-08 and 36 a year later;
+        // the floor holds even if a Flutter release ships a lower default.
+        targetSdk = maxOf(flutter.targetSdkVersion, 36)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseKey) {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    // Two distributions of the same app. `store` is the Play build; `fdroid`
+    // carries no Google Play Services (F-Droid refuses proprietary
+    // dependencies) and shows the position through Android's own location
+    // manager, which MapLibre uses by default.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("store") {
+            dimension = "distribution"
+        }
+        create("fdroid") {
+            dimension = "distribution"
+            versionNameSuffix = "-fdroid"
+            proguardFile("proguard-fdroid.pro")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig =
+                if (hasReleaseKey) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
+    }
+
+    packaging {
+        jniLibs {
+            // Uncompressed and page-aligned native libraries: required for
+            // 16 KB page devices and loaded straight from the APK.
+            useLegacyPackaging = false
+        }
+    }
+}
+
+// maplibre_gl declares play-services-location for an optional high-accuracy
+// engine the app does not use (it keeps the default, balanced priority, which
+// runs on Android's LocationManager). The F-Droid build leaves Play Services
+// out entirely.
+configurations.configureEach {
+    if (name.startsWith("fdroid")) {
+        exclude(group = "com.google.android.gms")
+        exclude(group = "com.google.firebase")
     }
 }
 

@@ -25,6 +25,9 @@ linter:
     public_member_api_docs: false
     # The formatter wraps at page_width (100); this lint assumes 80.
     lines_longer_than_80_chars: false
+    # Riverpod notifiers expose methods, not setters (riverpod_lint's
+    # avoid_public_notifier_properties); this lint asks for the opposite.
+    use_setters_to_change_properties: false
 
 # riverpod_lint runs as an analysis_server_plugin, so `fvm flutter analyze`
 # reports it with the rest. Its cost on analysis time is watched as the tree

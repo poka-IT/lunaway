@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
@@ -6,13 +7,6 @@ import 'package:lunaway/shared/adaptive_shell.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'router.g.dart';
-
-/// Paths of the top-level destinations, in the order the navigation shows them.
-abstract final class AppRoutes {
-  static const map = '/map';
-  static const favorites = '/favorites';
-  static const profile = '/profile';
-}
 
 // keepAlive: the router lives as long as the app; rebuilding it would drop
 // the navigation stack of every branch.
@@ -25,7 +19,14 @@ GoRouter router(Ref ref) {
         builder: (context, state, shell) => AdaptiveShell(shell: shell),
         branches: [
           StatefulShellBranch(
-            routes: [GoRoute(path: AppRoutes.map, builder: (_, _) => const MapScreen())],
+            routes: [
+              // `/map?place=<id>` opens a place: a link to share, a web page
+              // to bookmark.
+              GoRoute(
+                path: AppRoutes.map,
+                builder: (_, state) => MapScreen(placeId: state.uri.queryParameters['place']),
+              ),
+            ],
           ),
           StatefulShellBranch(
             routes: [

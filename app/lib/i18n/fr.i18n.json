@@ -5,15 +5,312 @@
     "favorites": "Favoris",
     "profile": "Profil"
   },
+  "common": {
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "retry": "Réessayer",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "undo": "Annuler",
+    "more": "Plus d'options"
+  },
+  "kinds": {
+    "motorhomeArea": "Aire de camping-car",
+    "serviceArea": "Aire de services",
+    "campsite": "Camping",
+    "parking": "Parking",
+    "nature": "Lieu en pleine nature",
+    "restArea": "Aire de repos",
+    "picnicArea": "Aire de pique-nique",
+    "farm": "Accueil à la ferme",
+    "homestay": "Accueil chez un particulier",
+    "offRoad": "Lieu tout-terrain",
+    "extraService": "Arrêt pratique"
+  },
+  "families": {
+    "stopovers": "Aires et parkings",
+    "campsites": "Campings et accueils",
+    "nature": "Nature",
+    "services": "Services"
+  },
+  "services": {
+    "drinkingWater": "Eau potable",
+    "greyWater": "Vidange eaux grises",
+    "blackWater": "Vidange cassette",
+    "wasteBin": "Poubelles",
+    "toilets": "Toilettes",
+    "showers": "Douches",
+    "electricity": "Électricité",
+    "wifi": "Wi-Fi",
+    "laundry": "Laverie",
+    "lpg": "GPL",
+    "gasBottles": "Bouteilles de gaz",
+    "vehicleWash": "Lavage du véhicule",
+    "bakery": "Boulangerie",
+    "swimmingPool": "Piscine",
+    "petsAllowed": "Animaux acceptés",
+    "mobileData": "Réseau mobile",
+    "winterCaravanning": "Séjour en hiver"
+  },
+  "activities": {
+    "monuments": "Visites",
+    "windsurfKitesurf": "Planche à voile, kitesurf",
+    "mountainBiking": "VTT",
+    "hiking": "Randonnée",
+    "climbing": "Escalade",
+    "canoeKayak": "Canoë, kayak",
+    "fishing": "Pêche",
+    "shoreFishing": "Pêche à pied",
+    "swimming": "Baignade",
+    "motorcycling": "Balades à moto",
+    "viewpoint": "Point de vue",
+    "playground": "Jeux pour enfants"
+  },
+  "amenities": {
+    "water": "Eau",
+    "dumpStation": "Vidange",
+    "electricity": "Électricité",
+    "toilets": "Toilettes"
+  },
+  "overnight": {
+    "allowed": "Nuit autorisée",
+    "tolerated": "Nuit tolérée",
+    "dayOnly": "Journée seulement",
+    "forbidden": "Nuit interdite",
+    "unknown": "Nuit : on ne sait pas",
+    "allowedHint": "Vous pouvez passer la nuit ici.",
+    "toleratedHint": "Une nuit est en général acceptée. Restez discret et ne laissez aucune trace.",
+    "dayOnlyHint": "Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.",
+    "forbiddenHint": "Passer la nuit ici est interdit.",
+    "unknownHint": "Personne ne nous a encore dit si la nuit est permise."
+  },
+  "freshness": {
+    "confirmed": "Confirmé $when",
+    "updated": "Mis à jour $when",
+    "stale": "Pas confirmé depuis plus d'un an",
+    "today": "aujourd'hui",
+    "daysAgo(param=n)": {
+      "one": "hier",
+      "other": "il y a $n jours"
+    },
+    "monthsAgo(param=n)": {
+      "one": "il y a un mois",
+      "other": "il y a $n mois"
+    },
+    "yearsAgo(param=n)": {
+      "one": "il y a un an",
+      "other": "il y a $n ans"
+    }
+  },
   "map": {
-    "placeholder": "La carte des emplacements pour camping-cars et vans arrive bientôt."
+    "searchHint": "Chercher un lieu ou une commune",
+    "clearSearch": "Effacer la recherche",
+    "locateMe": "Afficher ma position",
+    "locationUnavailable": "Votre position n'est pas disponible. Vérifiez que la localisation est autorisée.",
+    "filters": "Filtres",
+    "showList": "Afficher la liste",
+    "showMap": "Afficher la carte",
+    "placesHere(param=n)": {
+      "one": "$n lieu ici",
+      "other": "$n lieux ici"
+    },
+    "nearestPlaces": "Les $n lieux les plus proches",
+    "pointTitle": "Point choisi",
+    "downloading": "Téléchargement des lieux de France",
+    "downloadingCount(param=n)": {
+      "one": "$n lieu reçu",
+      "other": "$n lieux reçus"
+    },
+    "noData": "Aucun lieu sur cet appareil pour l'instant",
+    "noDataHint": "Téléchargez les lieux une fois ; la carte fonctionne ensuite sans réseau.",
+    "download": "Télécharger les lieux",
+    "downloadFailed": "Le téléchargement a échoué. Vérifiez la connexion et réessayez.",
+    "demoBanner": "Démo : lieux inventés",
+    "unsupported": "La carte n'est pas disponible sur ce système. Utilisez l'application web."
+  },
+  "search": {
+    "towns": "Communes",
+    "places": "Lieux",
+    "noResult": "Aucun lieu ni aucune commune ne correspond à « $query ».",
+    "townPlaces(param=n)": {
+      "one": "$n lieu",
+      "other": "$n lieux"
+    }
+  },
+  "filters": {
+    "title": "Filtres",
+    "families": "Type de lieu",
+    "night": "Nuit autorisée",
+    "nightHint": "Autorisée ou tolérée",
+    "amenities": "Services",
+    "height": "Hauteur du véhicule",
+    "heightAny": "Toutes hauteurs",
+    "heightHint": "Masque les lieux dont la barre de hauteur est plus basse. Les lieux sans hauteur connue restent visibles.",
+    "reset": "Tout effacer",
+    "show(param=n)": {
+      "zero": "Aucun lieu ne correspond",
+      "one": "Afficher $n lieu",
+      "other": "Afficher $n lieux"
+    },
+    "active(param=n)": {
+      "one": "$n filtre actif",
+      "other": "$n filtres actifs"
+    }
+  },
+  "place": {
+    "unnamedIn": "$kind à $town",
+    "directions": "Itinéraire",
+    "share": "Partager",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
+    "saveTo": "Enregistrer dans une liste",
+    "savedToast": "Ajouté à vos favoris",
+    "removedToast": "Retiré de vos favoris",
+    "facts": "Bon à savoir",
+    "pricePerNight": "La nuit",
+    "priceFree": "Gratuit",
+    "priceUnknown": "Inconnu",
+    "priceServices": "Services",
+    "maxHeight": "Hauteur max.",
+    "capacity": "Emplacements",
+    "classification": "Classement",
+    "classStars(param=n)": {
+      "one": "$n étoile",
+      "other": "$n étoiles"
+    },
+    "hours": "Horaires",
+    "services": "Services",
+    "noServices": "Aucun service indiqué.",
+    "activities": "À proximité",
+    "description": "Description",
+    "contact": "Contact",
+    "website": "Site web",
+    "call": "Appeler",
+    "coordinates": "Coordonnées",
+    "copy": "Copier les coordonnées",
+    "copied": "Copié : $text",
+    "otherFormats": "Autres formats",
+    "formatDecimal": "Degrés décimaux",
+    "formatDms": "Degrés, minutes, secondes",
+    "formatGeo": "Lien geo:",
+    "formatGoogle": "Lien Google Maps",
+    "formatOsm": "Lien OpenStreetMap",
+    "sources": "Sources",
+    "fetched": "Lu $when",
+    "matchScore": "Correspondance $score %",
+    "viewSource": "Voir à la source",
+    "gone": "Ce lieu n'est plus dans les données.",
+    "loadError": "Ce lieu n'a pas pu être lu.",
+    "openFailed": "Aucune application n'a pu ouvrir ce lien.",
+    "photos": "Photos",
+    "extrasOffline": "Les photos et les avis demandent une connexion.",
+    "reviewsTitle": "Avis",
+    "reviewsCount(param=n)": {
+      "one": "$n avis",
+      "other": "$n avis"
+    },
+    "noReviews": "Aucun avis pour l'instant.",
+    "moreReviews": "Plus d'avis",
+    "moreReviewsFailed": "La suite des avis n'a pas pu se charger. Touchez pour réessayer.",
+    "stars": "$rating sur 5",
+    "originalLanguage": "Texte d'origine en $language",
+    "photoPosition": "Photo $index sur $count",
+    "links": "Ailleurs"
+  },
+  "hours": {
+    "open": "Ouvert maintenant",
+    "openUntil": "Ouvert, ferme à $time",
+    "openUntilDay": "Ouvert, ferme $day à $time",
+    "closesIn(param=n)": {
+      "one": "Ouvert, ferme dans $n minute",
+      "other": "Ouvert, ferme dans $n minutes"
+    },
+    "closedUntil": "Fermé, ouvre à $time",
+    "closedUntilDay": "Fermé, ouvre $day à $time",
+    "opensIn(param=n)": {
+      "one": "Fermé, ouvre dans $n minute",
+      "other": "Fermé, ouvre dans $n minutes"
+    },
+    "closedWindow": "Fermé pour les deux prochaines semaines",
+    "tomorrow": "demain",
+    "onDate": "le $date",
+    "midnight": "minuit",
+    "stale": "Ouverture inconnue : données à mettre à jour"
+  },
+  "directions": {
+    "title": "Y aller avec",
+    "appleMaps": "Plans d'Apple",
+    "googleMaps": "Google Maps",
+    "waze": "Waze",
+    "osm": "OpenStreetMap",
+    "system": "Une application de navigation"
+  },
+  "list": {
+    "title": "Lieux autour",
+    "empty": "Aucun lieu dans cette zone avec ces filtres.",
+    "emptyHint": "Déplacez la carte, dézoomez ou assouplissez les filtres.",
+    "error": "La liste n'a pas pu être lue."
   },
   "favorites": {
-    "empty": "Les lieux que vous enregistrez apparaîtront ici."
+    "title": "Favoris",
+    "defaultList": "Mes favoris",
+    "empty": "Les lieux que vous enregistrez apparaîtront ici.",
+    "emptyHint": "Touchez Enregistrer sur un lieu pour le garder, même hors connexion.",
+    "newList": "Nouvelle liste",
+    "listName": "Nom de la liste",
+    "renameList": "Renommer la liste",
+    "deleteList": "Supprimer la liste",
+    "deleteListConfirm": "Supprimer « $name » ? Les lieux restent sur la carte.",
+    "removed": "Retiré de la liste",
+    "count(param=n)": {
+      "zero": "Vide",
+      "one": "$n lieu",
+      "other": "$n lieux"
+    },
+    "error": "Vos favoris n'ont pas pu être lus."
   },
   "profile": {
+    "title": "Profil",
     "language": "Langue",
-    "noAccountNeeded": "Aucun compte n'est nécessaire pour consulter. Contribuer ne demandera qu'un geste."
+    "languageSystem": "Appareil",
+    "noAccountNeeded": "Aucun compte n'est nécessaire. Ni publicité ni pisteur : la carte et vos favoris restent sur cet appareil.",
+    "offline": "Données hors connexion",
+    "offlinePlaces(param=n)": {
+      "zero": "Aucun lieu sur cet appareil",
+      "one": "$n lieu sur cet appareil",
+      "other": "$n lieux sur cet appareil"
+    },
+    "offlineSize": "Espace utilisé : $size",
+    "lastSync": "Dernière mise à jour $when",
+    "neverSynced": "Jamais téléchargé",
+    "syncNow": "Mettre à jour",
+    "syncing": "Mise à jour en cours",
+    "syncDone": "Les lieux sont à jour.",
+    "syncFailed": "La mise à jour a échoué. Les lieux de cet appareil restent utilisables.",
+    "about": "À propos",
+    "version": "Version $version",
+    "website": "Site web",
+    "privacy": "Confidentialité",
+    "sourceCode": "Code source",
+    "licences": "Licences",
+    "attributions": "Données et carte",
+    "attributionOsm": "Lieux et données cartographiques © les contributeurs d'OpenStreetMap, sous licence Open Database License (ODbL).",
+    "attributionAtout": "Campings classés d'Atout France, sous Licence Ouverte 2.0 (Etalab).",
+    "attributionTiles": "Carte OpenFreeMap, © OpenMapTiles, données © les contributeurs d'OpenStreetMap.",
+    "attributionFont": "Police Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.",
+    "appLicence": "Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure."
+  },
+  "units": {
+    "kilobytes": "$n ko",
+    "megabytes": "$n Mo"
+  },
+  "languages": {
+    "fr": "français",
+    "en": "anglais",
+    "de": "allemand",
+    "es": "espagnol",
+    "it": "italien",
+    "nl": "néerlandais"
   },
   "locale": {
     "en": "English",

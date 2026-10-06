@@ -3,9 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-
-/// Night blue: the colour of a sky above a quiet overnight spot.
-const _seed = Color(0xFF1F4E79);
+import 'package:lunaway/shared/theme/app_theme.dart';
 
 class LunawayApp extends ConsumerWidget {
   const new({super.key});
@@ -18,8 +16,8 @@ class LunawayApp extends ConsumerWidget {
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(colorSchemeSeed: _seed),
-      darkTheme: ThemeData(colorSchemeSeed: _seed, brightness: .dark),
+      theme: lunaTheme(Brightness.light),
+      darkTheme: lunaTheme(Brightness.dark),
       debugShowCheckedModeBanner: false,
     );
   }

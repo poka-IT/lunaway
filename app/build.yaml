@@ -1,0 +1,18 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # The places table is searched through FTS5 and the viewport through
+          # an R*Tree; the analyzer must know both modules to type the queries.
+          sql:
+            dialect: sqlite
+            options:
+              version: "3.46"
+              modules:
+                - fts5
+                - rtree
+          store_date_time_values_as_text: false
+          # Queries are written in SQL or the core API; the manager layer would
+          # only add generated code nobody reads.
+          generate_manager: false

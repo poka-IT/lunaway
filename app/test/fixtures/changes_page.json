@@ -1,0 +1,124 @@
+{
+  "data": {
+    "changes": {
+      "places": [
+        {
+          "id": "0192f5a0-0000-7000-8000-000000000001",
+          "name": "Aire des Essais (démo)",
+          "kind": "MOTORHOME_AREA",
+          "lat": 45.1885,
+          "lon": 5.7245,
+          "overnight": "ALLOWED",
+          "services": [
+            "DRINKING_WATER",
+            "GREY_WATER",
+            "SOMETHING_NEW"
+          ],
+          "activities": [
+            "HIKING"
+          ],
+          "description": "Aire fictive pour les tests.",
+          "address": {
+            "street": null,
+            "postcode": "38000",
+            "city": "Grenoble",
+            "countryCode": "FR"
+          },
+          "priceParkingEur": 8.5,
+          "priceServicesEur": 0,
+          "maxHeightM": null,
+          "capacity": 12,
+          "stars": 4,
+          "openingHours": "Mo-Su 08:00-20:00",
+          "openingHoursParsed": true,
+          "openingIntervals": [
+            {
+              "start": "2026-10-06T06:00:00Z",
+              "end": "2026-10-06T18:00:00Z"
+            }
+          ],
+          "openingIntervalsUntil": "2026-10-19T22:00:00Z",
+          "website": "",
+          "phone": "+33 4 00 00 00 00",
+          "lastConfirmedAt": "2026-09-01T10:00:00Z",
+          "updatedAt": "2026-10-05T08:00:00Z",
+          "sources": [
+            {
+              "source": {
+                "id": "osm",
+                "name": "OpenStreetMap",
+                "licence": "ODbL-1.0",
+                "attribution": "© OpenStreetMap contributors",
+                "url": "https://www.openstreetmap.org"
+              },
+              "externalId": "node/42",
+              "externalUrl": "https://www.openstreetmap.org/node/42",
+              "fetchedAt": "2026-10-05T07:00:00Z",
+              "matchScore": null
+            }
+          ],
+          "provenance": [
+            {
+              "field": "name",
+              "sourceId": "osm",
+              "alternatives": [
+                {
+                  "sourceId": "community",
+                  "value": "Aire Essais"
+                }
+              ]
+            }
+          ],
+          "descriptions": [
+            {
+              "lang": "fr",
+              "text": "Texte fictif.",
+              "sourceId": "community"
+            },
+            {
+              "lang": "de",
+              "text": "Erfundener Text.",
+              "sourceId": "community"
+            },
+            {
+              "lang": "en",
+              "text": "  ",
+              "sourceId": "community"
+            }
+          ],
+          "ratings": [
+            {
+              "sourceId": "community",
+              "average": 4.1,
+              "count": 37
+            }
+          ],
+          "externalLinks": []
+        },
+        {
+          "id": "0192f5a0-0000-7000-8000-000000000002",
+          "name": null,
+          "kind": "A_KIND_FROM_THE_FUTURE",
+          "lat": 43.3,
+          "lon": 5.37,
+          "overnight": "SOMETIMES",
+          "services": [],
+          "activities": [],
+          "openingHoursParsed": false,
+          "updatedAt": "2026-10-05T08:00:00Z",
+          "sources": [],
+          "provenance": [],
+          "descriptions": [],
+          "ratings": [],
+          "externalLinks": [],
+          "stars": 6
+        }
+      ],
+      "deleted": [
+        "0192f5a0-0000-7000-8000-000000000009"
+      ],
+      "cursor": "opaque-cursor-2",
+      "hasMore": true
+    }
+  }
+}

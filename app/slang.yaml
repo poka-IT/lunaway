@@ -8,3 +8,4 @@ translate_var: t
 enum_name: AppLocale
 flutter_integration: true
 timestamp: false
+lazy: false
