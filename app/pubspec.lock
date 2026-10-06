@@ -65,6 +65,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.11"
+  build_cli_annotations:
+    dependency: transitive
+    description:
+      name: build_cli_annotations
+      sha256: e563c2e01de8974566a1998410d3f6f03521788160a02503b0b1f1a46c7b3d95
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   build_config:
     dependency: transitive
     description:
@@ -209,6 +217,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.13"
+  dbus:
+    dependency: transitive
+    description:
+      name: dbus
+      sha256: f7db8504e715b835f5ebe5fe74604ccd961d504c73389a5d8e81bafc2e2f3612
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.0"
   drift:
     dependency: "direct main"
     description:
@@ -328,6 +344,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.3"
+  flutter_rust_bridge:
+    dependency: transitive
+    description:
+      name: flutter_rust_bridge
+      sha256: ec69331e2335ab4d456c0a9fc700892c2c85b72b9c0cb39df3ecfe8833d5d5c8
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.13.0"
+  flutter_rust_bridge_hooks:
+    dependency: transitive
+    description:
+      name: flutter_rust_bridge_hooks
+      sha256: "19900fbcaa8ddc2a4f1b13994ef34393eda129ebccc59ceb887a8fd2cf5def3e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.13.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -351,6 +383,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  geolocator_android:
+    dependency: "direct main"
+    description:
+      name: geolocator_android
+      sha256: "1be90ea8aaaf9db8e7816b4fe0387f082ee8b5cf03355912dad90fb0a75717fa"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.1+1"
   geolocator_apple:
     dependency: "direct main"
     description:
@@ -540,6 +580,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.0"
+  lunaway_nav:
+    dependency: "direct main"
+    description:
+      path: "packages/lunaway_nav"
+      relative: true
+    source: path
+    version: "0.1.0"
   maplibre_gl:
     dependency: "direct main"
     description:
@@ -620,6 +667,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.19.5"
+  native_toolchain_rust:
+    dependency: transitive
+    description:
+      name: native_toolchain_rust
+      sha256: dc8e5f20c0cb7052372bc302f075607086d86354b37199e89ec9d3d35589e519
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.7"
   objective_c:
     dependency: transitive
     description:
@@ -764,6 +819,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.2"
+  petitparser:
+    dependency: transitive
+    description:
+      name: petitparser
+      sha256: "2f1564aadb14215e478563b5406cb80729d022158c01dc50c96013c2f7eb4790"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.1.0"
   platform:
     dependency: transitive
     description:
@@ -1073,6 +1136,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.12"
+  toml:
+    dependency: transitive
+    description:
+      name: toml
+      sha256: "35a35f782228656a2af31e8c73d1353cc4ef3d683fd68af1111b44631879c05e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.0"
   typed_data:
     dependency: transitive
     description:
@@ -1185,6 +1256,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "15.3.0"
+  wakelock_plus:
+    dependency: "direct main"
+    description:
+      name: wakelock_plus
+      sha256: "9a91139ee876c24a9ebe1484e4b9b7923b07d368566a5e0b2301870b0f5029c8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.8.1"
+  wakelock_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: wakelock_plus_platform_interface
+      sha256: "764c25504562abc8ac3406f5d175f126b276e6ba916c7c2675690b73368ca384"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.7.0"
   watcher:
     dependency: transitive
     description:
@@ -1241,6 +1328,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
+  xml:
+    dependency: transitive
+    description:
+      name: xml
+      sha256: "0fe8cc98946def31cbcbc8734aa4067031e6f65ea3a78a508060bfed2200bfeb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.1.0"
   yaml:
     dependency: transitive
     description:

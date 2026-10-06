@@ -254,6 +254,11 @@ check("edit_guard blocks a dash",
 # Cargo.lock resolving a crate from git, staged or committed.
 HOSTED = "packages:\n  go_router:\n    dependency: \"direct main\"\n    description:\n      name: go_router\n      url: \"https://pub.dev\"\n    source: hosted\n    version: \"18.0.2\"\n"
 LOCAL = "packages:\n  durt:\n    dependency: \"direct main\"\n    description:\n      path: \"../durt\"\n      relative: true\n    source: path\n    version: \"1.0.0\"\n"
+# The app's own package, committed under app/packages/, resolves on every
+# clone; a path that climbs out of it does not.
+IN_REPO = "packages:\n  lunaway_nav:\n    dependency: \"direct main\"\n    description:\n      path: \"packages/lunaway_nav\"\n      relative: true\n    source: path\n    version: \"0.1.0\"\n"
+CLIMBS = "packages:\n  x:\n    dependency: \"direct main\"\n    description:\n      path: \"packages/../../x\"\n      relative: true\n    source: path\n    version: \"0.1.0\"\n"
+ABSOLUTE = "packages:\n  x:\n    dependency: \"direct main\"\n    description:\n      path: \"/home/me/packages/x\"\n      relative: false\n    source: path\n    version: \"0.1.0\"\n"
 CRATES = "[[package]]\nname = \"tokio\"\nversion = \"1.53.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n"
 GITDEP = "[[package]]\nname = \"x\"\nversion = \"0.1.0\"\nsource = \"git+https://example.org/x.git#abc\"\n"
 CHECK_LOCK = os.path.join(ROOT, "tool", "harness", "git", "check_lock.sh")
@@ -280,6 +285,10 @@ with tempfile.TemporaryDirectory() as repo:
     check("lock: staged path pubspec.lock", lock_check("--cached", "app/pubspec.lock", LOCAL), 1)
     check("lock: committed path pubspec.lock", lock_check("HEAD", "app/pubspec.lock", LOCAL), 1)
     check("lock: staged hosted pubspec.lock", lock_check("--cached", "app/pubspec.lock", HOSTED), 0)
+    check("lock: committed in-repo package", lock_check("HEAD", "app/pubspec.lock", IN_REPO), 0)
+    check("lock: committed path climbing out", lock_check("HEAD", "app/pubspec.lock", CLIMBS), 1)
+    check("lock: staged absolute path", lock_check("--cached", "app/pubspec.lock", ABSOLUTE), 1)
+    check("lock: staged hosted again", lock_check("--cached", "app/pubspec.lock", HOSTED), 0)
     gitc("commit", "-q", "-m", "hosted")
     check("lock: staged registry Cargo.lock", lock_check("--cached", "backend/Cargo.lock", CRATES), 0)
     check("lock: staged git Cargo.lock", lock_check("--cached", "backend/Cargo.lock", GITDEP), 1)

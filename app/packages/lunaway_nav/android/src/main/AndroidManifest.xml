@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Guidance keeps the position coming while the screen is off or another
+         app is in front: geolocator's foreground service, declared by
+         geolocator_android with foregroundServiceType="location", started
+         only while a route is guided, from the app in the foreground (so no
+         background location permission). The store declaration of this use
+         is in plan/research/22-app-navigation.md. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <queries>
+        <!-- The speech engine the instructions are spoken with. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+</manifest>
