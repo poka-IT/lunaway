@@ -220,6 +220,23 @@ void main() {
       expect(routes.requests.last.stops, [a.position, b.position]);
     });
 
+    testWidgets('the window widened while a card is open: its choice still counts', (tester) async {
+      final app = await preview(tester);
+      const a = RouteStop(position: LatLng(45.846, 1.283), label: 'Étape A');
+      app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([a]);
+      await settleShort(tester);
+      final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.stop);
+      SchematicRouteMap.last!.onMarkTap!(mark.id!);
+      await settleShort(tester);
+      // From the phone's sheet to the side panel: another map under the card.
+      tester.view.physicalSize = const Size(1280, 900);
+      await settleShort(tester);
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(app.container(tester).read(routeStopsControllerProvider(utrillo)), isEmpty);
+      expect(find.text('Étape retirée'), findsOneWidget);
+    });
+
     testWidgets('a stop dragged below the next one changes their order, undoable', (tester) async {
       final app = await preview(tester);
       const a = RouteStop(position: LatLng(45.846, 1.283), label: 'Étape A');
@@ -292,6 +309,7 @@ void main() {
       FakeFuelStations? fuel,
       List<RouteStop> stops = const [],
       OneDangerZone? zone,
+      List<PlaceSummary> places = const [],
     }) async {
       routes = FakeRouteService(answers.isEmpty ? [plan] : answers);
       feed = FakeLocationFeed(position: plan.routes.first.line.first);
@@ -304,6 +322,7 @@ void main() {
           engine: LineEngine([plan, ...more]),
           fuel: fuel,
           zones: zone,
+          placesNearRoute: places,
         ),
       );
       await app
@@ -440,6 +459,66 @@ void main() {
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
       expect(find.text('Étape retirée'), findsOneWidget);
+    });
+
+    testWidgets("the phone turned while a place's card is open: the place still opens", (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final road = LineTrack(plan.routes.first).at(2000);
+      // The sample lake's id, by the road: its full card is in the test
+      // database.
+      final lake = PlaceSummary(
+        id: 'test-lake',
+        kind: PlaceKind.motorhomeArea,
+        lat: road.lat,
+        lon: road.lon,
+        overnight: OvernightStatus.allowed,
+        name: 'Aire du Lac Bleu (démo)',
+      );
+      await guide(tester, plan, places: [lake]);
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onMarkTap!('place:test-lake');
+      await settleShort(tester);
+      tester.view.physicalSize = const Size(900, 400);
+      await settleShort(tester);
+      await tester.ensureVisible(find.text('Voir la fiche'));
+      await tester.tap(find.text('Voir la fiche'));
+      await settleShort(tester);
+      expect(find.byType(PlaceDetails), findsOneWidget);
+    });
+
+    testWidgets('a stop passed while its detour is priced again is not brought back', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final detour = routeFixture('closure_detour');
+      final track = LineTrack(plan.routes.first);
+      final pause = RouteStop(position: track.at(800), label: 'Pause');
+      final app = await guide(
+        tester,
+        plan,
+        answers: [detour],
+        more: [detour, detour],
+        stops: [pause],
+      );
+      List<RouteStop> stops() => app.container(tester).read(guidanceControllerProvider)!.stops;
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onLongPress!(track.at(2500));
+      await settleShort(tester);
+      // 400 m on: the detour is priced again when the stop is added, and
+      // the answer waits while the vehicle passes the pause.
+      await drive(tester, plan, toM: 700);
+      routes.gate = Completer<void>();
+      await tester.tap(find.textContaining('Ajouter une étape'));
+      await tester.pump();
+      await drive(tester, plan, toM: 900);
+      expect(stops(), isEmpty, reason: 'the pause is behind');
+      routes.gate!.complete();
+      await settleShort(tester);
+      expect(stops(), isEmpty, reason: 'no way back to the pause');
+      expect(routes.requests, hasLength(2), reason: 'the card, then the new price; no route taken');
+      expect(find.text("L'itinéraire n'a pas pu être changé."), findsOneWidget);
     });
 
     testWidgets('a stop is left behind once the vehicle has been there', (tester) async {

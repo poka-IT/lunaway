@@ -10,20 +10,15 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 /// Replaces the stops of the route to [target] with [next] and says so, with
 /// the way back: every change of the stops can be undone. The preview is the
 /// only place they change, so the way back is the list before.
-void changeStops(
-  BuildContext context,
-  WidgetRef ref,
-  RouteTarget target,
-  List<RouteStop> next,
-  String message,
-) => changeStopsIn(
-  ProviderScope.containerOf(context, listen: false),
-  ScaffoldMessenger.maybeOf(context),
-  context.t,
-  target,
-  next,
-  message,
-);
+void changeStops(BuildContext context, RouteTarget target, List<RouteStop> next, String message) =>
+    changeStopsIn(
+      ProviderScope.containerOf(context, listen: false),
+      ScaffoldMessenger.maybeOf(context),
+      context.t,
+      target,
+      next,
+      message,
+    );
 
 /// [changeStops] once the widget that asked may be gone (a card closed
 /// after the screen turned).
@@ -59,7 +54,7 @@ class StopsStrip extends ConsumerWidget {
     final stops = ref.watch(routeStopsControllerProvider(target));
     if (stops.isEmpty) return const SizedBox.shrink();
     void remove(int i) =>
-        changeStops(context, ref, target, [...stops]..removeAt(i), t.navigation.stops.removed);
+        changeStops(context, target, [...stops]..removeAt(i), t.navigation.stops.removed);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -72,7 +67,7 @@ class StopsStrip extends ConsumerWidget {
           onReorderItem: (from, to) {
             final next = [...stops];
             next.insert(to, next.removeAt(from));
-            changeStops(context, ref, target, next, t.navigation.stops.moved);
+            changeStops(context, target, next, t.navigation.stops.moved);
           },
           itemBuilder: (context, i) => Dismissible(
             key: ValueKey('stop-$i-${stops[i].hashCode}'),

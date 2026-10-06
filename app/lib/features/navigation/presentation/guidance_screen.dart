@@ -283,6 +283,8 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   // Turning the phone rebuilds the map under the open card: what is read
   // after the card goes through the container, which outlives the map.
   final container = ProviderScope.containerOf(context, listen: false);
+  // The navigator's own context outlives the map's: the place opens from it.
+  final pageContext = Navigator.of(context).context;
   final controller = container.read(guidanceControllerProvider.notifier);
   final opened = container.read(guidanceControllerProvider);
   if (opened == null) return;
@@ -326,7 +328,9 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         undo: () => controller.goTo(target, stops: stops),
       );
     case OpenCardChoice():
-      if (point.placeId case final id? when context.mounted) unawaited(showPlaceCard(context, id));
+      if (point.placeId case final id? when pageContext.mounted) {
+        unawaited(showPlaceCard(pageContext, id));
+      }
     case null:
   }
 }

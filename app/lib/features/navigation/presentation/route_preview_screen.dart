@@ -478,6 +478,8 @@ Future<void> openPreviewPoint(
   // Turning the phone or the window can rebuild the map under the open
   // card: what is read after it goes through the container.
   final container = ProviderScope.containerOf(context, listen: false);
+  // The navigator's own context outlives the map's: the place opens from it.
+  final pageContext = Navigator.of(context).context;
   final stops = container.read(routeStopsControllerProvider(target));
   final controller = container.read(routePreviewControllerProvider(target).notifier);
   final choice = await showRoutePointCard(
@@ -512,8 +514,8 @@ Future<void> openPreviewPoint(
         ),
       );
     case OpenCardChoice():
-      if (point.placeId case final id? when context.mounted) {
-        unawaited(showPlaceCard(context, id));
+      if (point.placeId case final id? when pageContext.mounted) {
+        unawaited(showPlaceCard(pageContext, id));
       }
     case null:
   }
@@ -536,7 +538,7 @@ void addPreviewStop(BuildContext context, WidgetRef ref, RouteTarget target, Rou
     destination: target.destination,
     stop: stop.position,
   );
-  changeStops(context, ref, target, insertStop(stops, at, stop), context.t.navigation.stops.added);
+  changeStops(context, target, insertStop(stops, at, stop), context.t.navigation.stops.added);
 }
 
 /// The avoid options, read and written in the route settings: a change
