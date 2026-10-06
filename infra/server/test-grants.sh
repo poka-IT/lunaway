@@ -57,6 +57,17 @@ sync_epoch SELECT
 place_refresh_queue INSERT
 route_restrictions SELECT
 routing_graphs SELECT
+pois SELECT
+poi_join_records SELECT
+poi_layer SELECT
+poi_confirmations SELECT
+poi_confirmations INSERT
+poi_confirmations UPDATE
+poi_confirmations DELETE
+poi_refresh_queue INSERT
+poi_moderation SELECT
+poi_moderation INSERT
+poi_moderation DELETE
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -70,6 +81,7 @@ municipalities DELETE
 municipalities INSERT
 municipalities SELECT
 municipalities UPDATE
+moderation_queue INSERT
 photos SELECT
 place_refresh_queue DELETE
 place_refresh_queue INSERT
@@ -85,6 +97,20 @@ routing_graphs DELETE
 routing_graphs INSERT
 routing_graphs SELECT
 routing_graphs UPDATE
+pois INSERT
+pois SELECT
+pois UPDATE
+poi_join_records INSERT
+poi_join_records SELECT
+poi_join_records UPDATE
+poi_layer INSERT
+poi_layer SELECT
+poi_layer UPDATE
+poi_confirmations DELETE
+poi_confirmations SELECT
+poi_refresh_queue DELETE
+poi_refresh_queue SELECT
+poi_moderation SELECT
 match_pairs DELETE
 match_pairs INSERT
 match_pairs SELECT
@@ -158,6 +184,10 @@ refused "lunaway_app empties the worker's queue" /etc/lunaway/api.env "DELETE FR
 refused "lunaway_app writes a route restriction" /etc/lunaway/api.env "DELETE FROM route_restrictions WHERE false"
 refused "lunaway_app activates a routing graph" /etc/lunaway/api.env "UPDATE routing_graphs SET id = id WHERE false"
 allowed "lunaway_app reads the routing graphs" /etc/lunaway/api.env "SELECT 'routing graphs: ' || count(*) FROM routing_graphs"
+allowed "lunaway_app reads the points of interest" /etc/lunaway/api.env "SELECT 'points: ' || count(*) FROM pois"
+refused "lunaway_app writes a point of interest" /etc/lunaway/api.env "UPDATE pois SET name = name WHERE false"
+refused "lunaway_app moves the point layer's version" /etc/lunaway/api.env "UPDATE poi_layer SET version = version WHERE false"
+refused "lunaway_app writes a fuel price" /etc/lunaway/api.env "UPDATE poi_join_records SET ref = ref WHERE false"
 allowed "lunaway_app writes an account" /etc/lunaway/api.env "BEGIN; UPDATE accounts SET pseudonym = pseudonym WHERE false; ROLLBACK; SELECT 'accounts writable'"
 
 compare lunaway_ingest /etc/lunaway/ingest.env "$expected_ingest"
@@ -173,6 +203,11 @@ refused "lunaway_ingest reads the sessions" /etc/lunaway/ingest.env "SELECT coun
 refused "lunaway_ingest reads a pseudonym" /etc/lunaway/ingest.env "SELECT pseudonym FROM accounts LIMIT 1"
 refused "lunaway_ingest writes a review" /etc/lunaway/ingest.env "UPDATE reviews SET status = status WHERE false"
 refused "lunaway_ingest changes a merge decision" /etc/lunaway/ingest.env "DELETE FROM conflation_constraints WHERE false"
+allowed "lunaway_ingest reads the points of interest" /etc/lunaway/ingest.env "SELECT 'points: ' || count(*) FROM pois"
+refused "lunaway_ingest deletes a point of interest" /etc/lunaway/ingest.env "DELETE FROM pois WHERE false"
+refused "lunaway_ingest writes a point confirmation" /etc/lunaway/ingest.env "INSERT INTO poi_confirmations SELECT * FROM poi_confirmations WHERE false"
+refused "lunaway_ingest decides a point's moderation" /etc/lunaway/ingest.env "INSERT INTO poi_moderation SELECT * FROM poi_moderation WHERE false"
+refused "lunaway_ingest reads the moderation queue" /etc/lunaway/ingest.env "SELECT count(*) FROM moderation_queue"
 got="$(as_role /etc/lunaway/ingest.env "$account_columns_sql")"
 if [ "$got" = "banned_at id trust_level" ]; then
   echo "ok   lunaway_ingest reads these columns of accounts only: $got"

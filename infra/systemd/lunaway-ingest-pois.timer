@@ -1,0 +1,13 @@
+# Every day at 03:45 UTC, after the places import of 03:00 (about 7
+# minutes) has refreshed the extract this import reads. The unit is ordered
+# after lunaway-ingest-osm, so a late places import is waited for.
+[Unit]
+Description=Lunaway import: points of interest, daily
+
+[Timer]
+OnCalendar=*-*-* 03:45
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

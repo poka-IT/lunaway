@@ -1,16 +1,15 @@
-# Imports OpenStreetMap from the daily France extract (about 6 GB, streamed
-# to the data volume and resumed after an interruption; the refresh keeps the
-# previous file until the new one is complete, so the peak is twice that).
-# Run by lunaway-ingest-osm.timer; installed by infra/server/pipeline.sh.
+# The French fuel price feed (prices, LPG, shortages, services), joined to
+# the fuel stations among the points of interest (docs/data-sources.md).
+# Run every 15 minutes by lunaway-ingest-fuel.timer, the pace at which
+# data.economie.gouv.fr publishes it; about 15 s and 1.9 MB compressed per
+# run. Installed by infra/server/pipeline.sh.
 [Unit]
-Description=Lunaway import: OpenStreetMap, France extract
+Description=Lunaway import: fuel prices
 After=postgresql.service network-online.target
 Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
-# Places are rebuilt from the records as soon as an import succeeds.
-OnSuccess=lunaway-conflate.service
 
 [Service]
 Type=oneshot
@@ -18,14 +17,11 @@ User=lunaway-ingest
 Group=lunaway-ingest
 UMask=0027
 EnvironmentFile=/etc/lunaway/ingest.env
-# Downloads and raw payloads are cached on the data volume, so an
-# interrupted run resumes instead of fetching again.
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
-# Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
-ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --refresh
-TimeoutStartSec=4h
+ExecStart=/opt/lunaway/current/lunaway ingest fuel --refresh
+TimeoutStartSec=10min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
@@ -67,9 +63,6 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
-# The same extract reader as the points of interest, which took 1.53 GiB
-# of anonymous memory on 2026-10-06; this import peaked at 2.5 GiB with the
-# page cache under a 3 GiB cap the same day. 2 GiB with a 1.5 GiB soft
-# limit would leave it throttled.
-MemoryHigh=2560M
-MemoryMax=3G
+# 163 MiB of anonymous memory at the peak (first runs, 2026-10-06).
+MemoryHigh=384M
+MemoryMax=512M

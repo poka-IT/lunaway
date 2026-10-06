@@ -342,6 +342,21 @@ sent "upload by GET" GET "$A/upload" 405
 sent "graphql body of 2 MB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-2mb" -H 'Content-Type: application/json'
 sent "graphql body of 60 KB" POST "$A/graphql" 200 --data-binary @"$SCRATCH/body-60kb" -H 'Content-Type: application/json'
 sent "graphql body of 70 KB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-70kb" -H 'Content-Type: application/json'
+# The tiles of the points of interest: reads only, all to the API.
+sent "poi tile routed to the API" GET "$A/poi/3/13/4149/2815.mvt" 200
+sent "poi TileJSON routed to the API" GET "$A/poi/tiles.json" 200
+sent "poi tile by HEAD" HEAD "$A/poi/3/13/4149/2815.mvt" 200 -I
+sent "poi preflight routed" OPTIONS "$A/poi/3/13/4149/2815.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
+sent "poi on the sslip host" GET http://sslip.test:8080/poi/tiles.json 200
+sent "poi by POST" POST "$A/poi/tiles.json" 405 --data-binary '{}'
+sent "poi with a body over 1 KiB" GET "$A/poi/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
+if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/poi/tiles.json" \
+  | grep -qi '^allow: GET, HEAD, OPTIONS'; then
+  echo "ok   poi by DELETE says what it allows: GET, HEAD, OPTIONS"
+else
+  echo "FAIL poi by DELETE: no Allow: GET, HEAD, OPTIONS"
+  failures=$((failures + 1))
+fi
 check "photo type" http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp 200 "content-type: image/webp"
 check "upload by GET says what it allows" "$A/upload" 405 "allow: POST, OPTIONS"
 
@@ -462,6 +477,9 @@ fi
 leaks=""
 # In the request's fields only: a timestamp may hold the same digits.
 grep -qE '"uri":"[^"]*(8345|5678)' <<<"$access_log" && leaks="$leaks coordinates"
+# The tiles of the points of interest, requested above through the API.
+grep -qE '"uri":"[^"]*(4149|2815)' <<<"$access_log" && leaks="$leaks poi-coordinates"
+grep -q '"uri":"/poi/3/13/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-poi-line"
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
@@ -476,7 +494,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt) and /media/[photo]: no range, ETag, size or photo name"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt) and /media/[photo]: no range, ETag, size or photo name"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

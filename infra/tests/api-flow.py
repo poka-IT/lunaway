@@ -17,7 +17,11 @@ Creates an account, checks it, uploads a photo and deletes the account:
      JPEG carrying a camera name and a GPS position in its EXIF goes to
      POST /upload for a place near Annecy; the WebP files the API serves must
      hold one VP8 chunk and nothing else (no EXIF, no XMP, no position);
-  4. search "annecy" names places of Annecy;
+  4. search "annecy" names places of Annecy; the first one carries the
+     vehicle limits (maxLengthM, maxWidthM, maxWeightT, null when unknown),
+     has points of interest around it (nearbyPois), and takes a
+     confirmation without `presence` (an argument the API no longer knows),
+     deleted at once; searchPois finds supermarkets near it;
   5. deleteAccount: the session stops working and the photo files go. With
      --hold, the account and its photo stay that long first (at most 9
      minutes: deleting needs a sign-in of the last 10), to follow the photo
@@ -152,28 +156,52 @@ def multipart(fields, boundary):
     return b"".join(parts) + ("--%s--\r\n" % boundary).encode()
 
 
-def main():
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    base = sys.argv[1].rstrip("/")
-    ssh_host = sys.argv[sys.argv.index("--ssh-host") + 1] if "--ssh-host" in sys.argv else None
-    ssh_config = sys.argv[sys.argv.index("--ssh-config") + 1] if "--ssh-config" in sys.argv else None
-    hold = min(int(sys.argv[sys.argv.index("--hold") + 1]), 540) if "--hold" in sys.argv else 0
-
-    key = ec.generate_private_key(ec.SECP256R1())
-    token, account = sign_in(base, key)
-    if not token:
-        sys.exit(1)
-    _, result = graphql(base, "{ myAccount { id pseudonym trustLevel } }", token=token)
-    me = (result.get("data") or {}).get("myAccount")
-    report(bool(me and me["id"] == account), "myAccount with the session", "same account, level %s" % (me or {}).get("trustLevel"))
-
+def exercise(base, token, account, ssh_host, ssh_config, hold):
+    """Search, the place checks, the confirmation and the photo; returns the
+    photo uploaded, or None."""
     _, result = graphql(base, '{ search(text: "annecy", first: 10) { id name municipality } }')
     found = (result.get("data") or {}).get("search") or []
     annecy = [p for p in found if "annecy" in ((p.get("municipality") or "") + " " + (p.get("name") or "")).lower()]
     report(len(found) > 0 and len(annecy) == len(found), "search annecy",
            "%d results, %d in Annecy or named after it: %s" % (len(found), len(annecy), "; ".join(
                "%s (%s)" % (p.get("name"), p.get("municipality")) for p in found[:5])))
+
+    if found:
+        place_id = found[0]["id"]
+        _, result = graphql(base, """query($id: UUID!) {
+            place(id: $id) { id name maxHeightM maxLengthM maxWidthM maxWeightT } }""", {"id": place_id})
+        place = (result.get("data") or {}).get("place") or {}
+        limits = {k: place.get(k, "absent") for k in ("maxLengthM", "maxWidthM", "maxWeightT")}
+        report("absent" not in limits.values(), "vehicle limits on Place", "%s: %s" % (place.get("name"), limits))
+        start = time.time()
+        _, result = graphql(base, """query($id: UUID!) {
+            nearbyPois(placeId: $id) { category radiusM pois { kind name distanceM openNow { state } } } }""", {"id": place_id})
+        elapsed = time.time() - start
+        groups = (result.get("data") or {}).get("nearbyPois") or []
+        nearest = ["%s %s %.0f m" % (g["category"], g["pois"][0]["kind"], g["pois"][0]["distanceM"]) for g in groups if g["pois"]]
+        report(len(nearest) >= 4, "nearbyPois around the place", "%.2f s, %d of %d categories: %s" % (
+            elapsed, len(nearest), len(groups), "; ".join(nearest)))
+        _, result = graphql(base, """query($at: LatLonInput) {
+            searchPois(text: "super u", near: $at, first: 5) { kind name distanceM } }""",
+            {"at": {"lat": 45.8992, "lon": 6.1294}})
+        hits = (result.get("data") or {}).get("searchPois") or []
+        report(len(hits) > 0 and all("u" in (h.get("name") or "").lower() for h in hits), "searchPois super u near Annecy",
+               "; ".join("%s %s %.0f m" % (h["kind"], h["name"], h["distanceM"] or 0) for h in hits[:3]))
+        _, result = graphql(base, """mutation($id: UUID!) {
+            confirm(placeId: $id, status: STILL_OK, presence: HERE) { id } }""", {"id": place_id}, token=token)
+        message = ((result.get("errors") or [{}])[0].get("message") or "")
+        report("presence" in message and not (result.get("data") or {}).get("confirm"), "confirm refuses presence",
+               message[:100])
+        _, result = graphql(base, """mutation($id: UUID!) {
+            confirm(placeId: $id, status: STILL_OK) { id status } }""", {"id": place_id}, token=token)
+        confirmation = (result.get("data") or {}).get("confirm")
+        report(bool(confirmation and confirmation["status"] == "STILL_OK"), "confirm without presence",
+               str(confirmation or result)[:120])
+        if confirmation:
+            _, result = graphql(base, "mutation($id: UUID!) { deleteConfirmation(id: $id) }",
+                                {"id": confirmation["id"]}, token=token)
+            report((result.get("data") or {}).get("deleteConfirmation") is True, "the test confirmation deleted",
+                   str(result)[:120])
 
     photo = None
     if ssh_host and found:
@@ -214,8 +242,49 @@ def main():
     if hold and photo:
         print("     holding the account %d s; photo file %s" % (hold, photo["largeUrl"].rsplit("/media/", 1)[-1]), flush=True)
         time.sleep(hold)
-    _, result = graphql(base, 'mutation { deleteAccount(confirm: "DELETE") }', token=token)
-    report((result.get("data") or {}).get("deleteAccount") is True, "deleteAccount", str(result)[:120])
+    return photo
+
+
+def retract_confirmations(base, token):
+    """Deletes every confirmation of the test account, whatever happened to
+    the run: deleteAccount keeps a confirmation, anonymised, and it would
+    still date the place's last check."""
+    _, result = graphql(base, "{ myAccount { confirmations(first: 50) { nodes { id } } } }", token=token)
+    nodes = (((result.get("data") or {}).get("myAccount") or {}).get("confirmations") or {}).get("nodes")
+    if nodes is None:
+        report(False, "the test account's confirmations listed", str(result)[:120])
+        return
+    for node in nodes:
+        graphql(base, "mutation($id: UUID!) { deleteConfirmation(id: $id) }", {"id": node["id"]}, token=token)
+    _, result = graphql(base, "{ myAccount { confirmations(first: 50) { totalCount } } }", token=token)
+    left = (((result.get("data") or {}).get("myAccount") or {}).get("confirmations") or {}).get("totalCount")
+    report(left == 0, "no confirmation left before the account goes", "%s left" % left)
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    base = sys.argv[1].rstrip("/")
+    ssh_host = sys.argv[sys.argv.index("--ssh-host") + 1] if "--ssh-host" in sys.argv else None
+    ssh_config = sys.argv[sys.argv.index("--ssh-config") + 1] if "--ssh-config" in sys.argv else None
+    hold = min(int(sys.argv[sys.argv.index("--hold") + 1]), 540) if "--hold" in sys.argv else 0
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    token, account = sign_in(base, key)
+    if not token:
+        sys.exit(1)
+    _, result = graphql(base, "{ myAccount { id pseudonym trustLevel } }", token=token)
+    me = (result.get("data") or {}).get("myAccount")
+    report(bool(me and me["id"] == account), "myAccount with the session", "same account, level %s" % (me or {}).get("trustLevel"))
+
+    photo = None
+    try:
+        photo = exercise(base, token, account, ssh_host, ssh_config, hold)
+    finally:
+        # Whatever failed above, the test account and what it wrote go.
+        retract_confirmations(base, token)
+        _, result = graphql(base, 'mutation { deleteAccount(confirm: "DELETE") }', token=token)
+        report((result.get("data") or {}).get("deleteAccount") is True, "deleteAccount", str(result)[:120])
     _, result = graphql(base, "{ myAccount { id } }", token=token)
     report(error_code(result) == "UNAUTHENTICATED", "the session after deletion", "code %s" % error_code(result))
     if photo:

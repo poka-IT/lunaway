@@ -129,6 +129,13 @@ ls -l /srv/tiles/builds /srv/tiles/serve
 echo "local tile z0: $(curl -sS -o /dev/null -w '%{http_code} %{size_download} bytes in %{time_total}s' -m 10 http://127.0.0.1:8485/planet/0/0/0.mvt)"
 # pmtiles logs each request path; the unit's LogFilterPatterns keeps them out.
 echo "request lines from pmtiles in the journal (should be 0): $(journalctl -u lunaway-tiles --no-pager -o cat | grep -cE 'served [0-9]+|[^-]fetching|fetched')"
+echo "--- points of interest"
+for t in lunaway-ingest-pois lunaway-ingest-fuel lunaway-ingest-laposte lunaway-ingest-finess; do
+  echo "$t: timer $(systemctl is-enabled "$t.timer" 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend "$t.timer" | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value "$t"), $(journalctl -u "$t" --no-pager -n 1 -o cat 2>/dev/null | cut -c1-100)"
+done
+echo "fuel feed age: $(sed -nE 's/.*"fuel_age_s" *: *(-?[0-9]+).*/\1/p' /var/lib/lunaway-status/worker.json 2>/dev/null) s"
+echo "layer: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' points, ' || count(*) filter (where hidden) || ' hidden, version ' || (select max(version) from poi_layer) from pois where deleted_at is null" 2>&1 | head -n 1)"
+echo "cache: $(du -sh /srv/data/ingest/raw/fuel /srv/data/ingest/raw/laposte /srv/data/ingest/raw/finess 2>/dev/null | awk '{ print $2 " " $1 }' | tr '\n' ' ')"
 echo "--- routing"
 echo "valhalla: $(systemctl is-active valhalla), candidate: $(systemctl is-active valhalla-candidate), podman $(podman --version 2>/dev/null | awk '{ print $3 }')"
 echo "image: $(podman image inspect --format '{{.Digest}}' "$(sed -n 's/^Image=//p' /etc/containers/systemd/valhalla.container)" 2>&1 | head -n 1)"

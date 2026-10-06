@@ -6,16 +6,17 @@
 #
 # Two groups:
 #   public    what a user meets: the API, its certificate, the web app, the
-#             basemap, routing; checked over HTTPS like any client
+#             basemap, the points of interest, routing; checked over HTTPS
+#             like any client
 #   backend   the backend's own facts, read over the private network from
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
 #             dump, the conflation worker, the photo backup, the basemap's
-#             build, the routing graph. Gatus does not check SSH host keys.
-#             A host posing as the backend gets nothing it can reuse (the
-#             key's signature is bound to that one session); it could only
-#             answer a false green, and it would have to sit on the private
-#             network.
+#             build, the fuel prices, the routing graph. Gatus does not
+#             check SSH host keys. A host posing as the backend gets nothing
+#             it can reuse (the key's signature is bound to that one
+#             session); it could only answer a false green, and it would
+#             have to sit on the private network.
 #
 # Nothing here alerts by itself: the maintainer's Mac reads
 # /api/v1/endpoints/statuses every night and opens a GitHub issue when a
@@ -99,6 +100,29 @@ endpoints:
       - "[STATUS] == 200"
       - "len([BODY]) > 1000"
       - "[RESPONSE_TIME] < 2000"
+
+  # The points of interest (docs/deploy.md, "Points of interest"): the
+  # TileJSON names tiles on the API host, and a tile over Annecy comes back
+  # from PostGIS with points in it. The tile asks for version 1, an old one:
+  # the API answers any old version with the current data (5 minutes of
+  # cache), so the check keeps working as the layer's version moves.
+  - name: POI TileJSON
+    group: public
+    url: "https://__API_HOST__/poi/tiles.json"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].tilejson == 3.0.0"
+      - "[BODY].tiles[0] == pat(https://__API_HOST__/poi/*/{z}/{x}/{y}.mvt)"
+
+  - name: POI tile
+    group: public
+    url: "https://__API_HOST__/poi/1/13/4235/2917.mvt"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY]) > 1000"
+      - "[RESPONSE_TIME] < 3000"
 
   # Motorhome routing (docs/deploy.md, "Routing"): the API has an active
   # graph and reaches the engine.
@@ -238,6 +262,23 @@ __PROBE_KEY__
       - "[BODY].tiles.mounted == true"
       - "[BODY].tiles.age_days >= 0"
       - "[BODY].tiles.age_days < 35"
+
+  # The fuel prices (lunaway-ingest-fuel, every 15 minutes) were stored less
+  # than 2 hours ago: the feed or its import has failed for 8 runs in a row
+  # otherwise, and the prices and shortages on the map are going stale.
+  - name: Fuel prices
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].fuel.ok == true"
 
   # The engine's unit runs and serves a graph built less than 10 days ago:
   # the build is weekly and the refresh daily, so an older graph means a

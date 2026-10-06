@@ -240,9 +240,9 @@
 	}
 }
 
-# The API: /health, /graphql and /upload proxied to lunaway-api, /media/
-# served from the data volume, everything else 404. The API serves JSON
-# only, so its CSP allows nothing at all.
+# The API: /health, /graphql, /upload and /poi/ proxied to lunaway-api,
+# /media/ served from the data volume, everything else 404. The API serves
+# JSON and vector tiles only, so its CSP allows nothing at all.
 (api) {
 	import access_log
 	encode zstd gzip
@@ -274,6 +274,24 @@
 		reverse_proxy 127.0.0.1:8484 {
 			request_buffers 64KiB
 		}
+	}
+	# The map tiles of the points of interest: GET /poi/tiles.json and
+	# /poi/{version}/{z}/{x}/{y}.mvt. The API sets everything a cache needs
+	# (a year and immutable for a tile of the version in the URL, 5 minutes
+	# for another version, 60 s for the TileJSON; ETag and 304), compresses,
+	# and answers the web app's CORS preflight. Reads only: GET, HEAD and
+	# OPTIONS, with a body of 1 KiB at most (the API reads none); any other
+	# method 405. The access log keeps the zoom only (the .mvt mask of
+	# access_log).
+	handle /poi/* {
+		@read method GET HEAD OPTIONS
+		@other not method GET HEAD OPTIONS
+		request_body {
+			max_size 1KiB
+		}
+		header @other Allow "GET, HEAD, OPTIONS"
+		respond @other 405
+		reverse_proxy @read 127.0.0.1:8484
 	}
 	# Photo uploads: multipart/form-data, 10 MiB of image and 64 KiB of form
 	# around it, what the API accepts (LUNAWAY_MAX_UPLOAD_BYTES plus its

@@ -10,6 +10,10 @@
 #                                             applied, and the oldest wait
 #   records_flagged                           records an import flagged and no
 #                                             conflation took yet
+#   fuel_age_s                                seconds since the last fuel price
+#                                             import stored the feed (each run
+#                                             writes every station's fetch
+#                                             time), -1 before the first
 #   at                                        when it was measured (UTC)
 # A healthy worker empties both queues within seconds of the API's NOTIFY,
 # and at least every 5 minutes.
@@ -24,5 +28,7 @@ SELECT json_build_object(
   'submissions_oldest_s', (SELECT coalesce(floor(extract(epoch FROM now() - min(coalesce(decided_at, created_at)))), 0)::bigint
                            FROM place_submissions WHERE status = 'accepted'),
   'records_flagged', (SELECT count(*) FROM source_records WHERE needs_conflation),
+  'fuel_age_s', (SELECT coalesce(floor(extract(epoch FROM now() - max(fetched_at))), -1)::bigint
+                 FROM poi_join_records WHERE source_id = 'prix-carburants'),
   'at', to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD\"T\"HH24MISS\"Z\"'))" > "$out.new"
 mv -f "$out.new" "$out"

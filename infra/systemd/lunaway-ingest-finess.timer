@@ -1,0 +1,12 @@
+# On the 2nd of each month at 04:20 UTC: the snapshot appears on the 1st,
+# and the points import of the day has run.
+[Unit]
+Description=Lunaway import: FINESS, monthly
+
+[Timer]
+OnCalendar=*-*-02 04:20
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

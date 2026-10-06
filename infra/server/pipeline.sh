@@ -6,7 +6,12 @@
 #
 #   lunaway-ingest-osm              daily 03:00 UTC, the OpenStreetMap France extract
 #   lunaway-ingest-atout-france     weekly, Sunday 04:00 UTC
-#   lunaway-conflate                after each successful import
+#   lunaway-ingest-pois             daily 03:45 UTC, the points of interest of
+#                                   the same extract (3 GB memory cap)
+#   lunaway-ingest-fuel             every 15 minutes, the fuel price feed
+#   lunaway-ingest-laposte          daily 04:10 UTC, La Poste's calendar
+#   lunaway-ingest-finess           monthly, the 2nd at 04:20 UTC
+#   lunaway-conflate                after each successful import of places
 #   lunaway-conflate-worker         always: the community's submissions and
 #                                   summaries, woken by the API's NOTIFY, and
 #                                   at least every 5 minutes (which also slides
@@ -36,7 +41,11 @@ log "units"
 changed=0
 units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.service
   lunaway-ingest-osm.service lunaway-ingest-osm.timer
-  lunaway-ingest-atout-france.service lunaway-ingest-atout-france.timer"
+  lunaway-ingest-atout-france.service lunaway-ingest-atout-france.timer
+  lunaway-ingest-pois.service lunaway-ingest-pois.timer
+  lunaway-ingest-fuel.service lunaway-ingest-fuel.timer
+  lunaway-ingest-laposte.service lunaway-ingest-laposte.timer
+  lunaway-ingest-finess.service lunaway-ingest-finess.timer"
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
@@ -53,7 +62,8 @@ if [ -f /etc/systemd/system/lunaway-conflate.timer ]; then
 fi
 [ "$changed" = 1 ] && systemctl daemon-reload
 
-timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer"
+timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-ingest-pois.timer
+  lunaway-ingest-fuel.timer lunaway-ingest-laposte.timer lunaway-ingest-finess.timer"
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
   systemctl enable --quiet --now $timers

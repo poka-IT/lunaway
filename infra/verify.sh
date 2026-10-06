@@ -124,6 +124,18 @@ print(t["tiles"][0], "zoom %s-%s" % (t["minzoom"], t["maxzoom"]), "schema", t.ge
       echo "basemap $asset: $(curl -sS -o /dev/null -D - -w 'status %{http_code}, %{content_type}' -m 10 "$tiles/$asset" | tr -d '\r' | grep -i '^cache-control:\|^status' | tr '\n' ' ')"
     done
     echo "basemap other path: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "$tiles/admin")"
+    # The points of interest (docs/deploy.md, "Points of interest"): the
+    # TileJSON, a z13 tile over Annecy at the current version (immutable) and
+    # at an old one (current data, 5 minutes), the web app's CORS, a write
+    # refused.
+    poi_tiles="$(curl -sS -m 10 "https://$host/poi/tiles.json" | python3 -c 'import json, sys; print(json.load(sys.stdin)["tiles"][0])' 2>&1)"
+    echo "poi TileJSON: $poi_tiles"
+    poi_version="$(echo "$poi_tiles" | sed -nE 's|.*/poi/([0-9]+)/\{z\}.*|\1|p')"
+    echo "poi tile, current version $poi_version: $(curl -sS -o /dev/null -D - -m 10 -H 'Accept-Encoding: gzip' -H 'Origin: https://lunaway.net' \
+      -w 'status %{http_code}, %{size_download} bytes gzip' "https://$host/poi/$poi_version/13/4235/2917.mvt" \
+      | tr -d '\r' | grep -iE '^cache-control|^access-control-allow-origin|^status' | tr '\n' ' ')"
+    echo "poi tile, old version: $(curl -sS -o /dev/null -D - -m 10 "https://$host/poi/1/13/4235/2917.mvt" | tr -d '\r' | grep -i '^cache-control')"
+    echo "poi by POST: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST "https://$host/poi/tiles.json")"
     # Routing (docs/deploy.md, "Routing"): an active graph the engine serves,
     # and the witness route of the status page (a 3.3 m motorhome round the
     # 2.7 m bridge of Rue Maurice Utrillo, Limoges). One route of the quota.

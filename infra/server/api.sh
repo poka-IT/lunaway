@@ -8,6 +8,10 @@
 #   LUNAWAY_MEDIA_BASE_URL   public URL of /srv/data/media: the sslip.io name's
 #                            /media/ until DNS exists, then
 #                            https://api.lunaway.net/media/ (infra/configure.sh)
+#
+# The API's own public URL (LUNAWAY_PUBLIC_URL, which the TileJSON of the
+# points of interest names in its tile URLs) is that origin without
+# /media/, so the two always name the same host.
 . "$(dirname "$0")/common.sh"
 need_root
 media_base="${LUNAWAY_MEDIA_BASE_URL:?set LUNAWAY_MEDIA_BASE_URL}"
@@ -37,6 +41,7 @@ install -d -m 0755 -o lunaway-api -g lunaway-api /srv/data/media
 cat > "$STAGING/media.env" <<EOF
 LUNAWAY_MEDIA_DIR=/srv/data/media
 LUNAWAY_MEDIA_BASE_URL=$media_base
+LUNAWAY_PUBLIC_URL=${media_base%/media/}
 EOF
 
 changed=0
@@ -50,7 +55,7 @@ if [ -x /opt/lunaway/current/lunaway-api ]; then
     systemctl reset-failed lunaway-api 2>/dev/null || true
     systemctl restart lunaway-api
   fi
-  log "lunaway-api $(systemctl is-active lunaway-api), photos at $media_base"
+  log "lunaway-api $(systemctl is-active lunaway-api), photos at $media_base, public URL ${media_base%/media/}"
 else
   log "lunaway-api installed, waiting for its first binary (infra/deploy-api.sh)"
 fi

@@ -17,8 +17,9 @@ ConditionPathExists=/opt/lunaway/current/lunaway-api
 Type=exec
 ExecStart=/opt/lunaway/current/lunaway-api
 # DATABASE_URL and other secrets, root-owned 0600, read by systemd before the
-# process drops to its user. media.env: LUNAWAY_MEDIA_DIR and
-# LUNAWAY_MEDIA_BASE_URL, rendered by infra/server/api.sh.
+# process drops to its user. media.env: LUNAWAY_MEDIA_DIR,
+# LUNAWAY_MEDIA_BASE_URL and LUNAWAY_PUBLIC_URL, rendered by
+# infra/server/api.sh.
 EnvironmentFile=/etc/lunaway/api.env
 EnvironmentFile=/etc/lunaway/media.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484

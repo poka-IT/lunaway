@@ -47,7 +47,7 @@ only (`.claude/rules/data-sources.md`); the imports run on the backend.
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
-| `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, uploads a photo, deletes the account (`uv run`) |
+| `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
 | `infra/verify.sh` | here | external and internal checks of both servers, the status page, the pulls, and what each database role may do (`infra/server/test-grants.sh`) |
@@ -254,9 +254,13 @@ volume, so an interrupted download resumes.
 |---|---|---|
 | `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --refresh`: the Geofabrik France extract, streamed to disk and resumed after an interruption |
 | `lunaway-ingest-atout-france.timer` | Sundays, 04:00 UTC | `lunaway ingest atout-france --refresh`: the classified campsites, geocoded |
+| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois`: the points of interest of the same cached extract, then their opening hours (3 GiB cap) |
+| `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
+| `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
+| `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day. The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
-| `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, into `/var/lib/lunaway-status/worker.json` for the health probe |
+| `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, and the age of the last stored fuel feed, into `/var/lib/lunaway-status/worker.json` for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
 The nightly conflation timer of earlier versions is gone: the worker runs at
@@ -289,10 +293,55 @@ sudo lunaway-admin accounts create-demo --level 2        # the store reviewers' 
 sudo lunaway-admin accounts set-level <account> 4        # a moderator
 sudo lunaway-admin ingest osm-extract                    # as the imports: user lunaway-ingest, role lunaway_ingest,
 sudo lunaway-admin ingest municipalities                 # the import cache, HTTPS out (no private ranges)
+sudo lunaway-admin ingest pois                           # 3 GiB cap for the imports (the extract reader)
 sudo lunaway-admin conflate --full
 sudo lunaway-admin stats
+sudo lunaway-admin pois stats                            # the layer of points of interest and its joins
 sudo lunaway-admin migrate                               # starts lunaway-migrate.service
 ```
+
+### Points of interest
+
+The layer "around me" (`plan/research/18-backend-poi.md`): 314 671 points
+on 2026-10-06 (shops, vending machines, water, fuel, health, services) from
+the OpenStreetMap extract, joined by id to the fuel price feed, La Poste's
+calendar and FINESS. The API serves it as PostGIS vector tiles:
+
+- `GET /poi/tiles.json`: the TileJSON, cached 60 s. Its tile URLs name the
+  API's public URL, `LUNAWAY_PUBLIC_URL` in `/etc/lunaway/media.env`,
+  which `infra/server/api.sh` derives from the photos' base URL (the
+  sslip.io name until DNS exists, then `https://api.lunaway.net`).
+- `GET /poi/{version}/{z}/{x}/{y}.mvt`: points from zoom 13, clusters per
+  category from 6 to 12. The current version is cached a year
+  (`immutable`); any other version gets the current data for 5 minutes.
+  204 outside the layer's bounds.
+
+Caddy passes `GET`, `HEAD` and `OPTIONS` under `/poi/` to the API, with a
+body of 1 KiB at most, and answers 405 to anything else; the API sets the
+cache headers, the ETag, the compression and the CORS headers of
+`https://lunaway.net`. The access log keeps the zoom only
+(`/poi/{version}/{z}/x/y.mvt`), like the basemap's. Measured on
+2026-10-06 from the maintainer's network: a z13 tile over Annecy holds 426
+points, 16.7 KB gzip, 0.23 s cold and 0.12 s from the API's memory; the z8
+tile around it holds 2 136 clusters, 11.8 KB.
+
+The imports need no host list in their units (they deny only private
+ranges); the hosts each source may reach or redirect to are in the code
+(`REDIRECT_HOSTS` in `lunaway-ingest/src/http.rs`). First runs on the
+backend, 2026-10-06:
+
+| import | duration | anonymous memory, peak | cap |
+|---|---|---|---|
+| `ingest pois` | 7 min 48 s | 1.53 GiB (plus 2.1 GiB of page cache) | 2.5 GiB soft, 3 GiB |
+| `ingest fuel --refresh` | 5 s | 163 MiB | 384 MiB soft, 512 MiB |
+| `ingest laposte --refresh` | 62 s | 627 MiB | 1 GiB soft, 1.5 GiB |
+| `ingest finess --refresh` | 16 s | 64 MiB | 768 MiB soft, 1 GiB |
+
+The places import reads the extract with the same reader and peaked at
+2.5 GiB with its page cache the same day; its cap went from 2 to 3 GiB.
+The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
+the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
+month of FINESS.
 
 ## Status page
 
@@ -310,6 +359,8 @@ Mac's nightly job reads.
 | public | Web app | 200 and the certificate, off until `LUNAWAY_WEB_URL` is set |
 | public | Basemap TileJSON | `<tiles>/planet.json` answers 200, TileJSON 3.0.0, tile URLs naming a build |
 | public | Basemap tile | a z14 tile over Paris (`<tiles>/planet/14/8299/5636.mvt`) answers 200, more than 1000 bytes, within 2 s |
+| public | POI TileJSON | `/poi/tiles.json` answers TileJSON 3.0.0 whose tiles are on the API host |
+| public | POI tile | a z13 tile over Annecy at the old version 1 (the current data, whatever the version) answers 200, more than 1000 bytes, within 3 s |
 | public | Routing | `{ routing { available graph { builtAt } } }` answers `available: true`: an active graph, and the engine answers |
 | public | Witness route | every 15 minutes, a 3.3 m motorhome on Rue Maurice Utrillo in Limoges: `status OK` and more than 1000 m, round the 2.7 m bridge (four routes an hour, against a quota of 30 every ten minutes) |
 | backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
@@ -318,6 +369,7 @@ Mac's nightly job reads.
 | backend | Data volume | mounted, under 80% full; root disk under 85% |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
 | backend | Basemap build | the tile volume is mounted and the planet served is less than 35 days old (a refresh failed otherwise) |
+| backend | Fuel prices | the probe: the fuel price feed was stored less than 2 hours ago (eight runs of `lunaway-ingest-fuel` in a row failed otherwise) |
 | backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 10 days ago (weekly build, daily refresh) |
 
 The backend checks run the probe over SSH on the private network: Gatus

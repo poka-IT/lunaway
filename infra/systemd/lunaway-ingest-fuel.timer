@@ -1,0 +1,12 @@
+# Every 15 minutes. A missed run is not caught up: the next one reads the
+# current feed. The status page alerts when the last success is older than
+# two hours (lunaway-health, fuel).
+[Unit]
+Description=Lunaway import: fuel prices, every 15 minutes
+
+[Timer]
+OnCalendar=*:05/15
+RandomizedDelaySec=1min
+
+[Install]
+WantedBy=timers.target

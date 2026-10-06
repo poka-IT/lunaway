@@ -1,16 +1,16 @@
-# Imports OpenStreetMap from the daily France extract (about 6 GB, streamed
-# to the data volume and resumed after an interruption; the refresh keeps the
-# previous file until the new one is complete, so the peak is twice that).
-# Run by lunaway-ingest-osm.timer; installed by infra/server/pipeline.sh.
+# Imports the points of interest (shops, vending machines, water, fuel,
+# health, services) from the France extract that lunaway-ingest-osm keeps in
+# the cache, then evaluates their opening hours (docs/data-sources.md). Run
+# by lunaway-ingest-pois.timer after the places import; installed by
+# infra/server/pipeline.sh. Reads the whole extract: 2.09 GB resident at
+# the peak, about 3 minutes (plan/research/18-backend-poi.md, M10).
 [Unit]
-Description=Lunaway import: OpenStreetMap, France extract
-After=postgresql.service network-online.target
+Description=Lunaway import: points of interest, France extract
+After=postgresql.service network-online.target lunaway-ingest-osm.service lunaway-conflate.service
 Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
-# Places are rebuilt from the records as soon as an import succeeds.
-OnSuccess=lunaway-conflate.service
 
 [Service]
 Type=oneshot
@@ -18,14 +18,11 @@ User=lunaway-ingest
 Group=lunaway-ingest
 UMask=0027
 EnvironmentFile=/etc/lunaway/ingest.env
-# Downloads and raw payloads are cached on the data volume, so an
-# interrupted run resumes instead of fetching again.
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
-# Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
-ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --refresh
-TimeoutStartSec=4h
+ExecStart=/opt/lunaway/current/lunaway ingest pois
+TimeoutStartSec=1h
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
@@ -67,9 +64,10 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
-# The same extract reader as the points of interest, which took 1.53 GiB
-# of anonymous memory on 2026-10-06; this import peaked at 2.5 GiB with the
-# page cache under a 3 GiB cap the same day. 2 GiB with a 1.5 GiB soft
-# limit would leave it throttled.
+# First run on the backend (2026-10-06): 7 min 48 s, 1.53 GiB of anonymous
+# memory at the peak and 2.1 GiB of page cache from the extract, which the
+# cap reclaims; the machine kept 4.3 GiB available. Room next to PostgreSQL
+# (about 1.1 GB) and the routing engine (0.35 GB used); nothing else heavy
+# runs at 03:45.
 MemoryHigh=2560M
 MemoryMax=3G

@@ -10,8 +10,10 @@
 #       as the API: user lunaway-api, role lunaway_app (/etc/lunaway/api.env),
 #       write access to the photos only (a removal deletes their files)
 #   sudo lunaway-admin ingest osm-extract|atout-france|municipalities [--refresh]
+#   sudo lunaway-admin ingest pois|fuel|laposte|finess [--refresh]
 #   sudo lunaway-admin conflate [--full]
 #   sudo lunaway-admin stats
+#   sudo lunaway-admin pois stats|hours
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
 #       private ranges
@@ -38,23 +40,23 @@ sandbox=(
   -p LockPersonality=yes -p MemoryDenyWriteExecute=yes -p RestrictRealtime=yes
   -p RestrictNamespaces=yes -p SystemCallArchitectures=native
   -p "SystemCallFilter=@system-service" -p "CapabilityBoundingSet="
-  -p MemoryMax=2G
   -E NO_COLOR=1 -E RUST_LOG=info
 )
 
 case "${1:-}" in
   moderation|accounts)
     exec systemd-run "${sandbox[@]}" \
-      -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 \
+      -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 -p MemoryMax=2G \
       -p EnvironmentFile=/etc/lunaway/api.env -p EnvironmentFile=/etc/lunaway/media.env \
       -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/media \
       -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
       -p IPAddressDeny=any -p IPAddressAllow=localhost \
       "$cli" "$@"
     ;;
-  ingest|conflate|stats)
+  ingest|conflate|stats|pois)
     exec systemd-run "${sandbox[@]}" \
       -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+      -p MemoryHigh=2560M -p MemoryMax=3G \
       -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
       -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
       -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
@@ -68,7 +70,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,20p' "$0" >&2
+    sed -n '2,21p' "$0" >&2
     exit 2
     ;;
 esac

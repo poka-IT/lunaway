@@ -19,6 +19,9 @@
 #                      waited there for 15 minutes
 #   media_backup.ok    true when the encrypted copy of the photos was brought
 #                      up to date less than 26 hours ago
+#   fuel.ok            true when the fuel price feed was stored less than 2
+#                      hours ago (lunaway-ingest-fuel, every 15 minutes), as
+#                      measured by lunaway-worker-status in the last 5 minutes
 #   routing.ok         true when valhalla.service is active and the graph it
 #                      serves (/srv/routing/current) was built less than 10
 #                      days ago: built weekly, installed by a daily refresh
@@ -87,6 +90,18 @@ if [ "$worker_state" = active ] && [ "$status_age" -ge 0 ] && [ "$status_age" -l
 	worker_ok=true
 fi
 
+# The fuel prices (lunaway-ingest-fuel, every 15 minutes): their age comes
+# from the same measure as the worker's queues.
+fuel_age=-1
+if [ -r "$worker_status" ]; then
+	fuel_age="$(sed -nE 's/.*"fuel_age_s" *: *(-?[0-9]+).*/\1/p' "$worker_status" | head -n 1)"
+	[ -n "$fuel_age" ] || fuel_age=-1
+fi
+fuel_ok=false
+if [ "$status_age" -ge 0 ] && [ "$status_age" -lt 300 ] && [ "$fuel_age" -ge 0 ] && [ "$fuel_age" -lt 7200 ]; then
+	fuel_ok=true
+fi
+
 # The encrypted copy of the photos (lunaway-media-offsite, nightly).
 media_success="$(read_stamp "$offsite/media/last-success")"
 media_ok=false
@@ -113,9 +128,10 @@ if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" 
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age" \
 	"$worker_ok" "${worker_state:-unknown}" "${worker_restarts:-0}" "$status_age" "$queue_oldest" "$flagged" \
 	"$media_ok" "$media_success" "$media_age" \
+	"$fuel_ok" "$fuel_age" \
 	"$routing_ok" "${routing_state:-unknown}" "$routing_graph" "$routing_age"

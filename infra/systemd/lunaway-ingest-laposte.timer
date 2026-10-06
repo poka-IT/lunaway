@@ -1,0 +1,11 @@
+# Every day at 04:10 UTC, after the points import.
+[Unit]
+Description=Lunaway import: La Poste opening calendar, daily
+
+[Timer]
+OnCalendar=*-*-* 04:10
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
