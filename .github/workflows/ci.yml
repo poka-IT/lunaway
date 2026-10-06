@@ -219,6 +219,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend
+          # The automatic key follows Cargo.lock, not the build profiles of
+          # Cargo.toml: after a profile change it kept restoring stale
+          # artifacts and never saved the new ones (every run rebuilt all).
+          key: ${{ hashFiles('backend/Cargo.toml') }}
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest,cargo-deny
