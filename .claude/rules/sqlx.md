@@ -75,4 +75,6 @@ create databases (the local compose database does).
   step): never copy those settings to a server.
 - Dependencies, `lunaway-domain` and `lunaway-media` are optimised in dev
   builds (`backend/Cargo.toml`); keep pure, heavy computation in those crates.
-
+- One database server per checkout: `template1` holds one branch's
+  migrations, so a git worktree on another branch starts its own compose
+  project on another port (`backend/compose.yaml`, `LUNAWAY_PG_PORT`).
