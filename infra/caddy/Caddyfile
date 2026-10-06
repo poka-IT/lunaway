@@ -37,13 +37,14 @@
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
 			resp_headers>Set-Cookie delete
+			request>uri regexp "\?.*$" "?"
 			remote ip_mask 16 32
 		}
 	}
 }
 
 # Access log without client addresses in clear: IPv4 truncated to /16, IPv6
-# to /32, no port, no credentials, no cookies. Kept 14 days.
+# to /32, no port, no credentials, no cookies, no query strings. Kept 14 days.
 (access_log) {
 	log {
 		output file /var/log/caddy/access.log {
@@ -59,6 +60,9 @@
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
 			resp_headers>Set-Cookie delete
+			# Query strings never reach a log: a GraphQL GET (refused by the
+			# API, but logged first) could carry a position in its variables.
+			request>uri regexp "\?.*$" "?"
 		}
 	}
 }

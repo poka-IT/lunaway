@@ -117,6 +117,16 @@ else
   echo "ok   default log masks the client: $(echo "$default_log" | grep -oE '"remote_ip":"[^"]*"' | head -n 1)"
 fi
 
+# Query strings never reach a log: a GraphQL GET could carry a position.
+curl -sS -o /dev/null --connect-to "nobody.test:8080:127.0.0.1:$PORT" "http://nobody.test:8080/graphql?variables=lat45.7629" || true
+sleep 1
+if docker logs lunaway-caddy-test 2>&1 | grep -q 'lat45.7629'; then
+  echo "FAIL a query string reached the log"
+  failures=$((failures + 1))
+else
+  echo "ok   query strings are stripped from the log"
+fi
+
 docker rm -f lunaway-caddy-test >/dev/null
 echo "$failures failure(s)"
 [ "$failures" = 0 ]
