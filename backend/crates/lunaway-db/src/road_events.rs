@@ -1681,84 +1681,6 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
     // migration's trigger takes it too): no row lock is needed to read the
     // community's events and update one.
     let mut w = begin_writer_now(pool).await?;
-    let done = report_in(&mut w, r, now).await?;
-    w.commit().await?;
-    Ok(done)
-}
-
-/// [`report`] guarded by an idempotency key: a request sent again with the
-/// same key answers with the report the first one stored. The key's
-/// account is the reporter.
-///
-/// # Errors
-///
-/// [`DbError`] when a statement fails or the writers' lock is not free in
-/// time ([`is_busy`]).
-pub async fn report_once(
-    pool: &PgPool,
-    key: &crate::idempotency::Key<'_>,
-    r: &NewReport,
-    now: DateTime<Utc>,
-) -> Result<crate::idempotency::Once<Reported>, DbError> {
-    use crate::idempotency::{self, Once, Seen};
-    let mut w = begin_writer_now(pool).await?;
-    // The writers' lock orders two requests with the same key: the second
-    // sees the first's key here.
-    match idempotency::seen(&mut w.0, key).await? {
-        Seen::New => {}
-        Seen::Replay(id) => return Ok(Once::Replay(id)),
-        Seen::Reused => return Ok(Once::Reused),
-    }
-    let done = report_in(&mut w, r, now).await?;
-    if idempotency::store_in(&mut w.0, key, done.report_id).await? {
-        w.commit().await?;
-        Ok(Once::Done(done))
-    } else {
-        w.0.rollback().await?;
-        idempotency::after_lost_race(pool, key).await
-    }
-}
-
-/// What report `id` of `account` stands for now, for a request sent again:
-/// its event, the event's confidence and when it ends (or ended).
-///
-/// # Errors
-///
-/// [`DbError`] when the query fails.
-pub async fn report_of(
-    pool: &PgPool,
-    account: Uuid,
-    id: Uuid,
-) -> Result<Option<Reported>, DbError> {
-    let row = sqlx::query!(
-        r#"
-        SELECT r.id, r.event_id AS "event_id!", e.confidence,
-            coalesce(e.ended_at, e.valid_to, e.last_seen_at) AS "until!"
-        FROM road_event_reports r JOIN road_events e ON e.id = r.event_id
-        WHERE r.id = $1 AND r.account_id = $2
-        "#,
-        id,
-        account,
-    )
-    .fetch_optional(pool)
-    .await?;
-    row.map(|r| {
-        Ok(Reported {
-            report_id: r.id,
-            event_id: r.event_id,
-            confidence: decode("road event confidence", &r.confidence)?,
-            confirmed_now: false,
-            expires_at: r.until,
-        })
-    })
-    .transpose()
-}
-
-async fn report_in(
-    w: &mut EventWriter,
-    r: &NewReport,
-    now: DateTime<Utc>,
-) -> Result<Reported, DbError> {
     let candidates = sqlx::query!(
         r#"
         SELECT id, heading_deg, confidence, max_height_m, max_width_m,
@@ -1841,9 +1763,10 @@ async fn report_in(
     )
     .execute(&mut *w.0)
     .await?;
-    let summary = summarize_event(w, event_id, r.kind, "moderated").await?;
+    let summary = summarize_event(&mut w, event_id, r.kind, "moderated").await?;
     let Some(summary) = summary else {
         // Cannot happen: the report just stored supports the event.
+        w.commit().await?;
         return Err(DbError::decode(
             "community event",
             std::io::Error::new(std::io::ErrorKind::InvalidData, event_id.to_string()),
@@ -1865,6 +1788,7 @@ async fn report_in(
         .execute(&mut *w.0)
         .await?;
     }
+    w.commit().await?;
     Ok(Reported {
         report_id,
         event_id,
@@ -1885,27 +1809,26 @@ async fn summarize_event(
     kind: ReportKind,
     end_reason: &str,
 ) -> Result<Option<community::CommunityEvent>, DbError> {
-    // Through the view without accounts: the importers' role runs this at
-    // every pass and must not link an account to a time and a place.
     let reports = sqlx::query!(
         r#"
-        SELECT reporter AS "reporter!", kind AS "kind!", value_m, created_at AS "created_at!",
-            trusted AS "trusted!"
-        FROM road_event_report_facts
-        WHERE event_id = $1 AND status = 'active' AND (kind = $2 OR kind = 'cleared')
-          AND NOT banned
-        ORDER BY created_at
+        SELECT r.account_id, r.kind, r.value_m, r.created_at,
+            a.trust_level >= 1 AS "trusted!"
+        FROM road_event_reports r
+        JOIN accounts a ON a.id = r.account_id
+        WHERE r.event_id = $1 AND r.status = 'active' AND (r.kind = $2 OR r.kind = 'cleared')
+          AND a.banned_at IS NULL
+        ORDER BY r.created_at
         "#,
         event_id,
         kind.code(),
     )
     .fetch_all(&mut *w.0)
     .await?;
-    let facts: Vec<ReportFacts<String>> = reports
+    let facts: Vec<ReportFacts<Uuid>> = reports
         .into_iter()
         .filter_map(|r| {
             Some(ReportFacts {
-                account: r.reporter,
+                account: r.account_id,
                 kind: r.kind.parse().ok()?,
                 value_m: r.value_m,
                 created_at: r.created_at,
