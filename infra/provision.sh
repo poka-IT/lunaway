@@ -196,7 +196,6 @@ provision_role() {
   env_set "${prefix}_VOLUME_ID" "$(hcloud volume describe "$volume" -o json | json_field id)"
   env_set "${prefix}_SERVER_TYPE" "$(echo "$json" | json_field server_type.name)"
   env_set "${prefix}_LOCATION" "$(echo "$json" | json_field location.name)"
-  [ "$role" = backend ] && env_set LUNAWAY_HOSTNAME "$(echo "$ipv4" | tr . -).sslip.io"
   return 0
 }
 

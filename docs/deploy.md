@@ -76,9 +76,8 @@ in `~/.config/lunaway/env` (directory 0700, file 0600):
 | `LUNAWAY_SSH_IDENTITY` | path of the matching private key on this machine |
 | `LUNAWAY_SSH_ALLOW` | CIDRs allowed to reach SSH (written by `provision.sh`, `ssh-access.sh`) |
 | `LUNAWAY_BACKUP_RECIPIENT` | the age public key the dumps are encrypted to (written by `infra/ops/mac/install.sh keys`) |
-| `LUNAWAY_API_HOST`, `LUNAWAY_WEB_URL`, `LUNAWAY_TILES_URL`, `LUNAWAY_STATUS_DOMAIN` | optional: what the status page checks and its public name (see "Status page") |
-| `LUNAWAY_MEDIA_BASE_URL` | optional: the public URL of the photos the API writes, `https://<backend sslip.io name>/media/` by default, `https://api.lunaway.net/media/` once DNS exists (see "Photos") |
-| `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*`, `LUNAWAY_HOSTNAME` | addresses, volume ids (the backend's tile volume in `LUNAWAY_BACKEND_TILES_VOLUME_ID`), types, written by `provision.sh` |
+| `LUNAWAY_API_HOST`, `LUNAWAY_TILES_URL`, `LUNAWAY_WEB_URL`, `LUNAWAY_STATUS_DOMAIN`, `LUNAWAY_MEDIA_BASE_URL` | optional: the public names, `api.lunaway.net`, `https://tiles.lunaway.net`, `https://lunaway.net`, `status.lunaway.net` and `https://api.lunaway.net/media/` unless set (`infra/lib.sh`; see "The domain") |
+| `LUNAWAY_BACKEND_*`, `LUNAWAY_OPS_*` | addresses, volume ids (the backend's tile volume in `LUNAWAY_BACKEND_TILES_VOLUME_ID`), types, written by `provision.sh` |
 
 `~/.config/lunaway/ssh_config` (written by the scripts) defines the hosts
 `lunaway` (backend) and `lunaway-ops` (also `lunaway-sync`, the server's first
@@ -106,7 +105,8 @@ infra/provision.sh              # both servers, the network, the volumes; waits 
 infra/configure.sh ops          # first: generates the probe and replica keys, pins the backend's host key
 infra/configure.sh backend      # every backend step; lunaway-pull takes the ops server's keys;
                                 # the tiles step starts the first planet download and its checks (about 45 minutes)
-infra/deploy-api.sh             # builds HEAD, migrates, deploys, checks https://<ip>.sslip.io
+infra/enable-domain.sh          # the lunaway.net sites, once their DNS records point at the backend
+infra/deploy-api.sh             # builds HEAD, migrates, deploys, checks https://api.lunaway.net
 infra/configure.sh backend pipeline   # turns the import timers and the conflation worker on, now that the CLI is there
 infra/deploy-gatus.sh           # the status page's engine
 infra/ops/mac/install.sh        # the nightly job on the Mac
@@ -155,7 +155,7 @@ if `cx43` stays out of stock.
 |---|---|
 | PostgreSQL with France (about 15,600 places from 19,500 records on the development database, 2026-10-05) | well under a GB now; Europe later, a few GB |
 | the OpenStreetMap France extract in the import cache (`/srv/data/ingest`) | 5.9 GB (5,867,462,742 bytes on 2026-10-05); during the daily refresh the old file stays until the new one is complete, so 12 GB at the peak |
-| 7 nightly dumps and their 7 encrypted copies | small (two copies of each dump) |
+| 7 nightly dumps and their 7 encrypted copies | 351 MB a dump with Europe (2026-10-07), so about 4.9 GB |
 | community photos (`/srv/data/media`) | to size when the feature is designed |
 
 The volume was sized for an image feed that no longer exists; a volume
@@ -226,8 +226,7 @@ any metadata (2048 px and 512 px) and writes them under
 `/srv/data/media/photos/<2 hex>/<2 hex>/<SHA-256>.webp`; Caddy serves them
 under `/media/` with a year of cache.
 
-- Caddy routes `/upload` to the API on the API hosts (the sslip.io name and
-  `api.lunaway.net`): `POST`, and `OPTIONS` for the web app's preflight,
+- Caddy routes `/upload` to the API on `api.lunaway.net`: `POST`, and `OPTIONS` for the web app's preflight,
   anything else 405. The body may reach 10304 KiB there (10 MiB of image
   and 64 KiB of form, what the API accepts). A `/graphql` body may reach
   64 KiB (the API's own limit) and Caddy reads it whole before it opens a
@@ -436,8 +435,8 @@ calendar and FINESS. The API serves it as PostGIS vector tiles:
 
 - `GET /poi/tiles.json`: the TileJSON, cached 60 s. Its tile URLs name the
   API's public URL, `LUNAWAY_PUBLIC_URL` in `/etc/lunaway/media.env`,
-  which `infra/server/api.sh` derives from the photos' base URL (the
-  sslip.io name until DNS exists, then `https://api.lunaway.net`).
+  which `infra/server/api.sh` derives from the photos' base URL
+  (`https://api.lunaway.net`).
 - `GET /poi/{version}/{z}/{x}/{y}.mvt`: points from zoom 13, clusters per
   category from 6 to 12. The current version is cached a year
   (`immutable`); any other version gets the current data for 5 minutes.
@@ -555,7 +554,7 @@ packs' cursors, which no migration of 38adf3d grants the import role:
 2026-10-06 (the first build failed with `permission denied for table
 sync_epoch`), and `test-grants.sh` expects it until a migration carries it.
 First full set: 34 regions, 86 111 places, 9.15 MB gzip (Germany 1.41 MB the largest), 105 MB decompressed, 198.9 MB memory peak.
-Caddy serves `/packs/places/` on the API hosts (see "The domain"); the
+Caddy serves `/packs/places/` on `api.lunaway.net` (see "The domain"); the
 previous pack of a region stays until the next build. A takedown is
 `lunaway-admin packs build --region <code> --takedown`
 (`docs/region-packs.md`). Nothing to back up: each build writes the packs
@@ -598,8 +597,7 @@ PostgreSQL, 16 MB of packs. No resize: the status page turns red at 80%.
 
 Gatus on the ops server checks the backend from another server in another
 datacenter, every one to fifteen minutes, and serves the result at
-`https://<ops-ipv4-dashed>.sslip.io/` (later `status.lunaway.net`), through
-Caddy with automatic TLS. Its API, `/api/v1/endpoints/statuses`, is what the
+`https://status.lunaway.net/`, through Caddy with automatic TLS. Its API, `/api/v1/endpoints/statuses`, is what the
 Mac's nightly job reads.
 
 | group | check | how |
@@ -646,17 +644,22 @@ network. The replica pull, which uses OpenSSH, pins the backend's host key. The
 backend's fail2ban exempts the ops server's private address, since a ban
 would turn every backend check red and stop the replica.
 
-What the page checks comes from the private settings, then
-`infra/configure.sh ops ops-status`:
+What the page checks are the public names of `infra/lib.sh` (each can be
+overridden in the private settings), rendered by `infra/configure.sh ops
+ops-status`:
 
-- `LUNAWAY_API_HOST`: the API's name, the backend's sslip.io name by
-  default; `api.lunaway.net` once DNS exists.
-- `LUNAWAY_WEB_URL`: `https://lunaway.net/app/` once the web app is served.
-- `LUNAWAY_TILES_URL`: the basemap's base URL, `https://<backend sslip.io
-  name>/tiles` by default; `https://tiles.lunaway.net` once DNS exists.
-- `LUNAWAY_STATUS_DOMAIN`: `status.lunaway.net` once its A and AAAA records
-  point at the ops server; Caddy then serves both names and gets the
-  certificate.
+- `LUNAWAY_API_HOST`: the API's name, `api.lunaway.net`.
+- `LUNAWAY_WEB_URL`: the website and web app, `https://lunaway.net`.
+- `LUNAWAY_TILES_URL`: the basemap's base URL, `https://tiles.lunaway.net`.
+- `LUNAWAY_STATUS_DOMAIN`: the page's own name, `status.lunaway.net`, the
+  only name Caddy serves on the ops server.
+
+Every backend check opens one SSH connection to the backend, and the
+hourly ones start with the others: 15 connections within about 20 seconds.
+The backend's limit of 10 new SSH connections a minute per source dropped
+the last two every hour until 2026-10-07, when the ops server's private
+address, arriving on the private interface, was exempted from it
+(`infra/files/etc/nftables.conf`), as it is from fail2ban.
 
 Gatus is pinned in `infra/ops/gatus/version.sh`: the official image by the
 digest of its multi-architecture index, and the SHA-256 of the binary for
@@ -767,17 +770,17 @@ Encrypt certificates for the five names, valid until 2027-01-04):
 | `lunaway.net/` | `/srv/lunaway/site` | website, script-free except `/account/delete` (its own CSP); `/privacy`, `/account/delete`, `/about` map to `privacy.html` or `privacy/index.html`; hashed assets cached a year, the rest five minutes |
 | `lunaway.net/app/` | `/srv/lunaway/web` | Flutter web build; the app's routes (`/app/place/42`) fall back to `/app/index.html`, a missing file (under `assets/`, `fonts/`, `canvaskit/`, `icons/`, or any name with an extension) is an empty 404, so a fallback font Flutter asks for never gets HTML; revalidated on every load; its CSP allows `tiles.lunaway.net` as the only tile host |
 | `www.lunaway.net` | | permanent redirect to `https://lunaway.net` |
-| `tiles.lunaway.net` | pmtiles serve, `/srv/tiles` | the basemap (see "Basemap"); the sslip.io name serves the same under `/tiles/` |
+| `tiles.lunaway.net` | pmtiles serve, `/srv/tiles` | the basemap (see "Basemap") |
 
-The sslip.io name of the backend serves the API snippet too, `/media/`
-included. `infra/tests/caddy-layout.sh` runs this configuration in the
+`infra/tests/caddy-layout.sh` runs this configuration in the
 Caddy release the servers run (2.11.7: native binaries pinned by hash on
 macOS and Linux x86_64, bound to loopback; the Docker image with
 `LUNAWAY_CADDY_DOCKER=1`), with plain HTTP and test roots, and checks each
 route and header, and that the logs mask client addresses, tile
-coordinates and photo paths; run it after editing `infra/caddy/`. Once the A and AAAA records of the four names point
-at the backend (DNS only, not proxied, so the HTTP-01 challenge reaches
-Caddy):
+coordinates and photo paths, and that the main Caddyfile alone (the
+domain not enabled) holds no site; run it after editing `infra/caddy/`.
+Once the A and AAAA records of the four names point at the backend (DNS
+only, not proxied, so the HTTP-01 challenge reaches Caddy):
 
 ```bash
 infra/enable-domain.sh              # checks DNS from 1.1.1.1 and 8.8.8.8, enables, waits for the certificates
@@ -788,25 +791,21 @@ Caddy uses Let's Encrypt only (no fallback CA), so a CAA record
 `0 issue "letsencrypt.org"` on `lunaway.net` matches it. The API answers
 CORS requests from `https://lunaway.net` only (the web app's origin);
 `LUNAWAY_DEV_CORS=1` in its environment adds pages served from
-`localhost` and `127.0.0.1`, for development, never on the server. Then set
-`LUNAWAY_API_HOST=api.lunaway.net`, `LUNAWAY_TILES_URL=https://tiles.lunaway.net`
-and `LUNAWAY_WEB_URL`, and rerun `infra/configure.sh ops ops-status`; set
-`LUNAWAY_MEDIA_BASE_URL=https://api.lunaway.net/media/` and rerun
-`infra/configure.sh backend api`. Done on 2026-10-06 with
-`LUNAWAY_WEB_URL=https://lunaway.net` and
-`LUNAWAY_STATUS_DOMAIN=status.lunaway.net`: the status page, its checks and
-`infra/verify.sh` use the public names, and the API names
-`https://api.lunaway.net` in the points' TileJSON and the packs' URLs. The
-photos' rows hold paths relative to the media root, so no row changed.
+`localhost` and `127.0.0.1`, for development, never on the server. Enabled
+on 2026-10-06: the status page, its checks and `infra/verify.sh` use the
+public names, and the API names `https://api.lunaway.net` in the points'
+TileJSON and the packs' URLs. The photos' rows hold paths relative to the
+media root, so no row changed.
 
-The sslip.io names stay served: `infra/deploy-api.sh` and
-`infra/fdroid/publish.sh` check the backend through `LUNAWAY_HOSTNAME`,
-`infra/configure.sh` and `infra/server/caddy.sh` render the backend's site
-from it, the ops server's status page answers its own sslip.io name, and the
-Mac's nightly job installed before the domain reads
-`https://<ops sslip.io name>` (`infra/ops/mac/install.sh` writes
-`https://status.lunaway.net` into its plist once rerun with
-`LUNAWAY_STATUS_DOMAIN` set).
+Until 2026-10-07 each server also answered a provisional name derived from
+its IPv4 address on sslip.io. They are retired: no script, template or
+check uses them (`infra/deploy-api.sh` checks `https://api.lunaway.net`,
+`infra/fdroid/publish.sh` reads the repository back from
+`https://lunaway.net/fdroid/repo`, the Mac's nightly job reads
+`https://status.lunaway.net`), Caddy holds no site for them, so HTTPS to
+them fails at the TLS handshake, and `infra/verify.sh` checks that. Port 80
+still answers any name with Caddy's redirect to HTTPS, which then fails the
+same way. On a new backend nothing is served until `infra/enable-domain.sh`.
 
 ### Deploying the landing site and the web app
 
@@ -837,6 +836,14 @@ encrypted:
 | account deletion journal | backend `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps at 01:15 UTC into the ops server's and then the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the ops server and the Mac, until their next pull |
 | the F-Droid keys, age-encrypted | backend `/srv/data/backups/offsite/fdroid-keys-<stamp>.tar.age`, the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned (see "F-Droid repository") |
 | the danger zones' secret, age-encrypted | backend `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | never pruned (the pulls prune dumps by name) |
+
+Sizes: a dump of the database with Europe takes 351,238,506 bytes
+(`pg_dump --format=custom --compress=zstd:6`, 62 s, 2026-10-07; 40 MB with
+France alone, 2026-10-06), for a database of 4.4 GB on disk. The ops
+server's volume (20 GB, 19.8 GB free on 2026-10-07) holds 14 of them, 15
+during a pull, about 5.3 GB: it fills when a dump reaches 1.3 GB. The Mac
+holds 29 (30 during a pull), about 10.5 GB, with 472 GiB free. Neither
+the ops volume nor the Mac's disk is watched by the status page.
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
   (`pg_dump --format=custom`, zstd) and the roles (without password hashes),
@@ -1045,7 +1052,7 @@ Natural Earth, in the schema of
 (schema 4), as one PMTiles archive of the whole planet, zoom 0 to 15
 (138,605,245,404 bytes for the build of 2026-10-05).
 
-| URL, on `tiles.lunaway.net` (on the sslip.io name: under `/tiles/`) | what | cache |
+| URL, on `tiles.lunaway.net` | what | cache |
 |---|---|---|
 | `/planet.json` | TileJSON 3.0.0; its tile URLs name the current build and this host | an hour |
 | `/planet-<YYYYMMDD>/{z}/{x}/{y}.mvt` | vector tiles of one build, gzip-encoded (decoded by Caddy for a client that does not accept gzip) | a year, immutable |
@@ -1078,8 +1085,8 @@ infra/deploy-basemap-assets.sh sprites SET DIR   # DIR/<name>[@2x].json|png, ser
 
 A style is written with `https://tiles.lunaway.net` in its URLs; the server
 turns that prefix into a template action (`` {{placeholder `http.vars.tiles_base`}} ``)
-that Caddy fills in per host, so the sslip.io name serves the same style
-pointing at itself. The TileJSON works the same way.
+that Caddy fills in with the site's base URL, so no file on disk names a
+host. The TileJSON works the same way.
 
 ### On the backend
 
@@ -1271,8 +1278,7 @@ sudo journalctl -u lunaway-tiles-packs -f
 ```
 
 **The contract for the app.** The manifest,
-`https://tiles.lunaway.net/packs/manifest.json` (before DNS:
-`https://<backend sslip.io name>/tiles/packs/manifest.json`):
+`https://tiles.lunaway.net/packs/manifest.json`:
 
 ```json
 {
@@ -1330,7 +1336,8 @@ The app can open a downloaded pack as a PMTiles source
 (`pmtiles://file://...` for MapLibre Native) or read a pack remotely
 through the PMTiles protocol. The map must still show "© OpenStreetMap".
 
-Checked from the Mac on 2026-10-06 against the sslip.io name: the manifest
+Checked from the Mac on 2026-10-06 against the backend's provisional
+sslip.io name (retired since): the manifest
 (200, five minutes of cache, CORS `*`), two packs downloaded whole (SHA-256
 equal to the manifest's), a download resumed at half the file (206, the
 whole file's SHA-256 equal; a stale `If-Range` gets the whole file),
@@ -1553,7 +1560,7 @@ repository, with the `fdroid` flavour (no Google Play Services):
 
 | | |
 |---|---|
-| address | `https://lunaway.net/fdroid/repo` (before DNS: `https://<backend sslip.io name>/fdroid/repo`) |
+| address | `https://lunaway.net/fdroid/repo` |
 | repository key fingerprint (SHA-256) | `EA3EC0CA3EF97A4F9E31552D38751AEACCE202A2D15CD5FBB318F20EDE910D2B` |
 | link for a phone | `https://lunaway.net/fdroid/repo?fingerprint=EA3EC0CA3EF97A4F9E31552D38751AEACCE202A2D15CD5FBB318F20EDE910D2B` |
 | QR code of that link | `infra/web/site/img/fdroid-repo-qr.png` |
@@ -1649,8 +1656,7 @@ code) are never uploaded. The working copy, `~/.local/share/lunaway/fdroid`
 (`LUNAWAY_FDROID_DIR`), can be deleted: the server's copy is the reference.
 
 Caddy serves `/fdroid/repo/` and `/fdroid/archive/` from
-`/srv/lunaway/fdroid` on lunaway.net and on the sslip.io name (the
-`fdroid_repo` snippet): GET and HEAD only, a sandbox CSP, the index files
+`/srv/lunaway/fdroid` on lunaway.net only (the `fdroid_repo` snippet): GET and HEAD only, a sandbox CSP, the index files
 revalidated on every read, an APK cached a day. Old releases stay until
 removed by name.
 
@@ -1661,8 +1667,8 @@ armeabi-v7a, x86_64; minSdk 24, targetSdk 36; 0 Play Services class; every
 An APK signed by another key, put in the archive of a test working copy,
 stopped the publication before anything was uploaded. Checked from the Mac with fdroidserver's own client code
 (`index.download_repo_index_v2`, `data/tmp/fdroid/client-check.py`): the
-index downloaded through the sslip.io name verifies against the
-fingerprint, a wrong fingerprint is refused, and the APK it lists has the
+index downloaded through the backend's provisional sslip.io name (retired
+since) verifies against the fingerprint, a wrong fingerprint is refused, and the APK it lists has the
 SHA-256 and size of the index and the APK key's certificate. The build
 points at `api.lunaway.net` and `tiles.lunaway.net`: it works once DNS
 exists.
@@ -1797,7 +1803,7 @@ sudo lunaway-admin road-events poll --force --only dir
 |---|---|
 | account | a Hetzner project of its own, sharing nothing with other projects |
 | network | Hetzner Cloud Firewalls: SSH from the admin sources only on both servers; 80, 443 tcp and udp, ICMP from anywhere; nothing else in |
-| network | nftables on both: default drop in and forward, per-source limits on new SSH connections and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network |
+| network | nftables on both: default drop in and forward, per-source limits on new SSH connections (the ops server's private address exempt, for its status checks) and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network |
 | ops access | the ops server reaches the backend through one account, `lunaway-pull`, from one private address, with two keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
 | backups | off-site copies encrypted with age to a key that exists only on the Mac; the ops server and the replica hold ciphertext |
 | SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |

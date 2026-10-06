@@ -85,10 +85,14 @@ for r in json.load(sys.stdin)["rules"]:
     uvx --quiet ssh-audit --no-colors "$ip4" 2>/dev/null | grep -E '^\(gen\) software|\[fail\]|\[warn\]|^\(fin\)' | head -n 20
   fi
 
+  # The provisional a-b-c-d.sslip.io name of each server was retired on
+  # 2026-10-07: Caddy holds no site for it, so TLS fails.
+  retired="$(echo "$ip4" | tr . -).sslip.io"
+  refused "HTTPS for the retired name $retired" curl -fsS -o /dev/null -m 10 --resolve "$retired:443:$ip4" "https://$retired/"
+
   if [ "$role" = backend ]; then
-    # The public names once DNS exists (LUNAWAY_API_HOST, LUNAWAY_TILES_URL),
-    # the sslip.io name before.
-    host="${LUNAWAY_API_HOST:-$LUNAWAY_HOSTNAME}"
+    # The public names (LUNAWAY_API_HOST, LUNAWAY_TILES_URL, infra/lib.sh).
+    host="$LUNAWAY_API_HOST"
     section "$server, outside: HTTPS"
     curl -sS -o /dev/null -D - -m 10 "https://$host/health" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
     echo "http redirect: $(curl -sS -o /dev/null -w '%{http_code} -> %{redirect_url}' -m 10 "http://$host/health")"
@@ -120,10 +124,9 @@ for r in json.load(sys.stdin)["rules"]:
       # Debian 13's curl speaks HTTP/3 (ngtcp2); the macOS one does not.
       echo "HTTP/3: $(docker run --rm buildpack-deps:trixie-curl curl -sS -o /dev/null -w '%{http_version} %{http_code}' --http3-only -m 10 "https://$host/health" 2>&1 | tail -n 1)"
     fi
-    # The basemap under /tiles/ (tiles.lunaway.net serves the same once DNS
-    # exists): TileJSON, tiles at z0, z8 and z14 over Paris and over Tokyo,
-    # with their status, size as sent (gzip), encoding, cache and time.
-    tiles="${LUNAWAY_TILES_URL:-https://$LUNAWAY_HOSTNAME/tiles}"
+    # The basemap: TileJSON, tiles at z0, z8 and z14 over Paris and over
+    # Tokyo, with their status, size as sent (gzip), encoding, cache and time.
+    tiles="$LUNAWAY_TILES_URL"
     echo "basemap TileJSON: $(curl -fsS -m 10 "$tiles/planet.json" | python3 -c '
 import json, sys
 t = json.load(sys.stdin)
@@ -231,7 +234,7 @@ print("%d items%s" % (len(u), "" if not u else ": FAIL"))' 2>&1)"
   fi
 
   if [ "$role" = ops ]; then
-    host="${LUNAWAY_STATUS_DOMAIN:-$(echo "$ip4" | tr . -).sslip.io}"
+    host="$LUNAWAY_STATUS_DOMAIN"
     section "$server, outside: status page and the Mac's pull"
     curl -sS -o /dev/null -D - -m 10 "https://$host/" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
     echo "status API: $(curl -fsS -m 10 "https://$host/api/v1/endpoints/statuses" | python3 -c '

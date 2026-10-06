@@ -88,8 +88,8 @@ publish() {
   [ "$code" = 200 ] || die "the tile server answers $code for planet-$key/0/0/0.mvt; nothing switched"
 
   # The TileJSON carries a template action in place of the public base URL,
-  # which Caddy's templates fill in per site (sslip.io name or
-  # tiles.lunaway.net). Its quotes are backticks, so the file stays JSON.
+  # which Caddy's templates fill in with the site's base URL
+  # (tiles.lunaway.net). Its quotes are backticks, so the file stays JSON.
   # shellcheck disable=SC2016 # literal backticks, a Caddy template action
   "$PMTILES" show --tilejson --public-url="__TILES_BASE__/planet-$key" "$SERVE/planet-$key.pmtiles" \
     | sed 's|__TILES_BASE__|{{placeholder `http.vars.tiles_base`}}|g' > "$TILEJSON/.planet.json.new"

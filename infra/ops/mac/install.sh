@@ -28,13 +28,10 @@ script="$support/lunaway-ops.sh"
 log_file="$HOME/Library/Logs/lunaway-ops.log"
 here="$(cd "$(dirname "$0")" && pwd)"
 
+# The status page by its public name (status.lunaway.net, infra/lib.sh).
 status_url() {
-  if [ -n "${LUNAWAY_STATUS_DOMAIN:-}" ]; then
-    echo "https://$LUNAWAY_STATUS_DOMAIN"
-  else
-    [ -n "$(role_var ops IPV4)" ] || die "no ops server in $LUNAWAY_ENV_FILE"
-    echo "https://$(role_var ops IPV4 | tr . -).sslip.io"
-  fi
+  [[ "$LUNAWAY_STATUS_DOMAIN" =~ ^[a-z0-9.-]+$ ]] || die "unexpected LUNAWAY_STATUS_DOMAIN: $LUNAWAY_STATUS_DOMAIN"
+  echo "https://$LUNAWAY_STATUS_DOMAIN"
 }
 
 make_keys() {

@@ -1,10 +1,7 @@
-# Caddy configuration of a Lunaway backend. infra/server/caddy.sh renders it
-# to /etc/caddy/Caddyfile, replacing __SSLIP_HOST__ with the name derived from
-# the server's IPv4 address (a-b-c-d.sslip.io), which serves the API, and the
-# basemap under /tiles/, before and alongside the real domain. The
-# lunaway.net sites live in
-# lunaway.net.caddy and load only once infra/enable-domain.sh has linked them
-# into /etc/caddy/sites-enabled/.
+# Caddy configuration of a Lunaway backend, installed as /etc/caddy/Caddyfile
+# by infra/server/caddy.sh: the global options and the snippets. The sites,
+# all lunaway.net names, live in lunaway.net.caddy and load only once
+# infra/enable-domain.sh has linked it into /etc/caddy/sites-enabled/.
 {
 	# Admin API on a unix socket in /run/caddy (0750, caddy only), so no other
 	# local process, the API included, can rewrite the proxy configuration.
@@ -136,10 +133,9 @@
 }
 
 # The basemap (docs/deploy.md, "Basemap"), public OpenStreetMap data for any
-# origin. Imported by the tiles.lunaway.net site at its root, and by the
-# sslip.io site under /tiles/ (handle_path strips the prefix). The site sets
-# the variable tiles_base to its own public base URL; the TileJSON and the
-# styles are templates that receive it, so each host names itself.
+# origin, imported by the tiles.lunaway.net site. The site sets the variable
+# tiles_base to its public base URL; the TileJSON and the styles are
+# templates that receive it, so the files on disk name no host.
 #
 #   /planet.json                       TileJSON, rewritten by each monthly refresh
 #   /planet-<YYYYMMDD>/{z}/{x}/{y}.mvt tiles of one planet build, immutable
@@ -291,8 +287,7 @@
 # writes them, published by infra/fdroid/publish.sh into
 # /srv/lunaway/fdroid (a symlink switched per release). Imported by
 # lunaway.net, where the repository's address is
-# https://lunaway.net/fdroid/repo, and by the sslip.io name, so a client can
-# be tested before DNS exists. GET and HEAD only; inert content (sandbox
+# https://lunaway.net/fdroid/repo. GET and HEAD only; inert content (sandbox
 # CSP). The index files are revalidated on every read (ETag), so a client
 # sees a new release at once; an APK's name carries its version code and
 # is cached a day.
@@ -449,17 +444,6 @@
 	handle {
 		respond 404
 	}
-}
-
-__SSLIP_HOST__ {
-	# The basemap before DNS exists, and after it beside tiles.lunaway.net.
-	handle_path /tiles/* {
-		vars tiles_base https://__SSLIP_HOST__/tiles
-		import tiles
-	}
-	# The F-Droid repository, for tests before DNS exists.
-	import fdroid_repo
-	import api
 }
 
 import /etc/caddy/sites-enabled/*.caddy

@@ -101,8 +101,8 @@ lunaway_scp "$LUNAWAY_INFRA_DIR/server/common.sh" "$LUNAWAY_INFRA_DIR/server/ins
 lunaway_scp "$SCRATCH"/release/* "lunaway:release-upload/"
 lunaway_ssh "sudo bash ~/infra/server/install-release.sh $release /home/$LUNAWAY_ADMIN_USER/release-upload"
 
-log "checking https://$LUNAWAY_HOSTNAME from here"
-health="$(curl -fsS -m 10 "https://$LUNAWAY_HOSTNAME/health")"
+log "checking https://$LUNAWAY_API_HOST from here"
+health="$(curl -fsS -m 10 "https://$LUNAWAY_API_HOST/health")"
 [ "$health" = ok ] || die "/health answered: $health"
-version="$(curl -fsS -m 10 -H 'Content-Type: application/json' -d '{"query":"{ apiVersion }"}' "https://$LUNAWAY_HOSTNAME/graphql")"
+version="$(curl -fsS -m 10 -H 'Content-Type: application/json' -d '{"query":"{ apiVersion }"}' "https://$LUNAWAY_API_HOST/graphql")"
 log "/health: $health; apiVersion: $version"

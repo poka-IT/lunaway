@@ -1,9 +1,8 @@
 # Caddy configuration of the Lunaway ops server: the public status page,
 # served from Gatus on loopback. infra/server/ops-status.sh renders it to
-# /etc/caddy/Caddyfile, replacing __STATUS_HOSTS__ with the names the page
-# answers to: the server's a-b-c-d.sslip.io name, and status.lunaway.net once
-# LUNAWAY_STATUS_DOMAIN is set and its DNS points here. The global options
-# and the logging are the backend's (infra/caddy/Caddyfile).
+# /etc/caddy/Caddyfile, replacing __STATUS_HOSTS__ with the name the page
+# answers to, LUNAWAY_STATUS_DOMAIN (status.lunaway.net, infra/lib.sh). The
+# global options and the logging are the backend's (infra/caddy/Caddyfile).
 {
 	admin unix//run/caddy/admin.sock
 	acme_ca https://acme-v02.api.letsencrypt.org/directory
