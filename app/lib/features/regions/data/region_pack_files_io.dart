@@ -117,4 +117,4 @@ Future<String?> _checkAndInflate(
 
 /// Largest decompressed pack accepted: the biggest country pack is a few
 /// tens of megabytes, a manifest asking for more is not trusted.
-const maxPackRawBytes = 1024 * 1024 * 1024;
+const int maxPackRawBytes = 1024 * 1024 * 1024;
