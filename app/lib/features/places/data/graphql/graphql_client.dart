@@ -94,11 +94,14 @@ final class GraphQLClient {
         : null;
     // The hash alone first; the document goes with it once the server asks.
     var withDocument = hash == null;
+    // Decided for this request alone: another one finding the server
+    // without persisted queries must not strip this one of both forms.
+    var whole = hash == null;
     String body() => jsonEncode({
       'operationName': operation.name,
       if (withDocument) 'query': document,
       'variables': variables,
-      if (hash != null && !_wholeDocuments)
+      if (!whole)
         'extensions': {
           'persistedQuery': {'version': 1, 'sha256Hash': hash},
         },
@@ -121,6 +124,7 @@ final class GraphQLClient {
         if (_documentRequired(response, decoded)) {
           _log.info('the API does not take persisted queries: documents go whole');
           _wholeDocuments = true;
+          whole = true;
           withDocument = true;
           continue;
         }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -110,6 +111,48 @@ void main() {
     await page(c);
     expect(bodies.map((b) => b.containsKey('query')), [false, true, true]);
     expect(bodies.last.containsKey('extensions'), isFalse);
+  });
+
+  test('a request waiting out a rate limit keeps its own form when another finds no '
+      'persisted queries', () async {
+    bodies = [];
+    final firstHeld = Completer<void>();
+    var calls = 0;
+    final c = GraphQLClient(
+      endpoint: Uri.parse('https://api.example.org/graphql'),
+      httpClient: MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        bodies.add(body);
+        final call = calls++;
+        if (call == 0) {
+          // The first request is limited, and only answered once the
+          // second has learnt the server takes whole documents only.
+          await firstHeld.future;
+          return http.Response('', 429, headers: {'retry-after': '0'});
+        }
+        if (body['query'] is! String && body['extensions'] != null) {
+          return json({
+            'data': null,
+            'errors': [
+              {
+                'extensions': {'code': 'INVALID_INPUT'},
+                'message': 'the body must be a JSON object with a string `query`',
+              },
+            ],
+          }, 400);
+        }
+        if (body['query'] is String && !firstHeld.isCompleted) firstHeld.complete();
+        return json(fixture('changes_page.json'));
+      }),
+      userAgent: 'x',
+      persistedQueries: true,
+    );
+    await Future.wait([page(c), page(c)]);
+    expect(
+      bodies.where((b) => b['query'] == null && b['extensions'] == null),
+      isEmpty,
+      reason: 'a body with neither the document nor its hash costs a round trip',
+    );
   });
 
   test('another refusal of a hash alone is not taken for an API without them', () async {
