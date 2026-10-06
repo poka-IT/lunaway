@@ -474,24 +474,34 @@ Future<void> openPreviewPoint(
 ) async {
   final t = context.t;
   final router = GoRouter.of(context);
-  final stops = ref.read(routeStopsControllerProvider(target));
-  final controller = ref.read(routePreviewControllerProvider(target).notifier);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  // Turning the phone or the window can rebuild the map under the open
+  // card: what is read after it goes through the container.
+  final container = ProviderScope.containerOf(context, listen: false);
+  final stops = container.read(routeStopsControllerProvider(target));
+  final controller = container.read(routePreviewControllerProvider(target).notifier);
   final choice = await showRoutePointCard(
     context,
     point: point,
     quote: controller.quoteStop,
     stopsFull: stops.length >= maxRouteStops,
   );
-  if (!context.mounted) return;
   switch (choice) {
     case AddStopChoice(:final quote):
-      changeStops(context, ref, target, quote.stops, t.navigation.stops.added);
+      changeStopsIn(container, messenger, t, target, quote.stops, t.navigation.stops.added);
     case RemoveStopChoice(:final stop):
       // The marks are those of the route on screen, the list may have
       // moved on since: the stop is taken out of the list as it is now.
-      final now = ref.read(routeStopsControllerProvider(target));
+      final now = container.read(routeStopsControllerProvider(target));
       if (now.contains(stop)) {
-        changeStops(context, ref, target, [...now]..remove(stop), t.navigation.stops.removed);
+        changeStopsIn(
+          container,
+          messenger,
+          t,
+          target,
+          [...now]..remove(stop),
+          t.navigation.stops.removed,
+        );
       }
     case GoDirectlyChoice():
       unawaited(
@@ -502,7 +512,9 @@ Future<void> openPreviewPoint(
         ),
       );
     case OpenCardChoice():
-      if (point.placeId case final id?) unawaited(showPlaceCard(context, id));
+      if (point.placeId case final id? when context.mounted) {
+        unawaited(showPlaceCard(context, id));
+      }
     case null:
   }
 }

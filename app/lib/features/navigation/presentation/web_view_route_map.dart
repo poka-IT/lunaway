@@ -127,7 +127,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   static Map<String, Object?> _spec({required bool dark}) => {
     'clusterSource': RouteLayers.routeSource,
     'selectionLayer': RouteLayers.marks,
-    'tappable': const [RouteLayers.marks],
+    'tappable': const [RouteLayers.tappableMarks],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.marksSource, 'options': <String, Object?>{}},
@@ -158,18 +158,26 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         RouteLook.line(dark: dark),
         RouteLook.lineWidth,
       ),
-      {
-        'id': RouteLayers.marks,
-        'type': 'circle',
-        'source': RouteLayers.marksSource,
-        'paint': {
-          'circle-color': ['get', 'fill'],
-          'circle-radius': ['get', 'radius'],
-          'circle-stroke-color': RouteLook.markStroke,
-          'circle-stroke-width': RouteLook.markStrokeWidth,
-        },
-      },
+      // A start or a warning drawn over a place never hides it from a tap.
+      _marks(RouteLayers.marks, const [
+        '!',
+        ['has', 'id'],
+      ]),
+      _marks(RouteLayers.tappableMarks, const ['has', 'id']),
     ],
+  };
+
+  static Map<String, Object?> _marks(String id, List<Object> filter) => {
+    'id': id,
+    'type': 'circle',
+    'source': RouteLayers.marksSource,
+    'filter': filter,
+    'paint': {
+      'circle-color': ['get', 'fill'],
+      'circle-radius': ['get', 'radius'],
+      'circle-stroke-color': RouteLook.markStroke,
+      'circle-stroke-width': RouteLook.markStrokeWidth,
+    },
   };
 
   static Map<String, Object?> _line(String id, String source, String color, double width) => {

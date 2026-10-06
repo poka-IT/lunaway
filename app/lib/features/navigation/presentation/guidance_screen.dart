@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -30,6 +31,8 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
+
+final _log = Logger('guidance_screen');
 
 /// The guidance, full screen: the next maneuver large at the top, with its
 /// lanes; the restrictions coming up; a calm map that follows the vehicle
@@ -277,8 +280,11 @@ class _GuidanceMap extends ConsumerWidget {
 Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint point) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
-  final controller = ref.read(guidanceControllerProvider.notifier);
-  final opened = ref.read(guidanceControllerProvider);
+  // Turning the phone rebuilds the map under the open card: what is read
+  // after the card goes through the container, which outlives the map.
+  final container = ProviderScope.containerOf(context, listen: false);
+  final controller = container.read(guidanceControllerProvider.notifier);
+  final opened = container.read(guidanceControllerProvider);
   if (opened == null) return;
   final choice = await showRoutePointCard(
     context,
@@ -288,7 +294,7 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   );
   // The vehicle went on while the card was open: a stop may be behind now.
   // Each change, and its way back, works on the stops of its own moment.
-  final session = ref.read(guidanceControllerProvider);
+  final session = container.read(guidanceControllerProvider);
   if (session == null) return;
   switch (choice) {
     case AddStopChoice(:final quote):
@@ -359,12 +365,17 @@ Future<void> _said(
 }) async {
   Future<String?> attempt(Future<bool> Function() run) async {
     try {
-      // While a new route is on its way a change waits; say so.
+      // A change asked while a new route is on its way is refused: false,
+      // and the message says the route was not changed.
       return await run() ? null : t.navigation.stops.failed;
     } on RouteFailure catch (f) {
       return f.kind == RouteFailureKind.offline
           ? t.navigation.stops.offline
           : t.navigation.stops.failed;
+    } on Object catch (e, st) {
+      // An answer this app cannot read: said like any other failure.
+      _log.warning('a change of the stops failed', e, st);
+      return t.navigation.stops.failed;
     }
   }
 

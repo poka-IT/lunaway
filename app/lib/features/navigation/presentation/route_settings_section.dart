@@ -187,9 +187,20 @@ class _ConsumptionTileState extends State<ConsumptionTile> {
   Widget build(BuildContext context) {
     final t = context.t;
     const range = NavigationSettings.consumptionRange;
+    final scheme = Theme.of(context).colorScheme;
     return ListTile(
       title: Text(t.navigation.settings.consumption),
-      subtitle: Text(t.navigation.settings.consumptionHint),
+      // The range is said here: the trailing box is 56 px high, an error
+      // line under the field would spill over the next row.
+      subtitle: _outOfRange
+          ? Text(
+              t.navigation.settings.consumptionRange(
+                min: _format(range.min),
+                max: _format(range.max),
+              ),
+              style: TextStyle(color: scheme.error),
+            )
+          : Text(t.navigation.settings.consumptionHint),
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 96, maxWidth: 150),
         // The field's own name for a screen reader: the tile's title is
@@ -201,21 +212,15 @@ class _ConsumptionTileState extends State<ConsumptionTile> {
             focusNode: _focus,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.end,
-            decoration: InputDecoration(
-              suffixText: t.navigation.settings.consumptionUnit,
-              errorText: _outOfRange
-                  ? t.navigation.settings.consumptionRange(
-                      min: _format(range.min),
-                      max: _format(range.max),
-                    )
-                  : null,
-              errorMaxLines: 3,
-            ),
+            decoration: InputDecoration(suffixText: t.navigation.settings.consumptionUnit),
             onChanged: (raw) {
-              final litres = double.tryParse(raw.replaceAll(',', '.').trim());
+              final text = raw.replaceAll(',', '.').trim();
+              final litres = double.tryParse(text);
               final ok = litres != null && litres >= range.min && litres <= range.max;
               if (ok) widget.onChanged(litres);
-              if (ok == _outOfRange) setState(() => _outOfRange = !ok);
+              // An empty field is one being retyped, not a refused value.
+              final refused = !ok && text.isNotEmpty;
+              if (refused != _outOfRange) setState(() => _outOfRange = refused);
             },
           ),
         ),

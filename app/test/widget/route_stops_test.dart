@@ -420,6 +420,28 @@ void main() {
       expect(routes.requests.last.stops, [b.position]);
     });
 
+    testWidgets('the phone turned while a card is open: its choice still counts', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final at = LineTrack(plan.routes.first).at(2000);
+      final app = await guide(
+        tester,
+        plan,
+        answers: [plan],
+        more: [plan],
+        stops: [RouteStop(position: at, label: 'Pause')],
+      );
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onMarkTap!('stop:0');
+      await settleShort(tester);
+      // The map under the card is rebuilt for the landscape layout.
+      tester.view.physicalSize = const Size(900, 400);
+      await settleShort(tester);
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
+      expect(find.text('Étape retirée'), findsOneWidget);
+    });
+
     testWidgets('a stop is left behind once the vehicle has been there', (tester) async {
       final plan = routeFixture('limoges_drive');
       final at = LineTrack(plan.routes.first).at(800);
@@ -514,5 +536,14 @@ void main() {
     await settleShort(tester);
     expect(find.text('Entre 4 et 40 L/100 km'), findsOneWidget);
     expect(settings.value.consumptionL100, 13.5, reason: 'a refused value is not kept');
+    await tester.enterText(find.widgetWithText(TextField, '45'), '');
+    await settleShort(tester);
+    expect(find.text('Entre 4 et 40 L/100 km'), findsNothing, reason: 'an empty field is retyped');
+    final handle = tester.ensureSemantics();
+    expect(
+      tester.getSemantics(find.byType(TextField).last),
+      isSemantics(label: 'Consommation', isTextField: true),
+    );
+    handle.dispose();
   });
 }

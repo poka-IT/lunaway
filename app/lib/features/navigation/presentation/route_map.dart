@@ -296,6 +296,10 @@ abstract final class RouteLayers {
   static const routeCasing = 'lw-route-casing';
   static const route = 'lw-route-line';
   static const marks = 'lw-route-marks';
+
+  /// The marks with an id (places, stations, stops), above the others: the
+  /// layer the desktop map page reads taps from.
+  static const tappableMarks = 'lw-route-marks-tappable';
   static const vehicle = 'lw-route-vehicle';
   static const vehicleImage = 'lw-vehicle-arrow';
 }

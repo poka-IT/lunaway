@@ -16,14 +16,32 @@ void changeStops(
   RouteTarget target,
   List<RouteStop> next,
   String message,
+) => changeStopsIn(
+  ProviderScope.containerOf(context, listen: false),
+  ScaffoldMessenger.maybeOf(context),
+  context.t,
+  target,
+  next,
+  message,
+);
+
+/// [changeStops] once the widget that asked may be gone (a card closed
+/// after the screen turned).
+void changeStopsIn(
+  ProviderContainer container,
+  ScaffoldMessengerState? messenger,
+  Translations t,
+  RouteTarget target,
+  List<RouteStop> next,
+  String message,
 ) {
-  final controller = ref.read(routeStopsControllerProvider(target).notifier);
-  final before = ref.read(routeStopsControllerProvider(target));
+  final controller = container.read(routeStopsControllerProvider(target).notifier);
+  final before = container.read(routeStopsControllerProvider(target));
   controller.set(next);
   showMessage(
-    ScaffoldMessenger.maybeOf(context),
+    messenger,
     message,
-    action: SnackBarAction(label: context.t.common.undo, onPressed: () => controller.set(before)),
+    action: SnackBarAction(label: t.common.undo, onPressed: () => controller.set(before)),
   );
 }
 

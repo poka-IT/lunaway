@@ -404,13 +404,16 @@ class GuidanceController extends _$GuidanceController {
         (from != null && from.distanceTo(fix.position) > _quoteReachM);
     final fresh = stale ? await quoteStop(quote.stop) : quote;
     if (fresh == null || fresh.extraS == null) return false;
+    // A stop passed, or another route, while the new quote was asked for:
+    // its stops are already out of date.
+    final now = state;
+    if (stale &&
+        (now == null || !listEquals(fresh.base, now.stops) || fresh.routeVersion != now.reroutes)) {
+      return false;
+    }
     // The fresh quote's route starts where the vehicle is: taken as it is.
     return await _change(RerouteReason.stops, stops: fresh.stops, known: fresh.plan);
   }
-
-  /// A new route through [stops], in their order.
-  Future<bool> setStops(List<RouteStop> stops) =>
-      _change(RerouteReason.stops, stops: List.unmodifiable(stops.take(maxRouteStops)));
 
   /// Takes [stop] out of the stops ahead. True when it is no longer on the
   /// route, also when it was passed meanwhile.
@@ -428,7 +431,8 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     final fix = s?.lastFix;
     if (s == null || fix == null) return false;
-    if (s.stops.contains(stop)) return true;
+    // Passed before it was taken out: nothing to put back.
+    if (s.stops.contains(stop) || !before.contains(stop)) return true;
     if (s.stops.length >= maxRouteStops) return false;
     final others = [...before]..remove(stop);
     final stops = listEquals(others, s.stops)

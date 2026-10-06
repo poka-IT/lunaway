@@ -82,13 +82,7 @@
     var layers = spec.tappable.filter(function (id) { return map.getLayer(id); });
     var features = map.queryRenderedFeatures(box, { layers: layers });
     if (features.length === 0) { send({ type: 'empty' }); return; }
-    // A mark that does nothing (a route's start, a warning) can lie over a
-    // place: the first feature that acts wins.
-    var f = features.find(function (x) {
-      var q = x.properties || {};
-      return q.point_count !== undefined || (q.kind === 'place' && q.id !== undefined);
-    });
-    if (!f) return;
+    var f = features[0];
     var p = f.properties || {};
     if (p.point_count !== undefined) {
       map.getSource(spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
