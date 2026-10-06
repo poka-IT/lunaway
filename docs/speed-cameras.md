@@ -168,6 +168,44 @@ request selects `speedLimits`; a route the engine cannot describe within
 3 s comes back without limits (`null`), never refused. Inside a built-up
 area the default is 50, separated carriageways or not.
 
+## In the app
+
+During guidance only (`app/lib/features/navigation/application/driving_aids.dart`,
+`DrivingAidsEngine`, run by the guidance controller at each fix, screen
+off as well). Outside guidance the app shows no camera and no zone,
+anywhere: no map layer exists.
+
+- **The country.** The guidance library reads the countries at the
+  vehicle's position and within 1 km of it (`countries_around`, the same
+  boundaries and margin as the server). The strictest rule among them
+  applies at once; a looser one only once it has held 30 s. A fix less
+  precise than 100 m changes nothing. Without the library (desktop, web),
+  no country is known and everything is off.
+- **The rules.** The table the API last sent, else the one compiled into
+  the library (`embedded_rules`). An item shows only where the vehicle's
+  rule and its own country's rule both allow its kind: a zone under
+  `zones` or `exact`, a camera under `exact` only.
+- **The data.** `Query.enforcement` for the countries the route crosses
+  (worked out on the device every 5 km of the route and at its ends, the
+  countries only grow), at the start of a guidance, after a new route, and
+  at the server's rhythm; kept in the place cache (`enforcement_items`),
+  so a guidance started offline has the data of its earlier trips.
+- **On the route.** A zone counts where four of its points (or half of a
+  shorter one) lie within 25 m of the route, either way; a camera within
+  30 m, its bearing within 60 degrees of the route's. The banner shows from
+  about 20 s ahead (800 m at a limit of 110 or more, 400 m from 70, 200 m
+  below), then "Zone de danger, encore 1,2 km" inside, with the list and
+  its date under it. A zone shows a warning sign, never a camera.
+- **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
+  the route; `DEFAULT` spans show in grey and never warn. Without spans,
+  the sign the map gives, and only for a vehicle of 3.5 t or less with its
+  trailer. Over the limit plus 3 km/h for 2 s, the speed shows on the
+  error colour; a word after 5 s, every 2 min while it lasts, again after
+  30 s under the limit.
+- **Settings** (profile, guidance): the limit shown (on by default), the
+  spoken alerts (off by default: then nothing is said, neither the excess
+  nor the zones).
+
 ## Police checks
 
 Lunaway takes no report of a police check, in any country, and offers no
