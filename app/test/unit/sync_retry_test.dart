@@ -10,7 +10,9 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 
-import '../helpers/pump.dart' show MemorySyncStore;
+import 'package:lunaway/features/regions/application/region_providers.dart';
+
+import '../helpers/pump.dart' show FixedRegionCatalog, MemorySyncStore;
 
 /// What the server does for one request.
 sealed class _Answer {
@@ -81,6 +83,8 @@ void main() {
         syncServiceProvider.overrideWithValue(
           SyncService(source: server, store: MemorySyncStore()),
         ),
+        // An API without regions: the sync by box runs.
+        regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(null)),
       ],
     );
     final seen = <SyncStatus>[];

@@ -61,8 +61,15 @@ CREATE TABLE places (
   review_count INTEGER NOT NULL DEFAULT 0,
   photo_count INTEGER NOT NULL DEFAULT 0,
   cover_photos_json TEXT NOT NULL DEFAULT '[]',
-  issues_json TEXT NOT NULL DEFAULT '[]'
+  issues_json TEXT NOT NULL DEFAULT '[]',
+  -- The sync region the place came with (`FR-BRE`, `ES`; added in
+  -- version 4): a region's full sync sweeps its own places, and removing a
+  -- region removes them. Null for a place of the sync by box of earlier
+  -- versions, until the region syncs it again.
+  region TEXT
 ) AS PlaceRow;
+
+CREATE INDEX places_region ON places (region);
 
 CREATE VIRTUAL TABLE place_bounds USING rtree(rid, min_lat, max_lat, min_lon, max_lon);
 
@@ -143,3 +150,26 @@ CREATE TABLE poi_cache (
   json TEXT NOT NULL,
   fetched_at INTEGER NOT NULL
 ) AS PoiCacheRow;
+
+-- Speed camera data the guidance may announce (added in version 4), as the
+-- API's `enforcement` delta served it for the countries asked: danger zones
+-- (a stretch of road, `line`) where a country allows only those, cameras
+-- (`lat`, `lon`) where it allows positions. Nothing here is shown outside
+-- guidance, and the guidance shows an item only where the rule of the
+-- country the vehicle is in allows its kind (docs/speed-cameras.md).
+CREATE TABLE enforcement_items (
+  id TEXT NOT NULL PRIMARY KEY,
+  -- ZONE or CAMERA.
+  kind TEXT NOT NULL,
+  category TEXT NOT NULL,
+  -- ISO 3166-1 alpha-2 of the country whose rule it follows.
+  country TEXT NOT NULL,
+  -- The road of a zone (or of an average speed section), polyline6.
+  line TEXT,
+  lat REAL,
+  lon REAL,
+  bearing_deg REAL,
+  limit_kmh INTEGER,
+  -- JSON array of the lists it comes from.
+  source_ids TEXT NOT NULL DEFAULT '[]'
+) AS EnforcementItemRow;

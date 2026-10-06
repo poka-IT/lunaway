@@ -20,6 +20,7 @@ Future<void> _writeVersion(
   File file, {
   required Map<String, List<String>> dropColumns,
   required Set<String> dropTables,
+  Set<String> dropIndexes = const {},
   int version = 1,
 }) async {
   final db = _Raw(current);
@@ -34,6 +35,7 @@ Future<void> _writeVersion(
     final table = r.read<String>('tbl_name');
     var sql = r.read<String>('sql');
     if (dropTables.contains(table)) continue;
+    if (dropIndexes.contains(r.read<String>('name'))) continue;
     // The shadow tables of a virtual table come with it.
     if (r.read<String>('type') == 'table' && RegExp('^place_(search|bounds)_').hasMatch(table)) {
       continue;
@@ -48,6 +50,12 @@ Future<void> _writeVersion(
     ..close();
   await db.close();
 }
+
+/// What version 4 of the cache added: the region of each place, its index,
+/// and the speed camera data of the guidance.
+const _regionColumns = ['region'];
+const _v4Tables = {'enforcement_items'};
+const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
 const _fuelColumns = ['fuel', 'consumption_l100', 'lpg_heating'];
@@ -121,9 +129,11 @@ void main() {
           'photo_count',
           'cover_photos_json',
           'issues_json',
+          ..._regionColumns,
         ],
       },
-      dropTables: const {'poi_cache'},
+      dropTables: const {'poi_cache', ..._v4Tables},
+      dropIndexes: _v4Indexes,
     );
     sqlite3.open(file.path)
       ..execute(
@@ -157,8 +167,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {},
-      dropTables: const {'poi_cache'},
+      dropColumns: const {'places': _regionColumns},
+      dropTables: const {'poi_cache', ..._v4Tables},
+      dropIndexes: _v4Indexes,
       version: 2,
     );
     sqlite3.open(file.path)
@@ -181,6 +192,50 @@ void main() {
         .into(upgraded.poiCache)
         .insert(PoiCacheCompanion.insert(cacheKey: 'nearby:p1', json: '[]', fetchedAt: 1));
     expect(await upgraded.select(upgraded.poiCache).get(), hasLength(1));
+    await upgraded.close();
+  });
+
+  test('a version 3 cache keeps the places synced by box until its regions have synced', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache3.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'places': _regionColumns},
+      dropTables: _v4Tables,
+      dropIndexes: _v4Indexes,
+      version: 3,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at) '
+        "VALUES ('p1', 'PARKING', 0, 45, 6, 'ALLOWED', 1)",
+      )
+      ..execute(
+        'INSERT INTO region_syncs (region, cursor, generation, full_sync, running, completed_at) '
+        "VALUES ('fr-metro', 'c42', 3, 0, 0, 1700000000000)",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    final repo = DriftPlacesRepository(upgraded);
+    expect(await repo.watchPlace('p1').first, isNotNull, reason: 'the map keeps its places');
+    final row = await upgraded.select(upgraded.places).getSingle();
+    expect(row.region, isNull, reason: 'a place of the sync by box has no region yet');
+    final state = await repo.stateOf(SyncRegion.metropolitanFrance.id);
+    expect(state.completedAt, isNotNull, reason: 'its date stands until the regions have synced');
+    await upgraded
+        .into(upgraded.enforcementItems)
+        .insert(
+          EnforcementItemsCompanion.insert(
+            id: 'z1',
+            kind: 'ZONE',
+            category: 'FIXED',
+            country: 'FR',
+          ),
+        );
+    expect(await upgraded.select(upgraded.enforcementItems).get(), hasLength(1));
     await upgraded.close();
   });
 

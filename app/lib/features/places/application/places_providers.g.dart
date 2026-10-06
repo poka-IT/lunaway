@@ -48,7 +48,7 @@ final class GraphQLClientProvider
   }
 }
 
-String _$graphQLClientHash() => r'dc5a660bfeb2eaef8d3bb98cacfb88ea66b1fb00';
+String _$graphQLClientHash() => r'c7aed3570c124e3f38725c95636d52328e08f1b5';
 
 @ProviderFor(driftPlacesRepository)
 final driftPlacesRepositoryProvider = DriftPlacesRepositoryProvider._();
@@ -293,7 +293,7 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'7f5e89298f020a8dde77618f35467f9d92ac7441';
+String _$syncControllerHash() => r'c45f000158c1775c2c8435e3685abbe82663c4ef';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
@@ -594,18 +594,21 @@ final class FilterPreviewCountFamily extends $Family
   String toString() => r'filterPreviewCountProvider';
 }
 
-/// Where the sync of the region stands, as stored.
+/// Where the sync stands, as stored: every region kept together
+/// ([overallSyncState]), or France by box before any region was chosen.
 
 @ProviderFor(syncState)
 final syncStateProvider = SyncStateProvider._();
 
-/// Where the sync of the region stands, as stored.
+/// Where the sync stands, as stored: every region kept together
+/// ([overallSyncState]), or France by box before any region was chosen.
 
 final class SyncStateProvider
     extends
         $FunctionalProvider<AsyncValue<SyncState>, SyncState, Stream<SyncState>>
     with $FutureModifier<SyncState>, $StreamProvider<SyncState> {
-  /// Where the sync of the region stands, as stored.
+  /// Where the sync stands, as stored: every region kept together
+  /// ([overallSyncState]), or France by box before any region was chosen.
   SyncStateProvider._()
     : super(
         from: null,
@@ -631,7 +634,7 @@ final class SyncStateProvider
   }
 }
 
-String _$syncStateHash() => r'b1d621f005b6b5851f0742342b4481961a9e70be';
+String _$syncStateHash() => r'9c7b4871b63a878b1563fae82f0d0a2792723955';
 
 @ProviderFor(storageSize)
 final storageSizeProvider = StorageSizeProvider._();

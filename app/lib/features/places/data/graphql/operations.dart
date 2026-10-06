@@ -78,7 +78,7 @@ final class OlderForm {
 
 /// Everything the offline store keeps of a place. Photos and reviews are
 /// left out: they are read online on demand ([extrasOperation]).
-const _placeFields = '''
+const placeFieldsFragment = '''
 fragment PlaceFields on Place {
   id
   name
@@ -177,7 +177,7 @@ query Changes(\$bbox: BBoxInput!, \$since: String, \$first: Int) {
     hasMore
   }
 }
-$_placeFields''',
+$placeFieldsFragment''',
   parse: (data) {
     final set = data['changes'] as Map<String, dynamic>;
     return ChangeSet(

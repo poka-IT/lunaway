@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
@@ -14,6 +15,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -71,6 +73,7 @@ enum SyncFailure {
   static SyncFailure of(Object error) => switch (error) {
     GraphQLRateLimitedException() => busy,
     GraphQLNetworkException() => offline,
+    PackDownloadException(failure: PackDownloadFailure.network) => offline,
     GraphQLResponseException(transient: true) => server,
     GraphQLResponseException() => refused,
     _ => other,
@@ -88,9 +91,18 @@ final class SyncIdle extends SyncStatus {
 }
 
 final class SyncRunning extends SyncStatus {
-  const new(this.received);
+  const new(this.received, {this.region, this.packBytes = 0, this.packSize = 0});
 
+  /// Places written so far.
   final int received;
+
+  /// The region being synced, when the sync goes by region.
+  final String? region;
+
+  /// Bytes of that region's pack received, and its size; zero while the
+  /// region syncs from its feed.
+  final int packBytes;
+  final int packSize;
 }
 
 final class SyncDone extends SyncStatus {
@@ -152,10 +164,7 @@ class SyncController extends _$SyncController {
   /// Syncs when a run waits to be resumed, when no full sync ever
   /// completed, or when the last one is older than [staleAfter].
   Future<void> syncIfStale() async {
-    final state = await ref
-        .read(placesRepositoryProvider)
-        .watchSync(SyncRegion.metropolitanFrance.id)
-        .first;
+    final state = await _stored();
     if (!ref.mounted) return;
     final last = state.completedAt;
     final now = ref.read(clockProvider)();
@@ -163,22 +172,60 @@ class SyncController extends _$SyncController {
     await sync();
   }
 
+  /// Where the sync stands on the device, every region kept together.
+  Future<SyncState> _stored() async {
+    final legacy = await ref
+        .read(placesRepositoryProvider)
+        .watchSync(SyncRegion.metropolitanFrance.id)
+        .first;
+    final kept = await ref.read(keptRegionsStoreProvider).load();
+    if (kept == null) return legacy;
+    final states = await ref.read(regionStoreProvider).watchStates().first;
+    final catalog =
+        ref.read(regionCatalogControllerProvider).value ??
+        await ref.read(regionCatalogCopyProvider).load();
+    return overallSyncState(
+      kept: kept,
+      catalog: catalog,
+      states: {...states, SyncRegion.metropolitanFrance.id: legacy},
+    );
+  }
+
+  /// A sync asked for while one runs (a region added meanwhile) runs once
+  /// that one ends.
+  bool _again = false;
+
   Future<void> sync({bool fromScratch = false}) async {
-    if (state is SyncRunning) return;
+    if (state is SyncRunning) {
+      _again = true;
+      return;
+    }
+    _again = false;
     _retry?.cancel();
     state = const SyncRunning(0);
     try {
       final result = await ref
-          .read(syncServiceProvider)
-          .sync(
-            SyncRegion.metropolitanFrance,
+          .read(placesSyncProvider)
+          .run(
             fromScratch: fromScratch,
             clock: ref.read(clockProvider),
             onProgress: (p) {
-              if (ref.mounted) state = SyncRunning(p.upserted);
+              if (ref.mounted) {
+                state = SyncRunning(
+                  p.places,
+                  region: p.region,
+                  packBytes: p.packBytes,
+                  packSize: p.packSize,
+                );
+              }
             },
           );
       if (!ref.mounted) return;
+      if (_again) {
+        state = SyncDone(result.upserted);
+        unawaited(sync());
+        return;
+      }
       if (!result.complete) {
         // The server said there was more without moving its cursor: the run
         // resumes from its last page at the next attempt.
@@ -235,10 +282,23 @@ Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) {
   return ref.watch(placesRepositoryProvider).countMatching(resolved);
 }
 
-/// Where the sync of the region stands, as stored.
+/// Where the sync stands, as stored: every region kept together
+/// ([overallSyncState]), or France by box before any region was chosen.
 @riverpod
-Stream<SyncState> syncState(Ref ref) =>
-    ref.watch(placesRepositoryProvider).watchSync(SyncRegion.metropolitanFrance.id);
+Stream<SyncState> syncState(Ref ref) {
+  final legacy = ref.watch(placesRepositoryProvider).watchSync(SyncRegion.metropolitanFrance.id);
+  final kept = ref.watch(keptRegionsControllerProvider).value;
+  if (kept == null) return legacy;
+  final catalog = ref.watch(regionCatalogControllerProvider).value;
+  final states = ref.watch(regionStatesProvider).value ?? const {};
+  return legacy.map(
+    (l) => overallSyncState(
+      kept: kept,
+      catalog: catalog,
+      states: {...states, SyncRegion.metropolitanFrance.id: l},
+    ),
+  );
+}
 
 @riverpod
 Future<int> storageSize(Ref ref) {

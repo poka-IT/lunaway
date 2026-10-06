@@ -13,6 +13,7 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/regions/data/region_operations.dart';
 
 import 'graphql_validator.dart';
 
@@ -39,6 +40,7 @@ void main() {
     ...communityOperations,
     ...GraphQLFavoritesRemote.operations,
     ...poiOperations,
+    ...regionOperations,
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
@@ -94,6 +96,19 @@ void main() {
         changesVariables(bbox: GeoBounds.metropolitanFrance, first: 200),
       );
       expect(page.places, hasLength(200));
+      conforms();
+    });
+
+    test('the regions, then a page of a region', () async {
+      final regions = await client.execute(regionsOperation);
+      expect(regions.single.code, 'FR');
+      final page = await client.execute(regionChangesOperation, {
+        'region': 'FR',
+        'since': null,
+        'first': 100,
+      });
+      expect(page.places, hasLength(100));
+      expect(page.left, isEmpty);
       conforms();
     });
 

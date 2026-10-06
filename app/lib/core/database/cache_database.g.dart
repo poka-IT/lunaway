@@ -452,6 +452,15 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
+  static const VerificationMeta _regionMeta = const VerificationMeta('region');
+  late final GeneratedColumn<String> region = GeneratedColumn<String>(
+    'region',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     rid,
@@ -495,6 +504,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     photoCount,
     coverPhotosJson,
     issuesJson,
+    region,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -816,6 +826,12 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         issuesJson.isAcceptableOrUnknown(data['issues_json']!, _issuesJsonMeta),
       );
     }
+    if (data.containsKey('region')) {
+      context.handle(
+        _regionMeta,
+        region.isAcceptableOrUnknown(data['region']!, _regionMeta),
+      );
+    }
     return context;
   }
 
@@ -989,6 +1005,10 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.string,
         data['${effectivePrefix}issues_json'],
       )!,
+      region: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}region'],
+      ),
     );
   }
 
@@ -1066,6 +1086,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   final int photoCount;
   final String coverPhotosJson;
   final String issuesJson;
+
+  /// The sync region the place came with (`FR-BRE`, `ES`; added in
+  /// version 4): a region's full sync sweeps its own places, and removing a
+  /// region removes them. Null for a place of the sync by box of earlier
+  /// versions, until the region syncs it again.
+  final String? region;
   const PlaceRow({
     required this.rid,
     required this.id,
@@ -1108,6 +1134,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     required this.photoCount,
     required this.coverPhotosJson,
     required this.issuesJson,
+    this.region,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1189,6 +1216,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     map['photo_count'] = Variable<int>(photoCount);
     map['cover_photos_json'] = Variable<String>(coverPhotosJson);
     map['issues_json'] = Variable<String>(issuesJson);
+    if (!nullToAbsent || region != null) {
+      map['region'] = Variable<String>(region);
+    }
     return map;
   }
 
@@ -1267,6 +1297,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       photoCount: Value(photoCount),
       coverPhotosJson: Value(coverPhotosJson),
       issuesJson: Value(issuesJson),
+      region: region == null && nullToAbsent
+          ? const Value.absent()
+          : Value(region),
     );
   }
 
@@ -1321,6 +1354,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       photoCount: serializer.fromJson<int>(json['photo_count']),
       coverPhotosJson: serializer.fromJson<String>(json['cover_photos_json']),
       issuesJson: serializer.fromJson<String>(json['issues_json']),
+      region: serializer.fromJson<String?>(json['region']),
     );
   }
   @override
@@ -1370,6 +1404,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'photo_count': serializer.toJson<int>(photoCount),
       'cover_photos_json': serializer.toJson<String>(coverPhotosJson),
       'issues_json': serializer.toJson<String>(issuesJson),
+      'region': serializer.toJson<String?>(region),
     };
   }
 
@@ -1415,6 +1450,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     int? photoCount,
     String? coverPhotosJson,
     String? issuesJson,
+    Value<String?> region = const Value.absent(),
   }) => PlaceRow(
     rid: rid ?? this.rid,
     id: id ?? this.id,
@@ -1465,6 +1501,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     photoCount: photoCount ?? this.photoCount,
     coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
     issuesJson: issuesJson ?? this.issuesJson,
+    region: region.present ? region.value : this.region,
   );
   PlaceRow copyWithCompanion(PlacesCompanion data) {
     return PlaceRow(
@@ -1549,6 +1586,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       issuesJson: data.issuesJson.present
           ? data.issuesJson.value
           : this.issuesJson,
+      region: data.region.present ? data.region.value : this.region,
     );
   }
 
@@ -1595,7 +1633,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ..write('reviewCount: $reviewCount, ')
           ..write('photoCount: $photoCount, ')
           ..write('coverPhotosJson: $coverPhotosJson, ')
-          ..write('issuesJson: $issuesJson')
+          ..write('issuesJson: $issuesJson, ')
+          ..write('region: $region')
           ..write(')'))
         .toString();
   }
@@ -1643,6 +1682,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     photoCount,
     coverPhotosJson,
     issuesJson,
+    region,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1688,7 +1728,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           other.reviewCount == this.reviewCount &&
           other.photoCount == this.photoCount &&
           other.coverPhotosJson == this.coverPhotosJson &&
-          other.issuesJson == this.issuesJson);
+          other.issuesJson == this.issuesJson &&
+          other.region == this.region);
 }
 
 class PlacesCompanion extends UpdateCompanion<PlaceRow> {
@@ -1733,6 +1774,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   final Value<int> photoCount;
   final Value<String> coverPhotosJson;
   final Value<String> issuesJson;
+  final Value<String?> region;
   const PlacesCompanion({
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
@@ -1775,6 +1817,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.photoCount = const Value.absent(),
     this.coverPhotosJson = const Value.absent(),
     this.issuesJson = const Value.absent(),
+    this.region = const Value.absent(),
   });
   PlacesCompanion.insert({
     this.rid = const Value.absent(),
@@ -1818,6 +1861,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.photoCount = const Value.absent(),
     this.coverPhotosJson = const Value.absent(),
     this.issuesJson = const Value.absent(),
+    this.region = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
        family = Value(family),
@@ -1867,6 +1911,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Expression<int>? photoCount,
     Expression<String>? coverPhotosJson,
     Expression<String>? issuesJson,
+    Expression<String>? region,
   }) {
     return RawValuesInsertable({
       if (rid != null) 'rid': rid,
@@ -1912,6 +1957,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       if (photoCount != null) 'photo_count': photoCount,
       if (coverPhotosJson != null) 'cover_photos_json': coverPhotosJson,
       if (issuesJson != null) 'issues_json': issuesJson,
+      if (region != null) 'region': region,
     });
   }
 
@@ -1957,6 +2003,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Value<int>? photoCount,
     Value<String>? coverPhotosJson,
     Value<String>? issuesJson,
+    Value<String?>? region,
   }) {
     return PlacesCompanion(
       rid: rid ?? this.rid,
@@ -2000,6 +2047,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       photoCount: photoCount ?? this.photoCount,
       coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
       issuesJson: issuesJson ?? this.issuesJson,
+      region: region ?? this.region,
     );
   }
 
@@ -2131,6 +2179,9 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     if (issuesJson.present) {
       map['issues_json'] = Variable<String>(issuesJson.value);
     }
+    if (region.present) {
+      map['region'] = Variable<String>(region.value);
+    }
     return map;
   }
 
@@ -2177,7 +2228,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
           ..write('reviewCount: $reviewCount, ')
           ..write('photoCount: $photoCount, ')
           ..write('coverPhotosJson: $coverPhotosJson, ')
-          ..write('issuesJson: $issuesJson')
+          ..write('issuesJson: $issuesJson, ')
+          ..write('region: $region')
           ..write(')'))
         .toString();
   }
@@ -3983,9 +4035,624 @@ class PoiCacheCompanion extends UpdateCompanion<PoiCacheRow> {
   }
 }
 
+class EnforcementItems extends Table
+    with TableInfo<EnforcementItems, EnforcementItemRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  EnforcementItems(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL PRIMARY KEY',
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _countryMeta = const VerificationMeta(
+    'country',
+  );
+  late final GeneratedColumn<String> country = GeneratedColumn<String>(
+    'country',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _lineMeta = const VerificationMeta('line');
+  late final GeneratedColumn<String> line = GeneratedColumn<String>(
+    'line',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+    'lat',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _lonMeta = const VerificationMeta('lon');
+  late final GeneratedColumn<double> lon = GeneratedColumn<double>(
+    'lon',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _bearingDegMeta = const VerificationMeta(
+    'bearingDeg',
+  );
+  late final GeneratedColumn<double> bearingDeg = GeneratedColumn<double>(
+    'bearing_deg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _limitKmhMeta = const VerificationMeta(
+    'limitKmh',
+  );
+  late final GeneratedColumn<int> limitKmh = GeneratedColumn<int>(
+    'limit_kmh',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _sourceIdsMeta = const VerificationMeta(
+    'sourceIds',
+  );
+  late final GeneratedColumn<String> sourceIds = GeneratedColumn<String>(
+    'source_ids',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+    defaultValue: const CustomExpression('\'[]\''),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kind,
+    category,
+    country,
+    line,
+    lat,
+    lon,
+    bearingDeg,
+    limitKmh,
+    sourceIds,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'enforcement_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EnforcementItemRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryMeta);
+    }
+    if (data.containsKey('country')) {
+      context.handle(
+        _countryMeta,
+        country.isAcceptableOrUnknown(data['country']!, _countryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_countryMeta);
+    }
+    if (data.containsKey('line')) {
+      context.handle(
+        _lineMeta,
+        line.isAcceptableOrUnknown(data['line']!, _lineMeta),
+      );
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+        _latMeta,
+        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
+      );
+    }
+    if (data.containsKey('lon')) {
+      context.handle(
+        _lonMeta,
+        lon.isAcceptableOrUnknown(data['lon']!, _lonMeta),
+      );
+    }
+    if (data.containsKey('bearing_deg')) {
+      context.handle(
+        _bearingDegMeta,
+        bearingDeg.isAcceptableOrUnknown(data['bearing_deg']!, _bearingDegMeta),
+      );
+    }
+    if (data.containsKey('limit_kmh')) {
+      context.handle(
+        _limitKmhMeta,
+        limitKmh.isAcceptableOrUnknown(data['limit_kmh']!, _limitKmhMeta),
+      );
+    }
+    if (data.containsKey('source_ids')) {
+      context.handle(
+        _sourceIdsMeta,
+        sourceIds.isAcceptableOrUnknown(data['source_ids']!, _sourceIdsMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  EnforcementItemRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EnforcementItemRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      country: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}country'],
+      )!,
+      line: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}line'],
+      ),
+      lat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lat'],
+      ),
+      lon: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lon'],
+      ),
+      bearingDeg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}bearing_deg'],
+      ),
+      limitKmh: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}limit_kmh'],
+      ),
+      sourceIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_ids'],
+      )!,
+    );
+  }
+
+  @override
+  EnforcementItems createAlias(String alias) {
+    return EnforcementItems(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class EnforcementItemRow extends DataClass
+    implements Insertable<EnforcementItemRow> {
+  final String id;
+
+  /// ZONE or CAMERA.
+  final String kind;
+  final String category;
+
+  /// ISO 3166-1 alpha-2 of the country whose rule it follows.
+  final String country;
+
+  /// The road of a zone (or of an average speed section), polyline6.
+  final String? line;
+  final double? lat;
+  final double? lon;
+  final double? bearingDeg;
+  final int? limitKmh;
+
+  /// JSON array of the lists it comes from.
+  final String sourceIds;
+  const EnforcementItemRow({
+    required this.id,
+    required this.kind,
+    required this.category,
+    required this.country,
+    this.line,
+    this.lat,
+    this.lon,
+    this.bearingDeg,
+    this.limitKmh,
+    required this.sourceIds,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['kind'] = Variable<String>(kind);
+    map['category'] = Variable<String>(category);
+    map['country'] = Variable<String>(country);
+    if (!nullToAbsent || line != null) {
+      map['line'] = Variable<String>(line);
+    }
+    if (!nullToAbsent || lat != null) {
+      map['lat'] = Variable<double>(lat);
+    }
+    if (!nullToAbsent || lon != null) {
+      map['lon'] = Variable<double>(lon);
+    }
+    if (!nullToAbsent || bearingDeg != null) {
+      map['bearing_deg'] = Variable<double>(bearingDeg);
+    }
+    if (!nullToAbsent || limitKmh != null) {
+      map['limit_kmh'] = Variable<int>(limitKmh);
+    }
+    map['source_ids'] = Variable<String>(sourceIds);
+    return map;
+  }
+
+  EnforcementItemsCompanion toCompanion(bool nullToAbsent) {
+    return EnforcementItemsCompanion(
+      id: Value(id),
+      kind: Value(kind),
+      category: Value(category),
+      country: Value(country),
+      line: line == null && nullToAbsent ? const Value.absent() : Value(line),
+      lat: lat == null && nullToAbsent ? const Value.absent() : Value(lat),
+      lon: lon == null && nullToAbsent ? const Value.absent() : Value(lon),
+      bearingDeg: bearingDeg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bearingDeg),
+      limitKmh: limitKmh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(limitKmh),
+      sourceIds: Value(sourceIds),
+    );
+  }
+
+  factory EnforcementItemRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EnforcementItemRow(
+      id: serializer.fromJson<String>(json['id']),
+      kind: serializer.fromJson<String>(json['kind']),
+      category: serializer.fromJson<String>(json['category']),
+      country: serializer.fromJson<String>(json['country']),
+      line: serializer.fromJson<String?>(json['line']),
+      lat: serializer.fromJson<double?>(json['lat']),
+      lon: serializer.fromJson<double?>(json['lon']),
+      bearingDeg: serializer.fromJson<double?>(json['bearing_deg']),
+      limitKmh: serializer.fromJson<int?>(json['limit_kmh']),
+      sourceIds: serializer.fromJson<String>(json['source_ids']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'kind': serializer.toJson<String>(kind),
+      'category': serializer.toJson<String>(category),
+      'country': serializer.toJson<String>(country),
+      'line': serializer.toJson<String?>(line),
+      'lat': serializer.toJson<double?>(lat),
+      'lon': serializer.toJson<double?>(lon),
+      'bearing_deg': serializer.toJson<double?>(bearingDeg),
+      'limit_kmh': serializer.toJson<int?>(limitKmh),
+      'source_ids': serializer.toJson<String>(sourceIds),
+    };
+  }
+
+  EnforcementItemRow copyWith({
+    String? id,
+    String? kind,
+    String? category,
+    String? country,
+    Value<String?> line = const Value.absent(),
+    Value<double?> lat = const Value.absent(),
+    Value<double?> lon = const Value.absent(),
+    Value<double?> bearingDeg = const Value.absent(),
+    Value<int?> limitKmh = const Value.absent(),
+    String? sourceIds,
+  }) => EnforcementItemRow(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    category: category ?? this.category,
+    country: country ?? this.country,
+    line: line.present ? line.value : this.line,
+    lat: lat.present ? lat.value : this.lat,
+    lon: lon.present ? lon.value : this.lon,
+    bearingDeg: bearingDeg.present ? bearingDeg.value : this.bearingDeg,
+    limitKmh: limitKmh.present ? limitKmh.value : this.limitKmh,
+    sourceIds: sourceIds ?? this.sourceIds,
+  );
+  EnforcementItemRow copyWithCompanion(EnforcementItemsCompanion data) {
+    return EnforcementItemRow(
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      category: data.category.present ? data.category.value : this.category,
+      country: data.country.present ? data.country.value : this.country,
+      line: data.line.present ? data.line.value : this.line,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lon: data.lon.present ? data.lon.value : this.lon,
+      bearingDeg: data.bearingDeg.present
+          ? data.bearingDeg.value
+          : this.bearingDeg,
+      limitKmh: data.limitKmh.present ? data.limitKmh.value : this.limitKmh,
+      sourceIds: data.sourceIds.present ? data.sourceIds.value : this.sourceIds,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EnforcementItemRow(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('category: $category, ')
+          ..write('country: $country, ')
+          ..write('line: $line, ')
+          ..write('lat: $lat, ')
+          ..write('lon: $lon, ')
+          ..write('bearingDeg: $bearingDeg, ')
+          ..write('limitKmh: $limitKmh, ')
+          ..write('sourceIds: $sourceIds')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kind,
+    category,
+    country,
+    line,
+    lat,
+    lon,
+    bearingDeg,
+    limitKmh,
+    sourceIds,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EnforcementItemRow &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.category == this.category &&
+          other.country == this.country &&
+          other.line == this.line &&
+          other.lat == this.lat &&
+          other.lon == this.lon &&
+          other.bearingDeg == this.bearingDeg &&
+          other.limitKmh == this.limitKmh &&
+          other.sourceIds == this.sourceIds);
+}
+
+class EnforcementItemsCompanion extends UpdateCompanion<EnforcementItemRow> {
+  final Value<String> id;
+  final Value<String> kind;
+  final Value<String> category;
+  final Value<String> country;
+  final Value<String?> line;
+  final Value<double?> lat;
+  final Value<double?> lon;
+  final Value<double?> bearingDeg;
+  final Value<int?> limitKmh;
+  final Value<String> sourceIds;
+  final Value<int> rowid;
+  const EnforcementItemsCompanion({
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.category = const Value.absent(),
+    this.country = const Value.absent(),
+    this.line = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lon = const Value.absent(),
+    this.bearingDeg = const Value.absent(),
+    this.limitKmh = const Value.absent(),
+    this.sourceIds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EnforcementItemsCompanion.insert({
+    required String id,
+    required String kind,
+    required String category,
+    required String country,
+    this.line = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lon = const Value.absent(),
+    this.bearingDeg = const Value.absent(),
+    this.limitKmh = const Value.absent(),
+    this.sourceIds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kind = Value(kind),
+       category = Value(category),
+       country = Value(country);
+  static Insertable<EnforcementItemRow> custom({
+    Expression<String>? id,
+    Expression<String>? kind,
+    Expression<String>? category,
+    Expression<String>? country,
+    Expression<String>? line,
+    Expression<double>? lat,
+    Expression<double>? lon,
+    Expression<double>? bearingDeg,
+    Expression<int>? limitKmh,
+    Expression<String>? sourceIds,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (category != null) 'category': category,
+      if (country != null) 'country': country,
+      if (line != null) 'line': line,
+      if (lat != null) 'lat': lat,
+      if (lon != null) 'lon': lon,
+      if (bearingDeg != null) 'bearing_deg': bearingDeg,
+      if (limitKmh != null) 'limit_kmh': limitKmh,
+      if (sourceIds != null) 'source_ids': sourceIds,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EnforcementItemsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? kind,
+    Value<String>? category,
+    Value<String>? country,
+    Value<String?>? line,
+    Value<double?>? lat,
+    Value<double?>? lon,
+    Value<double?>? bearingDeg,
+    Value<int?>? limitKmh,
+    Value<String>? sourceIds,
+    Value<int>? rowid,
+  }) {
+    return EnforcementItemsCompanion(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      category: category ?? this.category,
+      country: country ?? this.country,
+      line: line ?? this.line,
+      lat: lat ?? this.lat,
+      lon: lon ?? this.lon,
+      bearingDeg: bearingDeg ?? this.bearingDeg,
+      limitKmh: limitKmh ?? this.limitKmh,
+      sourceIds: sourceIds ?? this.sourceIds,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (country.present) {
+      map['country'] = Variable<String>(country.value);
+    }
+    if (line.present) {
+      map['line'] = Variable<String>(line.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lon.present) {
+      map['lon'] = Variable<double>(lon.value);
+    }
+    if (bearingDeg.present) {
+      map['bearing_deg'] = Variable<double>(bearingDeg.value);
+    }
+    if (limitKmh.present) {
+      map['limit_kmh'] = Variable<int>(limitKmh.value);
+    }
+    if (sourceIds.present) {
+      map['source_ids'] = Variable<String>(sourceIds.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EnforcementItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('category: $category, ')
+          ..write('country: $country, ')
+          ..write('line: $line, ')
+          ..write('lat: $lat, ')
+          ..write('lon: $lon, ')
+          ..write('bearingDeg: $bearingDeg, ')
+          ..write('limitKmh: $limitKmh, ')
+          ..write('sourceIds: $sourceIds, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$CacheDatabase extends GeneratedDatabase {
   _$CacheDatabase(QueryExecutor e) : super(e);
   late final Places places = Places(this);
+  late final Index placesRegion = Index(
+    'places_region',
+    'CREATE INDEX places_region ON places (region)',
+  );
   late final PlaceBounds placeBounds = PlaceBounds(this);
   late final PlaceSearch placeSearch = PlaceSearch(this);
   late final Trigger placesAfterInsert = Trigger(
@@ -4004,12 +4671,14 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
   late final PlaceExtrasCache placeExtrasCache = PlaceExtrasCache(this);
   late final DeviceState deviceState = DeviceState(this);
   late final PoiCache poiCache = PoiCache(this);
+  late final EnforcementItems enforcementItems = EnforcementItems(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     places,
+    placesRegion,
     placeBounds,
     placeSearch,
     placesAfterInsert,
@@ -4019,6 +4688,7 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
     placeExtrasCache,
     deviceState,
     poiCache,
+    enforcementItems,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

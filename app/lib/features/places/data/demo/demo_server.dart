@@ -62,6 +62,18 @@ http.Client demoApiClient(
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     final data = switch (body['operationName']) {
       'Changes' => _changes(places, variables),
+      // One region, France, with no pack: the demo syncs from its feed.
+      'Regions' => {
+        'regions': [
+          {'code': 'FR', 'country': 'FR', 'name': 'France', 'nameFr': 'France', 'pack': null},
+        ],
+      },
+      'RegionChanges' => {
+        'changes': {
+          ..._changes(places, variables)['changes']! as Map<String, Object?>,
+          'left': <String>[],
+        },
+      },
       'PlaceExtras' || 'PlaceReviews' => _extras(byId[variables['id']], variables, apiBase),
       final other => throw StateError('the demo API does not serve $other'),
     };
