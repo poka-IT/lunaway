@@ -160,15 +160,35 @@ pub const EUROPE: &[&str] = &[
 /// Geofabrik's `spain`).
 pub const SPLIT_AREAS: &[&str] = &["IC"];
 
+/// The waters of each split area: the area, its country and a box
+/// `[south, west, north, east]` around its islands. A record of that country
+/// in the box that no boundary holds (the boundaries cover the waters near
+/// the islands, not the open sea; a long way placed at the centre of its box
+/// can land there) is the area's: the area's extract holds it, the
+/// country's does not, and the country's run must not retire it.
+const SPLIT_WATERS: &[(&str, &str, [f64; 4])] = &[("IC", "ES", [27.5, -18.4, 29.5, -13.2])];
+
 /// The scope of a record of `country` at `position`: the part of
-/// [`SPLIT_AREAS`] it lies in, else its country.
+/// [`SPLIT_AREAS`] it lies in or off, else its country.
 #[must_use]
 pub fn scope_of(position: lunaway_domain::Position, country: Option<&str>) -> Option<String> {
     let areas = lunaway_domain::region::areas_at(position);
+    let (lat, lon) = (position.lat(), position.lon());
     SPLIT_AREAS
         .iter()
         .find(|split| areas.contains(split))
-        .map(|split| (*split).to_owned())
+        .copied()
+        .or_else(|| {
+            SPLIT_WATERS
+                .iter()
+                .find(|(_, of, [south, west, north, east])| {
+                    country.is_some_and(|c| c.eq_ignore_ascii_case(of))
+                        && (*south..=*north).contains(&lat)
+                        && (*west..=*east).contains(&lon)
+                })
+                .map(|(split, ..)| *split)
+        })
+        .map(str::to_owned)
         .or_else(|| country.map(str::to_owned))
 }
 
@@ -983,6 +1003,39 @@ mod tests {
             "osm-extract/__/france-latest.osm.pbf",
             "a mirror cannot name a directory outside the cache"
         );
+    }
+
+    #[test]
+    fn the_canary_waters_are_the_canary_scope() {
+        let at = |lat, lon| lunaway_domain::Position::new(lat, lon).unwrap();
+        // North-west of La Palma, past the waters the boundaries draw
+        // around the islands: the Canary extract keeps it under its
+        // fallback country, Spain.
+        let offshore = at(29.4, -18.3);
+        assert!(lunaway_domain::region::areas_at(offshore).is_empty());
+        assert_eq!(scope_of(offshore, Some("ES")).as_deref(), Some("IC"));
+        let canary = Area::of(&extract("canary-islands").unwrap());
+        assert_eq!(
+            canary.country(29.4, -18.3),
+            Ok(Some("ES")),
+            "a point off the islands is the Canary run's, not dropped as outside"
+        );
+        assert_eq!(
+            scope_of(at(28.1, -15.43), Some("ES")).as_deref(),
+            Some("IC"),
+            "Las Palmas"
+        );
+        assert_eq!(
+            scope_of(at(36.5, -6.3), Some("ES")).as_deref(),
+            Some("ES"),
+            "Cadiz"
+        );
+        assert_eq!(
+            scope_of(offshore, Some("PT")).as_deref(),
+            Some("PT"),
+            "the waters are Spain's split only"
+        );
+        assert_eq!(scope_of(offshore, None), None);
     }
 
     #[test]

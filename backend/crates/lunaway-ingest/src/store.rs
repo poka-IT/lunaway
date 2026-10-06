@@ -16,6 +16,13 @@ use crate::{FetchedRecord, IngestError};
 /// empty CSV) would otherwise delete real places.
 pub const RETIRE_GUARD_PERCENT: u64 = 50;
 
+/// A scope of an extract run holding fewer live records than this is
+/// retired without the guard: a share of so few says nothing (a microstate
+/// with one campsite that closes goes from 100% to 0%), and refusing it would
+/// fail every later run. A truncated file shows in the scopes that hold
+/// more.
+pub const RETIRE_GUARD_MIN: i64 = 10;
+
 /// What a store did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct StoreReport {
@@ -169,7 +176,7 @@ pub struct Retirement {
 /// The scopes `coverage` speaks for whose share of the run passes the
 /// truncation guard, and those that do not. Each country is judged on its
 /// own: France as one extract of twenty-four would otherwise hide behind
-/// the others.
+/// the others. A scope below [`RETIRE_GUARD_MIN`] always passes.
 fn guarded(
     coverage: &crate::osm_extract::Coverage,
     seen_by_scope: &BTreeMap<String, usize>,
@@ -180,10 +187,8 @@ fn guarded(
         .unwrap_or_else(|| stored.keys().chain(seen_by_scope.keys()).cloned().collect());
     let scopes: std::collections::BTreeSet<String> = scopes.into_iter().collect();
     scopes.into_iter().partition(|s| {
-        !truncated(
-            seen_by_scope.get(s).copied().unwrap_or(0),
-            stored.get(s).copied().unwrap_or(0),
-        )
+        let stored = stored.get(s).copied().unwrap_or(0);
+        stored < RETIRE_GUARD_MIN || !truncated(seen_by_scope.get(s).copied().unwrap_or(0), stored)
     })
 }
 
@@ -207,6 +212,10 @@ pub async fn retire_in_coverage(
     warn_refused(source, &refused, seen_by_scope, &stored);
     let retired = if passing.is_empty() {
         0
+    } else if refused.is_empty() && coverage.scopes().is_none() {
+        // A continent speaks for the whole source, whatever scope a record
+        // was stored under.
+        records::retire_missing_in_source(pool, source, seen, at).await?
     } else {
         records::retire_missing_in_scopes(pool, source, &passing, seen, at).await?
     };
@@ -291,6 +300,8 @@ pub async fn retire_pois_in_coverage(
     warn_refused(source, &refused, seen_by_scope, &stored);
     let retired = if passing.is_empty() {
         0
+    } else if refused.is_empty() && coverage.scopes().is_none() {
+        lunaway_db::pois::retire_missing(pool, source, None, seen, at).await?
     } else {
         lunaway_db::pois::retire_missing(pool, source, Some(&passing), seen, at).await?
     };
@@ -426,4 +437,28 @@ fn truncated(seen: usize, stored: i64) -> bool {
     let seen = u64::try_from(seen).unwrap_or(u64::MAX);
     let stored = u64::try_from(stored).unwrap_or(0);
     seen.saturating_mul(100) < stored.saturating_mul(RETIRE_GUARD_PERCENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::osm_extract::Coverage;
+
+    #[test]
+    fn a_scope_too_small_for_a_share_is_retired_without_the_guard() {
+        let coverage = Coverage::Countries(["FR", "GI", "DE"].map(String::from).into());
+        let seen = BTreeMap::from([("FR".to_owned(), 3), ("DE".to_owned(), 9)]);
+        let stored = BTreeMap::from([
+            ("FR".to_owned(), 10),
+            ("GI".to_owned(), 1),
+            ("DE".to_owned(), 10),
+        ]);
+        let (passing, refused) = guarded(&coverage, &seen, &stored);
+        assert_eq!(
+            refused,
+            ["FR"],
+            "3 of 10 looks truncated; Gibraltar's only campsite closing does not"
+        );
+        assert_eq!(passing, ["DE", "GI"]);
+    }
 }

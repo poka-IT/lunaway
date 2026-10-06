@@ -2065,6 +2065,9 @@ async fn a_vending_machine_added_in_two_gestures_is_confirmed_or_hidden(pool: Pg
         "a hidden point is not around anything"
     );
     let v = version(&gql(&app, None, "{ poiLayer { version } }", json!({})).await);
+    // The tile endpoint reads a newer version named in a URL at most every
+    // 200 ms (`tiles::VERSION_RECHECK`); the steps above can take less.
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     let (status, _) = send(&app, Request::get(tile_uri(v)).body(Body::empty()).unwrap()).await;
     assert_eq!(status, StatusCode::NO_CONTENT, "nor on any tile");
     let layer_after = gql(&app, None, "{ poiLayer { version } }", json!({})).await;

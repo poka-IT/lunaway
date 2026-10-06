@@ -8,6 +8,7 @@
 )]
 
 use lunaway_db::PgPool;
+use lunaway_db::places::{Change, changes_in_region};
 use lunaway_domain::region::{ATTACHED, french_region_of_department, sync_region_of};
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -101,5 +102,102 @@ async fn a_place_on_the_shore_takes_the_nearest_commune(pool: PgPool) {
             (uuid::Uuid::from_u128(4), None, Some("DE".into())),
         ],
         "the shore's campsite syncs with Brittany; a point far out stays outside every commune"
+    );
+}
+
+async fn insert_place(pool: &PgPool, id: u128, country: &str) {
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, services, activities, country_code, \
+                             provenance, content_hash, updated_seq) \
+         VALUES ($1, 'campsite', ST_SetSRID(ST_MakePoint(10.0, 50.0), 4326)::geography, \
+                 'unknown', '{}', '{}', $2, '[]', 'x', nextval('place_change_seq'))",
+    )
+    .bind(uuid::Uuid::from_u128(id))
+    .bind(country)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn move_place(pool: &PgPool, id: u128, country: &str) {
+    sqlx::query(
+        "UPDATE places SET country_code = $2, updated_seq = nextval('place_change_seq') \
+         WHERE id = $1",
+    )
+    .bind(uuid::Uuid::from_u128(id))
+    .bind(country)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+fn summary(changes: &[Change]) -> Vec<(char, u128)> {
+    changes
+        .iter()
+        .map(|c| match c {
+            Change::Upsert(p) => ('u', p.id.as_u128()),
+            Change::Delete { id, .. } => ('d', id.as_u128()),
+            Change::Left { id, .. } => ('l', id.as_u128()),
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_region_feed_pages_its_departures_and_skips_the_places_that_came_back(pool: PgPool) {
+    for id in 1..=5 {
+        insert_place(&pool, id, "DE").await;
+    }
+    let since: i64 = sqlx::query_scalar("SELECT max(updated_seq) FROM places")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    move_place(&pool, 1, "AT").await;
+    move_place(&pool, 2, "AT").await;
+    move_place(&pool, 3, "AT").await;
+    move_place(&pool, 3, "DE").await;
+    move_place(&pool, 5, "AT").await;
+    move_place(&pool, 5, "DE").await;
+    move_place(&pool, 5, "AT").await;
+    move_place(&pool, 4, "DE").await;
+
+    // One change per page: more departures than a page holds cut it at the
+    // last one it lists, and the cursor resumes after it.
+    let mut pages = Vec::new();
+    let mut cursor = since;
+    loop {
+        let (page, more) = changes_in_region(&pool, "DE", cursor, 1, true)
+            .await
+            .unwrap();
+        cursor = page.last().map_or(cursor, Change::seq);
+        pages.push(summary(&page));
+        if !more {
+            break;
+        }
+        assert!(pages.len() < 10, "the walk must end");
+    }
+    assert_eq!(
+        pages,
+        [
+            vec![('l', 1)],
+            vec![('l', 2), ('u', 3)],
+            vec![('l', 5)],
+            vec![('l', 5), ('u', 4)],
+        ],
+        "every departure reaches the device, and a place back in the region is not removed"
+    );
+
+    // One page: a place that left twice is listed once, at its last departure.
+    let (all, more) = changes_in_region(&pool, "DE", since, 100, true)
+        .await
+        .unwrap();
+    assert!(!more);
+    assert_eq!(
+        summary(&all),
+        [('l', 1), ('l', 2), ('u', 3), ('l', 5), ('u', 4)]
+    );
+    let seqs: Vec<i64> = all.iter().map(Change::seq).collect();
+    assert!(
+        seqs.windows(2).all(|w| w[0] < w[1]),
+        "a page is in feed order, so its last position is the cursor"
     );
 }

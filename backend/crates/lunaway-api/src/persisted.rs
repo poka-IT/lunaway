@@ -13,10 +13,15 @@
 //! fill the registry with documents that do not even validate; the registry
 //! is bounded in entries, each document by the guard's size limit
 //! ([`crate::guard::MAX_QUERY_BYTES`]), the least recently used evicted
-//! first, and it takes at most [`NEW_PER_MINUTE`] new documents a minute:
-//! one address could otherwise register throwaway documents fast enough to
-//! push the app's out (security audit of 2026-10-06), and the app's, used
-//! by every device, stay the most recent. A document
+//! first, and it takes at most [`NEW_PER_MINUTE`] new documents a minute,
+//! [`NEW_PER_CLIENT_MINUTE`] of them from one client (an IPv4 address, an
+//! IPv6 /48): one address could otherwise register throwaway documents fast
+//! enough to push the app's out, or spend the minute's budget before the
+//! app's first devices after a restart (security audits of 2026-10-06). The
+//! app's documents, used by every device, stay the most recent. Clients on
+//! three or more addresses can still spend a minute's budget; the app then
+//! sends its document with the hash on each request, as without the
+//! registry, until a later minute keeps it. A document
 //! sent without a hash is served as before, under the same limits: the
 //! schema is public and every document is bounded by the guard and its
 //! cost, so an allowlist would refuse third-party and older clients without
@@ -30,12 +35,16 @@ use std::{
 
 use sha2::{Digest, Sha256};
 
+use crate::client::ClientKey;
+
 /// Documents kept at most: the app sends about twenty.
 pub const MAX_ENTRIES: usize = 512;
 /// New documents kept per minute, all clients together: the app's twenty
 /// after a restart fit in the first minute; a flood needs over eight
 /// minutes to replace the whole registry.
 pub const NEW_PER_MINUTE: u32 = 60;
+/// New documents kept per minute from one client: the app's twenty fit.
+pub const NEW_PER_CLIENT_MINUTE: u32 = 20;
 
 /// The code of the answer to an unknown hash, as Apollo clients expect it.
 pub const NOT_FOUND: &str = "PERSISTED_QUERY_NOT_FOUND";
@@ -56,6 +65,9 @@ struct Inner {
     order: VecDeque<String>,
     /// The minute new documents are counted in, and how many it took.
     minute: Option<(Instant, u32)>,
+    /// How many each client added in that minute: at most
+    /// [`NEW_PER_MINUTE`] entries, one per client that added one.
+    by_client: HashMap<ClientKey, u32>,
 }
 
 impl Registry {
@@ -72,12 +84,13 @@ impl Registry {
     }
 
     /// Keeps `document` under `hash` (its SHA-256, checked by the caller),
-    /// unless the minute's new documents are spent.
-    pub(crate) fn put(&self, hash: &str, document: &str) {
-        self.put_at(hash, document, Instant::now());
+    /// sent by `client`, unless the minute's new documents, or that
+    /// client's, are spent.
+    pub(crate) fn put(&self, hash: &str, document: &str, client: ClientKey) {
+        self.put_at(hash, document, client, Instant::now());
     }
 
-    fn put_at(&self, hash: &str, document: &str, now: Instant) {
+    fn put_at(&self, hash: &str, document: &str, client: ClientKey, now: Instant) {
         let Ok(mut inner) = self.inner.lock() else {
             return;
         };
@@ -88,13 +101,18 @@ impl Registry {
             Some((start, n)) if now.duration_since(start) < Duration::from_secs(60) => n,
             _ => {
                 inner.minute = Some((now, 0));
+                inner.by_client.clear();
                 0
             }
         };
-        if count >= NEW_PER_MINUTE {
+        // An IPv6 holder counts by its /48, which it may rotate through.
+        let client = client.site().unwrap_or(client);
+        let of_client = inner.by_client.get(&client).copied().unwrap_or(0);
+        if count >= NEW_PER_MINUTE || of_client >= NEW_PER_CLIENT_MINUTE {
             return;
         }
         inner.minute = inner.minute.map(|(start, n)| (start, n + 1));
+        inner.by_client.insert(client, of_client + 1);
         inner.map.insert(hash.to_owned(), Arc::from(document));
         inner.order.push_back(hash.to_owned());
         while inner.order.len() > MAX_ENTRIES {
@@ -128,11 +146,16 @@ mod tests {
     fn the_least_recently_used_document_goes_first() {
         let r = Registry::default();
         let start = Instant::now();
-        // A minute apart in batches, as the per-minute cap allows.
+        // A minute apart in batches, as the per-minute caps allow.
         for i in 0..=MAX_ENTRIES {
             let doc = format!("{{ q{i} }}");
-            let minute = u64::try_from(i).unwrap() / u64::from(NEW_PER_MINUTE);
-            r.put_at(&hash(&doc), &doc, start + Duration::from_secs(61 * minute));
+            let minute = u64::try_from(i).unwrap() / u64::from(NEW_PER_CLIENT_MINUTE);
+            r.put_at(
+                &hash(&doc),
+                &doc,
+                ClientKey::Unknown,
+                start + Duration::from_secs(61 * minute),
+            );
             if i == 10 {
                 assert!(r.get(&hash("{ q0 }")).is_some(), "used: q0 is recent again");
             }
@@ -147,19 +170,48 @@ mod tests {
         );
     }
 
+    fn kept(r: &Registry, prefix: &str, n: u32) -> u32 {
+        let kept = (0..n)
+            .filter(|i| r.get(&hash(&format!("{{ {prefix}{i} }}"))).is_some())
+            .count();
+        u32::try_from(kept).unwrap()
+    }
+
     #[test]
-    fn a_flood_of_new_documents_is_capped_per_minute() {
+    fn a_flood_of_new_documents_is_capped_per_client_and_per_minute() {
         let r = Registry::default();
         let now = Instant::now();
+        let flooder = ClientKey::of("203.0.113.9".parse().unwrap());
         for i in 0..200 {
             let doc = format!("{{ flood{i} }}");
-            r.put_at(&hash(&doc), &doc, now);
+            r.put_at(&hash(&doc), &doc, flooder, now);
         }
-        let kept = (0..200)
-            .filter(|i| r.get(&hash(&format!("{{ flood{i} }}"))).is_some())
-            .count();
-        assert_eq!(kept, usize::try_from(NEW_PER_MINUTE).unwrap());
-        r.put_at(&hash("{ next }"), "{ next }", now + Duration::from_secs(61));
+        assert_eq!(kept(&r, "flood", 200), NEW_PER_CLIENT_MINUTE);
+        // Another /64 of the same /48 shares its budget.
+        let rotated = ClientKey::of("2001:db8:1:1::1".parse().unwrap());
+        let sibling = ClientKey::of("2001:db8:1:2::1".parse().unwrap());
+        for i in 0..30 {
+            let doc = format!("{{ v6{i} }}");
+            let client = if i % 2 == 0 { rotated } else { sibling };
+            r.put_at(&hash(&doc), &doc, client, now);
+        }
+        assert_eq!(kept(&r, "v6", 30), NEW_PER_CLIENT_MINUTE);
+        let app = ClientKey::of("198.51.100.7".parse().unwrap());
+        for i in 0..30 {
+            let doc = format!("{{ app{i} }}");
+            r.put_at(&hash(&doc), &doc, app, now);
+        }
+        assert_eq!(
+            kept(&r, "app", 30),
+            NEW_PER_MINUTE - 2 * NEW_PER_CLIENT_MINUTE,
+            "what is left of the minute goes to the next client"
+        );
+        r.put_at(
+            &hash("{ next }"),
+            "{ next }",
+            flooder,
+            now + Duration::from_secs(61),
+        );
         assert!(
             r.get(&hash("{ next }")).is_some(),
             "the next minute takes new ones"

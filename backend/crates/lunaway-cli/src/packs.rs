@@ -21,7 +21,8 @@ pub(crate) enum Packs {
         #[arg(long = "region")]
         only: Vec<String>,
         /// Rebuilds the regions named even if nothing changed, and removes
-        /// their previous packs at once: after a place was taken down.
+        /// their previous packs at once: after a place was taken down. A
+        /// region left without a live place loses its pack and its files.
         #[arg(long, requires = "only")]
         takedown: bool,
     },
@@ -43,17 +44,23 @@ pub(crate) async fn run(pool: &PgPool, action: Packs) -> anyhow::Result<()> {
                 only: only.iter().map(|r| r.to_ascii_uppercase()).collect(),
                 takedown,
             };
-            let built =
+            let report =
                 lunaway_api::packs::build(pool, lunaway_api::ApiConfig::from_env(), &options)
                     .await
                     .context("pack build failed")?;
             println!("region       places      bytes        raw  file");
-            for b in &built {
+            for b in &report.built {
                 println!(
                     "{:<10} {:>8} {:>10} {:>10}  {}",
                     b.pack.region, b.pack.places, b.pack.bytes, b.pack.raw_bytes, b.pack.file
                 );
                 for old in &b.removed {
+                    println!("  removed {old}");
+                }
+            }
+            for d in &report.dropped {
+                println!("{:<10} no live place: pack withdrawn", d.region);
+                for old in &d.removed {
                     println!("  removed {old}");
                 }
             }

@@ -18,7 +18,7 @@ use chrono::{TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{
     ApiConfig, ApiState,
-    packs::{PackOptions, build},
+    packs::{BuildReport, Dropped, PackError, PackOptions, build},
 };
 use lunaway_db::PgPool;
 use lunaway_domain::SourceId;
@@ -180,7 +180,8 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         },
     )
     .await
-    .unwrap();
+    .unwrap()
+    .built;
     let mut codes: Vec<&str> = built.iter().map(|b| b.pack.region.as_str()).collect();
     codes.sort_unstable();
     assert_eq!(
@@ -268,7 +269,10 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         only: Vec::new(),
         takedown: false,
     };
-    let rebuilt = build(&pool, ApiConfig::default(), &options).await.unwrap();
+    let rebuilt = build(&pool, ApiConfig::default(), &options)
+        .await
+        .unwrap()
+        .built;
     let codes: Vec<&str> = rebuilt.iter().map(|b| b.pack.region.as_str()).collect();
     assert_eq!(
         codes,
@@ -281,7 +285,11 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         "the previous pack stays for the devices that read the manifest before"
     );
     let again = build(&pool, ApiConfig::default(), &options).await.unwrap();
-    assert!(again.is_empty(), "nothing changed since the last build");
+    assert_eq!(
+        again,
+        BuildReport::default(),
+        "nothing changed since the last build"
+    );
 
     // A takedown rebuilds the region and leaves no older file behind.
     let takedown = build(
@@ -294,7 +302,8 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         },
     )
     .await
-    .unwrap();
+    .unwrap()
+    .built;
     assert_eq!(takedown.len(), 1);
     let left: Vec<String> = std::fs::read_dir(dir.path().join("places"))
         .unwrap()
@@ -366,7 +375,10 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         brittany["data"]["changes"]["places"][0]["id"],
         mover.0.to_string()
     );
-    let moved = build(&pool, ApiConfig::default(), &options).await.unwrap();
+    let moved = build(&pool, ApiConfig::default(), &options)
+        .await
+        .unwrap()
+        .built;
     let mut codes: Vec<&str> = moved.iter().map(|b| b.pack.region.as_str()).collect();
     codes.sort_unstable();
     assert_eq!(
@@ -374,6 +386,54 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         ["FR-BRE", "FR-PDL"],
         "the region a place left gets a new pack, not only the one it joined"
     );
+
+    // Brittany's only place is taken down: a takedown leaves the region
+    // without a pack and without a file, rather than its last pack.
+    let brittany_file = moved
+        .iter()
+        .find(|b| b.pack.region == "FR-BRE")
+        .map(|b| b.pack.file.trim_start_matches("places/").to_owned())
+        .unwrap();
+    sqlx::query(
+        "UPDATE places SET deleted_at = now(), updated_seq = nextval('place_change_seq') \
+         WHERE id = $1",
+    )
+    .bind(mover.0)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let takedown = PackOptions {
+        dir: dir.path().to_owned(),
+        only: vec!["FR-BRE".into()],
+        takedown: true,
+    };
+    let withdrawn = build(&pool, ApiConfig::default(), &takedown).await.unwrap();
+    assert_eq!(
+        withdrawn,
+        BuildReport {
+            built: Vec::new(),
+            dropped: vec![Dropped {
+                region: "FR-BRE".into(),
+                removed: vec![brittany_file],
+            }],
+        }
+    );
+    let regions = gql(&app, "{ regions { code pack { url } } }", json!({})).await;
+    let brittany = regions["data"]["regions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["code"] == "FR-BRE")
+        .unwrap();
+    assert_eq!(brittany["pack"], Value::Null, "the manifest names no file");
+    let mistyped = PackOptions {
+        only: vec!["FR-BRT".into()],
+        ..takedown
+    };
+    assert!(matches!(
+        build(&pool, ApiConfig::default(), &mistyped).await,
+        Err(PackError::UnknownRegion(code)) if code == "FR-BRT"
+    ));
 
     let both = gql(
         &app,

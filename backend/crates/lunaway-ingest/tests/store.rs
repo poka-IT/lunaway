@@ -77,3 +77,47 @@ async fn a_truncated_extract_retires_nothing(pool: PgPool) {
         19
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_record_stored_without_a_scope_is_french_to_a_run_of_countries(pool: PgPool) {
+    use lunaway_ingest::{osm_extract::Coverage, store::retire_in_coverage};
+    use std::collections::BTreeMap;
+    let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
+    let all = osm::parse(OVERPASS, at).unwrap().records;
+    store_complete(&pool, &SourceId::OSM, None, &all)
+        .await
+        .unwrap();
+    let ids: Vec<String> = all.iter().map(|r| r.external_id.clone()).collect();
+
+    let france = Coverage::Countries(["FR".to_owned()].into());
+    let seen = &ids[1..];
+    let by_scope = BTreeMap::from([("FR".to_owned(), seen.len())]);
+    let r = retire_in_coverage(&pool, &SourceId::OSM, &france, seen, &by_scope, at)
+        .await
+        .unwrap();
+    assert_eq!(
+        (r.retired, r.refused.len()),
+        (1, 0),
+        "France's run speaks for what France's import stored before scopes"
+    );
+
+    let seen = &ids[2..];
+    let by_scope = BTreeMap::from([("FR".to_owned(), seen.len())]);
+    let r = retire_in_coverage(
+        &pool,
+        &SourceId::OSM,
+        &Coverage::Everywhere,
+        seen,
+        &by_scope,
+        at,
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.retired, 1, "a continent speaks for every record");
+    assert_eq!(
+        records::live_count(&pool, &SourceId::OSM, None)
+            .await
+            .unwrap(),
+        i64::try_from(ids.len() - 2).unwrap()
+    );
+}

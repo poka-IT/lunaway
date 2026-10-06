@@ -260,7 +260,10 @@ pub async fn retire_missing_in_source(
     Ok(done.rows_affected())
 }
 
-/// Live records of `source` by scope (records without a scope left out).
+/// Live records of `source` by scope. A record stored without a scope
+/// counts as French, as in [`retire_missing_in_scopes`]: France was the
+/// only country imported before scopes, and a run counts what it sees the
+/// same way.
 ///
 /// # Errors
 ///
@@ -271,9 +274,9 @@ pub async fn live_counts_by_scope(
 ) -> Result<std::collections::BTreeMap<String, i64>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT scope AS "scope!", count(*) AS "n!" FROM source_records
-        WHERE source_id = $1 AND deleted_at IS NULL AND scope IS NOT NULL
-        GROUP BY scope
+        SELECT coalesce(scope, 'FR') AS "scope!", count(*) AS "n!" FROM source_records
+        WHERE source_id = $1 AND deleted_at IS NULL
+        GROUP BY 1
         "#,
         source.as_str(),
     )
@@ -282,32 +285,10 @@ pub async fn live_counts_by_scope(
     Ok(rows.into_iter().map(|r| (r.scope, r.n)).collect())
 }
 
-/// Live records of `source` in any of `scopes`.
-///
-/// # Errors
-///
-/// [`DbError`] when the query fails.
-pub async fn live_count_in_scopes(
-    pool: &PgPool,
-    source: &SourceId,
-    scopes: &[String],
-) -> Result<i64, DbError> {
-    let n = sqlx::query_scalar!(
-        r#"
-        SELECT count(*) AS "n!" FROM source_records
-        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)
-        "#,
-        source.as_str(),
-        scopes,
-    )
-    .fetch_one(pool)
-    .await?;
-    Ok(n)
-}
-
 /// Marks as deleted the live records of `source` in any of `scopes` whose
 /// external id is not in `seen`: for a run of several country extracts,
-/// which speaks for those countries and no other. Returns how many.
+/// which speaks for those countries and no other. A record without a scope
+/// counts as French. Returns how many.
 ///
 /// # Errors
 ///
@@ -324,7 +305,7 @@ pub async fn retire_missing_in_scopes(
         r#"
         UPDATE source_records
         SET deleted_at = $4, needs_conflation = true, changed_at = now()
-        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)
+        WHERE source_id = $1 AND deleted_at IS NULL AND coalesce(scope, 'FR') = ANY($2)
           AND NOT (external_id = ANY($3))
         "#,
         source.as_str(),

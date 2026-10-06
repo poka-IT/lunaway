@@ -518,7 +518,9 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
             continue;
         };
         // A place only the community describes has no address: its country
-        // comes from its position, so it gets a time zone and a sync region.
+        // comes from its position (the boundaries `country-boundaries`
+        // embeds), so it gets a time zone and a sync region. No source
+        // supplied it, so it gets no provenance entry.
         if resolved.content.address.country_code.is_none() {
             resolved.content.address.country_code =
                 lunaway_domain::region::country_at(resolved.content.position).map(str::to_owned);

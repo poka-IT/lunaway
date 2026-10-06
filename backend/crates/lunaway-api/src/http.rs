@@ -309,7 +309,7 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
     if let Some(hash) = register
         && response.errors.is_empty()
     {
-        endpoint.persisted.put(&hash, &text);
+        endpoint.persisted.put(&hash, &text, key);
     }
     respond(response, limits.max_response_bytes)
 }

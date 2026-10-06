@@ -358,7 +358,9 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   memory is the largest country's, France's, as today. A run that stops
   resumes after the last extract it stored, and does not download again a
   file younger than `--max-age-hours` (20). Each record is stored under its
-  country, and a run retires only in the countries it read.
+  country, and a run retires only in the countries it read; in a country
+  where it saw less than half of what is stored (10 records or more), it
+  retires nothing and exits with an error after storing the rest.
 - **Worker.** `lunaway conflate --watch --poi-layer-every-mins 360`: the
   tiles version of the points layer moves at most every six hours (the
   default), whatever the fuel poller, the imports or the community change
@@ -371,7 +373,8 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   (byte ranges, a year of cache: a file never changes under its name), and
   `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`. After a
   place is taken down, `lunaway packs build --region <code> --takedown`
-  rebuilds its region and removes the previous file at once.
+  rebuilds its region and removes the previous file at once (a region left
+  without a live place loses its pack and its files).
 - **Once, at the deployment:** `lunaway conflate --full`, so a place only
   the community describes gets the country of its position, hence a sync
   region.

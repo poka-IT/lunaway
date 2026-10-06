@@ -312,6 +312,20 @@ pub async fn record(pool: &PgPool, p: &RegionPack) -> Result<Option<String>, DbE
     Ok(previous.filter(|f| *f != p.file))
 }
 
+/// Forgets the packs of `regions`; returns their files.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn forget(pool: &PgPool, regions: &[String]) -> Result<Vec<String>, DbError> {
+    Ok(sqlx::query_scalar!(
+        "DELETE FROM region_packs WHERE region = ANY($1) RETURNING file",
+        regions
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
 /// Forgets the packs of the regions not in `keep` (a region left without
 /// places), returning their files.
 ///

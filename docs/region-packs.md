@@ -23,6 +23,31 @@ elsewhere (ISO 3166-1, `ES`). The list is fixed in the code
 country changes moves to another region: the feed of the region it left
 lists it in `left` (below).
 
+The database stores the region (`places.region`, generated from
+`lunaway_sync_region`), so a migration that changes the rule recomputes it
+with a statement of its own, which must also move every changed place in
+the feed:
+
+```sql
+BEGIN;
+-- the writers' lock, lunaway-db's WRITER_LOCK (0x6c75_6e61_7761_7963)
+SELECT pg_advisory_xact_lock(7815274093265123683);
+UPDATE places
+SET country_code = country_code,
+    updated_seq = nextval('place_change_seq'),
+    updated_at = now()
+WHERE region IS DISTINCT FROM lunaway_sync_region(country_code, municipality_code);
+COMMIT;
+```
+
+Without the new `updated_seq`, the departure would be recorded at the
+place's old position, behind the cursors of the devices that keep the old
+region, and the new region's feed would not list the place either. The
+writers' lock keeps the feed's order (`.claude/rules/sqlx.md`). The comment
+of migration `20261006150000`, which says an update of `country_code` to
+itself suffices, predates this and stays as written (a committed migration
+is never edited).
+
 ## The manifest
 
 ```graphql
@@ -52,7 +77,8 @@ pack of a region stays served until the next build, so a device that read
 the manifest just before a build still finds its file. After a place is
 taken down (personal data, a court order), `lunaway packs build --region
 <code> --takedown` rebuilds its region and removes the previous file at
-once.
+once; a region left without a live place loses its pack (`pack` null) and
+every file of it, and a code that is not a sync region fails the command.
 
 Before using the file, the device checks its size against `bytes` and its
 SHA-256 against `sha256`, then decompresses it (gzip) to a temporary file
@@ -159,8 +185,10 @@ lowercase hexadecimal SHA-256 of its document instead of the document:
 - a `query` whose SHA-256 is not the hash is refused (`INVALID_INPUT`);
 - a document is kept only once it ran without an error; the server keeps
   512 at most, the least recently used going first, takes 60 new ones a
-  minute at most, and forgets them on a restart, so a client handles
-  `PERSISTED_QUERY_NOT_FOUND` at any time;
+  minute at most and 20 of them from one address (an IPv6 /48), and
+  forgets them on a restart, so a client handles
+  `PERSISTED_QUERY_NOT_FOUND` at any time, and a document it sent may not
+  be kept (the next request with the hash alone gets the same answer);
 - a request without a hash is served as before.
 
 The sync request of the app weighs 1 280 bytes with its document and 298

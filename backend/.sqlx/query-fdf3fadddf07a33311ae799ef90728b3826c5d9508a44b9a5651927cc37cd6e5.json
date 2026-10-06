@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records\n        SET deleted_at = $4, needs_conflation = true, changed_at = now()\n        WHERE source_id = $1 AND deleted_at IS NULL AND coalesce(scope, 'FR') = ANY($2)\n          AND NOT (external_id = ANY($3))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fdf3fadddf07a33311ae799ef90728b3826c5d9508a44b9a5651927cc37cd6e5"
+}

@@ -343,7 +343,8 @@ impl QueryRoot {
     /// Syncs a region: the places inside `bbox`, or of the sync region
     /// `region` (`Query.regions`, one of the two), created or changed since
     /// the cursor `since` (null for everything), oldest change first, at
-    /// most `first` (1000 at most), and the places deleted since. A device
+    /// most `first` (1000 at most), the places deleted since and, by
+    /// `region`, the places that left it (at most `first` more). A device
     /// that imported a region's pack continues with `region` and the pack's
     /// cursor. A cursor issued by another copy of the database (after a
     /// restore) is refused with the code `RESYNC`: sync again with `since:

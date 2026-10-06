@@ -176,12 +176,18 @@ async fn resumed_ids(
     let Some(cached) = cache.read(&seen_key(layer, name)).await? else {
         return Ok(None);
     };
-    let ids = String::from_utf8_lossy(&cached.bytes)
+    // A line without its scope is a file an older version wrote: its ids
+    // would count in no scope and the guard would refuse a whole country,
+    // so the extract is read again.
+    let ids: Option<Vec<(String, String)>> = String::from_utf8_lossy(&cached.bytes)
         .lines()
-        .filter_map(|l| l.split_once('\t'))
-        .map(|(scope, id)| (scope.to_owned(), id.to_owned()))
+        .filter(|l| !l.is_empty())
+        .map(|l| {
+            l.split_once('\t')
+                .map(|(scope, id)| (scope.to_owned(), id.to_owned()))
+        })
         .collect();
-    Ok(Some((ids, done.records)))
+    Ok(ids.map(|ids| (ids, done.records)))
 }
 
 /// What a run saw so far: every id once, and how many per scope, which the
@@ -412,4 +418,54 @@ async fn store_pois(
         },
         added,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "a test states its preconditions with unwrap"
+    )]
+    use super::*;
+
+    #[tokio::test]
+    async fn a_seen_file_without_scopes_is_not_resumed() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path());
+        let file_at = Utc::now();
+        let state = RunState {
+            extracts: vec!["france".into()],
+            mirror: osm_extract::GEOFABRIK.into(),
+            done: vec![Done {
+                name: "france".into(),
+                file_at,
+                records: 2,
+            }],
+        };
+        let key = seen_key(Layer::Places, "france");
+        cache
+            .write(&key, b"FR\tnode/1\nFR\tnode/2\n")
+            .await
+            .unwrap();
+        assert_eq!(
+            resumed_ids(&cache, Layer::Places, &state, "france", file_at)
+                .await
+                .unwrap(),
+            Some((
+                vec![
+                    ("FR".to_owned(), "node/1".to_owned()),
+                    ("FR".to_owned(), "node/2".to_owned())
+                ],
+                2
+            ))
+        );
+        cache.write(&key, b"node/1\nnode/2\n").await.unwrap();
+        assert_eq!(
+            resumed_ids(&cache, Layer::Places, &state, "france", file_at)
+                .await
+                .unwrap(),
+            None,
+            "ids without their scope would make the guard refuse France"
+        );
+    }
 }

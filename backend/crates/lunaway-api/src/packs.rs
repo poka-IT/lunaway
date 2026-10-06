@@ -215,6 +215,10 @@ pub enum PackError {
     /// A blocking task panicked or was cancelled.
     #[error("blocking task failed")]
     Blocking(#[source] tokio::task::JoinError),
+    /// A region asked for is not a sync region: a mistyped takedown would
+    /// otherwise build nothing and look done.
+    #[error("{0:?} is not a sync region")]
+    UnknownRegion(String),
 }
 
 /// What to build.
@@ -238,6 +242,24 @@ pub struct Built {
     pub pack: RegionPack,
     /// Files of older packs of its region removed.
     pub removed: Vec<String>,
+}
+
+/// A region that no longer has a live place: no pack, no file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dropped {
+    /// The region.
+    pub region: String,
+    /// Its files removed.
+    pub removed: Vec<String>,
+}
+
+/// What a build did.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BuildReport {
+    /// The packs built.
+    pub built: Vec<Built>,
+    /// The regions whose packs were withdrawn.
+    pub dropped: Vec<Dropped>,
 }
 
 /// The root of the schema a build runs the places through: it answers the
@@ -387,12 +409,20 @@ fn column(place: &Value, field: Field) -> Result<rusqlite::types::Value, PackErr
 /// # Errors
 ///
 /// [`PackError`] when the database, a resolver or a file fails; the packs
-/// recorded before stay.
+/// recorded before stay; [`PackError::UnknownRegion`] when `only` names a
+/// code that is not a sync region.
 pub async fn build(
     pool: &PgPool,
     config: ApiConfig,
     options: &PackOptions,
-) -> Result<Vec<Built>, PackError> {
+) -> Result<BuildReport, PackError> {
+    if let Some(unknown) = options
+        .only
+        .iter()
+        .find(|r| lunaway_domain::region::sync_region(r).is_none())
+    {
+        return Err(PackError::UnknownRegion(unknown.clone()));
+    }
     let dir = options.dir.join("places");
     tokio::fs::create_dir_all(&dir)
         .await
@@ -543,18 +573,31 @@ pub async fn build(
         built.push(pack);
     }
     snapshot.end().await?;
-    let mut out = Vec::with_capacity(built.len());
+    let mut out = BuildReport::default();
     for pack in built {
         let previous = packs::record(pool, &pack).await?;
         let keep_previous = previous.as_deref().filter(|_| !options.takedown);
         let removed = remove_older(&dir, &pack, keep_previous).await?;
-        out.push(Built { pack, removed });
+        out.built.push(Built { pack, removed });
     }
-    if options.only.is_empty() {
-        let keep: Vec<String> = regions.iter().map(|r| r.region.clone()).collect();
-        for file in packs::forget_others(pool, &keep).await? {
-            remove_file(&options.dir.join(file)).await?;
-        }
+    // A region whose last place went (taken down, moved, retired) keeps no
+    // pack: its last file would still serve the place.
+    let keep: Vec<String> = regions.iter().map(|r| r.region.clone()).collect();
+    let mut gone: Vec<String> = if options.only.is_empty() {
+        packs::forget_others(pool, &keep).await?;
+        current.into_keys().collect()
+    } else {
+        options.only.clone()
+    };
+    gone.retain(|r| !keep.contains(r));
+    gone.sort_unstable();
+    gone.dedup();
+    if !options.only.is_empty() {
+        packs::forget(pool, &gone).await?;
+    }
+    for region in gone {
+        let removed = remove_region(&dir, &region).await?;
+        out.dropped.push(Dropped { region, removed });
     }
     Ok(out)
 }
@@ -565,13 +608,7 @@ pub async fn build(
 /// pack, changed region or not.
 fn fingerprint(config: &ApiConfig) -> String {
     let digest = Sha256::digest(
-        format!(
-            "{FORMAT}
-{PLACE_SELECTION}
-{}",
-            config.media.base_url
-        )
-        .as_bytes(),
+        format!("{FORMAT}\n{PLACE_SELECTION}\n{}", config.media.base_url).as_bytes(),
     );
     digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
@@ -617,13 +654,42 @@ async fn remove_file(path: &Path) -> Result<(), PackError> {
 }
 
 /// Whether the file `name` is a pack of the region whose prefix (its code
-/// and a dash) is `prefix`: the code is followed by the feed position, all
-/// digits, then a dash. `FR-` also starts `FR-BRE-` and `FR-20R-`, whose
-/// next part is not all digits.
+/// and a dash) is `prefix`, named as a build names it:
+/// `<prefix><seq>-<12 hex>.sqlite.gz`. `FR-` also starts `FR-BRE-` and
+/// `FR-20R-`, whose next part is not all digits; any other file in the
+/// directory is left alone.
 fn is_pack_of(name: &str, prefix: &str) -> bool {
-    name.strip_prefix(prefix)
+    let Some((seq, hash)) = name
+        .strip_prefix(prefix)
+        .and_then(|rest| rest.strip_suffix(".sqlite.gz"))
         .and_then(|rest| rest.split_once('-'))
-        .is_some_and(|(seq, _)| !seq.is_empty() && seq.bytes().all(|b| b.is_ascii_digit()))
+    else {
+        return false;
+    };
+    !seq.is_empty()
+        && seq.bytes().all(|b| b.is_ascii_digit())
+        && hash.len() == 12
+        && hash.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// Removes every file of `region`.
+async fn remove_region(dir: &Path, region: &str) -> Result<Vec<String>, PackError> {
+    let io = |source| PackError::Io {
+        path: dir.to_owned(),
+        source,
+    };
+    let prefix = format!("{region}-");
+    let mut removed = Vec::new();
+    let mut entries = tokio::fs::read_dir(dir).await.map_err(io)?;
+    while let Some(entry) = entries.next_entry().await.map_err(io)? {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if is_pack_of(&name, &prefix) {
+            remove_file(&entry.path()).await?;
+            removed.push(name);
+        }
+    }
+    removed.sort_unstable();
+    Ok(removed)
 }
 
 /// Removes the files of `pack`'s region other than its own and the
@@ -669,6 +735,9 @@ mod tests {
         assert!(!is_pack_of("FR-BRE-18415-4f2777014568.sqlite.gz", "FR-"));
         assert!(is_pack_of("FR-20R-18415-5649afa75e53.sqlite.gz", "FR-20R-"));
         assert!(!is_pack_of("FR-20R.sqlite.building", "FR-20R-"));
+        assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.partial", "FR-"));
+        assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.gz.bak", "FR-"));
+        assert!(!is_pack_of("FR-18415-notes.sqlite.gz", "FR-"));
     }
 
     #[test]

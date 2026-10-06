@@ -130,9 +130,9 @@ async fn an_upsert_tells_new_changed_and_unchanged_points_apart(pool: PgPool) {
         pois::live_count(&pool, &SourceId::OSM, None).await.unwrap(),
         1
     );
-    // A version that has just moved: the template database's may be hours
-    // old.
-    sqlx::query("UPDATE poi_layer SET changed_at = now()")
+    // A version that moved a second ago: the template database's may be
+    // hours old.
+    sqlx::query("UPDATE poi_layer SET changed_at = now() - interval '1 second'")
         .execute(&pool)
         .await
         .unwrap();

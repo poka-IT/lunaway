@@ -424,12 +424,16 @@ pub async fn changes(
 }
 
 /// The places of the sync region `region` changed after `since`, in feed
-/// order, at most `first`; plus whether more follow. A place keeps its
-/// region in its tombstone, so its deletion reaches the devices that keep
-/// the region; a place that left the region (its commune or its country
-/// changed) comes as [`Change::Left`], at the position it left at
-/// (`place_region_exits`). Deletions and departures are left out when
-/// `with_deletions` is false.
+/// order, at most `first`, and the places that left it within the same
+/// positions, at most `first` too; plus whether more follow. A place keeps
+/// its region in its tombstone, so its deletion reaches the devices that
+/// keep the region; a place that left the region (its commune or its
+/// country changed) comes as [`Change::Left`], once, at the position it last
+/// left at (`place_region_exits`). Deletions and departures are left out
+/// when `with_deletions` is false. Both reads see one snapshot: a writer
+/// committing between them could otherwise give a departure whose position
+/// passes changes the first read did not see, and the cursor would skip
+/// them.
 ///
 /// # Errors
 ///
@@ -441,6 +445,10 @@ pub async fn changes_in_region(
     first: i64,
     with_deletions: bool,
 ) -> Result<(Vec<Change>, bool), DbError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query!("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        .execute(&mut *tx)
+        .await?;
     let rows = sqlx::query_as!(
         PlaceDb,
         r#"
@@ -463,10 +471,11 @@ pub async fn changes_in_region(
         with_deletions,
         first + 1,
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
     let (mut changes, mut has_more) = page_of_changes(rows, first)?;
     if !with_deletions {
+        tx.rollback().await?;
         return Ok((changes, has_more));
     }
     // The departures within the page: up to its last change when more
@@ -490,8 +499,9 @@ pub async fn changes_in_region(
         upto,
         first + 1,
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
+    tx.rollback().await?;
     let mut exits: Vec<Change> = exits
         .into_iter()
         .map(|e| Change::Left {
@@ -506,6 +516,14 @@ pub async fn changes_in_region(
         changes.retain(|c| c.seq() <= cut);
         has_more = true;
     }
+    // A place that left, came back and left again is listed once, at its
+    // last departure.
+    let mut listed = std::collections::HashSet::new();
+    exits.reverse();
+    exits.retain(|c| match c {
+        Change::Left { id, .. } => listed.insert(*id),
+        _ => true,
+    });
     changes.extend(exits);
     changes.sort_by_key(Change::seq);
     Ok((changes, has_more))

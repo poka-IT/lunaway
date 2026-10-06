@@ -681,8 +681,9 @@ pub struct ChangeSet {
     pub deleted: Vec<Uuid>,
     /// Places that moved to another sync region since the cursor (their
     /// commune or their country changed), in a sync by `region`: drop them
-    /// unless the device keeps the region they moved to. Empty in a sync by
-    /// `bbox` and on a first sync.
+    /// unless the device keeps the region they moved to. At most `first`,
+    /// on top of the `first` places. Empty in a sync by `bbox` and on a
+    /// first sync.
     pub left: Vec<Uuid>,
     /// Pass it as `since` to get what follows. Opaque.
     pub cursor: String,
