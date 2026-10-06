@@ -267,6 +267,19 @@ if [ "$got" = "account_id created_at event_id id kind status value_m" ]; then
 else
   echo "FAIL lunaway_ingest reads these columns of road_event_reports: $got (want: account_id created_at event_id id kind status value_m)"
 fi
+# The importers read every road event and the reports' accounts and times:
+# a community event must hold no more than the feed publishes (four
+# decimals of a degree, about ten metres, and no heading), or a join by
+# event_id would give where an account was (migration 20261006144030).
+got="$(as_role /etc/lunaway/ingest.env "SELECT count(*) || ' ' || count(*) FILTER (WHERE heading_deg IS NOT NULL
+    OR ST_X(geom_source::geometry) <> round(ST_X(geom_source::geometry)::numeric, 4)::double precision
+    OR ST_Y(geom_source::geometry) <> round(ST_Y(geom_source::geometry)::numeric, 4)::double precision)
+  FROM road_events WHERE source = 'community'")"
+if [[ "$got" =~ ^[0-9]+\ 0$ ]]; then
+  echo "ok   lunaway_ingest sees community road events at the published precision only: $(cut -d' ' -f1 <<<"$got") events, none finer or with a heading"
+else
+  echo "FAIL community road events finer than published, as lunaway_ingest sees them: $got (events, finer)"
+fi
 got="$(as_role /etc/lunaway/ingest.env "$account_columns_sql")"
 if [ "$got" = "banned_at id trust_level" ]; then
   echo "ok   lunaway_ingest reads these columns of accounts only: $got"
