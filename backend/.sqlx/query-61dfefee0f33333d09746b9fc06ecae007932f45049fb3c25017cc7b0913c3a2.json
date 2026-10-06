@@ -1,0 +1,79 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, source, direction, road_number,\n            ST_AsGeoJSON(geom_source::geometry, 7) AS \"shape!\",\n            md5(ST_AsBinary(geom_source) || convert_to(direction || ' ' || carriageway, 'UTF8'))\n                AS \"fingerprint!\"\n        FROM road_events\n        WHERE ended_at IS NULL\n          AND GeometryType(geom_source::geometry) IN ('LINESTRING', 'MULTILINESTRING')\n          AND (match_quality = 'pending'\n               OR (match_quality IN ('matched', 'unmatched')\n                   AND matched_graph_id IS DISTINCT FROM $1))\n        ORDER BY match_quality = 'pending' DESC, class = 'closure' DESC, first_seen_at\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "direction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "direction"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "road_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "road_number"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "shape!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "fingerprint!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "61dfefee0f33333d09746b9fc06ecae007932f45049fb3c25017cc7b0913c3a2"
+}

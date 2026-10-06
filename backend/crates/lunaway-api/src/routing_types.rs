@@ -12,7 +12,13 @@ use lunaway_domain::routing::{
     VehicleKind, vehicle::bounds,
 };
 
-use crate::routing::{CheckedRoute, Met};
+use crate::{
+    road_event_types::{RoadEvent, RoadEventSourceStatus, RoadEventWarning},
+    routing::{
+        CheckedRoute, Met,
+        events::{EventHit, Freshness},
+    },
+};
 
 /// What the vehicle is, for its typical dimensions; the route depends on
 /// the dimensions only. (`VehicleKind` is the coarser kind a review names.)
@@ -192,6 +198,9 @@ pub struct RouteInput {
     /// The language of the instructions.
     #[graphql(default)]
     pub language: RouteLanguage,
+    /// When the trip starts, now when absent, up to 14 days ahead: road
+    /// events (closures, works) count at the time the vehicle reaches them.
+    pub depart_at: Option<DateTime<Utc>>,
 }
 
 /// How a request ended.
@@ -229,6 +238,9 @@ pub enum RouteWarningKind {
     MotorhomeBan,
     /// No trailers, or no caravans and trailers over 250 kg.
     TrailerBan,
+    /// A weight limit for heavy goods vehicles the vehicle exceeds (a
+    /// DiaLog order): it does not apply to a motorhome, check the signs.
+    GoodsVehicleWeight,
 }
 
 impl From<FindingKind> for RouteWarningKind {
@@ -241,6 +253,7 @@ impl From<FindingKind> for RouteWarningKind {
             FindingKind::TooHeavy => Self::TooHeavy,
             FindingKind::AxleLoad => Self::AxleLoad,
             FindingKind::MotorhomeBan => Self::MotorhomeBan,
+            FindingKind::GoodsVehicleWeight => Self::GoodsVehicleWeight,
             _ => Self::TrailerBan,
         }
     }
@@ -265,6 +278,9 @@ pub enum RestrictionSourceKind {
     Ign,
     /// A Lunaway user's report.
     Community,
+    /// A permanent traffic order of DiaLog (Licence Ouverte 2.0, "DiaLog
+    /// (DGITM), arrêtés de circulation").
+    Dialog,
 }
 
 /// How sure a figure is.
@@ -346,6 +362,7 @@ impl From<&Met> for RouteWarning {
             source: match r.source {
                 RestrictionSource::Osm => RestrictionSourceKind::Osm,
                 RestrictionSource::Ign => RestrictionSourceKind::Ign,
+                RestrictionSource::Dialog => RestrictionSourceKind::Dialog,
                 _ => RestrictionSourceKind::Community,
             },
             certainty: match r.certainty {
@@ -386,10 +403,17 @@ pub struct RouteSummary {
     /// height, 0.20 m of width) or whose figure is unknown, in driving
     /// order.
     pub warnings: Vec<RouteWarning>,
+    /// Road events met on the way that do not block it (lanes closed,
+    /// works, a closure that could not be placed or whose source is stale,
+    /// a single user's report), each at the time the vehicle gets there, in
+    /// driving order.
+    pub road_events: Vec<RoadEventWarning>,
 }
 
-impl From<&CheckedRoute> for RouteSummary {
-    fn from(r: &CheckedRoute) -> Self {
+impl RouteSummary {
+    /// The summary of a checked route, the age of its road events' data
+    /// read from `fresh`.
+    pub(crate) fn of(r: &CheckedRoute, fresh: &Freshness, now: DateTime<Utc>) -> Self {
         Self {
             index: i32::try_from(r.index).unwrap_or(0),
             distance_m: r.distance_m,
@@ -398,7 +422,38 @@ impl From<&CheckedRoute> for RouteSummary {
             has_ferry: r.has_ferry,
             has_motorway: r.has_motorway,
             warnings: r.warnings.iter().map(RouteWarning::from).collect(),
+            road_events: r
+                .events
+                .iter()
+                .map(|h| road_event_warning(h, fresh, now))
+                .collect(),
         }
+    }
+}
+
+/// An event met along a route, as the app receives it.
+pub(crate) fn road_event_warning(
+    h: &EventHit,
+    fresh: &Freshness,
+    now: DateTime<Utc>,
+) -> RoadEventWarning {
+    let read_at = fresh.read_at(&h.event.source);
+    RoadEventWarning {
+        event: RoadEvent::of(&h.event, now),
+        severity: h.finding.severity.into(),
+        reason: h.finding.reason.into(),
+        distance_from_start_m: (h.start_m * 10.0).round() / 10.0,
+        length_m: ((h.end_m - h.start_m).max(0.0) * 10.0).round() / 10.0,
+        geometry_index: i32::try_from(h.geometry_index).unwrap_or(i32::MAX),
+        lat: h.at.lat(),
+        lon: h.at.lon(),
+        arrival_at: h.arrival,
+        limit_kind: h.finding.limit.map(|(k, _)| k.into()),
+        limit: h.finding.limit.map(|(_, v)| v),
+        vehicle_value: h.finding.vehicle_value,
+        data_read_at: read_at,
+        data_age_seconds: read_at
+            .map(|t| i32::try_from((now - t).num_seconds().max(0)).unwrap_or(i32::MAX)),
     }
 }
 
@@ -468,6 +523,16 @@ pub struct RouteResult {
     /// When `status` is `NO_SAFE_ROUTE`: the limits that stopped every
     /// route, in driving order of the last route tried.
     pub blockers: Vec<RouteWarning>,
+    /// When `status` is `NO_SAFE_ROUTE`: the road events that stopped every
+    /// route (a closure, a temporary limit), in driving order of the last
+    /// route tried.
+    pub road_event_blockers: Vec<RoadEventWarning>,
+    /// The road events an earlier computation met and the routes go
+    /// around: "2 closures avoided".
+    pub avoided_road_events: Vec<RoadEvent>,
+    /// The sources of road events and the age of their data, to show with
+    /// the route ("travaux : données de 13 h 05").
+    pub road_event_sources: Vec<RoadEventSourceStatus>,
     /// How many times the route was computed again around a limit the
     /// vehicle exceeds.
     pub recalculations: i32,

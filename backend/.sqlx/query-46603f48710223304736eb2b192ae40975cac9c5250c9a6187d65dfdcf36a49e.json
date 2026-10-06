@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT source, class, match_quality, count(*) AS \"n!\"\n        FROM road_events WHERE ended_at IS NULL\n        GROUP BY 1, 2, 3 ORDER BY 1, 2, 3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "class",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "class"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "match_quality",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_quality"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "46603f48710223304736eb2b192ae40975cac9c5250c9a6187d65dfdcf36a49e"
+}

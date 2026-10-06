@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET ended_at = $3, end_reason = 'source_end'\n        WHERE source = $1 AND external_id = ANY($2) AND ended_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "190e940805beffb0ea7c323292d5221d216c756ac3a942fdf4edf5182083d7ee"
+}

@@ -12,6 +12,7 @@
 //! | reported place | closed (the place is the sources' to change) | closed |
 //! | place proposal | accepted, applied by the worker | rejected |
 //! | place check (closed or changed) | closed | closed |
+//! | road report (a community road event two accounts confirmed) | kept | ended, its reports removed |
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -260,6 +261,31 @@ pub async fn decide(
         }
         "poi" => {
             set_poi_hidden(&mut tx, entry.target_id, !approve, note).await?;
+            (None, None)
+        }
+        "road_event" => {
+            // A community road event two accounts confirmed: a reject ends
+            // it for everyone and sets its reports aside.
+            if !approve {
+                sqlx::query!(
+                    r#"
+                    UPDATE road_events SET ended_at = now(), end_reason = 'moderated'
+                    WHERE id = $1 AND source = 'community' AND ended_at IS NULL
+                    "#,
+                    entry.target_id
+                )
+                .execute(&mut *tx)
+                .await?;
+                sqlx::query!(
+                    r#"
+                    UPDATE road_event_reports SET status = 'removed'
+                    WHERE event_id = $1 AND status = 'active'
+                    "#,
+                    entry.target_id
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
             (None, None)
         }
         _ => (None, None),

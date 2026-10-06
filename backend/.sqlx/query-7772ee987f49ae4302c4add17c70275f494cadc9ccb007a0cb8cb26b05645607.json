@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE road_event_reports SET status = 'removed'\n                    WHERE event_id = $1 AND status = 'active'\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7772ee987f49ae4302c4add17c70275f494cadc9ccb007a0cb8cb26b05645607"
+}

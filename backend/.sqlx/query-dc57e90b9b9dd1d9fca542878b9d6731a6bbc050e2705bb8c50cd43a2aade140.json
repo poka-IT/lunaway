@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM route_restrictions WHERE source = 'dialog'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "dc57e90b9b9dd1d9fca542878b9d6731a6bbc050e2705bb8c50cd43a2aade140"
+}

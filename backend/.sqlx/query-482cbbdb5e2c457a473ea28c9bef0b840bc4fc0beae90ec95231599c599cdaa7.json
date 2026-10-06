@@ -1,0 +1,72 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT r.account_id, r.kind, r.value_m, r.created_at,\n            a.trust_level >= 1 AS \"trusted!\"\n        FROM road_event_reports r\n        JOIN accounts a ON a.id = r.account_id\n        WHERE r.event_id = $1 AND r.status = 'active' AND (r.kind = $2 OR r.kind = 'cleared')\n          AND a.banned_at IS NULL\n        ORDER BY r.created_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "value_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "value_m"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "trusted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "482cbbdb5e2c457a473ea28c9bef0b840bc4fc0beae90ec95231599c599cdaa7"
+}

@@ -9,6 +9,7 @@ pub mod geo;
 pub mod opening;
 pub mod poi;
 pub mod record;
+pub mod road_events;
 pub mod routing;
 pub mod source;
 pub mod taxonomy;

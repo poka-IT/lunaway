@@ -12,6 +12,7 @@ pub mod municipalities;
 pub mod places;
 pub mod pois;
 pub mod records;
+pub mod road_events;
 pub mod routing;
 pub mod search;
 pub mod sources;

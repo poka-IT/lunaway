@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET ended_at = now(), end_reason = 'moderated'\n        WHERE id = $1 AND source = 'community' AND ended_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f8f89ae678412206b38ae3102d4779bf304cf22fbba823a3b5147a161ffad02e"
+}

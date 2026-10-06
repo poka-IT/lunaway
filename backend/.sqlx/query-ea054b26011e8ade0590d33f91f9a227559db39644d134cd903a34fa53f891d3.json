@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, heading_deg, confidence, max_height_m, max_width_m,\n            ST_Y(geom_source::geometry) AS \"lat!\", ST_X(geom_source::geometry) AS \"lon!\"\n        FROM road_events\n        WHERE source = 'community' AND ended_at IS NULL AND detail = $1\n          AND ST_DWithin(geom_source, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, $4)\n        ORDER BY geom_source <-> ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "heading_deg",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "heading_deg"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "confidence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "confidence"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "max_height_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_height_m"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "max_width_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_width_m"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "ea054b26011e8ade0590d33f91f9a227559db39644d134cd903a34fa53f891d3"
+}

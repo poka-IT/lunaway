@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE road_event_sources SET last_attempt_at = $2, last_error = $3,\n                    state = coalesce($4, state)\n                WHERE id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b57f973ddf36b12cc4083c5c9470dcebdfb14a947f2773f26fd00d076eeaf1d"
+}

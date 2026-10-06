@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.epoch, d.oid::int8 AS \"database!\",\n            (SELECT coalesce(max(revision), 0) FROM road_events) AS \"revision!\",\n            (SELECT purged_through FROM road_event_purges) AS \"purged!\"\n        FROM sync_epoch e, pg_database d\n        WHERE d.datname = current_database()\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "epoch",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sync_epoch",
+            "name": "epoch"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "database!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "revision!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "purged!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e08b645edd941040e376f6d68f86d1970ba60544c3d09bb17e853aa7e392b4d3"
+}

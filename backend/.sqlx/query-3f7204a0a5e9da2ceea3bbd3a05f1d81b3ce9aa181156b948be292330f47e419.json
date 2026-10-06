@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET\n            geom_matched = CASE WHEN $2::text IS NULL THEN NULL\n                ELSE ST_GeomFromText($2::text, 4326)::geography END,\n            match_quality = CASE WHEN $2::text IS NULL THEN 'unmatched' ELSE 'matched' END,\n            matched_graph_id = $3\n        WHERE id = $1 AND ended_at IS NULL\n          AND match_quality IN ('pending', 'matched', 'unmatched')\n          AND md5(ST_AsBinary(geom_source) || convert_to(direction || ' ' || carriageway, 'UTF8'))\n              = $4\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f7204a0a5e9da2ceea3bbd3a05f1d81b3ce9aa181156b948be292330f47e419"
+}

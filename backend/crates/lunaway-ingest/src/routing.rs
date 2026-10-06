@@ -955,9 +955,15 @@ pub fn read_records(path: &Path) -> Result<Vec<(RestrictionRecord, Vec<Position>
                 what: format!("{} line {}", path.display(), n + 1),
                 source,
             })?;
-        if record.source == RestrictionSource::Community {
+        if matches!(
+            record.source,
+            RestrictionSource::Community | RestrictionSource::Dialog
+        ) {
             return Err(IngestError::Implausible {
-                what: format!("line {}: a graph bundle carries no community report", n + 1),
+                what: format!(
+                    "line {}: a graph bundle carries no community report nor DiaLog order",
+                    n + 1
+                ),
             });
         }
         let points = record

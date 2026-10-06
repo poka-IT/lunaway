@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET class = $2, confidence = $3, max_height_m = $4,\n            max_width_m = $5, valid_from = $6, valid_to = $7, last_seen_at = $8,\n            content_hash = $9, raw = $10\n        WHERE id = $1 AND ended_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "19263f5877888fcaad706e2197c9ebe5b93dac74119ee1d9442c17288ba89e14"
+}

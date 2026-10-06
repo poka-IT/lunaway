@@ -1,0 +1,98 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, detail, confidence, class, max_height_m, max_width_m, valid_to\n        FROM road_events WHERE source = 'community' AND ended_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "detail",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "detail"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "confidence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "confidence"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "class",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "class"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "max_height_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_height_m"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "max_width_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_width_m"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "valid_to",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "valid_to"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "eebb56e12e231fee802b787b4267f78209dda4748f04b0e8350627bbc79c5e93"
+}

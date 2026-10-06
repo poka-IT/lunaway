@@ -17,6 +17,7 @@ pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
 pub mod poi_osm;
+pub mod road_events;
 pub mod routing;
 pub mod run;
 pub mod store;
@@ -93,6 +94,17 @@ pub enum IngestError {
     OverpassIncomplete {
         /// Overpass's explanation.
         remark: String,
+    },
+    /// The answer's body was cut before its end (the connection dropped,
+    /// the length announced was not reached): reqwest reports it as a
+    /// decode error, which asking again may cure.
+    #[error("the body from {url} was cut off")]
+    Body {
+        /// The URL asked.
+        url: String,
+        /// The cause.
+        #[source]
+        source: reqwest::Error,
     },
     /// A download received nothing for too long.
     #[error("download from {url} stalled")]
@@ -181,6 +193,15 @@ pub enum IngestError {
         #[source]
         source: lunaway_domain::routing::InvalidRecord,
     },
+    /// A road events feed does not read.
+    #[error("{what} does not read")]
+    RoadEvents {
+        /// The payload.
+        what: String,
+        /// The cause.
+        #[source]
+        source: road_events::ParseError,
+    },
     /// A payload parses but says something no real answer says.
     #[error("{what}")]
     Implausible {
@@ -216,9 +237,10 @@ impl IngestError {
                     || source.is_body()
             }
             Self::Status { status, .. } => http::is_transient_status(*status),
-            Self::OverpassIncomplete { .. } | Self::Incomplete { .. } | Self::Stalled { .. } => {
-                true
-            }
+            Self::OverpassIncomplete { .. }
+            | Self::Incomplete { .. }
+            | Self::Stalled { .. }
+            | Self::Body { .. } => true,
             _ => false,
         }
     }

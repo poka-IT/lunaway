@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE road_event_sources SET state = $2, last_attempt_at = $3,\n                    last_success_at = $3, last_error = NULL,\n                    last_full_at = CASE WHEN $4 THEN $3 ELSE last_full_at END,\n                    data_at = greatest(data_at, $5)\n                WHERE id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "41cd1bd5be7f222b87936220dc8b9900c5888020d2404c69cc447946f4c0fe60"
+}

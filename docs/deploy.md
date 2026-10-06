@@ -1358,7 +1358,11 @@ Closures, works and temporary limits from the feeds of
   seconds (2026-10-06, Mac, debug build: the DIR aggregate read in 135
   ms, DiaLog's 7.9 MB in 208 ms, a forced read of every feed in 18 s, most
   of it the quarter-second pace between DIR increments). The unit fails
-  when a feed failed, after the others ran.
+  when a feed failed, after the others ran. A feed that fails is asked
+  again at its own pace (DiaLog 15 minutes, the cities hourly, the DIR
+  aggregate after 15 minutes), never at every run.
+- Quotas: `LUNAWAY_QUOTA_ROAD_REPORT` (per account, 30 a day) and
+  `LUNAWAY_QUOTA_ROAD_REPORT_CLIENT` (per client address, 100 a day).
 - `lunaway-road-events-dialog.service` and `.timer`: DiaLog's permanent
   orders weekly into `route_restrictions` (source `dialog`, outside any
   graph): 6 008 orders, 17 594 restriction lines in 15 s (2026-10-06).
@@ -1369,9 +1373,12 @@ Closures, works and temporary limits from the feeds of
   where 100 vertices allowed 11 and the engine refused the whole request
   beyond. A test of the API reads the file and fails if the two drift
   apart.
-- Freshness: `{ roadEventSources { id ageSeconds fresh } }` is public; the
-  DIR is listed first. The status page alerts when it has not been read
-  for 15 minutes:
+- Freshness: `{ roadEventSources { id ageSeconds dataAt fresh } }` is
+  public; the DIR is listed first. `ageSeconds` counts from the last read
+  that succeeded, news or not: the poller is alive. `fresh` counts from
+  `dataAt`, when the data was last current: a publisher that stops makes
+  its events warn instead of block. The status page alerts when the DIR
+  has not been read for 15 minutes:
 
 ```yaml
   - name: Road events (DIR feed read)
