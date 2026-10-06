@@ -1,0 +1,611 @@
+//! Speed cameras: what each country allows an app to carry, and the danger
+//! zones Lunaway serves where positions may not be shown.
+//!
+//! The rules are a table per country, versioned here with the legal source
+//! of each line (`plan/research/28-radars-limites.md`, part 1). A country
+//! missing from the table is [`Mode::Off`]. The API applies the table when
+//! it builds what it serves and again when it serves it; the app applies it
+//! by the country it is in.
+//!
+//! In a [`Mode::Zones`] country a camera becomes a stretch of road whose
+//! length depends on the road, the camera somewhere inside it: its place
+//! along the zone comes from a keyed hash of the camera's id with a secret
+//! of the server ([`zone_fraction`]), stable from one build to the next (two
+//! builds compared do not reveal it), never at an end.
+
+use std::{fmt, str::FromStr};
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+use crate::{Position, UnknownCode, taxonomy::coded_enum};
+
+coded_enum! {
+    /// What a country allows an app to carry about speed cameras.
+    Mode {
+        /// Nothing: no data served for a position in the country, nothing
+        /// shown, no alert.
+        Off => "off",
+        /// Positions may be shown, but no alert and no display while
+        /// driving: the driver may not use the function on the move.
+        OffWhileDriving => "off_while_driving",
+        /// Danger zones only: stretches of road, never a camera's point.
+        Zones => "zones",
+        /// Exact positions of the cameras.
+        Exact => "exact",
+    }
+}
+
+impl Mode {
+    /// How strict the mode is: the stricter of two rules applies where they
+    /// meet (at a border, the app takes the stricter at once).
+    #[must_use]
+    pub const fn strictness(self) -> u8 {
+        match self {
+            Self::Off => 3,
+            Self::OffWhileDriving => 2,
+            Self::Zones => 1,
+            Self::Exact => 0,
+        }
+    }
+}
+
+/// Lengths of a danger zone, metres, by the road it is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ZoneLengths {
+    /// On a motorway (a camera's limit 110 km/h or above).
+    pub motorway_m: u32,
+    /// Outside built-up areas.
+    pub rural_m: u32,
+    /// In a built-up area (a limit of 50 km/h or below).
+    pub urban_m: u32,
+}
+
+/// The lengths French practice gives a zone since 2011: 4 km on a
+/// motorway, 2 km outside built-up areas, 500 m in them. The agreement
+/// between the State and the AFFTAC that sets them is not published; these
+/// figures come from the press (Le Parisien of 2017-04-27, as Wikipédia
+/// "Avertisseur de radar" cites it), not from a text Lunaway read, and stand
+/// until a lawyer confirms them.
+pub const FRENCH_ZONES: ZoneLengths = ZoneLengths {
+    motorway_m: 4_000,
+    rural_m: 2_000,
+    urban_m: 500,
+};
+
+/// One country's rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CountryRule {
+    /// ISO 3166-1 alpha-2.
+    pub country: &'static str,
+    /// What the app may carry.
+    pub mode: Mode,
+    /// The zones' lengths, in a [`Mode::Zones`] country.
+    pub zones: Option<ZoneLengths>,
+    /// The texts the rule rests on.
+    pub sources: &'static str,
+}
+
+/// The table's version: it moves with every change of a line, and the app
+/// keeps the version it last read.
+pub const RULES_VERSION: u32 = 1;
+
+/// When the table was last checked against its sources.
+pub const RULES_REVIEWED: &str = "2026-10-06";
+
+const fn rule(country: &'static str, mode: Mode, sources: &'static str) -> CountryRule {
+    CountryRule {
+        country,
+        mode,
+        zones: None,
+        sources,
+    }
+}
+
+const fn zones(country: &'static str, sources: &'static str) -> CountryRule {
+    CountryRule {
+        country,
+        mode: Mode::Zones,
+        zones: Some(FRENCH_ZONES),
+        sources,
+    }
+}
+
+/// The table. Decisions of 2026-10-06 (product owner): France in zones
+/// only, never a position, even on the map or before a trip; Switzerland
+/// off with no data served for a Swiss position; Germany off while driving;
+/// Morocco off; the others as the research concludes, the stricter mode
+/// where it leaves a doubt: Portugal, Italy and Ireland, where an app is
+/// legal "with a reserve" (a text broad enough to cover it), take zones like
+/// Norway and Finland. The zone countries other than France take the French
+/// lengths, which no text of theirs sets.
+pub const RULES: &[CountryRule] = &[
+    zones(
+        "FR",
+        "Code de la route R413-15 (V), L130-11, L130-12; zone lengths from the press",
+    ),
+    rule(
+        "CH",
+        Mode::Off,
+        "LCR art. 98a; BGer 6B_352/2008 (a preloaded database is covered)",
+    ),
+    rule(
+        "DE",
+        Mode::OffWhileDriving,
+        "StVO §23 Abs. 1c (apps named since 2020-04-28); OLG Karlsruhe 2 ORbs 35 Ss 9/23",
+    ),
+    rule("MA", Mode::Off, "loi 52-05 not read"),
+    zones(
+        "NO",
+        "vegtrafikkloven §13 a (equipment that warns of controls)",
+    ),
+    zones("FI", "laki 546/1998 (revealing a control)"),
+    zones("PT", "Código da Estrada art. 84 (\"revelar a presença\")"),
+    zones(
+        "IT",
+        "Codice della strada art. 45 c. 9-bis; Cassazione 3853/2014 not read",
+    ),
+    zones("IE", "S.I. 50/1991 (broad definition)"),
+    rule(
+        "AT",
+        Mode::Exact,
+        "KFG §98a (devices that influence or disturb only)",
+    ),
+    rule("LU", Mode::Exact, "lois du 1993-08-26 et du 2002-08-02"),
+    rule(
+        "BE",
+        Mode::Exact,
+        "loi du 16 mars 1968, art. 62bis (detectors only)",
+    ),
+    rule(
+        "NL",
+        Mode::Exact,
+        "detectors forbidden since 2004; apps in common use",
+    ),
+    rule(
+        "ES",
+        Mode::Exact,
+        "RDL 6/2015 art. 13.6 (position warnings excluded)",
+    ),
+    rule(
+        "GB",
+        Mode::Exact,
+        "RTA 1988 s.41C never in force; Hansard 2005-07-04",
+    ),
+    rule("SE", Mode::Exact, "lag 1988:15 (radar detectors only)"),
+    rule(
+        "DK",
+        Mode::Exact,
+        "BEK 748/1998 (receivers of police waves only)",
+    ),
+    rule("HR", Mode::Exact, "ZSPC art. 283 (detectors only)"),
+    rule("SI", Mode::Exact, "ZPrCP art. 36 (jammers only)"),
+    rule(
+        "GR",
+        Mode::Exact,
+        "loi 5209/2025 art. 24 § 11 (detectors only)",
+    ),
+    rule(
+        "PL",
+        Mode::Exact,
+        "Prawo o ruchu drogowym art. 66 (devices that detect the measurement)",
+    ),
+    rule(
+        "CZ",
+        Mode::Exact,
+        "zákon 361/2000 (devices that disturb the measurement)",
+    ),
+];
+
+/// The rule of `country` (ISO 3166-1 alpha-2, any case); a country the
+/// table does not name is off.
+#[must_use]
+pub fn rule_of(country: &str) -> CountryRule {
+    RULES
+        .iter()
+        .copied()
+        .find(|r| r.country.eq_ignore_ascii_case(country))
+        .unwrap_or(CountryRule {
+            country: "",
+            mode: Mode::Off,
+            zones: None,
+            sources: "not in the table",
+        })
+}
+
+/// The mode at `p`, by the country it lies in; off at sea or where no
+/// boundary says.
+#[must_use]
+pub fn mode_at(p: Position) -> Mode {
+    crate::region::country_at(p).map_or(Mode::Off, |c| rule_of(c).mode)
+}
+
+coded_enum! {
+    /// What a camera controls, as the sources describe it.
+    DeviceKind {
+        /// A fixed speed camera (France's `fixes`, `discriminants`,
+        /// `urbain`).
+        Fixed => "fixed",
+        /// A red light camera (France's `feux`).
+        RedLight => "red_light",
+        /// An average speed section: its start (France's `troncons`).
+        Section => "section",
+        /// A camera at a level crossing (France's `niveaux`).
+        LevelCrossing => "level_crossing",
+    }
+}
+
+coded_enum! {
+    /// What a danger zone covers, as the app names it.
+    ZoneKind {
+        /// A fixed camera.
+        Fixed => "fixed",
+        /// A red light camera, at a junction or a level crossing.
+        RedLight => "red_light",
+        /// An average speed section.
+        SectionControl => "section_control",
+    }
+}
+
+impl DeviceKind {
+    /// The zone a camera of this kind gives.
+    #[must_use]
+    pub const fn zone_kind(self) -> ZoneKind {
+        match self {
+            Self::Fixed => ZoneKind::Fixed,
+            Self::RedLight | Self::LevelCrossing => ZoneKind::RedLight,
+            Self::Section => ZoneKind::SectionControl,
+        }
+    }
+}
+
+/// The length of a zone around a camera controlling `limit_kmh` (none when
+/// unknown) with the country's `lengths`: a motorway's at 110 km/h and
+/// above, a built-up area's at 50 and below, the rural length otherwise and
+/// when the limit is not known (the longer zone hides more).
+#[must_use]
+pub fn zone_length_m(lengths: ZoneLengths, limit_kmh: Option<u16>) -> u32 {
+    match limit_kmh {
+        Some(l) if l >= 110 => lengths.motorway_m,
+        Some(l) if l <= 50 => lengths.urban_m,
+        _ => lengths.rural_m,
+    }
+}
+
+/// Where a zone starts before its camera, as a share of its length: from a
+/// keyed hash of the camera's id and the server's `secret`, between 15 % and
+/// 85 %, the same at every build.
+#[must_use]
+pub fn zone_fraction(secret: &[u8], camera: &str) -> f64 {
+    let mut h = Sha256::new();
+    h.update((secret.len() as u64).to_be_bytes());
+    h.update(secret);
+    h.update(camera.as_bytes());
+    let digest = h.finalize();
+    let mut first = [0u8; 8];
+    first.copy_from_slice(&digest[..8]);
+    #[allow(
+        clippy::cast_precision_loss,
+        reason = "a share of the hash's range, a few bits lost do not matter"
+    )]
+    let unit = u64::from_be_bytes(first) as f64 / u64::MAX as f64;
+    0.15 + 0.7 * unit
+}
+
+/// How far from a camera, and from its place on the road, a zone's line
+/// keeps no vertex of its own, metres: the engine cuts its route where a
+/// location snaps, and that vertex would be the camera's place on the road;
+/// OpenStreetMap often maps a camera as a node of its road. Wider, the
+/// chord left across a bend strays from the road: with 30 m, one zone of
+/// 62 in Limousin passed 50 m from its camera (2026-10-06).
+pub const ZONE_CLEAR_M: f64 = 15.0;
+
+/// How far a camera may lie from the route a zone is cut from, metres: a
+/// camera beside the road (OpenStreetMap maps some on the verge) still
+/// projects onto it.
+pub const ZONE_SNAP_M: f64 = 30.0;
+
+/// The point `distance_m` metres from `p` heading `bearing_deg` (degrees
+/// from north), on a local flat earth: within a metre at the few kilometres
+/// of a zone.
+#[must_use]
+pub fn toward(p: Position, bearing_deg: f64, distance_m: f64) -> Option<Position> {
+    // The sphere `Position::distance_m` measures on.
+    const M_PER_DEG: f64 = crate::geo::EARTH_RADIUS_M * std::f64::consts::PI / 180.0;
+    let b = bearing_deg.to_radians();
+    let lat = p.lat() + distance_m * b.cos() / M_PER_DEG;
+    let cos = p.lat().to_radians().cos().max(1e-6);
+    let lon = p.lon() + distance_m * b.sin() / (M_PER_DEG * cos);
+    Position::new(lat, lon).ok()
+}
+
+/// The zone of the cameras `cameras` (one, or a section's start and end in
+/// driving order), cut out of `road` (an engine route through them, in
+/// driving order): from `before_m` metres before the first camera's place
+/// on the road to `after_m` after the last's, without a vertex within
+/// [`ZONE_CLEAR_M`] of a camera or of its place on the road. `None` when a camera is not on the road,
+/// they come in the wrong order, or the road does not reach the whole
+/// length on both sides: a zone cut short would put its camera near an
+/// end.
+#[must_use]
+pub fn zone_cut(
+    road: &[Position],
+    cameras: &[Position],
+    before_m: f64,
+    after_m: f64,
+) -> Option<Vec<Position>> {
+    let line = crate::routing::RouteLine::new(road.to_vec())?;
+    let (first, last) = (cameras.first()?, cameras.last()?);
+    let start = line.project(*first, ZONE_SNAP_M)?.along_m;
+    let end = line
+        .project_within(*last, ZONE_SNAP_M, start, f64::INFINITY)?
+        .along_m;
+    let (from, to) = (start - before_m, end + after_m);
+    if from < 0.0 || to > line.length_m() || before_m < 0.0 || after_m < 0.0 {
+        return None;
+    }
+    // The cameras, and their places on the road: a camera beside the road
+    // stands up to [`ZONE_SNAP_M`] from where the engine cut its route.
+    let mut clear: Vec<Position> = cameras.to_vec();
+    clear.push(line.point_at(start));
+    clear.push(line.point_at(end));
+    let mut out = vec![line.point_at(from)];
+    out.extend(
+        line.points()
+            .iter()
+            .zip(line.along())
+            .filter(|(p, s)| {
+                **s > from && **s < to && clear.iter().all(|c| p.distance_m(*c) > ZONE_CLEAR_M)
+            })
+            .map(|(p, _)| *p),
+    );
+    out.push(line.point_at(to));
+    out.dedup();
+    (out.len() >= 2).then_some(out)
+}
+
+/// Whether `line` drives some road twice: a vertex within 2 m of one more
+/// than 50 m before it along the line, as a route that turns around at a
+/// dead end or a roundabout draws it.
+#[must_use]
+pub fn doubles_back(line: &[Position]) -> bool {
+    let mut along = Vec::with_capacity(line.len());
+    let mut total = 0.0;
+    for (i, p) in line.iter().enumerate() {
+        if i > 0 {
+            total += line[i - 1].distance_m(*p);
+        }
+        along.push(total);
+    }
+    line.iter().enumerate().any(|(i, p)| {
+        line[..i]
+            .iter()
+            .zip(&along[..i])
+            .any(|(q, s)| along[i] - s > 50.0 && p.distance_m(*q) < 2.0)
+    })
+}
+
+/// A camera the server knows, from one source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Device {
+    /// Its id in its source.
+    pub external_id: String,
+    /// What it controls.
+    pub kind: DeviceKind,
+    /// Where it stands.
+    pub position: Position,
+    /// The direction of travel it controls, degrees from north, when the
+    /// source says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bearing_deg: Option<f64>,
+    /// The speed it enforces, km/h, when the source says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit_kmh: Option<u16>,
+    /// The road, as the source names it (`A1`, `RN57`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub road: Option<String>,
+    /// For a section: its end, when the source gives it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section_end: Option<Position>,
+    /// For a section: its length, metres, when the source gives it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section_length_m: Option<f64>,
+}
+
+/// Parses an OpenStreetMap `direction` (degrees, or a cardinal point
+/// `N`, `NE`, `SSW`); none for `forward`, `both` and the rest.
+#[must_use]
+pub fn bearing_of(direction: &str) -> Option<f64> {
+    let d = direction.trim();
+    if let Ok(deg) = d.parse::<f64>() {
+        return (deg.is_finite()).then_some(deg.rem_euclid(360.0));
+    }
+    const POINTS: [&str; 16] = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW",
+        "NW", "NNW",
+    ];
+    POINTS
+        .iter()
+        .position(|p| p.eq_ignore_ascii_case(d))
+        .map(|i| f64::from(u32::try_from(i).unwrap_or(0)) * 22.5)
+}
+
+/// The position of UTM coordinates north of the equator in `zone`, on the
+/// GRS80 ellipsoid (ETRS89, within a metre of WGS84 in Europe); none when
+/// they fall outside the globe. Catalonia's camera list is in zone 31.
+#[must_use]
+pub fn from_utm_north(zone: u8, easting: f64, northing: f64) -> Option<Position> {
+    let k0: f64 = 0.9996;
+    let a: f64 = 6_378_137.0;
+    let f: f64 = 1.0 / 298.257_222_101;
+    let e2 = f * (2.0 - f);
+    let root = (1.0 - e2).sqrt();
+    let e1 = (1.0 - root) / (1.0 + root);
+    let x = easting - 500_000.0;
+    let mu =
+        northing / k0 / (a * (1.0 - e2 / 4.0 - 3.0 * e2.powi(2) / 64.0 - 5.0 * e2.powi(3) / 256.0));
+    let p1 = mu
+        + (3.0 * e1 / 2.0 - 27.0 * e1.powi(3) / 32.0) * (2.0 * mu).sin()
+        + (21.0 * e1.powi(2) / 16.0 - 55.0 * e1.powi(4) / 32.0) * (4.0 * mu).sin()
+        + (151.0 * e1.powi(3) / 96.0) * (6.0 * mu).sin()
+        + (1097.0 * e1.powi(4) / 512.0) * (8.0 * mu).sin();
+    let ep2 = e2 / (1.0 - e2);
+    let c1 = ep2 * p1.cos().powi(2);
+    let t1 = p1.tan().powi(2);
+    let s2 = 1.0 - e2 * p1.sin().powi(2);
+    let n1 = a / s2.sqrt();
+    let r1 = a * (1.0 - e2) / s2.powf(1.5);
+    let d = x / (n1 * k0);
+    let lat = p1
+        - (n1 * p1.tan() / r1)
+            * (d.powi(2) / 2.0
+                - (5.0 + 3.0 * t1 + 10.0 * c1 - 4.0 * c1.powi(2) - 9.0 * ep2) * d.powi(4) / 24.0
+                + (61.0 + 90.0 * t1 + 298.0 * c1 + 45.0 * t1.powi(2)
+                    - 252.0 * ep2
+                    - 3.0 * c1.powi(2))
+                    * d.powi(6)
+                    / 720.0);
+    let lon = (d - (1.0 + 2.0 * t1 + c1) * d.powi(3) / 6.0
+        + (5.0 - 2.0 * c1 + 28.0 * t1 - 3.0 * c1.powi(2) + 8.0 * ep2 + 24.0 * t1.powi(2))
+            * d.powi(5)
+            / 120.0)
+        / p1.cos();
+    let central = f64::from(zone) * 6.0 - 183.0;
+    Position::new(lat.to_degrees(), central + lon.to_degrees()).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "a test states its preconditions with unwrap"
+    )]
+    use super::*;
+
+    #[test]
+    fn the_table_holds_the_owner_s_decisions() {
+        assert_eq!(rule_of("FR").mode, Mode::Zones);
+        assert_eq!(rule_of("FR").zones, Some(FRENCH_ZONES));
+        assert_eq!(rule_of("ch").mode, Mode::Off);
+        assert_eq!(rule_of("DE").mode, Mode::OffWhileDriving);
+        assert_eq!(rule_of("MA").mode, Mode::Off);
+        assert_eq!(rule_of("ES").mode, Mode::Exact);
+        for doubtful in ["PT", "IT", "IE", "NO", "FI"] {
+            assert_eq!(rule_of(doubtful).mode, Mode::Zones, "{doubtful}");
+        }
+        assert_eq!(rule_of("TR").mode, Mode::Off, "a country not in the table");
+        assert_eq!(rule_of("").mode, Mode::Off);
+        let mut seen = std::collections::BTreeSet::new();
+        for r in RULES {
+            assert!(seen.insert(r.country), "{} twice", r.country);
+            assert!(!r.sources.is_empty(), "{} has its source", r.country);
+            assert_eq!(r.zones.is_some(), r.mode == Mode::Zones, "{}", r.country);
+        }
+    }
+
+    #[test]
+    fn the_mode_follows_the_country_a_point_is_in() {
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        assert_eq!(mode_at(p(48.8566, 2.3522)), Mode::Zones, "Paris");
+        assert_eq!(mode_at(p(46.948, 7.447)), Mode::Off, "Bern");
+        assert_eq!(mode_at(p(52.52, 13.405)), Mode::OffWhileDriving, "Berlin");
+        assert_eq!(mode_at(p(40.4168, -3.7038)), Mode::Exact, "Madrid");
+        assert_eq!(mode_at(p(45.0, -20.0)), Mode::Off, "the Atlantic");
+        assert!(Mode::Off.strictness() > Mode::Zones.strictness());
+    }
+
+    #[test]
+    fn a_zone_s_length_follows_the_limit_and_its_camera_never_sits_at_an_end() {
+        assert_eq!(zone_length_m(FRENCH_ZONES, Some(130)), 4_000);
+        assert_eq!(zone_length_m(FRENCH_ZONES, Some(110)), 4_000);
+        assert_eq!(zone_length_m(FRENCH_ZONES, Some(80)), 2_000);
+        assert_eq!(zone_length_m(FRENCH_ZONES, Some(50)), 500);
+        assert_eq!(zone_length_m(FRENCH_ZONES, None), 2_000);
+        let a = zone_fraction(b"secret", "fr/60004");
+        assert_eq!(a, zone_fraction(b"secret", "fr/60004"), "stable");
+        assert_ne!(a, zone_fraction(b"other", "fr/60004"), "keyed");
+        let shares: Vec<f64> = (0..1_000)
+            .map(|i| zone_fraction(b"secret", &format!("fr/{i}")))
+            .collect();
+        assert!(shares.iter().all(|f| (0.15..=0.85).contains(f)));
+        let mean = shares.iter().sum::<f64>() / 1_000.0;
+        assert!(
+            (0.45..0.55).contains(&mean),
+            "spread over the range: {mean}"
+        );
+    }
+
+    #[test]
+    fn utm_reads_as_degrees() {
+        // On the central meridian of zone 31, 42° N lies 4 649 776.22 m north.
+        let p = from_utm_north(31, 500_000.0, 4_649_776.22).unwrap();
+        assert!((p.lat() - 42.0).abs() < 1e-6 && (p.lon() - 3.0).abs() < 1e-9);
+        // The first camera of Catalonia's list: the A-2 at PK 445,35, by
+        // Fraga.
+        let a2 = from_utm_north(31, 288_075.464_3, 4_601_625.063).unwrap();
+        assert!((a2.lat() - 41.538_23).abs() < 1e-4, "{a2:?}");
+        assert!((a2.lon() - 0.459_46).abs() < 1e-4, "{a2:?}");
+    }
+
+    #[test]
+    fn a_zone_holds_its_camera_inside_and_no_vertex_near_it() {
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        // A road heading east, a vertex every 100 m, the camera on the
+        // vertex at 2 000 m.
+        let start = p(45.0, 1.0);
+        let road: Vec<Position> = (0..=40)
+            .map(|i| toward(start, 90.0, f64::from(i) * 100.0).unwrap())
+            .collect();
+        let camera = road[20];
+        let zone = zone_cut(&road, &[camera], 600.0, 1_400.0).unwrap();
+        let length: f64 = zone.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        assert!((length - 2_000.0).abs() < 2.0, "{length}");
+        assert!((zone[0].distance_m(camera) - 600.0).abs() < 1.0);
+        assert!(
+            zone.iter().all(|v| v.distance_m(camera) > ZONE_CLEAR_M),
+            "the camera's place on the road is no vertex of the zone"
+        );
+        let line = crate::routing::RouteLine::new(zone).unwrap();
+        assert!(
+            line.project(camera, 1.0).is_some(),
+            "the zone still runs past the camera"
+        );
+        assert_eq!(
+            zone_cut(&road, &[camera], 2_500.0, 1_000.0),
+            None,
+            "the road does not reach far enough back"
+        );
+        assert_eq!(
+            zone_cut(&road, &[p(45.01, 1.02)], 500.0, 500.0),
+            None,
+            "a camera away from the road"
+        );
+        let section = zone_cut(&road, &[road[10], road[25]], 500.0, 500.0).unwrap();
+        let length: f64 = section.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        assert!(
+            (length - 2_500.0).abs() < 2.0,
+            "a section's zone runs end to end: {length}"
+        );
+        assert_eq!(
+            zone_cut(&road, &[road[25], road[10]], 500.0, 500.0),
+            None,
+            "a section's end before its start"
+        );
+        assert!(!doubles_back(&road));
+        let mut there_and_back = road[..10].to_vec();
+        there_and_back.extend(road[..9].iter().rev());
+        assert!(doubles_back(&there_and_back), "a road driven out and back");
+        let east = toward(start, 90.0, 1_000.0).unwrap();
+        assert!((east.distance_m(start) - 1_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn a_direction_reads_as_degrees_or_a_cardinal_point() {
+        assert_eq!(bearing_of("300"), Some(300.0));
+        assert_eq!(bearing_of("-90"), Some(270.0));
+        assert_eq!(bearing_of("SW"), Some(225.0));
+        assert_eq!(bearing_of("nne"), Some(22.5));
+        assert_eq!(bearing_of("forward"), None);
+        assert_eq!(bearing_of("both"), None);
+    }
+}

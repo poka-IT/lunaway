@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE enforcement_devices SET deleted_at = $3, changed_at = now()\n        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4e40c90e633a6ab7474acebb56d2cdf551fac0a41343016160e7a06ad8844b1b"
+}

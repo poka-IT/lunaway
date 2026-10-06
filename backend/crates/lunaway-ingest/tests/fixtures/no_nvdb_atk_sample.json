@@ -1,0 +1,1338 @@
+{
+ "objekter": [
+  {
+   "id": 78774532,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78774532",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2008,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2017,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 4828,
+     "navn": "Geometri, punkt",
+     "verdi": "POINT(6254.487752281537 6859510.830670547)",
+     "kvalitet": {
+      "datafangstmetode": "ukj",
+      "nøyaktighet": 100,
+      "synbarhet": 0,
+      "maksimaltAvvik": -1
+     },
+     "egenskapstype": "Geometri"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Naustdalstunnelen 1 mot Førde (P2)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Mot metreringsretning",
+     "enum_id": 13447,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440014",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT(61.55059135 5.6873376)",
+    "srid": 4326,
+    "egengeometri": true
+   },
+   "lokasjon": {
+    "kommuner": [
+     4647
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1006418748,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026"
+     },
+     {
+      "id": 1013269004,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2021-2022)"
+     },
+     {
+      "id": 1013269005,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2022-2023)"
+     },
+     {
+      "id": 1013269006,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2023-)"
+     },
+     {
+      "id": 1013458688,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1018920896,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027 (2023-)"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "R",
+       "fase": "V",
+       "nummer": 5
+      },
+      "strekning": {
+       "strekning": 15,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MED",
+       "meter": 5536.677
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "V"
+      },
+      "kortform": "RV5 S15D1 m5537"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384496,
+      "relativPosisjon": 0.92304107,
+      "retning": "MED",
+      "kjørefelt": [],
+      "sideposisjon": "V",
+      "kortform": "0.92304107@384496"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.5505745 5.68728513 139.3010349)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78774535,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78774535",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2004,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2004,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 4828,
+     "navn": "Geometri, punkt",
+     "verdi": "POINT(6280.9394441843615 6859439.802531878)",
+     "kvalitet": {
+      "datafangstmetode": "ukj",
+      "nøyaktighet": 100,
+      "synbarhet": 0,
+      "maksimaltAvvik": -1
+     },
+     "egenskapstype": "Geometri"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Naustdalstunnelen 2 mot Florø (P1)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 11461,
+     "navn": "Prosjektreferanse",
+     "verdi": "DK9305",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Med metreringsretning",
+     "enum_id": 13446,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440015",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT(61.54999591 5.68801886)",
+    "srid": 4326,
+    "egengeometri": true
+   },
+   "lokasjon": {
+    "kommuner": [
+     4647
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1006418748,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026"
+     },
+     {
+      "id": 1013269004,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2021-2022)"
+     },
+     {
+      "id": 1013269005,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2022-2023)"
+     },
+     {
+      "id": 1013269006,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2023-)"
+     },
+     {
+      "id": 1013458688,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1018920896,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027 (2023-)"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "R",
+       "fase": "V",
+       "nummer": 5
+      },
+      "strekning": {
+       "strekning": 15,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MED",
+       "meter": 5461.166
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "H"
+      },
+      "kortform": "RV5 S15D1 m5461"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384496,
+      "relativPosisjon": 0.91500173,
+      "retning": "MED",
+      "kjørefelt": [],
+      "sideposisjon": "H",
+      "kortform": "0.91500173@384496"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.55001373 5.6880746 136.96752326)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78774538,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78774538",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2009,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2012,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 4828,
+     "navn": "Geometri, punkt",
+     "verdi": "POINT(7171.011684181343 6857758.832522682)",
+     "kvalitet": {
+      "datafangstmetode": "ukj",
+      "nøyaktighet": 100,
+      "synbarhet": 0,
+      "maksimaltAvvik": -1
+     },
+     "egenskapstype": "Geometri"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Naustdalstunnelen 2 mot Førde (P2)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Mot metreringsretning",
+     "enum_id": 13447,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440012",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT(61.53623945 5.70903532)",
+    "srid": 4326,
+    "egengeometri": true
+   },
+   "lokasjon": {
+    "kommuner": [
+     4647
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1006418748,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026"
+     },
+     {
+      "id": 1013269004,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2021-2022)"
+     },
+     {
+      "id": 1013269005,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2022-2023)"
+     },
+     {
+      "id": 1013269006,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2023-)"
+     },
+     {
+      "id": 1013458688,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1018920896,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027 (2023-)"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "R",
+       "fase": "V",
+       "nummer": 5
+      },
+      "strekning": {
+       "strekning": 15,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MED",
+       "meter": 3558.149
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "V"
+      },
+      "kortform": "RV5 S15D1 m3558"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384496,
+      "relativPosisjon": 0.71239658,
+      "retning": "MED",
+      "kjørefelt": [],
+      "sideposisjon": "V",
+      "kortform": "0.71239658@384496"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.53622123 5.70898142 77.89210876)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78774541,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78774541",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2015,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2014,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 4828,
+     "navn": "Geometri, punkt",
+     "verdi": "POINT(7197.591044002736 6857690.6727754455)",
+     "kvalitet": {
+      "datafangstmetode": "ukj",
+      "nøyaktighet": 100,
+      "synbarhet": 0,
+      "maksimaltAvvik": -1
+     },
+     "egenskapstype": "Geometri"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Naustdalstunnelen 1 mot Florø (P1)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 11461,
+     "navn": "Prosjektreferanse",
+     "verdi": "DK9305",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Med metreringsretning",
+     "enum_id": 13446,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440013",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT(61.53566946 5.70971056)",
+    "srid": 4326,
+    "egengeometri": true
+   },
+   "lokasjon": {
+    "kommuner": [
+     4647
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1006418748,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026"
+     },
+     {
+      "id": 1013269004,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2021-2022)"
+     },
+     {
+      "id": 1013269005,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2022-2023)"
+     },
+     {
+      "id": 1013269006,
+      "nummer": 9305,
+      "navn": "9305 Sunnfjord 2021-2026 (2023-)"
+     },
+     {
+      "id": 1013458688,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1018920896,
+      "nummer": 9354,
+      "navn": "9354 Fjordane 2022-2027 (2023-)"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "R",
+       "fase": "V",
+       "nummer": 5
+      },
+      "strekning": {
+       "strekning": 15,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MED",
+       "meter": 3485.289
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "H"
+      },
+      "kortform": "RV5 S15D1 m3485"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384496,
+      "relativPosisjon": 0.70463959,
+      "retning": "MED",
+      "kjørefelt": [],
+      "sideposisjon": "H",
+      "kortform": "0.70463959@384496"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.53568643 5.70976203 75.62584955)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78899309,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78899309",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2012,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2014,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Lærdalstunnelen mot Bergen (B2)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Mot metreringsretning",
+     "enum_id": 13447,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 11583,
+     "navn": "Tilleggsinformasjon",
+     "verdi": "I tunnel",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440006",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT Z (60.91175581 7.241332 65.84904754)",
+    "srid": 4326,
+    "egengeometri": false
+   },
+   "lokasjon": {
+    "kommuner": [
+     4641
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1010943933,
+      "nummer": 9303,
+      "navn": "9303 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1014682856,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027 (Jun-Okt)"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1022450707,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1025229389,
+      "nummer": 9307,
+      "navn": "9307 Hardangervidda og Sogn 2028-2033"
+     },
+     {
+      "id": 1025229515,
+      "nummer": 9353,
+      "navn": "E9353 Hardanger og Sogn 2027-2032"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "E",
+       "fase": "V",
+       "nummer": 16
+      },
+      "strekning": {
+       "strekning": 19,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MOT",
+       "meter": 2758.532
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "V"
+      },
+      "kortform": "EV16 S19D1 m2759"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384011,
+      "relativPosisjon": 0.84754346,
+      "retning": "MOT",
+      "kjørefelt": [],
+      "sideposisjon": "H",
+      "kortform": "0.84754346@384011"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (60.91175581 7.241332 65.84904754)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78899311,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78899311",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2012,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2014,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Lærdalstunnelen mot Oslo (A1)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Med metreringsretning",
+     "enum_id": 13446,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 11583,
+     "navn": "Tilleggsinformasjon",
+     "verdi": "I tunnel",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440007",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT Z (60.91211456 7.24217796 67.14478356)",
+    "srid": 4326,
+    "egengeometri": false
+   },
+   "lokasjon": {
+    "kommuner": [
+     4641
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1010943933,
+      "nummer": 9303,
+      "navn": "9303 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1014682856,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027 (Jun-Okt)"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1022450707,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1025229389,
+      "nummer": 9307,
+      "navn": "9307 Hardangervidda og Sogn 2028-2033"
+     },
+     {
+      "id": 1025229515,
+      "nummer": 9353,
+      "navn": "E9353 Hardanger og Sogn 2027-2032"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "E",
+       "fase": "V",
+       "nummer": 16
+      },
+      "strekning": {
+       "strekning": 19,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MOT",
+       "meter": 2819.519
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "H"
+      },
+      "kortform": "EV16 S19D1 m2820"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384011,
+      "relativPosisjon": 0.84293273,
+      "retning": "MOT",
+      "kjørefelt": [],
+      "sideposisjon": "V",
+      "kortform": "0.84293273@384011"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (60.91211456 7.24217796 67.14478356)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78899317,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78899317",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2012,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2017,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Lærdalstunnelen mot Oslo (B1)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Med metreringsretning",
+     "enum_id": 13446,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 11583,
+     "navn": "Tilleggsinformasjon",
+     "verdi": "I tunnel",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440005",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT Z (61.04022957 7.48077699 123.99037165)",
+    "srid": 4326,
+    "egengeometri": false
+   },
+   "lokasjon": {
+    "kommuner": [
+     4642
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1010943933,
+      "nummer": 9303,
+      "navn": "9303 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1014682856,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027 (Jun-Okt)"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1022450707,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1025229389,
+      "nummer": 9307,
+      "navn": "9307 Hardangervidda og Sogn 2028-2033"
+     },
+     {
+      "id": 1025229515,
+      "nummer": 9353,
+      "navn": "E9353 Hardanger og Sogn 2027-2032"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "E",
+       "fase": "V",
+       "nummer": 16
+      },
+      "strekning": {
+       "strekning": 21,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MOT",
+       "meter": 2364.538
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "H"
+      },
+      "kortform": "EV16 S21D1 m2365"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384010,
+      "relativPosisjon": 0.26212135,
+      "retning": "MOT",
+      "kjørefelt": [],
+      "sideposisjon": "V",
+      "kortform": "0.26212135@384010"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.04022957 7.48077699 123.99037165)",
+     "srid": 4326
+    }
+   }
+  },
+  {
+   "id": 78899319,
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162/78899319",
+   "egenskaper": [
+    {
+     "id": 9524,
+     "navn": "Kamera, installeringsår",
+     "verdi": 2010,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9526,
+     "navn": "Fartsmåler, installeringsår",
+     "verdi": 2014,
+     "egenskapstype": "Heltall"
+    },
+    {
+     "id": 9522,
+     "navn": "Navn",
+     "verdi": "Fodnestunnelen 1 mot Sogndal (P1)",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9527,
+     "navn": "Kontollretning",
+     "verdi": "Med metreringsretning",
+     "enum_id": 13446,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9523,
+     "navn": "Kamera, type",
+     "verdi": "Digital",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 9525,
+     "navn": "Fartsmåler, type",
+     "verdi": "Axspeed",
+     "enum_id": 13445,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 9521,
+     "navn": "Eier",
+     "verdi": "Stat, Statens vegvesen",
+     "enum_id": 13448,
+     "egenskapstype": "Tekstenum"
+    },
+    {
+     "id": 11583,
+     "navn": "Tilleggsinformasjon",
+     "verdi": "I tunnel",
+     "egenskapstype": "Tekst"
+    },
+    {
+     "id": 3594,
+     "navn": "Id nummer",
+     "verdi": "1440001",
+     "egenskapstype": "Tekst"
+    }
+   ],
+   "geometri": {
+    "wkt": "POINT Z (61.11149679 7.4715779 12.93561644)",
+    "srid": 4326,
+    "egengeometri": false
+   },
+   "lokasjon": {
+    "kommuner": [
+     4642
+    ],
+    "fylker": [
+     46
+    ],
+    "kontraktsområder": [
+     {
+      "id": 1010943933,
+      "nummer": 9303,
+      "navn": "9303 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1014682856,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027 (Jun-Okt)"
+     },
+     {
+      "id": 1014698600,
+      "nummer": 9361,
+      "navn": "9361 automasjon Vestland og Rogaland 2022-2025"
+     },
+     {
+      "id": 1022450707,
+      "nummer": 9353,
+      "navn": "9353 Hardanger og Sogn 2022-2027"
+     },
+     {
+      "id": 1025229389,
+      "nummer": 9307,
+      "navn": "9307 Hardangervidda og Sogn 2028-2033"
+     },
+     {
+      "id": 1025229515,
+      "nummer": 9353,
+      "navn": "E9353 Hardanger og Sogn 2027-2032"
+     }
+    ],
+    "riksvegruter": [
+     {
+      "enumid": 20295,
+      "riksvegrute": "Rute 5c: E16 Sandvika - Bergen"
+     }
+    ],
+    "vegforvaltere": [
+     {
+      "enumid": 21771,
+      "vegforvalter": "Statens vegvesen"
+     }
+    ],
+    "adresser": [
+     {
+      "navn": "Fodnesvegen",
+      "adressekode": 1043
+     }
+    ],
+    "vegsystemreferanser": [
+     {
+      "vegsystem": {
+       "vegkategori": "R",
+       "fase": "V",
+       "nummer": 5
+      },
+      "strekning": {
+       "strekning": 2,
+       "delstrekning": 1,
+       "arm": false,
+       "adskilte_løp": "Nei",
+       "trafikantgruppe": "K",
+       "retning": "MED",
+       "meter": 1623.415
+      },
+      "metrertLokasjon": {
+       "retning": "MED",
+       "sideposisjon": "H"
+      },
+      "kortform": "RV5 S2D1 m1623"
+     }
+    ],
+    "stedfestinger": [
+     {
+      "type": "Punkt",
+      "veglenkesekvensid": 384034,
+      "relativPosisjon": 0.16404453,
+      "retning": "MED",
+      "kjørefelt": [],
+      "sideposisjon": "H",
+      "kortform": "0.16404453@384034"
+     }
+    ],
+    "geometri": {
+     "wkt": "POINT Z (61.11149679 7.4715779 12.93561644)",
+     "srid": 4326
+    }
+   }
+  }
+ ],
+ "metadata": {
+  "returnert": 50,
+  "sidestørrelse": 50,
+  "neste": {
+   "start": "82424752:2",
+   "href": "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162?inkluder=egenskaper,geometri,lokasjon&srid=4326&start=82424752:2&antall=50"
+  }
+ }
+}

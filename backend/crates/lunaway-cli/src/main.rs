@@ -156,6 +156,31 @@ enum Command {
         #[command(subcommand)]
         action: RoadEvents,
     },
+    /// Speed cameras: what the API serves, built from the stored lists
+    /// (with the import role).
+    Enforcement {
+        #[command(subcommand)]
+        action: Enforcement,
+    },
+}
+
+#[derive(Subcommand)]
+enum Enforcement {
+    /// Builds the danger zones and the points each country allows from the
+    /// stored cameras: daily after the lists, with `--full` after a new
+    /// routing graph. The zones' secret comes from `LUNAWAY_ZONE_SECRET`
+    /// (32 characters at least, never changed once zones are served).
+    Build {
+        /// Builds every item again, not only those whose cameras changed.
+        #[arg(long)]
+        full: bool,
+        /// The routing engine (loopback only).
+        #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
+        valhalla_url: String,
+    },
+    /// Prints each list's last read and the items served by kind and
+    /// country.
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -419,6 +444,24 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// The official speed camera lists: France, Poland, Luxembourg,
+    /// Catalonia, Norway. Daily with `--refresh`, then `enforcement build`.
+    Cameras {
+        /// Only these lists (`france`, `poland`, `luxembourg`, `catalonia`,
+        /// `norway`), comma separated; all when absent.
+        #[arg(long = "list", value_delimiter = ',')]
+        lists: Vec<String>,
+        /// Asks the lists again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// OpenStreetMap's speed cameras, from the extracts the places import
+    /// downloads. Weekly, before the build that follows a new routing
+    /// graph.
+    CamerasOsm {
+        #[command(flatten)]
+        extracts: extracts::ExtractArgs,
+    },
     /// La Poste's opening calendar for the next two weeks, joined to the
     /// post offices by their id, then their opening hours. Daily.
     Laposte {
@@ -606,6 +649,82 @@ async fn main() -> anyhow::Result<()> {
                         h.evaluated, h.from_laposte, h.changed
                     );
                     extracts::print_run(&r, "points")?;
+                }
+                Source::Cameras { lists, refresh } => {
+                    use lunaway_ingest::cameras::{self, CameraList};
+                    let chosen: Vec<CameraList> = if lists.is_empty() {
+                        CameraList::ALL.to_vec()
+                    } else {
+                        lists
+                            .iter()
+                            .map(|n| {
+                                CameraList::named(n).with_context(|| {
+                                    format!(
+                                        "unknown list {n}; one of france, poland, luxembourg, \
+                                         catalonia, norway"
+                                    )
+                                })
+                            })
+                            .collect::<anyhow::Result<_>>()?
+                    };
+                    let mut refused = Vec::new();
+                    let mut failed = Vec::new();
+                    println!(
+                        "list                  rows  cameras  skipped  not stored  written  retired  read"
+                    );
+                    for list in chosen {
+                        match cameras::import(&pool, &client, &cache, list, refresh).await {
+                            Ok(r) => {
+                                println!(
+                                    "{:<20} {:>5}  {:>7}  {:>7}  {:>10}  {:>7}  {:>7}  {}{}",
+                                    list.source().as_str(),
+                                    r.rows,
+                                    r.devices,
+                                    r.skipped,
+                                    r.not_stored,
+                                    r.written,
+                                    r.retired,
+                                    r.fetched_at,
+                                    if r.cached { " (cache)" } else { "" }
+                                );
+                                if r.retire_refused {
+                                    refused.push(list.source().as_str().to_owned());
+                                }
+                            }
+                            // One list down does not stop the others.
+                            Err(e) => {
+                                tracing::error!(source = %list.source(), error = %e, "camera list failed");
+                                failed.push(list.source().as_str().to_owned());
+                            }
+                        }
+                    }
+                    let refused: Vec<&str> = refused.iter().map(String::as_str).collect();
+                    check_retirement(&refused)?;
+                    anyhow::ensure!(
+                        failed.is_empty(),
+                        "camera lists failed: {}",
+                        failed.join(", ")
+                    );
+                }
+                Source::CamerasOsm { extracts } => {
+                    let plan = extracts.plan()?;
+                    let r = lunaway_ingest::cameras_osm::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &plan.extracts,
+                        &plan.mirror,
+                        plan.refresh,
+                        plan.retry,
+                    )
+                    .await
+                    .context("OpenStreetMap camera import failed")?;
+                    for (name, n) in &r.extracts {
+                        println!("{name:<30} {n:>6} cameras");
+                    }
+                    println!("written: {}, retired: {}", r.written, r.retired);
+                    let refused: Vec<&str> = r.refused.iter().map(String::as_str).collect();
+                    check_retirement(&refused)?;
                 }
                 Source::Fuel { refresh } => {
                     let r = lunaway_ingest::fuel::import(
@@ -920,6 +1039,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Accounts { action } => accounts(&pool, action).await?,
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
+        Command::Enforcement { action } => enforcement(&pool, action).await?,
         Command::Routing { .. } => unreachable!("handled before connecting"),
     }
     Ok(())
@@ -979,6 +1099,63 @@ fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
             l.reweighed, l.past_end, l.expired, l.purged, l.reports_purged
         );
     }
+}
+
+/// Shortest secret accepted for the zones.
+const MIN_ZONE_SECRET: usize = 32;
+
+async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::Result<()> {
+    use lunaway_db::enforcement as db;
+    match action {
+        Enforcement::Build { full, valhalla_url } => {
+            let secret =
+                std::env::var("LUNAWAY_ZONE_SECRET").context("LUNAWAY_ZONE_SECRET is not set")?;
+            anyhow::ensure!(
+                secret.len() >= MIN_ZONE_SECRET,
+                "LUNAWAY_ZONE_SECRET must hold {MIN_ZONE_SECRET} characters at least"
+            );
+            let engine = lunaway_ingest::road_events::matching::Valhalla::new(
+                &valhalla_url,
+                Duration::from_secs(10),
+            )
+            .context("the routing engine must be a loopback http URL")?;
+            let r = lunaway_ingest::enforcement::build(pool, &engine, secret.as_bytes(), full)
+                .await
+                .context("speed camera build failed")?;
+            println!(
+                "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone)",
+                r.cameras, r.merged.matched, r.merged.left_out, r.merged.alone
+            );
+            println!(
+                "built: {} zones, {} points, {} unplaced, {} unchanged, {} in countries that are off",
+                r.zones, r.points, r.unplaced, r.unchanged, r.off
+            );
+            println!(
+                "engine calls: {}; items written: {}, retired: {}",
+                r.engine_calls, r.written, r.retired
+            );
+            if r.retire_refused {
+                anyhow::bail!(
+                    "retiring refused: the build would drop more than a tenth of the items \
+                     (an engine without the graph?); new and changed items were written"
+                );
+            }
+        }
+        Enforcement::Stats => {
+            for s in db::source_reads(pool).await? {
+                println!(
+                    "{:<20} {:>6} cameras, read {}",
+                    s.source.id.as_str(),
+                    s.devices,
+                    s.fetched_at
+                );
+            }
+            for (kind, country, n) in db::item_counts(pool).await? {
+                println!("{kind:<7} {country} {n:>6}");
+            }
+        }
+    }
+    Ok(())
 }
 
 async fn road_events(

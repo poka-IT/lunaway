@@ -6,6 +6,9 @@
 
 pub mod atout_france;
 pub mod cache;
+pub mod cameras;
+pub mod cameras_osm;
+pub mod enforcement;
 pub mod extract_run;
 pub mod finess;
 pub mod fuel;
@@ -203,6 +206,10 @@ pub enum IngestError {
         #[source]
         source: road_events::ParseError,
     },
+    /// The routing engine did not answer, or refused too many requests in
+    /// a row.
+    #[error("the routing engine failed")]
+    Engine(#[source] road_events::matching::MatchError),
     /// A payload parses but says something no real answer says.
     #[error("{what}")]
     Implausible {

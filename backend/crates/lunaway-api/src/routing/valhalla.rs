@@ -344,6 +344,28 @@ impl Engine {
         matrix_cells(&value, sources, targets)
     }
 
+    /// `POST /trace_attributes` with `body`.
+    pub(crate) async fn trace(&self, body: &Value) -> Result<Value, EngineError> {
+        let (status, value) = self.post("trace_attributes", body).await?;
+        if status != 200 {
+            return Err(EngineError::Refused {
+                status,
+                code: format!(
+                    "{}: {}",
+                    value
+                        .get("error_code")
+                        .and_then(Value::as_i64)
+                        .unwrap_or_default(),
+                    value
+                        .get("error")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                ),
+            });
+        }
+        Ok(value)
+    }
+
     /// `POST /route` with `body`.
     pub(crate) async fn route(&self, body: &Value) -> Result<Answer, EngineError> {
         let (status, value) = self.post("route", body).await?;

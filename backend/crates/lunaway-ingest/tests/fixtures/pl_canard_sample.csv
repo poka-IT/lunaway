@@ -1,0 +1,21 @@
+Rodzaj urz¹dzenia;Gmina;Powiat;Województwo;Miejscowoœæ;Ulica i numer posesji;Nr drogi;Km drogi;Hm drogi;Kategoria drogi;kod lokalizacji;Typ urz¹dzenia;Numer seryjny;D³ugoœæ odcinka kierunek P-T [m];D³ugoœæ odcinka kierunek T-P[m];Szerokoœæ geograficzna - pocz¹tek;D³ugoœæ geograficzna - pocz¹tek;Szerokoœæ geograficzna - koniec;D³ugoœæ geograficzna - koniec
+punktowe;Wiskitki;¿yrardowski;mazowieckie;Aleksandrów;;50;97;442;DK;CAN.2.060;MultaRadar CD;593-072/72053;;;52.1392916666667;20.3219472222222;;
+punktowe;Aleksandrów £ódzki;zgierski;³ódzkie;Aleksandrów £ódzki;;72;92;470;DK;CEN.1.109;MultaRadar CD;593-072/71713;;;51.8207333333333;19.2808666666667;;
+punktowe;Olszewo-Borki;ostro³êcki;mazowieckie;Antonie;;53;118;830;DK;PNW.2.082;MESTA Fusion RN;23143FU10003698;;;53.1175;21.52375;;
+punktowe;Siedliszcze;che³mski;lubelskie;Anusin;;12;655;210;DK;WSC.1.066;MESTA Fusion RN;23136FU10003685;;;51.1728333333333;23.1432166666667;;
+punktowe;Kwidzyn;kwidzyñski;pomorskie;Baldram;;55;58;546;DK;PLN.2.021;MultaRadar CD;593-072-73324;;;53.7588833333333;18.9428;;
+punktowe;Bartoszyce;bartoszycki;warmiñsko-mazurskie;Bartoszyce;Warszawska 26;51;18;75;DK;PNW.2.094;MultaRadar CD;593-072-73256;;;54.2409166666667;20.8094166666667;;
+punktowe;Bedlno;kutnowski;³ódzkie;Bedlno;;92;370;841;DK;CEN.2.028;MultaRadar CD;593-072/72003;;;52.20795;19.5777166666667;;
+punktowe;Radzyñ Podlaski;radzyñski;lubelskie;Bia³ka;Brzeska 95;19;234;250;DK;WSC.2.029;MESTA Fusion RN;23145FU10003714;;;51.80905;22.6603333333333;;
+czerwone œwiat³o;Pu³awy;pu³awski;lubelskie;Anielin;;12s;0;0;DK;WSC.C.001;Neurocar 2.0 RedLight;ncar-h-ctrl-d000031;;;51.39996389;21.82795556;;
+czerwone œwiat³o;Bia³ystok;Bia³ystok;podlaskie;Bia³ystok;ul. Zwierzyniecka, ul.œw. Pio;DPDG;;;DPDG;PNW.C.002;Neurocar Terminal RedLight 3;ncar-h-cpu-06b00153;;;53.1184166666667;23.1668333333333;;
+czerwone œwiat³o;Bia³ystok;Bia³ystok;podlaskie;Bia³ystok;ul. Kazimierza Wielkiego/ul. Piastowska/ul. Gen. Sosabowskiego/ul. Gen. Sulika;19;;;DK;PNW.C.001;Neurocar Terminal RedLight 3;ncar-h-cpu-06b00151;;;53.1404166666667;23.2508055555556;;
+czerwone œwiat³o;Bielsko-Bia³a;Bielsko-Bia³a;œl¹skie;Bielsko-Bia³a;Eugeniusza Kwiatkowskiego, Sarni Stok, Warszawska;DP;;;DP;SLA.C.003;NeuroCar Terminal RedLight 3;ncar-h-cpu-06b00103;;;49.8393111111111;19.0377944444444;;
+czerwone œwiat³o kolejowe;Radziejów;radziejowski;kujawsko-pomorskie;Che³mce;;62;27;426;DK;PLN.C.009;NeuroCar RedLight;ncar-h-cpu-06b00171;;;52.6161111;18.47694444444444;;
+czerwone œwiat³o kolejowe;Radomsko;radimszczañski;³ódzkie;Radomsko;Pi³sudskiego;3952E;;;DP;CEN.C.007;NeuroCar RedLight;ncar-h-cpu-06b00170;;;51.0622694;19.431150000000002;;
+czerwone œwiat³o kolejowe;Warszawa;Warszawa;mazowieckie;Warszawa;Cyrulików;;;;;CAN.C.004;NeuroCar RedLight;ncar-h-cpu-06b00169;;;52.2566111111111;21.1794166666667;;
+odcinkowy pomiar prêdkoœci;Warszawa;Warszawa;mazowieckie;S2 Warszawa Tunel kier. Miñsk Mazowiecki;;S2;471;117;DK;CAN.O.1.012;Unicam VELOCITY3;CAM15001366;2520;;52.1399889;21.03162222222222;52.1505889;21.063252777777777
+odcinkowy pomiar prêdkoœci;Warszawa;Warszawa;mazowieckie;S2 Warszawa Tunel kier. Poznañ;;S2;473;825;DK;CAN.O.1.013;Unicam VELOCITY3;CAM15001387;2533;;52.1517111;21.06537777777778;52.1402917;21.033269444444443
+odcinkowy pomiar prêdkoœci;Strachówka;wo³omiñski;mazowieckie;Warmiaki-Strachówka;;50;244;138;DK;CAN.O.2.001;Unicam VELOCITY3;CAM15001374;2647,5;2649,5;52.46036111;21.65319444;52.43883333;21.63827778
+odcinkowy pomiar prêdkoœci;Celestynów;otwocki;mazowieckie;Regut-Cz³ekówka;;50;192;450;DK;CAN.O.2.005;Unicam VELOCITY3;CAM15001382;2760;2760;52.04091667;21.39158333;52.04730556;21.43011111
+odcinkowy pomiar prêdkoœci;Sulejówek;miñski;mazowieckie;Sulejówek;;92;496;450;DK;CAN.O.2.006;Unicam VELOCITY3;CAM15001369;1505;1505;52.22230556;21.26194444;52.22158333;21.28166667

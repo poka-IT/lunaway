@@ -5,6 +5,7 @@
 
 pub mod community;
 pub mod conflation;
+pub mod enforcement;
 pub mod fuel;
 pub mod geo;
 pub mod opening;
@@ -14,6 +15,7 @@ pub mod region;
 pub mod road_events;
 pub mod routing;
 pub mod source;
+pub mod speed;
 pub mod taxonomy;
 
 pub use geo::{BBox, InvalidBBox, InvalidPosition, Position};

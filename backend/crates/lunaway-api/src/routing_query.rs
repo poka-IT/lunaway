@@ -21,10 +21,19 @@ use crate::{
     routing_types::{
         CoveredArea, DISCLAIMER_KEY, RerouteParameters, RouteInput, RouteOptions, RoutePointInput,
         RouteResult, RouteStatus, RouteSummary, RouteWarning, RoutingGraph, RoutingInfo,
-        VehicleBounds, VehicleProfileInput, presets, road_event_warning,
+        SpeedLimitSpan, VehicleBounds, VehicleProfileInput, presets, road_event_warning,
     },
     schema::{RouteOnce, db as db_share, state},
 };
+
+/// The vehicle as its speed ceilings see it: its gross weight and its
+/// trailer's.
+fn speed_vehicle(v: &VehicleProfile) -> lunaway_domain::speed::Vehicle {
+    lunaway_domain::speed::Vehicle {
+        weight_t: v.weight_t(),
+        trailer_weight_t: v.trailer().map(Trailer::weight_t),
+    }
+}
 
 /// Longest trip accepted, straight line from stop to stop, metres: the
 /// engine refuses more than its `auto` limit (2 500 km in
@@ -262,11 +271,24 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             recalculations,
             avoided,
         } => RouteResult {
+            routes: {
+                let limits = st
+                    .routing
+                    .speed_limits(&osrm, speed_vehicle(&request.vehicle))
+                    .await;
+                routes
+                    .iter()
+                    .map(|r| RouteSummary {
+                        speed_limits: limits
+                            .get(r.index)
+                            .cloned()
+                            .flatten()
+                            .map(|spans| spans.iter().map(SpeedLimitSpan::from).collect()),
+                        ..RouteSummary::of(r, &fresh, now)
+                    })
+                    .collect()
+            },
             osrm_json: Some(osrm.to_string()),
-            routes: routes
-                .iter()
-                .map(|r| RouteSummary::of(r, &fresh, now))
-                .collect(),
             avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
             ..base(RouteStatus::Ok, recalculations)
         },

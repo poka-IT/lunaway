@@ -9,6 +9,8 @@ mod auth;
 mod client;
 pub mod community_types;
 pub mod config;
+mod enforcement_query;
+pub mod enforcement_types;
 mod error;
 mod fuel_query;
 pub mod fuel_types;

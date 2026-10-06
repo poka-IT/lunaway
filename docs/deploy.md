@@ -92,6 +92,7 @@ Secrets live where they are used and nowhere else:
 | secret | where |
 |---|---|
 | database passwords | backend, `/etc/lunaway/{api,ingest,owner}.env` (root, 0600) |
+| the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/ingest.env` (root, 0600), and in the backup chain: a new secret moves every zone |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
 | the age identity that decrypts every dump | the Mac only, `~/.config/lunaway/backup-age.key` (0600); keep an offline copy (a password manager): without it no backup can be read |
 | the Mac's pull key | the Mac, `~/.config/lunaway/ops-pull_ed25519` (0600) |
@@ -400,6 +401,17 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   poller fills `fuel_price_days`: the 31 046 prices of the feed on
   2026-10-06 over 30 days make 931 380 rows, 114 MB with their indexes
   (measured on PostgreSQL 18 with PostGIS 3.6).
+- **Speed cameras** (`docs/speed-cameras.md`). A daily timer, with the
+  import role: `lunaway ingest cameras --refresh` (five lists, about 2.5 MB
+  together), then `lunaway enforcement build`; after each new routing graph,
+  `lunaway ingest cameras-osm --europe --refresh` and
+  `lunaway enforcement build --full`. The build reads
+  `LUNAWAY_ZONE_SECRET` (32 characters at least, generated once with
+  `openssl rand -hex 32` into `/etc/lunaway/ingest.env`, never changed
+  once zones are served, never in the repository) and calls the engine on
+  loopback (`LUNAWAY_VALHALLA_URL`); `trace_attributes`, which the speed
+  limits of every route also use, is already among `loki.actions`. The
+  French build of 2026-10-06 took 25 s against a regional graph.
 
 ## Status page
 

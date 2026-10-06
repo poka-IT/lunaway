@@ -1,0 +1,156 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, revision, deleted_at IS NOT NULL AS \"deleted!\", kind, category, country,\n               CASE WHEN line IS NULL THEN NULL\n                    ELSE ST_AsGeoJSON(line::geometry, 6) END AS \"line?\",\n               ST_Y(point::geometry) AS \"lat?\", ST_X(point::geometry) AS \"lon?\",\n               bearing_deg, limit_kmh, source_ids, updated_at\n        FROM enforcement_items\n        WHERE revision > $1 AND revision <= $4 AND ($3 OR deleted_at IS NULL)\n          AND ($5::text[] IS NULL OR country = ANY($5))\n        ORDER BY revision\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "deleted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "country",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "country"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "line?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "lat?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "lon?",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "bearing_deg",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "bearing_deg"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "limit_kmh",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "limit_kmh"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "source_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "source_ids"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Bool",
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "9e2143736038f5c725f891002533194a32fd9873af82c46fe90848c7dd61948b"
+}

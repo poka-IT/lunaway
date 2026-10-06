@@ -586,7 +586,7 @@ async fn modified(path: &Path) -> Result<Option<DateTime<Utc>>, IngestError> {
 /// division below returns the number nearest to the seven-decimal value
 /// Overpass prints, so both import paths store the same coordinates and
 /// switching between them changes no record.
-fn osm_degrees(decoded: f64) -> f64 {
+pub(crate) fn osm_degrees(decoded: f64) -> f64 {
     (decoded * 1e7).round() / 1e7
 }
 
@@ -646,14 +646,16 @@ impl Selected {
     }
 }
 
-fn reader(path: &Path) -> Result<ElementReader<std::io::BufReader<std::fs::File>>, IngestError> {
+pub(crate) fn reader(
+    path: &Path,
+) -> Result<ElementReader<std::io::BufReader<std::fs::File>>, IngestError> {
     ElementReader::from_path(path).map_err(|source| IngestError::Pbf {
         path: path.to_owned(),
         source,
     })
 }
 
-fn pbf_err(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
+pub(crate) fn pbf_err(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
     move |source| IngestError::Pbf {
         path: path.to_owned(),
         source,
@@ -685,7 +687,7 @@ impl Area {
     }
 
     /// The country of a point of the extract, when the extract keeps it.
-    fn country(self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
+    pub(crate) fn country(self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
         let Ok(position) = lunaway_domain::Position::new(lat, lon) else {
             return Ok(None);
         };

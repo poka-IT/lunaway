@@ -155,21 +155,34 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
         ids,
         [
             "atout-france",
+            "cat-sct-radars",
             "community",
             "finess",
             "laposte",
+            "lu-pch-radars",
+            "no-nvdb-atk",
             "osm",
-            "prix-carburants"
+            "pl-canard",
+            "prix-carburants",
+            "securite-routiere"
         ]
     );
-    assert_eq!(sources[4]["attribution"], "© OpenStreetMap contributors");
+    let of = |id: &str| &sources[ids.iter().position(|i| *i == id).unwrap()];
+    assert_eq!(of("osm")["attribution"], "© OpenStreetMap contributors");
     assert_eq!(
-        sources[1]["licence"], "ODbL 1.0",
+        of("community")["licence"],
+        "ODbL 1.0",
         "places added by users join the ODbL database"
     );
     assert_eq!(
-        sources[3]["licence"], "ODbL 1.0",
+        of("laposte")["licence"],
+        "ODbL 1.0",
         "La Poste's calendar is under the same licence as the database"
+    );
+    assert_eq!(
+        of("securite-routiere")["attribution"],
+        "Sécurité routière, radars.securite-routiere.gouv.fr",
+        "the CRPA asks for the source of the French list to be cited"
     );
 }
 
@@ -1073,8 +1086,9 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        6,
-        "OpenStreetMap, Atout France, the community, and the three joined to the points"
+        11,
+        "OpenStreetMap, Atout France, the community, the three joined to the points and the \
+         five camera lists"
     );
 }
 

@@ -17,6 +17,7 @@ use crate::{
     auth::{self, Challenges},
     community_types::{Account, FavoriteList},
     config::ApiConfig,
+    enforcement_types::EnforcementDelta,
     error::{internal, invalid_input, resync},
     guard::DocumentGuard,
     loaders::PlaceSourcesLoader,
@@ -105,6 +106,8 @@ pub struct ApiState {
     pub(crate) routing: Arc<crate::routing::Routing>,
     /// The road events feed's head and first pages, in memory.
     pub(crate) road_events: Arc<crate::road_events_query::RoadEventsCache>,
+    /// The speed cameras feed's head and first pages, in memory.
+    pub(crate) enforcement: Arc<crate::enforcement_query::EnforcementCache>,
 }
 
 impl ApiState {
@@ -141,6 +144,7 @@ impl ApiState {
             media_workers,
             routing,
             road_events: Arc::default(),
+            enforcement: Arc::default(),
         }
     }
 }
@@ -583,6 +587,34 @@ impl QueryRoot {
             classes,
             blocking_only,
             first.unwrap_or(crate::road_events_query::DEFAULT_PAGE),
+        )
+        .await
+    }
+
+    /// The speed cameras of the countries asked (`countries`, ISO codes;
+    /// every country when null) changed since the cursor `since` (null for
+    /// the whole set), each in the only form its country allows: danger
+    /// zones (a stretch of road, never a camera's point) where positions
+    /// may not be shown, cameras where they may, nothing where the country
+    /// is off (Switzerland never has data). With the rules of every
+    /// country, which the app applies by the country it is in, and the
+    /// lists the items come from with their last read. At most `first`
+    /// items (1000 by default, 2000 at most); `hasMore` asks for the next
+    /// page at once. No position is sent. A cursor of another copy of the
+    /// database gets the whole set again (`full`).
+    #[graphql(complexity = "cost(first, crate::enforcement_query::DEFAULT_PAGE, child_complexity)")]
+    async fn enforcement(
+        &self,
+        ctx: &Context<'_>,
+        since: Option<String>,
+        countries: Option<Vec<String>>,
+        #[graphql(default = 1000)] first: Option<i32>,
+    ) -> Result<EnforcementDelta> {
+        crate::enforcement_query::enforcement(
+            ctx,
+            since,
+            countries,
+            first.unwrap_or(crate::enforcement_query::DEFAULT_PAGE),
         )
         .await
     }

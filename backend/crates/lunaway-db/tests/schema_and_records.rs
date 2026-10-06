@@ -53,11 +53,16 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
         ids,
         [
             "atout-france",
+            "cat-sct-radars",
             "community",
             "finess",
             "laposte",
+            "lu-pch-radars",
+            "no-nvdb-atk",
             "osm",
-            "prix-carburants"
+            "pl-canard",
+            "prix-carburants",
+            "securite-routiere"
         ]
     );
     for joined in [SourceId::FUEL_PRICES, SourceId::LAPOSTE, SourceId::FINESS] {

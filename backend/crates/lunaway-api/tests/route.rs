@@ -600,3 +600,141 @@ async fn the_app_learns_the_data_date_the_bounds_and_the_presets(pool: PgPool) {
     );
     assert_eq!(r["trailerPresets"][0]["id"], "car-trailer");
 }
+
+/// The route from Limoges to Brive on the A20 (Valhalla 3.9.0, Limousin
+/// extract of 2026-10-04), and the engine's description of its 273 edges
+/// (`trace_attributes`, `edge_walk`), recorded on 2026-10-06.
+const LIMOGES_BRIVE: &str =
+    include_str!("../../lunaway-domain/tests/fixtures/route_limoges_brive.polyline6");
+const TRACE_LIMOGES_BRIVE: &str = include_str!("fixtures/trace_limoges_brive.json");
+
+/// An engine that answers every route with Limoges to Brive, and every
+/// trace with `trace`; the traces it was asked.
+async fn traced_engine(trace: (u16, Value)) -> (String, Arc<Mutex<Vec<Value>>>) {
+    let geometry = LIMOGES_BRIVE.trim().to_owned();
+    let points = polyline::decode(&geometry).unwrap();
+    let distance: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+    let route = json!({"code": "Ok", "waypoints": [], "routes": [{
+        "geometry": geometry, "distance": distance, "duration": distance / 25.0,
+        "weight_name": "auto",
+        "legs": [{"distance": distance, "steps": [{"mode": "driving", "distance": distance,
+            "intersections": [{"classes": ["motorway"]}]}]}]
+    }]});
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let traces = Arc::clone(&asked);
+    let app = Router::new()
+        .route(
+            "/route",
+            post(move || {
+                let route = route.clone();
+                async move { Json(route) }
+            }),
+        )
+        .route(
+            "/trace_attributes",
+            post(move |Json(body): Json<Value>| {
+                let trace = trace.clone();
+                let traces = Arc::clone(&traces);
+                async move {
+                    traces.lock().unwrap().push(body);
+                    (StatusCode::from_u16(trace.0).unwrap(), Json(trace.1))
+                }
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, asked)
+}
+
+const LIMITS_QUERY: &str = r"
+query Route($input: RouteInput!) {
+  route(input: $input) {
+    status
+    routes { distanceM speedLimits { fromM toM fromIndex toIndex kmh source } }
+  }
+}";
+
+fn weighing(weight_t: f64) -> Value {
+    let mut v = input(3.0);
+    v["input"]["vehicle"]["weightT"] = weight_t.into();
+    v
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_route_carries_the_speed_limits_of_its_vehicle(pool: PgPool) {
+    seed(&pool).await;
+    let trace: Value = serde_json::from_str(TRACE_LIMOGES_BRIVE).unwrap();
+    let (url, traces) = traced_engine((200, trace)).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let (_, body) = gql(&app, LIMITS_QUERY, weighing(4.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    let spans = r["routes"][0]["speedLimits"].as_array().unwrap();
+    assert!(spans.len() > 10, "{spans:?}");
+    let length = r["routes"][0]["distanceM"].as_f64().unwrap();
+    let mut at = 0.0;
+    for s in spans {
+        let (from, to) = (s["fromM"].as_f64().unwrap(), s["toM"].as_f64().unwrap());
+        assert!(from >= at - 0.1 && to > from && to <= length + 1.0, "{s}");
+        at = to;
+        assert!(
+            s["kmh"].as_i64().unwrap() <= 110,
+            "a motorhome over 3.5 t never above 110 in France: {s}"
+        );
+    }
+    let has = |kmh: i64, source: &str| {
+        spans
+            .iter()
+            .any(|s| s["kmh"] == kmh && s["source"] == source)
+    };
+    assert!(
+        has(110, "VEHICLE"),
+        "the A20's 130 is 110 for it (R413-8-1)"
+    );
+    assert!(
+        has(100, "VEHICLE"),
+        "a dual carriageway without a sign: 100"
+    );
+    assert!(has(50, "POSTED"), "the towns' signs stand");
+    {
+        let traces = traces.lock().unwrap();
+        assert_eq!(traces.len(), 1, "95 km traced at once");
+        assert_eq!(traces[0]["shape_match"], "edge_walk");
+        let traced = polyline::decode(traces[0]["encoded_polyline"].as_str().unwrap()).unwrap();
+        assert_eq!(traced.len(), 1_661, "the route's own shape");
+    }
+
+    // A car-sized motorhome keeps the signs, and the defaults where none.
+    let (_, body) = gql(&app, LIMITS_QUERY, weighing(3.5)).await;
+    let spans = body["data"]["route"]["routes"][0]["speedLimits"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert!(
+        spans
+            .iter()
+            .any(|s| s["kmh"] == 130 && s["source"] == "POSTED")
+    );
+    assert!(
+        spans
+            .iter()
+            .any(|s| s["kmh"] == 110 && s["source"] == "DEFAULT")
+    );
+    assert!(!spans.iter().any(|s| s["source"] == "VEHICLE"));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_route_stands_without_limits_when_the_engine_cannot_trace_it(pool: PgPool) {
+    seed(&pool).await;
+    let (url, _) = traced_engine((
+        400,
+        json!({"error_code": 443, "error": "Exact route match algorithm failed to find path"}),
+    ))
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, LIMITS_QUERY, weighing(4.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(r["routes"][0]["speedLimits"], Value::Null);
+}

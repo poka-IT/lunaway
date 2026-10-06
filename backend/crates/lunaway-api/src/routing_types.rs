@@ -7,9 +7,12 @@
 
 use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::{DateTime, Utc};
-use lunaway_domain::routing::{
-    Certainty, FindingKind, RestrictionFeature, RestrictionSource, Severity, TrailerKind,
-    VehicleKind, vehicle::bounds,
+use lunaway_domain::{
+    routing::{
+        Certainty, FindingKind, RestrictionFeature, RestrictionSource, Severity, TrailerKind,
+        VehicleKind, vehicle::bounds,
+    },
+    speed::{LimitSource, Span},
 };
 
 use crate::{
@@ -408,6 +411,67 @@ pub struct RouteSummary {
     /// a single user's report), each at the time the vehicle gets there, in
     /// driving order.
     pub road_events: Vec<RoadEventWarning>,
+    /// The speed limit for this vehicle along the route, in driving order:
+    /// the lower of the road's limit and the vehicle's ceiling in the
+    /// country (a motorhome over 3.5 t: 110 on a French motorway). A
+    /// stretch where no limit is known has no span. Null when the engine
+    /// could not say: the route stands, without limits.
+    pub speed_limits: Option<Vec<SpeedLimitSpan>>,
+}
+
+/// Where a speed limit comes from.
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+#[graphql(name = "SpeedLimitSource")]
+pub enum GqlLimitSource {
+    /// A sign, as OpenStreetMap maps it.
+    Posted,
+    /// The road's default in its country, read from its class and its
+    /// surroundings: an estimate, to show as one.
+    Default,
+    /// The vehicle's own ceiling, lower than the road's limit.
+    Vehicle,
+}
+
+impl From<LimitSource> for GqlLimitSource {
+    fn from(s: LimitSource) -> Self {
+        match s {
+            LimitSource::Posted => Self::Posted,
+            LimitSource::Default => Self::Default,
+            LimitSource::Vehicle => Self::Vehicle,
+        }
+    }
+}
+
+/// A stretch of a route under one speed limit for the vehicle.
+#[derive(SimpleObject, Debug, Clone, PartialEq)]
+pub struct SpeedLimitSpan {
+    /// Where it begins, metres from the start of the route.
+    pub from_m: f64,
+    /// Where it ends, metres from the start.
+    pub to_m: f64,
+    /// Index of its first point in the route's geometry (polyline6 of
+    /// `osrmJson`).
+    pub from_index: i32,
+    /// Index of its last point.
+    pub to_index: i32,
+    /// The limit, km/h.
+    pub kmh: i32,
+    /// Where it comes from.
+    pub source: GqlLimitSource,
+}
+
+impl From<&Span> for SpeedLimitSpan {
+    fn from(s: &Span) -> Self {
+        let index = |i: usize| i32::try_from(i).unwrap_or(i32::MAX);
+        Self {
+            from_m: (s.from_m * 10.0).round() / 10.0,
+            to_m: (s.to_m * 10.0).round() / 10.0,
+            from_index: index(s.from_index),
+            to_index: index(s.to_index),
+            kmh: i32::from(s.limit.kmh),
+            source: s.limit.source.into(),
+        }
+    }
 }
 
 impl RouteSummary {
@@ -427,6 +491,7 @@ impl RouteSummary {
                 .iter()
                 .map(|h| road_event_warning(h, fresh, now))
                 .collect(),
+            speed_limits: None,
         }
     }
 }

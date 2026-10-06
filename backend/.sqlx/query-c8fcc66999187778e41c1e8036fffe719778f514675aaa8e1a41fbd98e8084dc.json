@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT kind, country, count(*) AS \"n!\" FROM enforcement_items\n        WHERE deleted_at IS NULL GROUP BY kind, country ORDER BY kind, country\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "country",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "country"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "c8fcc66999187778e41c1e8036fffe719778f514675aaa8e1a41fbd98e8084dc"
+}

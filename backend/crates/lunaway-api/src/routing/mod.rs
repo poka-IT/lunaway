@@ -17,6 +17,7 @@
 //! then, or a limit the vehicle exceeds, is a blocker too.
 
 pub(crate) mod events;
+pub(crate) mod limits;
 pub(crate) mod valhalla;
 
 use std::{sync::Arc, time::Duration};
@@ -54,6 +55,10 @@ const ROUTE_DEADLINE: Duration = Duration::from_secs(15);
 /// `infra/routing/valhalla.json` (a test reads it), and 6.2 km of
 /// perimeter within its 50 km.
 pub(crate) const MAX_EXCLUSIONS: usize = 200;
+/// Longest the speed limits of a route's answer may take, all its routes
+/// together, after the route itself: the route's deadline and this one stay
+/// under the API's request timeout (20 s by default).
+const LIMITS_DEADLINE: Duration = Duration::from_secs(3);
 /// Radius of the ring around a blocker, metres: enough to catch the road
 /// the route used, small enough to spare a road crossing a few metres away.
 const RING_M: f64 = 5.0;
@@ -259,6 +264,89 @@ impl Routing {
             .map_err(|_| RouteError::Busy)?;
         let body = valhalla::matrix_body(sources, targets, costing);
         Ok(engine.matrix(&body, sources.len(), targets.len()).await?)
+    }
+
+    /// The speed limits along each route of `osrm` for `vehicle`, in the
+    /// order of its routes: `None` for a route the engine could not trace
+    /// within [`LIMITS_DEADLINE`] altogether (a route is never refused for
+    /// its limits).
+    pub(crate) async fn speed_limits(
+        &self,
+        osrm: &Value,
+        vehicle: lunaway_domain::speed::Vehicle,
+    ) -> Vec<Option<Vec<lunaway_domain::speed::Span>>> {
+        let routes = osrm
+            .get("routes")
+            .and_then(Value::as_array)
+            .map_or(&[][..], Vec::as_slice);
+        let traced =
+            tokio::time::timeout(LIMITS_DEADLINE, self.trace_routes(routes, vehicle)).await;
+        match traced {
+            Ok(limits) => limits,
+            Err(_) => {
+                tracing::warn!("the speed limits of a route ran out of time");
+                vec![None; routes.len()]
+            }
+        }
+    }
+
+    async fn trace_routes(
+        &self,
+        routes: &[Value],
+        vehicle: lunaway_domain::speed::Vehicle,
+    ) -> Vec<Option<Vec<lunaway_domain::speed::Span>>> {
+        let mut out = Vec::with_capacity(routes.len());
+        for route in routes {
+            let limits = match self.trace_route(route, vehicle).await {
+                Ok(l) => l,
+                Err(error) => {
+                    tracing::warn!(%error, "no speed limits for a route");
+                    None
+                }
+            };
+            out.push(limits);
+        }
+        out
+    }
+
+    async fn trace_route(
+        &self,
+        route: &Value,
+        vehicle: lunaway_domain::speed::Vehicle,
+    ) -> Result<Option<Vec<lunaway_domain::speed::Span>>, RouteError> {
+        let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
+        let shape = route
+            .get("geometry")
+            .and_then(Value::as_str)
+            .ok_or(RouteError::Malformed("no geometry"))?;
+        let points = polyline::decode(shape).map_err(RouteError::Shape)?;
+        let Some(line) = RouteLine::new(points) else {
+            return Ok(None);
+        };
+        let Some(pieces) = limits::chunks(line.along()) else {
+            return Ok(None);
+        };
+        let mut edges = Vec::new();
+        for (first, last) in pieces {
+            let body = limits::trace_body(&line.points()[first..=last]);
+            let answer = {
+                let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
+                    .await
+                    .map_err(|_| RouteError::Busy)?
+                    .map_err(|_| RouteError::Busy)?;
+                engine.trace(&body).await?
+            };
+            match limits::edges_of(&answer, first) {
+                Some(e) => edges.extend(e),
+                None => return Ok(None),
+            }
+        }
+        let spans = tokio::task::spawn_blocking(move || {
+            lunaway_domain::speed::spans(line.points(), line.along(), &edges, vehicle)
+        })
+        .await
+        .map_err(RouteError::Blocking)?;
+        Ok(Some(spans))
     }
 
     /// Computes and checks routes for `request` on graph `graph_id`.

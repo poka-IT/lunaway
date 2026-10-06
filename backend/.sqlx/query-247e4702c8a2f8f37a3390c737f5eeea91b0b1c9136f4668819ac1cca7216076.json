@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT device_key, content_hash FROM enforcement_items WHERE deleted_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "device_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "device_key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "content_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "content_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "247e4702c8a2f8f37a3390c737f5eeea91b0b1c9136f4668819ac1cca7216076"
+}

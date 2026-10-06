@@ -408,6 +408,266 @@ type Device {
 }
 
 """
+What a zone covers or a camera controls.
+"""
+enum EnforcementCategory {
+	"""
+	Speed, at a point.
+	"""
+	FIXED
+	"""
+	A red light (a zone's category also for a level crossing).
+	"""
+	RED_LIGHT
+	"""
+	An average speed section.
+	"""
+	SECTION_CONTROL
+	"""
+	A level crossing (cameras only).
+	"""
+	LEVEL_CROSSING
+}
+
+"""
+One country's rule.
+"""
+type EnforcementCountryRule {
+	"""
+	ISO 3166-1 alpha-2.
+	"""
+	country: String!
+	"""
+	What the app may carry there.
+	"""
+	mode: EnforcementMode!
+	"""
+	The zones' lengths, in a `ZONES` country.
+	"""
+	zoneLengths: EnforcementZoneLengths
+	"""
+	The texts the rule rests on.
+	"""
+	sources: String!
+}
+
+"""
+The changes since a cursor.
+"""
+type EnforcementDelta {
+	"""
+	The cursor to send next time.
+	"""
+	cursor: String!
+	"""
+	Whether `upserts` is the whole set (no cursor, or one from another
+	copy of the database): replace what is held.
+	"""
+	full: Boolean!
+	"""
+	When the answer was made.
+	"""
+	asOf: DateTime!
+	"""
+	The rules of every country: the app applies the rule of the
+	country it is in, the stricter at once at a border.
+	"""
+	rules: EnforcementRules!
+	"""
+	Items new or changed.
+	"""
+	upserts: [EnforcementItem!]!
+	"""
+	Ids of items gone, or no longer allowed where they lie: drop them.
+	"""
+	removals: [UUID!]!
+	"""
+	The lists, their terms and their last read.
+	"""
+	sources: [EnforcementSource!]!
+	"""
+	How long to wait before asking again, seconds.
+	"""
+	pollIntervalSeconds: Int!
+	"""
+	Whether more changes wait: ask again at once with `cursor`.
+	"""
+	hasMore: Boolean!
+}
+
+"""
+A zone or a camera, as the country it lies in allows.
+"""
+type EnforcementItem {
+	"""
+	A stable id, which does not lead back to a camera.
+	"""
+	id: UUID!
+	"""
+	A zone or a camera.
+	"""
+	kind: EnforcementItemKind!
+	"""
+	What it covers or controls.
+	"""
+	category: EnforcementCategory!
+	"""
+	ISO 3166-1 alpha-2 of the country whose rule it follows.
+	"""
+	country: String!
+	"""
+	A zone's road, polyline6: the alert holds while the vehicle drives
+	along it, in either direction. For a camera of an average speed
+	section, the road from its start to its end when it is known.
+	"""
+	line: String
+	"""
+	A camera's latitude.
+	"""
+	lat: Float
+	"""
+	A camera's longitude.
+	"""
+	lon: Float
+	"""
+	A camera's direction of travel, degrees from north, when known.
+	"""
+	bearingDeg: Float
+	"""
+	A camera's limit, km/h, when known.
+	"""
+	limitKmh: Int
+	"""
+	The lists it comes from (`EnforcementSource.id`).
+	"""
+	sourceIds: [String!]!
+	"""
+	When it last changed.
+	"""
+	updatedAt: DateTime!
+}
+
+"""
+A danger zone or a camera.
+"""
+enum EnforcementItemKind {
+	"""
+	A stretch of road without a point: the camera is somewhere inside,
+	never at a known place.
+	"""
+	ZONE
+	"""
+	A camera at its position.
+	"""
+	CAMERA
+}
+
+"""
+What a country allows an app to carry about speed cameras.
+"""
+enum EnforcementMode {
+	"""
+	Nothing: no data served for the country, nothing shown, no alert.
+	"""
+	OFF
+	"""
+	Cameras may be shown on the map, but nothing while driving: no
+	alert, no display in guidance.
+	"""
+	OFF_WHILE_DRIVING
+	"""
+	Danger zones only, never a camera's point, on the map as in
+	guidance.
+	"""
+	ZONES
+	"""
+	Cameras at their positions.
+	"""
+	EXACT
+}
+
+"""
+The table of rules, by country.
+"""
+type EnforcementRules {
+	"""
+	The table's version: it moves with every change of a line.
+	"""
+	version: Int!
+	"""
+	When the table was last checked against its sources (ISO date).
+	"""
+	reviewedOn: String!
+	"""
+	The rule of a country the table does not name, and where the
+	country is not known (at sea, no position): `OFF`.
+	"""
+	defaultMode: EnforcementMode!
+	"""
+	Each country named.
+	"""
+	countries: [EnforcementCountryRule!]!
+}
+
+"""
+A list the items come from, its terms and its last read: the source
+and its date are cited with the data (the CRPA asks it of the French
+list).
+"""
+type EnforcementSource {
+	"""
+	Its id.
+	"""
+	id: String!
+	"""
+	Its name.
+	"""
+	name: String!
+	"""
+	Its licence.
+	"""
+	licence: String!
+	"""
+	The licence's text.
+	"""
+	licenceUrl: String!
+	"""
+	The text to credit it with.
+	"""
+	attribution: String!
+	"""
+	Its page.
+	"""
+	url: String!
+	"""
+	When the list was last read.
+	"""
+	fetchedAt: DateTime!
+	"""
+	Cameras it listed then (in every country, served or not).
+	"""
+	cameras: Int!
+}
+
+"""
+Lengths of a danger zone by road, metres.
+"""
+type EnforcementZoneLengths {
+	"""
+	On a motorway.
+	"""
+	motorwayM: Int!
+	"""
+	Outside built-up areas.
+	"""
+	ruralM: Int!
+	"""
+	In a built-up area.
+	"""
+	urbanM: Int!
+}
+
+"""
 A page about the place elsewhere.
 """
 type ExternalLink {
@@ -2542,6 +2802,20 @@ type Query {
 	"""
 	roadEvents(since: String, classes: [RoadEventClass!], blockingOnly: Boolean! = true, first: Int = 1000): RoadEventDelta!
 	"""
+	The speed cameras of the countries asked (`countries`, ISO codes;
+	every country when null) changed since the cursor `since` (null for
+	the whole set), each in the only form its country allows: danger
+	zones (a stretch of road, never a camera's point) where positions
+	may not be shown, cameras where they may, nothing where the country
+	is off (Switzerland never has data). With the rules of every
+	country, which the app applies by the country it is in, and the
+	lists the items come from with their last read. At most `first`
+	items (1000 by default, 2000 at most); `hasMore` asks for the next
+	page at once. No position is sent. A cursor of another copy of the
+	database gets the whole set again (`full`).
+	"""
+	enforcement(since: String, countries: [String!], first: Int = 1000): EnforcementDelta!
+	"""
 	The sources of road events, their licence and attribution, and how
 	fresh their data is.
 	"""
@@ -3920,6 +4194,14 @@ type RouteSummary {
 	driving order.
 	"""
 	roadEvents: [RoadEventWarning!]!
+	"""
+	The speed limit for this vehicle along the route, in driving order:
+	the lower of the road's limit and the vehicle's ceiling in the
+	country (a motorhome over 3.5 t: 110 on a French motorway). A
+	stretch where no limit is known has no span. Null when the engine
+	could not say: the route stands, without limits.
+	"""
+	speedLimits: [SpeedLimitSpan!]
 }
 
 """
@@ -4238,6 +4520,56 @@ type SourceRating {
 	Ratings counted.
 	"""
 	count: Int!
+}
+
+"""
+Where a speed limit comes from.
+"""
+enum SpeedLimitSource {
+	"""
+	A sign, as OpenStreetMap maps it.
+	"""
+	POSTED
+	"""
+	The road's default in its country, read from its class and its
+	surroundings: an estimate, to show as one.
+	"""
+	DEFAULT
+	"""
+	The vehicle's own ceiling, lower than the road's limit.
+	"""
+	VEHICLE
+}
+
+"""
+A stretch of a route under one speed limit for the vehicle.
+"""
+type SpeedLimitSpan {
+	"""
+	Where it begins, metres from the start of the route.
+	"""
+	fromM: Float!
+	"""
+	Where it ends, metres from the start.
+	"""
+	toM: Float!
+	"""
+	Index of its first point in the route's geometry (polyline6 of
+	`osrmJson`).
+	"""
+	fromIndex: Int!
+	"""
+	Index of its last point.
+	"""
+	toIndex: Int!
+	"""
+	The limit, km/h.
+	"""
+	kmh: Int!
+	"""
+	Where it comes from.
+	"""
+	source: SpeedLimitSource!
 }
 
 """

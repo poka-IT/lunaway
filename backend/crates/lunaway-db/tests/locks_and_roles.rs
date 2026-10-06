@@ -241,6 +241,7 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         "conflation_constraints",
         "municipalities",
         "_sqlx_migrations",
+        "enforcement_devices",
     ] {
         assert!(
             privileges(&pool, "lunaway_app", t).await.is_empty(),
@@ -254,6 +255,13 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
             "lunaway_app on {t}"
         );
     }
+    for t in ["enforcement_items", "enforcement_sources"] {
+        assert_eq!(
+            privileges(&pool, "lunaway_app", t).await,
+            ["SELECT"],
+            "lunaway_app on {t}: the API serves the built items, never a camera as a source gives it"
+        );
+    }
     assert_eq!(
         privileges(&pool, "lunaway_app", "place_refresh_queue").await,
         ["INSERT"],
@@ -263,7 +271,7 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        6,
+        11,
         "the API reads the sources"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
@@ -394,6 +402,17 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
             privileges(&pool, "lunaway_ingest", t).await,
             ["SELECT", "INSERT", "UPDATE", "DELETE"],
             "lunaway_ingest on {t}"
+        );
+    }
+    for t in [
+        "enforcement_devices",
+        "enforcement_items",
+        "enforcement_sources",
+    ] {
+        assert_eq!(
+            privileges(&pool, "lunaway_ingest", t).await,
+            ["SELECT", "INSERT", "UPDATE"],
+            "lunaway_ingest on {t}: a camera gone is a tombstone the feed reports"
         );
     }
     assert_eq!(
