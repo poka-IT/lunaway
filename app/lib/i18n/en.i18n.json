@@ -1366,6 +1366,7 @@
       "other": "Updating, $count places"
     },
     "waiting": "waiting for its download",
-    "downloadingNamed": "Downloading the places: $name"
+    "downloadingNamed": "Downloading the places: $name",
+    "updated": "updated $when"
   }
 }

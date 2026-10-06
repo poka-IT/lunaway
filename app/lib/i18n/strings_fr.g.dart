@@ -1333,6 +1333,7 @@ class _Translations$regions$fr extends Translations$regions$en {
 	);
 	@override String get waiting => 'en attente de son téléchargement';
 	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
+	@override String updated({required Object when}) => 'mis à jour ${when}';
 }
 
 // Path: place.reviewVehicle
@@ -3163,6 +3164,7 @@ extension on TranslationsFr {
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Mise à jour, ${count} lieu', other: 'Mise à jour, ${count} lieux', ), 
 			'regions.waiting' => 'en attente de son téléchargement',
 			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
+			'regions.updated' => ({required Object when}) => 'mis à jour ${when}',
 			_ => null,
 		};
 	}

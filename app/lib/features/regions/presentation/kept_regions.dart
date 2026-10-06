@@ -112,7 +112,7 @@ class KeptRegionsList extends ConsumerWidget {
     final base = t.regions.packInfo(n: places, count: t.number(places), size: size);
     if (dates.any((d) => d == null)) return '$base, ${t.regions.waiting}';
     final oldest = dates.nonNulls.reduce((a, b) => a.isBefore(b) ? a : b);
-    return '$base, ${t.profile.lastSync(when: t.ago(oldest, now))}';
+    return '$base, ${t.regions.updated(when: t.ago(oldest, now))}';
   }
 
   Future<void> _remove(BuildContext context, WidgetRef ref, _Row row) async {

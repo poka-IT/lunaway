@@ -2800,6 +2800,9 @@ class Translations$regions$en {
 
 	/// en: 'Downloading the places: $name'
 	String downloadingNamed({required Object name}) => 'Downloading the places: ${name}';
+
+	/// en: 'updated $when'
+	String updated({required Object when}) => 'updated ${when}';
 }
 
 // Path: place.reviewVehicle
@@ -5399,6 +5402,7 @@ extension on Translations {
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Updating, ${count} place', other: 'Updating, ${count} places', ), 
 			'regions.waiting' => 'waiting for its download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
+			'regions.updated' => ({required Object when}) => 'updated ${when}',
 			_ => null,
 		};
 	}

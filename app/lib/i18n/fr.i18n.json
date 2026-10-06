@@ -1366,6 +1366,7 @@
       "other": "Mise à jour, $count lieux"
     },
     "waiting": "en attente de son téléchargement",
-    "downloadingNamed": "Téléchargement des lieux : $name"
+    "downloadingNamed": "Téléchargement des lieux : $name",
+    "updated": "mis à jour $when"
   }
 }
