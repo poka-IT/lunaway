@@ -1,1 +1,0 @@
-Première version : carte et liste des lieux de France métropolitaine, nuit indiquée sur chaque fiche, filtres, recherche et fiches sans réseau, favoris en listes, profil du véhicule. Avis, photos, confirmations et ajout de lieux avec un compte sans e-mail.

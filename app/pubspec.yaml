@@ -2,7 +2,7 @@ name: lunaway
 description: "Lunaway, the free and open map of motorhome and van spots."
 publish_to: 'none'
 homepage: https://lunaway.net
-version: 0.1.0+1
+version: 0.1.0+2
 
 environment:
   sdk: ^3.13.5
