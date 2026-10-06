@@ -19,6 +19,19 @@ final class RouteMapLine {
 
   /// The chosen route draws above the others, in the brand's teal.
   final bool selected;
+
+  /// The same line: its points are the route's own list, compared by
+  /// identity, so a screen rebuilt at every fix sends the line only when
+  /// the route changes.
+  @override
+  bool operator ==(Object other) =>
+      other is RouteMapLine &&
+      other.index == index &&
+      other.selected == selected &&
+      identical(other.points, points);
+
+  @override
+  int get hashCode => Object.hash(index, selected, identityHashCode(points));
 }
 
 /// What a point on the route map stands for.
@@ -45,6 +58,13 @@ final class RouteMapMark {
 
   final LatLng position;
   final RouteMarkKind kind;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RouteMapMark && other.position == position && other.kind == kind;
+
+  @override
+  int get hashCode => Object.hash(position, kind);
 }
 
 /// Where the camera looks.

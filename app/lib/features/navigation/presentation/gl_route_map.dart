@@ -27,7 +27,11 @@ class _GlRouteMapState extends State<GlRouteMap> {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
   int _styleLoads = 0;
-  Future<void> _queue = Future.value();
+
+  // One update runs at a time and sends the latest state: at a fix a
+  // second, a queue of every intermediate state would drift behind.
+  bool _syncing = false;
+  bool _dirty = false;
 
   // What the style holds, to send only what changed.
   List<RouteMapLine>? _sentLines;
@@ -55,9 +59,23 @@ class _GlRouteMapState extends State<GlRouteMap> {
   }
 
   void _schedule() {
-    _queue = _queue.then((_) => _sync()).catchError((Object e, StackTrace st) {
+    _dirty = true;
+    if (_syncing) return;
+    _syncing = true;
+    unawaited(_drain());
+  }
+
+  Future<void> _drain() async {
+    try {
+      while (_dirty && mounted) {
+        _dirty = false;
+        await _sync();
+      }
+    } on Object catch (e, st) {
       _log.warning('route map update failed', e, st);
-    });
+    } finally {
+      _syncing = false;
+    }
   }
 
   static Future<void> _quietly(Future<void> Function() call) async {
@@ -181,7 +199,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
     final p = _props;
-    if (!identical(p.lines, _sentLines)) {
+    if (!listEquals(p.lines, _sentLines)) {
       _sentLines = p.lines;
       await c.setGeoJsonSource(
         RouteLayers.alternativesSource,
@@ -192,7 +210,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
         routeLinesCollection(p.lines, selected: true),
       );
     }
-    if (!identical(p.marks, _sentMarks)) {
+    if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
       await c.setGeoJsonSource(RouteLayers.marksSource, routeMarksCollection(p.marks));
     }
@@ -239,14 +257,17 @@ class _GlRouteMapState extends State<GlRouteMap> {
           ),
         );
         // A fix a second: the camera glides from one to the next instead of
-        // jumping, which reads calmer at the wheel.
-        await c.animateCamera(
-          update,
-          duration: Motion.reduced(context)
-              ? Duration.zero
-              : follow
-              ? const Duration(milliseconds: 950)
-              : Motion.camera,
+        // jumping, which reads calmer at the wheel. Not awaited: the next
+        // fix's glide takes over from this one.
+        unawaited(
+          c.animateCamera(
+            update,
+            duration: Motion.reduced(context)
+                ? Duration.zero
+                : follow
+                ? const Duration(milliseconds: 950)
+                : Motion.camera,
+          ),
         );
     }
   }
