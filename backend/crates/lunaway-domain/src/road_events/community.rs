@@ -151,6 +151,18 @@ pub fn same_spot(a: Position, a_heading: Option<u16>, b: Position, b_heading: Op
     }
 }
 
+/// The position a community event keeps and publishes: four decimals of a
+/// degree, about ten metres. The event row is readable by the importers'
+/// role, which also reads the reports' accounts and times; an exact
+/// position there would draw a reporter's trip to the metre, so the exact
+/// one stays with the report only (`road_event_reports.geom`, the API's
+/// role).
+#[must_use]
+pub fn coarse(p: Position) -> Position {
+    let round = |x: f64| (x * 10_000.0).round() / 10_000.0;
+    Position::new(round(p.lat()), round(p.lon())).unwrap_or(p)
+}
+
 /// Whether two measured figures describe the same limit, within
 /// [`AGREE_M`]; a missing figure agrees with any.
 #[must_use]
@@ -310,6 +322,15 @@ mod tests {
     use chrono::TimeZone as _;
 
     use super::*;
+
+    #[test]
+    fn a_coarse_position_is_within_ten_metres_on_a_grid() {
+        let at = Position::new(45.123_456_7, 6.987_654_3).unwrap();
+        let c = coarse(at);
+        assert_eq!((c.lat(), c.lon()), (45.1235, 6.9877));
+        assert!(at.distance_m(c) < 10.0);
+        assert_eq!(coarse(c), c, "rounding twice changes nothing");
+    }
 
     fn t(h: i64) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 10, 6, 8, 0, 0).unwrap() + Duration::minutes(h)

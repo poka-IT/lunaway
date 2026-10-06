@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT r.account_id, r.created_at, e.heading_deg,\n                  ST_Y(e.geom_source::geometry) AS \"lat!\", ST_X(e.geom_source::geometry) AS \"lon!\"\n           FROM road_events e JOIN road_event_reports r ON r.event_id = e.id\n           WHERE e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "heading_deg",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "heading_deg"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "c82069af4a98e2c809e2940a8c6a75b80a80a9398c70b259e9e4aa6769d74591"
+}

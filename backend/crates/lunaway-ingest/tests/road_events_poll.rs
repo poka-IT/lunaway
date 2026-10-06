@@ -316,6 +316,190 @@ impl Engine for Straight {
     }
 }
 
+/// [`Straight`], except for the lines that start or end within 50 m of
+/// `refuse_near`, which it refuses as Valhalla refused real ones in
+/// production; it counts the requests it receives.
+struct Picky {
+    refuse_near: Option<Position>,
+    calls: std::sync::atomic::AtomicUsize,
+}
+
+impl Engine for Picky {
+    async fn route(&self, body: &Value) -> Result<Option<Value>, MatchError> {
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let ends: Vec<Position> = body["locations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap())
+            .collect();
+        let refused = match self.refuse_near {
+            Some(at) => ends.iter().any(|e| e.distance_m(at) < 50.0),
+            None => true,
+        };
+        if refused {
+            return Err(MatchError::Refused(
+                "HTTP 400 error 154: Insufficient number of locations provided".into(),
+            ));
+        }
+        Straight.route(body).await
+    }
+}
+
+async fn graph(pool: &PgPool, id: &str) {
+    graphs::load_graph(
+        pool,
+        &NewGraph {
+            id: id.into(),
+            osm_data_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 0, 0).unwrap(),
+            ign_fetched_at: None,
+            ign_edition: None,
+            built_at: Utc.with_ymd_and_hms(2026, 10, 6, 3, 0, 0).unwrap(),
+            engine: "valhalla 3.9.0".into(),
+            stats: json!({}),
+        },
+        &[],
+    )
+    .await
+    .unwrap();
+    graphs::activate(pool, id).await.unwrap();
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_line_the_engine_refuses_waits_and_the_others_are_placed(pool: PgPool) {
+    let (_, addr) = feeds().await;
+    let dir = tempfile::tempdir().unwrap();
+    let client = http::client_allowing_plain_http().unwrap();
+    let mut only_dir = config(addr);
+    only_dir.only = vec!["dir".into()];
+    let engine: Option<&matching::Valhalla> = None;
+    poll::poll(&pool, &client, &Cache::new(dir.path()), &only_dir, engine)
+        .await
+        .unwrap();
+    graph(&pool, "20261006T0300Z-fr").await;
+    let start = sqlx::query!(
+        r#"SELECT ST_Y(ST_StartPoint(geom_source::geometry)) AS "lat!",
+                  ST_X(ST_StartPoint(geom_source::geometry)) AS "lon!"
+           FROM road_events WHERE external_id = '260122-001799-1'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let picky = Picky {
+        refuse_near: Some(Position::new(start.lat, start.lon).unwrap()),
+        calls: 0.into(),
+    };
+    let report = matching::match_pending(&pool, &picky, 100, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert!(
+        report.refused >= 1,
+        "the N20's lines, refused, are counted: {report:?}"
+    );
+    assert!(
+        report.matched >= 1,
+        "the events after the refused one are placed in the same pass: {report:?}"
+    );
+    let refused = || async {
+        sqlx::query!(
+            r#"SELECT match_quality, match_error, match_attempts,
+                      match_retry_at > now() + interval '20 minutes' AS "later?"
+               FROM road_events WHERE external_id = '260122-001799-1'"#
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    let r = refused().await;
+    assert_eq!(
+        r.match_quality, "unmatched",
+        "left unplaced: it warns where it is"
+    );
+    assert!(r.match_error.unwrap().contains("error 154"));
+    assert_eq!((r.match_attempts, r.later), (1, Some(true)));
+
+    let calls = picky.calls.load(std::sync::atomic::Ordering::SeqCst);
+    let again = matching::match_pending(&pool, &picky, 100, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert_eq!(
+        (
+            again.refused,
+            picky.calls.load(std::sync::atomic::Ordering::SeqCst)
+        ),
+        (0, calls),
+        "a refused line is not asked again at every pass"
+    );
+    // Due again twice, refused twice: then it waits for the next graph.
+    for attempts in [2, 3] {
+        sqlx::query!(
+            "UPDATE road_events SET match_retry_at = now() - interval '1 minute'
+             WHERE external_id = '260122-001799-1'"
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let r = matching::match_pending(&pool, &picky, 100, Duration::from_secs(30))
+            .await
+            .unwrap();
+        assert_eq!(r.refused, 1);
+        assert_eq!(refused().await.match_attempts, attempts);
+    }
+    let r = refused().await;
+    assert_eq!(
+        r.later, None,
+        "after three refusals, no retry on this graph"
+    );
+    graph(&pool, "20261013T0300Z-fr").await;
+    let on_new_graph = matching::match_pending(&pool, &Straight, 100, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert!(on_new_graph.matched >= 2, "{on_new_graph:?}");
+    let r = refused().await;
+    assert_eq!(
+        (r.match_quality.as_str(), r.match_error, r.match_attempts),
+        ("matched", None, 0),
+        "a new graph asks every line again"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_engine_that_refuses_everything_stops_the_pass(pool: PgPool) {
+    let (_, addr) = feeds().await;
+    let dir = tempfile::tempdir().unwrap();
+    let client = http::client_allowing_plain_http().unwrap();
+    let engine: Option<&matching::Valhalla> = None;
+    poll::poll(
+        &pool,
+        &client,
+        &Cache::new(dir.path()),
+        &config(addr),
+        engine,
+    )
+    .await
+    .unwrap();
+    graph(&pool, "20261006T0300Z-fr").await;
+    let waiting: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM road_events WHERE match_quality = 'pending'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(waiting > 5, "the fixtures hold enough lines: {waiting}");
+    let broken = Picky {
+        refuse_near: None,
+        calls: 0.into(),
+    };
+    let report = matching::match_pending(&pool, &broken, 100, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert_eq!(
+        (report.refused, report.more),
+        (5, true),
+        "five refusals in a row are the engine's fault: the pass stops"
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn sections_are_placed_on_their_road_in_their_direction(pool: PgPool) {
     let (_, addr) = feeds().await;

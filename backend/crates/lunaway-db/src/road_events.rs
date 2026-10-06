@@ -909,6 +909,28 @@ pub struct MatchTask {
     /// A digest of what the match depends on (geometry, direction,
     /// carriageway): [`set_match`] stores nothing when it changed meanwhile.
     pub fingerprint: String,
+    /// How many times the engine refused its lines on the graph it was
+    /// last tried on.
+    pub refusals: i16,
+    /// The graph it was last placed or tried on.
+    pub graph_id: Option<String>,
+}
+
+/// How many times the engine may refuse an event's lines on one graph
+/// before the event waits for the next graph: a refusal can come from a
+/// moment of the engine, rarely, so a line is asked again twice.
+pub const MAX_REFUSALS: i16 = 3;
+
+/// When an event refused `refusals` times on a graph is asked again: 30
+/// minutes after the first refusal, 2 hours after the second, never on this
+/// graph after the third.
+#[must_use]
+pub fn retry_after_refusal(refusals: i16, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    match refusals {
+        ..=1 => Some(now + Duration::minutes(30)),
+        2 => Some(now + Duration::hours(2)),
+        _ => None,
+    }
 }
 
 fn decode<T>(what: &'static str, v: &str) -> Result<T, DbError>
@@ -964,8 +986,9 @@ fn matched_lines(text: Option<&str>) -> Vec<Vec<Position>> {
     }
 }
 
-/// The live events made of lines that wait for a match, or were matched on
-/// another graph than `graph_id`: the waiting ones first, closures first.
+/// The live events made of lines that wait for a match, were matched on
+/// another graph than `graph_id`, or were refused by the engine and are
+/// due to be asked again: the waiting ones first, closures first.
 ///
 /// # Errors
 ///
@@ -977,7 +1000,7 @@ pub async fn match_tasks(
 ) -> Result<Vec<MatchTask>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT id, source, direction, road_number,
+        SELECT id, source, direction, road_number, match_attempts, matched_graph_id,
             ST_AsGeoJSON(geom_source::geometry, 7) AS "shape!",
             md5(ST_AsBinary(geom_source) || convert_to(direction || ' ' || carriageway, 'UTF8'))
                 AS "fingerprint!"
@@ -986,7 +1009,8 @@ pub async fn match_tasks(
           AND GeometryType(geom_source::geometry) IN ('LINESTRING', 'MULTILINESTRING')
           AND (match_quality = 'pending'
                OR (match_quality IN ('matched', 'unmatched')
-                   AND matched_graph_id IS DISTINCT FROM $1))
+                   AND matched_graph_id IS DISTINCT FROM $1)
+               OR (match_quality = 'unmatched' AND match_retry_at <= now()))
         ORDER BY match_quality = 'pending' DESC, class = 'closure' DESC, first_seen_at
         LIMIT $2
         "#,
@@ -1008,6 +1032,8 @@ pub async fn match_tasks(
                 direction: decode("road event direction", &r.direction)?,
                 road_number: r.road_number,
                 fingerprint: r.fingerprint,
+                refusals: r.match_attempts,
+                graph_id: r.matched_graph_id,
             })
         })
         .collect()
@@ -1036,7 +1062,11 @@ pub async fn set_match(
             geom_matched = CASE WHEN $2::text IS NULL THEN NULL
                 ELSE ST_GeomFromText($2::text, 4326)::geography END,
             match_quality = CASE WHEN $2::text IS NULL THEN 'unmatched' ELSE 'matched' END,
-            matched_graph_id = $3
+            matched_graph_id = $3,
+            match_error = CASE WHEN $2::text IS NULL
+                THEN 'no route on the graph holds together as this line' END,
+            match_attempts = 0,
+            match_retry_at = NULL
         WHERE id = $1 AND ended_at IS NULL
           AND match_quality IN ('pending', 'matched', 'unmatched')
           AND md5(ST_AsBinary(geom_source) || convert_to(direction || ' ' || carriageway, 'UTF8'))
@@ -1045,6 +1075,53 @@ pub async fn set_match(
         task.id,
         shape,
         graph_id,
+        task.fingerprint,
+    )
+    .execute(&mut *w.0)
+    .await?;
+    Ok(done.rows_affected() > 0)
+}
+
+/// Records that the engine refused to route `task` on graph `graph_id`,
+/// for `reason`: the event is left unplaced (it warns at its source
+/// position), and asked again as [`retry_after_refusal`] says. Whether it
+/// was stored, as for [`set_match`].
+///
+/// # Errors
+///
+/// [`DbError`] when the update fails.
+pub async fn set_refused(
+    w: &mut EventWriter,
+    task: &MatchTask,
+    reason: &str,
+    graph_id: &str,
+    now: DateTime<Utc>,
+) -> Result<bool, DbError> {
+    let refusals = if task.graph_id.as_deref() == Some(graph_id) {
+        task.refusals.saturating_add(1).min(100)
+    } else {
+        1
+    };
+    let reason: String = reason.chars().take(300).collect();
+    let done = sqlx::query!(
+        r#"
+        UPDATE road_events SET
+            geom_matched = NULL,
+            match_quality = 'unmatched',
+            matched_graph_id = $2,
+            match_error = $3,
+            match_attempts = $4,
+            match_retry_at = $5
+        WHERE id = $1 AND ended_at IS NULL
+          AND match_quality IN ('pending', 'matched', 'unmatched')
+          AND md5(ST_AsBinary(geom_source) || convert_to(direction || ' ' || carriageway, 'UTF8'))
+              = $6
+        "#,
+        task.id,
+        graph_id,
+        reason,
+        refusals,
+        retry_after_refusal(refusals, now),
         task.fingerprint,
     )
     .execute(&mut *w.0)
@@ -1604,6 +1681,84 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
     // migration's trigger takes it too): no row lock is needed to read the
     // community's events and update one.
     let mut w = begin_writer_now(pool).await?;
+    let done = report_in(&mut w, r, now).await?;
+    w.commit().await?;
+    Ok(done)
+}
+
+/// [`report`] guarded by an idempotency key: a request sent again with the
+/// same key answers with the report the first one stored. The key's
+/// account is the reporter.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails or the writers' lock is not free in
+/// time ([`is_busy`]).
+pub async fn report_once(
+    pool: &PgPool,
+    key: &crate::idempotency::Key<'_>,
+    r: &NewReport,
+    now: DateTime<Utc>,
+) -> Result<crate::idempotency::Once<Reported>, DbError> {
+    use crate::idempotency::{self, Once, Seen};
+    let mut w = begin_writer_now(pool).await?;
+    // The writers' lock orders two requests with the same key: the second
+    // sees the first's key here.
+    match idempotency::seen(&mut w.0, key).await? {
+        Seen::New => {}
+        Seen::Replay(id) => return Ok(Once::Replay(id)),
+        Seen::Reused => return Ok(Once::Reused),
+    }
+    let done = report_in(&mut w, r, now).await?;
+    if idempotency::store_in(&mut w.0, key, done.report_id).await? {
+        w.commit().await?;
+        Ok(Once::Done(done))
+    } else {
+        w.0.rollback().await?;
+        idempotency::after_lost_race(pool, key).await
+    }
+}
+
+/// What report `id` of `account` stands for now, for a request sent again:
+/// its event, the event's confidence and when it ends (or ended).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn report_of(
+    pool: &PgPool,
+    account: Uuid,
+    id: Uuid,
+) -> Result<Option<Reported>, DbError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT r.id, r.event_id AS "event_id!", e.confidence,
+            coalesce(e.ended_at, e.valid_to, e.last_seen_at) AS "until!"
+        FROM road_event_reports r JOIN road_events e ON e.id = r.event_id
+        WHERE r.id = $1 AND r.account_id = $2
+        "#,
+        id,
+        account,
+    )
+    .fetch_optional(pool)
+    .await?;
+    row.map(|r| {
+        Ok(Reported {
+            report_id: r.id,
+            event_id: r.event_id,
+            confidence: decode("road event confidence", &r.confidence)?,
+            confirmed_now: false,
+            expires_at: r.until,
+        })
+    })
+    .transpose()
+}
+
+async fn report_in(
+    w: &mut EventWriter,
+    r: &NewReport,
+    now: DateTime<Utc>,
+) -> Result<Reported, DbError> {
     let candidates = sqlx::query!(
         r#"
         SELECT id, heading_deg, confidence, max_height_m, max_width_m,
@@ -1642,24 +1797,26 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
         .and_then(|e| e.confidence.parse::<Confidence>().ok());
     let report_id = Uuid::now_v7();
     if existing.is_none() {
-        // The event row first: the report points at it.
+        // The event row first: the report points at it. It keeps the
+        // published position and no heading: the importers' role reads it
+        // with the reports' accounts and times (`community::coarse`).
         let placeholder = serde_json::json!({});
+        let at = community::coarse(r.at);
         sqlx::query!(
             r#"
             INSERT INTO road_events (id, source, external_id, external_version, class, detail,
                 carriageway, direction, heading_deg, valid_from, valid_to, geom_source,
                 match_quality, confidence, first_seen_at, last_seen_at, content_hash, raw,
                 revision)
-            VALUES ($1, 'community', $8, '0000000001', 'closure', $2, 'unknown',
-                'unknown', $3, $4, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography,
-                'point', 'reported', $4, $4, 'new', $7, 0)
+            VALUES ($1, 'community', $7, '0000000001', 'closure', $2, 'unknown',
+                'unknown', NULL, $3, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography,
+                'point', 'reported', $3, $3, 'new', $6, 0)
             "#,
             event_id,
             r.kind.code(),
-            r.heading_deg.map(|h| i16::try_from(h).unwrap_or(0)),
             now,
-            r.at.lon(),
-            r.at.lat(),
+            at.lon(),
+            at.lat(),
             placeholder.to_string(),
             event_id.to_string(),
         )
@@ -1684,10 +1841,9 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
     )
     .execute(&mut *w.0)
     .await?;
-    let summary = summarize_event(&mut w, event_id, r.kind, "moderated").await?;
+    let summary = summarize_event(w, event_id, r.kind, "moderated").await?;
     let Some(summary) = summary else {
         // Cannot happen: the report just stored supports the event.
-        w.commit().await?;
         return Err(DbError::decode(
             "community event",
             std::io::Error::new(std::io::ErrorKind::InvalidData, event_id.to_string()),
@@ -1709,7 +1865,6 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
         .execute(&mut *w.0)
         .await?;
     }
-    w.commit().await?;
     Ok(Reported {
         report_id,
         event_id,
