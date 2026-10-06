@@ -964,9 +964,10 @@ fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
     }
     if let Some(m) = &report.matching {
         println!(
-            "matched {}, could not place {}, changed meanwhile {}{}",
+            "matched {}, could not place {}, refused by the engine {}, changed meanwhile {}{}",
             m.matched,
             m.unmatched,
+            m.refused,
             m.stale,
             if m.more { ", more waiting" } else { "" }
         );
@@ -1042,9 +1043,10 @@ async fn road_events(
                 .await
                 .context("matching failed")?;
             println!(
-                "matched {}, could not place {}, changed meanwhile {}{}",
+                "matched {}, could not place {}, refused by the engine {}, changed meanwhile {}{}",
                 r.matched,
                 r.unmatched,
+                r.refused,
                 r.stale,
                 if r.more { ", more waiting" } else { "" }
             );

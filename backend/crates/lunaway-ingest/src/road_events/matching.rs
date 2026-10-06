@@ -19,6 +19,7 @@
 
 use std::time::{Duration, Instant};
 
+use chrono::Utc;
 use lunaway_db::{PgPool, road_events as db, routing::active_graph};
 use lunaway_domain::{
     Position,
@@ -49,6 +50,9 @@ const ROAD_SHARE: f64 = 0.6;
 const STRAY_M: f64 = 20.0;
 /// Share of a drawn street's route that must lie within [`STRAY_M`].
 const STAY_SHARE: f64 = 0.9;
+/// Refusals in a row after which the pass stops: one refused line is that
+/// line's matter, a run of them more likely the engine's.
+const REFUSALS_IN_A_ROW: u32 = 5;
 
 /// Why the engine could not be asked.
 #[derive(Debug, thiserror::Error)]
@@ -72,6 +76,37 @@ pub enum MatchError {
     /// The engine answered with an error it should not give.
     #[error("the routing engine refused: {0}")]
     Refused(String),
+}
+
+impl MatchError {
+    /// Whether the engine answered and refused this request (a bad
+    /// request, an error of its own on these points), rather than not
+    /// answering at all: a refusal concerns one event, the others are
+    /// asked; a silent engine stops the pass.
+    #[must_use]
+    pub const fn is_refusal(&self) -> bool {
+        matches!(self, Self::Refused(_) | Self::TooLarge)
+    }
+}
+
+/// The reason in an engine's error answer (`{"error_code": 154, "error":
+/// "Insufficient number of locations provided", "status_code": 400}`),
+/// short enough to store.
+fn refusal(status: reqwest::StatusCode, value: &Value) -> String {
+    let code = value
+        .get("error_code")
+        .and_then(Value::as_i64)
+        .map(|c| format!(" error {c}"))
+        .unwrap_or_default();
+    let text = value
+        .get("error")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("code").and_then(Value::as_str))
+        .unwrap_or("no reason given");
+    format!("HTTP {}{code}: {text}", status.as_u16())
+        .chars()
+        .take(300)
+        .collect()
 }
 
 /// The routing engine as the matcher uses it; a fake in tests.
@@ -153,11 +188,12 @@ impl Engine for Valhalla {
                 return Err(MatchError::TooLarge);
             }
         }
+        let status = response.status();
         let value: Value = serde_json::from_slice(&bytes).map_err(MatchError::NotJson)?;
         match value.get("code").and_then(Value::as_str) {
             Some("Ok") => Ok(Some(value)),
             Some("NoRoute" | "NoSegment") => Ok(None),
-            other => Err(MatchError::Refused(other.unwrap_or("no code").to_owned())),
+            _ => Err(MatchError::Refused(refusal(status, &value))),
         }
     }
 }
@@ -197,16 +233,33 @@ fn sample(line: &[Position], every_m: f64, max: usize) -> Vec<Position> {
     out
 }
 
-/// The request that follows `line` in its order.
-fn request(line: &[Position]) -> Value {
-    let points = if line.len() == 2 {
+/// The points a request goes through for `line`: its ends, and points
+/// every [`THROUGH_EVERY_M`] along a drawn street, two in a row never
+/// closer than a metre (the engine refuses a request with fewer than two
+/// locations, and a through point on top of another). `None` for a line
+/// that comes back on itself within a metre: there is nothing to follow.
+fn locations(line: &[Position]) -> Option<Vec<Position>> {
+    let sampled = if line.len() == 2 {
         line.to_vec()
     } else {
         sample(line, THROUGH_EVERY_M, MAX_LOCATIONS)
     };
+    let mut points: Vec<Position> = Vec::with_capacity(sampled.len());
+    for p in sampled {
+        if points.last().is_none_or(|q| q.distance_m(p) >= 1.0) {
+            points.push(p);
+        }
+    }
+    (points.len() >= 2).then_some(points)
+}
+
+/// The request that follows `line` in its order, through [`locations`];
+/// `None` when there is nothing to follow.
+fn request(line: &[Position]) -> Option<Value> {
+    let points = locations(line)?;
     let start_heading = heading(line[0], line[1]).rem_euclid(360.0);
     let last = points.len() - 1;
-    let locations: Vec<Value> = points
+    let stops: Vec<Value> = points
         .iter()
         .enumerate()
         .map(|(i, p)| {
@@ -229,13 +282,13 @@ fn request(line: &[Position]) -> Value {
             l
         })
         .collect();
-    json!({
-        "locations": locations,
+    Some(json!({
+        "locations": stops,
         "costing": "auto",
         "format": "osrm",
         "shape_format": "polyline6",
         "language": "en-US",
-    })
+    }))
 }
 
 /// The route of an answer, if it holds together as the place of `line`
@@ -337,7 +390,10 @@ pub async fn match_lines(
             ways.push(line.iter().rev().copied().collect());
         }
         for way in ways {
-            if let Some(answer) = engine.route(&request(&way)).await?
+            let Some(body) = request(&way) else {
+                continue;
+            };
+            if let Some(answer) = engine.route(&body).await?
                 && let Some(points) = accept(&answer, &way, road.as_deref())
             {
                 out.push(points);
@@ -354,6 +410,9 @@ pub struct MatchReport {
     pub matched: u64,
     /// Events that could not be placed.
     pub unmatched: u64,
+    /// Events whose lines the engine refused: left unplaced, asked again
+    /// later ([`db::retry_after_refusal`]).
+    pub refused: u64,
     /// Events that changed while the engine placed them: matched again at
     /// the next pass.
     pub stale: u64,
@@ -366,8 +425,11 @@ pub struct MatchReport {
 ///
 /// # Errors
 ///
-/// [`IngestError::Db`] when the database fails; an engine failure ends the
-/// pass with what was done (the events wait for the next one).
+/// [`IngestError::Db`] when the database fails. An event whose lines the
+/// engine refuses is left unplaced with the engine's reason and the pass
+/// goes on (`db::set_refused`); an engine that does not answer, or refuses
+/// [`REFUSALS_IN_A_ROW`] events in a row, ends the pass with what was done
+/// (the events wait for the next one).
 pub async fn match_pending(
     pool: &PgPool,
     engine: &impl Engine,
@@ -382,6 +444,7 @@ pub async fn match_pending(
     let started = Instant::now();
     let tasks = db::match_tasks(pool, &graph.id, max_tasks).await?;
     report.more = i64::try_from(tasks.len()).unwrap_or(i64::MAX) >= max_tasks;
+    let mut in_a_row = 0;
     for task in tasks {
         if started.elapsed() > budget {
             report.more = true;
@@ -396,12 +459,40 @@ pub async fn match_pending(
         .await
         {
             Ok(l) => l,
+            Err(error) if error.is_refusal() => {
+                tracing::warn!(
+                    source = %task.source,
+                    %error,
+                    "the routing engine refused a road event's lines; left unplaced"
+                );
+                let mut w = db::begin_writer(pool).await?;
+                let stored =
+                    db::set_refused(&mut w, &task, &error.to_string(), &graph.id, Utc::now())
+                        .await?;
+                w.commit().await?;
+                if stored {
+                    report.refused += 1;
+                } else {
+                    report.stale += 1;
+                }
+                in_a_row += 1;
+                if in_a_row >= REFUSALS_IN_A_ROW {
+                    tracing::warn!(
+                        in_a_row,
+                        "the routing engine refused every event in a row; matching stops for this pass"
+                    );
+                    report.more = true;
+                    break;
+                }
+                continue;
+            }
             Err(error) => {
                 tracing::warn!(%error, "the routing engine failed; matching stops for this pass");
                 report.more = true;
                 break;
             }
         };
+        in_a_row = 0;
         let mut w = db::begin_writer(pool).await?;
         let stored = db::set_match(&mut w, &task, lines.as_deref(), &graph.id).await?;
         w.commit().await?;
@@ -423,6 +514,36 @@ mod tests {
 
     fn p(lat: f64, lon: f64) -> Position {
         Position::new(lat, lon).unwrap()
+    }
+
+    #[test]
+    fn a_line_that_comes_back_on_itself_asks_nothing() {
+        let a = p(45.0, 1.0);
+        assert_eq!(locations(&[a, a]), None, "two points on top of each other");
+        let tiny_loop = [a, p(45.000_1, 1.0), a];
+        assert_eq!(
+            locations(&tiny_loop),
+            None,
+            "a loop shorter than the spacing samples its start twice"
+        );
+        let street = [a, p(45.001, 1.0), p(45.002, 1.0), p(45.003, 1.0)];
+        let stops = locations(&street).unwrap();
+        assert!(stops.len() >= 2);
+        assert!(stops.windows(2).all(|w| w[0].distance_m(w[1]) >= 1.0));
+    }
+
+    #[test]
+    fn an_engine_refusal_keeps_its_reason() {
+        let body = serde_json::json!({
+            "error_code": 154,
+            "error": "Insufficient number of locations provided",
+            "status_code": 400,
+        });
+        assert_eq!(
+            refusal(reqwest::StatusCode::BAD_REQUEST, &body),
+            "HTTP 400 error 154: Insufficient number of locations provided"
+        );
+        assert!(MatchError::Refused(String::new()).is_refusal());
     }
 
     #[test]
@@ -450,7 +571,13 @@ mod tests {
         let long: Vec<Position> = (0..=400)
             .map(|i| p(45.80, 1.25 + f64::from(i) * 0.0005))
             .collect();
-        assert!(request(&long)["locations"].as_array().unwrap().len() <= MAX_LOCATIONS);
+        assert!(
+            request(&long).unwrap()["locations"]
+                .as_array()
+                .unwrap()
+                .len()
+                <= MAX_LOCATIONS
+        );
     }
 
     #[test]
@@ -458,7 +585,7 @@ mod tests {
         let line: Vec<Position> = (0..=40)
             .map(|i| p(45.80, 1.25 + f64::from(i) * 0.0005))
             .collect();
-        let body = request(&line);
+        let body = request(&line).unwrap();
         let locations = body["locations"].as_array().unwrap();
         assert!(locations.len() <= MAX_LOCATIONS);
         assert!(
@@ -471,7 +598,7 @@ mod tests {
             locations[0]["heading"], 90,
             "it leaves east, along the street"
         );
-        let section = request(&[p(45.80, 1.25), p(45.82, 1.25)]);
+        let section = request(&[p(45.80, 1.25), p(45.82, 1.25)]).unwrap();
         assert_eq!(section["locations"].as_array().unwrap().len(), 2);
         assert_eq!(section["locations"][0]["heading"], 0);
     }

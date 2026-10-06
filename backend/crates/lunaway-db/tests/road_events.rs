@@ -446,12 +446,12 @@ async fn two_accounts_at_the_same_spot_confirm_and_a_moderator_is_told(pool: PgP
         Confidence::Reported,
         "the same account twice confirms nothing"
     );
-    let other_way = db::report(&pool, &report(b, 45.8, 270), t0() + Duration::minutes(10))
+    let elsewhere = db::report(&pool, &report(b, 45.802, 90), t0() + Duration::minutes(10))
         .await
         .unwrap();
     assert_ne!(
-        other_way.event_id, one.event_id,
-        "a report heading the other way is about the other direction"
+        elsewhere.event_id, one.event_id,
+        "a report 200 m away is about another spot"
     );
     let two = db::report(&pool, &report(b, 45.8003, 85), t0() + Duration::minutes(20))
         .await
@@ -906,4 +906,77 @@ async fn revisions_commit_in_the_order_they_are_taken(pool: PgPool) {
         revision_of(&pool, "p").await.0 > a,
         "a phone that read revision a must not miss what committed after it"
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_community_event_keeps_the_published_position_and_no_heading(pool: PgPool) {
+    let reporter = account(&pool, "Loutre du Morvan").await;
+    let exact = p(45.812_345_6, 1.256_789_1);
+    let done = db::report(
+        &pool,
+        &NewReport {
+            account: reporter,
+            kind: ReportKind::Closure,
+            at: exact,
+            heading_deg: Some(123),
+            value_m: None,
+        },
+        t0(),
+    )
+    .await
+    .unwrap();
+    // What the importers' role can put together: the event's position with
+    // the report's account and time.
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let joined = sqlx::query!(
+        r#"SELECT r.account_id, r.created_at, e.heading_deg,
+                  ST_Y(e.geom_source::geometry) AS "lat!", ST_X(e.geom_source::geometry) AS "lon!"
+           FROM road_events e JOIN road_event_reports r ON r.event_id = e.id
+           WHERE e.id = $1"#,
+        done.event_id
+    )
+    .fetch_one(&ingest)
+    .await
+    .unwrap();
+    assert_eq!(joined.account_id, reporter);
+    assert_eq!(
+        (joined.lat, joined.lon, joined.heading_deg),
+        (45.8123, 1.2568, None),
+        "joined with an account and a time, the event gives the published position only"
+    );
+    let at = p(joined.lat, joined.lon);
+    assert!(at.distance_m(exact) > 1.0 && at.distance_m(exact) < 10.0);
+    let exact_column = sqlx::query!(
+        "SELECT ST_AsText(geom) AS g FROM road_event_reports WHERE event_id = $1",
+        done.event_id
+    )
+    .fetch_one(&ingest)
+    .await;
+    assert_eq!(
+        exact_column
+            .expect_err("the report's own position stays closed to the importers")
+            .as_database_error()
+            .and_then(|e| e.code())
+            .as_deref(),
+        Some("42501")
+    );
+    // The same spot is still recognised from the coarse position: a second
+    // account's report joins the event, whichever way it heads, since the
+    // event keeps no heading (a closure reported on one carriageway may
+    // then block both: a detour too many, never a closure missed).
+    let other = account(&pool, "Héron des Landes").await;
+    let second = db::report(
+        &pool,
+        &NewReport {
+            account: other,
+            kind: ReportKind::Closure,
+            at: p(45.812_4, 1.256_9),
+            heading_deg: Some(300),
+            value_m: None,
+        },
+        t0() + Duration::minutes(5),
+    )
+    .await
+    .unwrap();
+    assert_eq!(second.event_id, done.event_id);
 }

@@ -71,6 +71,8 @@ IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/
 IPAddressAllow=localhost
 SocketBindDeny=any
 # DiaLog's 8 MB export read whole, one order at a time (measured on the
-# Mac: 118 MB resident for a forced read of every feed).
+# Mac: 118 MB resident for a forced read of every feed). On the backend the
+# first pass (every feed, 36 DIR increments, 179 events matched) took 84 s
+# and 33 MiB of anonymous memory at the peak (2026-10-06).
 MemoryHigh=384M
 MemoryMax=512M

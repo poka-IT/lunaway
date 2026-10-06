@@ -68,6 +68,15 @@ poi_refresh_queue INSERT
 poi_moderation SELECT
 poi_moderation INSERT
 poi_moderation DELETE
+road_events SELECT
+road_events INSERT
+road_events UPDATE
+road_event_reports SELECT
+road_event_reports INSERT
+road_event_reports UPDATE
+road_event_sources SELECT
+road_event_purges SELECT
+road_event_revision_seq USAGE
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -111,6 +120,16 @@ poi_confirmations SELECT
 poi_refresh_queue DELETE
 poi_refresh_queue SELECT
 poi_moderation SELECT
+road_events SELECT
+road_events INSERT
+road_events UPDATE
+road_events DELETE
+road_event_reports DELETE
+road_event_sources SELECT
+road_event_sources UPDATE
+road_event_purges SELECT
+road_event_purges UPDATE
+road_event_revision_seq USAGE
 match_pairs DELETE
 match_pairs INSERT
 match_pairs SELECT
@@ -188,7 +207,34 @@ allowed "lunaway_app reads the points of interest" /etc/lunaway/api.env "SELECT 
 refused "lunaway_app writes a point of interest" /etc/lunaway/api.env "UPDATE pois SET name = name WHERE false"
 refused "lunaway_app moves the point layer's version" /etc/lunaway/api.env "UPDATE poi_layer SET version = version WHERE false"
 refused "lunaway_app writes a fuel price" /etc/lunaway/api.env "UPDATE poi_join_records SET ref = ref WHERE false"
+refused "lunaway_app deletes a road report" /etc/lunaway/api.env "DELETE FROM road_event_reports WHERE false"
+refused "lunaway_app deletes a road event" /etc/lunaway/api.env "DELETE FROM road_events WHERE false"
+refused "lunaway_app moves a feed's cursor" /etc/lunaway/api.env "UPDATE road_event_sources SET id = id WHERE false"
 allowed "lunaway_app writes an account" /etc/lunaway/api.env "BEGIN; UPDATE accounts SET pseudonym = pseudonym WHERE false; ROLLBACK; SELECT 'accounts writable'"
+
+# Only row security keeps the API to the community's road events: the
+# grants above cannot show it. Neither role may bypass it, it is on for
+# road_events, and an update of an official event matches no row for the
+# API (rolled back, and a no-op update anyway).
+got="$(as_role /etc/lunaway/api.env "SELECT string_agg(rolname || ' ' || rolbypassrls, ', ' ORDER BY rolname) FROM pg_roles WHERE rolname IN ('lunaway_app', 'lunaway_ingest')")"
+if [ "$got" = "lunaway_app false, lunaway_ingest false" ]; then
+  echo "ok   no role bypasses row security: $got"
+else
+  echo "FAIL row security bypass: $got"
+fi
+got="$(as_role /etc/lunaway/api.env "SELECT relrowsecurity FROM pg_class WHERE oid = 'road_events'::regclass")"
+if [ "$got" = t ]; then
+  echo "ok   row security is on for road_events"
+else
+  echo "FAIL row security on road_events: $got"
+fi
+got="$(as_role /etc/lunaway/api.env "BEGIN; WITH u AS (UPDATE road_events SET description = description WHERE source <> 'community' RETURNING 1)
+  SELECT 'rls ' || (SELECT count(*) FROM road_events WHERE source <> 'community') || ' ' || count(*) FROM u; ROLLBACK;" | grep '^rls ')"
+if [[ "$got" =~ ^rls\ [1-9][0-9]*\ 0$ ]]; then
+  echo "ok   lunaway_app updates no official road event: $(cut -d' ' -f2 <<<"$got") visible, 0 updatable"
+else
+  echo "FAIL lunaway_app and the official road events: ${got:-no answer} (want: some visible, 0 updatable)"
+fi
 
 compare lunaway_ingest /etc/lunaway/ingest.env "$expected_ingest"
 allowed "lunaway_ingest reads records" /etc/lunaway/ingest.env "SELECT 'records: ' || count(*) FROM source_records"
@@ -208,6 +254,32 @@ refused "lunaway_ingest deletes a point of interest" /etc/lunaway/ingest.env "DE
 refused "lunaway_ingest writes a point confirmation" /etc/lunaway/ingest.env "INSERT INTO poi_confirmations SELECT * FROM poi_confirmations WHERE false"
 refused "lunaway_ingest decides a point's moderation" /etc/lunaway/ingest.env "INSERT INTO poi_moderation SELECT * FROM poi_moderation WHERE false"
 refused "lunaway_ingest reads the moderation queue" /etc/lunaway/ingest.env "SELECT count(*) FROM moderation_queue"
+refused "lunaway_ingest reads where a road report was made" /etc/lunaway/ingest.env "SELECT geom FROM road_event_reports LIMIT 1"
+refused "lunaway_ingest reads a road report's heading" /etc/lunaway/ingest.env "SELECT heading_deg FROM road_event_reports LIMIT 1"
+refused "lunaway_ingest writes a road report" /etc/lunaway/ingest.env "UPDATE road_event_reports SET status = status WHERE false"
+got="$(as_role /etc/lunaway/ingest.env "
+SELECT string_agg(attname, ' ' ORDER BY attname)
+FROM pg_attribute
+WHERE attrelid = 'road_event_reports'::regclass AND attnum > 0 AND NOT attisdropped
+  AND has_column_privilege('road_event_reports', attname, 'SELECT')")"
+if [ "$got" = "account_id created_at event_id id kind status value_m" ]; then
+  echo "ok   lunaway_ingest reads these columns of road_event_reports only: $got"
+else
+  echo "FAIL lunaway_ingest reads these columns of road_event_reports: $got (want: account_id created_at event_id id kind status value_m)"
+fi
+# The importers read every road event and the reports' accounts and times:
+# a community event must hold no more than the feed publishes (four
+# decimals of a degree, about ten metres, and no heading), or a join by
+# event_id would give where an account was (migration 20261006144030).
+got="$(as_role /etc/lunaway/ingest.env "SELECT count(*) || ' ' || count(*) FILTER (WHERE heading_deg IS NOT NULL
+    OR ST_X(geom_source::geometry) <> round(ST_X(geom_source::geometry)::numeric, 4)::double precision
+    OR ST_Y(geom_source::geometry) <> round(ST_Y(geom_source::geometry)::numeric, 4)::double precision)
+  FROM road_events WHERE source = 'community'")"
+if [[ "$got" =~ ^[0-9]+\ 0$ ]]; then
+  echo "ok   lunaway_ingest sees community road events at the published precision only: $(cut -d' ' -f1 <<<"$got") events, none finer or with a heading"
+else
+  echo "FAIL community road events finer than published, as lunaway_ingest sees them: $got (events, finer)"
+fi
 got="$(as_role /etc/lunaway/ingest.env "$account_columns_sql")"
 if [ "$got" = "banned_at id trust_level" ]; then
   echo "ok   lunaway_ingest reads these columns of accounts only: $got"

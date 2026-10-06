@@ -14,6 +14,7 @@
 #   sudo lunaway-admin conflate [--full]
 #   sudo lunaway-admin stats
 #   sudo lunaway-admin pois stats|hours
+#   sudo lunaway-admin road-events poll|match|stats|dialog-permanent [...]
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
 #       private ranges
@@ -53,11 +54,12 @@ case "${1:-}" in
       -p IPAddressDeny=any -p IPAddressAllow=localhost \
       "$cli" "$@"
     ;;
-  ingest|conflate|stats|pois)
+  ingest|conflate|stats|pois|road-events)
     exec systemd-run "${sandbox[@]}" \
       -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
       -p MemoryHigh=2560M -p MemoryMax=3G \
       -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+      -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
       -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
       -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
       -p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
@@ -70,7 +72,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,21p' "$0" >&2
+    sed -n '2,22p' "$0" >&2
     exit 2
     ;;
 esac

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ST_Y(ST_StartPoint(geom_source::geometry)) AS \"lat!\",\n                  ST_X(ST_StartPoint(geom_source::geometry)) AS \"lon!\"\n           FROM road_events WHERE external_id = '260122-001799-1'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5eb9555e5528c11e77c0094d0faef5269c6f671310fd47bb0c0995cdb6ea9343"
+}

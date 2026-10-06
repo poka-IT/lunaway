@@ -41,6 +41,26 @@ install_file routing/lunaway-routing-refresh.timer /etc/systemd/system/lunaway-r
 install_file routing/lunaway-routing-refresh /usr/local/sbin/lunaway-routing-refresh 0755 || true
 install_file routing/test-routes.json /usr/local/share/lunaway/routing/test-routes.json 0644 || true
 install_file routing/valhalla.json /usr/local/share/lunaway/routing/valhalla.json 0644 || true
+# The refresh's lock, held to the end of this step: a restart of the engine
+# between a refresh's switch and its live tests would make it switch back.
+exec 9>/srv/routing/.lock
+flock -w 900 9 || die "a graph refresh has held /srv/routing/.lock for 15 minutes; run this step again later"
+# Each graph serves the copy lunaway-routing-refresh put next to it: a new
+# configuration reaches the graphs on disk here (the one served and the
+# previous one, for a rollback), not only the next refresh.
+config_changed=0
+for dir in /srv/routing/builds/*/; do
+  dir="${dir%/}"
+  [[ "$(basename "$dir")" =~ ^[0-9]{8}T[0-9]{4}Z-[a-z0-9]{2,16}$ ]] || continue
+  # Real directories and files only: a link would send root's write
+  # elsewhere.
+  if [ -L "$dir" ] || [ -L "$dir/valhalla.json" ] || [ ! -f "$dir/valhalla.json" ]; then continue; fi
+  if ! cmp -s /usr/local/share/lunaway/routing/valhalla.json "$dir/valhalla.json"; then
+    install -m 0644 -o root -g root /usr/local/share/lunaway/routing/valhalla.json "$dir/valhalla.json"
+    echo "    updated $dir/valhalla.json"
+    config_changed=1
+  fi
+done
 # The public half of the build key (allowed signers format); the private half
 # lives only in GitHub's environment secret.
 install_file routing/routing-signers /etc/lunaway/routing-signers 0644 || true
@@ -48,7 +68,7 @@ install_file routing/routing-signers /etc/lunaway/routing-signers 0644 || true
 
 if [ -L /srv/routing/current ]; then
   systemctl enable --quiet --now lunaway-routing-refresh.timer
-  if [ "$changed" = 1 ] || ! systemctl is-active --quiet valhalla; then
+  if [ "$changed" = 1 ] || [ "$config_changed" = 1 ] || ! systemctl is-active --quiet valhalla; then
     systemctl restart valhalla
   fi
   log "graph $(basename "$(readlink /srv/routing/current)"), valhalla $(systemctl is-active valhalla), next refresh $(systemctl show lunaway-routing-refresh.timer -p NextElapseUSecRealtime --value)"
