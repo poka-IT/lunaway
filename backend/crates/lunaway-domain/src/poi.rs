@@ -633,14 +633,26 @@ pub struct FuelStation {
 pub const STALE_SHORTAGE_DAYS: i64 = 90;
 
 impl FuelStation {
-    /// Whether the station sells LPG: it has an LPG price, or is out of it
-    /// for now. A shortage called temporary that began more than
-    /// [`STALE_SHORTAGE_DAYS`] before the station's latest price update is
-    /// read as definitive; the station's own clock, rather than the
-    /// reader's, keeps the reading the same wherever it is made.
+    /// Whether the station sells LPG, its latest price update for clock
+    /// ([`FuelStation::sells_lpg_at`]).
     #[must_use]
     pub fn sells_lpg(&self) -> bool {
-        let latest = self.prices.iter().map(|p| p.updated_at).max();
+        self.sells_lpg_at(None)
+    }
+
+    /// Whether the station sells LPG: it has an LPG price, or is out of it
+    /// for now. A shortage called temporary that began more than
+    /// [`STALE_SHORTAGE_DAYS`] before `clock` is read as definitive. The
+    /// importer passes the feed's own clock (its latest price update of any
+    /// station), so the reading is the same wherever it is made and does
+    /// not flap: the station's own latest update came and went with its
+    /// other prices, and a 2022 shortage read as current whenever they were
+    /// missing (6 of the 11 changes of the map flag over three hours on
+    /// 2026-10-06, `plan/research/23-backend-europe-packs.md`). Without a
+    /// clock, the station's latest price update.
+    #[must_use]
+    pub fn sells_lpg_at(&self, clock: Option<DateTime<Utc>>) -> bool {
+        let latest = clock.or_else(|| self.prices.iter().map(|p| p.updated_at).max());
         let stale = |s: &FuelShortage| {
             s.kind == ShortageKind::Temporary
                 && s.since.zip(latest).is_some_and(|(since, latest)| {
@@ -1121,6 +1133,22 @@ mod tests {
         assert!(
             !station(vec![price(FuelKind::Diesel)], vec![since(400)]).sells_lpg(),
             "\"temporarily\" out of LPG for over a year: stopped"
+        );
+        // Station 67210004 on 2026-10-06: LPG "temporarily" out since 2023,
+        // its other prices present at 10:01 UTC and gone at 12:28.
+        let gone_prices = station(vec![], vec![since(1_340)]);
+        assert!(
+            gone_prices.sells_lpg(),
+            "without a price the station's own clock cannot tell the shortage is old"
+        );
+        assert!(
+            !gone_prices.sells_lpg_at(Some(at)),
+            "the feed's clock can, whether the station's prices are there or not"
+        );
+        assert_eq!(
+            gone_prices.sells_lpg_at(Some(at)),
+            station(vec![price(FuelKind::Diesel)], vec![since(1_340)]).sells_lpg_at(Some(at)),
+            "a station's other prices coming and going does not change the reading"
         );
     }
 

@@ -326,7 +326,7 @@ impl Poi {
     /// minutes), the point's own source otherwise.
     fn lpg_said(&self) -> Option<(bool, SourceId)> {
         if let Some((station, _)) = self.fuel_station() {
-            return Some((station.sells_lpg(), SourceId::FUEL_PRICES));
+            return Some((station.tile.lpg, SourceId::FUEL_PRICES));
         }
         self.row.record.lpg.map(|l| (l, self.row.source_id.clone()))
     }
@@ -473,7 +473,8 @@ impl Poi {
         let (s, fetched_at) = self.fuel_station()?;
         let fetched_at = *fetched_at;
         Some(FuelInfo {
-            sells_lpg: s.sells_lpg(),
+            // What the importer read with the feed's clock, as the map.
+            sells_lpg: s.tile.lpg,
             prices: s
                 .prices
                 .iter()

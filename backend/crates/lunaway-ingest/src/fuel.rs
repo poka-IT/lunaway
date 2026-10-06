@@ -218,9 +218,20 @@ fn listed(row: &serde_json::Value, key: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// Reads one row of the export; `None` when it has no usable id.
+/// The feed's own clock: its latest price update, any station, any fuel.
+fn feed_clock(rows: &[serde_json::Value]) -> Option<DateTime<Utc>> {
+    rows.iter()
+        .flat_map(|row| FUELS.iter().filter_map(move |f| instant(row, f.updated)))
+        .max()
+}
+
+/// Reads one row of the export; `None` when it has no usable id. `clock`
+/// is the feed's ([`FuelStation::sells_lpg_at`]).
 #[must_use]
-pub fn station_of(row: &serde_json::Value) -> Option<(String, FuelStation)> {
+pub fn station_of(
+    row: &serde_json::Value,
+    clock: Option<DateTime<Utc>>,
+) -> Option<(String, FuelStation)> {
     let id = row
         .get("id")
         .and_then(serde_json::Value::as_i64)
@@ -288,7 +299,7 @@ pub fn station_of(row: &serde_json::Value) -> Option<(String, FuelStation)> {
         tile: FuelTile::default(),
     };
     station.tile = FuelTile {
-        lpg: station.sells_lpg(),
+        lpg: station.sells_lpg_at(clock),
     };
     Some((id.to_string(), station))
 }
@@ -308,9 +319,10 @@ pub fn parse(body: &[u8]) -> Result<ParsedFuel, IngestError> {
         rows: rows.len(),
         ..ParsedFuel::default()
     };
+    let clock = feed_clock(&rows);
     let mut seen = BTreeSet::new();
     for raw in rows {
-        match station_of(&raw) {
+        match station_of(&raw, clock) {
             Some((key, station)) if seen.insert(key.clone()) => {
                 out.stations.push(ParsedStation { key, station, raw });
             }
@@ -530,7 +542,7 @@ mod tests {
             "carburants_rupture_temporaire": "E85; GPLc",
             "carburants_rupture_definitive": "SP95",
         });
-        let (_, s) = station_of(&row).unwrap();
+        let (_, s) = station_of(&row, None).unwrap();
         let shortages: Vec<(FuelKind, ShortageKind)> =
             s.shortages.iter().map(|x| (x.fuel, x.kind)).collect();
         assert_eq!(
@@ -552,12 +564,12 @@ mod tests {
             "gazole_maj": "2026-10-06T08:30:00+00:00",
             "e10_prix": 1.799,
         });
-        let (_, s) = station_of(&row).unwrap();
+        let (_, s) = station_of(&row, None).unwrap();
         assert!(
             s.prices.is_empty(),
             "a price in cents is a typo, a price without its date unusable"
         );
-        assert!(station_of(&serde_json::json!({"id": 0})).is_none());
-        assert!(station_of(&serde_json::json!({"id": "x"})).is_none());
+        assert!(station_of(&serde_json::json!({"id": 0}), None).is_none());
+        assert!(station_of(&serde_json::json!({"id": "x"}), None).is_none());
     }
 }
