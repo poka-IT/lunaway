@@ -390,6 +390,62 @@ void main() {
       expect(data.items.map((i) => i.id), ['z2']);
     });
 
+    GraphQLClient serving(List<Object> answers, List<Map<String, dynamic>> asked) {
+      final store = PersistedQueryStore();
+      return GraphQLClient(
+        endpoint: Uri.parse('https://api.example.org/graphql'),
+        httpClient: MockClient((r) async {
+          final body = jsonDecode(r.body) as Map<String, dynamic>;
+          if (store.documentOf(body) == null) {
+            return http.Response(jsonEncode(PersistedQueryStore.notFound), 200);
+          }
+          asked.add(body['variables'] as Map<String, dynamic>);
+          final answer = answers.removeAt(0);
+          if (answer is Exception) throw answer;
+          return http.Response.bytes(utf8.encode(jsonEncode({'data': answer})), 200);
+        }),
+        userAgent: 'test',
+        persistedQueries: true,
+      );
+    }
+
+    test('a run cut short is due again at once, not after the server rhythm', () async {
+      final asked = <Map<String, dynamic>>[];
+      final client = serving([
+        page(cursor: 'c1', full: true, upserts: [zoneJson('z1')], hasMore: true),
+        http.ClientException('connection reset'),
+        page(cursor: 'c2', upserts: [zoneJson('z2')]),
+      ], asked);
+      final sync = EnforcementSync(client: client, store: EnforcementStore(db));
+      final first = await sync.refresh({'FR'}, t0);
+      expect(first.polledAt, isNull, reason: 'half the zones only');
+      final second = await sync.refresh({'FR'}, t0.add(const Duration(minutes: 10)));
+      expect(asked.last['since'], 'c1');
+      expect(second.items.map((i) => i.id), unorderedEquals(['z1', 'z2']));
+      expect(second.polledAt, isNotNull);
+    });
+
+    test('only the countries of the route are asked; the others stay on the device', () async {
+      Map<String, Object?> spanish(String id) => {...zoneJson(id), 'country': 'ES'};
+      final asked = <Map<String, dynamic>>[];
+      final client = serving([
+        page(cursor: 'e1', full: true, upserts: [spanish('e')]),
+        page(cursor: 'f1', full: true, upserts: [zoneJson('f')]),
+      ], asked);
+      final sync = EnforcementSync(client: client, store: EnforcementStore(db));
+      await sync.refresh({'ES'}, t0);
+      final france = await sync.refresh({'FR'}, t0.add(const Duration(hours: 1)));
+      expect(asked.map((a) => a['countries']), [
+        ['ES'],
+        ['FR'],
+      ]);
+      expect(asked.last['since'], isNull, reason: 'the cursor was the one of Spain');
+      expect(france.items.map((i) => i.id), ['f']);
+      expect((await EnforcementStore(db).items({'ES'})).map((i) => i.id), [
+        'e',
+      ], reason: 'a trip back to Spain offline still has its zones');
+    });
+
     test('an API without the delta keeps nothing and asks no more', () async {
       var requests = 0;
       final client = GraphQLClient(

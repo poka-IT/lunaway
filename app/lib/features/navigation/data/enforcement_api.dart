@@ -201,10 +201,16 @@ final class EnforcementStore {
     }
   }
 
-  /// Writes [page] and the state after it in one transaction.
-  Future<void> apply(EnforcementPage page, Set<String> countries, DateTime at) =>
+  /// Writes [page] and the state after it in one transaction. A full
+  /// answer replaces the items of [countries] only: those of other
+  /// countries, kept from earlier trips, serve a trip back there offline.
+  /// [at] is when the data became whole, null while pages remain: a run cut
+  /// short is then due again at once rather than after the server's rhythm.
+  Future<void> apply(EnforcementPage page, Set<String> countries, DateTime? at) =>
       _db.transaction(() async {
-        if (page.full) await _db.delete(_db.enforcementItems).go();
+        if (page.full) {
+          await (_db.delete(_db.enforcementItems)..where((i) => i.country.isIn(countries))).go();
+        }
         if (page.removals.isNotEmpty) {
           await (_db.delete(_db.enforcementItems)..where((i) => i.id.isIn(page.removals))).go();
         }
@@ -233,7 +239,7 @@ final class EnforcementStore {
                       },
                   ],
                   'pollSeconds': page.pollInterval.inSeconds,
-                  'polledAt': at.toUtc().toIso8601String(),
+                  'polledAt': at?.toUtc().toIso8601String(),
                 }),
               ),
             );
@@ -316,20 +322,20 @@ final class EnforcementSync implements EnforcementFeed {
   bool _unknown = false;
 
   /// Polls when due for [countries] at [now]; answers the state after it
-  /// (the stored one when nothing was asked or the request failed). The
-  /// countries asked only grow: those of earlier trips stay, so a trip
-  /// back there needs no new download.
+  /// (the stored one when nothing was asked or the request failed). Only
+  /// the countries of the current route are asked, so the server never
+  /// sees the countries of earlier trips; their items stay on the device.
   Future<EnforcementState> poll(Set<String> countries, DateTime now) async {
     final state = await store.state();
-    final wanted = {...state.countries, ...countries.map((c) => c.toUpperCase())};
+    final wanted = {for (final c in countries) c.toUpperCase()};
+    final same = state.countries.length == wanted.length && state.countries.containsAll(wanted);
     final due =
-        state.polledAt == null ||
-        !now.isBefore(state.polledAt!.add(state.pollInterval)) ||
-        !state.countries.containsAll(wanted);
+        state.polledAt == null || !now.isBefore(state.polledAt!.add(state.pollInterval)) || !same;
     if (_unknown || !due || wanted.isEmpty) return state;
-    // A cursor for other countries gets the whole set again from the
-    // server; one it no longer reads is dropped once.
-    var since = state.cursor;
+    // The cursor belongs to the countries it was asked with: other
+    // countries start from the whole set. One the server no longer reads
+    // is dropped once.
+    var since = same ? state.cursor : null;
     var dropped = false;
     try {
       for (var page = 0; page < maxPages; page++) {
@@ -351,8 +357,9 @@ final class EnforcementSync implements EnforcementFeed {
           dropped = true;
           continue;
         }
-        await store.apply(delta, wanted, now);
-        if (!delta.hasMore || delta.cursor == since) break;
+        final last = !delta.hasMore || delta.cursor == since;
+        await store.apply(delta, wanted, last ? now : null);
+        if (last) break;
         since = delta.cursor;
       }
     } on GraphQLResponseException catch (e) {
@@ -372,7 +379,7 @@ final class EnforcementSync implements EnforcementFeed {
   @override
   Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {
     final state = await poll(countries, now);
-    final items = await store.items({...state.countries, ...countries.map((c) => c.toUpperCase())});
+    final items = await store.items({for (final c in countries) c.toUpperCase()});
     return (
       rules: state.rules,
       items: items,

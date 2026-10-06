@@ -832,20 +832,24 @@ class GuidanceController extends _$GuidanceController {
     if (aids == null || s == null) return;
     _enforcementPoll?.cancel();
     final countries = aids.countriesOf(s.route.line);
-    final known = await ref
-        .read(enforcementFeedProvider)
-        .refresh(countries, ref.read(clockProvider)());
-    if (!_current(generation) || !identical(aids, _aids)) return;
-    aids.setData(rules: known.rules, items: known.items, sources: known.sources);
-    // A poll that could not reach the server (offline, a refusal) is tried
-    // again sooner than the server's rhythm.
-    final polled = known.polledAt;
-    final fresh =
-        polled != null && ref.read(clockProvider)().difference(polled) < known.pollInterval;
-    _enforcementPoll = Timer(
-      fresh ? known.pollInterval : const Duration(minutes: 10),
-      () => unawaited(_pollEnforcement()),
-    );
+    // A poll that could not reach the server (offline, a refusal, a store
+    // that failed) is tried again sooner than the server's rhythm.
+    var wait = const Duration(minutes: 10);
+    try {
+      final known = await ref
+          .read(enforcementFeedProvider)
+          .refresh(countries, ref.read(clockProvider)());
+      if (!_current(generation) || !identical(aids, _aids)) return;
+      aids.setData(rules: known.rules, items: known.items, sources: known.sources);
+      final polled = known.polledAt;
+      if (polled != null && ref.read(clockProvider)().difference(polled) < known.pollInterval) {
+        wait = known.pollInterval;
+      }
+    } on Object catch (e) {
+      _log.fine('speed camera data not refreshed: $e');
+      if (!_current(generation) || !identical(aids, _aids)) return;
+    }
+    _enforcementPoll = Timer(wait, () => unawaited(_pollEnforcement()));
   }
 
   void _schedulePoll(Duration wait) {
