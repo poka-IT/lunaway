@@ -14,6 +14,13 @@
 //! lunaway moderation dismiss-issues <place-id>
 //! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
 //! lunaway accounts set-level <account-id> <level>
+//! lunaway routing fetch-ign [--refresh]
+//! lunaway routing prepare --pbf FILE --out DIR --graph-id ID --engine TEXT [--no-ign]
+//! lunaway routing test-routes --url http://127.0.0.1:8002 --cases FILE
+//! lunaway routing load <bundle dir>
+//! lunaway routing activate <graph id>
+//! lunaway routing graphs
+//! lunaway routing disputes [--limit 50]
 //! ```
 //!
 //! The imports and the conflation run with the import role
@@ -21,6 +28,11 @@
 //! contributions, so they run with the API's role (`lunaway_app`), whose
 //! `DATABASE_URL` the API uses, and remove photo files under
 //! `LUNAWAY_MEDIA_DIR` like the API, so they run as the API's user.
+//!
+//! The `routing` commands build and publish the motorhome routing graph
+//! (docs/deploy.md, "Routing"): `fetch-ign`, `prepare` and `test-routes`
+//! need no database, so a build machine runs them without one; `load`,
+//! `activate`, `graphs` and `disputes` run with the import role.
 //!
 //! `DATABASE_URL` points at the database. Raw payloads are cached under
 //! `LUNAWAY_DATA_DIR/raw` (default: the repository's gitignored `data/`), so
@@ -46,9 +58,10 @@ use uuid::Uuid;
 #[derive(Parser)]
 #[command(name = "lunaway", version, about = "Lunaway data operations")]
 struct Cli {
-    /// Database to work on.
+    /// Database to work on; every command but the routing build steps needs
+    /// one.
     #[arg(long, env = "DATABASE_URL", hide_env_values = true)]
-    database_url: String,
+    database_url: Option<String>,
     /// Directory of the raw payload cache and other local data.
     #[arg(long, env = "LUNAWAY_DATA_DIR", default_value_os_t = default_data_dir())]
     data_dir: PathBuf,
@@ -95,6 +108,86 @@ enum Command {
         #[command(subcommand)]
         action: Accounts,
     },
+    /// The routing graph: its build steps and its publication.
+    Routing {
+        #[command(subcommand)]
+        action: Routing,
+    },
+}
+
+#[derive(Subcommand)]
+enum Routing {
+    /// Reads IGN BD TOPO's restricted road sections (WFS) into the cache.
+    FetchIgn {
+        /// Asks IGN again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+    },
+    /// Writes the change file, the restrictions and the build's metadata
+    /// for a graph, from an extract and the cached IGN sections.
+    Prepare {
+        /// The OpenStreetMap extract.
+        #[arg(long)]
+        pbf: PathBuf,
+        /// Directory the outputs go to (created when missing).
+        #[arg(long)]
+        out: PathBuf,
+        /// The graph's name (`20261006T0300Z-fr`).
+        #[arg(long)]
+        graph_id: String,
+        /// The engine that builds it: name, version, image.
+        #[arg(long)]
+        engine: String,
+        /// Builds without IGN's sections (a test extract outside France).
+        #[arg(long)]
+        no_ign: bool,
+        /// The data's date, for an extract whose header carries none
+        /// (RFC 3339). Without either, the preparation stops: the date is
+        /// what the app shows with every route.
+        #[arg(long)]
+        osm_data_at: Option<chrono::DateTime<chrono::Utc>>,
+    },
+    /// Runs the route tests against a Valhalla server; fails if one fails.
+    TestRoutes {
+        /// The server, on loopback.
+        #[arg(long, default_value = "http://127.0.0.1:8002")]
+        url: String,
+        /// The cases (infra/routing/test-routes.json).
+        #[arg(long)]
+        cases: PathBuf,
+    },
+    /// Loads a graph bundle's restrictions, inactive.
+    Load {
+        /// The bundle directory: build.json, prepare.json,
+        /// restrictions.ndjson.gz.
+        bundle: PathBuf,
+    },
+    /// Makes a loaded graph the one routes are checked against, and drops
+    /// the graphs older than the previous one.
+    Activate {
+        /// The graph's name.
+        id: String,
+    },
+    /// Lists the loaded graphs.
+    Graphs,
+    /// Lists the restrictions whose sources disagree (the review queue).
+    Disputes {
+        /// Rows printed at most.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+}
+
+/// What a graph bundle says about itself (`build.json`).
+#[derive(serde::Serialize, serde::Deserialize)]
+struct BuildInfo {
+    id: String,
+    osm_data_at: chrono::DateTime<chrono::Utc>,
+    ign_fetched_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    ign_edition: Option<chrono::NaiveDate>,
+    built_at: chrono::DateTime<chrono::Utc>,
+    engine: String,
 }
 
 #[derive(Subcommand)]
@@ -236,12 +329,16 @@ async fn main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .init();
     let cli = Cli::parse();
-    let pool = lunaway_db::connect(&cli.database_url, 4)
-        .await
-        .context("cannot reach the database (DATABASE_URL)")?;
     let cache = Cache::new(cli.data_dir.join("raw"));
+    let command = match cli.command {
+        Command::Routing { action } => {
+            return routing(cli.database_url.as_deref(), &cache, action).await;
+        }
+        other => other,
+    };
+    let pool = connect(cli.database_url.as_deref()).await?;
 
-    match cli.command {
+    match command {
         Command::Migrate => {
             lunaway_db::migrate(&pool)
                 .await
@@ -500,6 +597,212 @@ async fn main() -> anyhow::Result<()> {
             moderation(&pool, &media, action).await?;
         }
         Command::Accounts { action } => accounts(&pool, action).await?,
+        Command::Routing { .. } => unreachable!("handled before connecting"),
+    }
+    Ok(())
+}
+
+/// Whether `id` names a graph as the database accepts it:
+/// `<YYYYMMDD>T<HHMM>Z-<area>`, the area 2 to 16 lower-case letters or
+/// digits (the check of `routing_graphs.id`).
+fn is_graph_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    let digits =
+        |r: std::ops::Range<usize>| b.get(r).is_some_and(|s| s.iter().all(u8::is_ascii_digit));
+    let area = id.get(15..).unwrap_or_default();
+    b.len() >= 17
+        && digits(0..8)
+        && b[8] == b'T'
+        && digits(9..13)
+        && b[13] == b'Z'
+        && b[14] == b'-'
+        && (2..=16).contains(&area.len())
+        && area
+            .bytes()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+}
+
+async fn connect(url: Option<&str>) -> anyhow::Result<lunaway_db::PgPool> {
+    let url = url.context("DATABASE_URL is not set")?;
+    lunaway_db::connect(url, 4)
+        .await
+        .context("cannot reach the database (DATABASE_URL)")
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one arm per subcommand, each a few prints"
+)]
+async fn routing(database_url: Option<&str>, cache: &Cache, action: Routing) -> anyhow::Result<()> {
+    use lunaway_ingest::{graph_check, ign, routing as prep};
+    match action {
+        Routing::FetchIgn { refresh } => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            let f = ign::fetch(&client, cache, refresh)
+                .await
+                .context("BD TOPO fetch failed")?;
+            println!(
+                "BD TOPO sections with a restriction: {} ({} skipped){}",
+                f.sections.len(),
+                f.skipped,
+                if f.cached { ", from the cache" } else { "" }
+            );
+        }
+        Routing::Prepare {
+            pbf,
+            out,
+            graph_id,
+            engine,
+            no_ign,
+            osm_data_at,
+        } => {
+            anyhow::ensure!(
+                is_graph_id(&graph_id),
+                "--graph-id must read like 20261006T0300Z-fr (the build's UTC time, then the area)"
+            );
+            // The data's date first: without it the long reading is wasted.
+            // An explicit date wins over the header's.
+            let header = prep::data_date(&pbf).context("cannot read the extract's header")?;
+            let osm_data_at = osm_data_at
+                .or(header)
+                .context("the extract's header carries no date: give it with --osm-data-at")?;
+            std::fs::create_dir_all(&out)
+                .with_context(|| format!("cannot create {}", out.display()))?;
+            let (sections, ign_fetched_at, ign_edition) = if no_ign {
+                (Vec::new(), None, None)
+            } else {
+                // From the cache when `fetch-ign` filled it just before (the
+                // build script does); from IGN otherwise.
+                let client = http::client().context("cannot build the HTTP client")?;
+                let f = ign::fetch(&client, cache, false)
+                    .await
+                    .context("BD TOPO sections unavailable")?;
+                (f.sections, Some(f.fetched_at), f.edition)
+            };
+            let now = chrono::Utc::now();
+            let path = pbf.clone();
+            let ign_date = ign_fetched_at.unwrap_or(now);
+            let mut prepared = tokio::task::spawn_blocking(move || {
+                prep::prepare(&path, &sections, osm_data_at, ign_date)
+            })
+            .await
+            .context("the preparation stopped")??;
+            prepared.report.ign_edition = ign_edition;
+            prep::write(&prepared, &out).context("cannot write the outputs")?;
+            let info = BuildInfo {
+                id: graph_id,
+                osm_data_at,
+                ign_fetched_at,
+                ign_edition,
+                built_at: now,
+                engine,
+            };
+            std::fs::write(out.join("build.json"), serde_json::to_vec_pretty(&info)?)
+                .context("cannot write build.json")?;
+            println!("{}", serde_json::to_string_pretty(&prepared.report)?);
+        }
+        Routing::TestRoutes { url, cases } => {
+            let client =
+                http::client_allowing_plain_http().context("cannot build the HTTP client")?;
+            let body = std::fs::read(&cases)
+                .with_context(|| format!("cannot read {}", cases.display()))?;
+            let outcomes = graph_check::run_all(&client, url.trim_end_matches('/'), &body)
+                .await
+                .context("the route tests could not run")?;
+            let failed = outcomes.iter().filter(|o| !o.passed).count();
+            for o in &outcomes {
+                println!(
+                    "{} {}: {}",
+                    if o.passed { "pass" } else { "FAIL" },
+                    o.name,
+                    o.detail
+                );
+            }
+            anyhow::ensure!(
+                failed == 0,
+                "{failed} of {} route tests failed",
+                outcomes.len()
+            );
+            println!("all {} route tests passed", outcomes.len());
+        }
+        Routing::Load { bundle } => {
+            let pool = connect(database_url).await?;
+            let info: BuildInfo = serde_json::from_slice(
+                &std::fs::read(bundle.join("build.json")).context("cannot read build.json")?,
+            )
+            .context("build.json is not a build description")?;
+            let stats: serde_json::Value = serde_json::from_slice(
+                &std::fs::read(bundle.join("prepare.json")).context("cannot read prepare.json")?,
+            )
+            .context("prepare.json is not JSON")?;
+            let file = bundle.join("restrictions.ndjson.gz");
+            let records = tokio::task::spawn_blocking(move || prep::read_records(&file))
+                .await
+                .context("reading the restrictions stopped")??;
+            let n = lunaway_db::routing::load_graph(
+                &pool,
+                &lunaway_db::routing::NewGraph {
+                    id: info.id.clone(),
+                    osm_data_at: info.osm_data_at,
+                    ign_fetched_at: info.ign_fetched_at,
+                    ign_edition: info.ign_edition,
+                    built_at: info.built_at,
+                    engine: info.engine,
+                    stats,
+                },
+                &records,
+            )
+            .await
+            .context("cannot load the graph's restrictions")?;
+            println!("graph {} loaded, inactive: {n} restrictions", info.id);
+        }
+        Routing::Activate { id } => {
+            let pool = connect(database_url).await?;
+            let done = lunaway_db::routing::activate(&pool, &id)
+                .await?
+                .with_context(|| format!("no graph {id} is loaded"))?;
+            println!(
+                "graph {id} active (before: {}); dropped: {}",
+                done.previous.as_deref().unwrap_or("none"),
+                if done.dropped.is_empty() {
+                    "none".to_owned()
+                } else {
+                    done.dropped.join(", ")
+                }
+            );
+        }
+        Routing::Graphs => {
+            let pool = connect(database_url).await?;
+            for g in lunaway_db::routing::graphs(&pool).await? {
+                println!(
+                    "{}{}  data {}  built {}  {}",
+                    g.id,
+                    if g.active { " (active)" } else { "" },
+                    g.osm_data_at.format("%Y-%m-%d %H:%M"),
+                    g.built_at.format("%Y-%m-%d %H:%M"),
+                    g.engine
+                );
+            }
+        }
+        Routing::Disputes { limit } => {
+            let pool = connect(database_url).await?;
+            let graph = lunaway_db::routing::active_graph(&pool)
+                .await?
+                .context("no active graph")?;
+            for d in lunaway_db::routing::disputed(&pool, &graph.id, limit.clamp(1, 10_000)).await?
+            {
+                println!(
+                    "{}  {:?}  applies {:?}, other source {:?}  {}  at {:.6},{:.6}",
+                    d.external_id,
+                    d.kind,
+                    d.limit,
+                    d.other_value,
+                    d.name.unwrap_or_default(),
+                    d.at.0,
+                    d.at.1
+                );
+            }
+        }
     }
     Ok(())
 }
@@ -636,6 +939,21 @@ async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_graph_name_is_checked_before_the_long_preparation() {
+        assert!(is_graph_id("20261006T0300Z-fr"));
+        assert!(is_graph_id("20261006T0000Z-e2e"));
+        for bad in [
+            "latest",
+            "20261006T0300Z",
+            "20261006T0300Z-FR",
+            "2026106T0300Z-fr",
+            "20261006T0300Z-f",
+        ] {
+            assert!(!is_graph_id(bad), "{bad}");
+        }
+    }
 
     #[test]
     fn a_refused_retirement_fails_the_command() {

@@ -1,0 +1,26 @@
+# A second Valhalla, started by lunaway-routing-refresh only while a new
+# graph is checked: it serves /srv/routing/candidate on 127.0.0.1:8003, the
+# route tests run against it, then it stops. Nothing enables it. Installed
+# like valhalla.container, to /etc/containers/systemd/.
+
+[Unit]
+Description=Valhalla routing engine, new graph under test (loopback only)
+RequiresMountsFor=/srv/routing
+ConditionPathExists=/srv/routing/candidate/valhalla-candidate.json
+
+[Container]
+# Keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
+Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
+Exec=valhalla_service /srv/routing/candidate/valhalla-candidate.json 2
+Network=host
+UserNS=auto
+ReadOnly=true
+Volume=/srv/routing:/srv/routing:ro
+DropCapability=all
+NoNewPrivileges=true
+PodmanArgs=--memory=2g --pids-limit=128
+
+[Service]
+Restart=no
+IPAddressDeny=any
+IPAddressAllow=localhost

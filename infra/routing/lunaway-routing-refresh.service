@@ -1,0 +1,63 @@
+# Installs the newest routing graph and switches the engine to it
+# (/usr/local/sbin/lunaway-routing-refresh). Run by
+# lunaway-routing-refresh.timer; installed to /etc/systemd/system/ by the
+# server step listed in plan/research/15-navigation-backend.md. Root without
+# capabilities, because it restarts valhalla.service and starts the
+# candidate engine; the sandbox below keeps it to /srv/routing, HTTPS to
+# GitHub, loopback, and the database as the import role.
+[Unit]
+Description=Lunaway routing: install the newest graph
+After=network-online.target valhalla.service postgresql.service
+Wants=network-online.target
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lunaway-routing-refresh
+# DATABASE_URL of lunaway_ingest: loads and activates the restrictions.
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+# A France graph is about 1.1 GB to download and 3.3 GB unpacked.
+TimeoutStartSec=3h
+# Behind the API and PostgreSQL for CPU and disk.
+Nice=10
+CPUWeight=20
+IOSchedulingClass=idle
+
+# Root for the two restarts over D-Bus, which need uid 0, not a capability:
+# none is kept. uid 0 can still ask systemd for anything over D-Bus, so a
+# dedicated user with a polkit rule limited to the two engine units would be
+# tighter (plan/research/15-navigation-backend.md, open items).
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+PrivateDevices=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+ReadWritePaths=/srv/routing
+# The import role's settings are read by systemd above; nothing else of
+# /etc/lunaway is this run's business.
+InaccessiblePaths=-/srv/data -/srv/tiles -/etc/lunaway/api.env -/etc/lunaway/owner.env -/etc/lunaway-ops
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# Outbound: GitHub's release downloads over HTTPS, loopback for the engine
+# and PostgreSQL; never the private network or the cloud metadata service.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+# Reading a restrictions file of 300 000 rows holds them in memory.
+MemoryHigh=1536M
+MemoryMax=2G

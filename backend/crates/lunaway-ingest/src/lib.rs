@@ -7,10 +7,13 @@
 pub mod atout_france;
 pub mod cache;
 pub mod geocode;
+pub mod graph_check;
 pub mod http;
+pub mod ign;
 pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
+pub mod routing;
 pub mod run;
 pub mod store;
 pub mod web;
@@ -164,6 +167,21 @@ pub enum IngestError {
         /// The cause.
         #[source]
         source: std::io::Error,
+    },
+    /// A restriction record of a graph bundle does not hold together.
+    #[error("restriction record on line {line} refused")]
+    InvalidRecord {
+        /// Its line in the file.
+        line: usize,
+        /// Why.
+        #[source]
+        source: lunaway_domain::routing::InvalidRecord,
+    },
+    /// A payload parses but says something no real answer says.
+    #[error("{what}")]
+    Implausible {
+        /// What is wrong.
+        what: String,
     },
     /// The cache directory or one of its files failed.
     #[error("cache file {path}")]

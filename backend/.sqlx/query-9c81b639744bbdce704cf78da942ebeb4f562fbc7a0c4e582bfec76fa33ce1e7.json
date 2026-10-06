@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO routing_graphs (id, osm_data_at, ign_fetched_at, ign_edition, built_at,\n            engine, stats)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Date",
+        "Timestamptz",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9c81b639744bbdce704cf78da942ebeb4f562fbc7a0c4e582bfec76fa33ce1e7"
+}

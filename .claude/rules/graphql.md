@@ -53,7 +53,9 @@ to end.
   (`UNAUTHENTICATED`, `FORBIDDEN` with `requiredLevel` and `level`,
   `NOT_FOUND`, `RATE_LIMITED` with `retryAfterSeconds` and a
   `Retry-After` header, `INVALID_INPUT`, `RESYNC` for a sync cursor issued
-  by another copy of the database: sync again from `since: null`); internal
+  by another copy of the database: sync again from `since: null`,
+  `UNAVAILABLE` when a service behind the API, the routing engine or its
+  data, is down: try again later); internal
   errors are logged and returned as a generic message with `INTERNAL`. The
   codes and what the client does are listed in `lunaway-api/src/error.rs`;
   a new code goes there and here.

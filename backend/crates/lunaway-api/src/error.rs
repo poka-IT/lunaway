@@ -9,6 +9,7 @@
 //! | `UNAUTHENTICATED` | signs in again (`authChallenge`, `signIn`): no session, or an expired or unknown one, on a field that needs an account; with `extensions.reason` `FRESH_SIGN_IN`, the action needs a session opened in the last ten minutes, so the device signs in again and retries |
 //! | `FORBIDDEN` | does not offer the action: the account's level is below `extensions.requiredLevel` (its level is `extensions.level`), or the account is banned |
 //! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's |
+//! | `UNAVAILABLE` | tries again later: a service behind the API (the routing engine, or its data) is down or not installed; the request itself was fine |
 //! | `INTERNAL` | tries again later; the server logged the cause |
 
 use std::time::Duration;
@@ -29,6 +30,17 @@ pub(crate) const UNAUTHENTICATED: &str = "UNAUTHENTICATED";
 pub(crate) const FORBIDDEN: &str = "FORBIDDEN";
 /// The target does not exist, or is not the caller's.
 pub(crate) const NOT_FOUND: &str = "NOT_FOUND";
+/// A service behind the API is down.
+pub(crate) const UNAVAILABLE: &str = "UNAVAILABLE";
+
+/// A service behind the API (the routing engine, its data) does not answer:
+/// the client tries again later.
+pub(crate) fn unavailable(what: &str) -> Error {
+    Error::new(format!(
+        "{what} is not available right now; try again later"
+    ))
+    .extend_with(|_, e| e.set("code", UNAVAILABLE))
+}
 
 /// No session, or one the server does not know.
 pub(crate) fn unauthenticated() -> Error {
@@ -72,6 +84,16 @@ pub(crate) fn not_found(what: &str) -> Error {
 pub(crate) fn quota_spent(what: &str, wait: Duration) -> Error {
     let seconds = retry_after_seconds(wait);
     Error::new(format!("too many {what}; wait and try again")).extend_with(move |_, e| {
+        e.set("code", RATE_LIMITED);
+        e.set("retryAfterSeconds", seconds);
+    })
+}
+
+/// The server cannot take the request now (every routing call is taken):
+/// the same shape as a spent quota, so the client waits `retryAfterSeconds`.
+pub(crate) fn rate_limited_error(message: &str, wait: Duration) -> Error {
+    let seconds = retry_after_seconds(wait);
+    Error::new(message.to_owned()).extend_with(move |_, e| {
         e.set("code", RATE_LIMITED);
         e.set("retryAfterSeconds", seconds);
     })

@@ -44,6 +44,8 @@ pub(crate) enum Action {
     Account,
     /// A sponsorship or a nomination.
     Endorsement,
+    /// A route computed.
+    Route,
 }
 
 /// Who is counted.
@@ -103,6 +105,7 @@ impl QuotaLimiter {
             Action::List => q.list,
             Action::Account => q.account,
             Action::Endorsement => q.endorsement,
+            Action::Route => q.route,
         }
     }
 

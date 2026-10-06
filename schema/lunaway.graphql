@@ -210,6 +210,20 @@ input BBoxInput {
 }
 
 """
+A range of accepted values.
+"""
+type Bounds {
+	"""
+	Least accepted.
+	"""
+	min: Float!
+	"""
+	Greatest accepted.
+	"""
+	max: Float!
+}
+
+"""
 Places created or changed since a cursor, and the ids deleted since.
 """
 type ChangeSet {
@@ -318,6 +332,28 @@ enum ContributionStatus {
 	Removed by a moderator.
 	"""
 	REMOVED
+}
+
+"""
+The area routes are computed in.
+"""
+type CoveredArea {
+	"""
+	Southern edge.
+	"""
+	south: Float!
+	"""
+	Western edge.
+	"""
+	west: Float!
+	"""
+	Northern edge.
+	"""
+	north: Float!
+	"""
+	Eastern edge.
+	"""
+	east: Float!
 }
 
 """
@@ -1419,6 +1455,21 @@ type Query {
 	"""
 	myAccount: Account!
 	"""
+	A route for a motorhome or a van, from `origin` to `destination`
+	through `waypoints`, checked against every height, width, length,
+	weight and access limit known on the way (OpenStreetMap, IGN): a
+	route that meets a limit the vehicle exceeds is never returned. Up to
+	30 routes every ten minutes per client, recalculations included
+	(`RATE_LIMITED` beyond); `UNAVAILABLE` while the routing engine or
+	its data is down.
+	"""
+	route(input: RouteInput!): RouteResult!
+	"""
+	Whether routing works now, the date of its data, the bounds of a
+	route request and the typical vehicles to offer.
+	"""
+	routing: RoutingInfo!
+	"""
 	The signed-in account's favourite lists, by name, with their places.
 	"""
 	myFavoriteLists: [FavoriteList!]!
@@ -1517,6 +1568,97 @@ enum RequirementKind {
 	ADMINISTRATION
 }
 
+"""
+What the app sends again to recalculate (from the vehicle's position):
+the profile and options the route was computed with.
+"""
+type RerouteParameters {
+	"""
+	The vehicle, as received.
+	"""
+	vehicle: VehicleProfile!
+	"""
+	What to avoid, as applied.
+	"""
+	options: RouteOptions!
+	"""
+	The language.
+	"""
+	language: RouteLanguage!
+	"""
+	The engine's costing options the route was computed with, as JSON:
+	for display and support, not to call the engine directly (it is not
+	reachable from outside).
+	"""
+	costingOptionsJson: String!
+}
+
+"""
+How sure a figure is.
+"""
+enum RestrictionCertainty {
+	"""
+	One figure, or two sources that agree.
+	"""
+	KNOWN
+	"""
+	Two sources disagree; the lower figure applies until someone checks.
+	"""
+	DISPUTED
+	"""
+	Lower than the standard clearance, figure unknown.
+	"""
+	UNKNOWN
+}
+
+"""
+What the restricted place is, for the wording of a warning.
+"""
+enum RestrictionPlace {
+	"""
+	Under a bridge or a short covered section.
+	"""
+	UNDERPASS
+	"""
+	A tunnel.
+	"""
+	TUNNEL
+	"""
+	A passage under a building.
+	"""
+	BUILDING_PASSAGE
+	"""
+	A bridge.
+	"""
+	BRIDGE
+	"""
+	A barrier across the road (height bar, gate, bollards).
+	"""
+	BARRIER
+	"""
+	A stretch of road.
+	"""
+	ROAD
+}
+
+"""
+Where a restriction comes from.
+"""
+enum RestrictionSourceKind {
+	"""
+	OpenStreetMap (ODbL, "© OpenStreetMap contributors").
+	"""
+	OSM
+	"""
+	IGN BD TOPO (Licence Ouverte 2.0, "IGN, BD TOPO").
+	"""
+	IGN
+	"""
+	A Lunaway user's report.
+	"""
+	COMMUNITY
+}
+
 type Review {
 	"""
 	Stable identifier.
@@ -1595,6 +1737,394 @@ type ReviewConnection {
 	Reviews in the whole list.
 	"""
 	totalCount: Int!
+}
+
+"""
+A route request.
+"""
+input RouteInput {
+	"""
+	Where the trip starts (the vehicle's position for a recalculation).
+	"""
+	origin: RoutePointInput!
+	"""
+	Where it ends.
+	"""
+	destination: RoutePointInput!
+	"""
+	Stops on the way, in order, 5 at most.
+	"""
+	waypoints: [RoutePointInput!]
+	"""
+	The vehicle.
+	"""
+	vehicle: VehicleProfileInput!
+	"""
+	What to avoid.
+	"""
+	options: RouteOptionsInput
+	"""
+	Alternatives wanted besides the best route, 0 to 2; only without
+	waypoints.
+	"""
+	alternatives: Int! = 0
+	"""
+	The language of the instructions.
+	"""
+	language: RouteLanguage! = FR
+}
+
+"""
+The language of the instructions.
+"""
+enum RouteLanguage {
+	"""
+	French.
+	"""
+	FR
+	"""
+	English.
+	"""
+	EN
+}
+
+"""
+What a route avoided, as applied.
+"""
+type RouteOptions {
+	"""
+	Toll roads avoided.
+	"""
+	avoidTolls: Boolean!
+	"""
+	Motorways avoided.
+	"""
+	avoidMotorways: Boolean!
+	"""
+	Ferries avoided.
+	"""
+	avoidFerries: Boolean!
+	"""
+	Unpaved roads never used.
+	"""
+	avoidUnpaved: Boolean!
+}
+
+"""
+What to avoid. Tolls, motorways and ferries are avoided when another way
+exists; unpaved roads are never used, except where the trip starts or
+ends on one. An absent switch is off.
+"""
+input RouteOptionsInput {
+	"""
+	Avoid toll roads.
+	"""
+	avoidTolls: Boolean
+	"""
+	Avoid motorways.
+	"""
+	avoidMotorways: Boolean
+	"""
+	Avoid ferries.
+	"""
+	avoidFerries: Boolean
+	"""
+	Never use unpaved roads.
+	"""
+	avoidUnpaved: Boolean
+}
+
+"""
+A point of a route.
+"""
+input RoutePointInput {
+	"""
+	Latitude, WGS 84.
+	"""
+	lat: Float!
+	"""
+	Longitude, WGS 84.
+	"""
+	lon: Float!
+	"""
+	The vehicle's course, degrees from north (0 to 360), for the start
+	of a recalculation: the route then leaves in that direction.
+	"""
+	headingDeg: Float
+}
+
+"""
+The answer to a route request.
+"""
+type RouteResult {
+	"""
+	How it ended.
+	"""
+	status: RouteStatus!
+	"""
+	The engine's answer in the OSRM format (as Valhalla writes it with
+	`format: osrm`, banner and voice instructions, polyline6 geometry),
+	with only the routes the vehicle may drive: what Ferrostar's OSRM
+	parser reads. Null unless `status` is `OK`.
+	"""
+	osrmJson: String
+	"""
+	The routes, in the order of `osrmJson.routes`.
+	"""
+	routes: [RouteSummary!]!
+	"""
+	When `status` is `NO_SAFE_ROUTE`: the limits that stopped every
+	route, in driving order of the last route tried.
+	"""
+	blockers: [RouteWarning!]!
+	"""
+	How many times the route was computed again around a limit the
+	vehicle exceeds.
+	"""
+	recalculations: Int!
+	"""
+	What to send again for a recalculation.
+	"""
+	reroute: RerouteParameters!
+	"""
+	The data the route was computed on.
+	"""
+	graph: RoutingGraph!
+	"""
+	The disclaimer's translation key.
+	"""
+	disclaimerKey: String!
+}
+
+"""
+How a request ended.
+"""
+enum RouteStatus {
+	"""
+	At least one route the vehicle may drive.
+	"""
+	OK
+	"""
+	The engine found no road between the points.
+	"""
+	NO_ROUTE
+	"""
+	A point is too far from any road.
+	"""
+	OFF_NETWORK
+	"""
+	Roads exist, but each meets a limit the vehicle exceeds:
+	`blockers` says which, and where.
+	"""
+	NO_SAFE_ROUTE
+}
+
+"""
+One route of the answer.
+"""
+type RouteSummary {
+	"""
+	Its index in `osrmJson.routes`; 0 is the recommended route.
+	"""
+	index: Int!
+	"""
+	Metres.
+	"""
+	distanceM: Float!
+	"""
+	Seconds, at the speeds the engine assumes for the vehicle.
+	"""
+	durationS: Float!
+	"""
+	Whether it uses a toll road.
+	"""
+	hasToll: Boolean!
+	"""
+	Whether it uses a ferry.
+	"""
+	hasFerry: Boolean!
+	"""
+	Whether it uses a motorway.
+	"""
+	hasMotorway: Boolean!
+	"""
+	Restrictions the vehicle passes with little margin (under 0.30 m of
+	height, 0.20 m of width) or whose figure is unknown, in driving
+	order.
+	"""
+	warnings: [RouteWarning!]!
+}
+
+"""
+A restriction along a route.
+"""
+type RouteWarning {
+	"""
+	What it means for the vehicle.
+	"""
+	kind: RouteWarningKind!
+	"""
+	Whether the vehicle may pass.
+	"""
+	severity: WarningSeverity!
+	"""
+	The figure, metres or tonnes, when there is one.
+	"""
+	limit: Float
+	"""
+	The vehicle's figure it was compared with.
+	"""
+	vehicleValue: Float
+	"""
+	Distance from the start of the route, metres.
+	"""
+	distanceFromStartM: Float!
+	"""
+	Index of the route's shape point at or before it (the OSRM
+	geometry's, as Ferrostar counts).
+	"""
+	geometryIndex: Int!
+	"""
+	Where the route meets it, latitude.
+	"""
+	lat: Float!
+	"""
+	Where the route meets it, longitude.
+	"""
+	lon: Float!
+	"""
+	Where the figure comes from.
+	"""
+	source: RestrictionSourceKind!
+	"""
+	How sure it is.
+	"""
+	certainty: RestrictionCertainty!
+	"""
+	What the place is.
+	"""
+	place: RestrictionPlace!
+	"""
+	The road's name, when known.
+	"""
+	name: String
+	"""
+	The source's identifier (`way/52984577`, `node/348192004`,
+	`ign/TRONROUT...`), to report a wrong value.
+	"""
+	externalId: String!
+}
+
+"""
+What a restriction means for the vehicle.
+"""
+enum RouteWarningKind {
+	"""
+	A clearance below the vehicle's height, or close to it ("bridge
+	3.20 m in 2 km").
+	"""
+	LOW_CLEARANCE
+	"""
+	A clearance below the standard, figure unknown (a height bar without
+	its figure, `maxheight=below_default`).
+	"""
+	UNKNOWN_CLEARANCE
+	"""
+	A width limit below the vehicle's, or close to it.
+	"""
+	NARROW
+	"""
+	A length limit below the vehicle's.
+	"""
+	TOO_LONG
+	"""
+	A weight limit below the vehicle's.
+	"""
+	TOO_HEAVY
+	"""
+	An axle load limit below the vehicle's.
+	"""
+	AXLE_LOAD
+	"""
+	No motorhomes.
+	"""
+	MOTORHOME_BAN
+	"""
+	No trailers, or no caravans and trailers over 250 kg.
+	"""
+	TRAILER_BAN
+}
+
+"""
+The routing data a route was computed on.
+"""
+type RoutingGraph {
+	"""
+	The graph's name (`20261006T0300Z-fr`).
+	"""
+	id: String!
+	"""
+	The date of the OpenStreetMap data: the date to show with the
+	disclaimer.
+	"""
+	osmDataAt: DateTime!
+	"""
+	When IGN's restrictions were read, if the graph has them.
+	"""
+	ignFetchedAt: DateTime
+	"""
+	The BD TOPO edition they come from, for the attribution "IGN,
+	BD TOPO" with its date.
+	"""
+	ignEdition: NaiveDate
+	"""
+	When the graph was built.
+	"""
+	builtAt: DateTime!
+}
+
+"""
+What the app needs to know before asking for a route: whether routing
+works now, on which data, within which bounds.
+"""
+type RoutingInfo {
+	"""
+	Whether a route can be computed now: a graph is active and the
+	engine answers.
+	"""
+	available: Boolean!
+	"""
+	The active graph, if any.
+	"""
+	graph: RoutingGraph
+	"""
+	The disclaimer's translation key.
+	"""
+	disclaimerKey: String!
+	"""
+	The area routes are computed in.
+	"""
+	coveredArea: CoveredArea!
+	"""
+	Waypoints accepted at most.
+	"""
+	maxWaypoints: Int!
+	"""
+	Alternatives accepted at most.
+	"""
+	maxAlternatives: Int!
+	"""
+	The bounds of a vehicle profile.
+	"""
+	vehicleBounds: VehicleBounds!
+	"""
+	Typical vehicles.
+	"""
+	vehiclePresets: [VehiclePreset!]!
+	"""
+	Typical trailers.
+	"""
+	trailerPresets: [TrailerPreset!]!
 }
 
 """
@@ -1780,6 +2310,76 @@ enum SubmissionStatus {
 }
 
 """
+A trailer behind the vehicle.
+"""
+type Trailer {
+	"""
+	Length, drawbar included, metres (1 to 12).
+	"""
+	lengthM: Float!
+	"""
+	Maximum authorised mass, tonnes (0.1 to 10).
+	"""
+	weightT: Float!
+	"""
+	Height with its load, metres, when it may exceed the vehicle's.
+	"""
+	heightM: Float
+	"""
+	Width, metres, when it may exceed the vehicle's.
+	"""
+	widthM: Float
+}
+
+"""
+A trailer behind the vehicle.
+"""
+input TrailerInput {
+	"""
+	Length, drawbar included, metres (1 to 12).
+	"""
+	lengthM: Float!
+	"""
+	Maximum authorised mass, tonnes (0.1 to 10).
+	"""
+	weightT: Float!
+	"""
+	Height with its load, metres, when it may exceed the vehicle's.
+	"""
+	heightM: Float
+	"""
+	Width, metres, when it may exceed the vehicle's.
+	"""
+	widthM: Float
+}
+
+"""
+Typical dimensions of a trailer.
+"""
+type TrailerPreset {
+	"""
+	What it carries (`car-trailer`).
+	"""
+	id: String!
+	"""
+	Length, drawbar included, metres.
+	"""
+	lengthM: Float!
+	"""
+	Width, metres.
+	"""
+	widthM: Float!
+	"""
+	Maximum authorised mass, tonnes.
+	"""
+	weightT: Float!
+	"""
+	The product the values come from.
+	"""
+	source: String!
+}
+
+"""
 A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
 Strings within GraphQL. UUIDs are used to assign unique identifiers to
 entities without requiring a central allocating authority.
@@ -1790,6 +2390,40 @@ entities without requiring a central allocating authority.
 * [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
 """
 scalar UUID
+
+"""
+The bounds of a vehicle profile.
+"""
+type VehicleBounds {
+	"""
+	Height, metres.
+	"""
+	heightM: Bounds!
+	"""
+	Width, metres.
+	"""
+	widthM: Bounds!
+	"""
+	Length of the vehicle, metres.
+	"""
+	lengthM: Bounds!
+	"""
+	Maximum authorised mass, tonnes.
+	"""
+	weightT: Bounds!
+	"""
+	Axle load, tonnes.
+	"""
+	axleLoadT: Bounds!
+	"""
+	Trailer length, metres.
+	"""
+	trailerLengthM: Bounds!
+	"""
+	Trailer mass, tonnes.
+	"""
+	trailerWeightT: Bounds!
+}
 
 """
 The vehicle a reviewer travelled in.
@@ -1818,6 +2452,148 @@ enum VehicleKind {
 }
 
 """
+Typical dimensions of a kind of vehicle, offered before the user enters
+the real ones.
+"""
+type VehiclePreset {
+	"""
+	A stable name (`panel-van`, `integrated-heavy`).
+	"""
+	id: String!
+	"""
+	The kind.
+	"""
+	kind: VehicleType!
+	"""
+	Metres.
+	"""
+	heightM: Float!
+	"""
+	Metres, without mirrors.
+	"""
+	widthM: Float!
+	"""
+	Metres.
+	"""
+	lengthM: Float!
+	"""
+	Tonnes.
+	"""
+	weightT: Float!
+	"""
+	The model the values come from.
+	"""
+	source: String!
+}
+
+"""
+The vehicle, as on its registration document. The bounds refuse typing
+errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
+mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
+0.5 to 40 t, an axle load of 0.5 to 13 t.
+"""
+type VehicleProfile {
+	"""
+	What the vehicle is.
+	"""
+	kind: VehicleType!
+	"""
+	Overall height, roof equipment included, metres.
+	"""
+	heightM: Float!
+	"""
+	Overall width without mirrors, metres.
+	"""
+	widthM: Float!
+	"""
+	Overall length, bike rack included, metres.
+	"""
+	lengthM: Float!
+	"""
+	Maximum authorised mass, tonnes.
+	"""
+	weightT: Float!
+	"""
+	Heaviest axle, tonnes, when known: axle load limits are checked only
+	with it.
+	"""
+	axleLoadT: Float
+	"""
+	The trailer, when towing.
+	"""
+	trailer: Trailer
+}
+
+"""
+The vehicle, as on its registration document. The bounds refuse typing
+errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
+mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
+0.5 to 40 t, an axle load of 0.5 to 13 t.
+"""
+input VehicleProfileInput {
+	"""
+	What the vehicle is.
+	"""
+	kind: VehicleType!
+	"""
+	Overall height, roof equipment included, metres.
+	"""
+	heightM: Float!
+	"""
+	Overall width without mirrors, metres.
+	"""
+	widthM: Float!
+	"""
+	Overall length, bike rack included, metres.
+	"""
+	lengthM: Float!
+	"""
+	Maximum authorised mass, tonnes.
+	"""
+	weightT: Float!
+	"""
+	Heaviest axle, tonnes, when known: axle load limits are checked only
+	with it.
+	"""
+	axleLoadT: Float
+	"""
+	The trailer, when towing.
+	"""
+	trailer: TrailerInput
+}
+
+"""
+What the vehicle is, for its typical dimensions; the route depends on
+the dimensions only. (`VehicleKind` is the coarser kind a review names.)
+"""
+enum VehicleType {
+	"""
+	A compact campervan on a van base (California class).
+	"""
+	VAN
+	"""
+	A panel van conversion ("fourgon aménagé").
+	"""
+	PANEL_VAN
+	"""
+	A low-profile motorhome ("profilé").
+	"""
+	LOW_PROFILE
+	"""
+	A motorhome with a bed over the cab ("capucine").
+	"""
+	OVERCAB
+	"""
+	An integrated (A-class) motorhome ("intégral").
+	"""
+	INTEGRATED
+	"""
+	Anything else.
+	"""
+	OTHER
+}
+
+"""
 Whether a place can be trusted to exist as described.
 """
 enum Verification {
@@ -1829,6 +2605,21 @@ enum Verification {
 	Added by a contributor, not yet confirmed by two others.
 	"""
 	TO_VERIFY
+}
+
+"""
+Whether the vehicle may pass.
+"""
+enum WarningSeverity {
+	"""
+	It may not: the route avoids the place (a blocker of
+	`NO_SAFE_ROUTE`).
+	"""
+	BLOCKING
+	"""
+	It may, with care.
+	"""
+	WARNING
 }
 
 """

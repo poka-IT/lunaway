@@ -1,0 +1,103 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, external_id, kind, limit_value, other_value, name,\n            ST_Y(ST_PointOnSurface(geom::geometry)) AS \"lat!\",\n            ST_X(ST_PointOnSurface(geom::geometry)) AS \"lon!\"\n        FROM route_restrictions\n        WHERE graph_id = $1 AND certainty = 'disputed'\n        ORDER BY abs(other_value - limit_value) DESC NULLS LAST, external_id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "limit_value",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "limit_value"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "other_value",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "other_value"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "dd8db0184fd6df5e4522b284aab9df6a73abac54b2838982e7247e68424d24e0"
+}

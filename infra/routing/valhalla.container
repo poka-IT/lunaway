@@ -1,7 +1,8 @@
-# DRAFT, NOT INSTALLED, NOT TESTED: the next service of the backend, the
-# Valhalla routing engine serving a prebuilt graph to lunaway-api on
-# 127.0.0.1:8002. Kept here so the serving path is decided before the graph
-# exists; docs/deploy.md ("Next service: routing") has the reasoning.
+# The Valhalla routing engine, serving the current graph to lunaway-api on
+# 127.0.0.1:8002. A Podman Quadlet unit, installed to
+# /etc/containers/systemd/valhalla.container (the server step is listed in
+# plan/research/15-navigation-backend.md); systemd generates
+# valhalla.service from it. docs/deploy.md ("Routing") has the reasoning.
 #
 # Serving path on Debian 13. Debian ships no Valhalla package, and building
 # it on the server would bring a compiler toolchain onto the production host.
@@ -11,31 +12,41 @@
 # root, and with Network=host nothing rewrites the host firewall, whereas
 # Docker inserts its own rules for published ports.
 #
-# The graph is built elsewhere (the maintainer's Mac Studio, same image tag,
-# arm64) and copied with rsync into /srv/routing/<build>/ on the root disk;
-# /srv/routing/current points at the build in service. The root disk is
-# local NVMe: the tiles are memory-mapped and read at random, which a network
-# volume serves slower, and they can be rebuilt, so they do not need the
-# data volume's durability.
+# The graph is built weekly by GitHub Actions (infra/routing/build-graph.sh)
+# and installed by lunaway-routing-refresh into /srv/routing/builds/<id>/ on
+# the root disk; /srv/routing/current points at the build in service. The
+# root disk is local NVMe: the tiles are memory-mapped and read at random,
+# which a network volume serves slower, and they can be rebuilt.
 #
-# Install, when the first graph exists:
+# valhalla.json is the repository's infra/routing/valhalla.json, copied next
+# to each graph by lunaway-routing-refresh: it reads
+# /srv/routing/current/valhalla_tiles.tar, listens on 127.0.0.1:8002 and
+# answers route, trace_attributes and status only. Its log lines name
+# the method, path and status of each request, never a position (the body
+# is not logged; checked on 2026-10-06).
+#
+# Install, once the first graph is in /srv/routing/current:
 #   apt-get install podman
 #   echo 'containers:2147483647:2147483648' >> /etc/subuid (and /etc/subgid), for UserNS=auto
-#   install -m 0644 infra/routing/valhalla.container /etc/containers/systemd/valhalla.container
+#   podman pull <the Image= below>     (the unit itself reaches no network)
+#   install -m 0644 infra/routing/valhalla.container /etc/containers/systemd/
 #   systemctl daemon-reload && systemctl start valhalla
-# valhalla.json, generated with valhalla_build_config next to the tiles, must
-# set mjolnir.tile_extract to /srv/routing/current/valhalla_tiles.tar and
-# httpd.service.listen to tcp://127.0.0.1:8002.
 
 [Unit]
 Description=Valhalla routing engine (loopback only)
 RequiresMountsFor=/srv/routing
 After=network-online.target
+# Before the first graph there is nothing to serve.
+ConditionPathExists=/srv/routing/current/valhalla.json
 
 [Container]
-# 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06).
+# 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06);
+# keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
 Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
-Exec=valhalla_service /srv/routing/current/valhalla.json 8
+# Four worker threads: the backend's vCPUs. A route across France takes
+# 0.25 to 0.36 s of one thread (Lille to Nice with two alternatives,
+# measured 2026-10-06).
+Exec=valhalla_service /srv/routing/current/valhalla.json 4
 # Host network, bound to 127.0.0.1 by valhalla.json: no port publishing, no
 # firewall rule, and the API reaches it on loopback.
 Network=host
@@ -46,12 +57,20 @@ Volume=/srv/routing:/srv/routing:ro
 DropCapability=all
 NoNewPrivileges=true
 # cgroup v2 charges the page cache of the memory-mapped tiles to the
-# container: 4 GB holds a France graph, a Europe graph needs more.
-PodmanArgs=--memory=4g --pids-limit=256
+# container. Serving France measured 593 MiB after long routes (anonymous
+# 427 MiB, file 160 MiB; 2026-10-06); the cap leaves the page cache room to
+# grow with the tiles in use, and reclaims it before PostgreSQL's.
+PodmanArgs=--memory=3g --pids-limit=256
 
 [Service]
 Restart=on-failure
 RestartSec=5s
+# The engine receives every route's positions: it reaches nothing but
+# loopback (where it listens). The filter applies to the unit's cgroup,
+# under which Quadlet places the container (to confirm on the server with an
+# outbound request from inside the container: it must fail).
+IPAddressDeny=any
+IPAddressAllow=localhost
 
 [Install]
 WantedBy=multi-user.target

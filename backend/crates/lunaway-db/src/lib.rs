@@ -11,6 +11,7 @@ pub mod moderation;
 pub mod municipalities;
 pub mod places;
 pub mod records;
+pub mod routing;
 pub mod search;
 pub mod sources;
 pub mod stats;
@@ -40,6 +41,15 @@ pub enum DbError {
     /// The migrations could not be applied.
     #[error("database migration failed")]
     Migrate(#[from] sqlx::migrate::MigrateError),
+    /// An argument exceeds what a query accepts (a route shape too long to
+    /// check in one corridor query).
+    #[error("{what} exceeds {limit}")]
+    TooLarge {
+        /// What was too large.
+        what: &'static str,
+        /// The limit.
+        limit: usize,
+    },
     /// A stored value does not decode into its domain type: the schema's
     /// CHECK constraints should make this impossible, so it means the
     /// database was written by something else.

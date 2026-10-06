@@ -23,6 +23,7 @@ use crate::{
     mutation::MutationRoot,
     quota::QuotaLimiter,
     rate::RateLimiter,
+    routing_types::{RouteInput, RouteResult, RoutingInfo},
     types::{
         AppConfig, BBoxInput, ChangeSet, GqlPlaceKind, LatLonInput, Place, PlaceConnection,
         PlaceFilterInput, Source,
@@ -47,6 +48,19 @@ pub const MAX_COMPLEXITY: usize = 90_000;
 /// scans every name), so each such field takes a fixed share of the budget
 /// and a request holds at most 11 of them.
 pub const DB_FIELD_COST: usize = 5_000;
+/// Cost of `route`, whatever it returns, in the client's budget and in the
+/// API's cost in flight. Kept small: a route waits on the engine, and a
+/// large share held while it waits would hold back every other request
+/// (security audit of 2026-10-06). What bounds routes is elsewhere: one per
+/// request (`RouteOnce`), the per-client quota (`Quotas::route`), and the
+/// engine slots, held until an answer is checked, which bound the memory of
+/// the answers in hand.
+pub const ROUTE_FIELD_COST: usize = 10_000;
+
+/// Set by the first `route` of a request: a second one is refused, so a
+/// document cannot fan one request out into many engine calls.
+#[derive(Debug, Default)]
+pub(crate) struct RouteOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// Largest page of `changes`.
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
 /// Largest page of `places`.
@@ -81,6 +95,8 @@ pub struct ApiState {
     pub(crate) media: Arc<lunaway_media::MediaStore>,
     /// Photos processed at once (`MediaConfig::workers`).
     pub(crate) media_workers: Arc<Semaphore>,
+    /// The routing engine and its calls in flight.
+    pub(crate) routing: Arc<crate::routing::Routing>,
 }
 
 impl ApiState {
@@ -105,6 +121,7 @@ impl ApiState {
         );
         let media = Arc::new(lunaway_media::MediaStore::new(config.media.dir.clone()));
         let media_workers = Arc::new(Semaphore::new(config.media.workers));
+        let routing = Arc::new(crate::routing::Routing::new(&config.routing));
         Self {
             pool,
             config,
@@ -114,6 +131,7 @@ impl ApiState {
             challenges,
             media,
             media_workers,
+            routing,
         }
     }
 }
@@ -443,6 +461,25 @@ impl QueryRoot {
     async fn my_account(&self, ctx: &Context<'_>) -> Result<Account> {
         let viewer = auth::require(ctx).await?;
         Account::load(ctx, viewer).await
+    }
+
+    /// A route for a motorhome or a van, from `origin` to `destination`
+    /// through `waypoints`, checked against every height, width, length,
+    /// weight and access limit known on the way (OpenStreetMap, IGN): a
+    /// route that meets a limit the vehicle exceeds is never returned. Up to
+    /// 30 routes every ten minutes per client, recalculations included
+    /// (`RATE_LIMITED` beyond); `UNAVAILABLE` while the routing engine or
+    /// its data is down.
+    #[graphql(complexity = "ROUTE_FIELD_COST + child_complexity")]
+    async fn route(&self, ctx: &Context<'_>, input: RouteInput) -> Result<RouteResult> {
+        crate::routing_query::route(ctx, input).await
+    }
+
+    /// Whether routing works now, the date of its data, the bounds of a
+    /// route request and the typical vehicles to offer.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn routing(&self, ctx: &Context<'_>) -> Result<RoutingInfo> {
+        crate::routing_query::routing_info(ctx).await
     }
 
     /// The signed-in account's favourite lists, by name, with their places.

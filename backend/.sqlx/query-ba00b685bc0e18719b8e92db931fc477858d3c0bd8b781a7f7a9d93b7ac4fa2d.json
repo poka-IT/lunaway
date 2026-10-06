@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH line AS (\n            SELECT ST_SetSRID(ST_MakeLine(ARRAY(\n                SELECT ST_MakePoint(lon, lat)\n                FROM UNNEST($2::float8[], $3::float8[]) WITH ORDINALITY AS u(lon, lat, n)\n                ORDER BY n\n            )), 4326) AS geom\n        ), pieces AS (\n            SELECT ST_Subdivide(geom, 32)::geography AS piece FROM line\n        )\n        SELECT DISTINCT ON (r.id)\n            r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,\n            r.name, ST_AsGeoJSON(r.geom::geometry, 7) AS \"shape!\"\n        FROM pieces p\n        JOIN route_restrictions r ON ST_DWithin(r.geom, p.piece, $4)\n        WHERE r.graph_id = $1 OR r.graph_id IS NULL\n        ORDER BY r.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "limit_value",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "limit_value"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "certainty",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "certainty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "feature",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "feature"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "shape!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8Array",
+        "Float8Array",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "ba00b685bc0e18719b8e92db931fc477858d3c0bd8b781a7f7a9d93b7ac4fa2d"
+}

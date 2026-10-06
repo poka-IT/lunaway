@@ -23,6 +23,8 @@ pub struct ApiConfig {
     pub trust: Thresholds,
     /// Where photos go and how they are served.
     pub media: MediaConfig,
+    /// The routing engine behind `Query.route`.
+    pub routing: RoutingConfig,
 }
 
 impl Default for ApiConfig {
@@ -35,6 +37,101 @@ impl Default for ApiConfig {
             quotas: Quotas::default(),
             trust: Thresholds::default(),
             media: MediaConfig::default(),
+            routing: RoutingConfig::default(),
+        }
+    }
+}
+
+/// The routing engine (Valhalla on the same host) and how hard the API may
+/// use it. A route costs the engine tens to hundreds of milliseconds of a
+/// thread and returns up to a few megabytes, so it has its own quota per
+/// client (`Quotas::route`) and a cap on the calls in flight, whoever sends
+/// them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoutingConfig {
+    /// The engine's base URL (`LUNAWAY_VALHALLA_URL`, default
+    /// `http://127.0.0.1:8002`). Only a loopback address is accepted: the
+    /// engine is never reached over a network, and a position sent to it
+    /// never leaves the host. `None` when the setting names another host:
+    /// routing then answers `UNAVAILABLE`.
+    pub valhalla_url: Option<String>,
+    /// Longest wait for one answer of the engine
+    /// (`LUNAWAY_VALHALLA_TIMEOUT_MS`, 8 s).
+    pub timeout: Duration,
+    /// Engine calls in flight at once, all clients together
+    /// (`LUNAWAY_ROUTING_CONCURRENCY`, 4: the engine's threads).
+    pub concurrency: usize,
+    /// How long a route waits for a free call before `RATE_LIMITED`
+    /// (`LUNAWAY_ROUTING_QUEUE_WAIT_MS`, 1 s): short, because a waiting
+    /// route holds its share of the API's cost in flight.
+    pub queue_wait: Duration,
+}
+
+/// The engine's address on the backend (`infra/routing/valhalla.container`).
+pub const DEFAULT_VALHALLA_URL: &str = "http://127.0.0.1:8002";
+
+impl Default for RoutingConfig {
+    fn default() -> Self {
+        Self {
+            valhalla_url: Some(DEFAULT_VALHALLA_URL.to_owned()),
+            timeout: Duration::from_secs(8),
+            concurrency: 4,
+            queue_wait: Duration::from_secs(1),
+        }
+    }
+}
+
+/// Whether `url` is plain HTTP to a loopback address, with no user, path,
+/// query or fragment: the only engine the API talks to.
+#[must_use]
+pub fn is_loopback_url(url: &str) -> bool {
+    let Ok(u) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    let loopback = u.host_str().is_some_and(|h| {
+        h == "localhost"
+            || h.trim_start_matches('[')
+                .trim_end_matches(']')
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    u.scheme() == "http"
+        && loopback
+        && u.username().is_empty()
+        && u.password().is_none()
+        && u.path() == "/"
+        && u.query().is_none()
+        && u.fragment().is_none()
+}
+
+impl RoutingConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let millis = |key: &str, default: Duration| {
+            lookup(key)
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|n| *n > 0)
+                .map_or(default, Duration::from_millis)
+        };
+        let valhalla_url = match lookup("LUNAWAY_VALHALLA_URL").map(|v| v.trim().to_owned()) {
+            None => d.valhalla_url,
+            Some(v) if v.is_empty() => d.valhalla_url,
+            Some(v) if is_loopback_url(&v) => Some(v.trim_end_matches('/').to_owned()),
+            Some(_) => {
+                tracing::error!(
+                    "LUNAWAY_VALHALLA_URL is not a loopback http URL; routing is turned off"
+                );
+                None
+            }
+        };
+        Self {
+            valhalla_url,
+            timeout: millis("LUNAWAY_VALHALLA_TIMEOUT_MS", d.timeout),
+            concurrency: lookup("LUNAWAY_ROUTING_CONCURRENCY")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| (1..=64).contains(n))
+                .unwrap_or(d.concurrency),
+            queue_wait: millis("LUNAWAY_ROUTING_QUEUE_WAIT_MS", d.queue_wait),
         }
     }
 }
@@ -120,6 +217,11 @@ pub struct Quotas {
     /// Accounts a level-2 account sponsors, or a level-4 account nominates
     /// (`ENDORSEMENT`): each sponsorship makes a level-1 account at once.
     pub endorsement: Quota,
+    /// Routes per client (`ROUTE`): 30 every ten minutes, recalculations
+    /// included. A driver off course is recalculated at most every 10 s
+    /// (`plan/research/07-navigation.md`, C.3), so the burst covers five
+    /// minutes lost in a town.
+    pub route: Quota,
 }
 
 impl Default for Quotas {
@@ -138,6 +240,7 @@ impl Default for Quotas {
             list: Quota::per(2_000, DAY),
             account: Quota::per(100, DAY),
             endorsement: Quota::per(5, DAY),
+            route: Quota::per(30, 10 * MINUTE),
         }
     }
 }
@@ -169,6 +272,7 @@ impl Quotas {
             list: read("LIST", d.list),
             account: read("ACCOUNT", d.account),
             endorsement: read("ENDORSEMENT", d.endorsement),
+            route: read("ROUTE", d.route),
         }
     }
 }
@@ -407,6 +511,7 @@ impl ApiConfig {
             quotas: Quotas::from_lookup(&lookup),
             trust: thresholds_from_lookup(&lookup),
             media: MediaConfig::from_lookup(&lookup),
+            routing: RoutingConfig::from_lookup(&lookup),
         }
     }
 
@@ -512,6 +617,45 @@ mod tests {
             "http://127.0.0.1:8080/media/photos/a.webp"
         );
         assert_eq!(c.auth.session_ttl, Duration::from_secs(60 * 86_400));
+    }
+
+    #[test]
+    fn the_routing_engine_must_be_on_loopback() {
+        for ok in [
+            "http://127.0.0.1:8002",
+            "http://127.0.0.1:8002/",
+            "http://localhost:8002",
+            "http://[::1]:8002",
+            "http://127.0.0.1",
+        ] {
+            assert!(is_loopback_url(ok), "{ok}");
+        }
+        for bad in [
+            "https://127.0.0.1:8002",
+            "http://10.42.0.2:8002",
+            "http://valhalla.example:8002",
+            "http://127.0.0.1:8002/route",
+            "http://user@127.0.0.1:8002",
+            "http://127.0.0.1.example.com:8002",
+            "http://127.0.0.1:80x",
+        ] {
+            assert!(!is_loopback_url(bad), "{bad}");
+        }
+        let c = with(&[("LUNAWAY_VALHALLA_URL", "http://10.42.0.3:8002")]);
+        assert_eq!(
+            c.routing.valhalla_url, None,
+            "another host turns routing off"
+        );
+        let c = with(&[
+            ("LUNAWAY_VALHALLA_URL", "http://127.0.0.1:9002/"),
+            ("LUNAWAY_QUOTA_ROUTE", "5/60"),
+        ]);
+        assert_eq!(
+            c.routing.valhalla_url.as_deref(),
+            Some("http://127.0.0.1:9002")
+        );
+        assert_eq!(c.quotas.route, Quota::per(5, 60));
+        assert_eq!(with(&[]).routing, RoutingConfig::default());
     }
 
     #[test]

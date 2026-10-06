@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Limoges, Rue Maurice Utrillo: a 2.5 m van passes under the 2.7 m railway bridge",
+    "from": [45.84719, 1.28476],
+    "to": [45.84510, 1.28637],
+    "vehicle": {"height": 2.5, "width": 2.0, "length": 6.0, "weight": 3.3},
+    "use_ways": [52984577],
+    "max_km": 1.0
+  },
+  {
+    "name": "Limoges, Rue Maurice Utrillo: a 3.3 m motorhome goes round the 2.7 m railway bridge",
+    "from": [45.84719, 1.28476],
+    "to": [45.84510, 1.28637],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_ways": [52984577],
+    "max_km": 6.0
+  },
+  {
+    "name": "Limoges, Rue Maurice Utrillo: 2.71 m is refused under maxheight=2.7",
+    "from": [45.84719, 1.28476],
+    "to": [45.84510, 1.28637],
+    "vehicle": {"height": 2.71, "width": 2.0, "length": 6.0, "weight": 3.3},
+    "avoid_ways": [52984577],
+    "max_km": 6.0
+  },
+  {
+    "name": "Ussel, Rue du Pas Redon: a 4.5 t motorhome goes round the bridge signed with maxweightrating=3.5 alone",
+    "from": [45.53672, 2.15140],
+    "to": [45.53730, 2.15260],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 4.5},
+    "avoid_ways": [169230141],
+    "max_km": 5.0
+  },
+  {
+    "name": "Ussel, Rue du Pas Redon: a 3.5 t motorhome crosses the 3.5 t bridge",
+    "from": [45.53672, 2.15140],
+    "to": [45.53730, 2.15260],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "use_ways": [169230141],
+    "max_km": 1.0
+  },
+  {
+    "name": "Route de Grandchamp: motorhome=no keeps a 3.5 t motorhome out",
+    "from": [45.1500, 1.8760],
+    "to": [45.1488, 1.8690],
+    "vehicle": {"height": 3.0, "width": 2.3, "length": 7.0, "weight": 3.5},
+    "avoid_ways": [103140897],
+    "max_km": 5.0
+  },
+  {
+    "name": "An hgv=no road (B8, goods vehicles) stays open to a motorhome",
+    "from": [45.1140, 2.1040],
+    "to": [45.1152843, 2.1181498],
+    "vehicle": {"height": 3.0, "width": 2.3, "length": 7.0, "weight": 3.5},
+    "use_ways": [37875692],
+    "max_km": 3.0
+  },
+  {
+    "name": "Limoges, Rue Braille: a 3.3 m motorhome passes the 3.4 m porch IGN measures",
+    "from": [45.82035, 1.24525],
+    "to": [45.81945, 1.24640],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "use_ways": [666431123],
+    "max_km": 1.0
+  },
+  {
+    "name": "Limoges, Rue Braille: a 3.5 m motorhome is never sent under the 3.4 m porch",
+    "from": [45.82035, 1.24525],
+    "to": [45.81945, 1.24640],
+    "vehicle": {"height": 3.5, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_ways": [666431123],
+    "no_route_ok": true
+  },
+  {
+    "name": "Brive to Ussel: a long trip is found, about 92 km",
+    "from": [45.1580, 1.5330],
+    "to": [45.5470, 2.3090],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 80.0,
+    "max_km": 110.0
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE routing_graphs SET active = true, activated_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ae7a59a4afbe6f650ee9af2b4aa304c11cb8e51bc8e36677c13f980fe4130ffa"
+}

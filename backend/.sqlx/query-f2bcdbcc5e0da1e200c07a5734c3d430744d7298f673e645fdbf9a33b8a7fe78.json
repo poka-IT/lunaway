@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM routing_graphs WHERE id = $1 AND NOT active",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f2bcdbcc5e0da1e200c07a5734c3d430744d7298f673e645fdbf9a33b8a7fe78"
+}

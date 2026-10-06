@@ -8,8 +8,10 @@
 //! `LUNAWAY_DB_*`) and their defaults are listed in `.env.example` and
 //! documented on `lunaway_api::Limits`; so are the quotas
 //! (`LUNAWAY_QUOTA_*`), the trust thresholds (`LUNAWAY_TL*`), the sessions
-//! (`LUNAWAY_SESSION_DAYS`) and the photos (`LUNAWAY_MEDIA_DIR`,
-//! `LUNAWAY_MEDIA_BASE_URL`, `LUNAWAY_MAX_UPLOAD_BYTES`).
+//! (`LUNAWAY_SESSION_DAYS`), the photos (`LUNAWAY_MEDIA_DIR`,
+//! `LUNAWAY_MEDIA_BASE_URL`, `LUNAWAY_MAX_UPLOAD_BYTES`) and the routing
+//! engine (`LUNAWAY_VALHALLA_URL`, loopback only, `LUNAWAY_VALHALLA_TIMEOUT_MS`,
+//! `LUNAWAY_ROUTING_*`).
 
 use std::{net::SocketAddr, time::Duration};
 
@@ -40,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
         trust = ?config.trust,
         media_dir = %config.media.dir.display(),
         media_base_url = %config.media.base_url,
+        routing = ?config.routing,
         "configuration read"
     );
     let pool = lunaway_db::connect_with(

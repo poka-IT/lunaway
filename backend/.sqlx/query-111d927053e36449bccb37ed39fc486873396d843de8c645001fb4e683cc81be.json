@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, osm_data_at, ign_fetched_at, ign_edition, built_at, engine, loaded_at,\n            activated_at, active\n        FROM routing_graphs ORDER BY built_at DESC, id DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "osm_data_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "osm_data_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ign_fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "ign_fetched_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ign_edition",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "ign_edition"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "built_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "built_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "engine",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "engine"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "loaded_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "loaded_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "activated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "activated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "routing_graphs",
+            "name": "active"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "111d927053e36449bccb37ed39fc486873396d843de8c645001fb4e683cc81be"
+}

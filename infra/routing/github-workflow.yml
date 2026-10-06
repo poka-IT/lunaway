@@ -1,0 +1,140 @@
+# Weekly routing graph of France (docs/deploy.md, "Routing"). Kept here as a
+# draft; it runs once copied to .github/workflows/routing-graph.yml, with the
+# environment `routing-graph` (deployment branch: main) holding the secret
+# ROUTING_SIGNING_KEY (plan/research/15-navigation-backend.md, wiring list).
+#
+# Why here and not on the backend: the France build measured about 6 GiB of
+# anonymous memory at its peak, 16.5 GiB of work files and 16 to 18 minutes
+# on 4 threads (infra/routing/measure-build.sh, 2026-10-06), against 8 GB of
+# memory shared with PostgreSQL, the API and the tile server on the backend,
+# which also has no container runtime. A GitHub-hosted runner has 16 GB and
+# 4 vCPUs. The backend pulls the result from the release `routing-graph`
+# (lunaway-routing-refresh): its SSH only accepts the admin sources, so the
+# runner cannot push.
+#
+# Two jobs: `build` runs every third-party build step (crates, the osmium
+# image, the Valhalla image, the parsers of Geofabrik's and IGN's data) with
+# a read-only token and no secret; `publish` holds the signing key and write
+# access, runs no build code, re-hashes the bundle it receives, signs and
+# uploads it.
+name: routing-graph
+
+on:
+  schedule:
+    # Sundays 01:00 UTC; the backend checks for a new graph every morning.
+    - cron: "0 1 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: routing-graph
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      WORK: /mnt/routing
+      LUNAWAY_DATA_DIR: /mnt/routing/data
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: room on the disk
+        # The work files of France reach 16.5 GiB, the extract 5 GB; the
+        # runner's image carries toolchains this job never uses.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo mkdir -p "$WORK" && sudo chown "$USER" "$WORK"
+          df -h / /mnt
+
+      - name: lunaway CLI
+        working-directory: backend
+        run: SQLX_OFFLINE=true cargo build --release -p lunaway-cli
+
+      - name: France extract
+        run: |
+          curl --proto "=https" --fail --location --silent --show-error --retry 3 \
+            -A "Lunaway routing graph build (+https://lunaway.net)" \
+            -o "$WORK/france-latest.osm.pbf" https://download.geofabrik.de/europe/france-latest.osm.pbf
+          ls -l "$WORK/france-latest.osm.pbf"
+
+      - name: graph, measured
+        run: |
+          /usr/bin/time -v infra/routing/build-graph.sh "$WORK/france-latest.osm.pbf" "$WORK/out" \
+            --area fr --threads 4 --refresh-ign 2>&1 | tee "$WORK/build.log"
+          df -h /mnt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: routing-bundle
+          path: /mnt/routing/out/bundle/
+          retention-days: 3
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: routing-graph
+    permissions:
+      # Writes the assets of the release `routing-graph`, nothing else.
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: routing-bundle
+          path: bundle
+
+      - name: sums, signature
+        env:
+          ROUTING_SIGNING_KEY: ${{ secrets.ROUTING_SIGNING_KEY }}
+        working-directory: bundle
+        # The sums are recomputed here, from the files received: the build
+        # job's own SHA256SUMS is not trusted.
+        run: |
+          # The build job is not trusted to name its own graph: the id and
+          # the build time must fall within this run (a graph from the
+          # future would hold back every real one on the backend).
+          id=$(jq -r .id build.json)
+          built=$(jq -r .built_at build.json)
+          now=$(date -u +%s)
+          built_s=$(date -u -d "$built" +%s)
+          [ "$built_s" -le "$now" ] && [ "$built_s" -ge $((now - 6 * 3600)) ] \
+            || { echo "build.json: built_at $built is outside this run"; exit 1; }
+          id_s=$(date -u -d "$(echo "$id" | sed -E 's/^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})Z-fr$/\1-\2-\3T\4:\5:00Z/')" +%s) \
+            || { echo "build.json: id $id is not a graph name"; exit 1; }
+          [ "$id_s" -le "$now" ] && [ "$id_s" -ge $((now - 6 * 3600)) ] \
+            || { echo "build.json: id $id is outside this run"; exit 1; }
+          rm -f SHA256SUMS
+          sha256sum -- build.json prepare.json restrictions.ndjson.gz test-routes.txt graph.tar.gz.part-* >"$RUNNER_TEMP/SHA256SUMS"
+          mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
+          umask 077
+          printf '%s\n' "$ROUTING_SIGNING_KEY" >"$RUNNER_TEMP/routing_signing_key"
+          ssh-keygen -Y sign -f "$RUNNER_TEMP/routing_signing_key" -n lunaway-routing-graph SHA256SUMS
+          rm -f "$RUNNER_TEMP/routing_signing_key"
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        working-directory: bundle
+        # The parts first, the signed sums next, build.json last: the
+        # backend reads build.json to learn a new graph exists, then checks
+        # every part against the signed sums.
+        run: |
+          gh release view routing-graph >/dev/null 2>&1 || gh release create routing-graph \
+            --prerelease --title "Routing graph (weekly)" \
+            --notes "Valhalla graph of France for the Lunaway API, rebuilt weekly by infra/routing/github-workflow.yml. ODbL (OpenStreetMap contributors) and Licence Ouverte 2.0 (IGN, BD TOPO)."
+          gh release upload routing-graph graph.tar.gz.part-* restrictions.ndjson.gz prepare.json test-routes.txt --clobber
+          gh release upload routing-graph SHA256SUMS SHA256SUMS.sig --clobber
+          gh release upload routing-graph build.json --clobber
+          # Parts of an earlier, larger graph would confuse no one (the sums
+          # name the parts), but they waste the release's room.
+          for asset in $(gh release view routing-graph --json assets --jq '.assets[].name'); do
+            [ -e "$asset" ] || gh release delete-asset routing-graph "$asset" --yes
+          done

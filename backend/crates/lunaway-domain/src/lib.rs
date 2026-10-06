@@ -8,6 +8,7 @@ pub mod conflation;
 pub mod geo;
 pub mod opening;
 pub mod record;
+pub mod routing;
 pub mod source;
 pub mod taxonomy;
 
