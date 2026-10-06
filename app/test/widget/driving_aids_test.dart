@@ -80,6 +80,7 @@ void main() {
     List<EnforcementItem> items = const [],
     List<EnforcementSource> sources = const [],
     bool speak = false,
+    bool showLimit = true,
   }) async {
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
     voice = RecordingVoice();
@@ -98,6 +99,11 @@ void main() {
     final container = app.container(tester);
     if (speak) {
       await container.read(drivingAidsSettingsControllerProvider.notifier).setSpeedSound(on: true);
+    }
+    if (!showLimit) {
+      await container
+          .read(drivingAidsSettingsControllerProvider.notifier)
+          .setShowSpeedLimit(on: false);
     }
     await container
         .read(guidanceControllerProvider.notifier)
@@ -240,6 +246,14 @@ void main() {
     await drive(tester, _drive(route, fromM: 1400, toM: 1500, kmh: 70));
     expect(find.bySemanticsLabel(RegExp('Limite estimée 50')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('au-dessus de la limite')), findsNothing);
+  });
+
+  testWidgets('a limit the user hid is neither shown nor spoken', (tester) async {
+    final plan = _plan();
+    await guide(tester, plan, speak: true, showLimit: false);
+    await drive(tester, _drive(plan.routes.first, fromM: 0, toM: 100));
+    expect(find.bySemanticsLabel(RegExp('Limite')), findsNothing);
+    expect(voice.said.where((s) => s.startsWith('Vitesse')), isEmpty);
   });
 
   testWidgets('without the sound asked for, the excess shows and says nothing', (tester) async {

@@ -516,7 +516,7 @@
       "dangerZone": "Danger zone in $distance",
       "inDangerZone": "Danger zone, $distance left",
       "cameraAhead": "Speed camera in $distance",
-      "cameraLimit": "Speed camera in $distance, $limit km/h",
+      "cameraLimit": "Speed camera in $distance, $limit",
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
       "enforcementSource": "$source, list of $date"

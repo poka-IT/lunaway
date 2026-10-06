@@ -650,10 +650,14 @@ class GuidanceController extends _$GuidanceController {
         )
         case final aids?) {
       // The words of the aids only when the user asked for them: the
-      // banners and the sign speak for themselves.
-      if (aids.words > next.aids.words &&
-          (ref.read(drivingAidsSettingsControllerProvider).value?.speedSound ?? false)) {
-        _say(_words!.aid(aids), queue: said);
+      // banners and the sign speak for themselves. A limit the user hid is
+      // not spoken either.
+      if (aids.words > next.aids.words) {
+        final settings = ref.read(drivingAidsSettingsControllerProvider).value;
+        if ((settings?.speedSound ?? false) &&
+            (aids.wordKind != AidWord.overSpeed || settings!.showSpeedLimit)) {
+          _say(_words!.aid(aids), queue: said);
+        }
       }
       next = next.copyWith(aids: aids);
     }

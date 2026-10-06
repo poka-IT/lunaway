@@ -28,7 +28,7 @@ class EnforcementNotice extends StatelessWidget {
     final text = switch ((camera, alert.inside)) {
       (true, _) when limit != null => t.navigation.guidance.cameraLimit(
         distance: t.routeDistance(alert.aheadM, units),
-        limit: '$limit',
+        limit: t.speedLimit(limit, units),
       ),
       (true, _) => t.navigation.guidance.cameraAhead(
         distance: t.routeDistance(alert.aheadM, units),

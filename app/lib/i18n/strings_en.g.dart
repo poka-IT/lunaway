@@ -3368,8 +3368,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Speed camera in $distance'
 	String cameraAhead({required Object distance}) => 'Speed camera in ${distance}';
 
-	/// en: 'Speed camera in $distance, $limit km/h'
-	String cameraLimit({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit} km/h';
+	/// en: 'Speed camera in $distance, $limit'
+	String cameraLimit({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}';
 
 	/// en: 'Estimated limit'
 	String get limitEstimated => 'Estimated limit';
@@ -4706,7 +4706,7 @@ extension on Translations {
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Danger zone, ${distance} left',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Speed camera in ${distance}',
-			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit} km/h',
+			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}',
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',

@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -129,6 +131,18 @@ void main() {
       expect(words.rerouted(const Duration(seconds: 20)), 'Nouvel itinéraire.');
       expect(words.rerouted(const Duration(minutes: 8)), 'Nouvel itinéraire, 8 minutes de plus.');
       expect(words.rerouted(const Duration(seconds: 70)), 'Nouvel itinéraire, une minute de plus.');
+    });
+
+    test('a limit is said and shown in the units of the user', () {
+      const aids = DrivingAids(
+        limit: ShownLimit(kmh: 113, source: SpeedLimitSource.posted),
+        overSpeed: true,
+        wordKind: AidWord.overSpeed,
+      );
+      expect(TranslatedWording(en, DistanceUnits.imperial).aid(aids), 'Speed limit 70.');
+      expect(TranslatedWording(fr, DistanceUnits.metric).aid(aids), 'Vitesse limitée à 113.');
+      expect(en.speedLimit(113, DistanceUnits.imperial), '70 mph');
+      expect(fr.speedLimit(90, DistanceUnits.metric), '90 km/h');
     });
 
     test('the background notification has its own words', () {

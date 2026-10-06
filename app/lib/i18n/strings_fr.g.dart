@@ -1573,7 +1573,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}';
 	@override String inDangerZone({required Object distance}) => 'Zone de danger, encore ${distance}';
 	@override String cameraAhead({required Object distance}) => 'Radar dans ${distance}';
-	@override String cameraLimit({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h';
+	@override String cameraLimit({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit}';
 	@override String get limitEstimated => 'Limite estimée';
 	@override String get overLimit => 'au-dessus de la limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, liste du ${date}';
@@ -2468,7 +2468,7 @@ extension on TranslationsFr {
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Zone de danger, encore ${distance}',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Radar dans ${distance}',
-			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h',
+			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit}',
 			'navigation.guidance.limitEstimated' => 'Limite estimée',
 			'navigation.guidance.overLimit' => 'au-dessus de la limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',

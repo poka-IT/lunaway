@@ -516,7 +516,7 @@
       "dangerZone": "Zone de danger dans $distance",
       "inDangerZone": "Zone de danger, encore $distance",
       "cameraAhead": "Radar dans $distance",
-      "cameraLimit": "Radar dans $distance, $limit km/h",
+      "cameraLimit": "Radar dans $distance, $limit",
       "limitEstimated": "Limite estimée",
       "overLimit": "au-dessus de la limite",
       "enforcementSource": "$source, liste du $date"

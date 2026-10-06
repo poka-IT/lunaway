@@ -23,6 +23,15 @@ extension NavigationTexts on Translations {
   // finds a key by its dotted path.
   Translations get _t => this;
 
+  /// A speed limit in the user's units, rounded as a sign shows it: 90
+  /// km/h reads 56 in miles per hour.
+  int speedIn(int kmh, DistanceUnits units) =>
+      units == DistanceUnits.metric ? kmh : (kmh * 1000 / _metresPerMile).round();
+
+  /// "90 km/h", or "56 mph" in [DistanceUnits.imperial].
+  String speedLimit(int kmh, DistanceUnits units) =>
+      '${speedIn(kmh, units)} ${units == DistanceUnits.metric ? _t.navigation.units.kmh : _t.navigation.units.mph}';
+
   /// "350 m", "2.4 km", "48 km"; "500 ft", "1.2 mi" in [DistanceUnits.imperial].
   String routeDistance(double metres, DistanceUnits units) {
     if (units == DistanceUnits.metric) return distance(metres);
@@ -262,7 +271,12 @@ final class TranslatedWording implements GuidanceWording {
   String aid(DrivingAids aids) {
     final alert = aids.alert;
     return switch (aids.wordKind) {
-      AidWord.overSpeed => t.navigation.voice.overSpeed(limit: '${aids.limit?.kmh ?? ''}'),
+      AidWord.overSpeed => t.navigation.voice.overSpeed(
+        limit: switch (aids.limit) {
+          null => '',
+          final l => '${t.speedIn(l.kmh, units)}',
+        },
+      ),
       AidWord.camera when alert != null => t.navigation.voice.camera(
         distance: t.spokenDistance(alert.aheadM, units),
       ),
