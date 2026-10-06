@@ -116,6 +116,9 @@ final class DriftRegionStore implements RegionStore {
   @override
   Future<int> importPack(String region, String path, {required String cursor}) async {
     final generation = (await stateOf(region)).generation + 1;
+    // The pack comes from the network: its schema must not run functions
+    // or triggers with the privileges of the app's database.
+    await _db.customStatement('PRAGMA trusted_schema = OFF');
     await _db.customStatement('ATTACH DATABASE ? AS pack', [path]);
     try {
       return await _db.transaction(() async {

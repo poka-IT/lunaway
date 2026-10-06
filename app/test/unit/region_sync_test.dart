@@ -375,6 +375,45 @@ void main() {
       },
     );
 
+    test('a pack inflating past the size of its manifest stops there', () async {
+      final region = serve('FR-COR', [
+        for (var i = 0; i < 50; i++) {...apiPlaces().first, 'id': 'c$i'},
+      ]);
+      final pack = region.pack!;
+      // Same bytes and digest, a manifest announcing a tenth of the size:
+      // what a small download inflating to gigabytes looks like.
+      final small = RegionPack(
+        url: pack.url,
+        format: pack.format,
+        bytes: pack.bytes,
+        rawBytes: pack.rawBytes ~/ 10,
+        sha256: pack.sha256,
+        version: pack.version,
+        cursor: pack.cursor,
+        places: pack.places,
+        bounds: pack.bounds,
+        generatedAt: pack.generatedAt,
+      );
+      final packFiles = IoRegionPackFiles(root: () async => dir);
+      await expectLater(
+        packFiles.fetch(
+          small,
+          placesPackUrl(config, pack.url)!,
+          downloader: PackDownloader(client: files.client, userAgent: 'test'),
+        ),
+        throwsA(
+          isA<PackDownloadException>()
+              .having((e) => e.failure, 'failure', PackDownloadFailure.corrupt)
+              .having((e) => e.message, 'message', contains('past')),
+        ),
+      );
+      expect(
+        Directory('${dir.path}/region_packs').listSync().whereType<File>(),
+        isEmpty,
+        reason: 'neither the download nor its partial inflation stays',
+      );
+    });
+
     test('without packs (the web) the feed from the start, swept at its end', () async {
       service = build(packs: false);
       final region = serve('FR-ARA', [apiPlaces().first]);

@@ -92,10 +92,29 @@ Future<String?> _checkAndInflate(
   required String sha256,
   required int rawBytes,
 }) async {
+  if (rawBytes <= 0 || rawBytes > maxPackRawBytes) {
+    return 'the manifest announces $rawBytes bytes once decompressed';
+  }
   if (sha256OfFile(part) != sha256) return 'SHA-256 of the download differs from the manifest';
-  final out = File(raw);
-  await File(part).openRead().transform(gzip.decoder).pipe(out.openWrite());
-  final length = out.lengthSync();
+  final sink = File(raw).openWrite();
+  var length = 0;
+  try {
+    // Written while counted, so a stream that inflates past what the
+    // manifest announced stops there instead of filling the disk.
+    await for (final chunk in File(part).openRead().transform(gzip.decoder)) {
+      length += chunk.length;
+      if (length > rawBytes) return 'decompresses past the $rawBytes bytes of the manifest';
+      sink.add(chunk);
+    }
+  } on FormatException catch (e) {
+    return 'not a gzip stream: ${e.message}';
+  } finally {
+    await sink.close();
+  }
   if (length != rawBytes) return 'decompressed to $length bytes, the manifest says $rawBytes';
   return null;
 }
+
+/// Largest decompressed pack accepted: the biggest country pack is a few
+/// tens of megabytes, a manifest asking for more is not trusted.
+const maxPackRawBytes = 1024 * 1024 * 1024;
