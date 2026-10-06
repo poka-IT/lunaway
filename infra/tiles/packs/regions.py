@@ -83,8 +83,10 @@ FR = [
 ]
 
 # Countries: Natural Earth ADM0_A3, pack id (ISO 3166-1 alpha-2, lower case),
-# names. Andorra is not in the brief's list; motorhomes cross it often and
-# the margins of Spain and Occitanie do not cover it.
+# names. Andorra: motorhomes cross it often and the margins of Spain and
+# Occitanie do not cover it. Morocco: a frequent wintering destination of
+# French motorhomes (decision of the product owner, 2026-10-06); Natural
+# Earth's outline of Morocco reaches 21.4 degrees north.
 COUNTRY_LIST = [
     ("ESP", "es", "Espagne", "Spain"),
     ("PRT", "pt", "Portugal", "Portugal"),
@@ -107,14 +109,16 @@ COUNTRY_LIST = [
     ("POL", "pl", "Pologne", "Poland"),
     ("CZE", "cz", "Tchéquie", "Czechia"),
     ("AND", "ad", "Andorre", "Andorra"),
+    ("MAR", "ma", "Maroc", "Morocco"),
 ]
 
 # A country's parts outside this box are left out: Svalbard and Bouvet
 # Island (Norway), the Caribbean Netherlands. The Canary Islands, Madeira and
-# the Azores stay. Two roadless islets inside it would stretch a pack's
-# bounding box over the ocean: Jan Mayen (Norway) and Rockall (United
-# Kingdom).
-EUROPE = (-32.0, 27.0, 45.0, 72.0)
+# the Azores stay, and so does Morocco, a single polygon whose
+# representative point is at 28.7 degrees north. Two roadless islets inside
+# it would stretch a pack's bounding box over the ocean: Jan Mayen (Norway)
+# and Rockall (United Kingdom).
+TRAVEL_AREA = (-32.0, 27.0, 45.0, 72.0)
 LEFT_OUT = [(-10.0, 70.0, -7.0, 72.0), (-14.5, 57.0, -13.0, 58.0)]
 
 
@@ -195,7 +199,7 @@ def main():
     for a3, rid, name_fr, name_en in COUNTRY_LIST:
         kept = [
             p for p in parts(shape(ne[a3]["geometry"]))
-            if in_box(p, EUROPE) and not any(in_box(p, box) for box in LEFT_OUT)
+            if in_box(p, TRAVEL_AREA) and not any(in_box(p, box) for box in LEFT_OUT)
         ]
         geom = outline(unary_union(kept), COUNTRY_MARGIN)
         features.append((rid, name_fr, name_en, "country", rid, geom, COUNTRIES["source"], COUNTRY_MARGIN))

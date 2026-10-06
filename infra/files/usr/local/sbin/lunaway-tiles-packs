@@ -117,8 +117,13 @@ clean_setdir() {
     rm -f "$setdir/regions/$id.geojson" "$setdir/$id.sum" "$setdir/$id.dry.pmtiles" \
       "$setdir/$id.partial.pmtiles" "$setdir/$id.pmtiles"
   done
-  rm -f "$setdir/plan.tsv" "$setdir/planet-metadata.json"
+  rm -f "$setdir/plan.tsv" "$setdir/planet-metadata.json" "$setdir/published.tsv"
   rmdir "$setdir/regions" "$setdir" 2>/dev/null || log "left $setdir (unexpected files in it)"
+}
+# done_already ID NAME: the pack has its sum and its file, built by an
+# earlier run into the set or already published under the same name.
+done_already() {
+  [ -f "$setdir/$1.sum" ] && { [ -f "$setdir/$1.pmtiles" ] || [ -f "$PACKS/$2" ]; }
 }
 log "planet $key, pmtiles $release, zoom 0 to $MAXZOOM: ${#plan[@]} packs"
 
@@ -146,6 +151,40 @@ then
   exit 0
 fi
 
+# A pack the manifest already lists under the same name is reused as it is:
+# the name fixes the content (build, outline, zoom, pmtiles release), so
+# adding or changing one outline rebuilds that pack only. Its file must have
+# the size the manifest lists; its SHA-256 is the one the manifest carries,
+# computed by the run that built it.
+python3 - "$PACKS" > "$setdir/published.tsv" <<'EOF'
+import json, os, re, sys
+packs = sys.argv[1]
+try:
+    manifest = json.load(open(os.path.join(packs, "manifest.json")))
+except (OSError, ValueError):
+    sys.exit(0)
+for p in manifest.get("packs", []):
+    url, digest, size = p.get("url"), p.get("sha256"), p.get("size")
+    if not (isinstance(url, str) and re.fullmatch(r"[a-z0-9-]+\.pmtiles", url)):
+        continue
+    if not (isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest) and isinstance(size, int)):
+        continue
+    path = os.path.join(packs, url)
+    if os.path.isfile(path) and os.path.getsize(path) == size:
+        print("%s\t%s\t%d" % (url, digest, size))
+EOF
+reused=0
+for line in "${plan[@]}"; do
+  id="${line%%$'\t'*}"
+  name="${line#*$'\t'}"
+  entry="$(awk -F '\t' -v n="$name" '$1 == n { print $2, $3 }' "$setdir/published.tsv")"
+  [ -n "$entry" ] || continue
+  echo "$entry" > "$setdir/$id.sum"
+  rm -f "$setdir/$id.pmtiles"
+  reused=$((reused + 1))
+done
+[ "$reused" = 0 ] || log "$reused packs already published under the same name: reused"
+
 # Room: the sizes pmtiles announces for the packs still to build (a dry run
 # reads the directories only), plus a tenth, plus the margin. When short,
 # sets older than the one the manifest names go first; that one is never
@@ -161,7 +200,7 @@ EOF
 estimate=0
 for line in "${plan[@]}"; do
   id="${line%%$'\t'*}"
-  [ -f "$setdir/$id.pmtiles" ] && continue
+  done_already "$id" "${line#*$'\t'}" && continue
   out="$("$PMTILES" extract "$planet" "$setdir/$id.dry.pmtiles" --region="$setdir/regions/$id.geojson" \
     --maxzoom="$MAXZOOM" --dry-run 2>&1)" || die "dry run of $id failed: $(tail -n 2 <<<"$out")"
   bytes="$(sed -nE 's/.*for an archive size of ([0-9.]+) ([kMGT]?B)$/\1 \2/p' <<<"$out" | tail -n 1 \
@@ -187,7 +226,7 @@ fi
 start=$(date +%s)
 for line in "${plan[@]}"; do
   id="${line%%$'\t'*}"
-  [ -f "$setdir/$id.pmtiles" ] && [ -f "$setdir/$id.sum" ] && continue
+  done_already "$id" "${line#*$'\t'}" && continue
   t0=$(date +%s)
   rm -f "$setdir/$id.partial.pmtiles"
   "$PMTILES" extract "$planet" "$setdir/$id.partial.pmtiles" --region="$setdir/regions/$id.geojson" \
@@ -207,7 +246,7 @@ if h.get("tile_type") != "mvt" or h.get("tile_compression") != "gzip" or h.get("
   mv -f "$setdir/$id.partial.pmtiles" "$setdir/$id.pmtiles"
   log "$id: $(stat -c %s "$setdir/$id.pmtiles") bytes in $(( $(date +%s) - t0 )) s"
 done
-log "all ${#plan[@]} packs built in $(( $(date +%s) - start )) s"
+log "$(( ${#plan[@]} - reused )) packs built in $(( $(date +%s) - start )) s"
 
 # Into the served directory under their final names (same filesystem: a
 # rename), then the manifest that names them, by an atomic rename.
@@ -215,7 +254,10 @@ previous="$(named_by_manifest)"
 for line in "${plan[@]}"; do
   id="${line%%$'\t'*}"
   name="${line#*$'\t'}"
-  mv -f "$setdir/$id.pmtiles" "$PACKS/$name"
+  if [ -f "$setdir/$id.pmtiles" ]; then
+    mv -f "$setdir/$id.pmtiles" "$PACKS/$name"
+  fi
+  [ -f "$PACKS/$name" ] || die "$name is neither built nor published"
 done
 "$PMTILES" show --metadata "$planet" > "$setdir/planet-metadata.json"
 python3 - "$REGIONS" "$setdir" "$key" "$MAXZOOM" "$PACKS" > "$PACKS/.manifest.json.new" <<'EOF'

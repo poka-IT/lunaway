@@ -827,13 +827,14 @@ which leaves about 50 GB, three years of growth at the 2026 rate.
 
 The app works without network, the map included: before a trip it
 downloads the basemap of a region as one PMTiles file, a `pmtiles extract`
-of the planet served, zoom 0 to 14. 39 regions: the 13 regions of
-metropolitan France and the 5 overseas regions, and 21 countries (Spain,
+of the planet served, zoom 0 to 14. 40 regions: the 13 regions of
+metropolitan France and the 5 overseas regions, and 22 countries (Spain,
 Portugal, Italy, Germany, Austria, Switzerland, Belgium, the Netherlands,
 Luxembourg, the United Kingdom, Ireland, Denmark, Norway, Sweden, Finland,
-Croatia, Slovenia, Greece, Poland, Czechia, Andorra). 19.2 GB for the whole
-set of 2026-10-05: from 4.2 MB (Mayotte) and 23 MB (Corsica) to 421 MB
-(Auvergne-Rhône-Alpes), 1.3 GB (United Kingdom) and 2.7 GB (Germany).
+Croatia, Slovenia, Greece, Poland, Czechia, Andorra, Morocco). 19.4 GB
+(19,388,729,661 bytes) for the whole set of 2026-10-05: from 4.2 MB
+(Mayotte) and 23 MB (Corsica) to 421 MB (Auvergne-Rhône-Alpes), 209 MB
+(Morocco), 1.3 GB (United Kingdom) and 2.7 GB (Germany).
 
 **Outlines.** `infra/tiles/packs/regions.py` (`uv run
 infra/tiles/packs/regions.py`, on a workstation) writes
@@ -844,10 +845,16 @@ SHA-256: the French regions of the data.gouv.fr "Contours administratifs"
 (enclaves such as San Marino fall inside), widened by 3 km for a French
 region and 8 km for a country (Natural Earth draws coasts at 1:10 million;
 the margin keeps the coast, the near islands and the roads across a
-border), simplified to 500 m, 16,376 vertices in all, 300 KB. Svalbard,
+border), simplified to 500 m, 16,892 vertices in all, 309 KB. Svalbard,
 Jan Mayen, Bouvet Island, Rockall and the Caribbean Netherlands are left
-out; the Canary Islands, Madeira and the Azores stay. Adding a region is a
-line in the script, a run, a commit and `infra/configure.sh backend tiles`.
+out; the Canary Islands, Madeira and the Azores stay. Natural Earth's
+Morocco reaches 21.4 degrees north (Dakhla is in it). Adding a region is a
+line in the script (`COUNTRY_LIST` or `FR`), a run, a commit, then
+`infra/configure.sh backend tiles` and `sudo systemctl start
+lunaway-tiles-packs` on the backend: the script leaves the other outlines
+byte for byte as they were, so their packs keep their names and are
+reused, and only the new pack is built (Morocco on 2026-10-06: 39 reused,
+one built in 2 s, 3 s in all).
 
 **Zoom 14.** Measured on the build of 2026-10-05 (`pmtiles extract
 --dry-run` for every region, real extracts of three):
@@ -857,7 +864,7 @@ line in the script, a run, a commit and `infra/configure.sh backend tiles`.
 | Bretagne | 84 MB | 163 MB | 346 MB |
 | Île-de-France | 48 MB | 103 MB | 263 MB |
 | Switzerland | 190 MB | 359 MB | 719 MB |
-| all 39 | 10.3 GB | 19.2 GB | 38.0 GB |
+| the first 39 (before Morocco) | 10.3 GB | 19.2 GB | 38.0 GB |
 
 Zoom 13 lacks the streets: over Locronan (Finistère) its tile names 7
 roads, the four zoom 14 tiles of the same area 136, the sixteen zoom 15
@@ -881,12 +888,16 @@ already names the served build:
    release, so a name never changes content (`pmtiles extract` writes the
    same bytes from the same input: two extracts of Bretagne had the same
    SHA-256 on 2026-10-06);
-2. a dry run of every pack for the room it needs, plus a tenth and 2 GB;
-   when short, packs of sets older than the one the manifest names go;
-3. each pack extracted into `packs/.work/<build>/`, checked by `pmtiles
+2. a pack the manifest already lists under the same name, with its file of
+   that size, is reused with the manifest's SHA-256: a new or changed
+   outline rebuilds its own pack only;
+3. a dry run of every pack still to build for the room it needs, plus a
+   tenth and 2 GB; when short, packs of sets older than the one the
+   manifest names go;
+4. each pack extracted into `packs/.work/<build>/`, checked by `pmtiles
    verify` and its header (MVT, gzip, zoom 0 to 14), hashed (SHA-256); an
    interrupted run keeps the packs it finished;
-4. the packs renamed into `packs/`, then `manifest.json` replaced by an
+5. the packs renamed into `packs/`, then `manifest.json` replaced by an
    atomic rename; the set before the previous one goes. `packs/.work` sits
    inside `packs/` because the unit's sandbox makes each writable path its
    own mount, and a move between two mounts is a copy: the first run, with
@@ -969,8 +980,12 @@ equal to the manifest's), a download resumed at half the file (206, the
 whole file's SHA-256 equal; a stale `If-Range` gets the whole file),
 and tiles at zoom 6, 10 and 14 read by byte range from four packs (Bretagne,
 Germany, Norway, Spain) byte for byte equal to the same tiles of the
-planet; no zoom 15 tile in a pack. The status page checks the manifest from
-outside and its age on the backend ("Offline packs").
+planet; no zoom 15 tile in a pack. After Morocco was added: 40 packs in
+the manifest, the Morocco pack (208,688,111 bytes) downloaded in two halves
+with `If-Range` (206 twice) and hashed as it streamed, SHA-256 equal to the
+manifest's, and its tiles over Marrakech, Dakhla and Tangier equal to the
+planet's. The status page checks the manifest from outside and its age on
+the backend ("Offline packs").
 
 ## Routing
 
@@ -1243,7 +1258,9 @@ LUNAWAY_FDROID_REV=<tag> infra/fdroid/publish.sh \
 rm -r data/tmp/fdroid/src
 ```
 
-`publish.sh` checks the APK (package, versionName ending in `-fdroid`, no
+`publish.sh` checks the APK (package; the `fdroid` flavour, by the
+`legal.p2p.lunaway.DISTRIBUTION` meta-data of its manifest, or by a
+versionName ending in `-fdroid` for the builds made before that marker; no
 Play Services class with `app/tool/android/check_gms.py`, native libraries
 aligned on 16 KB), signs it with the APK key (`apksigner
 --alignment-preserved`, schemes v2 and v3 for minSdk 24), refuses a
@@ -1309,12 +1326,13 @@ built on F-Droid's build server. For the maintainer:
 
 1. Tag the release (`v0.1.0` in the draft) and check that
    `app/pubspec.yaml` gives the draft's `versionCode`.
-2. The `fdroid` flavour appends `-fdroid` to the versionName, and F-Droid
-   refuses an APK whose versionName differs from the recipe's. Its
-   automatic updates take the version from `pubspec.yaml`, without the
-   suffix: either drop `versionNameSuffix` from the flavour and set
-   `AutoUpdateMode: Version`, or add each build to the recipe by hand
-   (`AutoUpdateMode: None` in the draft).
+2. F-Droid refuses an APK whose versionName differs from the recipe's,
+   and its automatic updates take the version from `pubspec.yaml`. Since
+   the app's pass 4 the `fdroid` flavour keeps that versionName as it is
+   (no `-fdroid` suffix; the flavour is told apart by the
+   `legal.p2p.lunaway.DISTRIBUTION` meta-data of its manifest), so the
+   draft can say `AutoUpdateMode: Version` with `versionName` and
+   `CurrentVersion` written without the suffix.
 3. Fork `gitlab.com/fdroid/fdroiddata`, add the file under `metadata/`, run
    `fdroid build -v -l legal.p2p.lunaway` in F-Droid's build container to
    prove the recipe, then open the merge request (template "App

@@ -21,7 +21,7 @@ RepoType: git
 Repo: https://github.com/poka-IT/lunaway.git
 
 Builds:
-  - versionName: 0.1.0-fdroid
+  - versionName: 0.1.0
     versionCode: 1
     commit: v0.1.0
     subdir: app
@@ -49,8 +49,8 @@ Builds:
       - $$flutter$$/bin/flutter build apk --release --flavor fdroid
     ndk: 28.2.13676358
 
-AutoUpdateMode: None
+AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
 UpdateCheckData: app/pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
-CurrentVersion: 0.1.0-fdroid
+CurrentVersion: 0.1.0
 CurrentVersionCode: 1

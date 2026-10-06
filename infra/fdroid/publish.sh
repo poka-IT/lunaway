@@ -82,7 +82,14 @@ code="$(sed -nE "s/^package: .* versionCode='([0-9]+)'.*/\1/p" <<<"$badging")"
 name="$(sed -nE "s/^package: .* versionName='([^']+)'.*/\1/p" <<<"$badging")"
 [ "$package" = "$APP_ID" ] || die "the APK is $package, not $APP_ID"
 [[ "$code" =~ ^[0-9]+$ ]] || die "no versionCode in the APK"
-[[ "$name" == *-fdroid ]] || die "versionName $name: not a build of the fdroid flavour"
+# The fdroid flavour says so in its manifest (meta-data
+# legal.p2p.lunaway.DISTRIBUTION = fdroid); the builds made before that
+# marker end their versionName in -fdroid (0.1.0-fdroid, 2026-10-06).
+distribution="$("$build_tools/aapt2" dump xmltree --file AndroidManifest.xml "$apk_in" \
+  | grep -A 1 '"legal.p2p.lunaway.DISTRIBUTION"' | sed -nE 's/.*android:value[^=]*="([^"]*)".*/\1/p' | head -n 1)"
+if [ "$distribution" != fdroid ] && [[ "$name" != *-fdroid ]]; then
+  die "$APP_ID $name: not a build of the fdroid flavour (no DISTRIBUTION meta-data, no -fdroid suffix)"
+fi
 python3 "$LUNAWAY_REPO_DIR/app/tool/android/check_gms.py" "$apk_in" | tail -n 1 | grep -q '^0 Play Services' \
   || die "the APK defines Play Services classes"
 "$build_tools/zipalign" -c -P 16 4 "$apk_in" || die "the APK's native libraries are not 16 KB aligned"
