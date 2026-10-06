@@ -28,6 +28,13 @@ on:
 permissions:
   contents: read
 
+# bash -eo pipefail: without `shell`, a step runs under bash -e alone, and a
+# failed build piped into tee passed as a success (run 37433921370,
+# 2026-10-06).
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: routing-graph
   cancel-in-progress: false
@@ -104,12 +111,14 @@ jobs:
           built=$(jq -r .built_at build.json)
           now=$(date -u +%s)
           built_s=$(date -u -d "$built" +%s)
-          [ "$built_s" -le "$now" ] && [ "$built_s" -ge $((now - 6 * 3600)) ] \
-            || { echo "build.json: built_at $built is outside this run"; exit 1; }
+          if [ "$built_s" -gt "$now" ] || [ "$built_s" -lt $((now - 6 * 3600)) ]; then
+            echo "build.json: built_at $built is outside this run"; exit 1
+          fi
           id_s=$(date -u -d "$(echo "$id" | sed -E 's/^([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})Z-fr$/\1-\2-\3T\4:\5:00Z/')" +%s) \
             || { echo "build.json: id $id is not a graph name"; exit 1; }
-          [ "$id_s" -le "$now" ] && [ "$id_s" -ge $((now - 6 * 3600)) ] \
-            || { echo "build.json: id $id is outside this run"; exit 1; }
+          if [ "$id_s" -gt "$now" ] || [ "$id_s" -lt $((now - 6 * 3600)) ]; then
+            echo "build.json: id $id is outside this run"; exit 1
+          fi
           rm -f SHA256SUMS
           sha256sum -- build.json prepare.json restrictions.ndjson.gz test-routes.txt graph.tar.gz.part-* >"$RUNNER_TEMP/SHA256SUMS"
           mv "$RUNNER_TEMP/SHA256SUMS" SHA256SUMS
