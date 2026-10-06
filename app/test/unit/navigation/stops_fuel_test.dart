@@ -229,6 +229,16 @@ void main() {
     });
   });
 
+  test('a route through a stop is read leg after leg, to the destination', () {
+    // Recorded from the API on 2026-10-06: 1.5 km to the stop, 2.7 km on.
+    final route = routeFixture('limoges_stop').routes.single;
+    final arrivals = route.steps.where((s) => s.maneuverType == 'arrive').toList();
+    expect(route.steps, hasLength(25));
+    expect(arrivals, hasLength(2), reason: 'at the stop, then at the destination');
+    expect(route.steps.last.maneuverType, 'arrive');
+    expect(route.line.last.distanceTo(const LatLng(45.84510, 1.28637)), lessThan(60));
+  });
+
   group('the route service', () {
     test('a request asked again within two minutes is answered from memory', () async {
       var now = DateTime.utc(2026, 10, 6, 9);

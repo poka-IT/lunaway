@@ -17,6 +17,9 @@ const LIMOGES: &str = include_str!("fixtures/limoges_drive.osrm.json");
 /// Rue Maurice Utrillo for a 3.3 m motorhome: the main route round the
 /// 2.7 m railway bridge and one alternative.
 const UTRILLO: &str = include_str!("fixtures/utrillo_motorhome.osrm.json");
+/// The Limoges drive through a stop: two legs of 1.5 and 2.7 km, the first
+/// ending with an "arrive" step at the stop.
+const LIMOGES_STOP: &str = include_str!("fixtures/limoges_stop.osrm.json");
 
 fn line(osrm: &str, route: usize) -> Vec<Position> {
     let value: serde_json::Value = serde_json::from_str(osrm).expect("a recorded answer");
@@ -136,6 +139,44 @@ fn a_drive_along_the_route_walks_every_step_and_arrives() {
     assert!(
         limits.contains(&50.0),
         "the town's 50 km/h limits are read from the annotations"
+    );
+}
+
+#[test]
+fn a_route_through_a_stop_goes_on_past_it_and_arrives_at_the_end() {
+    let mut guidance =
+        Guidance::new(LIMOGES_STOP.to_owned(), 0, GuidanceSettings::default()).expect("a route");
+    let steps = guidance.step_count();
+    assert_eq!(steps, 25, "the two legs' steps, one after the other");
+    let mut last_along = 0.0;
+    let mut last_step = 0;
+    let mut arrived = false;
+    for (i, (p, h)) in drive(&line(LIMOGES_STOP, 0), 8.0).into_iter().enumerate() {
+        let state = guidance.update(fix(p, h, i64::try_from(i).expect("a few hundred")));
+        if state.status == GuidanceStatus::Arrived {
+            arrived = true;
+            break;
+        }
+        assert_eq!(
+            state.off_route_m, None,
+            "a drive on the line is on the route"
+        );
+        assert!(
+            state.step_index >= last_step,
+            "steps only move forward: {} after {last_step}",
+            state.step_index
+        );
+        last_step = state.step_index;
+        last_along = state.distance_along_m;
+    }
+    assert!(arrived, "the drive ends at the destination");
+    assert!(
+        last_along > 4000.0,
+        "the stop, 1.5 km in, is no arrival: the guidance went on to {last_along} m"
+    );
+    assert!(
+        last_step + 2 >= steps,
+        "the second leg's steps were walked: {last_step} of {steps}"
     );
 }
 
