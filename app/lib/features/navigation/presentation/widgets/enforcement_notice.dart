@@ -53,9 +53,22 @@ class EnforcementNotice extends StatelessWidget {
               Icon(camera ? AppIcons.camera : AppIcons.warning, color: scheme.onErrorContainer),
               const SizedBox(width: Space.m),
               Expanded(
-                child: Text(
-                  text,
-                  style: theme.textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text,
+                      style: theme.textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
+                    ),
+                    for (final s in alert.sources)
+                      Text(
+                        t.navigation.guidance.enforcementSource(
+                          source: s.name,
+                          date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
+                      ),
+                  ],
                 ),
               ),
             ],

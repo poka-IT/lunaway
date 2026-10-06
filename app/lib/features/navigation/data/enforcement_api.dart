@@ -282,6 +282,9 @@ typedef EnforcementData = ({
   EnforcementRules? rules,
   List<EnforcementItem> items,
 
+  /// The lists the items come from, credited with them.
+  List<EnforcementSource> sources,
+
   /// When to ask again.
   Duration pollInterval,
 
@@ -373,6 +376,7 @@ final class EnforcementSync implements EnforcementFeed {
     return (
       rules: state.rules,
       items: items,
+      sources: state.sources,
       pollInterval: state.pollInterval,
       polledAt: state.polledAt,
     );

@@ -1575,6 +1575,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String cameraLimit({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h';
 	@override String get limitEstimated => 'Limite estimée';
 	@override String get overLimit => 'au-dessus de la limite';
+	@override String enforcementSource({required Object source, required Object date}) => '${source}, liste du ${date}';
 }
 
 // Path: navigation.voice
@@ -2469,6 +2470,7 @@ extension on TranslationsFr {
 			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Radar dans ${distance}, ${limit} km/h',
 			'navigation.guidance.limitEstimated' => 'Limite estimée',
 			'navigation.guidance.overLimit' => 'au-dessus de la limite',
+			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
@@ -2560,9 +2562,9 @@ extension on TranslationsFr {
 			'vehicle.fuelHint' => 'Le prix de votre carburant s\'affiche sur les stations de la carte, les moins chères en premier.',
 			'vehicle.consumption' => 'Consommation',
 			'vehicle.consumptionUnit' => 'L/100 km',
-			'vehicle.lpgHeating' => 'Chauffage au GPL',
 			_ => null,
 		} ?? switch (path) {
+			'vehicle.lpgHeating' => 'Chauffage au GPL',
 			'vehicle.lpgHeatingHint' => 'Le prix du GPL compte aussi pour vous.',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.',
@@ -3074,9 +3076,9 @@ extension on TranslationsFr {
 			'poi.add.duplicateBody' => 'Un distributeur du même type est déjà indiqué à moins de 25 m. Est-il toujours là ?',
 			'poi.add.duplicateThere' => 'Oui, toujours là',
 			'poi.add.duplicateGone' => 'Non, il n\'y est plus',
-			'poi.cheapest.title' => 'Moins cher autour de moi',
 			_ => null,
 		} ?? switch (path) {
+			'poi.cheapest.title' => 'Moins cher autour de moi',
 			'poi.cheapest.show' => 'Moins cher autour',
 			'poi.cheapest.zoomIn' => 'Rapprochez la carte pour comparer les prix des stations.',
 			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',

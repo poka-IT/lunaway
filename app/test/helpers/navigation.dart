@@ -578,10 +578,11 @@ final class FakeCountries implements CountryLocator {
 /// The speed camera data of a trip, given in advance; the countries asked
 /// recorded.
 final class FixedEnforcement implements EnforcementFeed {
-  new({this.rules, this.items = const []});
+  new({this.rules, this.items = const [], this.sources = const []});
 
   EnforcementRules? rules;
   List<EnforcementItem> items;
+  List<EnforcementSource> sources;
   final List<Set<String>> asked = [];
 
   @override
@@ -593,6 +594,7 @@ final class FixedEnforcement implements EnforcementFeed {
         for (final i in items)
           if (countries.contains(i.country)) i,
       ],
+      sources: sources,
       pollInterval: const Duration(hours: 6),
       polledAt: now,
     );

@@ -78,6 +78,7 @@ void main() {
     RoutePlan plan, {
     String? Function(LatLng)? country,
     List<EnforcementItem> items = const [],
+    List<EnforcementSource> sources = const [],
     bool speak = false,
   }) async {
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
@@ -91,7 +92,7 @@ void main() {
         voice: voice,
         engine: LineEngine([plan]),
         countries: FakeCountries(country ?? (_) => 'FR', rules: _rules),
-        enforcement: FixedEnforcement(rules: _rules, items: items),
+        enforcement: FixedEnforcement(rules: _rules, items: items, sources: sources),
       ),
     );
     final container = app.container(tester);
@@ -133,11 +134,35 @@ void main() {
       country: 'FR',
       position: LineTrack(route).at(1000),
     );
-    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500), camera]);
+    final zone = _zoneOn(route, 1000, 1500);
+    await guide(
+      tester,
+      plan,
+      items: [
+        EnforcementItem(
+          id: zone.id,
+          kind: zone.kind,
+          category: zone.category,
+          country: zone.country,
+          line: zone.line,
+          sourceIds: const ['fr-securite-routiere'],
+        ),
+        camera,
+      ],
+      sources: [
+        EnforcementSource(
+          id: 'fr-securite-routiere',
+          name: 'Sécurité routière',
+          attribution: 'Sécurité routière',
+          fetchedAt: DateTime.utc(2026, 10, 6, 5),
+        ),
+      ],
+    );
     // At 80 km/h of limit, the zone shows from 400 m.
     await drive(tester, _drive(route, fromM: 0, toM: 750));
     expect(find.textContaining('Zone de danger dans'), findsOneWidget);
-    expect(find.byIcon(Icons.camera_alt), findsNothing);
+    // The French list is cited with its date, as its reuse requires.
+    expect(find.text('Sécurité routière, liste du 6 oct.'), findsOneWidget);
     await drive(tester, _drive(route, fromM: 760, toM: 1200));
     expect(find.textContaining('Zone de danger, encore'), findsOneWidget);
     expect(find.textContaining('Radar'), findsNothing, reason: 'France: zones only');

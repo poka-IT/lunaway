@@ -836,7 +836,7 @@ class GuidanceController extends _$GuidanceController {
         .read(enforcementFeedProvider)
         .refresh(countries, ref.read(clockProvider)());
     if (!_current(generation) || !identical(aids, _aids)) return;
-    aids.setData(rules: known.rules, items: known.items);
+    aids.setData(rules: known.rules, items: known.items, sources: known.sources);
     // A poll that could not reach the server (offline, a refusal) is tried
     // again sooner than the server's rhythm.
     final polled = known.polledAt;

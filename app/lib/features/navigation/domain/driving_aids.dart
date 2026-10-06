@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
+
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:meta/meta.dart';
@@ -57,6 +59,7 @@ final class EnforcementAlert {
     required this.aheadM,
     required this.remainingM,
     this.limitKmh,
+    this.sources = const [],
   });
 
   final String id;
@@ -71,6 +74,10 @@ final class EnforcementAlert {
   /// A camera's limit, when known (only where points may be shown).
   final int? limitKmh;
 
+  /// The lists it comes from, cited with their date (the French list asks
+  /// for its source and date, Catalonia's for its own).
+  final List<EnforcementSource> sources;
+
   bool get inside => aheadM <= 0;
 
   @override
@@ -80,7 +87,8 @@ final class EnforcementAlert {
       other.kind == kind &&
       other.aheadM == aheadM &&
       other.remainingM == remainingM &&
-      other.limitKmh == limitKmh;
+      other.limitKmh == limitKmh &&
+      const ListEquality<EnforcementSource>().equals(other.sources, sources);
 
   @override
   int get hashCode => Object.hash(id, kind, aheadM, remainingM, limitKmh);

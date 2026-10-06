@@ -109,6 +109,7 @@ final class DrivingAidsEngine {
   final CountryLocator locator;
   EnforcementRules _rules;
   List<EnforcementItem> _items = const [];
+  Map<String, EnforcementSource> _sources = const {};
   List<LatLng>? _line;
   List<ItemOnRoute> _onRoute = const [];
   final _tracker = RuleTracker();
@@ -120,9 +121,14 @@ final class DrivingAidsEngine {
 
   /// The rules the API sent (or those the app was built with) and the
   /// items of the trip's countries.
-  void setData({required EnforcementRules? rules, required List<EnforcementItem> items}) {
+  void setData({
+    required EnforcementRules? rules,
+    required List<EnforcementItem> items,
+    List<EnforcementSource> sources = const [],
+  }) {
     _rules = rules ?? locator.builtIn;
     _items = items;
+    _sources = {for (final s in sources) s.id: s};
     _line = null;
   }
 
@@ -188,6 +194,7 @@ final class DrivingAidsEngine {
           aheadM: math.max(0, r.startM - along),
           remainingM: along >= r.startM ? r.endM - along : 0,
           limitKmh: r.item.kind == EnforcementKind.camera ? r.item.limitKmh : null,
+          sources: [for (final id in r.item.sourceIds) ?_sources[id]],
         );
         break;
       }

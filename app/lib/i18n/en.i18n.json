@@ -518,7 +518,8 @@
       "cameraAhead": "Speed camera in $distance",
       "cameraLimit": "Speed camera in $distance, $limit km/h",
       "limitEstimated": "Estimated limit",
-      "overLimit": "over the limit"
+      "overLimit": "over the limit",
+      "enforcementSource": "$source, list of $date"
     },
     "voice": {
       "rerouting": "Recalculating.",

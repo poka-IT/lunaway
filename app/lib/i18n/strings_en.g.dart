@@ -3373,6 +3373,9 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'over the limit'
 	String get overLimit => 'over the limit';
+
+	/// en: '$source, list of $date'
+	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
 }
 
 // Path: navigation.voice
@@ -4703,6 +4706,7 @@ extension on Translations {
 			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit} km/h',
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
+			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -4794,9 +4798,9 @@ extension on Translations {
 			'vehicle.fuelHint' => 'The price of your fuel shows on the stations of the map, and the cheapest come first.',
 			'vehicle.consumption' => 'Consumption',
 			'vehicle.consumptionUnit' => 'L/100 km',
-			'vehicle.lpgHeating' => 'Heating on LPG',
 			_ => null,
 		} ?? switch (path) {
+			'vehicle.lpgHeating' => 'Heating on LPG',
 			'vehicle.lpgHeatingHint' => 'The price of LPG matters to you too.',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers: everything stays on this device.',
@@ -5308,9 +5312,9 @@ extension on Translations {
 			'poi.add.duplicateBody' => 'A machine of the same kind is already listed within 25 m. Is it still there?',
 			'poi.add.duplicateThere' => 'Yes, still there',
 			'poi.add.duplicateGone' => 'No, it is gone',
-			'poi.cheapest.title' => 'Cheapest around me',
 			_ => null,
 		} ?? switch (path) {
+			'poi.cheapest.title' => 'Cheapest around me',
 			'poi.cheapest.show' => 'Cheapest around',
 			'poi.cheapest.zoomIn' => 'Zoom in to compare the stations\' prices.',
 			'poi.cheapest.none' => 'No station on the map sells this fuel.',
