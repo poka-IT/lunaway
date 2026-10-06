@@ -157,7 +157,7 @@ void main() {
       // 1 km along the road, rounded to the hundredth of a degree before it
       // leaves the device.
       expect(asked.first['at'], {'lat': 45.0, 'lon': 1.01});
-      expect(asked.first['radiusM'], 5700);
+      expect(asked.first['radiusM'], 5800);
       expect([for (final o in offers) o.id], ['by-the-road'], reason: 'diesel, ahead');
       final o = offers.single;
       expect(o.priceEur, 1.789);

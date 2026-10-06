@@ -51,10 +51,11 @@ final class NearbyFuelStations implements FuelStationsSource {
   static const _spacingM = 8000.0;
   static const _samples = 5;
 
-  /// The points leave the device rounded to the hundredth of a degree
-  /// (about a kilometre, 660 m off at most): the stations within 5 km of the
-  /// true point are still within this radius of the rounded one.
-  static const _radiusM = 5700.0;
+  /// The points leave the device rounded to the hundredth of a degree: about
+  /// a kilometre, 790 m off at most (on the equator; 720 m in the south of
+  /// Spain). The stations within 5 km of the true point are still within
+  /// this radius of the rounded one.
+  static const _radiusM = 5800.0;
   static const _roadFactor = 1.3;
   static const double _detourSpeedMps = 50 / 3.6;
 

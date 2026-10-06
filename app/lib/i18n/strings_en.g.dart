@@ -1084,11 +1084,11 @@ class Translations$vehicle$en {
 	/// en: 'My vehicle'
 	String get title => 'My vehicle';
 
-	/// en: 'Its size filters out the places it does not fit. It stays on this device.'
-	String get why => 'Its size filters out the places it does not fit. It stays on this device.';
+	/// en: 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.'
+	String get why => 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.';
 
-	/// en: 'To keep only the places it fits, give at least its height. It stays on this device.'
-	String get whyHeight => 'To keep only the places it fits, give at least its height. It stays on this device.';
+	/// en: 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.'
+	String get whyHeight => 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.';
 
 	/// en: 'Describe your vehicle to hide the places it does not fit.'
 	String get none => 'Describe your vehicle to hide the places it does not fit.';
@@ -2609,8 +2609,8 @@ extension on Translations {
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} place', other: '${n} places', ), 
 			'favorites.error' => 'Your favourites could not be read.',
 			'vehicle.title' => 'My vehicle',
-			'vehicle.why' => 'Its size filters out the places it does not fit. It stays on this device.',
-			'vehicle.whyHeight' => 'To keep only the places it fits, give at least its height. It stays on this device.',
+			'vehicle.why' => 'Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.',
+			'vehicle.whyHeight' => 'To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it does not fit.',
 			'vehicle.add' => 'Describe my vehicle',
 			'vehicle.edit' => 'Edit',

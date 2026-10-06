@@ -593,8 +593,8 @@
   },
   "vehicle": {
     "title": "My vehicle",
-    "why": "Its size filters out the places it does not fit. It stays on this device.",
-    "whyHeight": "To keep only the places it fits, give at least its height. It stays on this device.",
+    "why": "Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.",
+    "whyHeight": "To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.",
     "none": "Describe your vehicle to hide the places it does not fit.",
     "add": "Describe my vehicle",
     "edit": "Edit",

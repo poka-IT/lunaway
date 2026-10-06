@@ -55,10 +55,13 @@ final class PlatformVoiceOutput implements VoiceOutput {
       // Voices of the language, each speaking through its vendor's server:
       // the one to install works offline and keeps the words on the device.
       if (voices.any((v) => !v.notInstalled)) return VoiceReadiness.missingData;
+      // An engine that lists no voice may still speak the language, through
+      // a voice nothing proves is on the device: the road names would leave
+      // it. Asked to install one, the user gets a voice the app can check.
       return switch (await _voice.languageStatus(language.speechTag)) {
-        nav.PlatformLanguageStatus.available => VoiceReadiness.ready,
-        nav.PlatformLanguageStatus.missingData => VoiceReadiness.missingData,
         nav.PlatformLanguageStatus.notSupported => VoiceReadiness.none,
+        nav.PlatformLanguageStatus.available ||
+        nav.PlatformLanguageStatus.missingData => VoiceReadiness.missingData,
       };
     } on PlatformException catch (e) {
       _log.info('no speech engine: ${e.message}');

@@ -593,8 +593,8 @@
   },
   "vehicle": {
     "title": "Mon véhicule",
-    "why": "Sa taille filtre les lieux où il ne passe pas. Elle reste sur cet appareil.",
-    "whyHeight": "Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle reste sur cet appareil.",
+    "why": "Sa taille filtre les lieux où il ne passe pas. Elle part avec chaque demande d'itinéraire, et le serveur ne la garde pas.",
+    "whyHeight": "Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle part avec chaque demande d'itinéraire, et le serveur ne la garde pas.",
     "none": "Décrivez votre véhicule pour masquer les lieux où il ne passe pas.",
     "add": "Décrire mon véhicule",
     "edit": "Modifier",

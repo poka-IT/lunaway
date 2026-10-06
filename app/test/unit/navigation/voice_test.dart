@@ -59,10 +59,17 @@ void main() {
     expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.missingData);
   });
 
-  test('without a list of voices, the engine says whether the language speaks', () async {
+  test('an engine that lists no voice is not trusted to speak on the device', () async {
     final output = PlatformVoiceOutput(
       voice: FakePlatformVoice(const [], PlatformLanguageStatus.available),
     );
-    expect(await output.prepare(RouteLanguage.en), VoiceReadiness.ready);
+    expect(await output.prepare(RouteLanguage.en), VoiceReadiness.missingData);
+  });
+
+  test('nor one that does not know the language', () async {
+    final output = PlatformVoiceOutput(
+      voice: FakePlatformVoice(const [], PlatformLanguageStatus.notSupported),
+    );
+    expect(await output.prepare(RouteLanguage.en), VoiceReadiness.none);
   });
 }

@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- The position shows on the map and sorts the places around; it leaves the
-         device only as the start of a route the user asks for. -->
+    <!-- The position shows on the map and sorts the places around. It leaves the
+         device as the start of a route the user asks for (and of each new route
+         during guidance), rounded to about a kilometre for the fuel search, and
+         with a place the user adds where they stand: the purpose strings and
+         location.rationale say the same. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Backups carry the user's own database only (favourites, settings,

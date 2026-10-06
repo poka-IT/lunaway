@@ -11,8 +11,9 @@
 // and in CI.
 //
 // Two files next to this one hold the data a rule needs:
-//   - tool/allowed_hosts.txt: every host a URL literal in app/lib, app/web
-//     or app/assets/map may name (a protocol-relative `//host`, a
+//   - tool/allowed_hosts.txt: every host a URL literal in app/lib, app/web,
+//     app/assets/map or the app's own packages (app/packages: Dart, Kotlin,
+//     Swift, Rust) may name (a protocol-relative `//host`, a
 //     `Uri.https('host', ...)` and a Dart `host: '...'` argument count too).
 //     An app that talks to a new host is a privacy event; adding a line there
 //     is a reviewed decision, not a side effect of a feature. Third-party
@@ -33,6 +34,15 @@ const _appLib = 'app/lib/';
 /// code or data: a URL there is a request the app makes just the same.
 const _webRoots = ['app/web/', 'app/assets/map/'];
 const _webExtensions = ['.js', '.mjs', '.html', '.json', '.css'];
+
+/// The app's own packages: their Dart is held to the same rules as app/lib,
+/// and their native code (the platform plugins, the Rust crate) ships in the
+/// app, so a host it names is a request the app makes.
+const _packagesRoot = 'app/packages/';
+const _nativeExtensions = ['.kt', '.kts', '.swift', '.rs'];
+
+/// Build outputs and caches inside a package: never source, sometimes huge.
+const _skippedDirs = {'build', '.build', 'target', '.dart_tool', '.gradle', 'Pods'};
 
 class _Hit {
   _Hit(this.file, this.line, this.text);
@@ -61,12 +71,20 @@ class _Source {
   /// and its host must still be read.
   _Source.web(this.path, String text) : lines = text.split('\n'), code = _blankBlockComments(text).split('\n');
 
+  /// Kotlin, Swift or Rust: block comments, then `//` comments, are blanked.
+  /// A Rust lifetime can hide a line comment from the stripper; the host in
+  /// it is then read, which errs on the side of the rule.
+  _Source.native(this.path, String text)
+    : lines = text.split('\n'),
+      code = _stripComments(_blankBlockComments(text).split('\n'));
+
   final String path;
   final List<String> lines;
   final List<String> code;
 
   bool under(String prefix) => path.startsWith(prefix);
-  bool get generated => path.endsWith('.g.dart') || path.endsWith('.freezed.dart');
+  bool get dart => path.endsWith('.dart');
+  bool get generated => path.endsWith('.g.dart') || path.endsWith('.freezed.dart') || path.contains('/frb_generated');
 }
 
 /// Blanks `//` comments so a rule quoted in a comment never trips it. Strings
@@ -120,18 +138,18 @@ final _rules = <_Rule>[
       RegExp(
         r'package:provider/|riverpod/legacy\.dart|\bStateNotifierProvider\b|\bChangeNotifierProvider\b|\bStateProvider\b',
       ),
-      where: (x) => x.under(_appLib) && !x.generated,
+      where: (x) => x.dart && !x.generated,
     ),
   ),
   _Rule(
     'no-print',
     'print() bypasses the logger and its levels.',
     "Use a Logger from package:logging (`final _log = Logger('feature');`).",
-    (s) => _grep(s, RegExp(r'(?<![\w.$])print\('), where: (x) => x.under(_appLib) && !x.generated),
+    (s) => _grep(s, RegExp(r'(?<![\w.$])print\('), where: (x) => x.dart && !x.generated),
   ),
   _Rule(
     'allowed-hosts',
-    'Every host the app may talk to (app/lib, app/web, app/assets/map) is listed in $_hostsFile; a new host is a reviewed decision.',
+    'Every host the app may talk to (app/lib, app/web, app/assets/map, app/packages) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',
     _unknownHosts,
   ),
@@ -181,6 +199,15 @@ List<_Hit> _unknownHosts(List<_Source> sources) {
   return hits;
 }
 
+/// The files under [dir], build outputs and caches left out.
+Iterable<File> _walk(Directory dir) sync* {
+  for (final e in dir.listSync(followLinks: false)) {
+    final name = e.uri.pathSegments.where((p) => p.isNotEmpty).last;
+    if (e is Directory && !_skippedDirs.contains(name)) yield* _walk(e);
+    if (e is File) yield e;
+  }
+}
+
 /// Paths of third-party files as their projects publish them; a line ending
 /// in / covers a directory.
 List<String> _vendored() {
@@ -200,6 +227,16 @@ void main(List<String> args) {
     sources.add(_Source(f.path.replaceAll(r'\', '/'), f.readAsLinesSync()));
   }
   final vendored = _vendored();
+  if (Directory(_packagesRoot).existsSync()) {
+    for (final f in _walk(Directory(_packagesRoot))) {
+      final path = f.path.replaceAll(r'\', '/');
+      if (path.endsWith('.dart')) {
+        sources.add(_Source(path, f.readAsLinesSync()));
+      } else if (_nativeExtensions.any(path.endsWith)) {
+        sources.add(_Source.native(path, f.readAsStringSync()));
+      }
+    }
+  }
   for (final root in _webRoots) {
     if (!Directory(root).existsSync()) continue;
     for (final f in Directory(root).listSync(recursive: true).whereType<File>()) {

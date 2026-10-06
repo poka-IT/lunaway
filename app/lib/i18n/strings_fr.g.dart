@@ -567,8 +567,8 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 
 	// Translations
 	@override String get title => 'Mon véhicule';
-	@override String get why => 'Sa taille filtre les lieux où il ne passe pas. Elle reste sur cet appareil.';
-	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle reste sur cet appareil.';
+	@override String get why => 'Sa taille filtre les lieux où il ne passe pas. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.';
+	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.';
 	@override String get none => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.';
 	@override String get add => 'Décrire mon véhicule';
 	@override String get edit => 'Modifier';
@@ -1525,8 +1525,8 @@ extension on TranslationsFr {
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Vide', one: '${n} lieu', other: '${n} lieux', ), 
 			'favorites.error' => 'Vos favoris n\'ont pas pu être lus.',
 			'vehicle.title' => 'Mon véhicule',
-			'vehicle.why' => 'Sa taille filtre les lieux où il ne passe pas. Elle reste sur cet appareil.',
-			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle reste sur cet appareil.',
+			'vehicle.why' => 'Sa taille filtre les lieux où il ne passe pas. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.',
+			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.',
 			'vehicle.none' => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.',
 			'vehicle.add' => 'Décrire mon véhicule',
 			'vehicle.edit' => 'Modifier',
