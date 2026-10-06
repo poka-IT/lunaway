@@ -120,6 +120,9 @@ print(t["tiles"][0], "zoom %s-%s" % (t["minzoom"], t["maxzoom"]), "schema", t.ge
     echo "basemap CORS: $(curl -sS -o /dev/null -D - -m 10 -H 'Origin: https://example.org' "$tiles/planet.json" | grep -i '^access-control-allow-origin' | tr -d '\r' || echo none)"
     echo "basemap glyphs: $(curl -sS -o /dev/null -w '%{http_code} %{content_type}' -m 10 "$tiles/fonts/Noto%20Sans%20Regular/0-255.pbf")"
     echo "basemap sprite: $(curl -sS -o /dev/null -w '%{http_code} %{content_type}' -m 10 "$tiles/sprites/protomaps-v4/light.json")"
+    for asset in styles/aube-fr.json styles/minuit-en.json sprites/lunaway-pins/pins.json sprites/lunaway-pins/pins@2x.png; do
+      echo "basemap $asset: $(curl -sS -o /dev/null -D - -w 'status %{http_code}, %{content_type}' -m 10 "$tiles/$asset" | tr -d '\r' | grep -i '^cache-control:\|^status' | tr '\n' ' ')"
+    done
     echo "basemap other path: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "$tiles/admin")"
     refused "lunaway-pull over the public address (it is the ops server's, private network only)" \
       ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \

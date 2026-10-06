@@ -66,16 +66,26 @@ lunaway.net {
 
 	# The web app. The CSP allows what a Flutter web app with MapLibre needs:
 	# WebAssembly compilation, blob: workers, the inline styles the engine
-	# injects, the API and the tile hosts (ours; OpenFreeMap until the app
-	# moves to it). Build the app with
-	# --base-href /app/ --no-web-resources-cdn, or CanvasKit loads from
-	# www.gstatic.com and the CSP refuses it. Its file names carry no content
-	# hash, so every response is revalidated (the ETag answers 304).
+	# injects, the API and our tile host (tiles, glyphs, sprites, styles).
+	# Build the app with --base-href /app/ --no-web-resources-cdn, or
+	# CanvasKit loads from www.gstatic.com and the CSP refuses it. Its file
+	# names carry no content hash, so every response is revalidated (the ETag
+	# answers 304).
+	#
+	# Only the app's own routes (/app/place/42) fall back to index.html. A
+	# file it asks for by name, under assets/, fonts/, canvaskit/, icons/ or
+	# with an extension, is served or answers 404: Flutter asks this origin
+	# for fallback fonts and must get a 404, not HTML.
 	handle_path /app/* {
 		root * /srv/lunaway/web
-		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.lunaway.net https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net https://tiles.openfreemap.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.lunaway.net; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		header Cache-Control "no-cache"
-		try_files {path} /index.html
+		@route {
+			not path /assets/* /fonts/* /canvaskit/* /icons/*
+			not path_regexp \.[A-Za-z0-9]+$
+			not file
+		}
+		rewrite @route /index.html
 		file_server
 	}
 
@@ -108,6 +118,12 @@ lunaway.net {
 	# keep Caddy's empty answer. The error routes do not run the site's
 	# header deletion, hence the second -Server.
 	handle_errors 404 {
+		# A file the web app asked for and does not have (a fallback font):
+		# a bare 404, not the site's page. handle_path stripped /app from the
+		# path, hence the original URI.
+		@app expression {http.request.orig_uri.path}.startsWith("/app/")
+		header @app -Server
+		respond @app 404
 		root * /srv/lunaway/site
 		rewrite * /404.html
 		encode zstd gzip

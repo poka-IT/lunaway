@@ -14,6 +14,9 @@ PMTILES_URL_AMD64=https://github.com/protomaps/go-pmtiles/releases/download/v1.3
 PMTILES_SHA256_AMD64=3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f
 PMTILES_URL_ARM64=https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_arm64.tar.gz
 PMTILES_SHA256_ARM64=f8bd47e7ea866863489cad588fbaf2f31f42e5821f7a03f009b3769f05801cb1
+# macOS on Apple silicon, for infra/tests/caddy-layout.sh without Docker.
+PMTILES_URL_DARWIN_ARM64=https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles-1.31.2_Darwin_arm64.zip
+PMTILES_SHA256_DARWIN_ARM64=40528f7f616fcbf91207cd48c8fc023d213f6d86c0cbf1f748732803d1880f3d
 
 # Fonts and sprites from github.com/protomaps/basemaps-assets at one commit:
 # the Noto Sans glyph ranges the Protomaps styles name (SIL Open Font

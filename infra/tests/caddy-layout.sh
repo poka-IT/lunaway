@@ -9,6 +9,15 @@
 # go-pmtiles test suite; both are downloaded once into the scratch directory
 # and checked against infra/tiles/version.sh.
 #
+# On macOS (Apple silicon) and Linux x86_64 it runs native binaries by
+# default: the Caddy release the servers run (2.11.7, pinned below by the
+# SHA-256 GitHub records for the asset; the release's own checksums file
+# gives the same tarball's SHA-512) and the pinned pmtiles, bound to
+# 127.0.0.1, on ports 18080 (sites), 18484 (stand-in API) and 18485
+# (pmtiles). LUNAWAY_CADDY_DOCKER=1 runs the Docker images instead (a
+# Docker that answers `docker info` may still fail to start containers, as
+# colima did on 2026-10-06).
+#
 #   infra/tests/caddy-layout.sh
 set -euo pipefail
 INFRA="$(cd "$(dirname "$0")/.." && pwd)"
@@ -19,8 +28,24 @@ PORT=18080
 NETWORK=lunaway-caddy-test
 BUILD=20261005
 . "$INFRA/tiles/version.sh"
+CADDY_NATIVE_URL_MAC_ARM64=https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_mac_arm64.tar.gz
+CADDY_NATIVE_SHA256_MAC_ARM64=cda3030e5d5b13eb9f0b6fb541037f633bddd958c070c5f561d7a5cccb581665
+CADDY_NATIVE_URL_LINUX_AMD64=https://github.com/caddyserver/caddy/releases/download/v2.11.7/caddy_2.11.7_linux_amd64.tar.gz
+CADDY_NATIVE_SHA256_LINUX_AMD64=727b91701a392de6ebc5027509f548bf39979e5216340d0faed8fa5e69c84f8b
 
-docker info >/dev/null 2>&1 || { echo "docker does not answer" >&2; exit 1; }
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64|Linux-x86_64) native_pin=yes ;;
+  *) native_pin=no ;;
+esac
+if [ "${LUNAWAY_CADDY_DOCKER:-0}" = 1 ] || [ "$native_pin" = no ]; then
+  docker info >/dev/null 2>&1 || { echo "docker does not answer" >&2; exit 1; }
+  MODE=docker W=/w LISTEN=8080 API_UP=127.0.0.1:8484 API_LISTEN=8484 PMTILES_UP=lunaway-pmtiles-test:8485
+  ACCESS_LOG=/tmp/access.log
+else
+  MODE=native W="$SCRATCH" LISTEN="$PORT" API_UP=127.0.0.1:18484 API_LISTEN=18484 PMTILES_UP=127.0.0.1:18485
+  ACCESS_LOG="$SCRATCH/access.log"
+fi
+echo "mode: $MODE"
 mkdir -p "$SCRATCH/site" "$SCRATCH/web/assets" "$SCRATCH/data/media/ab"
 mkdir -p "$SCRATCH/bin" "$SCRATCH/tiles/builds" "$SCRATCH/tiles/serve" "$SCRATCH/tiles/tilejson" \
   "$SCRATCH/tiles/assets/fonts/Noto Sans Regular" "$SCRATCH/tiles/assets/sprites/protomaps-v4" \
@@ -31,12 +56,28 @@ fetch_pinned() {
   [ -f "$3" ] || curl -fsSL -m 300 -o "$3" "$1"
   [ "$(shasum -a 256 "$3" | awk '{ print $1 }')" = "$2" ] || { echo "$3 does not match its pin" >&2; exit 1; }
 }
-case "$(docker info --format '{{.Architecture}}')" in
-  x86_64) fetch_pinned "$PMTILES_URL_AMD64" "$PMTILES_SHA256_AMD64" "$SCRATCH/bin/pmtiles.tar.gz" ;;
-  aarch64) fetch_pinned "$PMTILES_URL_ARM64" "$PMTILES_SHA256_ARM64" "$SCRATCH/bin/pmtiles.tar.gz" ;;
-  *) echo "unsupported docker architecture" >&2; exit 1 ;;
-esac
-tar -xzf "$SCRATCH/bin/pmtiles.tar.gz" -C "$SCRATCH/bin" pmtiles
+if [ "$MODE" = docker ]; then
+  case "$(docker info --format '{{.Architecture}}')" in
+    x86_64) fetch_pinned "$PMTILES_URL_AMD64" "$PMTILES_SHA256_AMD64" "$SCRATCH/bin/pmtiles.tar.gz" ;;
+    aarch64) fetch_pinned "$PMTILES_URL_ARM64" "$PMTILES_SHA256_ARM64" "$SCRATCH/bin/pmtiles.tar.gz" ;;
+    *) echo "unsupported docker architecture" >&2; exit 1 ;;
+  esac
+  tar -xzf "$SCRATCH/bin/pmtiles.tar.gz" -C "$SCRATCH/bin" pmtiles
+else
+  mkdir -p "$SCRATCH/native"
+  case "$(uname -s)-$(uname -m)" in
+    Darwin-arm64)
+      fetch_pinned "$CADDY_NATIVE_URL_MAC_ARM64" "$CADDY_NATIVE_SHA256_MAC_ARM64" "$SCRATCH/native/caddy.tar.gz"
+      fetch_pinned "$PMTILES_URL_DARWIN_ARM64" "$PMTILES_SHA256_DARWIN_ARM64" "$SCRATCH/native/pmtiles.zip"
+      unzip -o -q "$SCRATCH/native/pmtiles.zip" pmtiles -d "$SCRATCH/native" ;;
+    Linux-x86_64)
+      fetch_pinned "$CADDY_NATIVE_URL_LINUX_AMD64" "$CADDY_NATIVE_SHA256_LINUX_AMD64" "$SCRATCH/native/caddy.tar.gz"
+      fetch_pinned "$PMTILES_URL_AMD64" "$PMTILES_SHA256_AMD64" "$SCRATCH/native/pmtiles.tar.gz"
+      tar -xzf "$SCRATCH/native/pmtiles.tar.gz" -C "$SCRATCH/native" pmtiles ;;
+    *) echo "no pinned native Caddy for $(uname -s)-$(uname -m); start Docker" >&2; exit 1 ;;
+  esac
+  tar -xzf "$SCRATCH/native/caddy.tar.gz" -C "$SCRATCH/native" caddy
+fi
 fetch_pinned "$PMTILES_TEST_FIXTURE_URL" "$PMTILES_TEST_FIXTURE_SHA256" "$SCRATCH/tiles/builds/$BUILD.pmtiles"
 ln -sfn "../builds/$BUILD.pmtiles" "$SCRATCH/tiles/serve/planet-$BUILD.pmtiles"
 ln -sfn "../builds/$BUILD.pmtiles" "$SCRATCH/tiles/serve/planet.pmtiles"
@@ -72,43 +113,69 @@ head -c 11000000 /dev/zero > "$SCRATCH/body-11mb"
 
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
-    -e 's|__SSLIP_HOST__ {|http://sslip.test:8080 {|' \
+    -e "s|__SSLIP_HOST__ {|http://sslip.test:$LISTEN {|" \
     -e 's|__SSLIP_HOST__|sslip.test|g' \
-    -e 's|import /etc/caddy/sites-enabled/\*.caddy|import /w/lunaway.net.caddy|' \
-    -e 's|/srv/data|/w/data|g' \
-    -e 's|/srv/tiles|/w/tiles|g' \
-    -e 's|127.0.0.1:8485|lunaway-pmtiles-test:8485|g' \
-    -e 's|output file /var/log/caddy/access.log|output file /tmp/access.log|' \
+    -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/lunaway.net.caddy|" \
+    -e "s|/srv/data|$W/data|g" \
+    -e "s|/srv/tiles|$W/tiles|g" \
+    -e "s|127.0.0.1:8485|$PMTILES_UP|g" \
+    -e "s|127.0.0.1:8484|$API_UP|g" \
+    -e "s|output file /var/log/caddy/access.log|output file $ACCESS_LOG|" \
     "$INFRA/caddy/Caddyfile" > "$SCRATCH/Caddyfile"
+# Natively, nothing listens beyond loopback.
+if [ "$MODE" = native ]; then
+  python3 - "$SCRATCH/Caddyfile" <<'EOF'
+import sys
+text = open(sys.argv[1]).read()
+open(sys.argv[1], "w").write(text.replace("\tadmin off\n", "\tadmin off\n\tdefault_bind 127.0.0.1\n", 1))
+EOF
+fi
 # A stand-in for the API on its port: it reads the whole body (the
 # placeholder does), so the body limits in front of it act as they do in
 # production, and it names itself in a header.
-cat >> "$SCRATCH/Caddyfile" <<'EOF'
+cat >> "$SCRATCH/Caddyfile" <<EOF
 
-http://:8484 {
+http://:$API_LISTEN {
 	header X-Test-Upstream api
 	respond "{http.request.body}" 200
 }
 EOF
-sed -e 's|^api.lunaway.net {|http://api.lunaway.net:8080 {|' \
-    -e 's|^lunaway.net {|http://lunaway.net:8080 {|' \
-    -e 's|^www.lunaway.net {|http://www.lunaway.net:8080 {|' \
-    -e 's|^tiles.lunaway.net {|http://tiles.lunaway.net:8080 {|' \
-    -e 's|/srv/lunaway/site|/w/site|; s|/srv/lunaway/web|/w/web|' \
+sed -e "s|^api.lunaway.net {|http://api.lunaway.net:$LISTEN {|" \
+    -e "s|^lunaway.net {|http://lunaway.net:$LISTEN {|" \
+    -e "s|^www.lunaway.net {|http://www.lunaway.net:$LISTEN {|" \
+    -e "s|^tiles.lunaway.net {|http://tiles.lunaway.net:$LISTEN {|" \
+    -e "s|/srv/lunaway/site|$W/site|; s|/srv/lunaway/web|$W/web|" \
     "$INFRA/caddy/lunaway.net.caddy" > "$SCRATCH/lunaway.net.caddy"
 
-docker rm -f lunaway-caddy-test lunaway-pmtiles-test >/dev/null 2>&1 || true
-docker network rm "$NETWORK" >/dev/null 2>&1 || true
-docker network create "$NETWORK" >/dev/null
 # The TileJSON as lunaway-tiles-refresh writes it.
 # shellcheck disable=SC2016 # literal backticks, a Caddy template action
-docker run --rm -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" /w/bin/pmtiles show --tilejson \
-  --public-url="__TILES_BASE__/planet-$BUILD" "/w/tiles/serve/planet-$BUILD.pmtiles" \
-  | sed 's|__TILES_BASE__|{{placeholder `http.vars.tiles_base`}}|g' > "$SCRATCH/tiles/tilejson/planet.json"
-docker run -d --name lunaway-pmtiles-test --network "$NETWORK" -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" \
-  /w/bin/pmtiles serve /w/tiles/serve --interface=0.0.0.0 --port=8485 >/dev/null
-docker run -d --name lunaway-caddy-test --network "$NETWORK" -p "127.0.0.1:$PORT:8080" -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" \
-  caddy run --config /w/Caddyfile --adapter caddyfile >/dev/null
+tilejson_from() {
+  sed 's|__TILES_BASE__|{{placeholder `http.vars.tiles_base`}}|g' > "$SCRATCH/tiles/tilejson/planet.json"
+}
+if [ "$MODE" = docker ]; then
+  docker rm -f lunaway-caddy-test lunaway-pmtiles-test >/dev/null 2>&1 || true
+  docker network rm "$NETWORK" >/dev/null 2>&1 || true
+  docker network create "$NETWORK" >/dev/null
+  docker run --rm -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" /w/bin/pmtiles show --tilejson \
+    --public-url="__TILES_BASE__/planet-$BUILD" "/w/tiles/serve/planet-$BUILD.pmtiles" | tilejson_from
+  docker run -d --name lunaway-pmtiles-test --network "$NETWORK" -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" \
+    /w/bin/pmtiles serve /w/tiles/serve --interface=0.0.0.0 --port=8485 >/dev/null
+  docker run -d --name lunaway-caddy-test --network "$NETWORK" -p "127.0.0.1:$PORT:8080" -v "$SCRATCH:/w:ro" "$CADDY_IMAGE" \
+    caddy run --config /w/Caddyfile --adapter caddyfile >/dev/null
+  caddy_log() { docker logs lunaway-caddy-test 2>&1; }
+else
+  "$SCRATCH/native/pmtiles" show --tilejson \
+    --public-url="__TILES_BASE__/planet-$BUILD" "$SCRATCH/tiles/serve/planet-$BUILD.pmtiles" | tilejson_from
+  : > "$ACCESS_LOG"
+  "$SCRATCH/native/caddy" validate --config "$SCRATCH/Caddyfile" --adapter caddyfile > "$SCRATCH/caddy-validate.log" 2>&1 \
+    || { tail -n 5 "$SCRATCH/caddy-validate.log" >&2; exit 1; }
+  "$SCRATCH/native/pmtiles" serve "$SCRATCH/tiles/serve" --interface=127.0.0.1 --port=18485 > "$SCRATCH/pmtiles.log" 2>&1 &
+  pmtiles_pid=$!
+  "$SCRATCH/native/caddy" run --config "$SCRATCH/Caddyfile" --adapter caddyfile > "$SCRATCH/caddy.log" 2>&1 &
+  caddy_pid=$!
+  trap 'kill "$caddy_pid" "$pmtiles_pid" 2>/dev/null || true' EXIT
+  caddy_log() { cat "$SCRATCH/caddy.log"; }
+fi
 for _ in $(seq 1 20); do
   curl -s -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" http://lunaway.net:8080/ && break
   sleep 0.5
@@ -174,7 +241,39 @@ done
 check "/app redirect" http://lunaway.net:8080/app 301 "location: /app/"
 check "/app/" http://lunaway.net:8080/app/ 200 "wasm-unsafe-eval"
 check "/app/ cache" http://lunaway.net:8080/app/ 200 "cache-control: no-cache"
-check "/app/ connect-src" http://lunaway.net:8080/app/ 200 "connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net https://tiles.openfreemap.org"
+check "/app/ connect-src" http://lunaway.net:8080/app/ 200 "connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net; "
+if curl -sS -D - -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" http://lunaway.net:8080/app/ | grep -qi 'openfreemap'; then
+  echo "FAIL the web app's CSP still names OpenFreeMap"
+  failures=$((failures + 1))
+else
+  echo "ok   the web app's CSP names no other tile host"
+fi
+# A file asked by name is served or answers 404, never index.html; only the
+# app's routes fall back to it.
+check "/app missing fallback font" http://lunaway.net:8080/app/fonts/NotoSansSymbols2-Regular.woff2 404
+check "/app missing asset" http://lunaway.net:8080/app/assets/fonts/missing.otf 404
+check "/app missing canvaskit file" http://lunaway.net:8080/app/canvaskit/missing.wasm 404
+check "/app missing icon" http://lunaway.net:8080/app/icons/missing.png 404
+check "/app missing script" http://lunaway.net:8080/app/missing.js 404
+check "/app route with a trailing slash" http://lunaway.net:8080/app/lists/ 200 "cache-control: no-cache"
+for route in /app/place/42/reviews /app/lists/; do
+  if curl -sS --connect-to "lunaway.net:8080:127.0.0.1:$PORT" "http://lunaway.net:8080$route" | grep -qi '<base href="/app/">'; then
+    echo "ok   $route falls back to the app's index.html"
+  else
+    echo "FAIL $route does not answer the app's index.html"
+    failures=$((failures + 1))
+  fi
+done
+for missing in /app/fonts/NotoSansSymbols2-Regular.woff2 /app/assets/fonts/missing.otf /app/canvaskit/missing.wasm; do
+  # A bare 404: neither the app's index.html nor the site's error page.
+  size="$(curl -sS -o /dev/null -w '%{size_download}' --connect-to "lunaway.net:8080:127.0.0.1:$PORT" "http://lunaway.net:8080$missing")"
+  if [ "$size" = 0 ]; then
+    echo "ok   $missing: an empty 404"
+  else
+    echo "FAIL $missing answers $size bytes"
+    failures=$((failures + 1))
+  fi
+done
 check "/app deep link" http://lunaway.net:8080/app/place/42/reviews 200 "wasm-unsafe-eval"
 check "/app asset" http://lunaway.net:8080/app/main.dart.js 200 "content-type: text/javascript"
 check "/app nested asset" http://lunaway.net:8080/app/assets/AssetManifest.json 200 "content-type: application/json"
@@ -324,7 +423,7 @@ fi
 # access log's (IPv4 /16, so the last two bytes are 0), without a port.
 curl -sS -o /dev/null --connect-to "nobody.test:8080:127.0.0.1:$PORT" http://nobody.test:8080/ || true
 sleep 1
-default_log="$(docker logs lunaway-caddy-test 2>&1 | grep '"logger":"http.log.access"' | grep '"host":"nobody.test:8080"' || true)"
+default_log="$(caddy_log | grep '"logger":"http.log.access"' | grep '"host":"nobody.test:8080"' || true)"
 if [ -z "$default_log" ]; then
   echo "FAIL no default-log line for a request to an unknown host"
   failures=$((failures + 1))
@@ -338,23 +437,33 @@ fi
 # Query strings never reach a log: a GraphQL GET could carry a position.
 curl -sS -o /dev/null --connect-to "nobody.test:8080:127.0.0.1:$PORT" "http://nobody.test:8080/graphql?variables=lat45.7629" || true
 sleep 1
-if docker logs lunaway-caddy-test 2>&1 | grep -q 'lat45.7629'; then
+if caddy_log | grep -q 'lat45.7629'; then
   echo "FAIL a query string reached the log"
   failures=$((failures + 1))
 else
   echo "ok   query strings are stripped from the log"
 fi
 
-# Nothing that names a tile reaches the access log: its coordinates, a byte
-# range of a pack and the range it answers, the tile's ETag, its size.
+# Nothing that names a tile or a photo reaches the access log: tile
+# coordinates, a byte range of a pack and the range it answers, a tile's
+# ETag, its size, a photo's path.
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" "$T/planet-$BUILD/14/8345/5678.mvt"
+curl -sS -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" \
+  http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -r 123-234 "$T/packs/test.pmtiles"
 etag="$(grep -i '^etag:' "$SCRATCH/tile-headers.out" | sed -E 's/^[Ee][Tt][Aa][Gg]: *"?([^"]*)"?.*/\1/' | tr -d '\r')"
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -H "If-None-Match: \"$etag\"" "$T/planet-$BUILD/0/0/0.mvt"
 sleep 1
-access_log="$(docker exec lunaway-caddy-test cat /tmp/access.log)"
+if [ "$MODE" = docker ]; then
+  access_log="$(docker exec lunaway-caddy-test cat /tmp/access.log)"
+else
+  access_log="$(cat "$ACCESS_LOG")"
+fi
 leaks=""
-grep -qE '8345|5678' <<<"$access_log" && leaks="$leaks coordinates"
+# In the request's fields only: a timestamp may hold the same digits.
+grep -qE '"uri":"[^"]*(8345|5678)' <<<"$access_log" && leaks="$leaks coordinates"
+grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
+grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
 [ -n "$etag" ] && grep -qF "$etag" <<<"$access_log" && leaks="$leaks etag"
 python3 -c '
@@ -367,13 +476,15 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt): no range, ETag or size"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt) and /media/[photo]: no range, ETag, size or photo name"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))
 fi
 
-docker rm -f lunaway-caddy-test lunaway-pmtiles-test >/dev/null
-docker network rm "$NETWORK" >/dev/null
+if [ "$MODE" = docker ]; then
+  docker rm -f lunaway-caddy-test lunaway-pmtiles-test >/dev/null
+  docker network rm "$NETWORK" >/dev/null
+fi
 echo "$failures failure(s)"
 [ "$failures" = 0 ]

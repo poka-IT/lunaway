@@ -53,6 +53,7 @@
 			resp_headers>Content-Range delete
 			size delete
 			request>uri multi_regexp {
+				regexp "^/media/[^?]*" "/media/[photo]"
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
 				regexp "\?.*$" "?"
 			}
@@ -63,7 +64,8 @@
 
 # Access log without client addresses in clear: IPv4 truncated to /16, IPv6
 # to /32, no port, no credentials, no cookies, no query strings, nothing that
-# names a tile (coordinates, ranges, ETags, sizes). Kept 14 days.
+# names a tile (coordinates, ranges, ETags, sizes) or a photo (its path).
+# Kept 14 days.
 (access_log) {
 	log {
 		output file /var/log/caddy/access.log {
@@ -90,6 +92,9 @@
 			resp_headers>Content-Range delete
 			size delete
 			request>uri multi_regexp {
+				# A photo's file names the place it shows: every photo path
+				# is logged as one constant.
+				regexp "^/media/[^?]*" "/media/[photo]"
 				# A tile address is a place on the map, often where the user
 				# is: the zoom stays, x and y go.
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
