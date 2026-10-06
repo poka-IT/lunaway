@@ -52,34 +52,57 @@ RegionInfo? regionFromJson(Map<String, dynamic> json) {
 }
 
 RegionPack? _pack(Object? json) {
-  if (json is! Map<String, dynamic>) return null;
-  final b = json['bounds'];
-  final generated = DateTime.tryParse('${json['generatedAt']}');
-  final sha = json['sha256'];
-  if (b is! Map<String, dynamic> ||
-      generated == null ||
-      sha is! String ||
-      !RegExp(r'^[0-9a-f]{64}$').hasMatch(sha)) {
-    return null;
+  if (json case {
+    'url': final String url,
+    'format': final String format,
+    'bytes': final num bytes,
+    'rawBytes': final num rawBytes,
+    'sha256': final String sha,
+    'version': final String version,
+    'cursor': final String cursor,
+    'places': final num places,
+    'bounds': {
+      'south': final num south,
+      'west': final num west,
+      'north': final num north,
+      'east': final num east,
+    },
+    'generatedAt': final String generatedAt,
+  }) {
+    final generated = DateTime.tryParse(generatedAt);
+    if (generated == null ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(sha) ||
+        bytes <= 0 ||
+        bytes > maxPackBytes ||
+        rawBytes <= 0 ||
+        rawBytes > maxPackBytes) {
+      return null;
+    }
+    return RegionPack(
+      url: url,
+      format: format,
+      bytes: bytes.toInt(),
+      rawBytes: rawBytes.toInt(),
+      sha256: sha,
+      version: version,
+      cursor: cursor,
+      places: places.toInt(),
+      bounds: GeoBounds(
+        south: south.toDouble(),
+        west: west.toDouble(),
+        north: north.toDouble(),
+        east: east.toDouble(),
+      ),
+      generatedAt: generated.toUtc(),
+    );
   }
-  return RegionPack(
-    url: json['url'] as String,
-    format: json['format'] as String,
-    bytes: (json['bytes'] as num).toInt(),
-    rawBytes: (json['rawBytes'] as num).toInt(),
-    sha256: sha,
-    version: json['version'] as String,
-    cursor: json['cursor'] as String,
-    places: (json['places'] as num).toInt(),
-    bounds: GeoBounds(
-      south: (b['south'] as num).toDouble(),
-      west: (b['west'] as num).toDouble(),
-      north: (b['north'] as num).toDouble(),
-      east: (b['east'] as num).toDouble(),
-    ),
-    generatedAt: generated.toUtc(),
-  );
+  return null;
 }
+
+/// Largest pack accepted, downloaded or decompressed: the biggest country
+/// pack is tens of megabytes, a manifest asking for more is not trusted
+/// with the device's storage.
+const int maxPackBytes = 1024 * 1024 * 1024;
 
 /// The inverse of [regionFromJson], for the copy of the manifest kept on
 /// the device.

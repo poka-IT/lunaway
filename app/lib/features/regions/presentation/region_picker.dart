@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -11,6 +12,8 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+
+final _log = Logger('regions');
 
 /// Opens the choice of the regions whose places the device keeps.
 Future<void> showRegionPicker(BuildContext context) => showModalBottomSheet<void>(
@@ -230,11 +233,19 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
   Future<void> _findHere(RegionCatalog catalog) async {
     final known = ref.read(userLocationProvider);
     if (known == null && !await ensureLocationAccess(context, ref)) return;
-    setState(() => _locating = true);
-    final position = known ?? (await ref.read(locationFeedProvider).current())?.position;
-    final outlines = await ref.read(packOutlinesProvider.future);
+    // The sheet may have closed while the permission dialog was open.
     if (!mounted) return;
-    final code = position == null ? null : catalog.regionAt(position, outlines);
+    setState(() => _locating = true);
+    String? code;
+    try {
+      final position = known ?? (await ref.read(locationFeedProvider).current())?.position;
+      final outlines = await ref.read(packOutlinesProvider.future);
+      code = position == null ? null : catalog.regionAt(position, outlines);
+    } on Object catch (e) {
+      // No fix or no outlines: the user picks by hand, told it failed.
+      _log.fine('region of the position not found', e);
+    }
+    if (!mounted) return;
     setState(() {
       _locating = false;
       _here = code;

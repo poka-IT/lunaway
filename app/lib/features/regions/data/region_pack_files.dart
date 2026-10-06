@@ -47,10 +47,13 @@ Uri? placesPackUrl(AppConfig config, String url) {
   if (parsed == null) return null;
   final resolved = parsed.hasScheme ? parsed : base.resolveUri(parsed);
   final ours =
-      (resolved.scheme == base.scheme &&
-          resolved.host == base.host &&
-          resolved.port == base.port) ||
-      (resolved.scheme == 'https' && resolved.host == Uri.parse(AppConfig.publicApi).host);
+      resolved.userInfo.isEmpty &&
+      ((resolved.scheme == base.scheme &&
+              resolved.host == base.host &&
+              resolved.port == base.port) ||
+          (resolved.scheme == 'https' &&
+              resolved.host == Uri.parse(AppConfig.publicApi).host &&
+              resolved.port == 443));
   final segments = resolved.pathSegments;
   if (!ours ||
       resolved.hasQuery ||

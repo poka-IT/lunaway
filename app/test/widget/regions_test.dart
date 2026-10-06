@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
@@ -259,6 +261,25 @@ void main() {
     expect(find.text('Télécharger, ${t.fileSize(1200 * 1024)}'), findsOneWidget);
   });
 
+  testWidgets('"Trouver ma région" that fails stops turning and says so', (tester) async {
+    final feed = _Quiet();
+    final app = await pumpLunaway(
+      tester,
+      regions: _catalog,
+      overrides: [...quietSync(feed), locationFeedProvider.overrideWithValue(const _NoFix())],
+    );
+    await KeptRegionsStore(app.user).save({'FR-BRE', 'FR-NOR', 'FR'});
+    app.container(tester).invalidate(keptRegionsControllerProvider);
+    await settleShort(tester);
+    final context = tester.element(find.byType(Scaffold).first);
+    unawaited(showRegionPicker(context));
+    await settleShort(tester);
+    await tester.tap(find.text('Trouver ma région'));
+    await settleShort(tester);
+    expect(find.text('Pas encore de région Lunaway autour de vous'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   test('the defaults keep France, and the country where the user is', () {
     expect(_catalog.defaults(), {'FR-BRE', 'FR-NOR', 'FR'});
     expect(_catalog.defaults(here: 'ES'), {'FR-BRE', 'FR-NOR', 'FR', 'ES'});
@@ -270,4 +291,16 @@ void main() {
   test('a region the server sent without its names is named by its code', () {
     expect(regionFromJson({'code': 'ES', 'country': 'ES'})!.nameIn('fr'), 'ES');
   });
+}
+
+/// A position lookup that fails, as geolocator's does when the location
+/// service is off.
+final class _NoFix implements LocationFeed {
+  const new();
+
+  @override
+  Future<Fix?> current() async => throw StateError('location service off');
+
+  @override
+  Stream<Fix> guidance(BackgroundNotice notice) => const Stream.empty();
 }

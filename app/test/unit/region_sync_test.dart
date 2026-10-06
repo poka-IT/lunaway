@@ -551,6 +551,9 @@ void main() {
       for (final url in [
         'https://evil.example/packs/places/ES-3-0123456789ab.sqlite.gz',
         'http://api.lunaway.net/packs/places/ES-3-0123456789ab.sqlite.gz',
+        'https://api.lunaway.net:8443/packs/places/ES-3-0123456789ab.sqlite.gz',
+        'https://u@api.lunaway.net/packs/places/ES-3-0123456789ab.sqlite.gz',
+        'https://u@188-245-10-130.sslip.io/packs/places/ES-3-0123456789ab.sqlite.gz',
         '/packs/other/ES-3-0123456789ab.sqlite.gz',
         '/packs/places/../index.html',
         '/packs/places/ES-3-0123456789ab.sqlite.gz?x=1',
@@ -562,6 +565,18 @@ void main() {
   });
 
   test('the manifest reads its packs and leaves out one it cannot check', () {
+    final brittany = {
+      'url': '/packs/places/FR-BRE-1-0123456789ab.sqlite.gz',
+      'format': 'sqlite-gzip-1',
+      'bytes': 412345.0,
+      'rawBytes': 2854000.0,
+      'sha256': 'a' * 64,
+      'version': '1',
+      'cursor': 'c',
+      'places': 2854,
+      'bounds': {'south': 47.2, 'west': -5.1, 'north': 48.9, 'east': -1.0},
+      'generatedAt': '2026-10-06T05:30:00Z',
+    };
     final regions = regionsOperation.parse({
       'regions': [
         {
@@ -569,18 +584,7 @@ void main() {
           'country': 'FR',
           'name': 'Brittany',
           'nameFr': 'Bretagne',
-          'pack': {
-            'url': '/packs/places/FR-BRE-1-0123456789ab.sqlite.gz',
-            'format': 'sqlite-gzip-1',
-            'bytes': 412345.0,
-            'rawBytes': 2854000.0,
-            'sha256': 'a' * 64,
-            'version': '1',
-            'cursor': 'c',
-            'places': 2854,
-            'bounds': {'south': 47.2, 'west': -5.1, 'north': 48.9, 'east': -1.0},
-            'generatedAt': '2026-10-06T05:30:00Z',
-          },
+          'pack': brittany,
         },
         {
           'code': 'ES',
@@ -589,11 +593,22 @@ void main() {
           'nameFr': 'Espagne',
           'pack': {'sha256': 'not hex'},
         },
+        {
+          'code': 'IT',
+          'country': 'IT',
+          'pack': {...brittany, 'url': null},
+        },
+        {
+          'code': 'PT',
+          'country': 'PT',
+          'pack': {...brittany, 'bytes': 64.0 * 1024 * 1024 * 1024},
+        },
       ],
     });
+    expect(regions.map((r) => r.code), ['FR-BRE', 'ES', 'IT', 'PT']);
     expect(regions.first.pack!.bytes, 412345);
     expect(regions.first.nameIn('fr'), 'Bretagne');
-    expect(regions.last.pack, isNull);
+    expect(regions.skip(1).map((r) => r.pack), everyElement(isNull));
   });
 }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/community/domain/community.dart';
@@ -9,6 +10,8 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+
+final _log = Logger('sync');
 
 /// Where the places of the regions go, a region at a time: its pack, then
 /// the pages of its feed. Each region keeps its own cursor and generation
@@ -449,7 +452,10 @@ final class RegionCatalogCopy {
         for (final r in json)
           if (r is Map<String, dynamic>) ?regionFromJson(r),
       ], fromCopy: true);
-    } on FormatException {
+    } on Object catch (e) {
+      // A copy written by another version of the app: the manifest is
+      // asked again.
+      _log.info('regions manifest copy unreadable: $e');
       return null;
     }
   }

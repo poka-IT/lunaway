@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/data/pack_files_io.dart';
+import 'package:lunaway/features/regions/data/region_operations.dart';
 import 'package:lunaway/features/regions/data/region_pack_files.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:path/path.dart' as p;
@@ -92,7 +93,7 @@ Future<String?> _checkAndInflate(
   required String sha256,
   required int rawBytes,
 }) async {
-  if (rawBytes <= 0 || rawBytes > maxPackRawBytes) {
+  if (rawBytes <= 0 || rawBytes > maxPackBytes) {
     return 'the manifest announces $rawBytes bytes once decompressed';
   }
   if (sha256OfFile(part) != sha256) return 'SHA-256 of the download differs from the manifest';
@@ -114,7 +115,3 @@ Future<String?> _checkAndInflate(
   if (length != rawBytes) return 'decompressed to $length bytes, the manifest says $rawBytes';
   return null;
 }
-
-/// Largest decompressed pack accepted: the biggest country pack is a few
-/// tens of megabytes, a manifest asking for more is not trusted.
-const int maxPackRawBytes = 1024 * 1024 * 1024;
