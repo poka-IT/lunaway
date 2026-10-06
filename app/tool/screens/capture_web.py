@@ -1,7 +1,8 @@
 """Screenshots of the web build in a headless browser, over the Chrome
 DevTools protocol: a phone, a tablet and a desktop viewport, a language and a
 colour scheme, and the app's own links (`#/map?place=<id>`, `#/favorites`,
-`#/profile`) to reach each screen.
+`#/profile`, `#/route?lat=..&lon=..` for a route preview) to reach each
+screen. `--geo lat,lon` gives the browser a position, for the route's start.
 
     python3 tool/screens/capture_web.py --url http://127.0.0.1:18791/app/ --out ../plan/screenshots/web
 
@@ -19,6 +20,7 @@ import os
 import socket
 import subprocess
 import time
+import urllib.parse
 import urllib.request
 
 BROWSERS = [
@@ -27,7 +29,13 @@ BROWSERS = [
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
 ]
 VIEWPORTS = {"phone": (412, 732, 2.625, True), "tablet": (800, 1280, 2, True), "desktop": (1440, 900, 2, False)}
-PAGES = {"map": "#/map", "place": "#/map?place={place}", "favorites": "#/favorites", "profile": "#/profile"}
+PAGES = {
+    "map": "#/map",
+    "place": "#/map?place={place}",
+    "favorites": "#/favorites",
+    "profile": "#/profile",
+    "route": "#/route?{route}",
+}
 
 
 def free_port():
@@ -38,7 +46,7 @@ def free_port():
     return port
 
 
-async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, wait, console_dir):
+async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, wait, console_dir, geo=None):
     import websockets
 
     async with websockets.connect(ws_url, max_size=100_000_000) as ws:
@@ -57,6 +65,10 @@ async def shoot(ws_url, url, path, width, height, scale, mobile, lang, scheme, w
         })
         await call("Emulation.setLocaleOverride", {"locale": lang})
         await call("Emulation.setEmulatedMedia", {"features": [{"name": "prefers-color-scheme", "value": scheme}]})
+        if geo:
+            lat, lon = geo
+            await call("Browser.grantPermissions", {"permissions": ["geolocation"]})
+            await call("Emulation.setGeolocationOverride", {"latitude": lat, "longitude": lon, "accuracy": 10})
         await call("Network.enable")
         await call("Network.setExtraHTTPHeaders", {"headers": {"Accept-Language": lang}})
         await call("Runtime.enable")
@@ -102,6 +114,9 @@ def main():
     p.add_argument("--url", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--place", default="demo-0002")
+    p.add_argument("--route", default="45.845089,1.286339,Rue Maurice Utrillo",
+                   help="lat,lon,name of the destination of the route page")
+    p.add_argument("--geo", help="lat,lon: the browser's position")
     p.add_argument("--wait", type=float, default=12)
     p.add_argument("--langs", default="fr,en")
     p.add_argument("--schemes", default="light,dark")
@@ -112,6 +127,9 @@ def main():
     args = p.parse_args()
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
+    lat, lon, name = args.route.split(",", 2)
+    route = urllib.parse.urlencode({"lat": lat, "lon": lon, "name": name})
+    geo = tuple(float(v) for v in args.geo.split(",")) if args.geo else None
     browser = next(b for b in BROWSERS if os.path.exists(b))
     port = free_port()
     # A profile of its own, kept between runs (the demo store lives in it).
@@ -139,9 +157,9 @@ def main():
                     w, h, scale, mobile = VIEWPORTS[vp]
                     for name in args.pages.split(","):
                         frag = PAGES[name]
-                        url = args.url + frag.format(place=args.place)
+                        url = args.url + frag.format(place=args.place, route=route)
                         path = os.path.join(out, f"{lang}-{vp}-{scheme}-{name}.png")
-                        asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir))
+                        asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir, geo))
     finally:
         proc.terminate()
         proc.wait(timeout=10)

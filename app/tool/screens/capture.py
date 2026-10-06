@@ -1,8 +1,9 @@
 """Screenshots of the real app, through the screens tour test.
 
-Runs integration_test/screens_tour_test.dart on a device, against an API
-(`--api`, real data) or in demo mode (the default), and captures the screen
-each time the test prints a `SHOT <name>` line:
+Runs integration_test/screens_tour_test.dart (or the test given by `--test`,
+such as integration_test/navigation_drive_test.dart) on a device, against an
+API (`--api`, real data) or in demo mode (the default), and captures the
+screen each time the test prints a `SHOT <name>` line:
 
 - macOS: a window of the given content size, title bar cropped, so 540x960
   gives a 1080x1920 image on a Retina screen (the phone store format). The
@@ -75,6 +76,8 @@ def main():
     p.add_argument("--theme", default="light")
     p.add_argument("--density", type=int, help="Android only: screen density for the run")
     p.add_argument("--out", required=True)
+    p.add_argument("--test", default="integration_test/screens_tour_test.dart",
+                   help="the integration test that prints the SHOT lines")
     p.add_argument("--api", help="API base URL for real data; demo mode without it")
     p.add_argument("--fresh", action="store_true", help="start from an empty device")
     p.add_argument(
@@ -92,7 +95,7 @@ def main():
     if kind == "android":
         target += ["--flavor", "store"]
     cmd = [
-        "fvm", "flutter", "test", "integration_test/screens_tour_test.dart", *target,
+        "fvm", "flutter", "test", args.test, *target,
         f"--dart-define=LUNAWAY_API_URL={args.api}" if args.api else "--dart-define=LUNAWAY_DEMO=true",
         f"--dart-define=LUNAWAY_TOUR_FRESH={'true' if args.fresh else 'false'}",
         *([f"--dart-define=LUNAWAY_BASEMAP_URL={args.basemap}"] if args.basemap else []),
