@@ -120,9 +120,10 @@ async fn store(
     })
 }
 
-/// The country a record of an extract run was read in: its scope.
-fn country_scope(r: &lunaway_domain::NormalizedRecord) -> Option<&str> {
-    r.address.country_code.as_deref()
+/// The scope of a record of an extract run: its country, or the part of
+/// it another extract holds ([`crate::osm_extract::SPLIT_AREAS`]).
+fn country_scope(r: &lunaway_domain::NormalizedRecord) -> Option<String> {
+    crate::osm_extract::scope_of(r.position, r.address.country_code.as_deref())
 }
 
 /// Inserts or updates the records of one extract of a run, each under the
@@ -137,15 +138,17 @@ pub async fn upsert_by_country(
     source: &SourceId,
     fetched: &[FetchedRecord],
 ) -> Result<records::UpsertStats, IngestError> {
+    let scopes: Vec<Option<String>> = fetched.iter().map(|f| country_scope(&f.record)).collect();
     let rows: Vec<NewRecord<'_>> = fetched
         .iter()
-        .map(|f| NewRecord {
+        .zip(&scopes)
+        .map(|(f, scope)| NewRecord {
             external_id: &f.external_id,
             external_url: f.external_url.as_deref(),
             record: &f.record,
             raw: &f.raw,
             fetched_at: f.fetched_at,
-            scope: country_scope(&f.record),
+            scope: scope.as_deref(),
         })
         .collect();
     Ok(records::upsert(pool, source, &rows).await?)
@@ -213,15 +216,25 @@ pub async fn upsert_pois_by_country(
     source: &SourceId,
     points: &[crate::poi_osm::FetchedPoi],
 ) -> Result<records::UpsertStats, IngestError> {
+    let scopes: Vec<Option<String>> = points
+        .iter()
+        .map(|p| {
+            crate::osm_extract::scope_of(
+                p.record.position,
+                p.record.address.country_code.as_deref(),
+            )
+        })
+        .collect();
     let rows: Vec<lunaway_db::pois::NewPoi<'_>> = points
         .iter()
-        .map(|p| lunaway_db::pois::NewPoi {
+        .zip(&scopes)
+        .map(|(p, scope)| lunaway_db::pois::NewPoi {
             external_id: &p.external_id,
             external_url: p.external_url.as_deref(),
             record: &p.record,
             raw: &p.raw,
             fetched_at: p.fetched_at,
-            scope: p.record.address.country_code.as_deref(),
+            scope: scope.as_deref(),
         })
         .collect();
     let upsert = lunaway_db::pois::upsert(pool, source, &rows).await?;

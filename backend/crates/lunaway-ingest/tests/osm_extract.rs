@@ -764,8 +764,8 @@ struct Mirror {
 async fn serve_mirror(mirror: Mirror) -> std::net::SocketAddr {
     use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get};
     let app = axum::Router::new().route(
-        "/europe/{file}",
-        get(move |Path(file): Path<String>| {
+        "/{continent}/{file}",
+        get(move |Path((_, file)): Path<(String, String)>| {
             let state = mirror.clone();
             async move {
                 let name = file.trim_end_matches("-latest.osm.pbf").to_owned();
@@ -888,6 +888,60 @@ async fn a_run_of_two_countries_stores_each_once_resumes_and_retires_by_country(
             ("node/1".to_owned(), Some("FR".to_owned()), false),
             ("node/2".to_owned(), Some("DE".to_owned()), true),
             ("node/3".to_owned(), Some("DE".to_owned()), false),
+        ]
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_country_split_between_extracts_keeps_its_other_part(pool: sqlx::PgPool) {
+    use lunaway_ingest::extract_run::{self, ExtractPlan, Layer};
+    const MADRID: (i64, f64, f64, &str) = (10, 40.42, -3.70, "Camping Madrid");
+    const GRAN_CANARIA: (i64, f64, f64, &str) = (11, 28.10, -15.43, "Camping Gran Canaria");
+    let mirror = Mirror::default();
+    mirror
+        .files
+        .lock()
+        .unwrap()
+        .insert("spain".into(), campsites(&[MADRID]));
+    mirror
+        .files
+        .lock()
+        .unwrap()
+        .insert("canary-islands".into(), campsites(&[GRAN_CANARIA]));
+    let addr = serve_mirror(mirror).await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let plan = |names: &[&str]| ExtractPlan {
+        extracts: names
+            .iter()
+            .map(|n| osm_extract::extract(n).unwrap())
+            .collect(),
+        mirror: format!("http://{addr}"),
+        refresh: Refresh::Never,
+        retry: fast(),
+    };
+    extract_run::run(
+        &pool,
+        &client,
+        &cache,
+        &plan(&["spain", "canary-islands"]),
+        Layer::Places,
+    )
+    .await
+    .unwrap();
+    let mainland = extract_run::run(&pool, &client, &cache, &plan(&["spain"]), Layer::Places)
+        .await
+        .unwrap();
+    assert_eq!(
+        mainland.retirement.retired, 0,
+        "a run of Spain's extract alone leaves the Canary Islands, which it does not hold"
+    );
+    assert_eq!(
+        scopes(&pool).await,
+        [
+            ("node/10".to_owned(), Some("ES".to_owned()), false),
+            ("node/11".to_owned(), Some("IC".to_owned()), false),
         ]
     );
 }

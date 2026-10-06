@@ -67,11 +67,13 @@ const fn spec(
 /// extract's cut is covered by it (Monaco by France, San Marino and the
 /// Vatican by Italy, Gibraltar by Spain, Svalbard by Norway, Åland by
 /// Finland: Geofabrik's `.poly` files, read 2026-10-06); the Canary
-/// Islands are Geofabrik's `africa/canary-islands`, outside `spain`.
+/// Islands are Geofabrik's `africa/canary-islands`, outside `spain`, and
+/// cover their own scope ([`SPLIT_AREAS`]). An extract covers only what it
+/// holds whole: a run retires in the scopes it covers.
 pub const CATALOGUE: &[ExtractSpec] = &[
     spec("france", "europe/france", &["FR", "MC"]),
     spec("spain", "europe/spain", &["ES", "GI"]),
-    spec("canary-islands", "africa/canary-islands", &["ES"]),
+    spec("canary-islands", "africa/canary-islands", &["IC"]),
     spec("portugal", "europe/portugal", &["PT"]),
     spec("italy", "europe/italy", &["IT", "SM", "VA"]),
     spec("germany", "europe/germany", &["DE"]),
@@ -82,10 +84,12 @@ pub const CATALOGUE: &[ExtractSpec] = &[
     spec("netherlands", "europe/netherlands", &["NL"]),
     spec("luxembourg", "europe/luxembourg", &["LU"]),
     spec("united-kingdom", "europe/united-kingdom", &["GB"]),
+    // Northern Ireland is the United Kingdom's: an Irish run alone must not
+    // retire the rest of it.
     spec(
         "ireland-and-northern-ireland",
         "europe/ireland-and-northern-ireland",
-        &["IE", "GB"],
+        &["IE"],
     ),
     spec("denmark", "europe/denmark", &["DK"]),
     spec("norway", "europe/norway", &["NO", "SJ"]),
@@ -128,6 +132,24 @@ pub const EUROPE: &[&str] = &[
     "czech-republic",
     "andorra",
 ];
+
+/// Parts of a country another extract than the country's holds: their
+/// records take the part's code as their scope, so a run of the country
+/// alone does not retire them (the Canary Islands, `IC`, are not in
+/// Geofabrik's `spain`).
+pub const SPLIT_AREAS: &[&str] = &["IC"];
+
+/// The scope of a record of `country` at `position`: the part of
+/// [`SPLIT_AREAS`] it lies in, else its country.
+#[must_use]
+pub fn scope_of(position: lunaway_domain::Position, country: Option<&str>) -> Option<String> {
+    let areas = lunaway_domain::region::areas_at(position);
+    SPLIT_AREAS
+        .iter()
+        .find(|split| areas.contains(split))
+        .map(|split| (*split).to_owned())
+        .or_else(|| country.map(str::to_owned))
+}
 
 /// The extract named `name`.
 #[must_use]
@@ -627,12 +649,14 @@ impl<'a> Area<'a> {
 
     /// The country of a point of the extract, when the run keeps it.
     fn country(&self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
-        let found = lunaway_domain::Position::new(lat, lon)
-            .ok()
-            .and_then(lunaway_domain::region::country_at)
-            .or(self.fallback);
+        let Ok(position) = lunaway_domain::Position::new(lat, lon) else {
+            return Ok(None);
+        };
+        let found = lunaway_domain::region::country_at(position).or(self.fallback);
         match found {
-            Some(c) if self.coverage.admits(c) => Ok(Some(c)),
+            Some(c) if scope_of(position, Some(c)).is_some_and(|s| self.coverage.admits(&s)) => {
+                Ok(Some(c))
+            }
             Some(_) => Err(()),
             None => Ok(None),
         }
