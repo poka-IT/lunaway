@@ -92,7 +92,7 @@ final class DrivingAidsSettingsControllerProvider
 }
 
 String _$drivingAidsSettingsControllerHash() =>
-    r'0ddc958d26606c2f4d3b555e0f373341b5f2fa3b';
+    r'24ba81da1223fdfce722631afbf68edc1cf406e6';
 
 /// Whether the limit shows, and whether the aids speak.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
