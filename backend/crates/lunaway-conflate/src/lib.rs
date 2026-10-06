@@ -514,9 +514,15 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
                 record: &r.record,
             })
             .collect();
-        let Some(resolved) = resolve(&contributions) else {
+        let Some(mut resolved) = resolve(&contributions) else {
             continue;
         };
+        // A place only the community describes has no address: its country
+        // comes from its position, so it gets a time zone and a sync region.
+        if resolved.content.address.country_code.is_none() {
+            resolved.content.address.country_code =
+                lunaway_domain::region::country_at(resolved.content.position).map(str::to_owned);
+        }
         let group_links: Vec<(Uuid, Uuid, Option<f64>)> = g
             .iter()
             .map(|r| (*r, place, clustering.link_score.get(r).copied()))

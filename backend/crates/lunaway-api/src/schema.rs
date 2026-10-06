@@ -380,15 +380,18 @@ impl QueryRoot {
         let cursor_seq = changes.last().map_or(since_seq, places::Change::seq);
         let mut out = Vec::new();
         let mut deleted = Vec::new();
+        let mut left = Vec::new();
         for c in changes {
             match c {
                 places::Change::Upsert(p) => out.push(Place(*p)),
                 places::Change::Delete { id, .. } => deleted.push(id),
+                places::Change::Left { id, .. } => left.push(id),
             }
         }
         Ok(ChangeSet {
             places: out,
             deleted,
+            left,
             cursor: changes_cursor(&head, cursor_seq),
             has_more,
         })

@@ -410,9 +410,17 @@ async fn store_pois(
         .unwrap();
     let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
     let france = Coverage::Countries(["FR".to_owned()].into_iter().collect());
-    store::retire_pois_in_coverage(pool, &SourceId::OSM, &france, &seen, chrono::Utc::now())
-        .await
-        .unwrap()
+    let by_scope = store::count_scopes(points.iter().map(store::poi_scope));
+    store::retire_pois_in_coverage(
+        pool,
+        &SourceId::OSM,
+        &france,
+        &seen,
+        &by_scope,
+        chrono::Utc::now(),
+    )
+    .await
+    .unwrap()
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -531,7 +539,7 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
         .collect();
     store_pois(&pool, &points).await;
     let r = store_pois(&pool, &points[..3]).await;
-    assert!(r.refused, "3 of 10 looks truncated");
+    assert_eq!(r.refused, ["FR"], "3 of 10 looks truncated");
     assert_eq!(r.retired, 0);
     assert_eq!(
         lunaway_db::pois::live_count(&pool, &SourceId::OSM, None)
@@ -540,7 +548,7 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
         10
     );
     let r = store_pois(&pool, &points[..8]).await;
-    assert_eq!((r.refused, r.retired), (false, 2));
+    assert_eq!((r.refused.len(), r.retired), (0, 2));
 
     let data = serde_json::json!({"days": []});
     let keys: Vec<String> = (0..10).map(|i| format!("{i:06}")).collect();

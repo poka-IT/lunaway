@@ -4,19 +4,20 @@
 //!
 //! One extract is downloaded (or read from the cache), read and stored at a
 //! time, so the memory a run needs is the largest country's, not the sum.
-//! The same element read from two extracts (Geofabrik cuts each country
-//! with a margin) is stored once, from the first. Once every extract is
-//! stored, the records of the run's countries it did not see are retired
-//! ([`crate::store::retire_in_coverage`]); a country outside the run keeps
-//! its records.
+//! Each extract keeps only the elements of the scopes it covers
+//! ([`crate::osm_extract::Area`]); an element two extracts both cover is
+//! stored once, from the first. Once every extract is stored, the records
+//! of the run's scopes it did not see are retired, scope by scope
+//! ([`crate::store::retire_in_coverage`]); a scope outside the run keeps its
+//! records.
 //!
 //! A run is resumable: after each extract it writes what it stored to the
 //! cache (`osm-extract/runs/`), so a run that stopped half way (a crash, a
 //! reboot, the memory cap) starts again after the last extract it stored,
-//! unless that extract's file changed in between; the downloads resume on
-//! their own ([`crate::osm_extract::fetch`]).
+//! unless a file changed in between; the downloads resume on their own
+//! ([`crate::osm_extract::fetch`]).
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use chrono::{DateTime, Utc};
 use lunaway_db::{PgPool, records::UpsertStats};
@@ -75,7 +76,7 @@ pub struct ExtractReport {
     pub resumed: bool,
     /// Records or points mapped, those of another extract left out.
     pub records: usize,
-    /// Elements outside the run's countries, or dropped by the mapping.
+    /// Elements outside the extract's scopes, or dropped by the mapping.
     pub skipped: usize,
     /// Elements another extract of the run already gave.
     pub duplicates: usize,
@@ -92,9 +93,9 @@ pub struct ExtractReport {
 pub struct RunReport {
     /// Each extract, in order.
     pub extracts: Vec<ExtractReport>,
-    /// The countries it speaks for.
+    /// The scopes it speaks for.
     pub coverage: Coverage,
-    /// What it retired.
+    /// What it retired, and the scopes it left alone.
     pub retirement: Retirement,
 }
 
@@ -122,6 +123,7 @@ fn state_key(layer: Layer) -> String {
     format!("osm-extract/runs/{}.json", layer.key())
 }
 
+/// What an extract added to the run: one `<scope>\t<id>` line each.
 fn seen_key(layer: Layer, name: &str) -> String {
     format!("osm-extract/runs/{}-{name}.seen", layer.key())
 }
@@ -155,15 +157,15 @@ async fn save_state(cache: &Cache, layer: Layer, state: &RunState) -> Result<(),
     Ok(())
 }
 
-/// The ids an earlier attempt of the run stored for `name`, if it stored
-/// that extract from the same file.
+/// The ids, with their scopes, an earlier attempt of the run stored for
+/// `name`, if it stored that extract from the same file.
 async fn resumed_ids(
     cache: &Cache,
     layer: Layer,
     state: &RunState,
     name: &str,
     file_at: DateTime<Utc>,
-) -> Result<Option<(Vec<String>, usize)>, IngestError> {
+) -> Result<Option<(Vec<(String, String)>, usize)>, IngestError> {
     let Some(done) = state
         .done
         .iter()
@@ -174,16 +176,35 @@ async fn resumed_ids(
     let Some(cached) = cache.read(&seen_key(layer, name)).await? else {
         return Ok(None);
     };
-    let ids: Vec<String> = String::from_utf8_lossy(&cached.bytes)
+    let ids = String::from_utf8_lossy(&cached.bytes)
         .lines()
-        .filter(|l| !l.is_empty())
-        .map(str::to_owned)
+        .filter_map(|l| l.split_once('\t'))
+        .map(|(scope, id)| (scope.to_owned(), id.to_owned()))
         .collect();
     Ok(Some((ids, done.records)))
 }
 
+/// What a run saw so far: every id once, and how many per scope, which the
+/// truncation guard of each scope reads.
+#[derive(Default)]
+struct Seen {
+    ids: HashSet<String>,
+    by_scope: BTreeMap<String, usize>,
+}
+
+impl Seen {
+    /// Adds `id` of `scope`; `false` when an earlier extract gave it.
+    fn add(&mut self, scope: &str, id: &str) -> bool {
+        if !self.ids.insert(id.to_owned()) {
+            return false;
+        }
+        *self.by_scope.entry(scope.to_owned()).or_insert(0) += 1;
+        true
+    }
+}
+
 /// Imports `layer` from every extract of `plan`, then retires what the
-/// run's countries no longer hold.
+/// run's scopes no longer hold.
 ///
 /// # Errors
 ///
@@ -198,10 +219,13 @@ pub async fn run(
 ) -> Result<RunReport, IngestError> {
     let coverage = Coverage::of(&plan.extracts);
     let mut state = load_state(cache, layer, plan).await?;
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut seen_order: Vec<String> = Vec::new();
+    let mut seen = Seen::default();
     let mut latest: Option<DateTime<Utc>> = None;
     let mut reports = Vec::with_capacity(plan.extracts.len());
+    // Only a prefix of the extracts resumes: once one is read again (its
+    // file changed), a later one stored by the stopped attempt was
+    // deduplicated against the old file, and is read again too.
+    let mut resuming = true;
     for spec in &plan.extracts {
         let file = osm_extract::fetch(
             http,
@@ -213,14 +237,15 @@ pub async fn run(
         )
         .await?;
         latest = latest.max(Some(file.fetched_at));
-        if let Some((ids, records)) =
+        let resumed = if resuming {
             resumed_ids(cache, layer, &state, spec.name, file.fetched_at).await?
-        {
+        } else {
+            None
+        };
+        if let Some((ids, records)) = resumed {
             tracing::info!(extract = spec.name, records, "already stored by this run");
-            for id in ids {
-                if seen.insert(id.clone()) {
-                    seen_order.push(id);
-                }
+            for (scope, id) in &ids {
+                seen.add(scope, id);
             }
             reports.push(ExtractReport {
                 name: spec.name,
@@ -235,20 +260,21 @@ pub async fn run(
             });
             continue;
         }
+        resuming = false;
         tracing::info!(extract = spec.name, path = %file.path.display(), "reading the extract");
-        let mut report = match layer {
-            Layer::Places => {
-                store_places(pool, &file, spec, &coverage, &mut seen, &mut seen_order).await?
-            }
-            Layer::Pois => {
-                store_pois(pool, &file, spec, &coverage, &mut seen, &mut seen_order).await?
-            }
+        let (mut report, added) = match layer {
+            Layer::Places => store_places(pool, &file, spec, &mut seen).await?,
+            Layer::Pois => store_pois(pool, &file, spec, &mut seen).await?,
         };
         report.cached = file.cached;
-        // The ids this extract added, for a run that starts again.
-        let added = &seen_order[seen_order.len() - report.records..];
-        let mut text = added.join("\n");
-        text.push('\n');
+        // What this extract added, for a run that starts again.
+        let mut text = String::new();
+        for (scope, id) in &added {
+            text.push_str(scope);
+            text.push('\t');
+            text.push_str(id);
+            text.push('\n');
+        }
         cache
             .write(&seen_key(layer, spec.name), text.as_bytes())
             .await?;
@@ -269,12 +295,15 @@ pub async fn run(
         reports.push(report);
     }
     let at = latest.unwrap_or_else(Utc::now);
+    let Seen { ids, by_scope } = seen;
+    let ids: Vec<String> = ids.into_iter().collect();
     let retirement = match layer {
         Layer::Places => {
-            store::retire_in_coverage(pool, &SourceId::OSM, &coverage, &seen_order, at).await?
+            store::retire_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, at).await?
         }
         Layer::Pois => {
-            store::retire_pois_in_coverage(pool, &SourceId::OSM, &coverage, &seen_order, at).await?
+            store::retire_pois_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, at)
+                .await?
         }
     };
     // The run is complete: the next one starts over.
@@ -289,80 +318,98 @@ pub async fn run(
     })
 }
 
+/// The scope of an id as the run counts it: none counts as French, as for
+/// the points imported before scopes existed.
+fn scope_text(scope: Option<String>) -> String {
+    scope.unwrap_or_else(|| "FR".to_owned())
+}
+
 /// Reads one extract's places on a blocking thread and stores those no
-/// earlier extract of the run gave.
+/// earlier extract of the run gave; returns them with their scopes.
 async fn store_places(
     pool: &PgPool,
     file: &osm_extract::Extract,
     spec: &ExtractSpec,
-    coverage: &Coverage,
-    seen: &mut HashSet<String>,
-    seen_order: &mut Vec<String>,
-) -> Result<ExtractReport, IngestError> {
+    seen: &mut Seen,
+) -> Result<(ExtractReport, Vec<(String, String)>), IngestError> {
     let path = file.path.clone();
     let at = file.fetched_at;
-    let (coverage_owned, spec_owned) = (coverage.clone(), *spec);
-    let parsed = tokio::task::spawn_blocking(move || {
-        osm_extract::read(&path, at, Area::of(&spec_owned, &coverage_owned))
-    })
-    .await
-    .map_err(IngestError::Blocking)??;
+    let area = Area::of(spec);
+    let parsed = tokio::task::spawn_blocking(move || osm_extract::read(&path, at, area))
+        .await
+        .map_err(IngestError::Blocking)??;
     let total = parsed.records.len();
+    let mut added = Vec::with_capacity(total);
     let fresh: Vec<crate::FetchedRecord> = parsed
         .records
         .into_iter()
-        .filter(|r| seen.insert(r.external_id.clone()))
+        .filter(|r| {
+            let scope = scope_text(store::record_scope(r));
+            let new = seen.add(&scope, &r.external_id);
+            if new {
+                added.push((scope, r.external_id.clone()));
+            }
+            new
+        })
         .collect();
-    seen_order.extend(fresh.iter().map(|r| r.external_id.clone()));
     let upsert = store::upsert_by_country(pool, &SourceId::OSM, &fresh).await?;
-    Ok(ExtractReport {
-        name: spec.name,
-        cached: false,
-        resumed: false,
-        records: fresh.len(),
-        skipped: parsed.skipped.len(),
-        duplicates: total - fresh.len(),
-        attached_dump_stations: parsed.attached_dump_stations,
-        folded_pitches: parsed.folded_pitches,
-        upsert,
-    })
+    Ok((
+        ExtractReport {
+            name: spec.name,
+            cached: false,
+            resumed: false,
+            records: fresh.len(),
+            skipped: parsed.skipped.len(),
+            duplicates: total - fresh.len(),
+            attached_dump_stations: parsed.attached_dump_stations,
+            folded_pitches: parsed.folded_pitches,
+            upsert,
+        },
+        added,
+    ))
 }
 
 /// Reads one extract's points on a blocking thread and stores those no
-/// earlier extract of the run gave.
+/// earlier extract of the run gave; returns them with their scopes.
 async fn store_pois(
     pool: &PgPool,
     file: &osm_extract::Extract,
     spec: &ExtractSpec,
-    coverage: &Coverage,
-    seen: &mut HashSet<String>,
-    seen_order: &mut Vec<String>,
-) -> Result<ExtractReport, IngestError> {
+    seen: &mut Seen,
+) -> Result<(ExtractReport, Vec<(String, String)>), IngestError> {
     let path = file.path.clone();
     let at = file.fetched_at;
-    let (coverage_owned, spec_owned) = (coverage.clone(), *spec);
-    let parsed = tokio::task::spawn_blocking(move || {
-        crate::poi_osm::read(&path, at, Area::of(&spec_owned, &coverage_owned))
-    })
-    .await
-    .map_err(IngestError::Blocking)??;
+    let area = Area::of(spec);
+    let parsed = tokio::task::spawn_blocking(move || crate::poi_osm::read(&path, at, area))
+        .await
+        .map_err(IngestError::Blocking)??;
     let total = parsed.points.len();
+    let mut added = Vec::with_capacity(total);
     let fresh: Vec<crate::poi_osm::FetchedPoi> = parsed
         .points
         .into_iter()
-        .filter(|p| seen.insert(p.external_id.clone()))
+        .filter(|p| {
+            let scope = scope_text(store::poi_scope(p));
+            let new = seen.add(&scope, &p.external_id);
+            if new {
+                added.push((scope, p.external_id.clone()));
+            }
+            new
+        })
         .collect();
-    seen_order.extend(fresh.iter().map(|p| p.external_id.clone()));
     let upsert = store::upsert_pois_by_country(pool, &SourceId::OSM, &fresh).await?;
-    Ok(ExtractReport {
-        name: spec.name,
-        cached: false,
-        resumed: false,
-        records: fresh.len(),
-        skipped: parsed.skipped.len(),
-        duplicates: total - fresh.len(),
-        attached_dump_stations: 0,
-        folded_pitches: 0,
-        upsert,
-    })
+    Ok((
+        ExtractReport {
+            name: spec.name,
+            cached: false,
+            resumed: false,
+            records: fresh.len(),
+            skipped: parsed.skipped.len(),
+            duplicates: total - fresh.len(),
+            attached_dump_stations: 0,
+            folded_pitches: 0,
+            upsert,
+        },
+        added,
+    ))
 }

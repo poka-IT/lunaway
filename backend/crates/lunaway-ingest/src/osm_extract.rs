@@ -50,9 +50,13 @@ pub struct ExtractSpec {
     pub name: &'static str,
     /// Path under the mirror, without `-latest.osm.pbf` (`europe/france`).
     pub path: &'static str,
-    /// The countries it covers, by their code; empty for an extract that
-    /// covers every country it holds (a continent).
+    /// The scopes it covers, by their code (a country, or a part of one in
+    /// [`SPLIT_AREAS`]); empty for an extract that covers every country it
+    /// holds (a continent).
     pub covers: &'static [&'static str],
+    /// The country of an element of the extract that lies in none (at sea,
+    /// on a pier past the coastline the boundaries draw).
+    pub country: Option<&'static str>,
 }
 
 const fn spec(
@@ -60,20 +64,37 @@ const fn spec(
     path: &'static str,
     covers: &'static [&'static str],
 ) -> ExtractSpec {
-    ExtractSpec { name, path, covers }
+    let country = match covers.first() {
+        Some(c) => Some(*c),
+        None => None,
+    };
+    ExtractSpec {
+        name,
+        path,
+        covers,
+        country,
+    }
 }
 
 /// The extracts the importers know. A microstate or a territory inside an
 /// extract's cut is covered by it (Monaco by France, San Marino and the
 /// Vatican by Italy, Gibraltar by Spain, Svalbard by Norway, Åland by
-/// Finland: Geofabrik's `.poly` files, read 2026-10-06); the Canary
-/// Islands are Geofabrik's `africa/canary-islands`, outside `spain`, and
-/// cover their own scope ([`SPLIT_AREAS`]). An extract covers only what it
-/// holds whole: a run retires in the scopes it covers.
+/// Finland, the Azores and Madeira by Portugal: Geofabrik's `.poly` files,
+/// read 2026-10-06); the Canary Islands are Geofabrik's
+/// `africa/canary-islands`, outside `spain`, and cover their own scope
+/// ([`SPLIT_AREAS`]). An extract covers only what it holds whole: a run
+/// retires in the scopes it covers, and an extract keeps only the elements
+/// of the scopes it covers, so a neighbour's margin never stands for that
+/// neighbour.
 pub const CATALOGUE: &[ExtractSpec] = &[
     spec("france", "europe/france", &["FR", "MC"]),
     spec("spain", "europe/spain", &["ES", "GI"]),
-    spec("canary-islands", "africa/canary-islands", &["IC"]),
+    ExtractSpec {
+        name: "canary-islands",
+        path: "africa/canary-islands",
+        covers: &["IC"],
+        country: Some("ES"),
+    },
     spec("portugal", "europe/portugal", &["PT"]),
     spec("italy", "europe/italy", &["IT", "SM", "VA"]),
     spec("germany", "europe/germany", &["DE"]),
@@ -202,12 +223,12 @@ impl ExtractSpec {
     /// sea, on a pier past the coastline the boundaries draw).
     #[must_use]
     pub fn fallback_country(&self) -> Option<&'static str> {
-        self.covers.first().copied()
+        self.country
     }
 }
 
-/// The countries a run reads in full, so it may retire the records of
-/// those countries it did not see, and only those.
+/// The scopes a run reads in full, so it may retire the records of those
+/// scopes it did not see, and only those.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Coverage {
     /// Every country: a run of a continent's extract.
@@ -229,15 +250,6 @@ impl Coverage {
                 .flat_map(|s| s.covers.iter().map(|c| (*c).to_owned()))
                 .collect(),
         )
-    }
-
-    /// Whether an element of `country` belongs to the run.
-    #[must_use]
-    pub fn admits(&self, country: &str) -> bool {
-        match self {
-            Self::Everywhere => true,
-            Self::Countries(set) => set.contains(country),
-        }
     }
 
     /// The scopes a run retires records in; `None` for every scope.
@@ -628,37 +640,42 @@ fn pbf_err(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
     }
 }
 
-/// Which elements of an extract a read keeps: those in a country of the
-/// run, each tagged with it; an element in no country (at sea) takes the
-/// extract's own.
+/// Which elements of an extract a read keeps: those of the scopes the
+/// extract covers, each tagged with its country; an element in no country
+/// (at sea) takes the extract's own. An element of a neighbour, in the
+/// margin Geofabrik leaves around a country, is left to the neighbour's
+/// extract, so it is read, folded and stored the same way whichever
+/// extracts a run holds.
 #[derive(Debug, Clone, Copy)]
-pub struct Area<'a> {
-    /// The countries of the run.
-    pub coverage: &'a Coverage,
+pub struct Area {
+    /// The scopes kept; every scope when empty.
+    covers: &'static [&'static str],
     /// The country of an element that lies in none.
-    pub fallback: Option<&'static str>,
+    fallback: Option<&'static str>,
 }
 
-impl<'a> Area<'a> {
-    /// The area of `spec` within `coverage`.
+impl Area {
+    /// The area of `spec`.
     #[must_use]
-    pub fn of(spec: &ExtractSpec, coverage: &'a Coverage) -> Self {
+    pub fn of(spec: &ExtractSpec) -> Self {
         Self {
-            coverage,
+            covers: spec.covers,
             fallback: spec.fallback_country(),
         }
     }
 
-    /// The country of a point of the extract, when the run keeps it.
-    fn country(&self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
+    /// The country of a point of the extract, when the extract keeps it.
+    fn country(self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
         let Ok(position) = lunaway_domain::Position::new(lat, lon) else {
             return Ok(None);
         };
         let found = lunaway_domain::region::country_at(position).or(self.fallback);
+        let kept = |c: &'static str| {
+            self.covers.is_empty()
+                || scope_of(position, Some(c)).is_some_and(|s| self.covers.contains(&s.as_str()))
+        };
         match found {
-            Some(c) if scope_of(position, Some(c)).is_some_and(|s| self.coverage.admits(&s)) => {
-                Ok(Some(c))
-            }
+            Some(c) if kept(c) => Ok(Some(c)),
             Some(_) => Err(()),
             None => Ok(None),
         }
@@ -671,7 +688,7 @@ impl<'a> Area<'a> {
 /// # Errors
 ///
 /// [`IngestError::Pbf`] when the file is not a readable PBF.
-pub fn read(path: &Path, fetched_at: DateTime<Utc>, area: Area<'_>) -> Result<Parsed, IngestError> {
+pub fn read(path: &Path, fetched_at: DateTime<Utc>, area: Area) -> Result<Parsed, IngestError> {
     let (elements, outside) = read_selected(path, &Places, area)?;
     let mut parsed = osm::build(elements, fetched_at);
     parsed
@@ -695,7 +712,7 @@ pub(crate) type Selection = (Vec<(Element, serde_json::Value)>, Vec<String>);
 pub(crate) fn read_selected<S: Selector>(
     path: &Path,
     selector: &S,
-    area: Area<'_>,
+    area: Area,
 ) -> Result<Selection, IngestError> {
     // Pass 1: the tagged elements.
     let found = reader(path)?

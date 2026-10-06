@@ -1099,6 +1099,39 @@ async fn a_community_place_is_verified_once_an_open_source_lists_it(pool: PgPool
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_place_without_an_address_takes_the_country_of_its_position(pool: PgPool) {
+    // What a community submission gives: no address at all.
+    let raw = serde_json::json!({});
+    let record = campsite("Aire du lac", 45.9, 6.13);
+    assert_eq!(record.address.country_code, None);
+    records::upsert(
+        &pool,
+        &SourceId::COMMUNITY,
+        &[records::NewRecord {
+            external_id: "submission/1",
+            external_url: None,
+            record: &record,
+            raw: &raw,
+            fetched_at: Utc::now(),
+            scope: None,
+        }],
+    )
+    .await
+    .unwrap();
+    run(&pool, at(2)).await.unwrap();
+    let (country, region): (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT country_code, region FROM places")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        (country.as_deref(), region.as_deref()),
+        (Some("FR"), Some("FR")),
+        "a place only the community describes gets a time zone and a sync region"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn an_issue_leaves_the_card_once_its_window_has_passed(pool: PgPool) {
     ingest_fixtures(&pool).await;
     run(&pool, at(2)).await.unwrap();

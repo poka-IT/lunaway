@@ -38,7 +38,9 @@ pub(crate) async fn run(pool: &PgPool, action: Packs) -> anyhow::Result<()> {
         } => {
             let options = PackOptions {
                 dir,
-                only,
+                // The codes are upper case (`FR-BRE`); an operator may type
+                // them otherwise.
+                only: only.iter().map(|r| r.to_ascii_uppercase()).collect(),
                 takedown,
             };
             let built =

@@ -22,11 +22,8 @@ use lunaway_ingest::{
 const KEY: &str = "osm-extract/france-latest.osm.pbf";
 
 /// The area of a run of the France extract alone.
-fn france() -> osm_extract::Area<'static> {
-    static COVERAGE: std::sync::LazyLock<osm_extract::Coverage> = std::sync::LazyLock::new(|| {
-        osm_extract::Coverage::of(&[osm_extract::extract("france").unwrap()])
-    });
-    osm_extract::Area::of(&osm_extract::extract("france").unwrap(), &COVERAGE)
+fn france() -> osm_extract::Area {
+    osm_extract::Area::of(&osm_extract::extract("france").unwrap())
 }
 
 fn varint(out: &mut Vec<u8>, mut v: u64) {
@@ -732,23 +729,26 @@ fn an_element_belongs_to_the_country_it_stands_in() {
         Some("FR")
     );
 
-    let both = osm_extract::Coverage::of(&[
-        osm_extract::extract("france").unwrap(),
-        osm_extract::extract("germany").unwrap(),
-    ]);
+    // Read as Germany's extract, the same file gives the German campsite
+    // only, with its country.
     let read = osm_extract::read(
         &path,
         at,
-        osm_extract::Area::of(&osm_extract::extract("france").unwrap(), &both),
+        osm_extract::Area::of(&osm_extract::extract("germany").unwrap()),
     )
     .unwrap();
-    let german = read
+    let ids: Vec<&str> = read
         .records
         .iter()
-        .find(|r| r.external_id == "node/2")
-        .expect("a run of France and Germany keeps it");
+        .map(|r| r.external_id.as_str())
+        .collect();
     assert_eq!(
-        german.record.address.country_code.as_deref(),
+        ids,
+        ["node/2"],
+        "an extract keeps its own country, never a neighbour's margin"
+    );
+    assert_eq!(
+        read.records[0].record.address.country_code.as_deref(),
         Some("DE"),
         "its country, hence its scope, time zone and sync region, is Germany's"
     );
@@ -831,16 +831,13 @@ async fn a_run_of_two_countries_stores_each_once_resumes_and_retires_by_country(
     assert!(failed.is_err());
     assert_eq!(
         scopes(&pool).await,
-        [
-            ("node/1".to_owned(), Some("FR".to_owned()), false),
-            ("node/2".to_owned(), Some("DE".to_owned()), false),
-        ],
-        "each record under its country, the German one too since Germany is in the run"
+        [("node/1".to_owned(), Some("FR".to_owned()), false)],
+        "France's extract stores France's campsite, not the German one in its margin"
     );
 
     // Germany answers: France, downloaded within the hour, is neither
-    // downloaded nor read again, and the campsite both files hold is stored
-    // once.
+    // downloaded nor read again, and the German campsites come from
+    // Germany's extract.
     mirror
         .files
         .lock()
@@ -861,9 +858,12 @@ async fn a_run_of_two_countries_stores_each_once_resumes_and_retires_by_country(
     );
     assert_eq!(
         (done.extracts[1].records, done.extracts[1].duplicates),
-        (1, 1)
+        (2, 0)
     );
-    assert_eq!(done.retirement.retired, 0);
+    assert_eq!(
+        done.retirement,
+        lunaway_ingest::store::Retirement::default()
+    );
 
     // Germany alone, without its campsite past the Rhine: retired, and the
     // French campsite, outside the run, stays.
@@ -943,5 +943,140 @@ async fn a_country_split_between_extracts_keeps_its_other_part(pool: sqlx::PgPoo
             ("node/10".to_owned(), Some("ES".to_owned()), false),
             ("node/11".to_owned(), Some("IC".to_owned()), false),
         ]
+    );
+}
+
+/// `n` French campsites around Angers, then `m` German ones, ids from 100.
+fn french_and_german(n: usize, m: usize) -> (Vec<u8>, Vec<u8>) {
+    let fr: Vec<(i64, f64, f64, String)> = (0..n)
+        .map(|i| {
+            (
+                100 + i as i64,
+                47.0 + i as f64 * 0.01,
+                -0.5,
+                format!("Camping {i}"),
+            )
+        })
+        .collect();
+    let de: Vec<(i64, f64, f64, String)> = (0..m)
+        .map(|i| {
+            (
+                500 + i as i64,
+                49.0 + i as f64 * 0.01,
+                9.0,
+                format!("Platz {i}"),
+            )
+        })
+        .collect();
+    let as_ref = |v: &[(i64, f64, f64, String)]| {
+        campsites(
+            &v.iter()
+                .map(|(id, lat, lon, name)| (*id, *lat, *lon, name.as_str()))
+                .collect::<Vec<_>>(),
+        )
+    };
+    (as_ref(&fr), as_ref(&de))
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_truncated_country_is_left_alone_while_the_others_are_retired(pool: sqlx::PgPool) {
+    use lunaway_ingest::extract_run::{self, ExtractPlan, Layer};
+    let mirror = Mirror::default();
+    let (fr, de) = french_and_german(20, 10);
+    mirror.files.lock().unwrap().insert("france".into(), fr);
+    mirror.files.lock().unwrap().insert("germany".into(), de);
+    let addr = serve_mirror(mirror.clone()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let plan = ExtractPlan {
+        extracts: vec![
+            osm_extract::extract("france").unwrap(),
+            osm_extract::extract("germany").unwrap(),
+        ],
+        mirror: format!("http://{addr}"),
+        refresh: Refresh::OlderThan(std::time::Duration::ZERO),
+        retry: fast(),
+    };
+    extract_run::run(&pool, &client, &cache, &plan, Layer::Places)
+        .await
+        .unwrap();
+
+    // France's file comes back with 2 of its 20 campsites, Germany's with
+    // 9 of 10: together 11 of 30 would hide France's truncation.
+    let (fr, de) = french_and_german(2, 9);
+    mirror.files.lock().unwrap().insert("france".into(), fr);
+    mirror.files.lock().unwrap().insert("germany".into(), de);
+    let r = extract_run::run(&pool, &client, &cache, &plan, Layer::Places)
+        .await
+        .unwrap();
+    assert_eq!(
+        r.retirement.refused,
+        ["FR"],
+        "France is judged on its own share"
+    );
+    assert_eq!(r.retirement.retired, 1, "Germany's missing campsite goes");
+    let live_french: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM source_records WHERE scope = 'FR' AND deleted_at IS NULL",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        live_french, 20,
+        "no French record is retired on a truncated file"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_changed_file_is_read_again_with_every_extract_after_it(pool: sqlx::PgPool) {
+    use lunaway_ingest::extract_run::{self, ExtractPlan, Layer};
+    let mirror = Mirror::default();
+    let (fr, de) = french_and_german(3, 3);
+    mirror.files.lock().unwrap().insert("france".into(), fr);
+    mirror.files.lock().unwrap().insert("germany".into(), de);
+    let addr = serve_mirror(mirror.clone()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let plan = ExtractPlan {
+        extracts: ["france", "germany", "poland"]
+            .iter()
+            .map(|n| osm_extract::extract(n).unwrap())
+            .collect(),
+        mirror: format!("http://{addr}"),
+        refresh: Refresh::OlderThan(std::time::Duration::from_secs(3_600)),
+        retry: fast(),
+    };
+    // Poland fails: France and Germany are stored.
+    assert!(
+        extract_run::run(&pool, &client, &cache, &plan, Layer::Places)
+            .await
+            .is_err()
+    );
+    // France's cached file changes before the next attempt.
+    let france = dir.path().join(
+        osm_extract::extract("france")
+            .unwrap()
+            .cache_key(&plan.mirror),
+    );
+    std::fs::File::options()
+        .write(true)
+        .open(&france)
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(5))
+        .unwrap();
+    mirror.files.lock().unwrap().insert(
+        "poland".into(),
+        campsites(&[(900, 50.06, 19.94, "Camping Kraków")]),
+    );
+    let done = extract_run::run(&pool, &client, &cache, &plan, Layer::Places)
+        .await
+        .unwrap();
+    let resumed: Vec<bool> = done.extracts.iter().map(|e| e.resumed).collect();
+    assert_eq!(
+        resumed,
+        [false, false, false],
+        "Germany was stored against the old French file: it is read again too"
     );
 }

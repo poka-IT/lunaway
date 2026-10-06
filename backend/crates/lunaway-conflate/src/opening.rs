@@ -143,8 +143,14 @@ pub fn today_in_france() -> NaiveDate {
     Utc::now().with_timezone(&Tz::Europe__Paris).date_naive()
 }
 
+/// The first instant of `day` in `tz`: its midnight, or, where a summer
+/// time change skips midnight (the Azores go from 23:59 to 01:00 on the last
+/// Sunday of March), the first time that exists.
 fn local_midnight(tz: Tz, day: NaiveDate) -> Option<chrono::DateTime<Tz>> {
-    tz.from_local_datetime(&NaiveDateTime::from(day)).earliest()
+    let midnight = NaiveDateTime::from(day);
+    (0..=12)
+        .map(|quarters| midnight + chrono::Duration::minutes(15 * quarters))
+        .find_map(|t| tz.from_local_datetime(&t).earliest())
 }
 
 /// Evaluates `opening_hours` for the window starting on the place's own
@@ -435,6 +441,29 @@ mod tests {
             helsinki.intervals.unwrap()[0].start,
             utc(2026, 11, 2, 22),
             "Helsinki's day began at 22:00 UTC"
+        );
+    }
+
+    #[test]
+    fn a_day_whose_midnight_is_skipped_starts_at_its_first_hour() {
+        // Sunday 28 March 2027 on the Azores: from 23:59 the clock goes to
+        // 01:00 (UTC-1 to UTC+0).
+        let azores = at(37.74, -25.67);
+        let day = NaiveDate::from_ymd_opt(2027, 3, 28).unwrap();
+        let e = evaluate(Some("24/7"), Some("PT"), azores, day);
+        assert_eq!(
+            e.intervals.unwrap()[0].start,
+            utc(2027, 3, 28, 1),
+            "the window starts at 01:00 local, 01:00 UTC, rather than having none"
+        );
+        assert_eq!(
+            refresh_at(
+                Some("PT"),
+                azores,
+                NaiveDate::from_ymd_opt(2027, 3, 27).unwrap()
+            ),
+            utc(2027, 3, 28, 1),
+            "the day before moves at that first hour, not at UTC midnight"
         );
     }
 

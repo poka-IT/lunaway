@@ -357,6 +357,13 @@ pub enum Change {
         /// Its position in the feed.
         seq: i64,
     },
+    /// Moved to another sync region: still a place, gone from this one.
+    Left {
+        /// The place.
+        id: Uuid,
+        /// The position at which it left.
+        seq: i64,
+    },
 }
 
 impl Change {
@@ -365,7 +372,7 @@ impl Change {
     pub fn seq(&self) -> i64 {
         match self {
             Self::Upsert(p) => p.updated_seq,
-            Self::Delete { seq, .. } => *seq,
+            Self::Delete { seq, .. } | Self::Left { seq, .. } => *seq,
         }
     }
 }
@@ -419,7 +426,10 @@ pub async fn changes(
 /// The places of the sync region `region` changed after `since`, in feed
 /// order, at most `first`; plus whether more follow. A place keeps its
 /// region in its tombstone, so its deletion reaches the devices that keep
-/// the region. Deletions are left out when `with_deletions` is false.
+/// the region; a place that left the region (its commune or its country
+/// changed) comes as [`Change::Left`], at the position it left at
+/// (`place_region_exits`). Deletions and departures are left out when
+/// `with_deletions` is false.
 ///
 /// # Errors
 ///
@@ -455,7 +465,50 @@ pub async fn changes_in_region(
     )
     .fetch_all(pool)
     .await?;
-    page_of_changes(rows, first)
+    let (mut changes, mut has_more) = page_of_changes(rows, first)?;
+    if !with_deletions {
+        return Ok((changes, has_more));
+    }
+    // The departures within the page: up to its last change when more
+    // follow, all of them otherwise, at most `first`. A place that came back
+    // to the region is not a departure.
+    let upto = if has_more {
+        changes.last().map_or(since, Change::seq)
+    } else {
+        i64::MAX
+    };
+    let exits = sqlx::query!(
+        r#"
+        SELECT e.place_id, e.seq FROM place_region_exits e
+        WHERE e.region = $1 AND e.seq > $2 AND e.seq <= $3
+          AND NOT EXISTS (SELECT 1 FROM places p WHERE p.id = e.place_id AND p.region = e.region)
+        ORDER BY e.seq
+        LIMIT $4
+        "#,
+        region,
+        since,
+        upto,
+        first + 1,
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut exits: Vec<Change> = exits
+        .into_iter()
+        .map(|e| Change::Left {
+            id: e.place_id,
+            seq: e.seq,
+        })
+        .collect();
+    if i64::try_from(exits.len()).unwrap_or(i64::MAX) > first {
+        // Too many for one page: it ends at the last departure it holds.
+        exits.truncate(usize::try_from(first).unwrap_or(0));
+        let cut = exits.last().map_or(since, Change::seq);
+        changes.retain(|c| c.seq() <= cut);
+        has_more = true;
+    }
+    changes.extend(exits);
+    changes.sort_by_key(Change::seq);
+    Ok((changes, has_more))
 }
 
 fn page_of_changes(rows: Vec<PlaceDb>, first: i64) -> Result<(Vec<Change>, bool), DbError> {

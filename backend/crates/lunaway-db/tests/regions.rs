@@ -53,15 +53,23 @@ async fn a_place_on_the_shore_takes_the_nearest_commune(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    for (id, lon) in [(1, -4.47), (2, -4.446), (3, -4.38)] {
+    // The fourth is as close as the second, but foreign: a place across a
+    // border must not take a French commune.
+    for (id, lon, country) in [
+        (1, -4.47, "FR"),
+        (2, -4.446, "FR"),
+        (3, -4.38, "FR"),
+        (4, -4.446, "DE"),
+    ] {
         sqlx::query(
             "INSERT INTO places (id, kind, geom, overnight, services, activities, country_code, \
                                  provenance, content_hash, updated_seq) \
              VALUES ($1, 'campsite', ST_SetSRID(ST_MakePoint($2, 48.40), 4326)::geography, \
-                     'unknown', '{}', '{}', 'FR', '[]', 'x', nextval('place_change_seq'))",
+                     'unknown', '{}', '{}', $3, '[]', 'x', nextval('place_change_seq'))",
         )
         .bind(uuid::Uuid::from_u128(id))
         .bind(lon)
+        .bind(country)
         .execute(&pool)
         .await
         .unwrap();
@@ -90,6 +98,7 @@ async fn a_place_on_the_shore_takes_the_nearest_commune(pool: PgPool) {
                 Some("FR-BRE".into())
             ),
             (uuid::Uuid::from_u128(3), None, Some("FR".into())),
+            (uuid::Uuid::from_u128(4), None, Some("DE".into())),
         ],
         "the shore's campsite syncs with Brittany; a point far out stays outside every commune"
     );

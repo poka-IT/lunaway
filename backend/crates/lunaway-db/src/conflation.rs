@@ -440,12 +440,15 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
     sqlx::query!(
         r#"
         WITH m AS (
-            -- The commune that covers the point, else the nearest within
-            -- about a kilometre: the communes are simplified to 100 m, and
-            -- a campsite on the shore fell outside every one (24 of 18 391
-            -- French places, all within 422 m of one, on 2026-10-06).
+            -- The commune that covers the point, else, for a French place,
+            -- the nearest within 0.015 degree (1.1 to 1.7 km): the communes
+            -- are simplified to 100 m, and a campsite on the shore fell
+            -- outside every one (24 of 18 391 French places, all within
+            -- 422 m of one, on 2026-10-06). A place across a border gets no
+            -- French commune.
             SELECT code, name FROM municipalities
-            WHERE ST_DWithin(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326), 0.015)
+            WHERE ST_DWithin(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326),
+                             CASE WHEN upper($13::text) = 'FR' THEN 0.015 ELSE 0.0 END)
             ORDER BY NOT ST_Covers(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)),
                      ST_Distance(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)), code
             LIMIT 1

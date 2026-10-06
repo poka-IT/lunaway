@@ -401,7 +401,7 @@ impl Selector for Pois {
 pub fn read(
     path: &std::path::Path,
     fetched_at: DateTime<Utc>,
-    area: osm_extract::Area<'_>,
+    area: osm_extract::Area,
 ) -> Result<ParsedPois, IngestError> {
     let (elements, outside) = osm_extract::read_selected(path, &Pois, area)?;
     let mut parsed = build(elements, fetched_at);

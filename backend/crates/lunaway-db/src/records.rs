@@ -260,6 +260,28 @@ pub async fn retire_missing_in_source(
     Ok(done.rows_affected())
 }
 
+/// Live records of `source` by scope (records without a scope left out).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn live_counts_by_scope(
+    pool: &PgPool,
+    source: &SourceId,
+) -> Result<std::collections::BTreeMap<String, i64>, DbError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT scope AS "scope!", count(*) AS "n!" FROM source_records
+        WHERE source_id = $1 AND deleted_at IS NULL AND scope IS NOT NULL
+        GROUP BY scope
+        "#,
+        source.as_str(),
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| (r.scope, r.n)).collect())
+}
+
 /// Live records of `source` in any of `scopes`.
 ///
 /// # Errors

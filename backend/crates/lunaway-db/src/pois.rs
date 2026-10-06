@@ -396,6 +396,29 @@ pub async fn live_count(
     .await?)
 }
 
+/// Live points of `source` by scope, a point imported before scopes existed
+/// counting as French.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn live_counts_by_scope(
+    pool: &PgPool,
+    source: &SourceId,
+) -> Result<std::collections::BTreeMap<String, i64>, DbError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT coalesce(scope, 'FR') AS "scope!", count(*) AS "n!" FROM pois
+        WHERE source_id = $1 AND deleted_at IS NULL
+        GROUP BY 1
+        "#,
+        source.as_str(),
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| (r.scope, r.n)).collect())
+}
+
 /// Marks as deleted the live points of `source` whose external id is not in
 /// `seen`, in any of `scopes` (every scope when `None`): a run of country
 /// extracts speaks for those countries only. A point imported before
@@ -648,7 +671,9 @@ pub async fn stale_hours(
         WHERE p.deleted_at IS NULL
           AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)
           AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)
-        ORDER BY p.id
+        -- In the order of the partial index on the refresh instant, so a
+        -- batch stops at its limit instead of sorting every stale point.
+        ORDER BY p.opening_refresh_at NULLS FIRST, p.id
         LIMIT $2
         "#,
         now,

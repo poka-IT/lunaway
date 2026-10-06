@@ -365,7 +365,12 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   for every region whose places changed and records them in `region_packs`.
   The API host serves `/srv/data/packs/` read-only under `/packs/`
   (byte ranges, a year of cache: a file never changes under its name), and
-  `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`.
+  `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`. After a
+  place is taken down, `lunaway packs build --region <code> --takedown`
+  rebuilds its region and removes the previous file at once.
+- **Once, at the deployment:** `lunaway conflate --full`, so a place only
+  the community describes gets the country of its position, hence a sync
+  region.
 
 ## Status page
 

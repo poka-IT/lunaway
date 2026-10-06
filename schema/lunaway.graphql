@@ -237,6 +237,13 @@ type ChangeSet {
 	"""
 	deleted: [UUID!]!
 	"""
+	Places that moved to another sync region since the cursor (their
+	commune or their country changed), in a sync by `region`: drop them
+	unless the device keeps the region they moved to. Empty in a sync by
+	`bbox` and on a first sync.
+	"""
+	left: [UUID!]!
+	"""
 	Pass it as `since` to get what follows. Opaque.
 	"""
 	cursor: String!

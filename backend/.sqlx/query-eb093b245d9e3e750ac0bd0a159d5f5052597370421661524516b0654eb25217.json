@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT region AS \"region!\",\n                   count(*) FILTER (WHERE deleted_at IS NULL) AS \"places!\",\n                   max(updated_seq) AS \"last_seq!\",\n                   min(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"south!\",\n                   min(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"west!\",\n                   max(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"north!\",\n                   max(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"east!\"\n            FROM places\n            WHERE region IS NOT NULL\n            GROUP BY region\n            HAVING count(*) FILTER (WHERE deleted_at IS NULL) > 0\n            ORDER BY region\n            ",
+  "query": "\n            SELECT region AS \"region!\",\n                   count(*) FILTER (WHERE deleted_at IS NULL) AS \"places!\",\n                   greatest(max(updated_seq),\n                            (SELECT max(e.seq) FROM place_region_exits e\n                             WHERE e.region = places.region)) AS \"last_seq!\",\n                   min(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"south!\",\n                   min(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"west!\",\n                   max(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"north!\",\n                   max(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS \"east!\"\n            FROM places\n            WHERE region IS NOT NULL\n            GROUP BY region\n            HAVING count(*) FILTER (WHERE deleted_at IS NULL) > 0\n            ORDER BY region\n            ",
   "describe": {
     "columns": [
       {
@@ -64,5 +64,5 @@
       null
     ]
   },
-  "hash": "23b901325f408eab5557f880ee2976ab9c77f0ae934a50a3345f1fcbf347912a"
+  "hash": "eb093b245d9e3e750ac0bd0a159d5f5052597370421661524516b0654eb25217"
 }

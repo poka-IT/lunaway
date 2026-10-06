@@ -74,10 +74,10 @@ pub async fn replace_all(
     })
 }
 
-/// Gives every live place the commune that covers its point, else the
-/// nearest within about a kilometre (as the conflation does; none farther
-/// from the communes loaded), moving in the change feed only the places
-/// whose commune changed. Returns how many.
+/// Gives every live place the commune that covers its point, else, for a
+/// French place, the nearest within 0.015 degree (as the conflation does),
+/// moving in the change feed only the places whose commune changed. Returns
+/// how many.
 ///
 /// # Errors
 ///
@@ -89,8 +89,11 @@ pub async fn refresh_places(tx: &mut WriterTx) -> Result<u64, DbError> {
             SELECT p.id, m.name, m.code
             FROM places p
             LEFT JOIN LATERAL (
+                -- As the conflation does: the covering commune, else, for a
+                -- French place, the nearest within 0.015 degree.
                 SELECT name, code FROM municipalities mm
-                WHERE ST_DWithin(mm.geom, p.geom::geometry, 0.015)
+                WHERE ST_DWithin(mm.geom, p.geom::geometry,
+                                 CASE WHEN upper(p.country_code) = 'FR' THEN 0.015 ELSE 0.0 END)
                 ORDER BY NOT ST_Covers(mm.geom, p.geom::geometry),
                          ST_Distance(mm.geom, p.geom::geometry), code
                 LIMIT 1

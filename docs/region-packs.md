@@ -12,14 +12,16 @@ elsewhere (ISO 3166-1, `ES`). The list is fixed in the code
 (`lunaway_domain::region::SYNC_REGIONS`):
 
 - a French place belongs to the region of its commune (the commune that
-  covers it, else the nearest within about a kilometre); `FR` holds the
-  few French places farther than that from every commune;
+  covers it, else the nearest within 0.015 degree, 1.1 to 1.7 km); `FR`
+  holds the few French places farther than that from every commune;
 - a place elsewhere belongs to its country, by its position;
 - a microstate goes with the region around it: Monaco with `FR-PAC`,
   Andorra and Gibraltar with `ES`, San Marino and the Vatican with `IT`,
   Liechtenstein with `CH`, Svalbard with `NO`, Åland with `FI`.
 
-`Place.region` gives the region of a place.
+`Place.region` gives the region of a place. A place whose commune or
+country changes moves to another region: the feed of the region it left
+lists it in `left` (below).
 
 ## The manifest
 
@@ -127,12 +129,14 @@ virtual file system; until it does, the web app syncs the region with
 
 ```graphql
 query($region: String, $since: String) {
-  changes(region: $region, since: $since) { places { ...PlaceFields } deleted cursor hasMore }
+  changes(region: $region, since: $since) { places { ...PlaceFields } deleted left cursor hasMore }
 }
 ```
 
 with `since` the pack's cursor, then each page's cursor. A place changed or
-deleted after the pack was built comes in the first pages. `RESYNC` means
+deleted after the pack was built comes in the first pages. `left` lists
+the places that moved to another region: a device drops them unless it
+keeps the region they moved to (their `region` there tells which). `RESYNC` means
 the cursor belongs to another copy of the database: import the region's
 current pack again (or sync from `since: null`). `changes` takes either
 `bbox` or `region`.

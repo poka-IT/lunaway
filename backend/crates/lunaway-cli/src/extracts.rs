@@ -106,12 +106,13 @@ pub(crate) fn print_run(r: &RunReport, what: &str) -> anyhow::Result<()> {
             println!("countries: {}", codes.join(" "));
         }
     }
-    if r.retirement.refused {
+    println!("retired: {}", r.retirement.retired);
+    if !r.retirement.refused.is_empty() {
         anyhow::bail!(
-            "retiring refused for {what}: the run holds less than half of the stored ones \
-             (truncated?); they were stored, none retired"
+            "retiring refused for the {what} of {}: the run holds less than half of the stored \
+             ones there (truncated?); they were stored, none retired there",
+            r.retirement.refused.join(", ")
         );
     }
-    println!("retired: {}", r.retirement.retired);
     Ok(())
 }

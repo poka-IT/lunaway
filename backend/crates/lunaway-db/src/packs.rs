@@ -85,7 +85,9 @@ impl Snapshot {
             r#"
             SELECT region AS "region!",
                    count(*) FILTER (WHERE deleted_at IS NULL) AS "places!",
-                   max(updated_seq) AS "last_seq!",
+                   greatest(max(updated_seq),
+                            (SELECT max(e.seq) FROM place_region_exits e
+                             WHERE e.region = places.region)) AS "last_seq!",
                    min(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "south!",
                    min(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "west!",
                    max(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "north!",
@@ -191,7 +193,8 @@ pub struct RegionExtent {
     /// Its live places.
     pub places: i64,
     /// The last position of the feed that changed one of its places,
-    /// deletions included: a pack built at or after it is still current.
+    /// deletions and departures included: a pack built at or after it is
+    /// still current.
     pub last_seq: i64,
     /// Southern edge of the box around them.
     pub south: f64,
@@ -235,6 +238,9 @@ pub struct RegionPack {
     pub sha256: String,
     /// When it was built.
     pub generated_at: DateTime<Utc>,
+    /// What it was built with besides its places (format, fields, the
+    /// photos' URL); a pack of another fingerprint is built again.
+    pub fingerprint: Option<String>,
 }
 
 /// Every pack built, by region.
@@ -247,7 +253,7 @@ pub async fn all(pool: &PgPool) -> Result<Vec<RegionPack>, DbError> {
         RegionPack,
         r#"
         SELECT region, seq, feed_identity, places, south, west, north, east, file, format,
-               bytes, raw_bytes, sha256, generated_at
+               bytes, raw_bytes, sha256, generated_at, fingerprint
         FROM region_packs
         ORDER BY region
         "#
@@ -273,14 +279,16 @@ pub async fn record(pool: &PgPool, p: &RegionPack) -> Result<Option<String>, DbE
     sqlx::query!(
         r#"
         INSERT INTO region_packs (region, seq, feed_identity, places, south, west, north, east,
-                                  file, format, bytes, raw_bytes, sha256, generated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                  file, format, bytes, raw_bytes, sha256, generated_at,
+                                  fingerprint)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (region) DO UPDATE SET
             seq = EXCLUDED.seq, feed_identity = EXCLUDED.feed_identity,
             places = EXCLUDED.places, south = EXCLUDED.south, west = EXCLUDED.west,
             north = EXCLUDED.north, east = EXCLUDED.east, file = EXCLUDED.file,
             format = EXCLUDED.format, bytes = EXCLUDED.bytes, raw_bytes = EXCLUDED.raw_bytes,
-            sha256 = EXCLUDED.sha256, generated_at = EXCLUDED.generated_at
+            sha256 = EXCLUDED.sha256, generated_at = EXCLUDED.generated_at,
+            fingerprint = EXCLUDED.fingerprint
         "#,
         p.region,
         p.seq,
@@ -296,6 +304,7 @@ pub async fn record(pool: &PgPool, p: &RegionPack) -> Result<Option<String>, DbE
         p.raw_bytes,
         p.sha256,
         p.generated_at,
+        p.fingerprint,
     )
     .execute(&mut *tx)
     .await?;

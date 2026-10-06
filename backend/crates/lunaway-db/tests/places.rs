@@ -226,7 +226,7 @@ async fn the_change_feed_pages_by_cursor_and_reports_deletions(pool: PgPool) {
         .iter()
         .map(|ch| match ch {
             Change::Upsert(p) => p.id,
-            Change::Delete { id, .. } => *id,
+            Change::Delete { id, .. } | Change::Left { id, .. } => *id,
         })
         .collect();
     assert_eq!(ids, [a, b]);

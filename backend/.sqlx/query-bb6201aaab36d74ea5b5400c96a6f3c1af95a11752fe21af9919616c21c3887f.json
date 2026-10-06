@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT region, seq, feed_identity, places, south, west, north, east, file, format,\n               bytes, raw_bytes, sha256, generated_at\n        FROM region_packs\n        ORDER BY region\n        ",
+  "query": "\n        SELECT region, seq, feed_identity, places, south, west, north, east, file, format,\n               bytes, raw_bytes, sha256, generated_at, fingerprint\n        FROM region_packs\n        ORDER BY region\n        ",
   "describe": {
     "columns": [
       {
@@ -156,6 +156,17 @@
             "name": "generated_at"
           }
         }
+      },
+      {
+        "ordinal": 14,
+        "name": "fingerprint",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "fingerprint"
+          }
+        }
       }
     ],
     "parameters": {
@@ -175,8 +186,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "bbbb59908da855d1f1175e871d13b771e64e4318136809f058743d4a1c249d2b"
+  "hash": "bb6201aaab36d74ea5b5400c96a6f3c1af95a11752fe21af9919616c21c3887f"
 }

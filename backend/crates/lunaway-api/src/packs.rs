@@ -417,12 +417,14 @@ pub async fn build(
         .collect();
     let query = format!("{{ places {{ {PLACE_SELECTION} }} }}");
     let cursor = crate::schema::changes_cursor(&head, head.last_seq);
+    let fingerprint = fingerprint(&config);
     let mut built = Vec::with_capacity(regions.len());
     for extent in &regions {
         let up_to_date = !options.takedown
             && current.get(&extent.region).is_some_and(|p| {
                 p.feed_identity == identity
                     && p.seq >= extent.last_seq
+                    && p.fingerprint.as_deref() == Some(fingerprint.as_str())
                     && options.dir.join(&p.file).is_file()
             });
         if up_to_date {
@@ -497,12 +499,16 @@ pub async fn build(
             })?;
         let raw_bytes = raw.len();
         let gz_dir = dir.clone();
-        let compressed = blocking(move || gzip(&raw, &gz_dir)).await?;
+        let (compressed, sha256) = blocking(move || {
+            let compressed = gzip(&raw, &gz_dir)?;
+            let sha256: String = Sha256::digest(&compressed)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            Ok((compressed, sha256))
+        })
+        .await?;
         remove_file(&raw_path).await?;
-        let sha256: String = Sha256::digest(&compressed)
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
         let file_name = format!(
             "{}-{}-{}.sqlite.gz",
             extent.region,
@@ -525,6 +531,7 @@ pub async fn build(
             raw_bytes: i64::try_from(raw_bytes).unwrap_or(i64::MAX),
             sha256,
             generated_at,
+            fingerprint: Some(fingerprint.clone()),
         };
         tracing::info!(
             region = %pack.region,
@@ -550,6 +557,23 @@ pub async fn build(
         }
     }
     Ok(out)
+}
+
+/// What a pack depends on besides its places: its format, the fields it
+/// holds and the photos' public URL its cover photos name. A new format, a
+/// field added or a URL moved (sslip.io to api.lunaway.net) rebuilds every
+/// pack, changed region or not.
+fn fingerprint(config: &ApiConfig) -> String {
+    let digest = Sha256::digest(
+        format!(
+            "{FORMAT}
+{PLACE_SELECTION}
+{}",
+            config.media.base_url
+        )
+        .as_bytes(),
+    );
+    digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
 
 /// Runs `f` on a blocking thread: SQLite and gzip are CPU and disk work.

@@ -102,7 +102,7 @@ const PLACE: &str = "id name kind lat lon services region updatedAt \
 fn changes_query() -> String {
     format!(
         "query($region: String, $since: String) {{ changes(region: $region, since: $since) {{ \
-         places {{ {PLACE} }} deleted cursor hasMore }} }}"
+         places {{ {PLACE} }} deleted left cursor hasMore }} }}"
     )
 }
 
@@ -309,6 +309,70 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
             .trim_start_matches("places/")
             .to_owned()],
         "no earlier pack of the region still serves what was taken down"
+    );
+
+    // A commune of Brittany now covers one place: it leaves the Pays de la
+    // Loire. Its old region's feed says so, its new one has it, and the old
+    // region's pack is built again.
+    let before_move = gql(
+        &app,
+        &changes_query(),
+        json!({"region": "FR-PDL", "since": null}),
+    )
+    .await["data"]["changes"]["cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mover: (uuid::Uuid, f64, f64) = sqlx::query_as(
+        "SELECT id, ST_Y(geom::geometry), ST_X(geom::geometry) FROM places \
+         WHERE region = 'FR-PDL' AND deleted_at IS NULL ORDER BY id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO municipalities (code, name, geom, fetched_at) VALUES \
+         ('35238', 'Rennes', ST_Multi(ST_Expand(ST_SetSRID(ST_MakePoint($1, $2), 4326), 0.001)), now())",
+    )
+    .bind(mover.2)
+    .bind(mover.1)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut tx = lunaway_db::conflation::begin_writer(&pool).await.unwrap();
+    lunaway_db::municipalities::refresh_places(&mut tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let after_move = gql(
+        &app,
+        &changes_query(),
+        json!({"region": "FR-PDL", "since": before_move}),
+    )
+    .await;
+    assert_eq!(
+        after_move["data"]["changes"]["left"],
+        json!([mover.0.to_string()]),
+        "the devices that keep the Pays de la Loire drop it: {after_move}"
+    );
+    assert_eq!(after_move["data"]["changes"]["deleted"], json!([]));
+    let brittany = gql(
+        &app,
+        &changes_query(),
+        json!({"region": "FR-BRE", "since": null}),
+    )
+    .await;
+    assert_eq!(
+        brittany["data"]["changes"]["places"][0]["id"],
+        mover.0.to_string()
+    );
+    let moved = build(&pool, ApiConfig::default(), &options).await.unwrap();
+    let mut codes: Vec<&str> = moved.iter().map(|b| b.pack.region.as_str()).collect();
+    codes.sort_unstable();
+    assert_eq!(
+        codes,
+        ["FR-BRE", "FR-PDL"],
+        "the region a place left gets a new pack, not only the one it joined"
     );
 
     let both = gql(
