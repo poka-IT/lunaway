@@ -281,6 +281,10 @@ final class GraphQLError {
   /// What was asked for does not exist, or is not the caller's.
   static const notFound = 'NOT_FOUND';
 
+  /// [reason] of a [notFound] sign-in that may not create: the server knows
+  /// no account behind the key.
+  static const unknownKey = 'UNKNOWN_KEY';
+
   final String message;
   final String? code;
   final int? retryAfterSeconds;

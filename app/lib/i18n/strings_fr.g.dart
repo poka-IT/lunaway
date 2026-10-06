@@ -776,6 +776,7 @@ class _Translations$account$fr extends Translations$account$en {
 	);
 	@override String get signedOut => 'Déconnecté. Vos favoris restent sur cet appareil.';
 	@override String get lost => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.';
+	@override String get lostAction => 'Retrouver';
 	@override String get welcomeTitle => 'Merci pour votre première contribution';
 	@override String welcomeBody({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
 	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
@@ -2813,6 +2814,7 @@ extension on TranslationsFr {
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Une contribution en attente d\'envoi ne partira pas.', other: '${n} contributions en attente d\'envoi ne partiront pas.', ), 
 			'account.signedOut' => 'Déconnecté. Vos favoris restent sur cet appareil.',
 			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.',
+			'account.lostAction' => 'Retrouver',
 			'account.welcomeTitle' => 'Merci pour votre première contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
@@ -3174,9 +3176,9 @@ extension on TranslationsFr {
 			'poi.shortageDefinitive' => 'N\'en vend plus',
 			'poi.selfService24h' => 'Paiement par carte 24 h/24',
 			'poi.highway' => 'Sur autoroute',
-			'poi.lpgYes' => 'Vend du GPL',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lpgYes' => 'Vend du GPL',
 			'poi.fuel.diesel' => 'Gazole',
 			'poi.fuel.sp95' => 'SP95',
 			'poi.fuel.e10' => 'SP95-E10',

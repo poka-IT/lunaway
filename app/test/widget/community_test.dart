@@ -10,6 +10,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/photo_prepare.dart';
 import 'package:lunaway/features/community/data/picture_picker.dart';
@@ -390,6 +391,12 @@ void main() {
       expect(await app.secrets.read('device_key'), isNull);
       expect(find.text(t.account.lost), findsOneWidget);
       expect(find.text(t.account.recover), findsWidgets);
+      // The message leads to the recovery card's screen.
+      await tester.tap(
+        find.descendant(of: find.byType(SnackBar), matching: find.text(t.account.lostAction)),
+      );
+      await settleShort(tester);
+      expect(find.byType(RecoverScreen), findsOneWidget);
     });
 
     testWidgets('signing out says what waits, drops it, and creates no account after', (

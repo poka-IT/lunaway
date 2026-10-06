@@ -352,7 +352,7 @@ final class FakeApi {
         final unknown = !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
         // `createIfUnknown: false`: an unknown key makes nothing.
         if (v['createIfUnknown'] == false && (unknown || _keys.isEmpty)) {
-          throw const _Refused('NOT_FOUND');
+          throw const _Refused('NOT_FOUND', extensions: {'reason': 'UNKNOWN_KEY'});
         }
         if (unknown) {
           // A key it does not know: the server makes another account.

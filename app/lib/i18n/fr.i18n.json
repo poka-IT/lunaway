@@ -832,6 +832,7 @@
     },
     "signedOut": "Déconnecté. Vos favoris restent sur cet appareil.",
     "lost": "Ce compte ne s'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.",
+    "lostAction": "Retrouver",
     "welcomeTitle": "Merci pour votre première contribution",
     "welcomeBody": "Votre compte est créé, sous le pseudonyme « $name ». Pas d'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.",
     "welcomeCard": "Faites votre carte de secours pour retrouver ce compte sur un autre appareil.",

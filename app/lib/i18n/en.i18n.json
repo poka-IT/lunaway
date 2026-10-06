@@ -832,6 +832,7 @@
     },
     "signedOut": "Signed out. Your favourites stay on this device.",
     "lost": "This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.",
+    "lostAction": "Recover",
     "welcomeTitle": "Thank you for your first contribution",
     "welcomeBody": "Your account is created, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.",
     "welcomeCard": "Make your recovery card to find this account on another device.",

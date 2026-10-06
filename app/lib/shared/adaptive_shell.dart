@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -67,7 +68,14 @@ class AdaptiveShell extends ConsumerWidget {
       // The key stopped opening the account (removed from another device,
       // deleted elsewhere): the profile now offers the recovery card.
       if (next is NoAccount && next.lost && previous is SignedIn) {
-        showMessage(ScaffoldMessenger.maybeOf(context), t.account.lost);
+        showMessage(
+          ScaffoldMessenger.maybeOf(context),
+          t.account.lost,
+          action: SnackBarAction(
+            label: t.account.lostAction,
+            onPressed: () => GoRouter.of(context).go(AppRoutes.recover),
+          ),
+        );
         return;
       }
       final fresh = next is SignedIn && next.justCreated;

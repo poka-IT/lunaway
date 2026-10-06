@@ -1548,6 +1548,9 @@ class Translations$account$en {
 	/// en: 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.'
 	String get lost => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.';
 
+	/// en: 'Recover'
+	String get lostAction => 'Recover';
+
 	/// en: 'Thank you for your first contribution'
 	String get welcomeTitle => 'Thank you for your first contribution';
 
@@ -5164,6 +5167,7 @@ extension on Translations {
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'One contribution waiting to be sent will not be sent.', other: '${n} contributions waiting to be sent will not be sent.', ), 
 			'account.signedOut' => 'Signed out. Your favourites stay on this device.',
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
+			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
@@ -5525,9 +5529,9 @@ extension on Translations {
 			'poi.shortageDefinitive' => 'No longer sold',
 			'poi.selfService24h' => 'Pay at pump 24/7',
 			'poi.highway' => 'On a motorway',
-			'poi.lpgYes' => 'Sells LPG',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lpgYes' => 'Sells LPG',
 			'poi.fuel.diesel' => 'Diesel',
 			'poi.fuel.sp95' => 'Unleaded 95',
 			'poi.fuel.e10' => 'E10',

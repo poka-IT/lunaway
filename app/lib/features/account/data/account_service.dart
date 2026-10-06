@@ -275,6 +275,11 @@ final class AccountService {
         'createIfUnknown': create && previous == null,
       });
     } on GraphQLResponseException catch (e) {
+      // The server says UNKNOWN_KEY; a server before that reason said
+      // NOT_FOUND alone for the same case. Any other reason is not a lost
+      // account.
+      final reason = e.withCode(GraphQLError.notFound)?.reason;
+      if (reason != null && reason != GraphQLError.unknownKey) rethrow;
       if (!e.hasCode(GraphQLError.notFound)) rethrow;
       if (generation != _generation || previous == null) throw const NoAccountException();
       _log.warning('the device key no longer opens its account');
