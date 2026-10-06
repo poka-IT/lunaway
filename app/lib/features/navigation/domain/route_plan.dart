@@ -119,13 +119,17 @@ final class RouteWarning {
 /// One lane at an intersection.
 @immutable
 final class LaneHint {
-  const new({required this.directions, required this.active});
+  const new({required this.directions, required this.active, this.follows});
 
   /// What the lane allows (`left`, `straight`, `slight right`...).
   final List<String> directions;
 
   /// Whether it leads where the route goes.
   final bool active;
+
+  /// The direction the route takes from this lane, when the router says
+  /// which of [directions] it is.
+  final String? follows;
 }
 
 /// One step of a route: a maneuver, then a road to follow.

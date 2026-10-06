@@ -37,12 +37,10 @@ class _GlRouteMapState extends State<GlRouteMap> {
 
   RouteMapProps get _props => widget.props;
 
-  /// The arrow is drawn at the screen's density; MapLibre Android reads an
-  /// image pixel as a physical one, the other engines as a logical one.
-  double get _arrowScale {
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    return android ? 1 : 1 / MediaQuery.devicePixelRatioOf(context);
-  }
+  /// The arrow is drawn at the screen's density. MapLibre on Android and
+  /// iOS reads an image pixel as a physical one (maplibre_gl 0.27.1 makes
+  /// the iOS image at the screen's scale), the web as a CSS pixel.
+  double get _arrowScale => kIsWeb ? 1 / MediaQuery.devicePixelRatioOf(context) : 1;
 
   @override
   void didUpdateWidget(GlRouteMap old) {

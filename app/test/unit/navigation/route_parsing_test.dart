@@ -98,9 +98,17 @@ void main() {
       expect(steps.last.maneuverType, 'arrive');
       expect(steps[1].modifier, 'left');
       expect(steps[1].roadName, 'Boulevard Carnot');
-      expect(steps.any((s) => s.lanes.isNotEmpty), isTrue, reason: 'Limoges maps turn lanes');
-      final lanes = steps.firstWhere((s) => s.lanes.isNotEmpty).lanes;
-      expect(lanes.any((l) => l.active), isTrue);
+      // Place Jourdan ends where the route bears right, through a junction
+      // whose lanes Valhalla puts 22 and 39 m before the maneuver.
+      final jourdan = steps[3].lanes;
+      expect(steps[3].roadName, 'Place Jourdan');
+      expect([for (final l in jourdan) l.active], [false, true, true]);
+      expect(jourdan.first.directions, ['left']);
+      expect(jourdan[1].follows, 'straight', reason: 'the route goes on from this lane');
+      // The lanes of a junction 160 m before the slight left onto Port du
+      // Naveix are that junction's, not the turn's.
+      expect(steps[4].roadName, 'Avenue des Bénédictins');
+      expect(steps[4].lanes, isEmpty);
     });
 
     test('a polyline6 decodes as Valhalla encodes it, and a cut one stops cleanly', () {
@@ -109,7 +117,17 @@ void main() {
       expect(points, hasLength(2));
       expect(points.first.lat, closeTo(45.847197, 1e-6));
       expect(points.first.lon, closeTo(1.284762, 1e-6));
+      expect(points.last.lat, closeTo(45.847194, 1e-6), reason: 'a step south');
+      expect(points.last.lon, closeTo(1.284778, 1e-6));
       expect(decodePolyline('yhhmvAshlmAD'), hasLength(1));
+    });
+
+    test('negative coordinates and steps decode, as in the format reference', () {
+      final points = decodePolyline('_p~iF~ps|U_ulLnnqC_mqNvxq`@', precision: 5);
+      expect(
+        [for (final p in points) (p.lat, p.lon)],
+        [(38.5, -120.2), (40.7, -120.95), (43.252, -126.453)],
+      );
     });
   });
 

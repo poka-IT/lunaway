@@ -70,8 +70,9 @@ void main() {
             );
         unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
         await settleShort(tester);
-        // On Avenue des Bénédictins, the lanes of the junction ahead shown.
-        for (final f in driveFixes(plan.routes.first, toM: 1180)) {
+        // On Place Jourdan, the lanes of the junction where the route bears
+        // right onto Avenue des Bénédictins.
+        for (final f in driveFixes(plan.routes.first, toM: 380)) {
           feed.send(f);
           await tester.pump(const Duration(milliseconds: 10));
         }

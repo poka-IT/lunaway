@@ -28,7 +28,9 @@ class LanesRow extends StatelessWidget {
           opacity: lane.active ? 1 : 0.3,
           child: ManeuverIcon(
             type: 'turn',
-            modifier: _modifier(lane.directions),
+            modifier: lane.active && lane.follows != null
+                ? lane.follows
+                : _modifier(lane.directions),
             size: size,
             color: color,
           ),
@@ -37,8 +39,8 @@ class LanesRow extends StatelessWidget {
     ],
   );
 
-  /// The lane's arrow: its first direction, `straight` when it allows
-  /// going on, as a lane sign draws it.
+  /// The arrow of a lane the route does not take: the turn it allows
+  /// besides going on, or its only direction.
   static String _modifier(List<String> directions) {
     if (directions.isEmpty) return 'straight';
     if (directions.contains('straight') && directions.length > 1) {

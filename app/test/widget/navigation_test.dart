@@ -18,6 +18,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_entry.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -144,9 +145,16 @@ void main() {
       expect(find.text('1,8 km'), findsOneWidget);
       expect(find.text('4,9 km'), findsOneWidget);
       expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, 0);
+      // Both routes in view, the 4.9 km one too.
+      final camera = SchematicRouteMap.last!.camera;
+      final bounds = (camera as FitCamera).bounds;
+      for (final line in SchematicRouteMap.last!.lines) {
+        expect(line.points.every(bounds.contains), isTrue, reason: 'route ${line.index}');
+      }
       await tester.tap(find.text('Variante 1'));
       await settleShort(tester);
       expect(SchematicRouteMap.last!.lines.where((l) => l.selected).single.index, 1);
+      expect(SchematicRouteMap.last!.camera, camera, reason: 'the camera stays');
       expect(
         find.text('Aucune limite proche du gabarit de votre véhicule sur ce trajet.'),
         findsOneWidget,
@@ -393,10 +401,26 @@ void main() {
           ),
         );
         await tester.pump(const Duration(milliseconds: 20));
+        if (i == 2) {
+          // Off the route (seen one fix late, as Ferrostar does), not yet
+          // rerouting: the maneuver of the road left behind fades.
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Hors itinéraire'), findsOneWidget);
+          final banner = find.ancestor(
+            of: find.byType(ManeuverIcon).first,
+            matching: find.byType(AnimatedOpacity),
+          );
+          expect(tester.widget<AnimatedOpacity>(banner).opacity, lessThan(1));
+        }
       }
       await settleShort(tester);
       expect(find.text('Nouvel itinéraire'), findsOneWidget);
       expect(voice.said, contains("Recalcul de l'itinéraire."));
+      final banner = find.ancestor(
+        of: find.byType(ManeuverIcon).first,
+        matching: find.byType(AnimatedOpacity),
+      );
+      expect(tester.widget<AnimatedOpacity>(banner).opacity, 1);
     });
 
     testWidgets('the restriction coming up shows with its distance', (tester) async {

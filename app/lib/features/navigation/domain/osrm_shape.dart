@@ -12,14 +12,17 @@ List<LatLng> decodePolyline(String encoded, {int precision = 6}) {
   var index = 0;
   var lat = 0;
   var lon = 0;
+  // Arithmetic rather than bit operators: compiled to JavaScript, `~` and
+  // `<<` give unsigned 32-bit results, and every step west or south came
+  // out about four billion units east or north on the web.
   int? next() {
     var result = 0;
-    var shift = 0;
+    var unit = 1;
     while (index < encoded.length) {
       final byte = encoded.codeUnitAt(index++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-      if (byte < 0x20) return (result & 1) != 0 ? ~(result >> 1) : result >> 1;
+      result += (byte % 32) * unit;
+      unit *= 32;
+      if (byte < 32) return result.isOdd ? -(result ~/ 2) - 1 : result ~/ 2;
     }
     return null;
   }
@@ -104,7 +107,7 @@ RouteStep _step(Map<String, dynamic> s, {Map<String, dynamic>? next}) {
 /// those of the intersection where [next] starts, else those of the last
 /// intersection of [step] that has some within [_lanesReachM] of the
 /// maneuver (Valhalla puts lanes on the intersections, not in a
-/// sub-banner, and often on the junction just before a turn).
+/// sub-banner, and splits one junction into nodes a few metres apart).
 List<LaneHint> _lanesBefore(Map<String, dynamic> step, Map<String, dynamic>? next) {
   List<LaneHint>? lanesOf(Object? intersection) {
     if (intersection is! Map<String, dynamic>) return null;
@@ -116,6 +119,7 @@ List<LaneHint> _lanesBefore(Map<String, dynamic> step, Map<String, dynamic>? nex
           LaneHint(
             directions: [for (final d in (l['indications'] as List? ?? const [])) '$d'],
             active: l['valid'] == true,
+            follows: l['valid_indication'] as String?,
           ),
     ];
   }
@@ -136,8 +140,12 @@ List<LaneHint> _lanesBefore(Map<String, dynamic> step, Map<String, dynamic>? nex
   return const [];
 }
 
-/// How far before a maneuver the lanes of a junction still guide it.
-const _lanesReachM = 300.0;
+/// How far before a maneuver the lanes of a junction are still those of
+/// the maneuver. Further back they belong to another junction, and under
+/// the next turn's arrow they read as a contradiction: on Avenue des
+/// Bénédictins, a junction 160 m before a slight left showed its left lane
+/// faint, the lane of a street the route does not take.
+const _lanesReachM = 60.0;
 
 LatLng? _location(Object? node) {
   if (node is! Map<String, dynamic>) return null;

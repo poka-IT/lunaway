@@ -277,6 +277,10 @@ class _ManeuverBanner extends ConsumerWidget {
     final road = banner?.primary ?? next?.roadName ?? next?.instruction ?? '';
     final distance = snap == null ? null : t.routeDistance(snap.distanceToManeuverM, units);
     final thenClose = after != null && next != null && next.distanceM < 150;
+    // Off the route, the maneuver is that of a road the vehicle left: it
+    // fades until the new route replaces it, the notice below says why.
+    final stale =
+        session.phase == GuidancePhase.offRoute || session.phase == GuidancePhase.rerouting;
     return Semantics(
       liveRegion: true,
       label: [?distance, road].join(', '),
@@ -285,66 +289,70 @@ class _ManeuverBanner extends ConsumerWidget {
         color: colors.surface,
         borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
         elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.all(Space.m),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  ManeuverIcon(
-                    type: type,
-                    modifier: modifier,
-                    roundaboutExitDegrees: banner?.roundaboutExitDegrees,
-                    size: 76,
-                    color: colors.text,
-                  ),
-                  const SizedBox(width: Space.m),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (distance != null)
-                          Text(
-                            distance,
-                            style: theme.textTheme.displaySmall?.copyWith(color: colors.text),
-                          ),
-                        Text(
-                          road,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (lanes.isNotEmpty) ...[
-                const SizedBox(height: Space.s),
-                Center(
-                  child: LanesRow(lanes: lanes, color: colors.text),
-                ),
-              ],
-              if (thenClose) ...[
-                const SizedBox(height: Space.s),
+        child: AnimatedOpacity(
+          opacity: stale ? 0.4 : 1,
+          duration: Motion.of(context, Motion.medium),
+          child: Padding(
+            padding: const EdgeInsets.all(Space.m),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   children: [
-                    Text(
-                      t.navigation.guidance.then,
-                      style: theme.textTheme.titleSmall?.copyWith(color: colors.text),
-                    ),
-                    const SizedBox(width: Space.s),
                     ManeuverIcon(
-                      type: after.maneuverType,
-                      modifier: after.modifier,
-                      size: 28,
+                      type: type,
+                      modifier: modifier,
+                      roundaboutExitDegrees: banner?.roundaboutExitDegrees,
+                      size: 76,
                       color: colors.text,
+                    ),
+                    const SizedBox(width: Space.m),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (distance != null)
+                            Text(
+                              distance,
+                              style: theme.textTheme.displaySmall?.copyWith(color: colors.text),
+                            ),
+                          Text(
+                            road,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
+                if (lanes.isNotEmpty) ...[
+                  const SizedBox(height: Space.s),
+                  Center(
+                    child: LanesRow(lanes: lanes, color: colors.text),
+                  ),
+                ],
+                if (thenClose) ...[
+                  const SizedBox(height: Space.s),
+                  Row(
+                    children: [
+                      Text(
+                        t.navigation.guidance.then,
+                        style: theme.textTheme.titleSmall?.copyWith(color: colors.text),
+                      ),
+                      const SizedBox(width: Space.s),
+                      ManeuverIcon(
+                        type: after.maneuverType,
+                        modifier: after.modifier,
+                        size: 28,
+                        color: colors.text,
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

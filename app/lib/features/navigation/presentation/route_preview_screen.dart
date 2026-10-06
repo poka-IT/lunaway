@@ -248,13 +248,19 @@ class _PreviewMap extends ConsumerWidget {
       for (final b in plan?.blockers ?? const <RouteWarning>[])
         RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
     ];
-    final bounds =
-        selected?.bounds ??
-        GeoBounds.around([
-          target.destination,
-          ?p?.origin,
-          for (final b in plan?.blockers ?? const <RouteWarning>[]) b.position,
-        ]);
+    // Every route in view, so an alternative can be compared and tapped;
+    // choosing one leaves the camera where it is.
+    final routeBounds = [
+      for (final r in plan?.routes ?? const <RouteOption>[])
+        if (r.bounds case final b?) ...[LatLng(b.south, b.west), LatLng(b.north, b.east)],
+    ];
+    final bounds = routeBounds.isNotEmpty
+        ? GeoBounds.around(routeBounds)
+        : GeoBounds.around([
+            target.destination,
+            ?p?.origin,
+            for (final b in plan?.blockers ?? const <RouteWarning>[]) b.position,
+          ]);
     return ref.watch(routeMapBuilderProvider)(
       context,
       RouteMapProps(
