@@ -1,0 +1,81 @@
+# The Lunaway API behind Caddy. Installed by infra/server/api.sh; the binary
+# under /opt/lunaway/current is switched by infra/deploy-api.sh.
+[Unit]
+Description=Lunaway API (GraphQL over HTTP)
+Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+# Before the first deploy there is no binary: skip the unit instead of
+# failing it into its start limit.
+ConditionPathExists=/opt/lunaway/current/lunaway-api
+
+[Service]
+Type=exec
+ExecStart=/opt/lunaway/current/lunaway-api
+# DATABASE_URL and other secrets, root-owned 0600, read by systemd before the
+# process drops to its dynamic user.
+EnvironmentFile=/etc/lunaway/api.env
+Environment=LUNAWAY_LISTEN=127.0.0.1:8484
+Environment=RUST_LOG=info
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=20s
+
+# Identity: a throwaway user allocated at start, owning nothing on disk.
+DynamicUser=yes
+User=lunaway-api
+UMask=0077
+
+# Filesystem: the whole tree read-only, no home, private /tmp and /dev.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+
+# Kernel and host: nothing to tune, load, log, or rename.
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+
+# Privileges: none, and no way to gain any.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+# Network: loopback only. Caddy reaches the API on 127.0.0.1:8484 and the API
+# reaches PostgreSQL on 127.0.0.1:5432; the API calls nothing outside the
+# host. Widen IPAddressAllow the day it has to.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+SocketBindAllow=tcp:8484
+
+# Resources: a runaway process is stopped before it starves PostgreSQL.
+MemoryHigh=768M
+MemoryMax=1G
+TasksMax=512
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,129 @@
+# Gatus on the ops server: the public status page of Lunaway and the checks
+# behind it, run from outside the backend (another server, another
+# datacenter). infra/server/ops-status.sh renders this file into
+# /etc/gatus/config.yaml (root:gatus, 0640), filling in the markers between
+# double underscores. Gatus answers on loopback only; Caddy serves the page.
+#
+# Two groups:
+#   public    what a user meets: the API, its certificate, the web app;
+#             checked over HTTPS like any client
+#   backend   the backend's own facts, read over the private network from
+#             its health probe (lunaway-health, a forced SSH command of the
+#             lunaway-pull account): PostgreSQL, the data volume, the nightly
+#             dump. Gatus does not check SSH host keys. A host posing as the
+#             backend gets nothing it can reuse (the key's signature is bound
+#             to that one session); it could only answer a false green, and
+#             it would have to sit on the private network.
+#
+# Nothing here alerts by itself: the maintainer's Mac reads
+# /api/v1/endpoints/statuses every night and opens a GitHub issue when a
+# check fails (infra/ops/mac/).
+
+web:
+  address: 127.0.0.1
+  port: 8080
+
+storage:
+  type: sqlite
+  path: /var/lib/gatus/data.db
+
+ui:
+  title: Lunaway status
+  header: Lunaway
+  description: Status of the Lunaway services
+  link: https://lunaway.net
+
+endpoints:
+  - name: API
+    group: public
+    url: "https://__API_HOST__/health"
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == ok"
+      - "[RESPONSE_TIME] < 3000"
+
+  - name: GraphQL
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ apiVersion }"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "has([BODY].data.apiVersion) == true"
+
+  # Let's Encrypt certificates last 90 days and Caddy renews them 30 days
+  # before the end: under 14 days left means renewals have been failing for
+  # two weeks.
+  - name: API certificate
+    group: public
+    url: "https://__API_HOST__/health"
+    interval: 1h
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 336h"
+
+  # Off until the web app is served (LUNAWAY_WEB_URL in the private settings).
+  - name: Web app
+    group: public
+    enabled: __WEB_ENABLED__
+    url: "__WEB_URL__"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[CERTIFICATE_EXPIRATION] > 336h"
+
+  - name: PostgreSQL
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    # The forced command answers whatever is asked; Gatus needs a command.
+    body: '{"command": "health"}'
+    interval: 5m
+    ui: &private
+      hide-hostname: true
+      hide-url: true
+      hide-port: true
+      hide-errors: true
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] == 0"
+      - "[BODY].postgresql == ok"
+
+  # Grow the volume before 80% (docs/deploy.md, "Sizing").
+  - name: Data volume
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 10m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].data_volume.mounted == true"
+      - "[BODY].data_volume.used_percent < 80"
+      - "[BODY].root_disk.used_percent < 85"
+
+  # Succeeded less than 26 hours ago, and no failure recorded since.
+  - name: Nightly dump
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].dump.ok == true"

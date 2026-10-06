@@ -1,0 +1,75 @@
+# The public domain of Lunaway. Installed in /etc/caddy/sites-available/ by
+# infra/server/caddy.sh and loaded only once infra/enable-domain.sh links it
+# into /etc/caddy/sites-enabled/, after the DNS records point at this host: a
+# name that does not resolve here only collects failed Let's Encrypt
+# validations, which are rate limited. Uses the snippets of the main Caddyfile.
+#
+# lunaway.net layout:
+#   /          the landing site, static HTML and CSS (/srv/lunaway/site),
+#              with /privacy, /account/delete and /about as plain pages
+#   /app/      the Flutter web build (/srv/lunaway/web), every unknown path
+#              falling back to /app/index.html for the app's router
+# Photos are served by the API host (api.lunaway.net/media/, see the api
+# snippet of the main Caddyfile).
+# /srv/lunaway/site and /srv/lunaway/web are symlinks switched by
+# infra/deploy-web.sh.
+
+api.lunaway.net {
+	import api
+}
+
+lunaway.net {
+	import access_log
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Cross-Origin-Opener-Policy "same-origin"
+		Permissions-Policy "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), serial=(), hid=(), bluetooth=()"
+	}
+	# Alone, because a deletion defers its whole header block to write time,
+	# where it would override the per-route headers below.
+	header -Server
+	request_body {
+		max_size 64KB
+	}
+
+	redir /app /app/ permanent
+
+	# The web app. The CSP allows what a Flutter web app with MapLibre needs:
+	# WebAssembly compilation, blob: workers, the inline styles the engine
+	# injects, the API and the tile host. Build the app with
+	# --base-href /app/ --no-web-resources-cdn, or CanvasKit loads from
+	# www.gstatic.com and the CSP refuses it. Its file names carry no content
+	# hash, so every response is revalidated (the ETag answers 304).
+	handle_path /app/* {
+		root * /srv/lunaway/web
+		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.openfreemap.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	# The landing site: HTML and CSS only, so the CSP allows nothing else.
+	# /privacy serves privacy.html or privacy/index.html. Assets whose name
+	# carries a content hash (name.0123abcd.css) are cached for a year, HTML
+	# and the rest for five minutes.
+	handle {
+		root * /srv/lunaway/site
+		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		@hashed path_regexp \.[0-9a-f]{8,}\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif|ico)$
+		@not_hashed not path_regexp \.[0-9a-f]{8,}\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif|ico)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		header @not_hashed Cache-Control "public, max-age=300"
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+}
+
+www.lunaway.net {
+	import access_log
+	header -Server
+	redir https://lunaway.net{uri} permanent
+}

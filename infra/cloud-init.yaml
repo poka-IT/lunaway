@@ -1,0 +1,104 @@
+#cloud-config
+# First boot of a Lunaway server (Debian 13). Closes the host before anything
+# else runs: admin account with a key, SSH policy, host firewall, fail2ban,
+# kernel settings, automatic security updates. infra/server/harden.sh then
+# extends and keeps this state; it installs the same files from infra/files.
+#
+# Template rendered by infra/provision.sh, which fills in the markers between
+# double at-signs: the server name, its role (backend or ops), the admin
+# public key registered in the Hetzner project, and the base64 of each infra/
+# file named by a B64 marker, so these files have a single source. It holds
+# no secret.
+
+hostname: @@HOSTNAME@@
+manage_etc_hosts: true
+timezone: Etc/UTC
+locale: C.UTF-8
+
+# Root keeps no usable key and no password; the admin account uses sudo.
+disable_root: true
+ssh_pwauth: false
+users:
+  - name: ops
+    gecos: Lunaway admin
+    groups: [sudo, adm, systemd-journal]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - "@@ADMIN_SSH_KEY@@"
+
+package_update: true
+package_upgrade: true
+packages:
+  - nftables
+  - fail2ban
+  - python3-systemd
+  - unattended-upgrades
+  - needrestart
+  - chrony
+  - apparmor
+  - apparmor-utils
+  - ca-certificates
+  - curl
+  - gnupg
+
+# Written after the packages are installed (defer), so no package
+# installation meets an unexpected configuration file.
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-lunaway.conf
+    encoding: b64
+    content: "@@B64:files/etc/ssh/sshd_config.d/10-lunaway.conf@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/nftables.conf
+    encoding: b64
+    content: "@@B64:files/etc/nftables.conf@@"
+    permissions: "0755"
+    defer: true
+  - path: /etc/nftables.d/lunaway-role.nft
+    encoding: b64
+    content: "@@B64:files/roles/@@ROLE@@/nftables.nft@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/sysctl.d/90-lunaway.conf
+    encoding: b64
+    content: "@@B64:files/etc/sysctl.d/90-lunaway.conf@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/modprobe.d/lunaway-blacklist.conf
+    encoding: b64
+    content: "@@B64:files/etc/modprobe.d/lunaway-blacklist.conf@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/fail2ban/jail.d/lunaway.local
+    encoding: b64
+    content: "@@B64:files/etc/fail2ban/jail.d/lunaway.local@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    encoding: b64
+    content: "@@B64:files/etc/apt/apt.conf.d/20auto-upgrades@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/apt/apt.conf.d/52lunaway-unattended-upgrades
+    encoding: b64
+    content: "@@B64:files/etc/apt/apt.conf.d/52lunaway-unattended-upgrades@@"
+    permissions: "0644"
+    defer: true
+  - path: /etc/systemd/journald.conf.d/lunaway.conf
+    encoding: b64
+    content: "@@B64:files/etc/systemd/journald.conf.d/lunaway.conf@@"
+    permissions: "0644"
+    defer: true
+
+runcmd:
+  - [sh, -c, "sshd -t && systemctl reload ssh"]
+  - [sysctl, --system]
+  - [systemctl, enable, nftables]
+  - [systemctl, restart, nftables]
+  - [systemctl, enable, fail2ban]
+  - [systemctl, restart, fail2ban]
+  - [systemctl, restart, systemd-journald]
+  - [systemctl, enable, --now, unattended-upgrades]
+  - [passwd, --lock, root]

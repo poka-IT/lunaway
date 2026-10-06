@@ -1,0 +1,11 @@
+# Every Sunday at 04:00 UTC: the classification list changes slowly.
+[Unit]
+Description=Lunaway import: Atout France, weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

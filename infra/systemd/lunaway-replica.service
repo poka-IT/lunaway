@@ -1,0 +1,46 @@
+# Nightly pull of the backend's encrypted dumps into the ops server's replica
+# (another datacenter). Installed by infra/server/ops-replica.sh; the script
+# is infra/files/usr/local/sbin/lunaway-replica.
+[Unit]
+Description=Lunaway dump replica, pulled from the backend
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/srv/data
+
+[Service]
+Type=oneshot
+User=lunaway-backup
+Group=lunaway-backup
+ExecStart=/usr/local/sbin/lunaway-replica
+TimeoutStartSec=1h
+Nice=10
+IOSchedulingClass=idle
+UMask=0027
+
+ProtectSystem=strict
+ReadWritePaths=/srv/data/backups/postgresql
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# The backend over the private network, nothing else.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=__BACKEND_PRIVATE_IP__

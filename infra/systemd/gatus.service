@@ -1,0 +1,66 @@
+# Gatus, the status page and checks of the ops server. Installed by
+# infra/server/ops-status.sh; the binary comes from infra/deploy-gatus.sh and
+# the configuration (/etc/gatus/config.yaml) from infra/ops/gatus/config.yaml.
+[Unit]
+Description=Gatus status page and checks
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+# Until infra/deploy-gatus.sh has run there is no binary: skip, do not fail.
+ConditionPathExists=/usr/local/bin/gatus
+
+[Service]
+Type=exec
+User=gatus
+Group=gatus
+ExecStart=/usr/local/bin/gatus
+Environment=GATUS_CONFIG_PATH=/etc/gatus/config.yaml
+Environment=GATUS_LOG_LEVEL=INFO
+StateDirectory=gatus
+StateDirectoryMode=0750
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+# Network: outbound checks (HTTPS to the public names, SSH to the backend's
+# private address); it listens on loopback 8080 only, behind Caddy.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SocketBindDeny=any
+SocketBindAllow=tcp:8080
+
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+// Lunaway additions to Debian's 50unattended-upgrades (lists add up across
+// files). Debian's file already takes the security archive and the stable
+// point releases; this one adds the PostgreSQL (PGDG) and Caddy repositories,
+// which ship their own security fixes. Times are UTC: the upgrade timer fires
+// at 01:30 and a reboot, when a package asks for one, happens at 02:30
+// (04:30 in Paris in summer, 03:30 in winter).
+Unattended-Upgrade::Origins-Pattern {
+	"origin=apt.postgresql.org,codename=${distro_codename}-pgdg";
+	"origin=cloudsmith/caddy/stable";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "02:30";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::SyslogEnable "true";
+// Keep the local version of a configuration file the upgrade would replace.
+Dpkg::Options {
+	"--force-confdef";
+	"--force-confold";
+};

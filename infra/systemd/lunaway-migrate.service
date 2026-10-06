@@ -1,0 +1,56 @@
+# Applies the pending database migrations of the release /opt/lunaway/current
+# points at, as lunaway_owner, the only role that may change the schema.
+# Started by infra/server/install-release.sh before the API restarts on a new
+# release; never on a timer. Installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway database migrations
+After=postgresql.service
+Requires=postgresql.service
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+User=lunaway-migrate
+UMask=0077
+EnvironmentFile=/etc/lunaway/owner.env
+# The CLI's default data directory is a build path; nothing is cached here.
+Environment=LUNAWAY_DATA_DIR=/nonexistent
+Environment=RUST_LOG=info
+ExecStart=/opt/lunaway/current/lunaway migrate
+TimeoutStartSec=30min
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryMax=1G

@@ -1,0 +1,13 @@
+# Every night at 00:15 UTC, well before the 01:30 upgrade run that may
+# restart PostgreSQL. Should a dump still run then, the upgrade waits for it
+# (apt-daily-upgrade.service.d/lunaway-pgdump.conf).
+[Unit]
+Description=Lunaway nightly PostgreSQL dump
+
+[Timer]
+OnCalendar=*-*-* 00:15
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

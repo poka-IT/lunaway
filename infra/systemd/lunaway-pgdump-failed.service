@@ -1,0 +1,36 @@
+# Records a failed nightly dump in /srv/data/backups/offsite/last-failure,
+# which the health probe reports to the status page and the ops server
+# copies on to the maintainer's Mac. Started by OnFailure= of
+# lunaway-pgdump.service; installed by infra/server/backups.sh.
+[Unit]
+Description=Lunaway nightly PostgreSQL dump: record a failure
+RequiresMountsFor=/srv/data
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/local/sbin/lunaway-pgdump --failed
+UMask=0077
+ProtectSystem=strict
+ReadWritePaths=/srv/data/backups/offsite
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

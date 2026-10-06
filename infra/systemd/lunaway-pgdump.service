@@ -1,0 +1,48 @@
+# Nightly logical dump of the Lunaway database, with an age-encrypted copy
+# for the ops server and the maintainer's Mac. Installed by
+# infra/server/backups.sh; the script is infra/files/usr/local/sbin/lunaway-pgdump.
+[Unit]
+Description=Lunaway nightly PostgreSQL dump
+After=postgresql.service
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+# A failed run leaves a marker (last-failure) that the status page and the
+# Mac's nightly job read.
+OnFailure=lunaway-pgdump-failed.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/local/sbin/lunaway-pgdump
+# The age recipient (a public key, root-owned like the other settings in
+# /etc/lunaway), handed to the postgres user for this run only.
+LoadCredential=backup-recipient:/etc/lunaway/backup-recipient
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+# Private files; the script opens up the encrypted copies to group
+# lunaway-pull itself.
+UMask=0077
+ProtectSystem=strict
+ReadWritePaths=/srv/data/backups/postgresql /var/backups/lunaway/postgresql /srv/data/backups/offsite
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

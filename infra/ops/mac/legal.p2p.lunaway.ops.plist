@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The nightly ops job of the maintainer's Mac (infra/ops/mac/lunaway-ops.sh):
+  pulls the encrypted dumps from the ops server, verifies the newest, reads
+  the status page and keeps one GitHub issue in step. A template:
+  infra/ops/mac/install.sh fills in the markers between double underscores
+  and installs it in ~/Library/LaunchAgents. A run missed while the Mac
+  slept happens at wake-up.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>legal.p2p.lunaway.ops</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>__SCRIPT__</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>LUNAWAY_STATUS_URL</key>
+		<string>__STATUS_URL__</string>
+		<key>LUNAWAY_ALERT_REPO</key>
+		<string>__ALERT_REPO__</string>
+		<key>LUNAWAY_ALERT_GH_USER</key>
+		<string>__ALERT_GH_USER__</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>4</integer>
+		<key>Minute</key>
+		<integer>30</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>LowPriorityIO</key>
+	<true/>
+</dict>
+</plist>

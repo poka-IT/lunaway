@@ -1,0 +1,18 @@
+# Lunaway fail2ban policy, written at first boot by cloud-init and kept by
+# infra/server/harden.sh. Bans go into fail2ban's own nftables table, which
+# the host ruleset (/etc/nftables.conf) never flushes.
+[DEFAULT]
+backend = systemd
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+bantime = 1h
+bantime.increment = true
+bantime.maxtime = 1w
+findtime = 10m
+maxretry = 3
+# ignoreip comes from lunaway-ignore.local, written by harden.sh.
+
+[sshd]
+enabled = true
+filter = sshd[mode=aggressive]
+port = ssh

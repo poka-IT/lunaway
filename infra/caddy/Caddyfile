@@ -1,0 +1,115 @@
+# Caddy configuration of a Lunaway backend. infra/server/caddy.sh renders it
+# to /etc/caddy/Caddyfile, replacing __SSLIP_HOST__ with the name derived from
+# the server's IPv4 address (a-b-c-d.sslip.io), which serves the API before
+# and alongside the real domain. The lunaway.net sites live in
+# lunaway.net.caddy and load only once infra/enable-domain.sh has linked them
+# into /etc/caddy/sites-enabled/.
+{
+	# Admin API on a unix socket in /run/caddy (0750, caddy only), so no other
+	# local process, the API included, can rewrite the proxy configuration.
+	admin unix//run/caddy/admin.sock
+
+	# Let's Encrypt only, matching the domain's CAA record: no fallback CA.
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+
+	servers {
+		protocols h1 h2 h3
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
+		max_header_size 16KB
+	}
+
+	# Caddy's own log (start, certificates, errors, and the requests for a
+	# host no site serves, which it logs here rather than in the access log)
+	# goes to the journal. The same masks as the access log apply, so no
+	# full client address is ever written; "remote" is the field of the TLS
+	# logger.
+	log default {
+		output stderr
+		format filter {
+			request>remote_ip ip_mask 16 32
+			request>client_ip ip_mask 16 32
+			request>remote_port delete
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>X-Forwarded-For delete
+			resp_headers>Set-Cookie delete
+			remote ip_mask 16 32
+		}
+	}
+}
+
+# Access log without client addresses in clear: IPv4 truncated to /16, IPv6
+# to /32, no port, no credentials, no cookies. Kept 14 days.
+(access_log) {
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 5
+			roll_keep_for 336h
+		}
+		format filter {
+			request>remote_ip ip_mask 16 32
+			request>client_ip ip_mask 16 32
+			request>remote_port delete
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>X-Forwarded-For delete
+			resp_headers>Set-Cookie delete
+		}
+	}
+}
+
+# The API: /health and /graphql proxied to lunaway-api, /media/ served from
+# the data volume, everything else 404. The API serves JSON only, so its CSP
+# allows nothing at all.
+(api) {
+	import access_log
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+	}
+	# Alone, because a deletion defers its whole header block to write time,
+	# where it would override the per-route headers below.
+	header -Server
+	request_body {
+		max_size 1MB
+	}
+	@api path /health /graphql
+	handle @api {
+		reverse_proxy 127.0.0.1:8484
+	}
+	# Photos: a file present under /srv/data/media is served as is, cached
+	# for a year (its name never changes content) and inert (the sandbox CSP
+	# stops an SVG or HTML file from running anything). A missing file or a
+	# directory falls through to the plain 404 below: no year-long cache on a
+	# miss, no listing.
+	@media_file {
+		path /media/*
+		file {
+			root /srv/data
+		}
+	}
+	handle @media_file {
+		root * /srv/data
+		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; sandbox"
+		file_server
+	}
+	handle {
+		respond 404
+	}
+}
+
+__SSLIP_HOST__ {
+	import api
+}
+
+import /etc/caddy/sites-enabled/*.caddy

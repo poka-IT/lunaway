@@ -1,0 +1,11 @@
+# Every night at 01:15 UTC, an hour after the backend's dump (00:15 UTC).
+[Unit]
+Description=Lunaway dump replica, nightly
+
+[Timer]
+OnCalendar=*-*-* 01:15
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

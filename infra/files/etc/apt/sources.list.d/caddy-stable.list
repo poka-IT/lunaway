@@ -1,0 +1,4 @@
+# Caddy's own repository (Cloudsmith), signed by the key whose fingerprint
+# infra/server/common.sh pins. Installed from the repository by
+# install_caddy_package, never downloaded.
+deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main

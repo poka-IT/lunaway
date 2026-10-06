@@ -1,0 +1,72 @@
+# Caddy configuration of the Lunaway ops server: the public status page,
+# served from Gatus on loopback. infra/server/ops-status.sh renders it to
+# /etc/caddy/Caddyfile, replacing __STATUS_HOSTS__ with the names the page
+# answers to: the server's a-b-c-d.sslip.io name, and status.lunaway.net once
+# LUNAWAY_STATUS_DOMAIN is set and its DNS points here. The global options
+# and the logging are the backend's (infra/caddy/Caddyfile).
+{
+	admin unix//run/caddy/admin.sock
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+
+	servers {
+		protocols h1 h2 h3
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
+		max_header_size 16KB
+	}
+
+	log default {
+		output stderr
+		format filter {
+			request>remote_ip ip_mask 16 32
+			request>client_ip ip_mask 16 32
+			request>remote_port delete
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>X-Forwarded-For delete
+			resp_headers>Set-Cookie delete
+			remote ip_mask 16 32
+		}
+	}
+}
+
+__STATUS_HOSTS__ {
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 5
+			roll_keep_for 336h
+		}
+		format filter {
+			request>remote_ip ip_mask 16 32
+			request>client_ip ip_mask 16 32
+			request>remote_port delete
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>X-Forwarded-For delete
+			resp_headers>Set-Cookie delete
+		}
+	}
+	encode zstd gzip
+	# Gatus's page starts with an inline script that carries its settings,
+	# hence 'unsafe-inline' for scripts and styles; the page shows only what
+	# this server's configuration writes, no user content.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	}
+	header -Server
+	request_body {
+		max_size 16KB
+	}
+	# Gatus reads only; nothing is pushed to it from outside.
+	@write not method GET HEAD
+	respond @write 405
+	reverse_proxy 127.0.0.1:8080
+}

@@ -1,0 +1,30 @@
+#!/bin/sh
+# Pulls the backend's encrypted dumps and their markers into the replica on
+# the ops server's volume, then drops the dumps older than
+# LUNAWAY_REPLICA_DAYS. Runs as lunaway-backup from lunaway-replica.service.
+# The backend forces this key to `rrsync -ro` on its off-site directory, so
+# the pull can read that directory and nothing else; no --delete, so the
+# replica keeps more days than the backend.
+set -eu
+replica=/srv/data/backups/postgresql
+days="${LUNAWAY_REPLICA_DAYS:-14}"
+
+rsync -rt --timeout=300 -e "ssh -F /etc/lunaway-ops/ssh_config" backend-replica: "$replica/"
+
+# The names carry the dump's UTC date (lunaway-20261006T001502Z.dump.age):
+# a file whose date is before the cutoff goes.
+cutoff=$(date -u -d "$days days ago" +%Y%m%d)
+for f in "$replica"/lunaway-*.dump.age "$replica"/globals-*.sql.age; do
+	[ -e "$f" ] || continue
+	day=$(basename "$f" | sed -E 's/^[a-z]+-([0-9]{8})T.*/\1/')
+	case "$day" in
+	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+	*) continue ;;
+	esac
+	if [ "$day" -lt "$cutoff" ]; then
+		rm -f "$f"
+		echo "dropped $(basename "$f")"
+	fi
+done
+newest=$(find "$replica" -maxdepth 1 -name 'lunaway-*.dump.age' -printf '%f\n' | sort | tail -n 1)
+echo "replica: $(find "$replica" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l) dumps, newest ${newest:-none}, last-success $(cat "$replica/last-success" 2>/dev/null || echo none)"

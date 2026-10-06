@@ -1,0 +1,57 @@
+# DRAFT, NOT INSTALLED, NOT TESTED: the next service of the backend, the
+# Valhalla routing engine serving a prebuilt graph to lunaway-api on
+# 127.0.0.1:8002. Kept here so the serving path is decided before the graph
+# exists; docs/deploy.md ("Next service: routing") has the reasoning.
+#
+# Serving path on Debian 13. Debian ships no Valhalla package, and building
+# it on the server would bring a compiler toolchain onto the production host.
+# The Valhalla project publishes an official image for amd64 and arm64
+# (ghcr.io/valhalla/valhalla). It runs under Podman (Debian 13 ships 5.4)
+# through this Quadlet unit, not under Docker Engine: no daemon running as
+# root, and with Network=host nothing rewrites the host firewall, whereas
+# Docker inserts its own rules for published ports.
+#
+# The graph is built elsewhere (the maintainer's Mac Studio, same image tag,
+# arm64) and copied with rsync into /srv/routing/<build>/ on the root disk;
+# /srv/routing/current points at the build in service. The root disk is
+# local NVMe: the tiles are memory-mapped and read at random, which a network
+# volume serves slower, and they can be rebuilt, so they do not need the
+# data volume's durability.
+#
+# Install, when the first graph exists:
+#   apt-get install podman
+#   echo 'containers:2147483647:2147483648' >> /etc/subuid (and /etc/subgid), for UserNS=auto
+#   install -m 0644 infra/routing/valhalla.container /etc/containers/systemd/valhalla.container
+#   systemctl daemon-reload && systemctl start valhalla
+# valhalla.json, generated with valhalla_build_config next to the tiles, must
+# set mjolnir.tile_extract to /srv/routing/current/valhalla_tiles.tar and
+# httpd.service.listen to tcp://127.0.0.1:8002.
+
+[Unit]
+Description=Valhalla routing engine (loopback only)
+RequiresMountsFor=/srv/routing
+After=network-online.target
+
+[Container]
+# 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06).
+Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
+Exec=valhalla_service /srv/routing/current/valhalla.json 8
+# Host network, bound to 127.0.0.1 by valhalla.json: no port publishing, no
+# firewall rule, and the API reaches it on loopback.
+Network=host
+# Container root maps to an unprivileged range of host ids.
+UserNS=auto
+ReadOnly=true
+Volume=/srv/routing:/srv/routing:ro
+DropCapability=all
+NoNewPrivileges=true
+# cgroup v2 charges the page cache of the memory-mapped tiles to the
+# container: 4 GB holds a France graph, a Europe graph needs more.
+PodmanArgs=--memory=4g --pids-limit=256
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
