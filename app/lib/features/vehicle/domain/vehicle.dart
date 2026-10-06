@@ -54,6 +54,25 @@ enum Towing {
       values.firstWhere((t) => t.wire == wire, orElse: () => none);
 }
 
+/// The fuel the engine runs on, by the name of the French price feed
+/// (`FuelKind`): what the map's price labels and the cheapest stations
+/// show by default.
+enum FuelType {
+  diesel('DIESEL'),
+  e10('E10'),
+  sp95('SP95'),
+  sp98('SP98'),
+  e85('E85'),
+  lpg('LPG');
+
+  new(this.wire);
+
+  /// The feed's name, also the stored one.
+  final String wire;
+
+  static FuelType? fromWire(Object? wire) => values.where((f) => f.wire == wire).firstOrNull;
+}
+
 /// The user's vehicle. Dimensions are in metres and tonnes; any may be
 /// unknown. The height filters places now; every dimension will constrain
 /// routes when the in-app navigation arrives.
@@ -66,6 +85,9 @@ final class Vehicle {
     this.widthM,
     this.lengthM,
     this.weightT,
+    this.fuel,
+    this.consumptionL100,
+    this.lpgHeating = false,
   });
 
   /// A vehicle of [type] with its typical dimensions.
@@ -88,12 +110,23 @@ final class Vehicle {
   /// Total permitted weight.
   final double? weightT;
 
+  /// The engine's fuel; null until the user says.
+  final FuelType? fuel;
+
+  /// Litres per 100 km, for what a detour to a cheaper station costs.
+  final double? consumptionL100;
+
+  /// The living area heats on LPG: its price matters whatever the engine
+  /// runs on.
+  final bool lpgHeating;
+
   /// The limits the forms accept: wide enough for every motorhome on the
   /// road, narrow enough to catch a typo (29 for 2.9).
   static const ({double max, double min}) heightRange = (min: 1.5, max: 4.5);
   static const ({double max, double min}) widthRange = (min: 1.5, max: 2.6);
   static const ({double max, double min}) lengthRange = (min: 3.0, max: 20.0);
   static const ({double max, double min}) weightRange = (min: 1.0, max: 26.0);
+  static const ({double max, double min}) consumptionRange = (min: 3.0, max: 40.0);
 
   Vehicle copyWith({
     VehicleType? type,
@@ -102,6 +135,9 @@ final class Vehicle {
     double? Function()? widthM,
     double? Function()? lengthM,
     double? Function()? weightT,
+    FuelType? Function()? fuel,
+    double? Function()? consumptionL100,
+    bool? lpgHeating,
   }) => Vehicle(
     type: type ?? this.type,
     towing: towing ?? this.towing,
@@ -109,6 +145,9 @@ final class Vehicle {
     widthM: widthM == null ? this.widthM : widthM(),
     lengthM: lengthM == null ? this.lengthM : lengthM(),
     weightT: weightT == null ? this.weightT : weightT(),
+    fuel: fuel == null ? this.fuel : fuel(),
+    consumptionL100: consumptionL100 == null ? this.consumptionL100 : consumptionL100(),
+    lpgHeating: lpgHeating ?? this.lpgHeating,
   );
 
   @override
@@ -119,8 +158,21 @@ final class Vehicle {
       other.heightM == heightM &&
       other.widthM == widthM &&
       other.lengthM == lengthM &&
-      other.weightT == weightT;
+      other.weightT == weightT &&
+      other.fuel == fuel &&
+      other.consumptionL100 == consumptionL100 &&
+      other.lpgHeating == lpgHeating;
 
   @override
-  int get hashCode => Object.hash(type, towing, heightM, widthM, lengthM, weightT);
+  int get hashCode => Object.hash(
+    type,
+    towing,
+    heightM,
+    widthM,
+    lengthM,
+    weightT,
+    fuel,
+    consumptionL100,
+    lpgHeating,
+  );
 }

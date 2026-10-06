@@ -7,16 +7,20 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
+import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// The schema of version 1 as it shipped, taken from version 2 minus what
-/// version 2 added: every table, index, virtual table and trigger, with
-/// [dropColumns] taken out of their CREATE TABLE and [dropTables] left out.
-Future<void> _writeVersion1(
+/// The schema of an earlier [version] as it shipped, taken from the current
+/// one minus what came after it: every table, index, virtual table and
+/// trigger, with [dropColumns] taken out of their CREATE TABLE and
+/// [dropTables] left out.
+Future<void> _writeVersion(
   QueryExecutor current,
   File file, {
   required Map<String, List<String>> dropColumns,
   required Set<String> dropTables,
+  int version = 1,
 }) async {
   final db = _Raw(current);
   final rows = await db
@@ -40,10 +44,13 @@ Future<void> _writeVersion1(
     out.execute(sql);
   }
   out
-    ..execute('PRAGMA user_version = 1')
+    ..execute('PRAGMA user_version = $version')
     ..close();
   await db.close();
 }
+
+/// The columns version 3 of the user store added to the vehicle.
+const _fuelColumns = ['fuel', 'consumption_l100', 'lpg_heating'];
 
 final class _Raw extends GeneratedDatabase {
   new(super.executor);
@@ -67,11 +74,12 @@ void main() {
     final fresh = UserDatabase(NativeDatabase.memory());
     await fresh.customSelect('SELECT 1').get();
     final file = File('${dir.path}/user.sqlite');
-    await _writeVersion1(
+    await _writeVersion(
       fresh.executor,
       file,
       dropColumns: {
         'favorite_lists': ['server_id'],
+        'vehicles': _fuelColumns,
       },
       dropTables: {'favorite_sync_base', 'outbox', 'outbox_files'},
     );
@@ -103,7 +111,7 @@ void main() {
     final fresh = CacheDatabase(NativeDatabase.memory());
     await fresh.customSelect('SELECT 1').get();
     final file = File('${dir.path}/cache.sqlite');
-    await _writeVersion1(
+    await _writeVersion(
       fresh.executor,
       file,
       dropColumns: {
@@ -115,7 +123,7 @@ void main() {
           'issues_json',
         ],
       },
-      dropTables: const {},
+      dropTables: const {'poi_cache'},
     );
     sqlite3.open(file.path)
       ..execute(
@@ -139,6 +147,76 @@ void main() {
     expect(state.cursor, isNull, reason: 'from scratch, to fill the new columns');
     expect(state.generation, 4);
     expect(state.completedAt, isNotNull, reason: 'the date of the last sync stays for the screens');
+    await upgraded.close();
+  });
+
+  test('a version 2 cache keeps its places and gains the points read around them', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache2.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {},
+      dropTables: const {'poi_cache'},
+      version: 2,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at) '
+        "VALUES ('p1', 'PARKING', 0, 45, 6, 'ALLOWED', 1)",
+      )
+      ..execute(
+        'INSERT INTO region_syncs (region, cursor, generation, full_sync, running, completed_at) '
+        "VALUES ('fr-metro', 'c42', 3, 0, 0, 1700000000000)",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    final repo = DriftPlacesRepository(upgraded);
+    expect(await repo.watchPlace('p1').first, isNotNull);
+    final state = await repo.stateOf(SyncRegion.metropolitanFrance.id);
+    expect(state.cursor, 'c42', reason: 'no resync: no column of the places changed');
+    await upgraded
+        .into(upgraded.poiCache)
+        .insert(PoiCacheCompanion.insert(cacheKey: 'nearby:p1', json: '[]', fetchedAt: 1));
+    expect(await upgraded.select(upgraded.poiCache).get(), hasLength(1));
+    await upgraded.close();
+  });
+
+  test('a version 2 user database keeps its vehicle and gains its fuel, unsaid', () async {
+    final fresh = UserDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/user2.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'vehicles': _fuelColumns},
+      dropTables: const {},
+      version: 2,
+    );
+    final old = sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO vehicles (id, type, towing, height_m, updated_at) '
+        "VALUES (1, 'overcab', 'none', 3.1, 1)",
+      );
+    expect(
+      old.select('PRAGMA table_info(vehicles)').map((r) => r['name']),
+      isNot(contains('fuel')),
+    );
+    old.close();
+
+    final upgraded = UserDatabase(NativeDatabase(file));
+    final repo = DriftVehicleRepository(upgraded, clock: () => DateTime.utc(2026, 10, 6));
+    final vehicle = await repo.watch().first;
+    expect(vehicle?.type, VehicleType.overcab);
+    expect(vehicle?.heightM, 3.1);
+    expect(vehicle?.fuel, isNull);
+    expect(vehicle?.lpgHeating, isFalse);
+    await repo.save(vehicle!.copyWith(fuel: () => FuelType.lpg, lpgHeating: true));
+    final saved = await repo.watch().first;
+    expect(saved?.fuel, FuelType.lpg);
+    expect(saved?.lpgHeating, isTrue);
     await upgraded.close();
   });
 }

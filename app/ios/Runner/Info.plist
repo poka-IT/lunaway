@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
+	<string>Lunaway shows your position on the map and sorts the places around you. It leaves your device only if you add a place where you stand.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Lunaway shows your position on the map and sorts the places around you. It stays on your device.</string>
+	<string>Lunaway shows your position on the map and sorts the places around you. It leaves your device only if you add a place where you stand.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Lunaway uses the camera when you take a photo of a place, or of your recovery card to read its code.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -39,6 +39,11 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- The app's encryption is HTTPS to its own hosts and the signature
+	     of its sign-in: exempt (docs/app-store.md, "Export compliance").
+	     Declared here so App Store Connect asks nothing at each build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- The navigation apps whose installation the place sheet checks
 	     (canLaunchUrl, lib/core/navigation_apps.dart) before offering them
 	     for directions, by the URL scheme the app opens: comgooglemaps

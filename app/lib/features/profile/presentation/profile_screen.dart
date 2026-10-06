@@ -9,6 +9,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -323,6 +324,8 @@ class _OfflineData extends ConsumerWidget {
               icon: const Icon(AppIcons.sync),
               label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
             ),
+            const Divider(height: Space.xxl),
+            const OfflineMapsEntry(),
           ],
         ),
       ),
@@ -529,6 +532,17 @@ class _Attributions extends ConsumerWidget {
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
           entry(t.profile.attributionCommunes, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(
+            t.profile.attributionBdTopo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
+          ),
+          entry(t.profile.attributionPoiOdbl, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(
+            t.profile.attributionPoiLo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
+          ),
+          entry(t.profile.attributionPacks, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(t.profile.attributionOfflineLabels, 'https://github.com/protomaps/basemaps-assets'),
           entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
           entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
           entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),

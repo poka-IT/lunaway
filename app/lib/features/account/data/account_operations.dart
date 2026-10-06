@@ -71,19 +71,37 @@ mutation AuthChallenge {
   },
 );
 
-final signInOperation = GraphQLOperation<SignInResult>(
-  name: 'SignIn',
-  document: '''
-mutation SignIn(\$jwk: String!, \$nonce: String!, \$signature: String!, \$locale: String) {
-  signIn(publicKeyJwk: \$jwk, nonce: \$nonce, signature: \$signature, locale: \$locale) {
+const _signInDocument = '''
+mutation SignIn(
+  \$jwk: String!
+  \$nonce: String!
+  \$signature: String!
+  \$locale: String
+  \$createIfUnknown: Boolean!
+) {
+  signIn(
+    publicKeyJwk: \$jwk
+    nonce: \$nonce
+    signature: \$signature
+    locale: \$locale
+    createIfUnknown: \$createIfUnknown
+  ) {
     token
     expiresAt
     created
     account { ...AccountFields }
   }
 }
-$_accountFields''',
+$_accountFields''';
+
+final signInOperation = GraphQLOperation<SignInResult>(
+  name: 'SignIn',
+  document: _signInDocument,
   parse: (data) => _signInResult(data['signIn']),
+  // The API before `createIfUnknown` creates an account for any key it
+  // does not know: the account service deletes one made behind a key that
+  // held another.
+  older: OlderForm.without(_signInDocument, const {'createIfUnknown'}),
 );
 
 final recoverAccountOperation = GraphQLOperation<SignInResult>(

@@ -9,11 +9,55 @@ import 'package:meta/meta.dart';
 /// test validates against `schema/lunaway.graphql`.
 @immutable
 final class GraphQLOperation<T> {
-  const new({required this.name, required this.document, required this.parse});
+  const new({required this.name, required this.document, required this.parse, this.older});
 
   final String name;
   final String document;
   final T Function(Map<String, dynamic> data) parse;
+
+  /// The same request for an API that predates an argument or an input
+  /// field this one sends: the client sends it when the server answers that
+  /// it does not know one (an app published before the API it was built
+  /// against).
+  final OlderForm? older;
+}
+
+/// An operation as an older API reads it: [document] without the arguments
+/// it does not know, and [variables] that drops what they carried.
+@immutable
+final class OlderForm {
+  const new({required this.document, required this.variables, this.usable = _always});
+
+  /// The form of [document] without [arguments]: their variables and their
+  /// uses, wherever they stand on a line. [usable] says which requests may
+  /// go in it: one whose meaning needs an argument the older API lacks
+  /// waits for the API instead.
+  factory without(
+    String document,
+    Set<String> arguments, {
+    bool Function(Map<String, Object?> variables) usable = _always,
+  }) {
+    var older = document;
+    for (final a in arguments) {
+      older = older
+          .replaceAll(RegExp(r',?\s*\$' + a + r':\s*[A-Za-z_!\[\]]+'), '')
+          .replaceAll(RegExp(r',?\s*\b' + a + r':\s*\$' + a + r'\b'), '');
+    }
+    return OlderForm(
+      document: older,
+      variables: (v) => {
+        for (final MapEntry(:key, :value) in v.entries)
+          if (!arguments.contains(key)) key: value,
+      },
+      usable: usable,
+    );
+  }
+
+  final String document;
+  final Map<String, Object?> Function(Map<String, Object?> variables) variables;
+  final bool Function(Map<String, Object?> variables) usable;
+
+  static bool _always(Map<String, Object?> _) => true;
 }
 
 /// Everything the offline store keeps of a place. Photos and reviews are

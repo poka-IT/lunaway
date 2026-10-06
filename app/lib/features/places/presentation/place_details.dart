@@ -15,6 +15,7 @@ import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
+import 'package:lunaway/features/poi/presentation/place_surroundings.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -177,6 +178,7 @@ class PlaceDetailsBody extends ConsumerWidget {
                   ],
                 ),
         ),
+        PlaceSurroundings(place: place),
         gap,
         CoordinatesCard(position: place.position),
         if (place.descriptions.isNotEmpty || place.description != null)

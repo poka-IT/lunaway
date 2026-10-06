@@ -234,7 +234,7 @@ class YourReview extends ConsumerWidget {
           ? null
           : Review(
               id: own?.review?.id ?? '',
-              sourceId: communitySourceId,
+              sourceId: communityCcBySourceId,
               createdAt: own?.review?.createdAt ?? ref.read(clockProvider)(),
               rating: own?.stars,
               text: own?.text,
@@ -407,7 +407,7 @@ class ReviewMenu extends ConsumerWidget {
     final mine = account is SignedIn && account.account.id == review.authorId;
     final author = review.authorId;
     final name = review.authorName;
-    if (mine || review.sourceId != communitySourceId) return const SizedBox.shrink();
+    if (mine || !isLunawayCommunity(review.sourceId)) return const SizedBox.shrink();
     return PopupMenuButton<String>(
       tooltip: t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),

@@ -81,6 +81,8 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$photoFlow$fr photoFlow = _Translations$photoFlow$fr._(_root);
 	@override late final _Translations$placeForm$fr placeForm = _Translations$placeForm$fr._(_root);
 	@override late final _Translations$favoritesSync$fr favoritesSync = _Translations$favoritesSync$fr._(_root);
+	@override late final _Translations$poi$fr poi = _Translations$poi$fr._(_root);
+	@override late final _Translations$offlineMaps$fr offlineMaps = _Translations$offlineMaps$fr._(_root);
 }
 
 // Path: nav
@@ -469,6 +471,8 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
 	@override String get links => 'Ailleurs';
+	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
+	@override String get licenceCcBy => 'CC BY 4.0';
 }
 
 // Path: hours
@@ -596,6 +600,12 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get navigationLater => 'L\'itinéraire intégré, à venir, tiendra compte de toutes ces dimensions.';
 	@override String get save => 'Enregistrer';
 	@override String get clear => 'Effacer';
+	@override String get fuelTitle => 'Carburant';
+	@override String get fuelHint => 'Le prix de votre carburant s\'affiche sur les stations de la carte, les moins chères en premier.';
+	@override String get consumption => 'Consommation';
+	@override String get consumptionUnit => 'L/100 km';
+	@override String get lpgHeating => 'Chauffage au GPL';
+	@override String get lpgHeatingHint => 'Le prix du GPL compte aussi pour vous.';
 }
 
 // Path: profile
@@ -642,6 +652,11 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 	@override String get noTracking => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
+	@override String get attributionBdTopo => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
+	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
+	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
+	@override String get attributionOfflineLabels => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).';
 }
 
 // Path: units
@@ -891,6 +906,7 @@ class _Translations$mine$fr extends Translations$mine$en {
 	@override String get newPlace => 'Nouveau lieu';
 	@override String get edit => 'Modification';
 	@override String get aPlace => 'Un lieu';
+	@override String get newVendingMachine => 'Nouveau distributeur';
 }
 
 // Path: outbox
@@ -1133,6 +1149,132 @@ class _Translations$favoritesSync$fr extends Translations$favoritesSync$en {
 	@override String get confirm => 'Créer le compte et synchroniser';
 }
 
+// Path: poi
+class _Translations$poi$fr extends Translations$poi$en {
+	_Translations$poi$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$poi$category$fr category = _Translations$poi$category$fr._(_root);
+	@override late final _Translations$poi$kind$fr kind = _Translations$poi$kind$fr._(_root);
+	@override String get chipsLabel => 'Commerces et services autour';
+	@override String get openNow => 'Ouvert maintenant';
+	@override String get alwaysOpen => 'Ouvert jour et nuit';
+	@override String get hoursUnknown => 'Horaires inconnus';
+	@override String get maybeClosed => 'Indiqué fermé par FINESS : il a peut-être fermé définitivement.';
+	@override String maybeClosedSince({required Object date}) => 'Indiqué fermé par FINESS depuis le ${date} : il a peut-être fermé définitivement.';
+	@override String get seasonal => 'Saisonnier : il peut être fermé en hiver.';
+	@override String get fee => 'Payant';
+	@override String get free => 'Gratuit';
+	@override String get stillThereTitle => 'Toujours là ?';
+	@override String get stillThereHint => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.';
+	@override String get stillThere => 'Toujours là';
+	@override String get gone => 'Plus là';
+	@override String lastConfirmed({required Object when}) => 'Dit toujours là ${when}';
+	@override String checkedOn({required Object date}) => 'Vérifié sur place le ${date}';
+	@override String get thanksThere => 'Merci : noté toujours là.';
+	@override String get thanksGone => 'Merci : noté plus là.';
+	@override String get fuelPrices => 'Prix des carburants';
+	@override String perLitre({required Object price}) => '${price}/L';
+	@override String priceUpdated({required Object when}) => 'Prix mis à jour ${when}';
+	@override String feedRead({required Object when}) => 'Flux des prix lu ${when}';
+	@override String get shortageTemporary => 'En rupture pour l\'instant';
+	@override String get shortageDefinitive => 'N\'en vend plus';
+	@override String get selfService24h => 'Automate carte jour et nuit';
+	@override String get highway => 'Sur autoroute';
+	@override String get lpgYes => 'Vend du GPL';
+	@override late final _Translations$poi$fuel$fr fuel = _Translations$poi$fuel$fr._(_root);
+	@override String get products => 'Vend';
+	@override String get paymentTitle => 'Paiement';
+	@override late final _Translations$poi$product$fr product = _Translations$poi$product$fr._(_root);
+	@override late final _Translations$poi$payment$fr payment = _Translations$poi$payment$fr._(_root);
+	@override String get justNow => 'à l\'instant';
+	@override String minutesAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'il y a ${n} minute',
+		other: 'il y a ${n} minutes',
+	);
+	@override String hoursAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'il y a ${n} heure',
+		other: 'il y a ${n} heures',
+	);
+	@override String readOffline({required Object when}) => 'Lu ${when} : pas de réseau maintenant';
+	@override String readStale({required Object when}) => 'Lu ${when} : impossible de le relire pour l\'instant.';
+	@override String get goneTitle => 'Ce point n\'est plus sur la carte';
+	@override String get goneHint => 'Des voyageurs l\'ont dit disparu, ou la dernière mise à jour l\'a retiré.';
+	@override String get loadError => 'Le détail n\'a pas pu être lu. Ce que la carte en sait est au-dessus.';
+	@override String get around => 'Autour de ce lieu';
+	@override String get aroundEmpty => 'Aucun commerce ni service connu autour.';
+	@override String get aroundError => 'Ce qu\'il y a autour n\'a pas pu être lu.';
+	@override String get onSite => 'Sur place';
+	@override String backTo({required Object name}) => 'Retour à ${name}';
+	@override String get backToPlace => 'Retour au lieu';
+	@override String get linkError => 'Ce commerce ou service n\'a pas pu être ouvert : pas de réseau, ou il n\'est plus sur la carte.';
+	@override String get searchSection => 'Commerces et services';
+	@override String get searching => 'Recherche des commerces et services';
+	@override String get searchOffline => 'Les commerces et services se cherchent en ligne : pas de réseau maintenant.';
+	@override late final _Translations$poi$add$fr add = _Translations$poi$add$fr._(_root);
+	@override late final _Translations$poi$cheapest$fr cheapest = _Translations$poi$cheapest$fr._(_root);
+}
+
+// Path: offlineMaps
+class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
+	_Translations$offlineMaps$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Cartes hors ligne';
+	@override String get intro => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.';
+	@override String get webTitle => 'Les cartes hors ligne sont dans l\'application';
+	@override String get web => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.';
+	@override String get desktopTitle => 'Les cartes hors ligne sont sur le téléphone';
+	@override String get desktop => 'Les applications Android et iOS gardent des régions pour la route. Sur ordinateur, la carte a besoin du réseau.';
+	@override String get unreadable => 'Les cartes hors ligne de cet appareil n\'ont pas pu être lues.';
+	@override String get none => 'Aucune région sur cet appareil pour l\'instant.';
+	@override String used({required Object size}) => 'Espace utilisé : ${size}';
+	@override String get downloads => 'Téléchargements';
+	@override String get installed => 'Sur cet appareil';
+	@override String get suggested => 'Suggérées';
+	@override String get here => 'Là où vous êtes';
+	@override String favoritesHere({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} favori dans cette région',
+		other: '${n} favoris dans cette région',
+	);
+	@override String get france => 'France';
+	@override String get overseas => 'Outre-mer';
+	@override String get countries => 'Pays';
+	@override String downloadNamed({required Object name, required Object size}) => 'Télécharger ${name}, ${size}';
+	@override String get pause => 'Mettre en pause';
+	@override String get resume => 'Reprendre';
+	@override String get cancel => 'Arrêter et effacer le téléchargement';
+	@override String get waiting => 'En attente de son tour';
+	@override String progress({required Object done, required Object total}) => '${done} sur ${total}';
+	@override String paused({required Object done, required Object total}) => 'En pause à ${done} sur ${total}';
+	@override String get verifying => 'Vérification du fichier';
+	@override String get failedNetwork => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.';
+	@override String get failedServer => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.';
+	@override String get failedCorrupt => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.';
+	@override String get failedStorage => 'Plus assez de place sur l\'appareil.';
+	@override String get keepOpen => 'Gardez l\'application ouverte pendant le téléchargement : il s\'interrompt quand elle passe en arrière-plan et reprend quand vous y revenez.';
+	@override String dataOf({required Object date}) => 'données du ${date}';
+	@override String update({required Object size}) => 'Mettre à jour, ${size}';
+	@override String deleteNamed({required Object name}) => 'Supprimer ${name}';
+	@override String deleteTitle({required Object name}) => 'Supprimer ${name} de cet appareil ?';
+	@override String get deleteBody => 'Elle ne s\'affichera plus sans réseau. Vous pourrez la télécharger de nouveau.';
+	@override String get listOffline => 'La liste des régions demande du réseau.';
+	@override String get listCopy => 'Liste gardée de la dernière connexion.';
+	@override String get entryHint => 'Pour voyager sans réseau';
+	@override String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} région, ${size}',
+		other: '${n} régions, ${size}',
+	);
+	@override String noticePack({required Object name}) => 'Hors ligne : carte téléchargée, ${name}';
+	@override String get noticeOutside => 'Hors ligne : cette zone n\'est pas téléchargée';
+	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
+	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
+}
+
 // Path: place.reviewVehicle
 class _Translations$place$reviewVehicle$fr extends Translations$place$reviewVehicle$en {
 	_Translations$place$reviewVehicle$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -1267,6 +1409,9 @@ class _Translations$outbox$kind$fr extends Translations$outbox$kind$en {
 	@override String get deletePhoto => 'Suppression d\'une photo';
 	@override String get mute => 'Masquer un auteur';
 	@override String get unmute => 'Ne plus masquer un auteur';
+	@override String get poiThere => 'Toujours là : un commerce ou service';
+	@override String get poiGone => 'Plus là : un commerce ou service';
+	@override String get addVendingMachine => 'Nouveau distributeur';
 }
 
 // Path: outbox.error
@@ -1285,6 +1430,7 @@ class _Translations$outbox$error$fr extends Translations$outbox$error$en {
 	@override String get fileLost => 'La photo n\'est plus sur l\'appareil.';
 	@override String get otherAccount => 'Préparée pour un autre compte : elle ne sera pas envoyée.';
 	@override String get other => 'Refusé par le serveur.';
+	@override String get duplicate => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.';
 }
 
 // Path: confirmSheet.status
@@ -1337,6 +1483,149 @@ class _Translations$reportSheet$reason$fr extends Translations$reportSheet$reaso
 	@override String get wrong => 'Faux ou trompeur';
 	@override String get privacy => 'Montre ou nomme une personne, une plaque, une adresse privée';
 	@override String get other => 'Autre raison';
+}
+
+// Path: poi.category
+class _Translations$poi$category$fr extends Translations$poi$category$en {
+	_Translations$poi$category$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get groceries => 'Courses';
+	@override String get vending => 'Distributeurs';
+	@override String get water => 'Eau et vidange';
+	@override String get fuel => 'Carburant et énergie';
+	@override String get health => 'Santé';
+	@override String get services => 'Services';
+}
+
+// Path: poi.kind
+class _Translations$poi$kind$fr extends Translations$poi$kind$en {
+	_Translations$poi$kind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get supermarket => 'Supermarché';
+	@override String get convenience => 'Supérette';
+	@override String get bakery => 'Boulangerie';
+	@override String get butcher => 'Boucherie';
+	@override String get greengrocer => 'Primeur';
+	@override String get farmShop => 'Vente à la ferme';
+	@override String get marketplace => 'Marché';
+	@override String get vendingPizza => 'Distributeur de pizzas';
+	@override String get vendingBread => 'Distributeur de pain';
+	@override String get vendingFarmProducts => 'Distributeur de produits fermiers';
+	@override String get vendingEggsMilk => 'Distributeur d\'œufs ou de lait';
+	@override String get vendingIce => 'Distributeur de glaçons';
+	@override String get vendingOther => 'Distributeur alimentaire';
+	@override String get drinkingWater => 'Eau potable';
+	@override String get waterPoint => 'Point d\'eau';
+	@override String get dumpStation => 'Borne de vidange';
+	@override String get toilets => 'Toilettes';
+	@override String get shower => 'Douches';
+	@override String get fuelStation => 'Station-service';
+	@override String get evCharging => 'Borne de recharge';
+	@override String get gasBottles => 'Bouteilles de gaz';
+	@override String get pharmacy => 'Pharmacie';
+	@override String get doctor => 'Médecin';
+	@override String get hospital => 'Hôpital';
+	@override String get veterinary => 'Vétérinaire';
+	@override String get laundry => 'Laverie';
+	@override String get atm => 'Distributeur de billets';
+	@override String get postOffice => 'Bureau de poste';
+	@override String get touristOffice => 'Office de tourisme';
+	@override String get recyclingCentre => 'Déchèterie';
+	@override String get carRepair => 'Garage';
+	@override String get carWash => 'Lavage';
+	@override String get motorhomeShop => 'Concession et atelier camping-car';
+}
+
+// Path: poi.fuel
+class _Translations$poi$fuel$fr extends Translations$poi$fuel$en {
+	_Translations$poi$fuel$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get diesel => 'Gazole';
+	@override String get sp95 => 'SP95';
+	@override String get e10 => 'SP95-E10';
+	@override String get sp98 => 'SP98';
+	@override String get e85 => 'E85';
+	@override String get lpg => 'GPL';
+}
+
+// Path: poi.product
+class _Translations$poi$product$fr extends Translations$poi$product$en {
+	_Translations$poi$product$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get pizza => 'Pizzas';
+	@override String get bread => 'Pain';
+	@override String get eggs => 'Œufs';
+	@override String get milk => 'Lait';
+	@override String get cheese => 'Fromage';
+	@override String get meat => 'Viande';
+	@override String get vegetables => 'Légumes';
+	@override String get fruit => 'Fruits';
+	@override String get honey => 'Miel';
+	@override String get ice => 'Glaçons';
+	@override String get potatoes => 'Pommes de terre';
+	@override String get food => 'Alimentation';
+}
+
+// Path: poi.payment
+class _Translations$poi$payment$fr extends Translations$poi$payment$en {
+	_Translations$poi$payment$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get cash => 'Espèces';
+	@override String get coins => 'Pièces';
+	@override String get notes => 'Billets';
+	@override String get cards => 'Carte';
+	@override String get contactless => 'Sans contact';
+	@override String get app => 'Application';
+}
+
+// Path: poi.add
+class _Translations$poi$add$fr extends Translations$poi$add$en {
+	_Translations$poi$add$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Un distributeur ici ?';
+	@override String get hint => 'Choisissez ce qu\'il vend : il s\'ajoute à la carte de tous les voyageurs.';
+	@override String get pizza => 'Pizzas';
+	@override String get bread => 'Pain';
+	@override String get other => 'Autre';
+	@override String get gate => 'Ajouter un distributeur';
+	@override String get sent => 'Merci : le distributeur apparaît sur la carte d\'ici quelques minutes.';
+	@override String get duplicateTitle => 'Déjà sur la carte';
+	@override String get duplicateBody => 'Un distributeur du même type est déjà indiqué à moins de 25 m. Est-il toujours là ?';
+	@override String get duplicateThere => 'Oui, toujours là';
+	@override String get duplicateGone => 'Non, il n\'y est plus';
+}
+
+// Path: poi.cheapest
+class _Translations$poi$cheapest$fr extends Translations$poi$cheapest$en {
+	_Translations$poi$cheapest$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Moins cher autour de moi';
+	@override String get show => 'Moins cher autour';
+	@override String get zoomIn => 'Rapprochez la carte pour comparer les prix des stations.';
+	@override String get none => 'Aucune station de la carte ne vend ce carburant.';
+	@override String get noneHint => 'Déplacez la carte ou choisissez un autre carburant.';
+	@override String get error => 'Les prix des stations n\'ont pas pu être lus.';
 }
 
 /// The flat map containing all translations for locale <fr>.
@@ -1568,6 +1857,8 @@ extension on TranslationsFr {
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
 			'place.links' => 'Ailleurs',
+			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
+			'place.licenceCcBy' => 'CC BY 4.0',
 			'hours.open' => 'Ouvert maintenant',
 			'hours.openUntil' => ({required Object time}) => 'Ouvert, ferme à ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Ouvert, ferme ${day} à ${time}',
@@ -1646,6 +1937,12 @@ extension on TranslationsFr {
 			'vehicle.navigationLater' => 'L\'itinéraire intégré, à venir, tiendra compte de toutes ces dimensions.',
 			'vehicle.save' => 'Enregistrer',
 			'vehicle.clear' => 'Effacer',
+			'vehicle.fuelTitle' => 'Carburant',
+			'vehicle.fuelHint' => 'Le prix de votre carburant s\'affiche sur les stations de la carte, les moins chères en premier.',
+			'vehicle.consumption' => 'Consommation',
+			'vehicle.consumptionUnit' => 'L/100 km',
+			'vehicle.lpgHeating' => 'Chauffage au GPL',
+			'vehicle.lpgHeatingHint' => 'Le prix du GPL compte aussi pour vous.',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.',
 			'profile.language' => 'Langue',
@@ -1680,6 +1977,11 @@ extension on TranslationsFr {
 			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'profile.noTracking' => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
+			'profile.attributionBdTopo' => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
+			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
+			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
+			'profile.attributionOfflineLabels' => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',
@@ -1846,8 +2148,11 @@ extension on TranslationsFr {
 			'mine.submission.rejected' => 'Refusé',
 			'mine.submission.withdrawn' => 'Retiré',
 			'mine.newPlace' => 'Nouveau lieu',
+			_ => null,
+		} ?? switch (path) {
 			'mine.edit' => 'Modification',
 			'mine.aPlace' => 'Un lieu',
+			'mine.newVendingMachine' => 'Nouveau distributeur',
 			'outbox.kind.rate' => ({required Object stars}) => 'Note de ${stars} sur 5',
 			'outbox.kind.review' => 'Avis',
 			'outbox.kind.deleteReview' => 'Suppression d\'un avis',
@@ -1859,12 +2164,13 @@ extension on TranslationsFr {
 			'outbox.kind.addPlace' => ({required Object name}) => 'Nouveau lieu : ${name}',
 			'outbox.kind.editPlace' => 'Modification d\'un lieu',
 			'outbox.kind.deletePlaceSubmission' => 'Retrait d\'un lieu proposé',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.photo' => 'Photo',
 			'outbox.kind.deletePhoto' => 'Suppression d\'une photo',
 			'outbox.kind.mute' => 'Masquer un auteur',
 			'outbox.kind.unmute' => 'Ne plus masquer un auteur',
+			'outbox.kind.poiThere' => 'Toujours là : un commerce ou service',
+			'outbox.kind.poiGone' => 'Plus là : un commerce ou service',
+			'outbox.kind.addVendingMachine' => 'Nouveau distributeur',
 			'outbox.waiting' => 'En attente du réseau',
 			'outbox.sending' => 'Envoi en cours',
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
@@ -1876,6 +2182,7 @@ extension on TranslationsFr {
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
 			'outbox.error.other' => 'Refusé par le serveur.',
+			'outbox.error.duplicate' => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.',
 			'outbox.sent' => 'Merci, c\'est envoyé',
 			'outbox.queued' => 'Pas de réseau : envoi dès qu\'il revient',
 			'outbox.refused' => ({required Object reason}) => 'Pas envoyé. ${reason}',
@@ -2028,6 +2335,175 @@ extension on TranslationsFr {
 			'favoritesSync.title' => 'Synchroniser vos favoris ?',
 			'favoritesSync.body' => 'Vos listes seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.',
 			'favoritesSync.confirm' => 'Créer le compte et synchroniser',
+			'poi.category.groceries' => 'Courses',
+			'poi.category.vending' => 'Distributeurs',
+			'poi.category.water' => 'Eau et vidange',
+			'poi.category.fuel' => 'Carburant et énergie',
+			'poi.category.health' => 'Santé',
+			'poi.category.services' => 'Services',
+			'poi.kind.supermarket' => 'Supermarché',
+			'poi.kind.convenience' => 'Supérette',
+			'poi.kind.bakery' => 'Boulangerie',
+			'poi.kind.butcher' => 'Boucherie',
+			'poi.kind.greengrocer' => 'Primeur',
+			'poi.kind.farmShop' => 'Vente à la ferme',
+			'poi.kind.marketplace' => 'Marché',
+			'poi.kind.vendingPizza' => 'Distributeur de pizzas',
+			'poi.kind.vendingBread' => 'Distributeur de pain',
+			'poi.kind.vendingFarmProducts' => 'Distributeur de produits fermiers',
+			'poi.kind.vendingEggsMilk' => 'Distributeur d\'œufs ou de lait',
+			'poi.kind.vendingIce' => 'Distributeur de glaçons',
+			'poi.kind.vendingOther' => 'Distributeur alimentaire',
+			'poi.kind.drinkingWater' => 'Eau potable',
+			'poi.kind.waterPoint' => 'Point d\'eau',
+			'poi.kind.dumpStation' => 'Borne de vidange',
+			'poi.kind.toilets' => 'Toilettes',
+			'poi.kind.shower' => 'Douches',
+			'poi.kind.fuelStation' => 'Station-service',
+			'poi.kind.evCharging' => 'Borne de recharge',
+			'poi.kind.gasBottles' => 'Bouteilles de gaz',
+			'poi.kind.pharmacy' => 'Pharmacie',
+			'poi.kind.doctor' => 'Médecin',
+			'poi.kind.hospital' => 'Hôpital',
+			'poi.kind.veterinary' => 'Vétérinaire',
+			'poi.kind.laundry' => 'Laverie',
+			'poi.kind.atm' => 'Distributeur de billets',
+			'poi.kind.postOffice' => 'Bureau de poste',
+			'poi.kind.touristOffice' => 'Office de tourisme',
+			'poi.kind.recyclingCentre' => 'Déchèterie',
+			'poi.kind.carRepair' => 'Garage',
+			'poi.kind.carWash' => 'Lavage',
+			'poi.kind.motorhomeShop' => 'Concession et atelier camping-car',
+			'poi.chipsLabel' => 'Commerces et services autour',
+			'poi.openNow' => 'Ouvert maintenant',
+			'poi.alwaysOpen' => 'Ouvert jour et nuit',
+			'poi.hoursUnknown' => 'Horaires inconnus',
+			'poi.maybeClosed' => 'Indiqué fermé par FINESS : il a peut-être fermé définitivement.',
+			'poi.maybeClosedSince' => ({required Object date}) => 'Indiqué fermé par FINESS depuis le ${date} : il a peut-être fermé définitivement.',
+			'poi.seasonal' => 'Saisonnier : il peut être fermé en hiver.',
+			'poi.fee' => 'Payant',
+			'poi.free' => 'Gratuit',
+			'poi.stillThereTitle' => 'Toujours là ?',
+			'poi.stillThereHint' => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.',
+			'poi.stillThere' => 'Toujours là',
+			'poi.gone' => 'Plus là',
+			'poi.lastConfirmed' => ({required Object when}) => 'Dit toujours là ${when}',
+			'poi.checkedOn' => ({required Object date}) => 'Vérifié sur place le ${date}',
+			'poi.thanksThere' => 'Merci : noté toujours là.',
+			'poi.thanksGone' => 'Merci : noté plus là.',
+			'poi.fuelPrices' => 'Prix des carburants',
+			'poi.perLitre' => ({required Object price}) => '${price}/L',
+			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
+			'poi.feedRead' => ({required Object when}) => 'Flux des prix lu ${when}',
+			'poi.shortageTemporary' => 'En rupture pour l\'instant',
+			'poi.shortageDefinitive' => 'N\'en vend plus',
+			'poi.selfService24h' => 'Automate carte jour et nuit',
+			'poi.highway' => 'Sur autoroute',
+			'poi.lpgYes' => 'Vend du GPL',
+			'poi.fuel.diesel' => 'Gazole',
+			'poi.fuel.sp95' => 'SP95',
+			'poi.fuel.e10' => 'SP95-E10',
+			'poi.fuel.sp98' => 'SP98',
+			'poi.fuel.e85' => 'E85',
+			'poi.fuel.lpg' => 'GPL',
+			'poi.products' => 'Vend',
+			'poi.paymentTitle' => 'Paiement',
+			'poi.product.pizza' => 'Pizzas',
+			'poi.product.bread' => 'Pain',
+			'poi.product.eggs' => 'Œufs',
+			'poi.product.milk' => 'Lait',
+			'poi.product.cheese' => 'Fromage',
+			'poi.product.meat' => 'Viande',
+			'poi.product.vegetables' => 'Légumes',
+			'poi.product.fruit' => 'Fruits',
+			'poi.product.honey' => 'Miel',
+			'poi.product.ice' => 'Glaçons',
+			'poi.product.potatoes' => 'Pommes de terre',
+			'poi.product.food' => 'Alimentation',
+			'poi.payment.cash' => 'Espèces',
+			'poi.payment.coins' => 'Pièces',
+			'poi.payment.notes' => 'Billets',
+			'poi.payment.cards' => 'Carte',
+			'poi.payment.contactless' => 'Sans contact',
+			'poi.payment.app' => 'Application',
+			'poi.justNow' => 'à l\'instant',
+			'poi.minutesAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a ${n} minute', other: 'il y a ${n} minutes', ), 
+			'poi.hoursAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a ${n} heure', other: 'il y a ${n} heures', ), 
+			'poi.readOffline' => ({required Object when}) => 'Lu ${when} : pas de réseau maintenant',
+			'poi.readStale' => ({required Object when}) => 'Lu ${when} : impossible de le relire pour l\'instant.',
+			'poi.goneTitle' => 'Ce point n\'est plus sur la carte',
+			'poi.goneHint' => 'Des voyageurs l\'ont dit disparu, ou la dernière mise à jour l\'a retiré.',
+			'poi.loadError' => 'Le détail n\'a pas pu être lu. Ce que la carte en sait est au-dessus.',
+			'poi.around' => 'Autour de ce lieu',
+			'poi.aroundEmpty' => 'Aucun commerce ni service connu autour.',
+			'poi.aroundError' => 'Ce qu\'il y a autour n\'a pas pu être lu.',
+			'poi.onSite' => 'Sur place',
+			'poi.backTo' => ({required Object name}) => 'Retour à ${name}',
+			'poi.backToPlace' => 'Retour au lieu',
+			'poi.linkError' => 'Ce commerce ou service n\'a pas pu être ouvert : pas de réseau, ou il n\'est plus sur la carte.',
+			'poi.searchSection' => 'Commerces et services',
+			'poi.searching' => 'Recherche des commerces et services',
+			'poi.searchOffline' => 'Les commerces et services se cherchent en ligne : pas de réseau maintenant.',
+			'poi.add.title' => 'Un distributeur ici ?',
+			'poi.add.hint' => 'Choisissez ce qu\'il vend : il s\'ajoute à la carte de tous les voyageurs.',
+			'poi.add.pizza' => 'Pizzas',
+			'poi.add.bread' => 'Pain',
+			'poi.add.other' => 'Autre',
+			'poi.add.gate' => 'Ajouter un distributeur',
+			'poi.add.sent' => 'Merci : le distributeur apparaît sur la carte d\'ici quelques minutes.',
+			'poi.add.duplicateTitle' => 'Déjà sur la carte',
+			'poi.add.duplicateBody' => 'Un distributeur du même type est déjà indiqué à moins de 25 m. Est-il toujours là ?',
+			'poi.add.duplicateThere' => 'Oui, toujours là',
+			'poi.add.duplicateGone' => 'Non, il n\'y est plus',
+			'poi.cheapest.title' => 'Moins cher autour de moi',
+			'poi.cheapest.show' => 'Moins cher autour',
+			'poi.cheapest.zoomIn' => 'Rapprochez la carte pour comparer les prix des stations.',
+			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',
+			'poi.cheapest.noneHint' => 'Déplacez la carte ou choisissez un autre carburant.',
+			'poi.cheapest.error' => 'Les prix des stations n\'ont pas pu être lus.',
+			'offlineMaps.title' => 'Cartes hors ligne',
+			'offlineMaps.intro' => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.',
+			'offlineMaps.webTitle' => 'Les cartes hors ligne sont dans l\'application',
+			'offlineMaps.web' => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.',
+			'offlineMaps.desktopTitle' => 'Les cartes hors ligne sont sur le téléphone',
+			'offlineMaps.desktop' => 'Les applications Android et iOS gardent des régions pour la route. Sur ordinateur, la carte a besoin du réseau.',
+			'offlineMaps.unreadable' => 'Les cartes hors ligne de cet appareil n\'ont pas pu être lues.',
+			'offlineMaps.none' => 'Aucune région sur cet appareil pour l\'instant.',
+			'offlineMaps.used' => ({required Object size}) => 'Espace utilisé : ${size}',
+			'offlineMaps.downloads' => 'Téléchargements',
+			'offlineMaps.installed' => 'Sur cet appareil',
+			'offlineMaps.suggested' => 'Suggérées',
+			'offlineMaps.here' => 'Là où vous êtes',
+			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} favori dans cette région', other: '${n} favoris dans cette région', ), 
+			'offlineMaps.france' => 'France',
+			'offlineMaps.overseas' => 'Outre-mer',
+			'offlineMaps.countries' => 'Pays',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Télécharger ${name}, ${size}',
+			'offlineMaps.pause' => 'Mettre en pause',
+			'offlineMaps.resume' => 'Reprendre',
+			'offlineMaps.cancel' => 'Arrêter et effacer le téléchargement',
+			'offlineMaps.waiting' => 'En attente de son tour',
+			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} sur ${total}',
+			'offlineMaps.paused' => ({required Object done, required Object total}) => 'En pause à ${done} sur ${total}',
+			'offlineMaps.verifying' => 'Vérification du fichier',
+			'offlineMaps.failedNetwork' => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.',
+			'offlineMaps.failedServer' => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.',
+			'offlineMaps.failedCorrupt' => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.',
+			'offlineMaps.failedStorage' => 'Plus assez de place sur l\'appareil.',
+			'offlineMaps.keepOpen' => 'Gardez l\'application ouverte pendant le téléchargement : il s\'interrompt quand elle passe en arrière-plan et reprend quand vous y revenez.',
+			'offlineMaps.dataOf' => ({required Object date}) => 'données du ${date}',
+			'offlineMaps.update' => ({required Object size}) => 'Mettre à jour, ${size}',
+			'offlineMaps.deleteNamed' => ({required Object name}) => 'Supprimer ${name}',
+			'offlineMaps.deleteTitle' => ({required Object name}) => 'Supprimer ${name} de cet appareil ?',
+			'offlineMaps.deleteBody' => 'Elle ne s\'affichera plus sans réseau. Vous pourrez la télécharger de nouveau.',
+			'offlineMaps.listOffline' => 'La liste des régions demande du réseau.',
+			'offlineMaps.listCopy' => 'Liste gardée de la dernière connexion.',
+			'offlineMaps.entryHint' => 'Pour voyager sans réseau',
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} région, ${size}', other: '${n} régions, ${size}', ), 
+			'offlineMaps.noticePack' => ({required Object name}) => 'Hors ligne : carte téléchargée, ${name}',
+			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
+			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
+			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
 			_ => null,
 		};
 	}

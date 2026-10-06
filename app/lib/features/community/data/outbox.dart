@@ -83,6 +83,11 @@ final class OutboxStore {
         for (final e in same({ContributionKind.confirm}, (e) => e.placeId == placeId)) {
           await _remove(e);
         }
+      case ContributionKind.confirmPoi:
+        // Only the latest answer of an account about a point counts.
+        for (final e in same({kind}, (e) => e.payload['poiId'] == payload['poiId'])) {
+          await _remove(e);
+        }
       case ContributionKind.mute || ContributionKind.unmute:
         final opposite = kind == ContributionKind.mute
             ? ContributionKind.unmute
@@ -108,7 +113,8 @@ final class OutboxStore {
           ContributionKind.editPlace ||
           ContributionKind.deletePlaceSubmission ||
           ContributionKind.photo ||
-          ContributionKind.deletePhoto:
+          ContributionKind.deletePhoto ||
+          ContributionKind.addVendingMachine:
         break;
     }
     final now = clock().toUtc();
@@ -246,6 +252,23 @@ final class OutboxStore {
       return {};
     }
   }
+
+  /// Drops the oldest entry whose request may have reached the server
+  /// (being sent, or uncertain after a broken answer) and that [made] says
+  /// may have made what the user now deletes: the outbox sends oldest
+  /// first, so that is the one whose attempt landed. Another one that
+  /// matches (a second new place) stays. An entry that never reached the
+  /// server made nothing, and one refused for good waits for the user.
+  /// Whether one went.
+  Future<bool> forgetMakerOf(bool Function(PendingContribution) made) => _db.transaction(() async {
+    for (final e in await all()) {
+      final reached = e.uncertain || e.state == OutboxState.sending;
+      if (e.failed || !reached || !made(e)) continue;
+      await _remove(e);
+      return true;
+    }
+    return false;
+  });
 
   /// Forgets every entry and its files (signed out, account deleted).
   Future<void> clear() => _db.transaction(() async {

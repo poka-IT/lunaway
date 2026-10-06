@@ -138,8 +138,18 @@ final class Photo {
   int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId);
 }
 
-/// The source of what Lunaway users write: reviews, photos, places.
+/// The source of what Lunaway users contribute to the places database
+/// (places, edits, confirmations), under the ODbL.
 const communitySourceId = 'community';
+
+/// The source of what Lunaway users publish under their own name: reviews,
+/// ratings and photos, under CC BY 4.0.
+const communityCcBySourceId = 'community-cc-by';
+
+/// Whether [sourceId] is one of Lunaway's own users: the places database's
+/// (ODbL) or their reviews, ratings and photos (CC BY 4.0).
+bool isLunawayCommunity(String sourceId) =>
+    sourceId == communitySourceId || sourceId == communityCcBySourceId;
 
 /// The vehicle a reviewer travelled in, as the API names it.
 enum ReviewVehicle {

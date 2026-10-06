@@ -39,15 +39,38 @@ final class GraphQLClient {
   final Future<void> Function(Duration wait) _sleep;
 
   /// Sends [operation]; [headers] add to the request's (a session's
-  /// `Authorization`).
+  /// `Authorization`). An API older than the operation, which refuses an
+  /// argument or an input field it does not know, gets its older form: a
+  /// document the server did not validate ran nothing, so sending another
+  /// one is safe.
   Future<T> execute<T>(
     GraphQLOperation<T> operation, [
     Map<String, Object?> variables = const {},
     Map<String, String> headers = const {},
   ]) async {
+    try {
+      return await _execute(operation, operation.document, variables, headers);
+    } on GraphQLResponseException catch (e) {
+      final older = operation.older;
+      if (older == null ||
+          !older.usable(variables) ||
+          !e.errors.any((error) => error.unknownInput)) {
+        rethrow;
+      }
+      _log.info('${operation.name}: the API does not know all of it yet, sent in its older form');
+      return await _execute(operation, older.document, older.variables(variables), headers);
+    }
+  }
+
+  Future<T> _execute<T>(
+    GraphQLOperation<T> operation,
+    String document,
+    Map<String, Object?> variables,
+    Map<String, String> headers,
+  ) async {
     final body = jsonEncode({
       'operationName': operation.name,
-      'query': operation.document,
+      'query': document,
       'variables': variables,
     });
     final sent = {
@@ -139,6 +162,7 @@ final class GraphQLError {
     this.reason,
     this.requiredLevel,
     this.level,
+    this.existingId,
   });
 
   factory fromJson(Object? json) {
@@ -152,6 +176,7 @@ final class GraphQLError {
       reason: ext['reason'] as String?,
       requiredLevel: (ext['requiredLevel'] as num?)?.toInt(),
       level: (ext['level'] as num?)?.toInt(),
+      existingId: ext['existingId'] as String?,
     );
   }
 
@@ -191,6 +216,16 @@ final class GraphQLError {
   final String? reason;
   final int? requiredLevel;
   final int? level;
+
+  /// With [invalidInput]: what the request would duplicate (a vending
+  /// machine of the same kind within 25 m), to act on that one instead.
+  final String? existingId;
+
+  /// The server does not know an argument or an input field of the request
+  /// (async-graphql's validation messages): an API older than the app.
+  bool get unknownInput =>
+      code == invalidInput &&
+      (message.startsWith('Unknown argument ') || message.contains(', unknown field '));
 
   @override
   String toString() => code == null ? message : '$code: $message';

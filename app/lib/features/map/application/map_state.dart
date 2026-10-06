@@ -8,13 +8,16 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_view.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'map_state.g.dart';
 
-/// What the map points at: a place, or a point the user long-pressed.
+/// What the map points at: a place, a point the user long-pressed, or a
+/// point of interest.
 @immutable
 sealed class MapSelection {
   const new();
@@ -42,6 +45,25 @@ final class PointSelection extends MapSelection {
 
   @override
   int get hashCode => position.hashCode;
+}
+
+/// A point of interest, opened from the map, a place's surroundings or the
+/// search. It carries what the tile said, so its page opens at once and
+/// offline.
+final class PoiSelection extends MapSelection {
+  const new(this.feature, {this.from});
+
+  final PoiFeature feature;
+
+  /// The place whose surroundings it was opened from, to go back to.
+  final String? from;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PoiSelection && other.feature.id == feature.id && other.from == from;
+
+  @override
+  int get hashCode => Object.hash(feature.id, from);
 }
 
 // keepAlive: the selection survives a switch to another tab and back.
@@ -116,13 +138,28 @@ LatLng? initialPosition(Ref ref) => null;
 BasemapTemplates basemapTemplates(Ref ref) => BasemapTemplates.blank;
 
 /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
-/// pointed at the configured tile host, labelled in [language].
+/// pointed at the configured tile host, labelled in [language]; while the
+/// host does not answer, at the pack downloaded for the view, with the
+/// glyphs and sprites the app carries.
 @riverpod
-String basemapStyle(Ref ref, {required bool dark, required String language}) => fillBasemapStyle(
-  ref.watch(basemapTemplatesProvider).of(dark: dark),
-  base: ref.watch(appConfigProvider).basemapBase,
-  language: language,
-);
+String basemapStyle(Ref ref, {required bool dark, required String language}) {
+  final template = ref.watch(basemapTemplatesProvider).of(dark: dark);
+  final pack = ref.watch(activeOfflinePackProvider);
+  final files = ref.watch(offlineStyleFilesProvider);
+  if (pack != null && files != null) {
+    return fillOfflineBasemapStyle(
+      template,
+      pack: '${files.directory}/${pack.fileName}',
+      assets: files.styleAssets,
+      language: language,
+    );
+  }
+  return fillBasemapStyle(
+    template,
+    base: ref.watch(appConfigProvider).basemapBase,
+    language: language,
+  );
+}
 
 /// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.

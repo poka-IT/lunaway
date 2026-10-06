@@ -28,9 +28,9 @@ void main() {
     await user.close();
   });
 
-  test('both stores are at schema version 2: the account and the community', () {
-    expect(db.schemaVersion, 2);
-    expect(user.schemaVersion, 2);
+  test('the cache is at version 3 (the points read around places), the user store at 3 (fuel)', () {
+    expect(db.schemaVersion, 3);
+    expect(user.schemaVersion, 3);
   });
 
   group('settings', () {

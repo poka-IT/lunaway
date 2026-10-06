@@ -30,6 +30,8 @@ VIEWPORTS = {"phone": (412, 732, 2.625, True), "tablet": (800, 1280, 2, True), "
 PAGES = {
     "map": "#/map",
     "place": "#/map?place={place}",
+    "poi": "#/map?poi={poi}",
+    "offline-maps": "#/profile/offline-maps",
     "favorites": "#/favorites",
     "profile": "#/profile",
     # The account's pages, by their links (reached from the profile in the app).
@@ -159,6 +161,7 @@ def main():
     p.add_argument("--url", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--place", default="demo-0002")
+    p.add_argument("--poi", default="", help="a point of interest to open (the poi page)")
     p.add_argument("--wait", type=float, default=12)
     p.add_argument("--langs", default="fr,en")
     p.add_argument("--schemes", default="light,dark")
@@ -199,7 +202,7 @@ def main():
                     w, h, scale, mobile = VIEWPORTS[vp]
                     for name in args.pages.split(","):
                         frag = PAGES[name]
-                        url = args.url + frag.format(place=args.place)
+                        url = args.url + frag.format(place=args.place, poi=args.poi)
                         path = os.path.join(out, f"{lang}-{vp}-{scheme}-{name}.png")
                         asyncio.run(shoot(page, url, path, w, h, scale, mobile, lang, scheme, args.wait, console_dir))
     finally:

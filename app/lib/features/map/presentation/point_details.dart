@@ -4,6 +4,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/poi/presentation/add_vending.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -86,6 +87,8 @@ class PointDetails extends StatelessWidget {
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
         ),
+        const SizedBox(height: Space.l),
+        VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
       ],

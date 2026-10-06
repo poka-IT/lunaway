@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 
 /// The pin images rendered ahead of time by tool/map_sprites/, one set per
 /// pixel ratio, loaded by both map engines.
@@ -16,12 +17,13 @@ abstract final class PinSprites {
 
   static final Map<int, Future<Map<String, Uint8List>>> _loaded = {};
 
-  /// Every pin image at [ratio], by image id.
+  /// Every pin image at [ratio], by image id: the places' and the points of
+  /// interest's.
   static Future<Map<String, Uint8List>> load(int ratio, {AssetBundle? bundle}) =>
       _loaded.putIfAbsent(ratio, () async {
         final assets = bundle ?? rootBundle;
         return {
-          for (final id in allPinImageIds())
+          for (final id in [...allPinImageIds(), ...PoiMapStyle.allImageIds()])
             id: (await assets.load('assets/map/pins/${ratio}x/$id.png')).buffer.asUint8List(),
         };
       });

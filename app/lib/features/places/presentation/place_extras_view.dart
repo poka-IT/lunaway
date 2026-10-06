@@ -85,7 +85,7 @@ class PlacePhotos extends ConsumerWidget {
         _Thumb(
           photo: photo,
           fetcher: ref.watch(imageFetcherProvider),
-          source: sourceName(t, photo.sourceId, sources: place.sources),
+          source: itemSourceLabel(t, photo.sourceId, sources: place.sources),
           label: t.place.photoPosition(index: i + 1, count: photos.length),
           onTap: () => showPhotoViewer(
             context,
@@ -445,7 +445,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
     final photo = widget.photos[_index];
     final account = ref.watch(accountControllerProvider);
     final mine = account is SignedIn && photo.authorId == account.account.id;
-    final community = photo.sourceId == communitySourceId;
+    final community = isLunawayCommunity(photo.sourceId);
     final onBackdrop = LunaTokens.of(context).onPhotoBackdrop;
     return Scaffold(
       backgroundColor: LunaTokens.of(context).photoBackdrop,
@@ -508,7 +508,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                   ),
                   const Spacer(),
                   SourceBadge(
-                    label: sourceName(t, photo.sourceId, sources: widget.sources),
+                    label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
                     onPhoto: true,
                   ),
                   const SizedBox(width: Space.m),
@@ -619,7 +619,7 @@ class PlaceReviewsSection extends ConsumerWidget {
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    SourceBadge(label: sourceName(t, r.sourceId, sources: place.sources)),
+                    SourceBadge(label: itemSourceLabel(t, r.sourceId, sources: place.sources)),
                     RatingText(average: r.average, count: r.count),
                   ],
                 ),
@@ -705,7 +705,7 @@ class ReviewCard extends StatelessWidget {
         .format(review.visitedAt ?? review.createdAt.toLocal());
     // A deleted account leaves its community reviews without a name.
     final author =
-        review.authorName ?? (review.sourceId == communitySourceId ? t.place.deletedAccount : null);
+        review.authorName ?? (isLunawayCommunity(review.sourceId) ? t.place.deletedAccount : null);
     final vehicle = review.authorVehicle;
     return Card(
       child: Padding(
@@ -740,7 +740,7 @@ class ReviewCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SourceBadge(label: sourceName(t, review.sourceId, sources: sources)),
+                    SourceBadge(label: itemSourceLabel(t, review.sourceId, sources: sources)),
                     ReviewMenu(review: review, placeId: placeId),
                   ],
                 ),

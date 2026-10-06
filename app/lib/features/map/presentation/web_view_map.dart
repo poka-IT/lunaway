@@ -14,6 +14,10 @@ import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
+import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -99,6 +103,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   String? _style;
   double _zoom = 0;
   List<PlaceSummary>? _sentPlaces;
+  PoiLayerView? _sentPois;
   String? _sentSelected;
   LatLng? _sentPoint;
   Future<void> _queue = Future.value();
@@ -129,7 +134,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'zoom': _props.initialZoom,
         'pixelRatio': ratio,
         'images': {for (final e in images.entries) e.key: base64Encode(e.value)},
-        'spec': _spec(dark: _props.dark, language: _props.language),
+        'spec': _spec(
+          dark: _props.dark,
+          language: _props.language,
+          pois: _props.pois,
+          style: _props.style,
+        ),
         'reducedMotion': reducedMotion,
       },
     });
@@ -141,12 +151,32 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   static Object _styleArgument(String style) =>
       _isStyleJson(style) ? jsonDecode(style) as Object : style;
 
-  /// The sources and layers of [MapStyle], in the GL JS style syntax.
-  static Map<String, Object?> _spec({required bool dark, required String language}) => {
+  /// The sources and layers of [MapStyle], in the GL JS style syntax, and
+  /// those of the points of interest when [pois] is given.
+  static Map<String, Object?> _spec({
+    required bool dark,
+    required String language,
+    PoiLayerView? pois,
+    String? style,
+  }) => {
     'clusterSource': MapStyle.placesSource,
+    'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
-    'tappable': MapStyle.tappableLayers,
+    'tappable': [...MapStyle.tappableLayers, if (pois != null) ...PoiMapStyle.tappable],
+    if (pois != null)
+      'pois': {
+        'source': PoiMapStyle.source,
+        'sourceLayer': PoiMapStyle.pointsLayer,
+        'selectionSource': PoiMapStyle.selectionSource,
+        'pointsMinZoom': PoiMapStyle.pointsMinZoom,
+        'quietMinZoom': PoiMapStyle.quietMinZoom,
+      },
     'sources': [
+      if (pois != null) ...[
+        {'id': PoiMapStyle.source, 'vector': true, 'url': pois.tileJsonUrl},
+        {'id': PoiMapStyle.selectionSource, 'options': <String, Object?>{}},
+        {'id': PoiMapStyle.fuelSource, 'options': <String, Object?>{}},
+      ],
       {
         'id': MapStyle.placesSource,
         'options': {
@@ -158,6 +188,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       {'id': MapStyle.selectionSource, 'options': <String, Object?>{}},
     ],
     'layers': [
+      // The points of interest under the places, the quiet ones under the
+      // basemap's labels.
+      if (pois != null) ..._poiLayers(pois, style, dark: dark),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -211,7 +244,113 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           'icon-ignore-placement': true,
         },
       },
+      if (pois != null)
+        {
+          'id': PoiMapStyle.selectionLayerId,
+          'type': 'symbol',
+          'source': PoiMapStyle.selectionSource,
+          'layout': {
+            'icon-image': ['get', 'icon'],
+            'icon-size': 1,
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+        },
     ],
+  };
+
+  /// The points' layers as [PoiMapStyle] draws them on maplibre_gl, in the
+  /// GL JS syntax.
+  static List<Map<String, Object?>> _poiLayers(
+    PoiLayerView view,
+    String? style, {
+    required bool dark,
+  }) => [
+    {
+      'id': PoiMapStyle.dotsLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.source,
+      'source-layer': PoiMapStyle.clustersLayer,
+      'maxzoom': PoiMapStyle.pointsMinZoom,
+      'filter': PoiMapStyle.dotsFilter(view),
+      'layout': _poiDotsLayout,
+    },
+    {
+      'id': PoiMapStyle.quietLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.source,
+      'source-layer': PoiMapStyle.pointsLayer,
+      'minzoom': PoiMapStyle.quietMinZoom,
+      'filter': PoiMapStyle.quietFilter(view),
+      'layout': _poiPinsLayout(view, quiet: true),
+      'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+      'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
+    },
+    {
+      'id': PoiMapStyle.fuelLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.fuelSource,
+      'minzoom': PoiMapStyle.pointsMinZoom,
+      'layout': {
+        'text-field': ['get', 'label'],
+        'text-font': PoiMapStyle.fuelFont,
+        'text-size': PoiMapStyle.fuelTextSize,
+        'text-anchor': 'top',
+        'text-offset': [0, 0.25],
+        'text-padding': 1,
+      },
+      'paint': {
+        'text-color': PoiMapStyle.fuelTextColor(dark: dark),
+        'text-halo-color': PoiMapStyle.fuelHalo(dark: dark),
+        'text-halo-width': 2,
+      },
+    },
+    {
+      'id': PoiMapStyle.pinsLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.source,
+      'source-layer': PoiMapStyle.pointsLayer,
+      'minzoom': PoiMapStyle.pointsMinZoom,
+      'filter': PoiMapStyle.pinsFilter(view),
+      'layout': _poiPinsLayout(view),
+      'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+    },
+  ];
+
+  static Map<String, Object?> _poiPinsLayout(PoiLayerView view, {bool quiet = false}) => {
+    'icon-image': PoiMapStyle.iconImage(quiet: quiet),
+    'icon-anchor': 'bottom',
+    'icon-padding': 1,
+    'symbol-sort-key': PoiMapStyle.sortKey(view),
+  };
+
+  static final Map<String, Object?> _poiDotsLayout = {
+    'icon-image': PoiMapStyle.dotImage,
+    'icon-size': PoiMapStyle.dotSize(1),
+    'icon-padding': 2,
+    'symbol-sort-key': PoiMapStyle.dotSortKey,
+  };
+
+  /// What changes on the points' layers with [view]: their filters, the
+  /// keys and fading that follow the hours, and the open point.
+  static Map<String, Object?> _poiUpdate(PoiLayerView view) => {
+    'filters': {
+      PoiMapStyle.dotsLayerId: PoiMapStyle.dotsFilter(view),
+      PoiMapStyle.quietLayerId: PoiMapStyle.quietFilter(view),
+      PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
+    },
+    'layout': {
+      PoiMapStyle.quietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
+      PoiMapStyle.pinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
+    },
+    'paint': {
+      PoiMapStyle.quietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.pinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+    },
+    'selection': PoiMapStyle.selectionCollection(view.selected),
+    'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},
+    'probe': {'category': view.category?.code, 'filter': PoiMapStyle.probeFilter(view)},
   };
 
   void _onEvent(List<dynamic> arguments) {
@@ -222,6 +361,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         final first = !_ready;
         _ready = true;
         _sentPlaces = null;
+        _sentPois = null;
         _sentSelected = null;
         _sentPoint = null;
         // The theme or the language changed while the page was loading.
@@ -247,6 +387,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         );
       case 'place':
         _props.onPlaceTap('${event['id']}');
+      case 'poi':
+        final feature = PoiFeature.fromTile(
+          event['properties'] as Map<Object?, Object?>?,
+          event['coordinates'] as List<Object?>?,
+        );
+        if (feature != null) _props.onPoiTap?.call(feature);
+      case 'pois':
+        final features = event['features'];
+        if (features is List<Object?>) _props.onPoisInView?.call(decodeProbe(features));
       case 'empty':
         _props.onEmptyTap?.call();
       case 'longpress':
@@ -283,7 +432,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
-        'spec': _spec(dark: _props.dark, language: _props.language),
+        'spec': _spec(
+          dark: _props.dark,
+          language: _props.language,
+          pois: _props.pois,
+          style: _props.style,
+        ),
       }),
     );
   }
@@ -297,6 +451,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   Future<void> _sync() async {
     if (!_ready) return;
     final props = _props;
+    if (props.pois case final pois? when pois != _sentPois) {
+      _sentPois = pois;
+      await _call('return window.lunaway.setPois(update);', {'update': _poiUpdate(pois)});
+    }
     // The data goes as call arguments, which the web view serialises safely;
     // text interpolated into a script would break on quotes and accents.
     if (!identical(props.places, _sentPlaces)) {

@@ -12,6 +12,8 @@ import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -53,6 +55,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // Updates run one after the other: a newer one never races an older one.
   Future<void> _queue = Future.value();
 
+  // The points of interest: their source, layers and selection.
+  final _poi = GlPoiLayers();
+
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
 
@@ -80,6 +85,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
+      _poi.forget();
     }
     _scheduleSync();
   }
@@ -142,6 +148,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await add();
       }
 
+      // The points of interest go under the places: the night spots keep
+      // the map.
+      if (_props.pois case final pois?) {
+        await _poi.installBelowPlaces(
+          c,
+          pois,
+          pinScale: _pinScale,
+          current: current,
+          dark: dark,
+          below: PoiMapStyle.firstLabelLayer(_props.style),
+        );
+      }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
         MapStyle.selectionPinLayer,
@@ -227,6 +245,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.selectionPinLayer,
       );
+      if (_props.pois != null) {
+        await _poi.installSelection(c, pinScale: _pinScale, current: current);
+      }
       if (!current()) return;
       if (_fitPending) {
         final size = mounted ? context.size : null;
@@ -289,6 +310,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       );
       if (selected != null || props.markedPoint != null) await _popSelection(c);
     }
+    if (props.pois case final pois?) await _poi.sync(c, pois, pinScale: _pinScale);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye
@@ -311,27 +333,64 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const slop = 14.0;
     final features = await c.queryRenderedFeaturesInRect(
       Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
-      MapStyle.tappableLayers,
+      [...MapStyle.tappableLayers, if (_props.pois != null) ...PoiMapStyle.tappable],
       null,
     );
     if (features.isEmpty) {
       _props.onEmptyTap?.call();
       return;
     }
-    final feature = features.first as Map<Object?, Object?>;
-    final geometry = feature['geometry'] as Map<Object?, Object?>?;
-    final tap = mapTapFor(
-      feature['properties'] as Map<Object?, Object?>?,
-      geometry?['coordinates'] as List<Object?>?,
-    );
-    switch (tap) {
-      case TapCluster(:final clusterId, :final at):
-        final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
-        await moveTo(at, zoom: zoom + 0.3);
-      case TapPlace(:final id):
-        _props.onPlaceTap(id);
-      case TapNothing():
-        break;
+    // Topmost first: the first feature that means something decides.
+    for (final raw in features) {
+      final feature = raw as Map<Object?, Object?>;
+      final geometry = feature['geometry'] as Map<Object?, Object?>?;
+      final properties = feature['properties'] as Map<Object?, Object?>?;
+      final coordinates = geometry?['coordinates'] as List<Object?>?;
+      switch (mapTapFor(properties, coordinates)) {
+        case TapCluster(:final clusterId, :final at):
+          final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
+          await moveTo(at, zoom: zoom + 0.3);
+          return;
+        case TapPlace(:final id):
+          _props.onPlaceTap(id);
+          return;
+        case TapNothing():
+          break;
+      }
+      switch (poiTapFor(properties, coordinates)) {
+        case TapPoi(:final feature):
+          _props.onPoiTap?.call(feature);
+          return;
+        case TapPoiDot(:final lat, :final lon):
+          final zoom = c.cameraPosition?.zoom ?? 10;
+          await moveTo(LatLng(lat, lon), zoom: math.min(zoom + 2, PoiMapStyle.pointsMinZoom + 0.5));
+          return;
+        case null:
+          break;
+      }
+      // The marker of a long-pressed point: its details are already open.
+      if (properties?['kind'] == 'point') return;
+    }
+  }
+
+  /// Reports the points under the view once the map rests after a move or a
+  /// change of chip.
+  Future<void> _onMapIdle() async {
+    final c = _controller;
+    final pois = _props.pois;
+    final report = _props.onPoisInView;
+    final camera = c?.cameraPosition;
+    if (c == null || !_ready || pois == null || report == null || camera == null) return;
+    try {
+      final found = await _poi.probe(
+        c,
+        pois,
+        zoom: camera.zoom,
+        camera: (camera.target.latitude, camera.target.longitude, camera.zoom),
+      );
+      if (found != null && mounted) report(found);
+    } on Object catch (e) {
+      _log.info('could not read the points in view: $e');
     }
   }
 
@@ -443,12 +502,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick: (point, _) => _onTap(point),
+      // Every tap comes to onMapClick, on a layer's feature too: the plugins
+      // otherwise send a tap on any layer they count as interactive (the
+      // pins, the points of interest) to onFeatureTapped only, which
+      // _onTap's own query replaces.
+      featureTapsTriggersMapClick: true,
       // On the web the plugin reports a double click here, which also zooms:
       // the web long press comes from listenWebMapLongPress instead.
       onMapLongClick: kIsWeb
           ? null
           : (_, position) => _props.onLongPress(LatLng(position.latitude, position.longitude)),
       onCameraIdle: _onCameraIdle,
+      onMapIdle: _onMapIdle,
     );
   }
 }

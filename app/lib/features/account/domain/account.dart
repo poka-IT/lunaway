@@ -105,6 +105,9 @@ abstract final class TrustLevels {
   static const photo = 1;
   static const proposeEdit = 1;
 
+  /// Vending machines, added in two gestures (`addVendingMachine`).
+  static const addVendingMachine = 1;
+
   /// New places.
   static const addPlace = 2;
 

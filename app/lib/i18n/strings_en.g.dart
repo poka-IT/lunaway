@@ -86,6 +86,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$photoFlow$en photoFlow = Translations$photoFlow$en.internal(_root);
 	late final Translations$placeForm$en placeForm = Translations$placeForm$en.internal(_root);
 	late final Translations$favoritesSync$en favoritesSync = Translations$favoritesSync$en.internal(_root);
+	late final Translations$poi$en poi = Translations$poi$en.internal(_root);
+	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
 }
 
 // Path: nav
@@ -905,6 +907,12 @@ class Translations$place$en {
 
 	/// en: 'Elsewhere'
 	String get links => 'Elsewhere';
+
+	/// en: '$source · $licence'
+	String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
+
+	/// en: 'CC BY 4.0'
+	String get licenceCcBy => 'CC BY 4.0';
 }
 
 // Path: hours
@@ -1174,6 +1182,24 @@ class Translations$vehicle$en {
 
 	/// en: 'Clear'
 	String get clear => 'Clear';
+
+	/// en: 'Fuel'
+	String get fuelTitle => 'Fuel';
+
+	/// en: 'The price of your fuel shows on the stations of the map, and the cheapest come first.'
+	String get fuelHint => 'The price of your fuel shows on the stations of the map, and the cheapest come first.';
+
+	/// en: 'Consumption'
+	String get consumption => 'Consumption';
+
+	/// en: 'L/100 km'
+	String get consumptionUnit => 'L/100 km';
+
+	/// en: 'Heating on LPG'
+	String get lpgHeating => 'Heating on LPG';
+
+	/// en: 'The price of LPG matters to you too.'
+	String get lpgHeatingHint => 'The price of LPG matters to you too.';
 }
 
 // Path: profile
@@ -1288,6 +1314,21 @@ class Translations$profile$en {
 
 	/// en: 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.'
 	String get noTracking => 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.';
+
+	/// en: 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.'
+	String get attributionBdTopo => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.';
+
+	/// en: 'Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.'
+	String get attributionPoiOdbl => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.';
+
+	/// en: 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).'
+	String get attributionPoiLo => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).';
+
+	/// en: 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).'
+	String get attributionPacks => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).';
+
+	/// en: 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).'
+	String get attributionOfflineLabels => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).';
 }
 
 // Path: units
@@ -1823,6 +1864,9 @@ class Translations$mine$en {
 
 	/// en: 'A place'
 	String get aPlace => 'A place';
+
+	/// en: 'New vending machine'
+	String get newVendingMachine => 'New vending machine';
 }
 
 // Path: outbox
@@ -2345,6 +2389,313 @@ class Translations$favoritesSync$en {
 	String get confirm => 'Make the account and sync';
 }
 
+// Path: poi
+class Translations$poi$en {
+	Translations$poi$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$poi$category$en category = Translations$poi$category$en.internal(_root);
+	late final Translations$poi$kind$en kind = Translations$poi$kind$en.internal(_root);
+
+	/// en: 'Shops and services around'
+	String get chipsLabel => 'Shops and services around';
+
+	/// en: 'Open now'
+	String get openNow => 'Open now';
+
+	/// en: 'Open day and night'
+	String get alwaysOpen => 'Open day and night';
+
+	/// en: 'Opening hours unknown'
+	String get hoursUnknown => 'Opening hours unknown';
+
+	/// en: 'Listed as closed by FINESS: it may have shut for good.'
+	String get maybeClosed => 'Listed as closed by FINESS: it may have shut for good.';
+
+	/// en: 'Listed as closed by FINESS since $date: it may have shut for good.'
+	String maybeClosedSince({required Object date}) => 'Listed as closed by FINESS since ${date}: it may have shut for good.';
+
+	/// en: 'Seasonal: it may be shut in winter.'
+	String get seasonal => 'Seasonal: it may be shut in winter.';
+
+	/// en: 'Paying'
+	String get fee => 'Paying';
+
+	/// en: 'Free'
+	String get free => 'Free';
+
+	/// en: 'Still there?'
+	String get stillThereTitle => 'Still there?';
+
+	/// en: 'Seen it lately? Your answer helps the next travellers. No position is sent.'
+	String get stillThereHint => 'Seen it lately? Your answer helps the next travellers. No position is sent.';
+
+	/// en: 'Still there'
+	String get stillThere => 'Still there';
+
+	/// en: 'Gone'
+	String get gone => 'Gone';
+
+	/// en: 'Said to be there $when'
+	String lastConfirmed({required Object when}) => 'Said to be there ${when}';
+
+	/// en: 'Checked on the spot on $date'
+	String checkedOn({required Object date}) => 'Checked on the spot on ${date}';
+
+	/// en: 'Thank you: noted as still there.'
+	String get thanksThere => 'Thank you: noted as still there.';
+
+	/// en: 'Thank you: noted as gone.'
+	String get thanksGone => 'Thank you: noted as gone.';
+
+	/// en: 'Fuel prices'
+	String get fuelPrices => 'Fuel prices';
+
+	/// en: '$price/L'
+	String perLitre({required Object price}) => '${price}/L';
+
+	/// en: 'Price updated $when'
+	String priceUpdated({required Object when}) => 'Price updated ${when}';
+
+	/// en: 'Price feed read $when'
+	String feedRead({required Object when}) => 'Price feed read ${when}';
+
+	/// en: 'Out of stock for now'
+	String get shortageTemporary => 'Out of stock for now';
+
+	/// en: 'No longer sold'
+	String get shortageDefinitive => 'No longer sold';
+
+	/// en: 'Card pump day and night'
+	String get selfService24h => 'Card pump day and night';
+
+	/// en: 'On a motorway'
+	String get highway => 'On a motorway';
+
+	/// en: 'Sells LPG'
+	String get lpgYes => 'Sells LPG';
+
+	late final Translations$poi$fuel$en fuel = Translations$poi$fuel$en.internal(_root);
+
+	/// en: 'Sells'
+	String get products => 'Sells';
+
+	/// en: 'Payment'
+	String get paymentTitle => 'Payment';
+
+	late final Translations$poi$product$en product = Translations$poi$product$en.internal(_root);
+	late final Translations$poi$payment$en payment = Translations$poi$payment$en.internal(_root);
+
+	/// en: 'just now'
+	String get justNow => 'just now';
+
+	/// en: '(one) {$n minute ago} (other) {$n minutes ago}'
+	String minutesAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} minute ago',
+		other: '${n} minutes ago',
+	);
+
+	/// en: '(one) {$n hour ago} (other) {$n hours ago}'
+	String hoursAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} hour ago',
+		other: '${n} hours ago',
+	);
+
+	/// en: 'Read $when: no network now'
+	String readOffline({required Object when}) => 'Read ${when}: no network now';
+
+	/// en: 'Read $when: it could not be read again now.'
+	String readStale({required Object when}) => 'Read ${when}: it could not be read again now.';
+
+	/// en: 'This point is no longer on the map'
+	String get goneTitle => 'This point is no longer on the map';
+
+	/// en: 'Travellers said it is gone, or the last update removed it.'
+	String get goneHint => 'Travellers said it is gone, or the last update removed it.';
+
+	/// en: 'The details could not be read. What the map knows is above.'
+	String get loadError => 'The details could not be read. What the map knows is above.';
+
+	/// en: 'Around this place'
+	String get around => 'Around this place';
+
+	/// en: 'No shop or service known around here.'
+	String get aroundEmpty => 'No shop or service known around here.';
+
+	/// en: 'What is around could not be read.'
+	String get aroundError => 'What is around could not be read.';
+
+	/// en: 'On site'
+	String get onSite => 'On site';
+
+	/// en: 'Back to $name'
+	String backTo({required Object name}) => 'Back to ${name}';
+
+	/// en: 'Back to the place'
+	String get backToPlace => 'Back to the place';
+
+	/// en: 'This shop or service could not be opened: no network, or it is no longer on the map.'
+	String get linkError => 'This shop or service could not be opened: no network, or it is no longer on the map.';
+
+	/// en: 'Shops and services'
+	String get searchSection => 'Shops and services';
+
+	/// en: 'Looking for shops and services'
+	String get searching => 'Looking for shops and services';
+
+	/// en: 'Shops and services are searched online: no network now.'
+	String get searchOffline => 'Shops and services are searched online: no network now.';
+
+	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
+	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
+}
+
+// Path: offlineMaps
+class Translations$offlineMaps$en {
+	Translations$offlineMaps$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Offline maps'
+	String get title => 'Offline maps';
+
+	/// en: 'Download a region before you leave: the map then shows without network, every street included.'
+	String get intro => 'Download a region before you leave: the map then shows without network, every street included.';
+
+	/// en: 'Offline maps are in the app'
+	String get webTitle => 'Offline maps are in the app';
+
+	/// en: 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.'
+	String get web => 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.';
+
+	/// en: 'Offline maps are on the phone'
+	String get desktopTitle => 'Offline maps are on the phone';
+
+	/// en: 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.'
+	String get desktop => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.';
+
+	/// en: 'The offline maps of this device could not be read.'
+	String get unreadable => 'The offline maps of this device could not be read.';
+
+	/// en: 'No region on this device yet.'
+	String get none => 'No region on this device yet.';
+
+	/// en: 'Space used: $size'
+	String used({required Object size}) => 'Space used: ${size}';
+
+	/// en: 'Downloading'
+	String get downloads => 'Downloading';
+
+	/// en: 'On this device'
+	String get installed => 'On this device';
+
+	/// en: 'Suggested'
+	String get suggested => 'Suggested';
+
+	/// en: 'Where you are'
+	String get here => 'Where you are';
+
+	/// en: '(one) {$n favourite here} (other) {$n favourites here}'
+	String favoritesHere({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} favourite here',
+		other: '${n} favourites here',
+	);
+
+	/// en: 'France'
+	String get france => 'France';
+
+	/// en: 'Overseas France'
+	String get overseas => 'Overseas France';
+
+	/// en: 'Countries'
+	String get countries => 'Countries';
+
+	/// en: 'Download $name, $size'
+	String downloadNamed({required Object name, required Object size}) => 'Download ${name}, ${size}';
+
+	/// en: 'Pause'
+	String get pause => 'Pause';
+
+	/// en: 'Resume'
+	String get resume => 'Resume';
+
+	/// en: 'Stop and remove the download'
+	String get cancel => 'Stop and remove the download';
+
+	/// en: 'Waiting for its turn'
+	String get waiting => 'Waiting for its turn';
+
+	/// en: '$done of $total'
+	String progress({required Object done, required Object total}) => '${done} of ${total}';
+
+	/// en: 'Paused at $done of $total'
+	String paused({required Object done, required Object total}) => 'Paused at ${done} of ${total}';
+
+	/// en: 'Checking the file'
+	String get verifying => 'Checking the file';
+
+	/// en: 'Stopped: no network. It resumes where it stopped once the network is back.'
+	String get failedNetwork => 'Stopped: no network. It resumes where it stopped once the network is back.';
+
+	/// en: 'The server sent something else than the map. Try again later.'
+	String get failedServer => 'The server sent something else than the map. Try again later.';
+
+	/// en: 'The file arrived damaged and was removed. Try again.'
+	String get failedCorrupt => 'The file arrived damaged and was removed. Try again.';
+
+	/// en: 'Not enough room left on the device.'
+	String get failedStorage => 'Not enough room left on the device.';
+
+	/// en: 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.'
+	String get keepOpen => 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.';
+
+	/// en: 'data of $date'
+	String dataOf({required Object date}) => 'data of ${date}';
+
+	/// en: 'Update, $size'
+	String update({required Object size}) => 'Update, ${size}';
+
+	/// en: 'Remove $name'
+	String deleteNamed({required Object name}) => 'Remove ${name}';
+
+	/// en: 'Remove $name from this device?'
+	String deleteTitle({required Object name}) => 'Remove ${name} from this device?';
+
+	/// en: 'It will no longer show without network. You can download it again.'
+	String get deleteBody => 'It will no longer show without network. You can download it again.';
+
+	/// en: 'The list of regions needs the network.'
+	String get listOffline => 'The list of regions needs the network.';
+
+	/// en: 'List kept from the last connection.'
+	String get listCopy => 'List kept from the last connection.';
+
+	/// en: 'To travel without network'
+	String get entryHint => 'To travel without network';
+
+	/// en: '(one) {$n region, $size} (other) {$n regions, $size}'
+	String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} region, ${size}',
+		other: '${n} regions, ${size}',
+	);
+
+	/// en: 'Offline: downloaded map, $name'
+	String noticePack({required Object name}) => 'Offline: downloaded map, ${name}';
+
+	/// en: 'Offline: this area is not downloaded'
+	String get noticeOutside => 'Offline: this area is not downloaded';
+
+	/// en: 'Offline: download a region for next time'
+	String get noticeNone => 'Offline: download a region for next time';
+
+	/// en: 'Offline: the map needs the network'
+	String get noticeOnline => 'Offline: the map needs the network';
+}
+
 // Path: place.reviewVehicle
 class Translations$place$reviewVehicle$en {
 	Translations$place$reviewVehicle$en.internal(this._root);
@@ -2589,6 +2940,15 @@ class Translations$outbox$kind$en {
 
 	/// en: 'Showing an author again'
 	String get unmute => 'Showing an author again';
+
+	/// en: 'Still there: a shop or service'
+	String get poiThere => 'Still there: a shop or service';
+
+	/// en: 'Gone: a shop or service'
+	String get poiGone => 'Gone: a shop or service';
+
+	/// en: 'New vending machine'
+	String get addVendingMachine => 'New vending machine';
 }
 
 // Path: outbox.error
@@ -2625,6 +2985,9 @@ class Translations$outbox$error$en {
 
 	/// en: 'Refused by the server.'
 	String get other => 'Refused by the server.';
+
+	/// en: 'Refused: the same machine is already listed within 25 m.'
+	String get duplicate => 'Refused: the same machine is already listed within 25 m.';
 }
 
 // Path: confirmSheet.status
@@ -2709,6 +3072,309 @@ class Translations$reportSheet$reason$en {
 
 	/// en: 'Another reason'
 	String get other => 'Another reason';
+}
+
+// Path: poi.category
+class Translations$poi$category$en {
+	Translations$poi$category$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Groceries'
+	String get groceries => 'Groceries';
+
+	/// en: 'Vending machines'
+	String get vending => 'Vending machines';
+
+	/// en: 'Water and dump'
+	String get water => 'Water and dump';
+
+	/// en: 'Fuel and energy'
+	String get fuel => 'Fuel and energy';
+
+	/// en: 'Health'
+	String get health => 'Health';
+
+	/// en: 'Services'
+	String get services => 'Services';
+}
+
+// Path: poi.kind
+class Translations$poi$kind$en {
+	Translations$poi$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Supermarket'
+	String get supermarket => 'Supermarket';
+
+	/// en: 'Convenience store'
+	String get convenience => 'Convenience store';
+
+	/// en: 'Bakery'
+	String get bakery => 'Bakery';
+
+	/// en: 'Butcher'
+	String get butcher => 'Butcher';
+
+	/// en: 'Greengrocer'
+	String get greengrocer => 'Greengrocer';
+
+	/// en: 'Farm shop'
+	String get farmShop => 'Farm shop';
+
+	/// en: 'Market'
+	String get marketplace => 'Market';
+
+	/// en: 'Pizza vending machine'
+	String get vendingPizza => 'Pizza vending machine';
+
+	/// en: 'Bread vending machine'
+	String get vendingBread => 'Bread vending machine';
+
+	/// en: 'Farm produce machine'
+	String get vendingFarmProducts => 'Farm produce machine';
+
+	/// en: 'Eggs or milk machine'
+	String get vendingEggsMilk => 'Eggs or milk machine';
+
+	/// en: 'Ice machine'
+	String get vendingIce => 'Ice machine';
+
+	/// en: 'Food vending machine'
+	String get vendingOther => 'Food vending machine';
+
+	/// en: 'Drinking water'
+	String get drinkingWater => 'Drinking water';
+
+	/// en: 'Water point'
+	String get waterPoint => 'Water point';
+
+	/// en: 'Dump station'
+	String get dumpStation => 'Dump station';
+
+	/// en: 'Toilets'
+	String get toilets => 'Toilets';
+
+	/// en: 'Showers'
+	String get shower => 'Showers';
+
+	/// en: 'Fuel station'
+	String get fuelStation => 'Fuel station';
+
+	/// en: 'Charging station'
+	String get evCharging => 'Charging station';
+
+	/// en: 'Gas bottles'
+	String get gasBottles => 'Gas bottles';
+
+	/// en: 'Pharmacy'
+	String get pharmacy => 'Pharmacy';
+
+	/// en: 'Doctor'
+	String get doctor => 'Doctor';
+
+	/// en: 'Hospital'
+	String get hospital => 'Hospital';
+
+	/// en: 'Vet'
+	String get veterinary => 'Vet';
+
+	/// en: 'Laundry'
+	String get laundry => 'Laundry';
+
+	/// en: 'Cash machine'
+	String get atm => 'Cash machine';
+
+	/// en: 'Post office'
+	String get postOffice => 'Post office';
+
+	/// en: 'Tourist office'
+	String get touristOffice => 'Tourist office';
+
+	/// en: 'Recycling centre'
+	String get recyclingCentre => 'Recycling centre';
+
+	/// en: 'Garage'
+	String get carRepair => 'Garage';
+
+	/// en: 'Vehicle wash'
+	String get carWash => 'Vehicle wash';
+
+	/// en: 'Motorhome dealer and workshop'
+	String get motorhomeShop => 'Motorhome dealer and workshop';
+}
+
+// Path: poi.fuel
+class Translations$poi$fuel$en {
+	Translations$poi$fuel$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Diesel'
+	String get diesel => 'Diesel';
+
+	/// en: 'Unleaded 95'
+	String get sp95 => 'Unleaded 95';
+
+	/// en: 'E10'
+	String get e10 => 'E10';
+
+	/// en: 'Unleaded 98'
+	String get sp98 => 'Unleaded 98';
+
+	/// en: 'E85'
+	String get e85 => 'E85';
+
+	/// en: 'LPG'
+	String get lpg => 'LPG';
+}
+
+// Path: poi.product
+class Translations$poi$product$en {
+	Translations$poi$product$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Eggs'
+	String get eggs => 'Eggs';
+
+	/// en: 'Milk'
+	String get milk => 'Milk';
+
+	/// en: 'Cheese'
+	String get cheese => 'Cheese';
+
+	/// en: 'Meat'
+	String get meat => 'Meat';
+
+	/// en: 'Vegetables'
+	String get vegetables => 'Vegetables';
+
+	/// en: 'Fruit'
+	String get fruit => 'Fruit';
+
+	/// en: 'Honey'
+	String get honey => 'Honey';
+
+	/// en: 'Ice'
+	String get ice => 'Ice';
+
+	/// en: 'Potatoes'
+	String get potatoes => 'Potatoes';
+
+	/// en: 'Food'
+	String get food => 'Food';
+}
+
+// Path: poi.payment
+class Translations$poi$payment$en {
+	Translations$poi$payment$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cash'
+	String get cash => 'Cash';
+
+	/// en: 'Coins'
+	String get coins => 'Coins';
+
+	/// en: 'Notes'
+	String get notes => 'Notes';
+
+	/// en: 'Card'
+	String get cards => 'Card';
+
+	/// en: 'Contactless'
+	String get contactless => 'Contactless';
+
+	/// en: 'Phone app'
+	String get app => 'Phone app';
+}
+
+// Path: poi.add
+class Translations$poi$add$en {
+	Translations$poi$add$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'A vending machine here?'
+	String get title => 'A vending machine here?';
+
+	/// en: 'Pick what it sells: it goes on the map for every traveller.'
+	String get hint => 'Pick what it sells: it goes on the map for every traveller.';
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Other food'
+	String get other => 'Other food';
+
+	/// en: 'Adding a vending machine'
+	String get gate => 'Adding a vending machine';
+
+	/// en: 'Thank you: the machine shows on the map within a few minutes.'
+	String get sent => 'Thank you: the machine shows on the map within a few minutes.';
+
+	/// en: 'Already on the map'
+	String get duplicateTitle => 'Already on the map';
+
+	/// en: 'A machine of the same kind is already listed within 25 m. Is it still there?'
+	String get duplicateBody => 'A machine of the same kind is already listed within 25 m. Is it still there?';
+
+	/// en: 'Yes, still there'
+	String get duplicateThere => 'Yes, still there';
+
+	/// en: 'No, it is gone'
+	String get duplicateGone => 'No, it is gone';
+}
+
+// Path: poi.cheapest
+class Translations$poi$cheapest$en {
+	Translations$poi$cheapest$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cheapest around me'
+	String get title => 'Cheapest around me';
+
+	/// en: 'Cheapest around'
+	String get show => 'Cheapest around';
+
+	/// en: 'Zoom in to compare the stations' prices.'
+	String get zoomIn => 'Zoom in to compare the stations\' prices.';
+
+	/// en: 'No station on the map sells this fuel.'
+	String get none => 'No station on the map sells this fuel.';
+
+	/// en: 'Move the map or pick another fuel.'
+	String get noneHint => 'Move the map or pick another fuel.';
+
+	/// en: 'The stations' prices could not be read.'
+	String get error => 'The stations\' prices could not be read.';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -2940,6 +3606,8 @@ extension on Translations {
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
 			'place.links' => 'Elsewhere',
+			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
+			'place.licenceCcBy' => 'CC BY 4.0',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Open, closes ${day} at ${time}',
@@ -3018,6 +3686,12 @@ extension on Translations {
 			'vehicle.navigationLater' => 'The built-in route planner, coming later, will take all these dimensions into account.',
 			'vehicle.save' => 'Save',
 			'vehicle.clear' => 'Clear',
+			'vehicle.fuelTitle' => 'Fuel',
+			'vehicle.fuelHint' => 'The price of your fuel shows on the stations of the map, and the cheapest come first.',
+			'vehicle.consumption' => 'Consumption',
+			'vehicle.consumptionUnit' => 'L/100 km',
+			'vehicle.lpgHeating' => 'Heating on LPG',
+			'vehicle.lpgHeatingHint' => 'The price of LPG matters to you too.',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers: everything stays on this device.',
 			'profile.language' => 'Language',
@@ -3052,6 +3726,11 @@ extension on Translations {
 			'profile.attributionFonts' => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
 			'profile.noTracking' => 'No ads, no tracker. Your account knows neither your e-mail nor your phone number.',
+			'profile.attributionBdTopo' => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',
+			'profile.attributionPoiOdbl' => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.',
+			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
+			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -3218,8 +3897,11 @@ extension on Translations {
 			'mine.submission.rejected' => 'Refused',
 			'mine.submission.withdrawn' => 'Withdrawn',
 			'mine.newPlace' => 'New place',
+			_ => null,
+		} ?? switch (path) {
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',
+			'mine.newVendingMachine' => 'New vending machine',
 			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Deleting a review',
@@ -3231,12 +3913,13 @@ extension on Translations {
 			'outbox.kind.addPlace' => ({required Object name}) => 'New place: ${name}',
 			'outbox.kind.editPlace' => 'Edit of a place',
 			'outbox.kind.deletePlaceSubmission' => 'Withdrawing a proposed place',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.photo' => 'Photo',
 			'outbox.kind.deletePhoto' => 'Deleting a photo',
 			'outbox.kind.mute' => 'Hiding an author',
 			'outbox.kind.unmute' => 'Showing an author again',
+			'outbox.kind.poiThere' => 'Still there: a shop or service',
+			'outbox.kind.poiGone' => 'Gone: a shop or service',
+			'outbox.kind.addVendingMachine' => 'New vending machine',
 			'outbox.waiting' => 'Waiting for the network',
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
@@ -3248,6 +3931,7 @@ extension on Translations {
 			'outbox.error.fileLost' => 'The photo is no longer on the device.',
 			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
 			'outbox.error.other' => 'Refused by the server.',
+			'outbox.error.duplicate' => 'Refused: the same machine is already listed within 25 m.',
 			'outbox.sent' => 'Thank you, it is sent',
 			'outbox.queued' => 'No network: it leaves as soon as it is back',
 			'outbox.refused' => ({required Object reason}) => 'Not sent. ${reason}',
@@ -3400,6 +4084,175 @@ extension on Translations {
 			'favoritesSync.title' => 'Sync your favourites?',
 			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
 			'favoritesSync.confirm' => 'Make the account and sync',
+			'poi.category.groceries' => 'Groceries',
+			'poi.category.vending' => 'Vending machines',
+			'poi.category.water' => 'Water and dump',
+			'poi.category.fuel' => 'Fuel and energy',
+			'poi.category.health' => 'Health',
+			'poi.category.services' => 'Services',
+			'poi.kind.supermarket' => 'Supermarket',
+			'poi.kind.convenience' => 'Convenience store',
+			'poi.kind.bakery' => 'Bakery',
+			'poi.kind.butcher' => 'Butcher',
+			'poi.kind.greengrocer' => 'Greengrocer',
+			'poi.kind.farmShop' => 'Farm shop',
+			'poi.kind.marketplace' => 'Market',
+			'poi.kind.vendingPizza' => 'Pizza vending machine',
+			'poi.kind.vendingBread' => 'Bread vending machine',
+			'poi.kind.vendingFarmProducts' => 'Farm produce machine',
+			'poi.kind.vendingEggsMilk' => 'Eggs or milk machine',
+			'poi.kind.vendingIce' => 'Ice machine',
+			'poi.kind.vendingOther' => 'Food vending machine',
+			'poi.kind.drinkingWater' => 'Drinking water',
+			'poi.kind.waterPoint' => 'Water point',
+			'poi.kind.dumpStation' => 'Dump station',
+			'poi.kind.toilets' => 'Toilets',
+			'poi.kind.shower' => 'Showers',
+			'poi.kind.fuelStation' => 'Fuel station',
+			'poi.kind.evCharging' => 'Charging station',
+			'poi.kind.gasBottles' => 'Gas bottles',
+			'poi.kind.pharmacy' => 'Pharmacy',
+			'poi.kind.doctor' => 'Doctor',
+			'poi.kind.hospital' => 'Hospital',
+			'poi.kind.veterinary' => 'Vet',
+			'poi.kind.laundry' => 'Laundry',
+			'poi.kind.atm' => 'Cash machine',
+			'poi.kind.postOffice' => 'Post office',
+			'poi.kind.touristOffice' => 'Tourist office',
+			'poi.kind.recyclingCentre' => 'Recycling centre',
+			'poi.kind.carRepair' => 'Garage',
+			'poi.kind.carWash' => 'Vehicle wash',
+			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
+			'poi.chipsLabel' => 'Shops and services around',
+			'poi.openNow' => 'Open now',
+			'poi.alwaysOpen' => 'Open day and night',
+			'poi.hoursUnknown' => 'Opening hours unknown',
+			'poi.maybeClosed' => 'Listed as closed by FINESS: it may have shut for good.',
+			'poi.maybeClosedSince' => ({required Object date}) => 'Listed as closed by FINESS since ${date}: it may have shut for good.',
+			'poi.seasonal' => 'Seasonal: it may be shut in winter.',
+			'poi.fee' => 'Paying',
+			'poi.free' => 'Free',
+			'poi.stillThereTitle' => 'Still there?',
+			'poi.stillThereHint' => 'Seen it lately? Your answer helps the next travellers. No position is sent.',
+			'poi.stillThere' => 'Still there',
+			'poi.gone' => 'Gone',
+			'poi.lastConfirmed' => ({required Object when}) => 'Said to be there ${when}',
+			'poi.checkedOn' => ({required Object date}) => 'Checked on the spot on ${date}',
+			'poi.thanksThere' => 'Thank you: noted as still there.',
+			'poi.thanksGone' => 'Thank you: noted as gone.',
+			'poi.fuelPrices' => 'Fuel prices',
+			'poi.perLitre' => ({required Object price}) => '${price}/L',
+			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
+			'poi.feedRead' => ({required Object when}) => 'Price feed read ${when}',
+			'poi.shortageTemporary' => 'Out of stock for now',
+			'poi.shortageDefinitive' => 'No longer sold',
+			'poi.selfService24h' => 'Card pump day and night',
+			'poi.highway' => 'On a motorway',
+			'poi.lpgYes' => 'Sells LPG',
+			'poi.fuel.diesel' => 'Diesel',
+			'poi.fuel.sp95' => 'Unleaded 95',
+			'poi.fuel.e10' => 'E10',
+			'poi.fuel.sp98' => 'Unleaded 98',
+			'poi.fuel.e85' => 'E85',
+			'poi.fuel.lpg' => 'LPG',
+			'poi.products' => 'Sells',
+			'poi.paymentTitle' => 'Payment',
+			'poi.product.pizza' => 'Pizza',
+			'poi.product.bread' => 'Bread',
+			'poi.product.eggs' => 'Eggs',
+			'poi.product.milk' => 'Milk',
+			'poi.product.cheese' => 'Cheese',
+			'poi.product.meat' => 'Meat',
+			'poi.product.vegetables' => 'Vegetables',
+			'poi.product.fruit' => 'Fruit',
+			'poi.product.honey' => 'Honey',
+			'poi.product.ice' => 'Ice',
+			'poi.product.potatoes' => 'Potatoes',
+			'poi.product.food' => 'Food',
+			'poi.payment.cash' => 'Cash',
+			'poi.payment.coins' => 'Coins',
+			'poi.payment.notes' => 'Notes',
+			'poi.payment.cards' => 'Card',
+			'poi.payment.contactless' => 'Contactless',
+			'poi.payment.app' => 'Phone app',
+			'poi.justNow' => 'just now',
+			'poi.minutesAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} minute ago', other: '${n} minutes ago', ), 
+			'poi.hoursAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} hour ago', other: '${n} hours ago', ), 
+			'poi.readOffline' => ({required Object when}) => 'Read ${when}: no network now',
+			'poi.readStale' => ({required Object when}) => 'Read ${when}: it could not be read again now.',
+			'poi.goneTitle' => 'This point is no longer on the map',
+			'poi.goneHint' => 'Travellers said it is gone, or the last update removed it.',
+			'poi.loadError' => 'The details could not be read. What the map knows is above.',
+			'poi.around' => 'Around this place',
+			'poi.aroundEmpty' => 'No shop or service known around here.',
+			'poi.aroundError' => 'What is around could not be read.',
+			'poi.onSite' => 'On site',
+			'poi.backTo' => ({required Object name}) => 'Back to ${name}',
+			'poi.backToPlace' => 'Back to the place',
+			'poi.linkError' => 'This shop or service could not be opened: no network, or it is no longer on the map.',
+			'poi.searchSection' => 'Shops and services',
+			'poi.searching' => 'Looking for shops and services',
+			'poi.searchOffline' => 'Shops and services are searched online: no network now.',
+			'poi.add.title' => 'A vending machine here?',
+			'poi.add.hint' => 'Pick what it sells: it goes on the map for every traveller.',
+			'poi.add.pizza' => 'Pizza',
+			'poi.add.bread' => 'Bread',
+			'poi.add.other' => 'Other food',
+			'poi.add.gate' => 'Adding a vending machine',
+			'poi.add.sent' => 'Thank you: the machine shows on the map within a few minutes.',
+			'poi.add.duplicateTitle' => 'Already on the map',
+			'poi.add.duplicateBody' => 'A machine of the same kind is already listed within 25 m. Is it still there?',
+			'poi.add.duplicateThere' => 'Yes, still there',
+			'poi.add.duplicateGone' => 'No, it is gone',
+			'poi.cheapest.title' => 'Cheapest around me',
+			'poi.cheapest.show' => 'Cheapest around',
+			'poi.cheapest.zoomIn' => 'Zoom in to compare the stations\' prices.',
+			'poi.cheapest.none' => 'No station on the map sells this fuel.',
+			'poi.cheapest.noneHint' => 'Move the map or pick another fuel.',
+			'poi.cheapest.error' => 'The stations\' prices could not be read.',
+			'offlineMaps.title' => 'Offline maps',
+			'offlineMaps.intro' => 'Download a region before you leave: the map then shows without network, every street included.',
+			'offlineMaps.webTitle' => 'Offline maps are in the app',
+			'offlineMaps.web' => 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.',
+			'offlineMaps.desktopTitle' => 'Offline maps are on the phone',
+			'offlineMaps.desktop' => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.',
+			'offlineMaps.unreadable' => 'The offline maps of this device could not be read.',
+			'offlineMaps.none' => 'No region on this device yet.',
+			'offlineMaps.used' => ({required Object size}) => 'Space used: ${size}',
+			'offlineMaps.downloads' => 'Downloading',
+			'offlineMaps.installed' => 'On this device',
+			'offlineMaps.suggested' => 'Suggested',
+			'offlineMaps.here' => 'Where you are',
+			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} favourite here', other: '${n} favourites here', ), 
+			'offlineMaps.france' => 'France',
+			'offlineMaps.overseas' => 'Overseas France',
+			'offlineMaps.countries' => 'Countries',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
+			'offlineMaps.pause' => 'Pause',
+			'offlineMaps.resume' => 'Resume',
+			'offlineMaps.cancel' => 'Stop and remove the download',
+			'offlineMaps.waiting' => 'Waiting for its turn',
+			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} of ${total}',
+			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',
+			'offlineMaps.verifying' => 'Checking the file',
+			'offlineMaps.failedNetwork' => 'Stopped: no network. It resumes where it stopped once the network is back.',
+			'offlineMaps.failedServer' => 'The server sent something else than the map. Try again later.',
+			'offlineMaps.failedCorrupt' => 'The file arrived damaged and was removed. Try again.',
+			'offlineMaps.failedStorage' => 'Not enough room left on the device.',
+			'offlineMaps.keepOpen' => 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.',
+			'offlineMaps.dataOf' => ({required Object date}) => 'data of ${date}',
+			'offlineMaps.update' => ({required Object size}) => 'Update, ${size}',
+			'offlineMaps.deleteNamed' => ({required Object name}) => 'Remove ${name}',
+			'offlineMaps.deleteTitle' => ({required Object name}) => 'Remove ${name} from this device?',
+			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
+			'offlineMaps.listOffline' => 'The list of regions needs the network.',
+			'offlineMaps.listCopy' => 'List kept from the last connection.',
+			'offlineMaps.entryHint' => 'To travel without network',
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} region, ${size}', other: '${n} regions, ${size}', ), 
+			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
+			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
+			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
+			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
 			_ => null,
 		};
 	}

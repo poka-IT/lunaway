@@ -132,3 +132,14 @@ CREATE TABLE device_state (
   id TEXT NOT NULL PRIMARY KEY,
   value TEXT NOT NULL
 ) AS DeviceStateRow;
+
+-- What the API said around a place ("Around this place") and the pages of
+-- points of interest the user opened (added in version 3), by key
+-- (`cache_key`: `nearby:<place id>`, `poi:<point id>`): read online, kept so a place
+-- opened once still says what is around it without network. The hours
+-- inside cover 14 days.
+CREATE TABLE poi_cache (
+  cache_key TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+) AS PoiCacheRow;

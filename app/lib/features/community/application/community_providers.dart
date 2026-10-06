@@ -24,6 +24,7 @@ import 'package:lunaway/features/community/data/picture_picker_io.dart'
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'community_providers.g.dart';
@@ -179,23 +180,38 @@ class OutboxRunner extends _$OutboxRunner {
     unawaited(kick());
   }
 
-  /// Queues a contribution and tries to send it now.
+  /// Queues a contribution and tries to send it now. [deleting], for a
+  /// deletion, is the contribution it deletes: the entry that may have made
+  /// it goes first (see [mayHaveMade]), unless an entry is already known to
+  /// have made it.
   Future<PendingContribution?> enqueue(
     ContributionKind kind, {
     required Map<String, Object?> payload,
     String? placeId,
     String? fileId,
+    Object? deleting,
   }) async {
     final account = ref.read(accountControllerProvider);
-    final entry = await ref
-        .read(outboxStoreProvider)
-        .add(
-          kind,
-          payload: payload,
-          placeId: placeId,
-          fileId: fileId,
-          accountId: account is SignedIn ? account.account.id : null,
-        );
+    final store = ref.read(outboxStoreProvider);
+    // A contribution accepted lately for a known entry, or awaited by a
+    // photo, was not made by a waiting one: none goes for it.
+    final taken = {
+      ...await store.claimed(),
+      for (final e in await store.all())
+        if (e.payload['submissionId'] case final String id) id,
+    };
+    if (deleting != null && !taken.contains(payload['id'])) {
+      if (await store.forgetMakerOf((e) => mayHaveMade(e, deleting))) {
+        _log.info('outbox: the entry that made what is deleted dropped');
+      }
+    }
+    final entry = await store.add(
+      kind,
+      payload: payload,
+      placeId: placeId,
+      fileId: fileId,
+      accountId: account is SignedIn ? account.account.id : null,
+    );
     unawaited(kick());
     return entry;
   }
@@ -286,8 +302,19 @@ class OutboxRunner extends _$OutboxRunner {
       case ContributionKind.deleteConfirmation ||
           ContributionKind.deleteIssueReport ||
           ContributionKind.reportContent ||
-          ContributionKind.deletePlaceSubmission:
+          ContributionKind.deletePlaceSubmission ||
+          ContributionKind.addVendingMachine:
         break;
+      case ContributionKind.confirmPoi:
+        // The page shows when the point was last said to be there: read it
+        // again.
+        if (e.payload['poiId'] case final String poiId) {
+          unawaited(
+            ref.read(poiRepositoryProvider).forgetPage(poiId).then((_) {
+              if (ref.mounted) ref.invalidate(poiPageProvider(poiId));
+            }),
+          );
+        }
     }
     ref.invalidate(myContributionsProvider);
     // Contributions move the level: read it again.

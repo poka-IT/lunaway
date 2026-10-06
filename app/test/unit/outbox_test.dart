@@ -59,10 +59,27 @@ final class _Server implements CommunityApi {
     return result;
   }
 
+  /// What each idempotency key's first request stored, as the server keeps
+  /// it for 30 days.
+  final keyed = <String, Object?>{};
+
+  /// As the API before the keys: each request makes a new row.
+  bool ignoresKeys = false;
+
   @override
   Future<Object?> send(ContributionKind kind, Map<String, Object?> v, {bool create = true}) async {
     calls.add(kind);
+    final key = v['idempotencyKey'];
     return _answer<Object?>(() {
+      if (!ignoresKeys && key is String && keyed.containsKey(key)) return keyed[key];
+      final result = _store(kind, v);
+      if (key is String) keyed[key] = result;
+      return result;
+    });
+  }
+
+  Object? _store(ContributionKind kind, Map<String, Object?> v) {
+    {
       switch (kind) {
         case ContributionKind.confirm:
           final c = Confirmation(
@@ -82,6 +99,15 @@ final class _Server implements CommunityApi {
           );
           issues.add(i);
           return i;
+        case ContributionKind.addVendingMachine:
+          final s = PlaceSubmission(
+            id: _id(),
+            kind: SubmissionKind.poi,
+            status: SubmissionStatus.accepted,
+            createdAt: clock(),
+          );
+          submissions.add(s);
+          return s;
         case ContributionKind.addPlace:
           final s = PlaceSubmission(
             id: _id(),
@@ -107,7 +133,7 @@ final class _Server implements CommunityApi {
         case _:
           return true;
       }
-    });
+    }
   }
 
   /// The worker places a new place: its submission gains the place's id.
@@ -210,7 +236,7 @@ void main() {
     expect(await outbox.all(), isEmpty);
   });
 
-  test('a replay after a lost answer never adds the contribution twice', () async {
+  test('a replay after a lost answer looks for it first, and never adds it twice', () async {
     // A device with an account: a contribution only leaves with one.
     account = 'acc-1';
     await outbox.add(
@@ -227,16 +253,196 @@ void main() {
     server.net = _Net.answerLost;
     await sender().sendDue();
     expect(server.confirmations, hasLength(1));
-    final unsure = (await outbox.all()).first;
-    expect(unsure.uncertain, isTrue);
 
     server.net = _Net.up;
     now = now.add(const Duration(minutes: 1));
     final replay = await sender().sendDue();
     expect(replay.sent, 2);
-    expect(server.confirmations, hasLength(1), reason: 'found on the server, not sent again');
+    expect(
+      server.calls.where((k) => k == ContributionKind.confirm),
+      hasLength(1),
+      reason: "found among the account's latest, not sent again",
+    );
+    expect(server.confirmations, hasLength(1));
     expect(server.issues, hasLength(1));
     expect(await outbox.all(), isEmpty);
+  });
+
+  test(
+    'an entry an older version left uncertain, sent without a key, is looked for first',
+    () async {
+      account = 'acc-1';
+      final entry = await outbox.add(
+        ContributionKind.confirm,
+        placeId: 'p1',
+        payload: {'placeId': 'p1', 'status': 'CLOSED'},
+      );
+      // The version before the keys sent it, the answer was lost, and it
+      // marked the entry uncertain; the server stored it under no key.
+      await outbox.markSending(entry!.id);
+      await outbox.retryAt(entry.id, now, uncertain: true);
+      server.confirmations.add(
+        Confirmation(
+          id: 'srv-old',
+          placeId: 'p1',
+          status: ConfirmationStatus.closed,
+          createdAt: now,
+        ),
+      );
+      now = now.add(const Duration(minutes: 1));
+      await sender().sendDue();
+      expect(server.confirmations, hasLength(1));
+      expect(server.calls, isNot(contains(ContributionKind.confirm)));
+      expect(await outbox.all(), isEmpty);
+    },
+  );
+
+  test(
+    'deleting what a lost answer made drops its entry: sent again, it would be made anew',
+    () async {
+      account = 'acc-1';
+      await outbox.add(
+        ContributionKind.confirm,
+        placeId: 'p1',
+        payload: {'placeId': 'p1', 'status': 'CLOSED'},
+      );
+      // The server stores it, the answer never arrives: the entry waits.
+      server.net = _Net.answerLost;
+      await sender().sendDue();
+      final made = server.confirmations.single;
+      expect(await outbox.all(), hasLength(1));
+      // Queued later and never sent: it made nothing, it stays.
+      await outbox.add(
+        ContributionKind.confirm,
+        placeId: 'p2',
+        payload: {'placeId': 'p2', 'status': 'STILL_OK'},
+      );
+
+      // The user deletes it from the list of their contributions; the server
+      // forgets it, and its key with it.
+      expect(await outbox.forgetMakerOf((e) => mayHaveMade(e, made)), isTrue);
+      server.confirmations.remove(made);
+      server.keyed.removeWhere((_, v) => v == made);
+
+      server.net = _Net.up;
+      now = now.add(const Duration(minutes: 1));
+      await sender().sendDue();
+      expect(server.confirmations.map((c) => c.placeId), ['p2'], reason: 'p1 was not made again');
+      expect(await outbox.all(), isEmpty);
+    },
+  );
+
+  test('a deletion drops only the oldest entry that may have reached the server', () async {
+    account = 'acc-1';
+    Future<String> issue() async => (await outbox.add(
+      ContributionKind.reportIssue,
+      placeId: 'p1',
+      payload: {'placeId': 'p1', 'kind': 'DANGER'},
+    ))!.id;
+    // Refused for good: it made nothing, and waits for the user.
+    final refused = await issue();
+    await outbox.markSending(refused);
+    await outbox.fail(refused, code: OutboxError.invalid);
+    // Two whose answers were lost, the same request.
+    final first = await issue();
+    await outbox.markSending(first);
+    await outbox.retryAt(first, now, uncertain: true);
+    final second = await issue();
+    await outbox.markSending(second);
+    await outbox.retryAt(second, now, uncertain: true);
+    // Never sent: it made nothing.
+    final waiting = await issue();
+
+    final made = IssueReport(id: 'srv-1', placeId: 'p1', kind: IssueKind.danger, createdAt: now);
+    expect(await outbox.forgetMakerOf((e) => mayHaveMade(e, made)), isTrue);
+    expect((await outbox.all()).map((e) => e.id), [refused, second, waiting]);
+  });
+
+  test('what an entry may have made: same request, made after it was queued', () {
+    final entry = PendingContribution(
+      id: 'e1',
+      kind: ContributionKind.reportIssue,
+      placeId: 'p1',
+      payload: const {'placeId': 'p1', 'kind': 'DANGER'},
+      createdAt: now,
+      attemptStartedAt: now,
+    );
+    IssueReport issue({
+      String place = 'p1',
+      IssueKind kind = IssueKind.danger,
+      Duration after = Duration.zero,
+    }) => IssueReport(id: 'i', placeId: place, kind: kind, createdAt: now.add(after));
+    expect(mayHaveMade(entry, issue()), isTrue);
+    expect(
+      mayHaveMade(entry, issue(after: const Duration(days: 2))),
+      isTrue,
+      reason: 'a late retry',
+    );
+    expect(
+      mayHaveMade(entry, issue(after: const Duration(hours: -1))),
+      isFalse,
+      reason: 'made before it',
+    );
+    expect(mayHaveMade(entry, issue(place: 'p2')), isFalse);
+    expect(mayHaveMade(entry, issue(kind: IssueKind.nightBan)), isFalse);
+    expect(
+      mayHaveMade(
+        entry,
+        Confirmation(id: 'c', placeId: 'p1', status: ConfirmationStatus.closed, createdAt: now),
+      ),
+      isFalse,
+    );
+  });
+
+  test('an API without the keys still gets each contribution once after a lost answer', () async {
+    account = 'acc-1';
+    server.ignoresKeys = true;
+    await outbox.add(
+      ContributionKind.confirm,
+      placeId: 'p1',
+      payload: {'placeId': 'p1', 'status': 'CLOSED'},
+    );
+    server.net = _Net.answerLost;
+    await sender().sendDue();
+    final cut = await outbox.add(
+      ContributionKind.reportIssue,
+      placeId: 'p2',
+      payload: {'placeId': 'p2', 'kind': 'DANGER'},
+    );
+    // The app ended during this one's request, which the server stored.
+    await outbox.markSending(cut!.id);
+    server.issues.add(
+      IssueReport(id: 'srv-cut', placeId: 'p2', kind: IssueKind.danger, createdAt: now),
+    );
+
+    server.net = _Net.up;
+    now = now.add(const Duration(minutes: 1));
+    await sender().sendDue();
+    expect(server.confirmations, hasLength(1));
+    expect(server.issues, hasLength(1));
+    expect(await outbox.all(), isEmpty);
+  });
+
+  test('an edit that empties a field waits for an API that knows how', () async {
+    account = 'acc-1';
+    await outbox.add(
+      ContributionKind.editPlace,
+      placeId: 'p1',
+      payload: {
+        'placeId': 'p1',
+        'patch': {
+          'clear': ['WEBSITE'],
+        },
+      },
+    );
+    server.refuse = const GraphQLError(
+      'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"',
+      code: 'INVALID_INPUT',
+    );
+    await sender().sendDue();
+    final waiting = (await outbox.all()).single;
+    expect(waiting.state, OutboxState.pending, reason: 'not refused for good');
+    expect(waiting.nextAttemptAt, isNotNull);
   });
 
   test('a failure before any connection is not taken for a request that may have landed', () async {
@@ -289,10 +495,9 @@ void main() {
     );
     server.net = _Net.cutBeforeArrival;
     await sender().sendDue();
-    expect((await outbox.all()).single.uncertain, isTrue);
 
-    // The next pass, in a new run: the first place's submission is in the
-    // window, and is not this one's.
+    // The next pass, in a new run: its own key, which the server has not
+    // seen, never the first place's.
     server.net = _Net.up;
     now = now.add(const Duration(minutes: 2));
     await sender().sendDue();
@@ -300,7 +505,7 @@ void main() {
     expect(await outbox.all(), isEmpty);
   });
 
-  test('an attempt cut by the end of the app is looked for before it is sent again', () async {
+  test('an attempt cut by the end of the app is found on the server, never sent twice', () async {
     // A device with an account: a contribution only leaves with one.
     account = 'acc-1';
     final entry = await outbox.add(
@@ -308,15 +513,36 @@ void main() {
       placeId: 'p1',
       payload: {'placeId': 'p1', 'kind': 'DANGER'},
     );
-    // The app ended during the request, which the server had stored.
+    // The app ended during the request, which the server had stored under
+    // the entry's key.
     await outbox.markSending(entry!.id);
-    server.issues.add(
-      IssueReport(id: 'srv-x', placeId: 'p1', kind: IssueKind.danger, createdAt: now),
-    );
+    final stored = IssueReport(id: 'srv-x', placeId: 'p1', kind: IssueKind.danger, createdAt: now);
+    server.issues.add(stored);
+    server.keyed[entry.id] = stored;
     now = now.add(const Duration(hours: 2));
     await sender().sendDue();
     expect(server.issues, hasLength(1));
-    expect(server.calls, isEmpty, reason: 'the report was not sent a second time');
+    expect(await outbox.all(), isEmpty);
+  });
+
+  test('a vending machine whose answer was lost is looked for before it is sent again', () async {
+    account = 'acc-1';
+    await outbox.add(
+      ContributionKind.addVendingMachine,
+      payload: {
+        'input': {'kind': 'VENDING_PIZZA', 'lat': 45.0, 'lon': 6.0},
+      },
+    );
+    server.net = _Net.answerLost;
+    await sender().sendDue();
+    expect(server.submissions, hasLength(1));
+    expect((await outbox.all()).single.uncertain, isTrue);
+
+    server.net = _Net.up;
+    now = now.add(const Duration(minutes: 1));
+    await sender().sendDue();
+    expect(server.submissions, hasLength(1), reason: "found among the account's submissions");
+    expect(server.calls.where((k) => k == ContributionKind.addVendingMachine), hasLength(1));
     expect(await outbox.all(), isEmpty);
   });
 

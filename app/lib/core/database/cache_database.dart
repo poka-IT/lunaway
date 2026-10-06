@@ -44,9 +44,10 @@ final class CacheDatabase extends _$CacheDatabase {
 
   // Version 1 is the first shipped schema: earlier ones never left a
   // developer's device, so they get no migration. Version 2 keeps what the
-  // community says of each place.
+  // community says of each place, version 3 the points of interest read
+  // around them.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -71,6 +72,7 @@ final class CacheDatabase extends _$CacheDatabase {
           'generation = generation + 1',
         );
       }
+      if (from < 3) await m.createTable(poiCache);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -15,9 +16,17 @@ import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
+import 'package:lunaway/features/poi/presentation/cheapest_fuel.dart';
+import 'package:lunaway/features/poi/presentation/poi_chips.dart';
+import 'package:lunaway/features/poi/presentation/poi_details.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -28,19 +37,27 @@ import 'package:lunaway/shared/widgets/floating.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/spring_sheet.dart';
 
-/// The height the search pill and the chips take over the map, below the
-/// status bar.
-const double _overlayHeight = 56 + Space.s + 60;
+final _log = Logger('map');
+
+/// The height the search pill and the two rows of chips take over the map,
+/// below the status bar.
+const double _overlayHeight = 56 + Space.s + 60 + PoiChips.height;
+
+/// The search pill alone, while a selection hides the chips on a phone.
+const double _searchHeight = 56 + Space.s;
 
 /// The map of places, in the three layouts: on a phone the map runs under the
 /// status bar with the list and the details in a spring sheet; on a tablet
 /// they open in a panel on the right; on a desktop the list, the map and the
 /// details sit side by side.
 class MapScreen extends ConsumerStatefulWidget {
-  const new({this.placeId, super.key});
+  const new({this.placeId, this.poiId, super.key});
 
   /// A place to open on arrival, from a link.
   final String? placeId;
+
+  /// A shop or service to open on arrival, from a link.
+  final String? poiId;
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
@@ -59,7 +76,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void didUpdateWidget(MapScreen old) {
     super.didUpdateWidget(old);
     // After the build: a provider cannot change while widgets are updated.
-    if (widget.placeId != old.placeId) {
+    if (widget.placeId != old.placeId || widget.poiId != old.poiId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_openLinkedPlace());
       });
@@ -68,6 +85,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   /// Selects the place a link names and, once the map is ready, shows it.
   Future<void> _openLinkedPlace() async {
+    if (widget.poiId != null) return await _openLinkedPoi(widget.poiId!);
     final id = widget.placeId;
     if (id == null) return;
     ref.read(selectionProvider.notifier).select(PlaceSelection(id));
@@ -82,6 +100,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!mounted) return;
     await ref.read(mapControllerProvider)?.moveTo(place.position, zoom: 13);
+  }
+
+  /// The same for a shop or service, read from the API (or the copy kept
+  /// when it was opened before).
+  Future<void> _openLinkedPoi(String id) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final t = context.t;
+    PoiFeature? feature;
+    try {
+      await for (final read in ref.read(poiRepositoryProvider).watchPage(id)) {
+        // The last read wins: a point the server no longer has is gone,
+        // whatever the copy said.
+        feature = read.value?.poi.feature;
+      }
+    } on Object catch (e) {
+      _log.info('linked point $id not read: $e');
+    }
+    if (!mounted) return;
+    if (feature == null) {
+      // No network and no copy, or gone from the map: said, rather than a
+      // link that seems to do nothing.
+      showMessage(messenger, t.poi.linkError);
+      return;
+    }
+    ref.read(selectionProvider.notifier).select(PoiSelection(feature));
+    bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
+    for (var i = 0; !ready() && i < 50 && mounted; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+    if (!mounted) return;
+    await ref.read(mapControllerProvider)?.moveTo(feature.position, zoom: 15);
   }
 
   void _clearSelection() => ref.read(selectionProvider.notifier).select(null);
@@ -142,6 +191,18 @@ class _Map extends ConsumerWidget {
     final places = ref.watch(mapPlacesProvider).value ?? const [];
     final selection = ref.watch(selectionProvider);
     final select = ref.read(selectionProvider.notifier);
+    final poiChoice = ref.watch(poiLayerProvider);
+    final pois = PoiLayerView(
+      tileJsonUrl: ref.watch(poiTileJsonUrlProvider),
+      category: poiChoice.category,
+      openNowOnly: poiChoice.openNowOnly,
+      state: ref.watch(poiLayerStateProvider),
+      night: ref.watch(poiNightProvider),
+      selected: selection is PoiSelection ? selection.feature : null,
+      fuelLabels: poiChoice.category == PoiCategory.fuel
+          ? ref.watch(fuelLabelsProvider(Localizations.localeOf(context).languageCode))
+          : const [],
+    );
     final map = ref.watch(lunaMapBuilderProvider)(
       context,
       LunaMapProps(
@@ -171,6 +232,13 @@ class _Map extends ConsumerWidget {
         // the first seconds) still fits: the camera it reported is only the
         // first one.
         fitInitial: viewport == null || isFirstCamera(viewport),
+        pois: pois,
+        onPoiTap: (feature) {
+          select.select(PoiSelection(feature));
+          // As for a long press: the sheet that opens may cover the point.
+          unawaited(ref.read(mapControllerProvider)?.moveTo(feature.position));
+        },
+        onPoisInView: (features) => ref.read(poisInViewProvider.notifier).report(features),
       ),
     );
     return Stack(
@@ -246,6 +314,14 @@ class _SelectionDetails extends StatelessWidget {
       actions: actions,
       bottomPadding: bottomPadding,
     ),
+    PoiSelection(:final feature, :final from) => PoiDetails(
+      feature: feature,
+      from: from,
+      scrollController: scrollController,
+      onClose: onClose,
+      actions: actions,
+      bottomPadding: bottomPadding,
+    ),
   };
 }
 
@@ -262,6 +338,7 @@ class _SelectionActions extends ConsumerWidget {
       null => const SizedBox.shrink(),
     },
     PointSelection(:final position) => PointActionBar(position: position, floating: true),
+    PoiSelection(:final feature) => PointActionBar(position: feature.position, floating: true),
   };
 }
 
@@ -387,11 +464,16 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     final height = m.size.height;
     final selection = widget.selection;
     final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
+    // With the fuel chip on, the sheet lists the cheapest stations around
+    // in place of the places.
+    final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
     final snaps = selection == null
         ? [_listPeek(m), _half(m), _full(m)]
         : [_detailsPeek(m), _detailsOpen(m), _full(m)];
     final rest = _rest ?? (selection == null ? _listPeek(m) : _detailsOpen(m));
-    final top = m.padding.top + _overlayHeight;
+    // While a sheet is open the chips give way: the map keeps the room above
+    // the sheet for what was chosen.
+    final top = m.padding.top + (selection == null ? _overlayHeight : _searchHeight);
     final clearance = MessageClearanceScope.maybeOf(context);
     return Stack(
       children: [
@@ -443,7 +525,13 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
             switchOutCurve: Motion.exit,
             transitionBuilder: (child, animation) =>
                 FadeTransition(opacity: animation, child: child),
-            child: selection == null
+            child: selection == null && fuelList
+                ? CheapestFuelList(
+                    key: const ValueKey('fuel'),
+                    scrollController: scroll,
+                    bottomPadding: m.padding.bottom + Space.l,
+                  )
+                : selection == null
                 ? NearbyList(
                     key: const ValueKey('list'),
                     scrollController: scroll,
@@ -537,8 +625,24 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                   padding: EdgeInsets.fromLTRB(Space.m, Space.s, Space.m, 0),
                   child: MapSearch(),
                 ),
-                const QuickFilters(padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0)),
+                AnimatedSize(
+                  duration: Motion.of(context, Motion.medium),
+                  curve: Motion.enter,
+                  alignment: Alignment.topCenter,
+                  child: selection != null
+                      ? const SizedBox(width: double.infinity)
+                      : const Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            QuickFilters(
+                              padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0),
+                            ),
+                            PoiChips(padding: EdgeInsets.fromLTRB(Space.m, 0, Space.xxl, 0)),
+                          ],
+                        ),
+                ),
                 if (!searching) const Center(child: IncompleteSyncNotice()),
+                if (!searching) const Center(child: OfflineMapNotice()),
               ],
             ),
           ),
@@ -588,6 +692,7 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
     final reserved = panelOpen ? panelWidth + Space.xxl : 0.0;
     final top = MediaQuery.paddingOf(context).top + _overlayHeight;
     final count = ref.watch(nearbyPlacesProvider).value?.length;
+    final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
     return Stack(
       children: [
         Positioned.fill(
@@ -634,9 +739,13 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                       FloatingSurface(
                         child: TextButton.icon(
                           onPressed: () => setState(() => _listOpen = true),
-                          icon: const Icon(AppIcons.list),
+                          icon: Icon(fuelList ? PoiLook.category(PoiCategory.fuel) : AppIcons.list),
                           label: Text(
-                            count == null ? t.map.showList : t.map.showListCount(n: count),
+                            fuelList
+                                ? t.poi.cheapest.show
+                                : count == null
+                                ? t.map.showList
+                                : t.map.showListCount(n: count),
                           ),
                           style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
                         ),
@@ -647,7 +756,9 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                 const QuickFilters(
                   padding: EdgeInsets.only(top: Space.xxs, right: Space.xxl),
                 ),
+                const PoiChips(padding: EdgeInsets.only(right: Space.xxl)),
                 const IncompleteSyncNotice(),
+                const OfflineMapNotice(),
               ],
             ),
           ),
@@ -670,6 +781,15 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                         selection: selection,
                         onClose: widget.onClose,
                         actions: true,
+                      )
+                    : fuelList
+                    ? CheapestFuelList(
+                        topPadding: Space.l,
+                        trailing: IconButton(
+                          tooltip: t.common.close,
+                          icon: const Icon(AppIcons.close),
+                          onPressed: () => setState(() => _listOpen = false),
+                        ),
                       )
                     : NearbyList(
                         header: Padding(
@@ -719,20 +839,27 @@ class _ExpandedLayout extends ConsumerWidget {
             onClose: onClose,
             actions: true,
           );
-    const list = Column(
+    final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
+    final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
+        const Padding(
           padding: EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, 0),
           child: MapSearch(floating: false),
         ),
-        QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
-        Padding(
-          padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
-          child: NearbyCount(),
-        ),
-        Divider(),
-        Expanded(child: NearbyList()),
+        const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
+        const PoiChips(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
+        if (fuelList) ...[
+          const Divider(),
+          const Expanded(child: CheapestFuelList(topPadding: Space.m)),
+        ] else ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
+            child: NearbyCount(),
+          ),
+          const Divider(),
+          const Expanded(child: NearbyList()),
+        ],
       ],
     );
     Widget pane(Widget child, {required bool left}) => Container(
@@ -779,7 +906,12 @@ class _ExpandedLayout extends ConsumerWidget {
                 top: Space.l,
                 left: 0,
                 right: 0,
-                child: Center(child: IncompleteSyncNotice()),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [IncompleteSyncNotice(), OfflineMapNotice()],
+                  ),
+                ),
               ),
               Positioned(
                 right: Space.l,

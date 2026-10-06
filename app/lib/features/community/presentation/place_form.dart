@@ -132,6 +132,16 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
       );
     }
     T? changed<T>(T? value, T? before) => value != null && value != before ? value : null;
+    // A field the place had that the form now leaves empty is cleared: the
+    // community stops stating it.
+    final clear = {
+      if (place.priceParkingEur != null && num('priceParking') == null) PlaceField.priceParking,
+      if (place.priceServicesEur != null && num('priceServices') == null) PlaceField.priceServices,
+      if (place.maxHeightM != null && num('maxHeight') == null) PlaceField.maxHeight,
+      if (place.capacity != null && capacity == null) PlaceField.capacity,
+      if (place.website != null && text('website') == null) PlaceField.website,
+      if (place.phone != null && text('phone') == null) PlaceField.phone,
+    };
     return PlaceDetails(
       name: changed(name, place.name),
       kind: changed(_kind, place.kind),
@@ -145,6 +155,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
       capacity: changed(capacity, place.capacity),
       website: changed(text('website'), place.website),
       phone: changed(text('phone'), place.phone),
+      clear: clear,
     );
   }
 

@@ -43,7 +43,7 @@ class QuickFilters extends ConsumerWidget {
     }
 
     final chips = <Widget>[
-      _MapChip(
+      MapChip(
         icon: AppIcons.filters,
         label: t.map.filters,
         count: filter.activeCount,
@@ -51,7 +51,7 @@ class QuickFilters extends ConsumerWidget {
         floating: floating,
         onTap: () => showFiltersSheet(context),
       ),
-      _MapChip(
+      MapChip(
         leading: const NightBadge(OvernightStatus.allowed),
         label: t.filters.nightPossible,
         selected: filter.nightOk,
@@ -59,14 +59,14 @@ class QuickFilters extends ConsumerWidget {
         onTap: () => apply(filter.withNightOk(on: !filter.nightOk)),
       ),
       for (final a in Amenity.quick)
-        _MapChip(
+        MapChip(
           icon: AppIcons.amenity(a),
           label: t.amenity(a),
           selected: filter.amenities.contains(a),
           floating: floating,
           onTap: () => apply(filter.toggleAmenity(a)),
         ),
-      _MapChip(
+      MapChip(
         icon: AppIcons.vehicleFits,
         label: vehicle?.heightM == null
             ? t.filters.myVehicleFits
@@ -111,20 +111,26 @@ class QuickFilters extends ConsumerWidget {
   }
 }
 
-/// A chip over the map: a floating pill, amber-tinted when on.
-class _MapChip extends StatelessWidget {
+/// A chip over the map: a floating pill, amber-tinted when on. Shared with
+/// the row of the points of interest (`features/poi`).
+class MapChip extends StatelessWidget {
   const new({
     required this.label,
     required this.onTap,
     required this.floating,
     this.icon,
+    this.iconColor,
     this.leading,
     this.selected = false,
     this.count = 0,
     this.semanticsLabel,
+    super.key,
   });
 
   final IconData? icon;
+
+  /// The icon's colour; the theme's text colour by default.
+  final Color? iconColor;
   final Widget? leading;
   final String label;
   final bool selected;
@@ -174,7 +180,7 @@ class _MapChip extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ?leading,
-                    if (icon != null) Icon(icon, size: 20, color: scheme.onSurface),
+                    if (icon != null) Icon(icon, size: 20, color: iconColor ?? scheme.onSurface),
                     const SizedBox(width: Space.s),
                     Text(
                       label,

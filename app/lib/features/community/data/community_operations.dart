@@ -4,13 +4,14 @@ import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 
 const _submissionFields = '''
-fragment SubmissionFields on PlaceSubmission { id kind placeId status createdAt appliedAt }
+fragment SubmissionFields on PlaceSubmission { id kind placeId poiId status createdAt appliedAt }
 ''';
 
 PlaceSubmission submissionFromJson(Map<String, dynamic> m) => PlaceSubmission(
   id: m['id'] as String,
   kind: SubmissionKind.fromWire(m['kind']),
   placeId: m['placeId'] as String?,
+  poiId: m['poiId'] as String?,
   status: SubmissionStatus.fromWire(m['status']),
   createdAt: DateTime.parse(m['createdAt'] as String).toUtc(),
   appliedAt: DateTime.tryParse('${m['appliedAt']}')?.toUtc(),
@@ -76,15 +77,29 @@ final deleteReviewOperation = GraphQLOperation<bool>(
   parse: (data) => data['deleteReview'] == true,
 );
 
+const _confirmDocument = r'''
+mutation Confirm(
+  $placeId: UUID!
+  $status: ConfirmationStatus!
+  $note: String
+  $idempotencyKey: String
+) {
+  confirm(placeId: $placeId, status: $status, note: $note, idempotencyKey: $idempotencyKey) {
+    id
+    placeId
+    status
+    createdAt
+  }
+}''';
+
 /// "Still there?": no position is ever sent (decided: a confirmation says
 /// nothing of where its author is).
 final confirmOperation = GraphQLOperation<Confirmation>(
   name: 'Confirm',
-  document: r'''
-mutation Confirm($placeId: UUID!, $status: ConfirmationStatus!, $note: String) {
-  confirm(placeId: $placeId, status: $status, note: $note) { id placeId status createdAt }
-}''',
+  document: _confirmDocument,
   parse: (data) => confirmationFromJson(data['confirm'] as Map<String, dynamic>),
+  // The API before idempotency keys.
+  older: OlderForm.without(_confirmDocument, const {'idempotencyKey'}),
 );
 
 final deleteConfirmationOperation = GraphQLOperation<bool>(
@@ -93,13 +108,22 @@ final deleteConfirmationOperation = GraphQLOperation<bool>(
   parse: (data) => data['deleteConfirmation'] == true,
 );
 
+const _reportIssueDocument = r'''
+mutation ReportIssue($placeId: UUID!, $kind: IssueKind!, $note: String, $idempotencyKey: String) {
+  reportIssue(placeId: $placeId, kind: $kind, note: $note, idempotencyKey: $idempotencyKey) {
+    id
+    placeId
+    kind
+    createdAt
+  }
+}''';
+
 final reportIssueOperation = GraphQLOperation<IssueReport>(
   name: 'ReportIssue',
-  document: r'''
-mutation ReportIssue($placeId: UUID!, $kind: IssueKind!, $note: String) {
-  reportIssue(placeId: $placeId, kind: $kind, note: $note) { id placeId kind createdAt }
-}''',
+  document: _reportIssueDocument,
   parse: (data) => issueReportFromJson(data['reportIssue'] as Map<String, dynamic>),
+  // The API before idempotency keys.
+  older: OlderForm.without(_reportIssueDocument, const {'idempotencyKey'}),
 );
 
 final deleteIssueReportOperation = GraphQLOperation<bool>(
@@ -117,24 +141,42 @@ mutation ReportContent($target: ReportTarget!, $id: UUID!, $reason: ReportReason
   parse: (data) => data['reportContent'] == true,
 );
 
+const _addPlaceDocument = '''
+mutation AddPlace(\$input: NewPlaceInput!, \$idempotencyKey: String) {
+  addPlace(input: \$input, idempotencyKey: \$idempotencyKey) { ...SubmissionFields }
+}
+$_submissionFields''';
+
 final addPlaceOperation = GraphQLOperation<PlaceSubmission>(
   name: 'AddPlace',
-  document: '''
-mutation AddPlace(\$input: NewPlaceInput!) {
-  addPlace(input: \$input) { ...SubmissionFields }
-}
-$_submissionFields''',
+  document: _addPlaceDocument,
   parse: (data) => submissionFromJson(data['addPlace'] as Map<String, dynamic>),
+  // The API before idempotency keys.
+  older: OlderForm.without(_addPlaceDocument, const {'idempotencyKey'}),
 );
+
+const _editPlaceDocument = '''
+mutation EditPlace(\$placeId: UUID!, \$patch: PlaceDetailsInput!, \$idempotencyKey: String) {
+  editPlace(placeId: \$placeId, patch: \$patch, idempotencyKey: \$idempotencyKey) {
+    ...SubmissionFields
+  }
+}
+$_submissionFields''';
 
 final editPlaceOperation = GraphQLOperation<PlaceSubmission>(
   name: 'EditPlace',
-  document: '''
-mutation EditPlace(\$placeId: UUID!, \$patch: PlaceDetailsInput!) {
-  editPlace(placeId: \$placeId, patch: \$patch) { ...SubmissionFields }
-}
-$_submissionFields''',
+  document: _editPlaceDocument,
   parse: (data) => submissionFromJson(data['editPlace'] as Map<String, dynamic>),
+  // The API before idempotency keys and `clear`: an edit that empties a
+  // field waits for the API that can do it, rather than going without.
+  older: OlderForm.without(
+    _editPlaceDocument,
+    const {'idempotencyKey'},
+    usable: (v) => switch (v['patch']) {
+      {'clear': final List<Object?> clear} => clear.isEmpty,
+      _ => true,
+    },
+  ),
 );
 
 final deletePlaceSubmissionOperation = GraphQLOperation<bool>(
@@ -159,6 +201,29 @@ final unmuteAuthorOperation = GraphQLOperation<bool>(
   name: 'UnmuteAuthor',
   document: r'mutation UnmuteAuthor($id: UUID!) { unmuteAuthor(accountId: $id) }',
   parse: (data) => data['unmuteAuthor'] == true,
+);
+
+/// "Still there?" about a point of interest: no position is sent, as for a
+/// place.
+final confirmPoiOperation = GraphQLOperation<String>(
+  name: 'ConfirmPoi',
+  document: r'''
+mutation ConfirmPoi($poiId: UUID!, $stillThere: Boolean!) {
+  confirmPoi(poiId: $poiId, stillThere: $stillThere) { id }
+}''',
+  parse: (data) => (data['confirmPoi'] as Map<String, dynamic>)['id'] as String,
+);
+
+/// A vending machine where it stands; a machine of the same kind within
+/// 25 m is refused with `extensions.existingId`.
+final addVendingMachineOperation = GraphQLOperation<PlaceSubmission>(
+  name: 'AddVendingMachine',
+  document: '''
+mutation AddVendingMachine(\$input: NewVendingMachineInput!) {
+  addVendingMachine(input: \$input) { ...SubmissionFields }
+}
+$_submissionFields''',
+  parse: (data) => submissionFromJson(data['addVendingMachine'] as Map<String, dynamic>),
 );
 
 /// The account's own contributions, newest first, every status.
@@ -228,5 +293,7 @@ final communityOperations = <GraphQLOperation<Object?>>[
   deletePhotoOperation,
   muteAuthorOperation,
   unmuteAuthorOperation,
+  confirmPoiOperation,
+  addVendingMachineOperation,
   myContributionsOperation,
 ];

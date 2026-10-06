@@ -17,15 +17,25 @@ enum ContributionKind {
   photo,
   deletePhoto,
   mute,
-  unmute;
+  unmute,
+
+  /// "Still there?" about a point of interest.
+  confirmPoi,
+
+  /// A vending machine added where it stands.
+  addVendingMachine;
 
   static ContributionKind? fromName(String name) => values.where((k) => k.name == name).firstOrNull;
 
   /// Sending it twice changes nothing more than sending it once: a rating
   /// or a review replaces the account's previous one, a deletion of what is
-  /// gone is done, a mute of a muted author too. The others create a row
-  /// each time: after an attempt whose answer was lost, the next one looks
-  /// for that row first.
+  /// gone is done, a mute of a muted author too, and only the latest answer
+  /// of an account about a point counts (`refresh_community` in the
+  /// backend). A confirmation, a problem, a new place and an edit go with
+  /// their entry's id as `idempotencyKey`: the server answers a replay with
+  /// what the first request stored. The others create a row each time:
+  /// after an attempt whose answer was lost, the next one looks for that row
+  /// first (a photo the server already has is refused, which settles it).
   bool get idempotent => switch (this) {
     rate ||
     review ||
@@ -36,8 +46,19 @@ enum ContributionKind {
     deletePlaceSubmission ||
     deletePhoto ||
     mute ||
-    unmute => true,
-    confirm || reportIssue || addPlace || editPlace || photo => false,
+    unmute ||
+    confirmPoi ||
+    confirm ||
+    reportIssue ||
+    addPlace ||
+    editPlace => true,
+    photo || addVendingMachine => false,
+  };
+
+  /// It carries its outbox entry's id as `idempotencyKey`.
+  bool get keyed => switch (this) {
+    confirm || reportIssue || addPlace || editPlace => true,
+    _ => false,
   };
 
   /// A deletion: a target the server no longer has is a success.
@@ -88,6 +109,13 @@ abstract final class OutboxError {
 
   /// Made by another account than the one on this device now.
   static const otherAccount = 'OTHER_ACCOUNT';
+
+  /// A machine of the same kind already stands within 25 m: the entry keeps
+  /// its id under [existingIdKey], to confirm that one instead.
+  static const duplicate = 'DUPLICATE';
+
+  /// The payload key of the machine that already stands there.
+  static const existingIdKey = '_existingId';
 
   /// Anything else.
   static const other = 'OTHER';

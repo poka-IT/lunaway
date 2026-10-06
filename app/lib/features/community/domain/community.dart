@@ -120,7 +120,10 @@ final class IssueReport {
 
 enum SubmissionKind {
   create('CREATE'),
-  edit('EDIT');
+  edit('EDIT'),
+
+  /// A vending machine added as a point of interest.
+  poi('POI');
 
   new(this.wire);
 
@@ -155,6 +158,7 @@ final class PlaceSubmission {
     required this.status,
     required this.createdAt,
     this.placeId,
+    this.poiId,
     this.appliedAt,
   });
 
@@ -164,9 +168,29 @@ final class PlaceSubmission {
   /// The place edited, or the place a new one became; null until the
   /// server placed it.
   final String? placeId;
+
+  /// The point of interest a new vending machine became; null until the
+  /// server wrote it.
+  final String? poiId;
   final SubmissionStatus status;
   final DateTime createdAt;
   final DateTime? appliedAt;
+}
+
+/// A field of a place an edit can clear (`PlaceField`): the community
+/// stops stating it (a wrong phone, a closed website), and the value shown
+/// comes from the next source that has one.
+enum PlaceField {
+  priceParking('PRICE_PARKING'),
+  priceServices('PRICE_SERVICES'),
+  maxHeight('MAX_HEIGHT'),
+  capacity('CAPACITY'),
+  website('WEBSITE'),
+  phone('PHONE');
+
+  new(this.wire);
+
+  final String wire;
 }
 
 /// What a contributor states of a place: an absent field says nothing
@@ -186,6 +210,7 @@ final class PlaceDetails {
     this.capacity,
     this.website,
     this.phone,
+    this.clear = const {},
   });
 
   final String? name;
@@ -203,6 +228,9 @@ final class PlaceDetails {
   final String? website;
   final String? phone;
 
+  /// What an edit takes out: a field the place had and the form emptied.
+  final Set<PlaceField> clear;
+
   bool get isEmpty =>
       name == null &&
       kind == null &&
@@ -214,9 +242,10 @@ final class PlaceDetails {
       maxHeightM == null &&
       capacity == null &&
       website == null &&
-      phone == null;
+      phone == null &&
+      clear.isEmpty;
 
-  /// The GraphQL input: only the fields stated.
+  /// The GraphQL input: only the fields stated, and those cleared.
   Map<String, Object?> toInput() => {
     'name': ?name,
     if (kind != null) 'kind': kind!.wire,
@@ -230,6 +259,8 @@ final class PlaceDetails {
     'capacity': ?capacity,
     'website': ?website,
     'phone': ?phone,
+    if (clear.isNotEmpty)
+      'clear': [for (final f in PlaceField.values.where(clear.contains)) f.wire],
   };
 
   @override
@@ -246,7 +277,8 @@ final class PlaceDetails {
       other.maxHeightM == maxHeightM &&
       other.capacity == capacity &&
       other.website == website &&
-      other.phone == phone;
+      other.phone == phone &&
+      const SetEquality<PlaceField>().equals(other.clear, clear);
 
   @override
   int get hashCode => Object.hash(name, kind, overnight, description, priceParkingEur, maxHeightM);

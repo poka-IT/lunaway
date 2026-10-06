@@ -36,12 +36,19 @@ Future<Submitted> submitContribution(
   String? placeId,
   String? fileId,
   String? sentText,
+  Object? deleting,
 }) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final container = ProviderScope.containerOf(context, listen: false);
   final runner = container.read(outboxRunnerProvider.notifier);
-  final entry = await runner.enqueue(kind, payload: payload, placeId: placeId, fileId: fileId);
+  final entry = await runner.enqueue(
+    kind,
+    payload: payload,
+    placeId: placeId,
+    fileId: fileId,
+    deleting: deleting,
+  );
   if (entry == null) {
     // It only cancelled a contribution still waiting: nothing to send.
     showMessage(messenger, sentText ?? t.outbox.sent);

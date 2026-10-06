@@ -101,6 +101,8 @@ extension CommunityLabels on Translations {
       .deletePhoto => _t.outbox.kind.deletePhoto,
       .mute => _t.outbox.kind.mute,
       .unmute => _t.outbox.kind.unmute,
+      .confirmPoi => p['stillThere'] == false ? _t.outbox.kind.poiGone : _t.outbox.kind.poiThere,
+      .addVendingMachine => _t.outbox.kind.addVendingMachine,
     };
   }
 
@@ -121,6 +123,7 @@ extension CommunityLabels on Translations {
     OutboxError.placeRefused => _t.outbox.error.placeRefused,
     OutboxError.fileLost => _t.outbox.error.fileLost,
     OutboxError.otherAccount => _t.outbox.error.otherAccount,
+    OutboxError.duplicate => _t.outbox.error.duplicate,
     _ => _t.outbox.error.other,
   };
 }

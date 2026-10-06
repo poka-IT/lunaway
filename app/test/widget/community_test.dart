@@ -43,7 +43,7 @@ Future<TestApp> openPlace(
 }) async {
   final app = await pumpLunaway(
     tester,
-    size: const Size(1280, 2400),
+    size: const Size(1280, 3000),
     api: api,
     signedIn: signedIn,
     extras: extras,
@@ -81,7 +81,14 @@ void main() {
     // key sent: reaching Confirm means the device signed its challenge.
     expect(api.operations.take(3), ['AuthChallenge', 'SignIn', 'Confirm']);
     expect(api.last('SignIn')!['locale'], 'fr');
-    expect(api.last('Confirm'), {'placeId': lakeArea.id, 'status': 'STILL_OK'});
+    // The outbox entry's id as the idempotency key: a replay gets the
+    // first answer back.
+    expect(api.last('Confirm'), {
+      'placeId': lakeArea.id,
+      'status': 'STILL_OK',
+      'idempotencyKey': isA<String>(),
+    });
+    expect(api.last('SignIn')!['createIfUnknown'], isTrue, reason: 'the first one may make it');
     expect(api.calls.firstWhere((c) => c.operation == 'Confirm').token, isNotNull);
 
     expect(find.text(t.account.welcomeTitle), findsOneWidget);
@@ -194,7 +201,11 @@ void main() {
     await tester.tap(find.text(t.issueSheet.kind.serviceBroken));
     await tester.pump();
     await tapAndSend(tester, find.text(t.issueSheet.send));
-    expect(api.last('ReportIssue'), {'placeId': lakeArea.id, 'kind': 'SERVICE_BROKEN'});
+    expect(api.last('ReportIssue'), {
+      'placeId': lakeArea.id,
+      'kind': 'SERVICE_BROKEN',
+      'idempotencyKey': isA<String>(),
+    });
   });
 
   group('the account in the profile', () {
@@ -369,9 +380,11 @@ void main() {
       api.revokeAll();
       await app.container(tester).read(accountControllerProvider.notifier).refresh();
       await settleShort(tester, const Duration(seconds: 2));
-      // The server made an account for the key it no longer knew; the app
-      // deleted it at once instead of adopting it.
-      expect(api.strangersDeleted, 1);
+      // The app signed in without letting the server make an account for a
+      // key it no longer knew: nothing was made, nothing had to be deleted.
+      expect(api.last('SignIn')!['createIfUnknown'], isFalse);
+      expect(api.strangersDeleted, 0);
+      expect(api.operations, isNot(contains('DeleteAccount')));
       final state = app.container(tester).read(accountControllerProvider);
       expect(state, isA<NoAccount>().having((s) => s.lost, 'lost', isTrue));
       expect(await app.secrets.read('device_key'), isNull);
@@ -440,7 +453,11 @@ void main() {
       // What `kick` waited for includes the second one: the message the user
       // reads ("sent" or "waiting for the network") says what happened to it.
       expect(sentWhenSettled, 2);
-      expect(api.last('Confirm'), {'placeId': campsite.id, 'status': 'STILL_OK'});
+      expect(api.last('Confirm'), {
+        'placeId': campsite.id,
+        'status': 'STILL_OK',
+        'idempotencyKey': isA<String>(),
+      });
       expect(await app.container(tester).read(outboxStoreProvider).all(), isEmpty);
     });
 
@@ -639,6 +656,69 @@ void main() {
       expect(find.text(t.mine.empty), findsOneWidget);
     });
 
+    testWidgets('deleting a confirmation drops the waiting request that may have made it', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      api.confirmations.add({
+        'id': '00000000-0000-7000-8000-0000000000c2',
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+        'createdAt': testNow.toUtc().toIso8601String(),
+      });
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      // The request that made it: its answer was lost, it waits to go again.
+      final outbox = app.container(tester).read(outboxStoreProvider);
+      final entry = await outbox.add(
+        ContributionKind.confirm,
+        placeId: lakeArea.id,
+        payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      );
+      await outbox.markSending(entry!.id);
+      await outbox.retryAt(entry.id, testNow.add(const Duration(hours: 1)), uncertain: true);
+
+      app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c2'});
+      expect(await outbox.all(), isEmpty, reason: 'sent again, it would make it anew');
+      expect(api.operations, isNot(contains('Confirm')));
+    });
+
+    testWidgets('a deletion keeps a waiting request when another one is known to have made it', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      api.confirmations.add({
+        'id': '00000000-0000-7000-8000-0000000000c3',
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+        'createdAt': testNow.toUtc().toIso8601String(),
+      });
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      final outbox = app.container(tester).read(outboxStoreProvider);
+      final entry = await outbox.add(
+        ContributionKind.confirm,
+        placeId: lakeArea.id,
+        payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+      );
+      await outbox.markSending(entry!.id);
+      await outbox.retryAt(entry.id, testNow.add(const Duration(hours: 1)), uncertain: true);
+      // Accepted for an entry that went before: this one did not make it.
+      await outbox.claim('00000000-0000-7000-8000-0000000000c3');
+
+      app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect((await outbox.all()).map((e) => e.id), [entry.id]);
+    });
+
     testWidgets('signing out without a recovery card warns that the account would be lost', (
       tester,
     ) async {
@@ -681,6 +761,30 @@ void main() {
       expect(sent['placeId'], lakeArea.id);
       expect((sent['patch']! as Map<String, Object?>)['name'], 'Aire du Lac Bleu, entrée nord');
       expect(find.text(t.placeForm.proposed), findsOneWidget);
+    });
+
+    testWidgets('an emptied phone is cleared, not left as it was', (tester) async {
+      final api = FakeApi(level: 1);
+      await openPlace(tester, lakeArea, api, signedIn: true);
+      await tester.tap(inDetails(find.byTooltip(t.contribute.more)).first);
+      await settleShort(tester);
+      await tester.tap(find.text(t.contribute.proposeEdit).last);
+      await settleShort(tester);
+      // The contact fields sit in the folded details.
+      if (find.widgetWithText(TextFormField, t.placeForm.phone).evaluate().isEmpty) {
+        await tester.ensureVisible(find.text(t.placeForm.details));
+        await tester.tap(find.text(t.placeForm.details));
+        await settleShort(tester);
+      }
+      final phone = find.widgetWithText(TextFormField, t.placeForm.phone);
+      await tester.ensureVisible(phone);
+      await tester.pump();
+      await tester.enterText(phone, '');
+      await tester.ensureVisible(find.text(t.placeForm.submitPropose));
+      await tapAndSend(tester, find.text(t.placeForm.submitPropose));
+      final patch = api.last('EditPlace')!['patch']! as Map<String, Object?>;
+      expect(patch['clear'], ['PHONE']);
+      expect(patch.containsKey('phone'), isFalse);
     });
 
     testWidgets('favourites kept on the device are synced once the user asks', (tester) async {

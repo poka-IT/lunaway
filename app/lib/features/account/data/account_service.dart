@@ -258,27 +258,39 @@ final class AccountService {
     }
     final previous = Account.fromJson(_decode(await secrets.read(_accountSlot)));
     final (nonce, signature) = await _answer(key);
-    final result = await client.execute(signInOperation, {
-      'jwk': key.publicJwk.toJson(),
-      'nonce': nonce,
-      'signature': signature,
-      'locale': locale(),
-    });
+    // Only a device that holds no account and may make one lets the server
+    // create it. Behind a key that held an account here, an unknown key
+    // means the account is gone (removed from another device, deleted
+    // elsewhere): the server answers NOT_FOUND and makes nothing, rather
+    // than a fresh account nobody asked for. A key with no account kept is
+    // this device's own first contribution, whose earlier sign-in may never
+    // have reached the server: that one may make it.
+    final SignInResult result;
+    try {
+      result = await client.execute(signInOperation, {
+        'jwk': key.publicJwk.toJson(),
+        'nonce': nonce,
+        'signature': signature,
+        'locale': locale(),
+        'createIfUnknown': create && previous == null,
+      });
+    } on GraphQLResponseException catch (e) {
+      if (!e.hasCode(GraphQLError.notFound)) rethrow;
+      if (generation != _generation || previous == null) throw const NoAccountException();
+      _log.warning('the device key no longer opens its account');
+      await _forget(lost: true);
+      throw const AccountLostException();
+    }
     if (generation != _generation) {
       // Signed out or deleted while this sign-in ran: its session belongs
       // to an account the device no longer holds.
       throw const NoAccountException();
     }
-    // The server makes an account for any key it does not know. Behind a
-    // key that held an account here, a new one means the old one is gone
-    // (removed from another device, deleted elsewhere): the account just
-    // made was not asked for, it goes at once, and so does the key. A key
-    // with no account kept is this device's own first contribution, whose
-    // earlier sign-in never reached the server: its account is the one. An
-    // account the server did not create is the one the key opens: the
-    // account kept here was stale, and the server's answer stands.
-    final stranger = previous != null && result.account.id != previous.id && result.created;
-    if (stranger) {
+    // An API older than `createIfUnknown` makes an account for any key it
+    // does not know. Behind a key that held an account here, a new one
+    // means the old one is gone: the account just made was not asked for,
+    // it goes at once, and so does the key.
+    if (previous != null && result.created && result.account.id != previous.id) {
       _log.warning('the device key no longer opens its account');
       try {
         await client.execute(deleteAccountOperation, const {}, {
@@ -290,6 +302,9 @@ final class AccountService {
       await _forget(lost: true);
       throw const AccountLostException();
     }
+    // An account other than the one kept, which the server did not create,
+    // is the one the key opens: the account kept here was stale, and the
+    // server's answer stands.
     await _keep(result);
     // A device that never saw this account greets it as new, even when a
     // lost answer made the server create it on an earlier attempt.

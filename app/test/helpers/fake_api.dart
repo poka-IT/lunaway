@@ -62,6 +62,13 @@ final class FakeApi {
   /// Pseudonyms of other accounts, by id, for the mutes to name them.
   final authors = <String, String>{};
 
+  /// A vending machine of the same kind already within 25 m: the next
+  /// `addVendingMachine` is refused with its id, as the server does.
+  String? vendingDuplicateOf;
+
+  /// The "still there?" answers about points of interest.
+  final poiConfirmations = <Map<String, Object?>>[];
+
   /// What the account sent, as `myAccount` lists it.
   final confirmations = <Map<String, Object?>>[];
   final reviews = <Map<String, Object?>>[];
@@ -95,6 +102,14 @@ final class FakeApi {
 
   /// The operations received, by name.
   List<String> get operations => [for (final c in calls) c.operation];
+
+  /// Answers as the API did before idempotency keys, `createIfUnknown` and
+  /// `PlaceDetailsInput.clear`: it refuses the documents that carry them,
+  /// and makes an account for any key it does not know.
+  bool older = false;
+
+  /// The operations [older] refused, by name.
+  final olderRefusals = <String>[];
 
   /// The variables of the last [operation] received.
   Map<String, Object?>? last(String operation) =>
@@ -146,6 +161,30 @@ final class FakeApi {
       return await fallback.send(request).then(http.Response.fromStream);
     }
     if (offline) throw http.ClientException('offline', request.url);
+    if (older) {
+      // As the API before idempotency keys, `createIfUnknown` and `clear`
+      // answered (async-graphql's validation, read on production on
+      // 2026-10-06): the document runs nothing.
+      final unknown = RegExp(r'\b(idempotencyKey|createIfUnknown):').firstMatch(query)?.group(1);
+      final patch = variables['patch'];
+      final message = unknown != null
+          ? 'Unknown argument "$unknown" on field "x" of type "Mutation".'
+          : patch is Map && patch.containsKey('clear')
+          ? 'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"'
+          : null;
+      if (message != null) {
+        olderRefusals.add(name);
+        return _json({
+          'data': null,
+          'errors': [
+            {
+              'message': message,
+              'extensions': {'code': 'INVALID_INPUT'},
+            },
+          ],
+        });
+      }
+    }
     final token = request.headers['authorization']?.replaceFirst('Bearer ', '');
     if (held.contains(name)) await hold?.future;
     calls.add((operation: name, variables: variables, token: token));
@@ -164,7 +203,7 @@ final class FakeApi {
         'errors': [
           {
             'message': e.code,
-            'extensions': {'code': e.code},
+            'extensions': {'code': e.code, ...e.extensions},
           },
         ],
       });
@@ -198,6 +237,8 @@ final class FakeApi {
     'DeleteConfirmation',
     'ReportIssue',
     'DeleteIssueReport',
+    'ConfirmPoi',
+    'AddVendingMachine',
     'ReportContent',
     'AddPlace',
     'EditPlace',
@@ -275,6 +316,7 @@ final class FakeApi {
       'placeId': placeId,
       'status': 'PROPOSED',
       'createdAt': testNow.toIso8601String(),
+      'poiId': null,
       'appliedAt': null,
     };
     submissions.add(s);
@@ -296,7 +338,12 @@ final class FakeApi {
         };
       case 'SignIn':
         final key = _verify(v);
-        if (!_keys.containsKey(key) && (_keys.isNotEmpty || _revoked)) {
+        final unknown = !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
+        // `createIfUnknown: false`: an unknown key makes nothing.
+        if (v['createIfUnknown'] == false && (unknown || _keys.isEmpty)) {
+          throw const _Refused('NOT_FOUND');
+        }
+        if (unknown) {
           // A key it does not know: the server makes another account.
           final token = 'stranger-${_serial++}';
           _strangers.add(token);
@@ -325,6 +372,25 @@ final class FakeApi {
     }
     final key = _signedIn(token);
     String id() => v['id']! as String;
+    // The same idempotency key gets the answer the first request stored.
+    final idempotency = v['idempotencyKey'];
+    if (idempotency is String && _keyed.containsKey('$name/$idempotency')) {
+      return _keyed['$name/$idempotency']!;
+    }
+    final answer = _answerSignedIn(name, v, key, id);
+    if (idempotency is String) _keyed['$name/$idempotency'] = answer;
+    return answer;
+  }
+
+  /// The answers stored by idempotency key, by operation.
+  final _keyed = <String, Map<String, Object?>>{};
+
+  Map<String, Object?> _answerSignedIn(
+    String name,
+    Map<String, Object?> v,
+    String key,
+    String Function() id,
+  ) {
     return switch (name) {
       'MyAccount' => {
         'myAccount': {
@@ -397,6 +463,19 @@ final class FakeApi {
       'DeleteIssueReport' => {'deleteIssueReport': _remove(issues, id())},
       'ReportContent' => {'reportContent': true},
       'AddPlace' => {'addPlace': _submission('CREATE', null)},
+      'ConfirmPoi' => () {
+        final c = {'id': _next(), 'poiId': v['poiId'], 'stillThere': v['stillThere']};
+        poiConfirmations.add(c);
+        return {
+          'confirmPoi': {'id': c['id']},
+        };
+      }(),
+      'AddVendingMachine' => () {
+        if (vendingDuplicateOf case final existing?) {
+          throw _Refused('INVALID_INPUT', extensions: {'existingId': existing});
+        }
+        return {'addVendingMachine': _submission('POI', null)};
+      }(),
       'EditPlace' => {'editPlace': _submission('EDIT', v['placeId'])},
       'DeletePlaceSubmission' => {'deletePlaceSubmission': _remove(submissions, id())},
       'DeletePhoto' => {'deletePhoto': _remove(photos, id())},
@@ -499,7 +578,8 @@ final class FakeApi {
 }
 
 final class _Refused implements Exception {
-  const new(this.code);
+  const new(this.code, {this.extensions = const {}});
 
   final String code;
+  final Map<String, Object?> extensions;
 }

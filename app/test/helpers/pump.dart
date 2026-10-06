@@ -23,6 +23,7 @@ import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -30,12 +31,15 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import 'fake_api.dart';
 import 'fakes.dart';
+import 'poi_fakes.dart';
 import 'samples.dart';
 
 const phone = Size(400, 860);
@@ -147,6 +151,10 @@ Future<TestApp> pumpLunaway(
   AppConfig? config,
   FakeApi? api,
   bool signedIn = false,
+  FakePoiSource? pois,
+  MemoryPackFiles? packFiles,
+  bool? reachable = true,
+  http.Client? httpClient,
   List<Override> overrides = const [],
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -212,13 +220,20 @@ Future<TestApp> pumpLunaway(
         secretStoreProvider.overrideWithValue(app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
-        httpClientProvider.overrideWithValue(api?.client(_demo) ?? _demo),
+        httpClientProvider.overrideWithValue(httpClient ?? api?.client(_demo) ?? _demo),
         placeExtrasRepositoryProvider.overrideWithValue(
           PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
+        // The points of interest in memory, the basemap's host answering
+        // (or not, as the test says), the offline maps' folder in memory.
+        poiRepositoryProvider.overrideWithValue(
+          PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
+        ),
+        basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
+        packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),

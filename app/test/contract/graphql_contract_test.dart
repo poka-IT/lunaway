@@ -12,6 +12,7 @@ import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 
 import 'graphql_validator.dart';
 
@@ -24,6 +25,9 @@ import 'graphql_validator.dart';
 void main() {
   final schema = File('../schema/lunaway.graphql').readAsStringSync();
   final validator = SchemaValidator(schema);
+  final before = SchemaValidator(
+    File('test/fixtures/schema_before_keys.graphql').readAsStringSync(),
+  );
 
   test('the app sends at least the sync operation', () {
     expect(allOperations.map((o) => o.name), contains('Changes'));
@@ -34,10 +38,22 @@ void main() {
     ...accountOperations,
     ...communityOperations,
     ...GraphQLFavoritesRemote.operations,
+    ...poiOperations,
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
     });
+    // The form for an older API: valid against the API before the
+    // idempotency keys (the schema of 6140356^, still in production when
+    // this app ships), and against this one, which keeps those arguments
+    // optional.
+    if (op.older case final older?) {
+      test('${op.name} in its older form is valid against both APIs', () {
+        expect(validator.validate(older.document), isEmpty);
+        expect(before.validate(older.document), isEmpty);
+        expect(before.validate(op.document), isNotEmpty, reason: 'else no older form is needed');
+      });
+    }
   }
 
   group('the demo server answers as the schema says', () {

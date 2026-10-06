@@ -10,6 +10,8 @@ import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/thumbhash.dart';
@@ -224,7 +226,15 @@ class _Published extends ConsumerWidget {
       );
     }
 
-    Future<void> delete(ContributionKind kind, String id, {String? placeId, String? body}) async {
+    // [made], the contribution itself: the entries of the outbox that may
+    // have made it go with it (see `mayHaveMade`).
+    Future<void> delete(
+      ContributionKind kind,
+      String id, {
+      String? placeId,
+      String? body,
+      Object? made,
+    }) async {
       final ok = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -249,6 +259,7 @@ class _Published extends ConsumerWidget {
         placeId: placeId,
         payload: {'id': id},
         sentText: t.mine.deleted,
+        deleting: made,
       );
     }
 
@@ -344,7 +355,12 @@ class _Published extends ConsumerWidget {
                     title: placeLine(c.placeId),
                     subtitle: Text('${t.confirmationStatus(c.status)} · ${date(c.createdAt)}'),
                     trailing: deleteButton(
-                      () => delete(ContributionKind.deleteConfirmation, c.id, placeId: c.placeId),
+                      () => delete(
+                        ContributionKind.deleteConfirmation,
+                        c.id,
+                        placeId: c.placeId,
+                        made: c,
+                      ),
                     ),
                   ),
               ],
@@ -362,7 +378,12 @@ class _Published extends ConsumerWidget {
                     title: placeLine(i.placeId),
                     subtitle: Text('${t.issueKind(i.kind)} · ${date(i.createdAt)}'),
                     trailing: deleteButton(
-                      () => delete(ContributionKind.deleteIssueReport, i.id, placeId: i.placeId),
+                      () => delete(
+                        ContributionKind.deleteIssueReport,
+                        i.id,
+                        placeId: i.placeId,
+                        made: i,
+                      ),
                     ),
                   ),
               ],
@@ -380,15 +401,17 @@ class _Published extends ConsumerWidget {
               children: [
                 for (final s in mine.submissions)
                   ListTile(
-                    leading: Icon(
-                      s.kind == SubmissionKind.create ? AppIcons.addPlace : AppIcons.rename,
-                    ),
+                    leading: Icon(switch (s.kind) {
+                      SubmissionKind.create => AppIcons.addPlace,
+                      SubmissionKind.edit => AppIcons.rename,
+                      SubmissionKind.poi => PoiLook.category(PoiCategory.vending),
+                    }),
                     title: s.placeId == null
-                        ? Text(s.kind == SubmissionKind.create ? t.mine.newPlace : t.mine.edit)
+                        ? Text(_submissionKind(t, s.kind))
                         : placeLine(s.placeId),
                     subtitle: Text(
                       [
-                        if (s.kind == SubmissionKind.create) t.mine.newPlace else t.mine.edit,
+                        _submissionKind(t, s.kind),
                         t.submissionStatus(s.status),
                         date(s.createdAt),
                       ].join(' · '),
@@ -401,6 +424,7 @@ class _Published extends ConsumerWidget {
                             () => delete(
                               ContributionKind.deletePlaceSubmission,
                               s.id,
+                              made: s,
                               body: s.status == SubmissionStatus.applied
                                   ? t.mine.deleteApplied
                                   : null,
@@ -474,3 +498,9 @@ class _MyPhoto extends ConsumerWidget {
     );
   }
 }
+
+String _submissionKind(Translations t, SubmissionKind kind) => switch (kind) {
+  SubmissionKind.create => t.mine.newPlace,
+  SubmissionKind.edit => t.mine.edit,
+  SubmissionKind.poi => t.mine.newVendingMachine,
+};
