@@ -134,7 +134,8 @@ extension NavigationTexts on Translations {
         vehicle.lengthShort(value: '${NumberFormat('0.0', _locale).format(v.lengthM)} m'),
       if (v.weightT != null) tonnes(v.weightT!),
     ];
-    final line = parts.join(' · ');
+    // A figure never breaks from its unit at the end of a line.
+    final line = parts.map((p) => p.replaceAll(' ', '\u00a0')).join(' · ');
     return v.towing == Towing.none ? line : _t.navigation.preview.vehicleTowing(vehicle: line);
   }
 

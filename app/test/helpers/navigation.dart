@@ -281,12 +281,15 @@ final class LineTrack implements GuidanceTrack {
       durationRemainingS: route.durationS * remaining / length,
       distanceAlongM: along,
       offRouteM: wasOff ? off : null,
+      // A step's banner describes the maneuver that ends it, as in the
+      // OSRM format.
       banner: next == null
           ? null
           : ManeuverBanner(
-              primary: next.banner ?? next.roadName ?? next.instruction,
+              primary: route.steps[index].banner ?? next.roadName ?? next.instruction,
               maneuverType: next.maneuverType,
               modifier: next.modifier,
+              lanes: route.steps[index].lanes,
             ),
       instruction: next != null && toManeuver < 300
           ? SpokenInstruction(id: 'step-${index + 1}', text: next.instruction)

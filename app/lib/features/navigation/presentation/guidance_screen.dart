@@ -313,7 +313,7 @@ class _ManeuverBanner extends ConsumerWidget {
                           road,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleLarge?.copyWith(color: colors.text),
+                          style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
                         ),
                       ],
                     ),

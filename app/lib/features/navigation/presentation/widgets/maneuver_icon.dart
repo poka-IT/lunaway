@@ -133,9 +133,13 @@ class _ManeuverPainter extends CustomPainter {
       if (head != null) _head(canvas, Offset(x1 * s, 0.74 * s), math.pi, s, head);
       return;
     }
-    final base = Offset(0.5 * s, 0.92 * s);
-    final knee = Offset(0.5 * s, angle == 0 ? 0.3 * s : 0.52 * s);
-    final reach = 0.3 * s;
+    // A sharp turn bends back down: its stem moves aside to leave room for
+    // the arm, which leaves the stem's top over a rounded hook.
+    final sharp = angle.abs() > 100;
+    final stemX = sharp ? (angle < 0 ? 0.66 : 0.34) : 0.5;
+    final base = Offset(stemX * s, 0.92 * s);
+    final knee = Offset(stemX * s, angle == 0 ? 0.3 * s : (sharp ? 0.42 * s : 0.52 * s));
+    final reach = (sharp ? 0.38 : 0.3) * s;
     final end = angle == 0
         ? Offset(0.5 * s, 0.24 * s)
         : knee + Offset(math.sin(rad) * reach, -math.cos(rad) * reach);
@@ -143,7 +147,9 @@ class _ManeuverPainter extends CustomPainter {
       ..moveTo(base.dx, base.dy)
       ..lineTo(knee.dx, knee.dy);
     if (angle != 0) {
-      final control = knee + Offset(0, -0.12 * s);
+      final control = sharp
+          ? knee + Offset(math.sin(rad).sign * 0.1 * s, -0.22 * s)
+          : knee + Offset(0, -0.12 * s);
       path.quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
     } else {
       path.lineTo(end.dx, end.dy);

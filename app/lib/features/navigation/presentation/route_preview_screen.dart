@@ -655,6 +655,10 @@ class _ActionBar extends ConsumerWidget {
     final engine = ref.watch(guidanceEngineProvider).value;
     final plan = preview?.plan;
     final ready = plan != null && plan.status == RouteStatus.ok && plan.osrmJson != null;
+    // Where Lunaway found no road the vehicle may take, the other apps,
+    // which know nothing of its size, are not offered a tap away; the
+    // place's directions still lead to them.
+    if (plan != null && plan.status != RouteStatus.ok) return const SizedBox.shrink();
     final others = TextButton(
       onPressed: () => openDirections(
         context,

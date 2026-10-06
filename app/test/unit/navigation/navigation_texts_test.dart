@@ -133,10 +133,13 @@ void main() {
   });
 
   test('the vehicle line names the type and the figures entered', () {
-    expect(fr.vehicleSummary(motorhome), 'Intégral · H 3,30 m · l 2,30 m · L 7,4 m · 3,5 t');
+    expect(
+      fr.vehicleSummary(motorhome),
+      'Intégral · H\u00a03,30\u00a0m · l\u00a02,30\u00a0m · L\u00a07,4\u00a0m · 3,5\u00a0t',
+    );
     expect(
       fr.vehicleSummary(motorhome.copyWith(towing: Towing.car)),
-      'Intégral · H 3,30 m · l 2,30 m · L 7,4 m · 3,5 t, avec attelage',
+      'Intégral · H\u00a03,30\u00a0m · l\u00a02,30\u00a0m · L\u00a07,4\u00a0m · 3,5\u00a0t, avec attelage',
     );
     expect(fr.dimensionList({MissingDimension.weight, MissingDimension.height}), 'hauteur, poids');
   });
