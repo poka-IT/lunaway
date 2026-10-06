@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -32,10 +34,14 @@ class SyncBanner extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final status = ref.watch(syncControllerProvider);
     final sync = ref.read(syncControllerProvider.notifier);
+    final catalog = ref.watch(regionCatalogControllerProvider).value;
     final (mood, title, hint, action) = switch (status) {
-      SyncRunning(:final received) => (
+      SyncRunning(:final received, :final region) => (
         SceneMood.empty,
-        t.map.downloading,
+        switch (region == null ? null : catalog?.byCode(region)) {
+          final r? => t.regions.downloadingNamed(name: r.nameIn(t.$meta.locale.languageCode)),
+          null => t.map.downloading,
+        },
         t.map.downloadingCount(n: received, count: t.number(received)),
         null,
       ),
@@ -77,6 +83,16 @@ class SyncBanner extends ConsumerWidget {
                 onPressed: sync.sync,
                 icon: Icon(status is SyncFailed ? AppIcons.retry : AppIcons.download),
                 label: Text(action),
+              ),
+            ],
+            // Which regions download: France and where the user is, until
+            // the user chooses.
+            if (catalog != null) ...[
+              const SizedBox(height: Space.s),
+              TextButton.icon(
+                onPressed: () => showRegionPicker(context),
+                icon: const Icon(AppIcons.map),
+                label: Text(t.regions.choose),
               ),
             ],
           ],

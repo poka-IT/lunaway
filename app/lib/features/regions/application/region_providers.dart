@@ -87,9 +87,13 @@ class KeptRegionsController extends _$KeptRegionsController {
   @override
   Future<Set<String>?> build() => ref.watch(keptRegionsStoreProvider).load();
 
-  /// Keeps [regions] from now on, and syncs: what is added downloads, what
+  /// Keeps [chosen] from now on, and syncs: what is added downloads, what
   /// is no longer kept leaves the device.
-  Future<void> choose(Set<String> regions, {bool sync = true}) async {
+  Future<void> choose(Set<String> chosen, {bool sync = true}) async {
+    // The few French places outside every commune (`FR`) go with any
+    // French region kept, and leave with the last one.
+    final regions = {...chosen};
+    regions.any((c) => c.startsWith('FR-')) ? regions.add('FR') : regions.remove('FR');
     state = AsyncData(Set.unmodifiable(regions));
     await ref.read(keptRegionsStoreProvider).save(regions);
     if (sync && ref.mounted) unawaited(ref.read(syncControllerProvider.notifier).sync());

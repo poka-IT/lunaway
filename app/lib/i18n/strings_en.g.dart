@@ -89,6 +89,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$favoritesSync$en favoritesSync = Translations$favoritesSync$en.internal(_root);
 	late final Translations$poi$en poi = Translations$poi$en.internal(_root);
 	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
+	late final Translations$regions$en regions = Translations$regions$en.internal(_root);
 }
 
 // Path: nav
@@ -2713,6 +2714,93 @@ class Translations$offlineMaps$en {
 	String get noticeOnline => 'Offline: the map needs the network';
 }
 
+// Path: regions
+class Translations$regions$en {
+	Translations$regions$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Which places to keep on this device?'
+	String get pickerTitle => 'Which places to keep on this device?';
+
+	/// en: 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.'
+	String get pickerIntro => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.';
+
+	/// en: 'Near you: $name'
+	String nearYou({required Object name}) => 'Near you: ${name}';
+
+	/// en: 'Find my region'
+	String get findMine => 'Find my region';
+
+	/// en: 'Looking for your region'
+	String get locating => 'Looking for your region';
+
+	/// en: 'No Lunaway region around you yet'
+	String get notCovered => 'No Lunaway region around you yet';
+
+	/// en: 'All of France'
+	String get wholeFrance => 'All of France';
+
+	/// en: 'Show the regions of France'
+	String get showFrance => 'Show the regions of France';
+
+	/// en: 'Hide the regions of France'
+	String get hideFrance => 'Hide the regions of France';
+
+	/// en: '(one) {$count place, $size} (other) {$count places, $size}'
+	String packInfo({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${count} place, ${size}',
+		other: '${count} places, ${size}',
+	);
+
+	/// en: 'No pack: places come with the updates, size unknown'
+	String get noPack => 'No pack: places come with the updates, size unknown';
+
+	/// en: 'Download, $size'
+	String download({required Object size}) => 'Download, ${size}';
+
+	/// en: 'The server does not offer regions yet: Lunaway keeps all of France.'
+	String get unavailable => 'The server does not offer regions yet: Lunaway keeps all of France.';
+
+	/// en: 'The list of regions needs the network.'
+	String get listFailed => 'The list of regions needs the network.';
+
+	/// en: 'Choose the regions'
+	String get choose => 'Choose the regions';
+
+	/// en: 'Regions on this device'
+	String get kept => 'Regions on this device';
+
+	/// en: 'No region kept: the map has no places offline.'
+	String get noneKept => 'No region kept: the map has no places offline.';
+
+	/// en: 'Add or remove regions'
+	String get change => 'Add or remove regions';
+
+	/// en: 'Remove $name'
+	String removeNamed({required Object name}) => 'Remove ${name}';
+
+	/// en: '$name: places removed from this device'
+	String removed({required Object name}) => '${name}: places removed from this device';
+
+	/// en: 'Downloading, $done of $total'
+	String downloading({required Object done, required Object total}) => 'Downloading, ${done} of ${total}';
+
+	/// en: '(one) {Updating, $count place} (other) {Updating, $count places}'
+	String updating({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Updating, ${count} place',
+		other: 'Updating, ${count} places',
+	);
+
+	/// en: 'waiting for its download'
+	String get waiting => 'waiting for its download';
+
+	/// en: 'Downloading the places: $name'
+	String downloadingNamed({required Object name}) => 'Downloading the places: ${name}';
+}
+
 // Path: place.reviewVehicle
 class Translations$place$reviewVehicle$en {
 	Translations$place$reviewVehicle$en.internal(this._root);
@@ -5174,6 +5262,30 @@ extension on Translations {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
+			'regions.pickerTitle' => 'Which places to keep on this device?',
+			'regions.pickerIntro' => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.',
+			'regions.nearYou' => ({required Object name}) => 'Near you: ${name}',
+			'regions.findMine' => 'Find my region',
+			'regions.locating' => 'Looking for your region',
+			'regions.notCovered' => 'No Lunaway region around you yet',
+			'regions.wholeFrance' => 'All of France',
+			'regions.showFrance' => 'Show the regions of France',
+			'regions.hideFrance' => 'Hide the regions of France',
+			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${count} place, ${size}', other: '${count} places, ${size}', ), 
+			'regions.noPack' => 'No pack: places come with the updates, size unknown',
+			'regions.download' => ({required Object size}) => 'Download, ${size}',
+			'regions.unavailable' => 'The server does not offer regions yet: Lunaway keeps all of France.',
+			'regions.listFailed' => 'The list of regions needs the network.',
+			'regions.choose' => 'Choose the regions',
+			'regions.kept' => 'Regions on this device',
+			'regions.noneKept' => 'No region kept: the map has no places offline.',
+			'regions.change' => 'Add or remove regions',
+			'regions.removeNamed' => ({required Object name}) => 'Remove ${name}',
+			'regions.removed' => ({required Object name}) => '${name}: places removed from this device',
+			'regions.downloading' => ({required Object done, required Object total}) => 'Downloading, ${done} of ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Updating, ${count} place', other: 'Updating, ${count} places', ), 
+			'regions.waiting' => 'waiting for its download',
+			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
 			_ => null,
 		};
 	}

@@ -1305,5 +1305,37 @@
     "noticeOutside": "Hors ligne : cette zone n'est pas téléchargée",
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
     "noticeOnline": "Hors ligne : la carte a besoin du réseau"
+  },
+  "regions": {
+    "pickerTitle": "Quels lieux garder sur cet appareil ?",
+    "pickerIntro": "Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.",
+    "nearYou": "Près de vous : $name",
+    "findMine": "Trouver ma région",
+    "locating": "Recherche de votre région",
+    "notCovered": "Pas encore de région Lunaway autour de vous",
+    "wholeFrance": "Toute la France",
+    "showFrance": "Afficher les régions de France",
+    "hideFrance": "Masquer les régions de France",
+    "packInfo(param=n)": {
+      "one": "$count lieu, $size",
+      "other": "$count lieux, $size"
+    },
+    "noPack": "Sans paquet : lieux reçus avec les mises à jour, taille inconnue",
+    "download": "Télécharger, $size",
+    "unavailable": "Le serveur ne propose pas encore de régions : Lunaway garde toute la France.",
+    "listFailed": "La liste des régions demande du réseau.",
+    "choose": "Choisir les régions",
+    "kept": "Régions sur cet appareil",
+    "noneKept": "Aucune région gardée : la carte n'a aucun lieu hors connexion.",
+    "change": "Ajouter ou retirer des régions",
+    "removeNamed": "Retirer $name",
+    "removed": "$name : lieux retirés de cet appareil",
+    "downloading": "Téléchargement, $done sur $total",
+    "updating(param=n)": {
+      "one": "Mise à jour, $count lieu",
+      "other": "Mise à jour, $count lieux"
+    },
+    "waiting": "en attente de son téléchargement",
+    "downloadingNamed": "Téléchargement des lieux : $name"
   }
 }

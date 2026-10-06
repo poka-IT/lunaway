@@ -1305,5 +1305,37 @@
     "noticeOutside": "Offline: this area is not downloaded",
     "noticeNone": "Offline: download a region for next time",
     "noticeOnline": "Offline: the map needs the network"
+  },
+  "regions": {
+    "pickerTitle": "Which places to keep on this device?",
+    "pickerIntro": "Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.",
+    "nearYou": "Near you: $name",
+    "findMine": "Find my region",
+    "locating": "Looking for your region",
+    "notCovered": "No Lunaway region around you yet",
+    "wholeFrance": "All of France",
+    "showFrance": "Show the regions of France",
+    "hideFrance": "Hide the regions of France",
+    "packInfo(param=n)": {
+      "one": "$count place, $size",
+      "other": "$count places, $size"
+    },
+    "noPack": "No pack: places come with the updates, size unknown",
+    "download": "Download, $size",
+    "unavailable": "The server does not offer regions yet: Lunaway keeps all of France.",
+    "listFailed": "The list of regions needs the network.",
+    "choose": "Choose the regions",
+    "kept": "Regions on this device",
+    "noneKept": "No region kept: the map has no places offline.",
+    "change": "Add or remove regions",
+    "removeNamed": "Remove $name",
+    "removed": "$name: places removed from this device",
+    "downloading": "Downloading, $done of $total",
+    "updating(param=n)": {
+      "one": "Updating, $count place",
+      "other": "Updating, $count places"
+    },
+    "waiting": "waiting for its download",
+    "downloadingNamed": "Downloading the places: $name"
   }
 }

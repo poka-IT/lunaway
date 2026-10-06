@@ -84,6 +84,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$favoritesSync$fr favoritesSync = _Translations$favoritesSync$fr._(_root);
 	@override late final _Translations$poi$fr poi = _Translations$poi$fr._(_root);
 	@override late final _Translations$offlineMaps$fr offlineMaps = _Translations$offlineMaps$fr._(_root);
+	@override late final _Translations$regions$fr regions = _Translations$regions$fr._(_root);
 }
 
 // Path: nav
@@ -1292,6 +1293,45 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get noticeOutside => 'Hors ligne : cette zone n\'est pas téléchargée';
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
+}
+
+// Path: regions
+class _Translations$regions$fr extends Translations$regions$en {
+	_Translations$regions$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get pickerTitle => 'Quels lieux garder sur cet appareil ?';
+	@override String get pickerIntro => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.';
+	@override String nearYou({required Object name}) => 'Près de vous : ${name}';
+	@override String get findMine => 'Trouver ma région';
+	@override String get locating => 'Recherche de votre région';
+	@override String get notCovered => 'Pas encore de région Lunaway autour de vous';
+	@override String get wholeFrance => 'Toute la France';
+	@override String get showFrance => 'Afficher les régions de France';
+	@override String get hideFrance => 'Masquer les régions de France';
+	@override String packInfo({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${count} lieu, ${size}',
+		other: '${count} lieux, ${size}',
+	);
+	@override String get noPack => 'Sans paquet : lieux reçus avec les mises à jour, taille inconnue';
+	@override String download({required Object size}) => 'Télécharger, ${size}';
+	@override String get unavailable => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.';
+	@override String get listFailed => 'La liste des régions demande du réseau.';
+	@override String get choose => 'Choisir les régions';
+	@override String get kept => 'Régions sur cet appareil';
+	@override String get noneKept => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.';
+	@override String get change => 'Ajouter ou retirer des régions';
+	@override String removeNamed({required Object name}) => 'Retirer ${name}';
+	@override String removed({required Object name}) => '${name} : lieux retirés de cet appareil';
+	@override String downloading({required Object done, required Object total}) => 'Téléchargement, ${done} sur ${total}';
+	@override String updating({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Mise à jour, ${count} lieu',
+		other: 'Mise à jour, ${count} lieux',
+	);
+	@override String get waiting => 'en attente de son téléchargement';
+	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
 }
 
 // Path: place.reviewVehicle
@@ -3036,6 +3076,30 @@ extension on TranslationsFr {
 			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
+			'regions.pickerTitle' => 'Quels lieux garder sur cet appareil ?',
+			'regions.pickerIntro' => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.',
+			'regions.nearYou' => ({required Object name}) => 'Près de vous : ${name}',
+			'regions.findMine' => 'Trouver ma région',
+			'regions.locating' => 'Recherche de votre région',
+			'regions.notCovered' => 'Pas encore de région Lunaway autour de vous',
+			'regions.wholeFrance' => 'Toute la France',
+			'regions.showFrance' => 'Afficher les régions de France',
+			'regions.hideFrance' => 'Masquer les régions de France',
+			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu, ${size}', other: '${count} lieux, ${size}', ), 
+			'regions.noPack' => 'Sans paquet : lieux reçus avec les mises à jour, taille inconnue',
+			'regions.download' => ({required Object size}) => 'Télécharger, ${size}',
+			'regions.unavailable' => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.',
+			'regions.listFailed' => 'La liste des régions demande du réseau.',
+			'regions.choose' => 'Choisir les régions',
+			'regions.kept' => 'Régions sur cet appareil',
+			'regions.noneKept' => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.',
+			'regions.change' => 'Ajouter ou retirer des régions',
+			'regions.removeNamed' => ({required Object name}) => 'Retirer ${name}',
+			'regions.removed' => ({required Object name}) => '${name} : lieux retirés de cet appareil',
+			'regions.downloading' => ({required Object done, required Object total}) => 'Téléchargement, ${done} sur ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Mise à jour, ${count} lieu', other: 'Mise à jour, ${count} lieux', ), 
+			'regions.waiting' => 'en attente de son téléchargement',
+			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
 			_ => null,
 		};
 	}
