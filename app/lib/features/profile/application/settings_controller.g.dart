@@ -48,7 +48,8 @@ final class SettingsRepositoryProvider
   }
 }
 
-String _$settingsRepositoryHash() => r'516679bb301ebef0ed787e1826f06f2422cd168c';
+String _$settingsRepositoryHash() =>
+    r'516679bb301ebef0ed787e1826f06f2422cd168c';
 
 /// The settings as read before the first frame, overridden in `main`, so the
 /// app never flashes a default language or filter.
@@ -170,7 +171,8 @@ final placeFilterProvider = PlaceFilterProvider._();
 
 /// The active place filter, a slice of the settings.
 
-final class PlaceFilterProvider extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
+final class PlaceFilterProvider
+    extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
     with $Provider<PlaceFilter> {
   /// The active place filter, a slice of the settings.
   PlaceFilterProvider._()

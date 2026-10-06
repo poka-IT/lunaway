@@ -12,7 +12,8 @@ part of 'providers.dart';
 @ProviderFor(appConfig)
 final appConfigProvider = AppConfigProvider._();
 
-final class AppConfigProvider extends $FunctionalProvider<AppConfig, AppConfig, AppConfig>
+final class AppConfigProvider
+    extends $FunctionalProvider<AppConfig, AppConfig, AppConfig>
     with $Provider<AppConfig> {
   AppConfigProvider._()
     : super(
@@ -30,7 +31,8 @@ final class AppConfigProvider extends $FunctionalProvider<AppConfig, AppConfig, 
 
   @$internal
   @override
-  $ProviderElement<AppConfig> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<AppConfig> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   AppConfig create(Ref ref) {
@@ -39,7 +41,10 @@ final class AppConfigProvider extends $FunctionalProvider<AppConfig, AppConfig, 
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(AppConfig value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<AppConfig>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<AppConfig>(value),
+    );
   }
 }
 
@@ -56,7 +61,8 @@ final appVersionProvider = AppVersionProvider._();
 /// platform; the default serves tests.
 // keepAlive: a constant of the run, read by every outbound request.
 
-final class AppVersionProvider extends $FunctionalProvider<String, String, String>
+final class AppVersionProvider
+    extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   /// The version string of the running app, overridden in `main` from the
   /// platform; the default serves tests.
@@ -77,7 +83,8 @@ final class AppVersionProvider extends $FunctionalProvider<String, String, Strin
 
   @$internal
   @override
-  $ProviderElement<String> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   String create(Ref ref) {
@@ -86,7 +93,10 @@ final class AppVersionProvider extends $FunctionalProvider<String, String, Strin
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
   }
 }
 
@@ -95,7 +105,8 @@ String _$appVersionHash() => r'c67afb04e42493484a674ffaa09eeb0e35add300';
 @ProviderFor(appDatabase)
 final appDatabaseProvider = AppDatabaseProvider._();
 
-final class AppDatabaseProvider extends $FunctionalProvider<AppDatabase, AppDatabase, AppDatabase>
+final class AppDatabaseProvider
+    extends $FunctionalProvider<AppDatabase, AppDatabase, AppDatabase>
     with $Provider<AppDatabase> {
   AppDatabaseProvider._()
     : super(
@@ -135,7 +146,8 @@ String _$appDatabaseHash() => r'642d531e2f8142972b8901f2a73e38b7dc6395ab';
 @ProviderFor(httpClient)
 final httpClientProvider = HttpClientProvider._();
 
-final class HttpClientProvider extends $FunctionalProvider<http.Client, http.Client, http.Client>
+final class HttpClientProvider
+    extends $FunctionalProvider<http.Client, http.Client, http.Client>
     with $Provider<http.Client> {
   HttpClientProvider._()
     : super(
@@ -175,7 +187,8 @@ String _$httpClientHash() => r'7ec49beae0f15115de79f9aa98dbd250130e26d8';
 @ProviderFor(userAgent)
 final userAgentProvider = UserAgentProvider._();
 
-final class UserAgentProvider extends $FunctionalProvider<String, String, String>
+final class UserAgentProvider
+    extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   UserAgentProvider._()
     : super(
@@ -193,7 +206,8 @@ final class UserAgentProvider extends $FunctionalProvider<String, String, String
 
   @$internal
   @override
-  $ProviderElement<String> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   String create(Ref ref) {
@@ -202,7 +216,10 @@ final class UserAgentProvider extends $FunctionalProvider<String, String, String
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
   }
 }
 
@@ -218,7 +235,12 @@ final clockProvider = ClockProvider._();
 // keepAlive: a pure function with no state to release.
 
 final class ClockProvider
-    extends $FunctionalProvider<DateTime Function(), DateTime Function(), DateTime Function()>
+    extends
+        $FunctionalProvider<
+          DateTime Function(),
+          DateTime Function(),
+          DateTime Function()
+        >
     with $Provider<DateTime Function()> {
   /// The clock, injectable so freshness and "open now" are testable.
   // keepAlive: a pure function with no state to release.
@@ -238,8 +260,9 @@ final class ClockProvider
 
   @$internal
   @override
-  $ProviderElement<DateTime Function()> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<DateTime Function()> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   DateTime Function() create(Ref ref) {

@@ -12,7 +12,8 @@ part of 'map_state.dart';
 @ProviderFor(Selection)
 final selectionProvider = SelectionProvider._();
 
-final class SelectionProvider extends $NotifierProvider<Selection, MapSelection?> {
+final class SelectionProvider
+    extends $NotifierProvider<Selection, MapSelection?> {
   SelectionProvider._()
     : super(
         from: null,
@@ -119,7 +120,8 @@ final mapControllerProvider = MapControllerProvider._();
 
 /// The controller of the live map, once it is ready; null before.
 // keepAlive: the list, the search and the favourites move the same map.
-final class MapControllerProvider extends $NotifierProvider<MapController, LunaMapController?> {
+final class MapControllerProvider
+    extends $NotifierProvider<MapController, LunaMapController?> {
   /// The controller of the live map, once it is ready; null before.
   // keepAlive: the list, the search and the favourites move the same map.
   MapControllerProvider._()
@@ -180,7 +182,8 @@ final userLocationProvider = UserLocationProvider._();
 
 /// The last known device position.
 // keepAlive: distances in the list keep using it across tabs.
-final class UserLocationProvider extends $NotifierProvider<UserLocation, LatLng?> {
+final class UserLocationProvider
+    extends $NotifierProvider<UserLocation, LatLng?> {
   /// The last known device position.
   // keepAlive: distances in the list keep using it across tabs.
   UserLocationProvider._()
@@ -203,7 +206,10 @@ final class UserLocationProvider extends $NotifierProvider<UserLocation, LatLng?
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(LatLng? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<LatLng?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
   }
 }
 
@@ -220,7 +226,12 @@ abstract class _$UserLocation extends $Notifier<LatLng?> {
     final ref = this.ref as $Ref<LatLng?, LatLng?>;
     final element =
         ref.element
-            as $ClassProviderElement<AnyNotifier<LatLng?, LatLng?>, LatLng?, Object?, Object?>;
+            as $ClassProviderElement<
+              AnyNotifier<LatLng?, LatLng?>,
+              LatLng?,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
@@ -241,7 +252,9 @@ final class NearbyPlacesProvider
           List<PlaceSummary>,
           Stream<List<PlaceSummary>>
         >
-    with $FutureModifier<List<PlaceSummary>>, $StreamProvider<List<PlaceSummary>> {
+    with
+        $FutureModifier<List<PlaceSummary>>,
+        $StreamProvider<List<PlaceSummary>> {
   /// The places in the viewport, nearest to the user (or to the map centre)
   /// first: the list beside the map.
   NearbyPlacesProvider._()
@@ -260,8 +273,9 @@ final class NearbyPlacesProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<PlaceSummary>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<List<PlaceSummary>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<List<PlaceSummary>> create(Ref ref) {
@@ -351,7 +365,10 @@ final class SearchQueryProvider extends $NotifierProvider<SearchQuery, String> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
   }
 }
 
@@ -366,7 +383,13 @@ abstract class _$SearchQuery extends $Notifier<String> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<String, String>;
     final element =
-        ref.element as $ClassProviderElement<AnyNotifier<String, String>, String, Object?, Object?>;
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<String, String>,
+              String,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
