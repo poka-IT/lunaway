@@ -37,10 +37,14 @@ abstract interface class LocationFeed {
   Stream<Fix> guidance(BackgroundNotice notice);
 }
 
-/// [LocationFeed] over geolocator: the fused provider where Play Services
-/// exist and Android's own location manager otherwise (the F-Droid build
-/// leaves them out); Core Location on iOS and macOS; the browser's on the
-/// web.
+/// [LocationFeed] over geolocator: Android's own location manager, Core
+/// Location on iOS and macOS, the browser's on the web.
+///
+/// Never Google's fused provider, though the store build carries Play
+/// Services through maplibre_gl: that library collects data of its own,
+/// which the store declarations would then have to cover
+/// (`docs/play-store.md`, "When a feature ships"). The satellites give a
+/// fix a second on the road, which is what guidance needs.
 final class GeolocatorFeed implements LocationFeed {
   const new();
 
@@ -55,8 +59,11 @@ final class GeolocatorFeed implements LocationFeed {
           : Fix(position: p.position, accuracyM: p.accuracyM, at: DateTime.now());
     }
     try {
+      final settings = defaultTargetPlatform == TargetPlatform.android
+          ? AndroidSettings(forceLocationManager: true, timeLimit: _timeout)
+          : const LocationSettings(timeLimit: _timeout);
       final p = await GeolocatorPlatform.instance
-          .getCurrentPosition(locationSettings: const LocationSettings(timeLimit: _timeout))
+          .getCurrentPosition(locationSettings: settings)
           .timeout(_timeout);
       return _fix(p);
     } on Object catch (e) {
@@ -79,6 +86,7 @@ final class GeolocatorFeed implements LocationFeed {
       return AndroidSettings(
         accuracy: accuracy,
         distanceFilter: distanceFilter,
+        forceLocationManager: true,
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: ForegroundNotificationConfig(
           notificationTitle: notice.title,

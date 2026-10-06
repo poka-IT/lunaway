@@ -28,6 +28,11 @@ lunaway-domain = { path = "../../../../backend/crates/lunaway-domain" }
 serde = "1.0.229"
 serde_json = "1.0.151"
 thiserror = "2.0.21"
+# Cargo.lock keeps libc at 0.2.189: 0.2.190 declares the dyld functions for
+# macOS only, and backtrace 0.3.76 (through allo-isolate, which
+# flutter_rust_bridge uses) then fails to compile for iOS. Move libc on
+# once a backtrace release builds against it: `cargo update -p libc`, then
+# an iOS simulator build.
 
 [lints.rust]
 # The generated bridge (src/frb_generated.rs) is FFI glue and needs unsafe;
