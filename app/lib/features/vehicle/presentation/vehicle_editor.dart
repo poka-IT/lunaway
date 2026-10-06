@@ -9,6 +9,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
+import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
@@ -55,6 +56,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     'width': TextEditingController(text: _format(_draft.widthM, 2)),
     'length': TextEditingController(text: _format(_draft.lengthM, 1)),
     'weight': TextEditingController(text: _format(_draft.weightT, 1)),
+    'consumption': TextEditingController(text: _format(_draft.consumptionL100, 1)),
   };
 
   String get _locale => context.t.$meta.locale.languageCode;
@@ -107,6 +109,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
       widthM: () => parse(_fields['width']!.text),
       lengthM: () => parse(_fields['length']!.text),
       weightT: () => parse(_fields['weight']!.text),
+      consumptionL100: () => parse(_fields['consumption']!.text),
     );
     final navigator = Navigator.of(context);
     await ref.read(vehicleRepositoryProvider).save(vehicle);
@@ -246,6 +249,44 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                   AppIcons.weight,
                   inRange(Vehicle.weightRange, 't'),
                 ),
+                const SizedBox(height: Space.xl),
+                Text(t.vehicle.fuelTitle, style: theme.textTheme.titleLarge),
+                const SizedBox(height: Space.xs),
+                Text(
+                  t.vehicle.fuelHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: Space.m),
+                Wrap(
+                  spacing: Space.s,
+                  runSpacing: Space.s,
+                  children: [
+                    for (final fuel in FuelType.values)
+                      ChoiceChip(
+                        label: Text(t.fuelType(fuel)),
+                        selected: _draft.fuel == fuel,
+                        // A second tap leaves the fuel unsaid.
+                        onSelected: (on) =>
+                            setState(() => _draft = _draft.copyWith(fuel: () => on ? fuel : null)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: Space.m),
+                field(
+                  'consumption',
+                  t.vehicle.consumption,
+                  t.vehicle.consumptionUnit,
+                  _consumptionIcon,
+                  inRange(Vehicle.consumptionRange, t.vehicle.consumptionUnit),
+                ),
+                const SizedBox(height: Space.s),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(t.vehicle.lpgHeating, style: theme.textTheme.bodyLarge),
+                  subtitle: Text(t.vehicle.lpgHeatingHint),
+                  value: _draft.lpgHeating,
+                  onChanged: (on) => setState(() => _draft = _draft.copyWith(lpgHeating: on)),
+                ),
                 const SizedBox(height: Space.l),
                 Text(
                   t.vehicle.navigationLater,
@@ -337,3 +378,6 @@ class _TypeCard extends StatelessWidget {
     );
   }
 }
+
+/// The icon of the consumption field.
+const IconData _consumptionIcon = PhosphorRegular.gasPump;

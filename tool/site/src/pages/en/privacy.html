@@ -64,6 +64,7 @@ description: What the Lunaway app and its servers store, where, for how long, an
 <li><strong>Directions</strong>, a feature in preparation: the start, the destination, the stops and the vehicle's dimensions travel in the body of the request. Our own engine computes the route on our server, and neither the request nor the route is stored or logged.</li>
 <li><strong>Roadworks and road closures</strong>, a feature in preparation: during guidance, the app downloads the changes for the whole of France every three minutes. The request contains no location.</li>
 <li><strong>Search</strong> for places and towns runs on the device. When the web app asks our server instead, the text searched and the centre of the map, used to rank the results, travel in the body of the request, and are neither stored nor logged.</li>
+<li><strong>Search for shops and services</strong> asks our server: the text searched and the centre of the map, rounded to about 5 km to rank the results, travel in the body of the request, and are neither stored nor logged. Your position is not part of it: the distances shown are computed on the device.</li>
 </ul>
 
 <h2 id="account">Your account, without email</h2>

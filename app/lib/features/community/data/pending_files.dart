@@ -36,8 +36,5 @@ final class MemoryPendingFiles implements PendingFiles {
 /// A name for a new file: random, so two never meet.
 String newFileId() {
   final random = Random.secure();
-  return List.generate(
-    16,
-    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-  ).join();
+  return List.generate(16, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
 }

@@ -12,6 +12,7 @@ import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 
 import 'graphql_validator.dart';
 
@@ -24,6 +25,9 @@ import 'graphql_validator.dart';
 void main() {
   final schema = File('../schema/lunaway.graphql').readAsStringSync();
   final validator = SchemaValidator(schema);
+  final before = SchemaValidator(
+    File('test/fixtures/schema_before_keys.graphql').readAsStringSync(),
+  );
 
   test('the app sends at least the sync operation', () {
     expect(allOperations.map((o) => o.name), contains('Changes'));
@@ -34,22 +38,28 @@ void main() {
     ...accountOperations,
     ...communityOperations,
     ...GraphQLFavoritesRemote.operations,
+    ...poiOperations,
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);
     });
+    // The form for an older API: valid against the API before the
+    // idempotency keys (the schema of 6140356^, still in production when
+    // this app ships), and against this one, which keeps those arguments
+    // optional.
+    if (op.older case final older?) {
+      test('${op.name} in its older form is valid against both APIs', () {
+        expect(validator.validate(older.document), isEmpty);
+        expect(before.validate(older.document), isEmpty);
+        expect(before.validate(op.document), isNotEmpty, reason: 'else no older form is needed');
+      });
+    }
   }
 
   group('the demo server answers as the schema says', () {
     final apiBase = Uri.parse('https://api.example.org');
     final exchanges =
-        <
-          ({
-            String query,
-            Map<String, Object?> variables,
-            Map<String, dynamic> body,
-          })
-        >[];
+        <({String query, Map<String, Object?> variables, Map<String, dynamic> body})>[];
     final client = GraphQLClient(
       endpoint: Uri.parse('$apiBase/graphql'),
       httpClient: _Recording(
@@ -68,17 +78,10 @@ void main() {
     void conforms() {
       expect(exchanges, isNotEmpty);
       for (final e in exchanges) {
-        expect(
-          validator.checkVariables(e.query, e.variables),
-          isEmpty,
-          reason: 'variables',
-        );
+        expect(validator.checkVariables(e.query, e.variables), isEmpty, reason: 'variables');
         expect(e.body['errors'], isNull);
         expect(
-          validator.checkResponse(
-            e.query,
-            e.body['data'] as Map<String, dynamic>,
-          ),
+          validator.checkResponse(e.query, e.body['data'] as Map<String, dynamic>),
           isEmpty,
           reason: 'response',
         );
@@ -97,20 +100,12 @@ void main() {
     test('the photos and reviews of a place, then the next reviews', () async {
       // A place the demo gives a community rating has photos and reviews.
       final place = demoPlaces().firstWhere(
-        (p) => p.ratings.any(
-          (r) => r.sourceId == communitySourceId && r.count > 25,
-        ),
+        (p) => p.ratings.any((r) => r.sourceId == communitySourceId && r.count > 25),
       );
-      final extras = await client.execute(extrasOperation, {
-        'id': place.id,
-        'first': 20,
-      });
+      final extras = await client.execute(extrasOperation, {'id': place.id, 'first': 20});
       expect(extras!.photos, isNotEmpty);
       expect(extras.reviews.nodes, hasLength(20));
-      expect(
-        extras.reviews.nodes.map((r) => r.authorVehicle),
-        everyElement(isNotNull),
-      );
+      expect(extras.reviews.nodes.map((r) => r.authorVehicle), everyElement(isNotNull));
       final next = await client.execute(reviewsOperation, {
         'id': place.id,
         'first': 20,
@@ -127,10 +122,7 @@ void main() {
         parse: (data) => data,
       );
       await expectLater(
-        client.execute(
-          broken,
-          changesVariables(bbox: GeoBounds.metropolitanFrance),
-        ),
+        client.execute(broken, changesVariables(bbox: GeoBounds.metropolitanFrance)),
         throwsA(isA<GraphQLResponseException>()),
       );
     });
@@ -145,17 +137,13 @@ void main() {
 
     test('accepts a valid operation', () {
       expect(
-        v.validate(
-          r'query Q($id: ID!) { version thing(id: $id) { id name child { id } } }',
-        ),
+        v.validate(r'query Q($id: ID!) { version thing(id: $id) { id name child { id } } }'),
         isEmpty,
       );
     });
 
     test('names an unknown field', () {
-      expect(v.validate('query Q { version colour }'), [
-        'Q: Root has no field "colour"',
-      ]);
+      expect(v.validate('query Q { version colour }'), ['Q: Root has no field "colour"']);
     });
 
     test('names a missing required argument and an unknown one', () {
@@ -171,23 +159,19 @@ void main() {
       ]);
     });
 
-    test(
-      'refuses a missing selection, a selection on a leaf, an unused variable',
-      () {
-        expect(v.validate(r'query Q($n: Int) { things version { x } }'), [
-          'Q.things: Thing needs a selection',
-          'Q.version: String is a leaf and takes no selection',
-          r'Q: variable $n is declared but never used',
-        ]);
-      },
-    );
+    test('refuses a missing selection, a selection on a leaf, an unused variable', () {
+      expect(v.validate(r'query Q($n: Int) { things version { x } }'), [
+        'Q.things: Thing needs a selection',
+        'Q.version: String is a leaf and takes no selection',
+        r'Q: variable $n is declared but never used',
+      ]);
+    });
 
     test('checks the values of variables', () {
       expect(
-        v.checkVariables(
-          r'query Q($id: ID!, $n: Int) { thing(id: $id, n: $n) { id } }',
-          {'n': 'three'},
-        ),
+        v.checkVariables(r'query Q($id: ID!, $n: Int) { thing(id: $id, n: $n) { id } }', {
+          'n': 'three',
+        }),
         [r'$id: null for ID!', r'$n: three is not a Int'],
       );
     });
@@ -222,12 +206,9 @@ void main() {
     });
 
     test('checks fragments against their type', () {
-      expect(
-        v.validate(
-          'query Q { things { ...F } } fragment F on Thing { id size }',
-        ),
-        ['Q.things{F}: Thing has no field "size"'],
-      );
+      expect(v.validate('query Q { things { ...F } } fragment F on Thing { id size }'), [
+        'Q.things{F}: Thing has no field "size"',
+      ]);
     });
   });
 }
@@ -238,10 +219,7 @@ final class _Recording extends http.BaseClient {
   new(this._inner, this._log);
 
   final http.Client _inner;
-  final List<
-    ({String query, Map<String, Object?> variables, Map<String, dynamic> body})
-  >
-  _log;
+  final List<({String query, Map<String, Object?> variables, Map<String, dynamic> body})> _log;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

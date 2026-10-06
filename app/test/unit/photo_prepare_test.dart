@@ -11,16 +11,8 @@ import 'package:lunaway/features/community/data/photo_prepare_io.dart';
 /// date and a camera model in its metadata. Its stored top-left quarter is
 /// red, the rest blue.
 Uint8List cameraJpeg() {
-  final image = img.Image(width: 3000, height: 2000)
-    ..clear(img.ColorRgb8(0, 0, 255));
-  img.fillRect(
-    image,
-    x1: 0,
-    y1: 0,
-    x2: 1499,
-    y2: 999,
-    color: img.ColorRgb8(255, 0, 0),
-  );
+  final image = img.Image(width: 3000, height: 2000)..clear(img.ColorRgb8(0, 0, 255));
+  img.fillRect(image, x1: 0, y1: 0, x2: 1499, y2: 999, color: img.ColorRgb8(255, 0, 0));
   image.exif.imageIfd
     ..orientation = 6
     ..['Model'] = img.IfdValueAscii('Pixel 9 Pro')
@@ -71,34 +63,24 @@ void main() {
     expect(text, isNot(contains('Exif')));
   });
 
-  test(
-    'a small picture keeps its size, and a transparent one lands on white',
-    () {
-      final png = img.encodePng(
-        img.Image(width: 400, height: 300, numChannels: 4)
-          ..clear(img.ColorRgba8(0, 0, 0, 0)),
-      );
-      final prepared = prepareJpeg(png)!;
-      expect((prepared.width, prepared.height), (400, 300));
-      final pixel = img.decodeJpg(prepared.jpeg)!.getPixel(200, 150);
-      expect(pixel.r, greaterThan(240));
-    },
-  );
+  test('a small picture keeps its size, and a transparent one lands on white', () {
+    final png = img.encodePng(
+      img.Image(width: 400, height: 300, numChannels: 4)..clear(img.ColorRgba8(0, 0, 0, 0)),
+    );
+    final prepared = prepareJpeg(png)!;
+    expect((prepared.width, prepared.height), (400, 300));
+    final pixel = img.decodeJpg(prepared.jpeg)!.getPixel(200, 150);
+    expect(pixel.r, greaterThan(240));
+  });
 
-  test(
-    'a picture too large for Dart is left to the engine, read from its header',
-    () {
-      // 9000 x 5000 is over the limit; a PNG of one colour stays small.
-      final huge = img.encodePng(img.Image(width: 9000, height: 5000));
-      expect(9000 * 5000, greaterThan(maxDartPixels));
-      expect(prepareJpeg(huge), isNull);
-    },
-  );
+  test('a picture too large for Dart is left to the engine, read from its header', () {
+    // 9000 x 5000 is over the limit; a PNG of one colour stays small.
+    final huge = img.encodePng(img.Image(width: 9000, height: 5000));
+    expect(9000 * 5000, greaterThan(maxDartPixels));
+    expect(prepareJpeg(huge), isNull);
+  });
 
   test('bytes that are no picture are refused', () {
-    expect(
-      prepareJpeg(Uint8List.fromList(utf8.encode('not an image'))),
-      isNull,
-    );
+    expect(prepareJpeg(Uint8List.fromList(utf8.encode('not an image'))), isNull);
   });
 }

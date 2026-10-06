@@ -80,9 +80,13 @@ android {
                 versionNameSuffix = "-debugsigned"
             }
         }
+        // The same versionName as the store build: F-Droid's automatic
+        // updates take the version written in pubspec.yaml and cannot add a
+        // suffix to it (docs/deploy.md, "Official F-Droid"). The flavour is
+        // told apart by the `legal.p2p.lunaway.DISTRIBUTION` meta-data of
+        // its manifest (src/fdroid/AndroidManifest.xml).
         create("fdroid") {
             dimension = "distribution"
-            versionNameSuffix = "-fdroid"
             proguardFile("proguard-fdroid.pro")
         }
     }

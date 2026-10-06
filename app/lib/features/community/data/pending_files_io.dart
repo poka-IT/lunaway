@@ -25,8 +25,7 @@ final class IoPendingFiles implements PendingFiles {
 
   Future<File> _file(String id) async {
     // Ids are hex, made by newFileId: anything else never names a file.
-    if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(id))
-      throw ArgumentError('not a file id: $id');
+    if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(id)) throw ArgumentError('not a file id: $id');
     return File(p.join((await _dir()).path, '$id.jpg'));
   }
 

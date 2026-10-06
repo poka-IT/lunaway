@@ -10,8 +10,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// badly. Above the dock and the panels either way.
 Future<T?> showFormSheet<T>(
   BuildContext context, {
-  required Widget Function(BuildContext context, ScrollController? scroll)
-  builder,
+  required Widget Function(BuildContext context, ScrollController? scroll) builder,
   bool tall = true,
 }) {
   if (WindowSize.of(context) == .compact) {
@@ -79,12 +78,7 @@ class FormSheetFrame extends StatelessWidget {
     final keyboard = media.viewInsets.bottom;
     final compact = WindowSize.of(context) == .compact;
     final header = Padding(
-      padding: EdgeInsets.fromLTRB(
-        Space.xl,
-        compact ? 0 : Space.l,
-        Space.s,
-        Space.s,
-      ),
+      padding: EdgeInsets.fromLTRB(Space.xl, compact ? 0 : Space.l, Space.s, Space.s),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,10 +86,7 @@ class FormSheetFrame extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(
-                  header: true,
-                  child: Text(title, style: theme.textTheme.headlineSmall),
-                ),
+                Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
                 if (subtitle != null) ...[
                   const SizedBox(height: Space.xxs),
                   Text(
@@ -121,9 +112,7 @@ class FormSheetFrame extends StatelessWidget {
         : DecoratedBox(
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
-              border: Border(
-                top: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
+              border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
             ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -209,15 +198,10 @@ class ChoiceTile extends StatelessWidget {
         selected: selected,
         button: true,
         child: Material(
-          color: selected
-              ? scheme.primaryContainer
-              : scheme.surfaceContainerLow,
+          color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-            side: BorderSide(
-              color: selected ? scheme.primary : Colors.transparent,
-              width: 1.5,
-            ),
+            side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
           ),
           child: InkWell(
             customBorder: RoundedRectangleBorder(
@@ -227,17 +211,10 @@ class ChoiceTile extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 64),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Space.l,
-                  vertical: Space.m,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.m),
                 child: Row(
                   children: [
-                    Icon(
-                      icon,
-                      color: tone ?? scheme.onSurfaceVariant,
-                      size: 26,
-                    ),
+                    Icon(icon, color: tone ?? scheme.onSurfaceVariant, size: 26),
                     const SizedBox(width: Space.l),
                     Expanded(
                       child: Column(
@@ -254,8 +231,7 @@ class ChoiceTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (selected)
-                      Icon(AppIcons.checkCircle, color: scheme.primary),
+                    if (selected) Icon(AppIcons.checkCircle, color: scheme.primary),
                   ],
                 ),
               ),

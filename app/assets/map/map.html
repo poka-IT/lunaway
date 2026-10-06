@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- The page runs only the scripts shipped beside it and talks only to the
-       basemap hosts; MapLibre's workers start from blob URLs. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https://tiles.lunaway.net; connect-src https://tiles.lunaway.net; worker-src blob:; child-src blob:; font-src 'self' file:; base-uri 'none'; form-action 'none'">
+       basemap host and the API (the points of interest's tiles); MapLibre's
+       workers start from blob URLs. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https://tiles.lunaway.net; connect-src https://tiles.lunaway.net https://api.lunaway.net; worker-src blob:; child-src blob:; font-src 'self' file:; base-uri 'none'; form-action 'none'">
   <title>Lunaway map</title>
   <link rel="stylesheet" href="maplibre-gl.css">
   <style>

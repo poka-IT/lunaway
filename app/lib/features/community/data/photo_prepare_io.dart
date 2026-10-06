@@ -23,19 +23,14 @@ final class IsolatePhotoPreparer implements PhotoPreparer {
   }
 
   /// The picture through the platform's codecs, at most [PhotoPreparer.maxSide].
-  static Future<({int width, int height, Uint8List rgba})> _engineDecode(
-    Uint8List bytes,
-  ) async {
+  static Future<({int width, int height, Uint8List rgba})> _engineDecode(Uint8List bytes) async {
     ui.ImmutableBuffer? buffer;
     ui.ImageDescriptor? descriptor;
     ui.Codec? codec;
     try {
       buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
       descriptor = await ui.ImageDescriptor.encoded(buffer);
-      final scale = min(
-        1,
-        PhotoPreparer.maxSide / max(descriptor.width, descriptor.height),
-      );
+      final scale = min(1, PhotoPreparer.maxSide / max(descriptor.width, descriptor.height));
       codec = await descriptor.instantiateCodec(
         targetWidth: (descriptor.width * scale).round(),
         targetHeight: (descriptor.height * scale).round(),
@@ -80,16 +75,15 @@ PreparedPhoto? prepareJpeg(Uint8List original) {
 }
 
 @visibleForTesting
-PreparedPhoto encodePixels(({int width, int height, Uint8List rgba}) pixels) =>
-    _finish(
-      img.Image.fromBytes(
-        width: pixels.width,
-        height: pixels.height,
-        bytes: pixels.rgba.buffer,
-        numChannels: 4,
-        order: img.ChannelOrder.rgba,
-      ),
-    );
+PreparedPhoto encodePixels(({int width, int height, Uint8List rgba}) pixels) => _finish(
+  img.Image.fromBytes(
+    width: pixels.width,
+    height: pixels.height,
+    bytes: pixels.rgba.buffer,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  ),
+);
 
 PreparedPhoto _finish(img.Image image) {
   var out = image;
@@ -111,10 +105,6 @@ PreparedPhoto _finish(img.Image image) {
   out
     ..exif = img.ExifData()
     ..iccProfile = null;
-  final jpeg = img.encodeJpg(
-    out,
-    quality: PhotoPreparer.quality,
-    chroma: img.JpegChroma.yuv420,
-  );
+  final jpeg = img.encodeJpg(out, quality: PhotoPreparer.quality, chroma: img.JpegChroma.yuv420);
   return PreparedPhoto(jpeg: jpeg, width: out.width, height: out.height);
 }

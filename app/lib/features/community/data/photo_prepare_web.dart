@@ -19,16 +19,11 @@ final class CanvasPhotoPreparer implements PhotoPreparer {
   Future<PreparedPhoto> prepare(Uint8List original) async {
     final web.ImageBitmap bitmap;
     try {
-      bitmap = await web.window
-          .createImageBitmap(web.Blob([original.toJS].toJS))
-          .toDart;
+      bitmap = await web.window.createImageBitmap(web.Blob([original.toJS].toJS)).toDart;
     } on Object catch (e) {
       throw UnreadablePhotoException('$e');
     }
-    final scale = min(
-      1,
-      PhotoPreparer.maxSide / max(bitmap.width, bitmap.height),
-    );
+    final scale = min(1, PhotoPreparer.maxSide / max(bitmap.width, bitmap.height));
     final width = max(1, (bitmap.width * scale).round());
     final height = max(1, (bitmap.height * scale).round());
     final canvas = web.document.createElement('canvas') as web.HTMLCanvasElement
@@ -42,20 +37,11 @@ final class CanvasPhotoPreparer implements PhotoPreparer {
     bitmap.close();
     final done = Completer<web.Blob?>();
     void onBlob(web.Blob? blob) => done.complete(blob);
-    canvas.toBlob(
-      onBlob.toJS,
-      'image/jpeg',
-      (PhotoPreparer.quality / 100).toJS,
-    );
+    canvas.toBlob(onBlob.toJS, 'image/jpeg', (PhotoPreparer.quality / 100).toJS);
     final blob = await done.future;
     context.clearRect(0, 0, width, height);
-    if (blob == null)
-      throw const UnreadablePhotoException('the browser made no JPEG');
+    if (blob == null) throw const UnreadablePhotoException('the browser made no JPEG');
     final buffer = await blob.arrayBuffer().toDart;
-    return PreparedPhoto(
-      jpeg: buffer.toDart.asUint8List(),
-      width: width,
-      height: height,
-    );
+    return PreparedPhoto(jpeg: buffer.toDart.asUint8List(), width: width, height: height);
   }
 }

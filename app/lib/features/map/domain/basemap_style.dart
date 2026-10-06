@@ -75,3 +75,30 @@ String fillBasemapStyle(String template, {required String base, required String 
       .replaceAll(BasemapTokens.sprite, '$root/sprites/protomaps-v4')
       .replaceAll(BasemapTokens.language, basemapLanguage(language));
 }
+
+/// [template] made into a style that reads no network: the vector tiles from
+/// the downloaded PMTiles archive at [pack] (MapLibre Native's
+/// `pmtiles://file://` source), the glyphs and sprites from [assets], where
+/// the app copied the ones it carries (`assets/map/offline/`). The archive's
+/// header says its last zoom; the map draws its tiles larger beyond it.
+String fillOfflineBasemapStyle(
+  String template, {
+  required String pack,
+  required String assets,
+  required String language,
+}) {
+  String fileUrl(String path) {
+    final url = Uri.file(path).toString();
+    if (url.contains('"') || url.contains(r'\')) {
+      throw ArgumentError.value(path, 'path', 'not usable in a style');
+    }
+    return url;
+  }
+
+  final root = assets.replaceAll(RegExp(r'/+$'), '');
+  return template
+      .replaceAll(BasemapTokens.tiles, 'pmtiles://${fileUrl(pack)}')
+      .replaceAll(BasemapTokens.glyphs, fileUrl('$root/glyphs'))
+      .replaceAll(BasemapTokens.sprite, fileUrl('$root/sprites'))
+      .replaceAll(BasemapTokens.language, basemapLanguage(language));
+}

@@ -54,15 +54,7 @@ void main() {
   });
 
   test('groups of four for the card', () {
-    expect(RecoveryCode.groups(shown), [
-      '2W3Y',
-      '9GFA',
-      'J1DR',
-      '1DGC',
-      'WVE0',
-      '7C88',
-      'CF1',
-    ]);
+    expect(RecoveryCode.groups(shown), ['2W3Y', '9GFA', 'J1DR', '1DGC', 'WVE0', '7C88', 'CF1']);
     expect(RecoveryCode.group('2W3Y9GFAJ1'), '2W3Y-9GFA-J1');
   });
 }
@@ -72,8 +64,7 @@ void main() {
 Uint8List _qrPicture(String code, {int module = 8}) {
   final modules = recoveryQrModules(code);
   final size = (modules.length + 8) * module;
-  final image = img.Image(width: size, height: size)
-    ..clear(img.ColorRgb8(255, 255, 255));
+  final image = img.Image(width: size, height: size)..clear(img.ColorRgb8(255, 255, 255));
   for (var y = 0; y < modules.length; y++) {
     for (var x = 0; x < modules[y].length; x++) {
       if (!modules[y][x]) continue;

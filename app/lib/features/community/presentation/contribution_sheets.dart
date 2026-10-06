@@ -20,15 +20,12 @@ import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// "Still there?": two taps from the place, the first opens this sheet and
 /// the second sends the answer. No position goes with it.
-Future<void> showConfirmSheet(
-  BuildContext context, {
-  required String placeId,
-}) => showFormSheet<void>(
-  context,
-  tall: false,
-  builder: (context, scroll) =>
-      _ConfirmSheet(placeId: placeId, scrollController: scroll),
-);
+Future<void> showConfirmSheet(BuildContext context, {required String placeId}) =>
+    showFormSheet<void>(
+      context,
+      tall: false,
+      builder: (context, scroll) => _ConfirmSheet(placeId: placeId, scrollController: scroll),
+    );
 
 class _ConfirmSheet extends ConsumerStatefulWidget {
   const new({required this.placeId, this.scrollController});
@@ -65,8 +62,7 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
       payload: {
         'placeId': widget.placeId,
         'status': status.wire,
-        if (status != ConfirmationStatus.stillOk && note.isNotEmpty)
-          'note': note,
+        if (status != ConfirmationStatus.stillOk && note.isNotEmpty) 'note': note,
       },
     );
   }
@@ -117,12 +113,10 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
 }
 
 /// Reports a problem met at a place.
-Future<void> showIssueSheet(BuildContext context, {required String placeId}) =>
-    showFormSheet<void>(
-      context,
-      builder: (context, scroll) =>
-          _IssueSheet(placeId: placeId, scrollController: scroll),
-    );
+Future<void> showIssueSheet(BuildContext context, {required String placeId}) => showFormSheet<void>(
+  context,
+  builder: (context, scroll) => _IssueSheet(placeId: placeId, scrollController: scroll),
+);
 
 class _IssueSheet extends ConsumerStatefulWidget {
   const new({required this.placeId, this.scrollController});
@@ -154,11 +148,7 @@ class _IssueSheetState extends ConsumerState<_IssueSheet> {
       navigator.context,
       ContributionKind.reportIssue,
       placeId: widget.placeId,
-      payload: {
-        'placeId': widget.placeId,
-        'kind': kind.wire,
-        if (note.isNotEmpty) 'note': note,
-      },
+      payload: {'placeId': widget.placeId, 'kind': kind.wire, if (note.isNotEmpty) 'note': note},
     );
   }
 
@@ -169,10 +159,7 @@ class _IssueSheetState extends ConsumerState<_IssueSheet> {
       title: t.issueSheet.title,
       subtitle: t.issueSheet.body,
       scrollController: widget.scrollController,
-      action: FilledButton(
-        onPressed: _kind == null ? null : _send,
-        child: Text(t.issueSheet.send),
-      ),
+      action: FilledButton(onPressed: _kind == null ? null : _send, child: Text(t.issueSheet.send)),
       children: [
         for (final kind in IssueKind.values)
           ChoiceTile(
@@ -204,21 +191,12 @@ Future<void> showReportSheet(
   String? placeId,
 }) => showFormSheet<void>(
   context,
-  builder: (context, scroll) => _ReportSheet(
-    target: target,
-    id: id,
-    placeId: placeId,
-    scrollController: scroll,
-  ),
+  builder: (context, scroll) =>
+      _ReportSheet(target: target, id: id, placeId: placeId, scrollController: scroll),
 );
 
 class _ReportSheet extends ConsumerStatefulWidget {
-  const new({
-    required this.target,
-    required this.id,
-    this.placeId,
-    this.scrollController,
-  });
+  const new({required this.target, required this.id, this.placeId, this.scrollController});
 
   final ReportTarget target;
   final String id;
@@ -240,8 +218,7 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
   }
 
   bool get _ready =>
-      _reason != null &&
-      (_reason != ReportReason.other || _note.text.trim().isNotEmpty);
+      _reason != null && (_reason != ReportReason.other || _note.text.trim().isNotEmpty);
 
   Future<void> _send() async {
     final reason = _reason;
@@ -275,10 +252,7 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
       },
       subtitle: t.reportSheet.body,
       scrollController: widget.scrollController,
-      action: FilledButton(
-        onPressed: _ready ? _send : null,
-        child: Text(t.common.send),
-      ),
+      action: FilledButton(onPressed: _ready ? _send : null, child: Text(t.common.send)),
       children: [
         for (final reason in ReportReason.values)
           ChoiceTile(
@@ -296,9 +270,7 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            labelText: _reason == ReportReason.other
-                ? t.reportSheet.noteOther
-                : t.reportSheet.note,
+            labelText: _reason == ReportReason.other ? t.reportSheet.noteOther : t.reportSheet.note,
           ),
         ),
       ],
@@ -308,11 +280,7 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
 
 /// Hides an author's reviews and photos from this account, after a word of
 /// what it does.
-Future<void> confirmMute(
-  BuildContext context,
-  WidgetRef ref,
-  Author author,
-) async {
+Future<void> confirmMute(BuildContext context, WidgetRef ref, Author author) async {
   final t = context.t;
   final ok = await showDialog<bool>(
     context: context,
@@ -320,10 +288,7 @@ Future<void> confirmMute(
       title: Text(t.reportSheet.muteTitle(name: author.pseudonym)),
       content: Text(t.reportSheet.muteBody),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.common.cancel),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(t.common.cancel)),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
           child: Text(t.reportSheet.muteAuthor),
@@ -349,18 +314,12 @@ Future<void> confirmMute(
 }
 
 /// Writes or edits the account's review of a place.
-Future<void> showReviewSheet(
-  BuildContext context, {
-  required String placeId,
-  Review? existing,
-}) => showFormSheet<void>(
-  context,
-  builder: (context, scroll) => _ReviewSheet(
-    placeId: placeId,
-    existing: existing,
-    scrollController: scroll,
-  ),
-);
+Future<void> showReviewSheet(BuildContext context, {required String placeId, Review? existing}) =>
+    showFormSheet<void>(
+      context,
+      builder: (context, scroll) =>
+          _ReviewSheet(placeId: placeId, existing: existing, scrollController: scroll),
+    );
 
 /// The coarse kind a review names, from the user's vehicle profile.
 ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
@@ -388,8 +347,7 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
   late int? _stars = widget.existing?.rating;
   late DateTime? _visited = widget.existing?.visitedAt ?? _today();
   late ReviewVehicle? _vehicle =
-      widget.existing?.authorVehicle ??
-      reviewVehicleOf(ref.read(vehicleProvider).value);
+      widget.existing?.authorVehicle ?? reviewVehicleOf(ref.read(vehicleProvider).value);
   bool _tried = false;
 
   DateTime _today() {
@@ -452,23 +410,14 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
     final scheme = theme.colorScheme;
     final missing = ContributionLimits.reviewMin - _length;
     return FormSheetFrame(
-      title: widget.existing?.text == null
-          ? t.reviewSheet.titleNew
-          : t.reviewSheet.titleEdit,
+      title: widget.existing?.text == null ? t.reviewSheet.titleNew : t.reviewSheet.titleEdit,
       scrollController: widget.scrollController,
       footnote: Text(t.reviewSheet.licence),
-      action: FilledButton(
-        onPressed: _publish,
-        child: Text(t.reviewSheet.publish),
-      ),
+      action: FilledButton(onPressed: _publish, child: Text(t.reviewSheet.publish)),
       children: [
         Text(t.contribute.yourRating, style: theme.textTheme.titleMedium),
         const SizedBox(height: Space.xs),
-        StarPicker(
-          value: _stars,
-          onChanged: (v) => setState(() => _stars = v),
-          size: 40,
-        ),
+        StarPicker(value: _stars, onChanged: (v) => setState(() => _stars = v), size: 40),
         if (_tried && _stars == null)
           Text(
             t.reviewSheet.starsRequired,
@@ -487,9 +436,7 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
             hintText: t.reviewSheet.textHint,
             alignLabelWithHint: true,
             helperText: missing > 0 ? t.reviewSheet.tooShort(n: missing) : null,
-            errorText: _tried && missing > 0
-                ? t.reviewSheet.tooShort(n: missing)
-                : null,
+            errorText: _tried && missing > 0 ? t.reviewSheet.tooShort(n: missing) : null,
           ),
         ),
         const SizedBox(height: Space.s),
@@ -506,8 +453,7 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
                 label: Text(
                   _visited == null
                       ? t.reviewSheet.visitedNone
-                      : DateFormat.yMMMd(t.$meta.locale.languageCode)
-                            .format(_visited!),
+                      : DateFormat.yMMMd(t.$meta.locale.languageCode).format(_visited!),
                 ),
               ),
             ),
@@ -537,12 +483,7 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
 
 /// Five stars to pick a rating; each one a 48 dp target with its own label.
 class StarPicker extends StatelessWidget {
-  const new({
-    required this.value,
-    required this.onChanged,
-    this.size = 32,
-    super.key,
-  });
+  const new({required this.value, required this.onChanged, this.size = 32, super.key});
 
   final int? value;
   final ValueChanged<int> onChanged;

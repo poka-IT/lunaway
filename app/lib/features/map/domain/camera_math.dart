@@ -11,8 +11,7 @@ LatLng centerForPadding(LatLng target, double zoom, EdgeInsets padding) {
   final world = 512 * math.pow(2, zoom).toDouble();
   final x = (target.lon + 180) / 360 * world;
   final sinLat = math.sin(target.lat * math.pi / 180).clamp(-0.9999, 0.9999);
-  final y =
-      (0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi)) * world;
+  final y = (0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi)) * world;
   final cx = x + (padding.right - padding.left) / 2;
   final cy = y + (padding.bottom - padding.top) / 2;
   final lon = cx / world * 360 - 180;
@@ -50,10 +49,7 @@ LatLng centerForPadding(LatLng target, double zoom, EdgeInsets padding) {
   final spanX = math.max(x1 - x0, 1e-9);
   final spanY = math.max(y1 - y0, 1e-9);
   final zoom = math
-      .min(
-        math.log(width / (512 * spanX)) / math.ln2,
-        math.log(height / (512 * spanY)) / math.ln2,
-      )
+      .min(math.log(width / (512 * spanX)) / math.ln2, math.log(height / (512 * spanY)) / math.ln2)
       .clamp(0.0, maxZoom);
   final cy = (y0 + y1) / 2;
   final n = math.pi - 2 * math.pi * cy;

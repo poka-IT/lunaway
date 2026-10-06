@@ -72,27 +72,18 @@ String? readRecoveryQr(Uint8List picture) {
       interpolation: img.Interpolation.average,
     );
   }
-  final rgba = image
-      .convert(numChannels: 4)
-      .getBytes(order: img.ChannelOrder.rgba);
-  return readRecoveryQrPixels((
-    width: image.width,
-    height: image.height,
-    rgba: rgba,
-  ));
+  final rgba = image.convert(numChannels: 4).getBytes(order: img.ChannelOrder.rgba);
+  return readRecoveryQrPixels((width: image.width, height: image.height, rgba: rgba));
 }
 
 /// The recovery code in RGBA pixels, or null.
-String? readRecoveryQrPixels(
-  ({int width, int height, Uint8List rgba}) picture,
-) {
+String? readRecoveryQrPixels(({int width, int height, Uint8List rgba}) picture) {
   final rgba = picture.rgba;
   // zxing takes one int per pixel; only the luminance it computes matters.
   final pixels = Int32List(picture.width * picture.height);
   for (var i = 0; i < pixels.length; i++) {
     final o = i * 4;
-    pixels[i] =
-        (0xFF << 24) | (rgba[o] << 16) | (rgba[o + 1] << 8) | rgba[o + 2];
+    pixels[i] = (0xFF << 24) | (rgba[o] << 16) | (rgba[o + 1] << 8) | rgba[o + 2];
   }
   final source = RGBLuminanceSource(picture.width, picture.height, pixels);
   final hints = DecodeHints()..put(DecodeHintType.tryHarder);

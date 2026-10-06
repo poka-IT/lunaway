@@ -60,23 +60,10 @@ class PlaceCommunityNotes extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: foreground,
-                    ),
-                  ),
+                  Text(title, style: theme.textTheme.titleSmall?.copyWith(color: foreground)),
                   const SizedBox(height: Space.hair),
-                  Text(
-                    body,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                    ),
-                  ),
-                  if (action != null) ...[
-                    const SizedBox(height: Space.xs),
-                    action,
-                  ],
+                  Text(body, style: theme.textTheme.bodyMedium?.copyWith(color: foreground)),
+                  if (action != null) ...[const SizedBox(height: Space.xs), action],
                 ],
               ),
             ),
@@ -105,10 +92,7 @@ class PlaceCommunityNotes extends ConsumerWidget {
             title: t.contribute.issuesTitle,
             body: [
               for (final i in issues)
-                t.contribute.issueCount(
-                  kind: t.issueKind(i.kind),
-                  count: t.number(i.count),
-                ),
+                t.contribute.issueCount(kind: t.issueKind(i.kind), count: t.number(i.count)),
             ].join('\n'),
             background: scheme.errorContainer,
             foreground: scheme.onErrorContainer,
@@ -161,9 +145,7 @@ class PlaceMoreMenu extends ConsumerWidget {
           value: 'edit',
           child: ListTile(
             leading: const Icon(AppIcons.rename),
-            title: Text(
-              direct ? t.contribute.editPlace : t.contribute.proposeEdit,
-            ),
+            title: Text(direct ? t.contribute.editPlace : t.contribute.proposeEdit),
           ),
         ),
         PopupMenuItem(
@@ -241,19 +223,9 @@ class YourReview extends ConsumerWidget {
     payload: {'placeId': place.id, 'stars': stars},
   );
 
-  Future<void> _write(
-    BuildContext context,
-    WidgetRef ref,
-    OwnReview? own,
-  ) async {
+  Future<void> _write(BuildContext context, WidgetRef ref, OwnReview? own) async {
     final t = context.t;
-    if (!await passesGate(
-      context,
-      ref,
-      level: TrustLevels.review,
-      title: t.gate.review,
-    ))
-      return;
+    if (!await passesGate(context, ref, level: TrustLevels.review, title: t.gate.review)) return;
     if (!context.mounted) return;
     await showReviewSheet(
       context,
@@ -262,7 +234,7 @@ class YourReview extends ConsumerWidget {
           ? null
           : Review(
               id: own?.review?.id ?? '',
-              sourceId: communitySourceId,
+              sourceId: communityCcBySourceId,
               createdAt: own?.review?.createdAt ?? ref.read(clockProvider)(),
               rating: own?.stars,
               text: own?.text,
@@ -278,16 +250,8 @@ class YourReview extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          hasText
-              ? t.contribute.deleteReviewTitle
-              : t.contribute.deleteRatingTitle,
-        ),
-        content: Text(
-          hasText
-              ? t.contribute.deleteReviewBody
-              : t.contribute.deleteRatingBody,
-        ),
+        title: Text(hasText ? t.contribute.deleteReviewTitle : t.contribute.deleteRatingTitle),
+        content: Text(hasText ? t.contribute.deleteReviewBody : t.contribute.deleteRatingBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -307,13 +271,9 @@ class YourReview extends ConsumerWidget {
     // there. One already on its way is marked: the sender deletes it as
     // soon as the server has it, even after a failed attempt or a restart.
     for (final e in container.read(pendingForPlaceProvider(place.id))) {
-      if (e.kind != ContributionKind.rate && e.kind != ContributionKind.review)
-        continue;
+      if (e.kind != ContributionKind.rate && e.kind != ContributionKind.review) continue;
       if (e.state == OutboxState.sending) {
-        await store.updatePayload(e.id, {
-          ...e.payload,
-          OutboxStore.deleteOnceSent: true,
-        });
+        await store.updatePayload(e.id, {...e.payload, OutboxStore.deleteOnceSent: true});
       } else {
         await store.discard(e.id);
       }
@@ -349,27 +309,16 @@ class YourReview extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  t.contribute.yourRating,
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
+              Expanded(child: Text(t.contribute.yourRating, style: theme.textTheme.titleMedium)),
               if (own?.pending ?? false)
                 _Tag(icon: AppIcons.waiting, label: t.contribute.pendingSend),
             ],
           ),
-          StarPicker(
-            value: own?.stars,
-            onChanged: (stars) => _rate(context, stars),
-            size: 34,
-          ),
+          StarPicker(value: own?.stars, onChanged: (stars) => _rate(context, stars), size: 34),
           if (own == null)
             Text(
               t.contribute.rateHint,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           if (hasText) ...[
             const SizedBox(height: Space.s),
@@ -395,19 +344,13 @@ class YourReview extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: () => _write(context, ref, own),
                 icon: const Icon(AppIcons.writeReview),
-                label: Text(
-                  hasText ? t.contribute.editReview : t.contribute.writeReview,
-                ),
+                label: Text(hasText ? t.contribute.editReview : t.contribute.writeReview),
               ),
               if (own != null)
                 TextButton.icon(
                   onPressed: () => _delete(context, own),
                   icon: const Icon(AppIcons.delete),
-                  label: Text(
-                    hasText
-                        ? t.contribute.deleteReview
-                        : t.contribute.deleteRating,
-                  ),
+                  label: Text(hasText ? t.contribute.deleteReview : t.contribute.deleteRating),
                 ),
             ],
           ),
@@ -428,10 +371,7 @@ class _Tag extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.s,
-        vertical: Space.xxs,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: Space.s, vertical: Space.xxs),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
@@ -444,9 +384,7 @@ class _Tag extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: scheme.onSecondaryContainer,
-              ),
+              style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSecondaryContainer),
             ),
           ),
         ],
@@ -469,8 +407,7 @@ class ReviewMenu extends ConsumerWidget {
     final mine = account is SignedIn && account.account.id == review.authorId;
     final author = review.authorId;
     final name = review.authorName;
-    if (mine || review.sourceId != communitySourceId)
-      return const SizedBox.shrink();
+    if (mine || !isLunawayCommunity(review.sourceId)) return const SizedBox.shrink();
     return PopupMenuButton<String>(
       tooltip: t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),
@@ -489,10 +426,7 @@ class ReviewMenu extends ConsumerWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           value: 'report',
-          child: ListTile(
-            leading: const Icon(AppIcons.report),
-            title: Text(t.reportSheet.review),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.report), title: Text(t.reportSheet.review)),
         ),
         if (author != null && name != null)
           PopupMenuItem(

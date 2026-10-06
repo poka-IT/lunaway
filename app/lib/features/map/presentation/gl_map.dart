@@ -12,6 +12,8 @@ import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -53,6 +55,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // Updates run one after the other: a newer one never races an older one.
   Future<void> _queue = Future.value();
 
+  // The points of interest: their source, layers and selection.
+  final _poi = GlPoiLayers();
+
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
 
@@ -68,8 +73,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final c = _controller;
     if (c == null || !mounted) return;
     final position = await c.toLatLng(math.Point(x, y));
-    if (mounted)
-      _props.onLongPress(LatLng(position.latitude, position.longitude));
+    if (mounted) _props.onLongPress(LatLng(position.latitude, position.longitude));
   }
 
   @override
@@ -81,6 +85,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
+      _poi.forget();
     }
     _scheduleSync();
   }
@@ -106,14 +111,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
-  gl.SymbolLayerProperties _selectionLayer(double size) =>
-      gl.SymbolLayerProperties(
-        iconImage: const ['get', 'icon'],
-        iconSize: size,
-        iconAnchor: 'bottom',
-        iconAllowOverlap: true,
-        iconIgnorePlacement: true,
-      );
+  gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
+    iconImage: const ['get', 'icon'],
+    iconSize: size,
+    iconAnchor: 'bottom',
+    iconAllowOverlap: true,
+    iconIgnorePlacement: true,
+  );
 
   /// Counts style loads: a theme or language switch loads a new style while
   /// the setup of the previous one may still be adding its layers.
@@ -136,11 +140,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       }
       // The one call an older setup had in flight may already have added a
       // layer or a source to this style: each is removed before it is added.
-      Future<void> fresh(
-        Future<void> Function() add, {
-        String? layer,
-        String? source,
-      }) async {
+      Future<void> fresh(Future<void> Function() add, {String? layer, String? source}) async {
         if (!current()) return;
         if (layer != null) await _quietly(() => c.removeLayer(layer));
         if (source != null) await _quietly(() => c.removeSource(source));
@@ -148,6 +148,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await add();
       }
 
+      // The points of interest go under the places: the night spots keep
+      // the map.
+      if (_props.pois case final pois?) {
+        await _poi.installBelowPlaces(
+          c,
+          pois,
+          pinScale: _pinScale,
+          current: current,
+          dark: dark,
+          below: PoiMapStyle.firstLabelLayer(_props.style),
+        );
+      }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
         MapStyle.selectionPinLayer,
@@ -170,10 +182,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         source: MapStyle.placesSource,
       );
       await fresh(
-        () => c.addSource(
-          MapStyle.selectionSource,
-          const gl.GeojsonSourceProperties(data: empty),
-        ),
+        () => c.addSource(MapStyle.selectionSource, const gl.GeojsonSourceProperties(data: empty)),
         source: MapStyle.selectionSource,
       );
       await fresh(
@@ -236,6 +245,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.selectionPinLayer,
       );
+      if (_props.pois != null) {
+        await _poi.installSelection(c, pinScale: _pinScale, current: current);
+      }
       if (!current()) return;
       if (_fitPending) {
         final size = mounted ? context.size : null;
@@ -291,15 +303,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
       _sentSelected = props.selectedId;
       _sentPoint = props.markedPoint;
-      final selected = props.places
-          .where((p) => p.id == props.selectedId)
-          .firstOrNull;
+      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
       );
       if (selected != null || props.markedPoint != null) await _popSelection(c);
     }
+    if (props.pois case final pois?) await _poi.sync(c, pois, pinScale: _pinScale);
   }
 
   /// The selected pin grows into place with a spring's give, so the eye
@@ -310,10 +321,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const steps = [0.55, 0.8, 1.02, 1.08, 1.03, 1.0];
     for (final s in steps) {
       if (!mounted) return;
-      await c.setLayerProperties(
-        MapStyle.selectionPinLayer,
-        _selectionLayer(full * s),
-      );
+      await c.setLayerProperties(MapStyle.selectionPinLayer, _selectionLayer(full * s));
       await Future<void>.delayed(const Duration(milliseconds: 34));
     }
   }
@@ -324,35 +332,65 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     // A finger is wider than a pin: look in a square around the tap.
     const slop = 14.0;
     final features = await c.queryRenderedFeaturesInRect(
-      Rect.fromCenter(
-        center: Offset(point.x, point.y),
-        width: slop * 2,
-        height: slop * 2,
-      ),
-      MapStyle.tappableLayers,
+      Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
+      [...MapStyle.tappableLayers, if (_props.pois != null) ...PoiMapStyle.tappable],
       null,
     );
     if (features.isEmpty) {
       _props.onEmptyTap?.call();
       return;
     }
-    final feature = features.first as Map<Object?, Object?>;
-    final geometry = feature['geometry'] as Map<Object?, Object?>?;
-    final tap = mapTapFor(
-      feature['properties'] as Map<Object?, Object?>?,
-      geometry?['coordinates'] as List<Object?>?,
-    );
-    switch (tap) {
-      case TapCluster(:final clusterId, :final at):
-        final zoom = await c.getClusterExpansionZoom(
-          MapStyle.placesSource,
-          clusterId,
-        );
-        await moveTo(at, zoom: zoom + 0.3);
-      case TapPlace(:final id):
-        _props.onPlaceTap(id);
-      case TapNothing():
-        break;
+    // Topmost first: the first feature that means something decides.
+    for (final raw in features) {
+      final feature = raw as Map<Object?, Object?>;
+      final geometry = feature['geometry'] as Map<Object?, Object?>?;
+      final properties = feature['properties'] as Map<Object?, Object?>?;
+      final coordinates = geometry?['coordinates'] as List<Object?>?;
+      switch (mapTapFor(properties, coordinates)) {
+        case TapCluster(:final clusterId, :final at):
+          final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
+          await moveTo(at, zoom: zoom + 0.3);
+          return;
+        case TapPlace(:final id):
+          _props.onPlaceTap(id);
+          return;
+        case TapNothing():
+          break;
+      }
+      switch (poiTapFor(properties, coordinates)) {
+        case TapPoi(:final feature):
+          _props.onPoiTap?.call(feature);
+          return;
+        case TapPoiDot(:final lat, :final lon):
+          final zoom = c.cameraPosition?.zoom ?? 10;
+          await moveTo(LatLng(lat, lon), zoom: math.min(zoom + 2, PoiMapStyle.pointsMinZoom + 0.5));
+          return;
+        case null:
+          break;
+      }
+      // The marker of a long-pressed point: its details are already open.
+      if (properties?['kind'] == 'point') return;
+    }
+  }
+
+  /// Reports the points under the view once the map rests after a move or a
+  /// change of chip.
+  Future<void> _onMapIdle() async {
+    final c = _controller;
+    final pois = _props.pois;
+    final report = _props.onPoisInView;
+    final camera = c?.cameraPosition;
+    if (c == null || !_ready || pois == null || report == null || camera == null) return;
+    try {
+      final found = await _poi.probe(
+        c,
+        pois,
+        zoom: camera.zoom,
+        camera: (camera.target.latitude, camera.target.longitude, camera.zoom),
+      );
+      if (found != null && mounted) report(found);
+    } on Object catch (e) {
+      _log.info('could not read the points in view: $e');
     }
   }
 
@@ -409,16 +447,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (c == null || !mounted) return;
     final size = context.size;
     if (size == null) return;
-    final camera = cameraForBounds(
-      bounds,
-      size,
-      _props.padding + const EdgeInsets.all(40),
-    );
+    final camera = cameraForBounds(bounds, size, _props.padding + const EdgeInsets.all(40));
     await c.animateCamera(
-      gl.CameraUpdate.newLatLngZoom(
-        gl.LatLng(camera.center.lat, camera.center.lon),
-        camera.zoom,
-      ),
+      gl.CameraUpdate.newLatLngZoom(gl.LatLng(camera.center.lat, camera.center.lon), camera.zoom),
       duration: Motion.of(context, Motion.camera),
     );
   }
@@ -429,12 +460,8 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (c == null) return null;
     if (!_locationOn && mounted) setState(() => _locationOn = true);
     try {
-      final position = await c.requestMyLocationLatLng().timeout(
-        const Duration(seconds: 12),
-      );
-      return position == null
-          ? null
-          : LatLng(position.latitude, position.longitude);
+      final position = await c.requestMyLocationLatLng().timeout(const Duration(seconds: 12));
+      return position == null ? null : LatLng(position.latitude, position.longitude);
     } on Object catch (e) {
       _log.info('no position: $e');
       return null;
@@ -475,14 +502,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick: (point, _) => _onTap(point),
+      // Every tap comes to onMapClick, on a layer's feature too: the plugins
+      // otherwise send a tap on any layer they count as interactive (the
+      // pins, the points of interest) to onFeatureTapped only, which
+      // _onTap's own query replaces.
+      featureTapsTriggersMapClick: true,
       // On the web the plugin reports a double click here, which also zooms:
       // the web long press comes from listenWebMapLongPress instead.
       onMapLongClick: kIsWeb
           ? null
-          : (_, position) => _props.onLongPress(
-              LatLng(position.latitude, position.longitude),
-            ),
+          : (_, position) => _props.onLongPress(LatLng(position.latitude, position.longitude)),
       onCameraIdle: _onCameraIdle,
+      onMapIdle: _onMapIdle,
     );
   }
 }

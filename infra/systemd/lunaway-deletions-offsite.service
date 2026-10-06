@@ -19,7 +19,11 @@ Nice=10
 IOSchedulingClass=idle
 UMask=0027
 
-SupplementaryGroups=lunaway-deletions
+# lunaway-deletions reads the journal. lunaway-pull opens the way to the
+# copy: root without capabilities is "other" on /srv/data/backups/offsite
+# (postgres:lunaway-pull, 2750), and the first run without this group
+# stopped on "no /srv/data/backups/offsite/account-deletions" (2026-10-06).
+SupplementaryGroups=lunaway-deletions lunaway-pull
 StateDirectory=lunaway-deletions-offsite
 StateDirectoryMode=0700
 

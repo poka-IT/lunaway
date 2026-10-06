@@ -34,7 +34,7 @@ hand, on the maintainer's Mac.
 
 | Number | Becomes | Rule |
 |---|---|---|
-| `X.Y.Z` | Android `versionName` (`flutter.versionName`, `app/android/app/build.gradle.kts`; the fdroid flavor adds `-fdroid`), iOS `CFBundleShortVersionString` | semantic version of the release |
+| `X.Y.Z` | Android `versionName` (`flutter.versionName`, `app/android/app/build.gradle.kts`; the same in both flavors), iOS `CFBundleShortVersionString` | semantic version of the release |
 | `N` | Android `versionCode` (`flutter.versionCode`), iOS `CFBundleVersion` | one more than any build ever uploaded anywhere (Play, App Store, F-Droid); never reused, also across betas |
 
 Each `N` uploaded to Play has its notes in
@@ -110,14 +110,17 @@ debug key (`-PallowDebugSigning`): never upload it.
 Built from the same commit as `docs/deploy.md`, "F-Droid repository",
 "Publishing a version" does it (a `git archive` copy under
 `data/tmp/fdroid/src`, JDK 21). The release build of this flavor is
-unsigned: `infra/fdroid/publish.sh` checks it (package, `-fdroid` version
-name, no Play Services class, 16 KB alignment) and signs it with the
-F-Droid APK key. Before that, from the build directory:
+unsigned: `infra/fdroid/publish.sh` checks it (package, the flavor,
+no Play Services class, 16 KB alignment) and signs it with the
+F-Droid APK key. The two flavors share one version name; the fdroid one
+carries the meta-data `legal.p2p.lunaway.DISTRIBUTION` = `fdroid` in its
+manifest. Before that, from the build directory:
 
 ```bash
 APK=build/app/outputs/apk/fdroid/release/app-fdroid-release-unsigned.apk
 aapt2 dump xmltree --file AndroidManifest.xml "$APK" | grep -c 'com.google.android.gms'   # 0
 aapt2 dump permissions "$APK"                    # INTERNET, location; nothing unexpected
+aapt2 dump xmltree --file AndroidManifest.xml "$APK" | grep -A1 'lunaway.DISTRIBUTION'   # fdroid
 ```
 
 Preconditions in the commit: `app/android/app/src/fdroid/AndroidManifest.xml`

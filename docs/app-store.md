@@ -51,8 +51,10 @@ maintainer's Apple account, gathered in "What only the maintainer does".
   photo library additions, in English in `Info.plist` and in
   `en.lproj`/`fr.lproj/InfoPlist.strings`. The camera and photo strings
   were uncommitted on 2026-10-06: they must be in the tagged commit.
-- **Background modes, 2.5.4.** None today: the app reads the location only
-  in use and hands directions to other apps. See "If guidance ships".
+- **Background modes, 2.5.4.** `location` and `audio`, for the in-app
+  guidance only (`Info.plist`, `UIBackgroundModes`): it starts in the
+  foreground with "When In Use", shows the blue indicator while it runs
+  and stops both at the arrival or the end. See "If guidance ships".
 - **Metadata, 2.3.** No other app or brand named in the name, subtitle,
   keywords or images (`docs/store-listing.md`).
 
@@ -74,7 +76,9 @@ accessible longer than needed to serve the request in real time.
 
 Not collected, with the reason: Coarse Location (map tiles show an area
 but nothing is kept), Contact Info (no e-mail, phone or real name is
-asked), Search History (search runs on the device), Diagnostics and crash
+asked), Search History (the search of places runs on the device; the
+search of shops and services sends the text and the map centre rounded to
+0.05 degree, which the server neither stores nor logs), Diagnostics and crash
 data (none), Browsing History. The optional-disclosure exemption is not
 used: reviews, photos and new places are part of the app's main use.
 
@@ -83,11 +87,10 @@ ships" of `docs/play-store.md`. Directions send the position but keep
 nothing, so under Apple's definition they add no type; road event reports
 fall under Precise Location, already declared.
 
-The location purpose string says "It stays on your device"
-(`app/ios/Runner/Info.plist`, `en.lproj` and `fr.lproj/InfoPlist.strings`),
-which a new place set at the device's position contradicts. Proposed text
-(those files had another agent's uncommitted changes on 2026-10-06, so it
-is not applied here):
+The location purpose string said "It stays on your device", which a new
+place set at the device's position contradicts. From version 0.1.0+2
+(`app/ios/Runner/Info.plist`, `en.lproj` and `fr.lproj/InfoPlist.strings`)
+it reads:
 
 - en: "Lunaway shows your position on the map and sorts the places around
   you. It leaves your device only if you add a place where you stand."
@@ -177,9 +180,9 @@ Decision for the maintainer, who answers in App Store Connect:
    Apple's OS: file the French encryption declaration (ANSSI) and upload
    it in App Store Connect; `ITSAppUsesNonExemptEncryption` is then true.
 
-For option 1, the change in `app/ios/Runner/Info.plist` (another agent had
-uncommitted changes in that file on 2026-10-06, so it is not applied
-here), after the `CFBundleVersion` entry:
+For option 1, `app/ios/Runner/Info.plist` declares it after the
+`CFBundleVersion` entry (from version 0.1.0+2; option 2 means
+turning it to `<true/>`):
 
 ```xml
 	<key>ITSAppUsesNonExemptEncryption</key>

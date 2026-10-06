@@ -36,6 +36,9 @@ final class DriftVehicleRepository implements VehicleRepository {
           lengthM: Value(v.lengthM),
           weightT: Value(v.weightT),
           updatedAt: clock().millisecondsSinceEpoch,
+          fuel: Value(v.fuel?.wire),
+          consumptionL100: Value(v.consumptionL100),
+          lpgHeating: Value(v.lpgHeating),
         ),
       );
 
@@ -49,5 +52,8 @@ final class DriftVehicleRepository implements VehicleRepository {
     widthM: r.widthM,
     lengthM: r.lengthM,
     weightT: r.weightT,
+    fuel: FuelType.fromWire(r.fuel),
+    consumptionL100: r.consumptionL100,
+    lpgHeating: r.lpgHeating,
   );
 }

@@ -1476,8 +1476,8 @@ built on F-Droid's build server. For the maintainer:
 1. Tag the release (`v0.1.0` in the draft) and check that
    `app/pubspec.yaml` gives the draft's `versionCode`.
 2. F-Droid refuses an APK whose versionName differs from the recipe's,
-   and its automatic updates take the version from `pubspec.yaml`. Since
-   the app's pass 4 the `fdroid` flavour keeps that versionName as it is
+   and its automatic updates take the version from `pubspec.yaml`. From
+   version 0.1.0+2 the `fdroid` flavour keeps that versionName as it is
    (no `-fdroid` suffix; the flavour is told apart by the
    `legal.p2p.lunaway.DISTRIBUTION` meta-data of its manifest), so the
    draft can say `AutoUpdateMode: Version` with `versionName` and

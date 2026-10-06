@@ -3,8 +3,7 @@ import 'package:lunaway/shared/theme/palette.dart';
 /// How Lunaway's own layers look on the basemap: clusters, pins and the
 /// selection. Both map engines read these values, so they draw one map.
 abstract final class MapLook {
-  static String _hex(int argb) =>
-      '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+  static String _hex(int argb) => '#${(argb & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
   /// Clusters: a navy disc with a cream count by day, the reverse at night,
   /// so they read as part of the brand and never as a place.

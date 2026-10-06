@@ -16,8 +16,7 @@ enum RequirementKind {
 
   final String wire;
 
-  static RequirementKind? fromWire(Object? wire) =>
-      values.where((k) => k.wire == wire).firstOrNull;
+  static RequirementKind? fromWire(Object? wire) => values.where((k) => k.wire == wire).firstOrNull;
 }
 
 /// One requirement of the next level, with where the account stands for a
@@ -30,11 +29,7 @@ final class LevelRequirement {
   final int? current;
   final int? needed;
 
-  Map<String, Object?> toJson() => {
-    'kind': kind.wire,
-    'current': current,
-    'needed': needed,
-  };
+  Map<String, Object?> toJson() => {'kind': kind.wire, 'current': current, 'needed': needed};
 
   static LevelRequirement? fromJson(Object? json) {
     if (json is! Map<String, dynamic>) return null;
@@ -110,6 +105,9 @@ abstract final class TrustLevels {
   static const photo = 1;
   static const proposeEdit = 1;
 
+  /// Vending machines, added in two gestures (`addVendingMachine`).
+  static const addVendingMachine = 1;
+
   /// New places.
   static const addPlace = 2;
 
@@ -157,11 +155,7 @@ final class Account {
     final pseudonym = json['pseudonym'];
     final level = json['trustLevel'];
     final created = DateTime.tryParse('${json['createdAt']}');
-    if (id is! String ||
-        pseudonym is! String ||
-        level is! num ||
-        created == null)
-      return null;
+    if (id is! String || pseudonym is! String || level is! num || created == null) return null;
     return Account(
       id: id,
       pseudonym: pseudonym,
@@ -181,8 +175,7 @@ final class Account {
       other.createdAt == createdAt;
 
   @override
-  int get hashCode =>
-      Object.hash(id, pseudonym, trustLevel, nextLevel, createdAt);
+  int get hashCode => Object.hash(id, pseudonym, trustLevel, nextLevel, createdAt);
 }
 
 /// A public author: what `muteAuthor` takes, and its name.
@@ -226,15 +219,10 @@ abstract final class Pseudonym {
   /// Spaces reduced as the server does; null when the length is wrong or no
   /// two letters are left.
   static String? clean(String raw) {
-    final text = raw
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .join(' ');
+    final text = raw.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).join(' ');
     final length = text.runes.length;
     if (length < minLength || length > maxLength) return null;
-    if (RegExp(r'\p{L}', unicode: true).allMatches(text).length < 2)
-      return null;
+    if (RegExp(r'\p{L}', unicode: true).allMatches(text).length < 2) return null;
     return text;
   }
 }

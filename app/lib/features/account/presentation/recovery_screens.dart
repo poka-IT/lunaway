@@ -50,9 +50,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _making = true);
     try {
-      final code = await ref
-          .read(accountControllerProvider.notifier)
-          .createRecoveryCode();
+      final code = await ref.read(accountControllerProvider.notifier).createRecoveryCode();
       if (!mounted) return;
       setState(() {
         _code = code;
@@ -68,8 +66,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
 
   /// The card as a PNG, at print resolution.
   Future<Uint8List?> _image() async {
-    final boundary =
-        _card.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    final boundary = _card.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return null;
     final image = await boundary.toImage(pixelRatio: 4);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -87,9 +84,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
       ShareParams(
         files: [file],
         fileNameOverrides: ['${t.recovery.fileName}.png'],
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
+        sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
       ),
     );
   }
@@ -140,8 +135,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
     final account = ref.watch(accountControllerProvider);
     final code = _code;
     final pseudonym = account is SignedIn ? account.account.pseudonym : '';
-    final hadCard =
-        account is SignedIn && account.recoveryCardAt != null && code == null;
+    final hadCard = account is SignedIn && account.recoveryCardAt != null && code == null;
     return PopScope(
       canPop: code == null,
       onPopInvokedWithResult: (popped, _) async {
@@ -158,16 +152,10 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
                 padding: const EdgeInsets.only(bottom: Space.l),
                 child: Text(
                   t.recovery.replaces,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: scheme.error,
-                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.error),
                 ),
               ),
-            for (final (i, step) in [
-              t.recovery.step1,
-              t.recovery.step2,
-              t.recovery.step3,
-            ].indexed)
+            for (final (i, step) in [t.recovery.step1, t.recovery.step2, t.recovery.step3].indexed)
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.m),
                 child: Row(
@@ -186,9 +174,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
                       ),
                     ),
                     const SizedBox(width: Space.m),
-                    Expanded(
-                      child: Text(step, style: theme.textTheme.bodyLarge),
-                    ),
+                    Expanded(child: Text(step, style: theme.textTheme.bodyLarge)),
                   ],
                 ),
               ),
@@ -202,18 +188,12 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
                     )
                   : const Icon(AppIcons.recoveryCard),
               label: Text(t.recovery.make),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-              ),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             ),
           ] else ...[
             RepaintBoundary(
               key: _card,
-              child: RecoveryCardView(
-                code: code,
-                pseudonym: pseudonym,
-                madeAt: _madeAt,
-              ),
+              child: RecoveryCardView(code: code, pseudonym: pseudonym, madeAt: _madeAt),
             ),
             const SizedBox(height: Space.l),
             Row(
@@ -221,12 +201,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
               children: [
                 Icon(AppIcons.warning, color: scheme.error),
                 const SizedBox(width: Space.s),
-                Expanded(
-                  child: Text(
-                    t.recovery.shownOnce,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                ),
+                Expanded(child: Text(t.recovery.shownOnce, style: theme.textTheme.bodyLarge)),
               ],
             ),
             const SizedBox(height: Space.l),
@@ -234,16 +209,12 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
               onPressed: _save,
               icon: const Icon(AppIcons.share),
               label: Text(t.recovery.saveImage),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-              ),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             ),
             const SizedBox(height: Space.s),
             OutlinedButton(
               onPressed: _leave,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
               child: Text(t.recovery.done),
             ),
           ],
@@ -258,12 +229,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
 /// four, the QR code beside it, the account's name, the date, and how to
 /// use it.
 class RecoveryCardView extends StatelessWidget {
-  const new({
-    required this.code,
-    required this.pseudonym,
-    required this.madeAt,
-    super.key,
-  });
+  const new({required this.code, required this.pseudonym, required this.madeAt, super.key});
 
   final String code;
   final String pseudonym;
@@ -339,20 +305,13 @@ class RecoveryCardView extends StatelessWidget {
             final foot = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  t.recovery.cardHow,
-                  style: base.bodySmall?.copyWith(color: _ink),
-                ),
+                Text(t.recovery.cardHow, style: base.bodySmall?.copyWith(color: _ink)),
                 const SizedBox(height: Space.xs),
-                Text(
-                  t.recovery.cardWarning,
-                  style: base.bodySmall?.copyWith(color: _ink),
-                ),
+                Text(t.recovery.cardWarning, style: base.bodySmall?.copyWith(color: _ink)),
                 const SizedBox(height: Space.xs),
                 Text(
                   t.recovery.cardMade(
-                    date: DateFormat.yMMMMd(t.$meta.locale.languageCode)
-                        .format(madeAt.toLocal()),
+                    date: DateFormat.yMMMMd(t.$meta.locale.languageCode).format(madeAt.toLocal()),
                   ),
                   style: base.bodySmall?.copyWith(color: _muted),
                 ),
@@ -403,12 +362,7 @@ class _QrPainter extends CustomPainter {
       for (var x = 0; x < modules[y].length; x++) {
         if (modules[y][x]) {
           canvas.drawRect(
-            Rect.fromLTWH(
-              (x + quiet) * cell,
-              (y + quiet) * cell,
-              cell + 0.4,
-              cell + 0.4,
-            ),
+            Rect.fromLTWH((x + quiet) * cell, (y + quiet) * cell, cell + 0.4, cell + 0.4),
             paint,
           );
         }
@@ -453,11 +407,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     }
     final bytes = await picker.pick(source);
     if (bytes == null || !mounted) return;
-    final code = await showBusy(
-      context,
-      t.recover.reading,
-      readRecoveryCard(bytes),
-    );
+    final code = await showBusy(context, t.recover.reading, readRecoveryCard(bytes));
     if (!mounted) return;
     if (code == null) {
       showMessage(messenger, t.recover.scanFailed);
@@ -509,9 +459,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final scheme = theme.colorScheme;
     final symbols = RecoveryCode.symbolsOf(_code.text);
     final valid = RecoveryCode.parse(_code.text) != null;
-    final remaining = symbols == null
-        ? 0
-        : RecoveryCode.symbols - symbols.length;
+    final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
     // Said as the user types: how many symbols are left, then whether the
     // check symbol agrees.
     String? hint;
@@ -533,10 +481,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
           enableSuggestions: false,
           textCapitalization: TextCapitalization.characters,
           inputFormatters: [LengthLimitingTextInputFormatter(60)],
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontFamily: 'Atkinson',
-            letterSpacing: 1.5,
-          ),
+          style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'Atkinson', letterSpacing: 1.5),
           onChanged: (_) => setState(() {}),
           // The code opens the account: no keyboard learns it or suggests it.
           keyboardType: TextInputType.visiblePassword,
@@ -552,9 +497,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
             prefixIcon: const Icon(AppIcons.recoveryCard),
             helperText: hint,
             errorText: error,
-            suffixIcon: valid
-                ? Icon(AppIcons.checkCircle, color: scheme.secondary)
-                : null,
+            suffixIcon: valid ? Icon(AppIcons.checkCircle, color: scheme.secondary) : null,
           ),
         ),
         const SizedBox(height: Space.m),
@@ -566,9 +509,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
                 ? t.recover.scan
                 : t.recover.scanFile,
           ),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-          ),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
         ),
         const SizedBox(height: Space.l),
         CheckboxListTile(

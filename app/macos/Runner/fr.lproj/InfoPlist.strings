@@ -1,5 +1,5 @@
 /* The reason macOS shows when Lunaway first asks for the position. Each key
    of Info.plist ending in UsageDescription has a line here and in
    en.lproj/InfoPlist.strings. */
-"NSLocationWhenInUseUsageDescription" = "Lunaway utilise votre position pour centrer la carte et trier les lieux par distance. Elle reste sur votre appareil.";
-"NSLocationUsageDescription" = "Lunaway utilise votre position pour centrer la carte et trier les lieux par distance. Elle reste sur votre appareil.";
+"NSLocationWhenInUseUsageDescription" = "Lunaway affiche votre position sur la carte, trie les lieux autour de vous et calcule les itinéraires depuis l'endroit où vous êtes. Pour calculer un itinéraire, votre position part vers le serveur de Lunaway, qui n'en garde rien ; pour chercher du carburant le long du trajet, une position approchée. Elle y part aussi quand vous ajoutez un lieu là où vous êtes.";
+"NSLocationUsageDescription" = "Lunaway affiche votre position sur la carte, trie les lieux autour de vous et calcule les itinéraires depuis l'endroit où vous êtes. Pour calculer un itinéraire, votre position part vers le serveur de Lunaway, qui n'en garde rien ; pour chercher du carburant le long du trajet, une position approchée. Elle y part aussi quand vous ajoutez un lieu là où vous êtes.";

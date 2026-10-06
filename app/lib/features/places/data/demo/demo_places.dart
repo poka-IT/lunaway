@@ -27,8 +27,7 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
     final lon = town.lon + (rng.next() - 0.5) * 0.3;
     final overnight = _overnight(kind, rng);
     final services = _services(kind, rng);
-    final name =
-        '${_prefix(kind)} ${_names[rng.nextInt(_names.length)]} (démo)';
+    final name = '${_prefix(kind)} ${_names[rng.nextInt(_names.length)]} (démo)';
     final confirmedDaysAgo = rng.nextInt(540);
     final hours = rng.next() < 0.55 ? _hours[rng.nextInt(_hours.length)] : null;
     // Most places carry synthetic community content: ratings, descriptions
@@ -41,14 +40,10 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
             count: 1 + rng.nextInt(240),
           )
         : null;
-    final description = rng.next() < 0.7
-        ? _descriptions[rng.nextInt(_descriptions.length)]
-        : null;
+    final description = rng.next() < 0.7 ? _descriptions[rng.nextInt(_descriptions.length)] : null;
     // The values below draw from the generator in a fixed order, so the
     // demo data stays the same from one version to the next.
-    final placeName = kind == PlaceKind.parking && rng.next() < 0.3
-        ? null
-        : name;
+    final placeName = kind == PlaceKind.parking && rng.next() < 0.3 ? null : name;
     final activities = {
       for (final a in Activity.values)
         if (rng.next() < 0.12) a,
@@ -61,17 +56,9 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
           sourceId: withCommunity ? demoCommunitySource.id : demoSource.id,
         ),
         if (withCommunity && rng.next() < 0.6)
-          LocalizedText(
-            lang: 'en',
-            text: description.en,
-            sourceId: demoCommunitySource.id,
-          ),
+          LocalizedText(lang: 'en', text: description.en, sourceId: demoCommunitySource.id),
         if (withCommunity && rng.next() < 0.3)
-          LocalizedText(
-            lang: 'de',
-            text: description.de,
-            sourceId: demoCommunitySource.id,
-          ),
+          LocalizedText(lang: 'de', text: description.de, sourceId: demoCommunitySource.id),
       ],
     ];
     final street = rng.next() < 0.6
@@ -93,11 +80,7 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
         : null;
     final updatedAt = updated.subtract(Duration(days: rng.nextInt(30)));
     final sources = [
-      PlaceSource(
-        source: demoSource,
-        externalId: 'demo/${i + 1}',
-        fetchedAt: updated,
-      ),
+      PlaceSource(source: demoSource, externalId: 'demo/${i + 1}', fetchedAt: updated),
       if (withCommunity)
         PlaceSource(
           source: demoCommunitySource,
@@ -233,8 +216,7 @@ OvernightStatus _overnight(PlaceKind kind, _Rng rng) {
           : .unknown,
     .serviceArea || .extraService => r < 0.7 ? .dayOnly : .unknown,
     .nature || .offRoad => r < 0.5 ? .tolerated : .unknown,
-    .restArea ||
-    .picnicArea => r < 0.4 ? .tolerated : (r < 0.7 ? .dayOnly : .unknown),
+    .restArea || .picnicArea => r < 0.4 ? .tolerated : (r < 0.7 ? .dayOnly : .unknown),
   };
 }
 
@@ -270,11 +252,7 @@ Set<Service> _services(PlaceKind kind, _Rng rng) {
 double? _price(PlaceKind kind, _Rng rng) => switch (kind) {
   .motorhomeArea => rng.next() < 0.4 ? 0 : (5 + rng.nextInt(11)).toDouble(),
   .campsite => (14 + rng.nextInt(22)).toDouble(),
-  .parking ||
-  .nature ||
-  .restArea ||
-  .picnicArea ||
-  .offRoad => rng.next() < 0.7 ? 0 : null,
+  .parking || .nature || .restArea || .picnicArea || .offRoad => rng.next() < 0.7 ? 0 : null,
   .farm || .homestay => rng.next() < 0.6 ? 0 : (8 + rng.nextInt(8)).toDouble(),
   .serviceArea || .extraService => null,
 };
@@ -407,16 +385,11 @@ const List<_Text> _descriptions = [
 /// Photos and reviews of a demo place, the way the server would answer: a
 /// few synthetic photos at the image proxy's URLs under [apiBase] (the demo
 /// server draws them), and invented reviews.
-({List<Photo> photos, List<Review> reviews}) demoExtras(
-  Place place, {
-  required Uri apiBase,
-}) {
+({List<Photo> photos, List<Review> reviews}) demoExtras(Place place, {required Uri apiBase}) {
   final seed = place.id.codeUnits.fold(7, (a, c) => (a * 31 + c) & 0x7FFFFFFF);
   final index = int.parse(place.id.substring(place.id.lastIndexOf('-') + 1));
   final rng = _Rng(seed);
-  final rating = place.ratings
-      .where((r) => r.sourceId == demoCommunitySource.id)
-      .firstOrNull;
+  final rating = place.ratings.where((r) => r.sourceId == demoCommunitySource.id).firstOrNull;
   final photoCount = rating == null ? 0 : 1 + rng.nextInt(5);
   final photos = [
     for (var i = 0; i < photoCount; i++)
@@ -446,18 +419,9 @@ const List<_Text> _descriptions = [
         text: _reviews[rng.nextInt(_reviews.length)],
         lang: 'fr',
         authorName: 'Voyageur démo ${1 + rng.nextInt(400)}',
-        authorVehicle:
-            ReviewVehicle.values[rng.nextInt(ReviewVehicle.values.length)],
-        visitedAt: DateTime(
-          2026,
-          9,
-          2,
-        ).subtract(Duration(days: i * 9 + rng.nextInt(9))),
-        createdAt: DateTime.utc(
-          2026,
-          9,
-          3,
-        ).subtract(Duration(days: i * 9 + rng.nextInt(9))),
+        authorVehicle: ReviewVehicle.values[rng.nextInt(ReviewVehicle.values.length)],
+        visitedAt: DateTime(2026, 9, 2).subtract(Duration(days: i * 9 + rng.nextInt(9))),
+        createdAt: DateTime.utc(2026, 9, 3).subtract(Duration(days: i * 9 + rng.nextInt(9))),
       ),
   ];
   return (photos: photos, reviews: reviews);
@@ -484,9 +448,7 @@ String _sceneHash(int n) => _sceneHashes.putIfAbsent(n, () {
   final rgba = Uint8List(w * h * 4);
   for (var y = 0; y < h; y++) {
     final t = y / (h * 0.65);
-    final c = y > h * 0.65
-        ? ground
-        : Color.lerp(Color(top), Color(bottom), t)!.toARGB32();
+    final c = y > h * 0.65 ? ground : Color.lerp(Color(top), Color(bottom), t)!.toARGB32();
     for (var x = 0; x < w; x++) {
       final i = (y * w + x) * 4;
       rgba
@@ -571,8 +533,7 @@ List<OpeningInterval> _intervals(_Hours hours, DateTime now) {
   final out = <OpeningInterval>[];
   for (var d = 0; d <= openingWindow.inDays + 1; d++) {
     final day = DateTime.utc(first.year, first.month, first.day + d);
-    for (final (start, end)
-        in hours.week[day.weekday] ?? const <(int, int)>[]) {
+    for (final (start, end) in hours.week[day.weekday] ?? const <(int, int)>[]) {
       out.add(
         OpeningInterval(
           _zone.instantOf(DateTime.utc(day.year, day.month, day.day, 0, start)),
@@ -588,7 +549,5 @@ List<OpeningInterval> _intervals(_Hours hours, DateTime now) {
 /// zone, of the day it computed the intervals.
 DateTime _windowEnd(DateTime now) {
   final wall = _zone.wallClock(now);
-  return _zone.instantOf(
-    DateTime.utc(wall.year, wall.month, wall.day + openingWindow.inDays),
-  );
+  return _zone.instantOf(DateTime.utc(wall.year, wall.month, wall.day + openingWindow.inDays));
 }

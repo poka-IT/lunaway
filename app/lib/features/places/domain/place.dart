@@ -153,37 +153,22 @@ final class Place {
       other.stars == stars &&
       other.openingHours == openingHours &&
       other.openingHoursParsed == openingHoursParsed &&
-      const ListEquality<OpeningInterval>().equals(
-        other.openingIntervals,
-        openingIntervals,
-      ) &&
+      const ListEquality<OpeningInterval>().equals(other.openingIntervals, openingIntervals) &&
       other.openingValidUntil == openingValidUntil &&
       other.website == website &&
       other.phone == phone &&
       other.lastConfirmedAt == lastConfirmedAt &&
       other.updatedAt == updatedAt &&
       const ListEquality<PlaceSource>().equals(other.sources, sources) &&
-      const ListEquality<FieldProvenance>().equals(
-        other.provenance,
-        provenance,
-      ) &&
-      const ListEquality<LocalizedText>().equals(
-        other.descriptions,
-        descriptions,
-      ) &&
+      const ListEquality<FieldProvenance>().equals(other.provenance, provenance) &&
+      const ListEquality<LocalizedText>().equals(other.descriptions, descriptions) &&
       const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
-      const ListEquality<ExternalLink>().equals(
-        other.externalLinks,
-        externalLinks,
-      ) &&
+      const ListEquality<ExternalLink>().equals(other.externalLinks, externalLinks) &&
       other.verification == verification &&
       other.reviewCount == reviewCount &&
       other.photoCount == photoCount &&
       const ListEquality<Photo>().equals(other.coverPhotos, coverPhotos) &&
-      const ListEquality<IssueSummary>().equals(
-        other.reportedIssues,
-        reportedIssues,
-      );
+      const ListEquality<IssueSummary>().equals(other.reportedIssues, reportedIssues);
 
   @override
   int get hashCode => Object.hash(id, updatedAt, lat, lon);
@@ -272,18 +257,13 @@ final class PlaceSource {
       other.matchScore == matchScore;
 
   @override
-  int get hashCode =>
-      Object.hash(source, externalId, externalUrl, fetchedAt, matchScore);
+  int get hashCode => Object.hash(source, externalId, externalUrl, fetchedAt, matchScore);
 }
 
 /// Which source supplied a field, and the values other sources proposed.
 @immutable
 final class FieldProvenance {
-  const new({
-    required this.field,
-    required this.sourceId,
-    this.alternatives = const [],
-  });
+  const new({required this.field, required this.sourceId, this.alternatives = const []});
 
   final String field;
   final String sourceId;
@@ -294,14 +274,10 @@ final class FieldProvenance {
       other is FieldProvenance &&
       other.field == field &&
       other.sourceId == sourceId &&
-      const ListEquality<AlternativeValue>().equals(
-        other.alternatives,
-        alternatives,
-      );
+      const ListEquality<AlternativeValue>().equals(other.alternatives, alternatives);
 
   @override
-  int get hashCode =>
-      Object.hash(field, sourceId, Object.hashAll(alternatives));
+  int get hashCode => Object.hash(field, sourceId, Object.hashAll(alternatives));
 }
 
 @immutable
@@ -313,9 +289,7 @@ final class AlternativeValue {
 
   @override
   bool operator ==(Object other) =>
-      other is AlternativeValue &&
-      other.sourceId == sourceId &&
-      other.value == value;
+      other is AlternativeValue && other.sourceId == sourceId && other.value == value;
 
   @override
   int get hashCode => Object.hash(sourceId, value);

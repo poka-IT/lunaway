@@ -1204,6 +1204,38 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
+  static const VerificationMeta _fuelMeta = const VerificationMeta('fuel');
+  late final GeneratedColumn<String> fuel = GeneratedColumn<String>(
+    'fuel',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _consumptionL100Meta = const VerificationMeta(
+    'consumptionL100',
+  );
+  late final GeneratedColumn<double> consumptionL100 = GeneratedColumn<double>(
+    'consumption_l100',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _lpgHeatingMeta = const VerificationMeta(
+    'lpgHeating',
+  );
+  late final GeneratedColumn<bool> lpgHeating = GeneratedColumn<bool>(
+    'lpg_heating',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT FALSE',
+    defaultValue: const CustomExpression('FALSE'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1214,6 +1246,9 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     lengthM,
     weightT,
     updatedAt,
+    fuel,
+    consumptionL100,
+    lpgHeating,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1276,6 +1311,27 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('fuel')) {
+      context.handle(
+        _fuelMeta,
+        fuel.isAcceptableOrUnknown(data['fuel']!, _fuelMeta),
+      );
+    }
+    if (data.containsKey('consumption_l100')) {
+      context.handle(
+        _consumptionL100Meta,
+        consumptionL100.isAcceptableOrUnknown(
+          data['consumption_l100']!,
+          _consumptionL100Meta,
+        ),
+      );
+    }
+    if (data.containsKey('lpg_heating')) {
+      context.handle(
+        _lpgHeatingMeta,
+        lpgHeating.isAcceptableOrUnknown(data['lpg_heating']!, _lpgHeatingMeta),
+      );
+    }
     return context;
   }
 
@@ -1317,6 +1373,18 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
         DriftSqlType.int,
         data['${effectivePrefix}updated_at'],
       )!,
+      fuel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fuel'],
+      ),
+      consumptionL100: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}consumption_l100'],
+      ),
+      lpgHeating: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}lpg_heating'],
+      )!,
     );
   }
 
@@ -1338,6 +1406,12 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
   final double? lengthM;
   final double? weightT;
   final int updatedAt;
+
+  /// The engine's fuel (`FuelType.wire`), the litres per 100 km and whether
+  /// the living area heats on LPG (added in version 3).
+  final String? fuel;
+  final double? consumptionL100;
+  final bool lpgHeating;
   const VehicleRow({
     required this.id,
     required this.type,
@@ -1347,6 +1421,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     this.lengthM,
     this.weightT,
     required this.updatedAt,
+    this.fuel,
+    this.consumptionL100,
+    required this.lpgHeating,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1367,6 +1444,13 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       map['weight_t'] = Variable<double>(weightT);
     }
     map['updated_at'] = Variable<int>(updatedAt);
+    if (!nullToAbsent || fuel != null) {
+      map['fuel'] = Variable<String>(fuel);
+    }
+    if (!nullToAbsent || consumptionL100 != null) {
+      map['consumption_l100'] = Variable<double>(consumptionL100);
+    }
+    map['lpg_heating'] = Variable<bool>(lpgHeating);
     return map;
   }
 
@@ -1388,6 +1472,11 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           ? const Value.absent()
           : Value(weightT),
       updatedAt: Value(updatedAt),
+      fuel: fuel == null && nullToAbsent ? const Value.absent() : Value(fuel),
+      consumptionL100: consumptionL100 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consumptionL100),
+      lpgHeating: Value(lpgHeating),
     );
   }
 
@@ -1405,6 +1494,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       lengthM: serializer.fromJson<double?>(json['length_m']),
       weightT: serializer.fromJson<double?>(json['weight_t']),
       updatedAt: serializer.fromJson<int>(json['updated_at']),
+      fuel: serializer.fromJson<String?>(json['fuel']),
+      consumptionL100: serializer.fromJson<double?>(json['consumption_l100']),
+      lpgHeating: serializer.fromJson<bool>(json['lpg_heating']),
     );
   }
   @override
@@ -1419,6 +1511,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       'length_m': serializer.toJson<double?>(lengthM),
       'weight_t': serializer.toJson<double?>(weightT),
       'updated_at': serializer.toJson<int>(updatedAt),
+      'fuel': serializer.toJson<String?>(fuel),
+      'consumption_l100': serializer.toJson<double?>(consumptionL100),
+      'lpg_heating': serializer.toJson<bool>(lpgHeating),
     };
   }
 
@@ -1431,6 +1526,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     Value<double?> lengthM = const Value.absent(),
     Value<double?> weightT = const Value.absent(),
     int? updatedAt,
+    Value<String?> fuel = const Value.absent(),
+    Value<double?> consumptionL100 = const Value.absent(),
+    bool? lpgHeating,
   }) => VehicleRow(
     id: id ?? this.id,
     type: type ?? this.type,
@@ -1440,6 +1538,11 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     lengthM: lengthM.present ? lengthM.value : this.lengthM,
     weightT: weightT.present ? weightT.value : this.weightT,
     updatedAt: updatedAt ?? this.updatedAt,
+    fuel: fuel.present ? fuel.value : this.fuel,
+    consumptionL100: consumptionL100.present
+        ? consumptionL100.value
+        : this.consumptionL100,
+    lpgHeating: lpgHeating ?? this.lpgHeating,
   );
   VehicleRow copyWithCompanion(VehiclesCompanion data) {
     return VehicleRow(
@@ -1451,6 +1554,13 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       lengthM: data.lengthM.present ? data.lengthM.value : this.lengthM,
       weightT: data.weightT.present ? data.weightT.value : this.weightT,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      fuel: data.fuel.present ? data.fuel.value : this.fuel,
+      consumptionL100: data.consumptionL100.present
+          ? data.consumptionL100.value
+          : this.consumptionL100,
+      lpgHeating: data.lpgHeating.present
+          ? data.lpgHeating.value
+          : this.lpgHeating,
     );
   }
 
@@ -1464,7 +1574,10 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           ..write('widthM: $widthM, ')
           ..write('lengthM: $lengthM, ')
           ..write('weightT: $weightT, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('fuel: $fuel, ')
+          ..write('consumptionL100: $consumptionL100, ')
+          ..write('lpgHeating: $lpgHeating')
           ..write(')'))
         .toString();
   }
@@ -1479,6 +1592,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     lengthM,
     weightT,
     updatedAt,
+    fuel,
+    consumptionL100,
+    lpgHeating,
   );
   @override
   bool operator ==(Object other) =>
@@ -1491,7 +1607,10 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           other.widthM == this.widthM &&
           other.lengthM == this.lengthM &&
           other.weightT == this.weightT &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.fuel == this.fuel &&
+          other.consumptionL100 == this.consumptionL100 &&
+          other.lpgHeating == this.lpgHeating);
 }
 
 class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
@@ -1503,6 +1622,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
   final Value<double?> lengthM;
   final Value<double?> weightT;
   final Value<int> updatedAt;
+  final Value<String?> fuel;
+  final Value<double?> consumptionL100;
+  final Value<bool> lpgHeating;
   const VehiclesCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
@@ -1512,6 +1634,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     this.lengthM = const Value.absent(),
     this.weightT = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.fuel = const Value.absent(),
+    this.consumptionL100 = const Value.absent(),
+    this.lpgHeating = const Value.absent(),
   });
   VehiclesCompanion.insert({
     this.id = const Value.absent(),
@@ -1522,6 +1647,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     this.lengthM = const Value.absent(),
     this.weightT = const Value.absent(),
     required int updatedAt,
+    this.fuel = const Value.absent(),
+    this.consumptionL100 = const Value.absent(),
+    this.lpgHeating = const Value.absent(),
   }) : type = Value(type),
        updatedAt = Value(updatedAt);
   static Insertable<VehicleRow> custom({
@@ -1533,6 +1661,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     Expression<double>? lengthM,
     Expression<double>? weightT,
     Expression<int>? updatedAt,
+    Expression<String>? fuel,
+    Expression<double>? consumptionL100,
+    Expression<bool>? lpgHeating,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1543,6 +1674,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
       if (lengthM != null) 'length_m': lengthM,
       if (weightT != null) 'weight_t': weightT,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (fuel != null) 'fuel': fuel,
+      if (consumptionL100 != null) 'consumption_l100': consumptionL100,
+      if (lpgHeating != null) 'lpg_heating': lpgHeating,
     });
   }
 
@@ -1555,6 +1689,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     Value<double?>? lengthM,
     Value<double?>? weightT,
     Value<int>? updatedAt,
+    Value<String?>? fuel,
+    Value<double?>? consumptionL100,
+    Value<bool>? lpgHeating,
   }) {
     return VehiclesCompanion(
       id: id ?? this.id,
@@ -1565,6 +1702,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
       lengthM: lengthM ?? this.lengthM,
       weightT: weightT ?? this.weightT,
       updatedAt: updatedAt ?? this.updatedAt,
+      fuel: fuel ?? this.fuel,
+      consumptionL100: consumptionL100 ?? this.consumptionL100,
+      lpgHeating: lpgHeating ?? this.lpgHeating,
     );
   }
 
@@ -1595,6 +1735,15 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<int>(updatedAt.value);
     }
+    if (fuel.present) {
+      map['fuel'] = Variable<String>(fuel.value);
+    }
+    if (consumptionL100.present) {
+      map['consumption_l100'] = Variable<double>(consumptionL100.value);
+    }
+    if (lpgHeating.present) {
+      map['lpg_heating'] = Variable<bool>(lpgHeating.value);
+    }
     return map;
   }
 
@@ -1608,7 +1757,10 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
           ..write('widthM: $widthM, ')
           ..write('lengthM: $lengthM, ')
           ..write('weightT: $weightT, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('fuel: $fuel, ')
+          ..write('consumptionL100: $consumptionL100, ')
+          ..write('lpgHeating: $lpgHeating')
           ..write(')'))
         .toString();
   }

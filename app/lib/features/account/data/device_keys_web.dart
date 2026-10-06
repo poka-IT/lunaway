@@ -26,11 +26,7 @@ final class WebCryptoDeviceKey implements DeviceKey {
   Future<Uint8List> sign(Uint8List message) async {
     final private = _pair.getProperty<web.CryptoKey>('privateKey'.toJS);
     final signature = await web.window.crypto.subtle
-        .sign(
-          _algorithm({'name': 'ECDSA', 'hash': 'SHA-256'}),
-          private,
-          message.toJS,
-        )
+        .sign(_algorithm({'name': 'ECDSA', 'hash': 'SHA-256'}), private, message.toJS)
         .toDart;
     // WebCrypto answers raw r || s, the form the API prefers.
     return (signature! as JSArrayBuffer).toDart.asUint8List();
@@ -55,10 +51,7 @@ final class WebCryptoDeviceKeys implements DeviceKeys {
     final db = await _open();
     try {
       final stored = await _request(
-        db
-            .transaction(_store.toJS, 'readonly')
-            .objectStore(_store)
-            .get(_slot.toJS),
+        db.transaction(_store.toJS, 'readonly').objectStore(_store).get(_slot.toJS),
       );
       if (stored == null || stored.isUndefinedOrNull) return null;
       return await _fromPair(stored as JSObject);
@@ -100,10 +93,7 @@ final class WebCryptoDeviceKeys implements DeviceKeys {
     final db = await _open();
     try {
       await _request(
-        db
-            .transaction(_store.toJS, 'readwrite')
-            .objectStore(_store)
-            .delete(_slot.toJS),
+        db.transaction(_store.toJS, 'readwrite').objectStore(_store).delete(_slot.toJS),
       );
     } finally {
       db.close();
@@ -130,9 +120,7 @@ final class WebCryptoDeviceKeys implements DeviceKeys {
       ..onupgradeneeded = ((web.Event _) {
         (request.result! as web.IDBDatabase).createObjectStore(_store);
       }).toJS
-      ..onsuccess = ((web.Event _) => done.complete(
-        request.result! as web.IDBDatabase,
-      )).toJS
+      ..onsuccess = ((web.Event _) => done.complete(request.result! as web.IDBDatabase)).toJS
       ..onerror = ((web.Event _) => done.completeError(
         StateError('IndexedDB: ${request.error?.message}'),
       )).toJS;

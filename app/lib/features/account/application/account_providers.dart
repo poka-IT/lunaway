@@ -23,8 +23,7 @@ SecretStore secretStore(Ref ref) => const PlatformSecretStore();
 
 // keepAlive: the device key's store, one for the run.
 @Riverpod(keepAlive: true)
-DeviceKeys deviceKeys(Ref ref) =>
-    platformDeviceKeys(ref.watch(secretStoreProvider));
+DeviceKeys deviceKeys(Ref ref) => platformDeviceKeys(ref.watch(secretStoreProvider));
 
 // keepAlive: holds the session and serialises the sign-ins of the run.
 @Riverpod(keepAlive: true)
@@ -125,10 +124,7 @@ class AccountController extends _$AccountController {
       if (state is AccountLoading) state = const NoAccount();
       return;
     }
-    state = SignedIn(
-      account: stored.account,
-      recoveryCardAt: stored.recoveryCardAt,
-    );
+    state = SignedIn(account: stored.account, recoveryCardAt: stored.recoveryCardAt);
     // The level and the mutes may have moved since the last run; offline,
     // the stored account stays.
     unawaited(refresh());
@@ -140,10 +136,7 @@ class AccountController extends _$AccountController {
       case AccountSignedIn(:final account, :final created):
         final current = state;
         state = current is SignedIn && current.account.id == account.id
-            ? current.copyWith(
-                account: account,
-                justCreated: current.justCreated || created,
-              )
+            ? current.copyWith(account: account, justCreated: current.justCreated || created)
             : SignedIn(account: account, justCreated: created);
         if (created) {
           // What the reader saw belongs to no account: the next reads come
@@ -175,8 +168,7 @@ class AccountController extends _$AccountController {
   /// The welcome after the first contribution has been seen.
   void welcomed() {
     final current = state;
-    if (current is SignedIn && current.justCreated)
-      state = current.copyWith(justCreated: false);
+    if (current is SignedIn && current.justCreated) state = current.copyWith(justCreated: false);
   }
 
   /// Makes the account now (the user asked to sync their favourites).
@@ -201,8 +193,7 @@ class AccountController extends _$AccountController {
     await ref.read(accountServiceProvider).recoveryCardKept();
     if (!ref.mounted) return;
     final current = state;
-    if (current is SignedIn)
-      state = current.copyWith(recoveryCardAt: ref.read(clockProvider)());
+    if (current is SignedIn) state = current.copyWith(recoveryCardAt: ref.read(clockProvider)());
   }
 
   Future<Account> recover(String code, {required bool revokeOthers}) async {
@@ -210,10 +201,7 @@ class AccountController extends _$AccountController {
         .read(accountServiceProvider)
         .recover(code, revokeOthers: revokeOthers);
     if (ref.mounted) {
-      state = SignedIn(
-        account: account,
-        recoveryCardAt: ref.read(clockProvider)(),
-      );
+      state = SignedIn(account: account, recoveryCardAt: ref.read(clockProvider)());
       unawaited(refresh());
     }
     return account;
@@ -240,5 +228,4 @@ int trustLevel(Ref ref) => switch (ref.watch(accountControllerProvider)) {
 
 /// The devices of the account, read online.
 @Riverpod(retry: noRetry)
-Future<List<Device>> accountDevices(Ref ref) =>
-    ref.watch(accountServiceProvider).devices();
+Future<List<Device>> accountDevices(Ref ref) => ref.watch(accountServiceProvider).devices();

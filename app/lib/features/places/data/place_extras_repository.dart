@@ -14,11 +14,7 @@ abstract interface class PlaceExtrasSource {
   /// Null when the place no longer exists.
   Future<PlaceExtrasRead?> fetch(String placeId, {required int first});
 
-  Future<ReviewPage> moreReviews(
-    String placeId, {
-    required String after,
-    required int first,
-  });
+  Future<ReviewPage> moreReviews(String placeId, {required String after, required int first});
 }
 
 final class GraphQLPlaceExtrasSource implements PlaceExtrasSource {
@@ -32,11 +28,8 @@ final class GraphQLPlaceExtrasSource implements PlaceExtrasSource {
   final Future<Map<String, String>> Function()? headers;
 
   @override
-  Future<PlaceExtrasRead?> fetch(String placeId, {required int first}) async =>
-      await client.execute(extrasOperation, {
-        'id': placeId,
-        'first': first,
-      }, await headers?.call() ?? const {});
+  Future<PlaceExtrasRead?> fetch(String placeId, {required int first}) async => await client
+      .execute(extrasOperation, {'id': placeId, 'first': first}, await headers?.call() ?? const {});
 
   @override
   Future<ReviewPage> moreReviews(
@@ -97,9 +90,7 @@ final class PlaceExtrasRepository {
   Future<ReviewPage> more(String placeId, ReviewPage page) async {
     final after = page.endCursor;
     if (!page.hasNextPage || after == null) return page;
-    return page.append(
-      await source.moreReviews(placeId, after: after, first: pageSize),
-    );
+    return page.append(await source.moreReviews(placeId, after: after, first: pageSize));
   }
 
   /// Puts the account's own review of [placeId], as the server answered a
@@ -121,9 +112,8 @@ final class PlaceExtrasRepository {
 
   /// Forgets the copy of [placeId]: after a contribution to it, the next
   /// read asks the server.
-  Future<void> forget(String placeId) => (db.delete(
-    db.placeExtrasCache,
-  )..where((e) => e.placeId.equals(placeId))).go();
+  Future<void> forget(String placeId) =>
+      (db.delete(db.placeExtrasCache)..where((e) => e.placeId.equals(placeId))).go();
 
   /// Forgets every copy: they carry the reviews the account saw and its own
   /// review, which another account must not see.
@@ -140,10 +130,7 @@ final class PlaceExtrasRepository {
         photos: photosFromJson(json['photos']),
         reviews: reviewPageFromJson(json['reviews']),
         myReview: reviewFromJson(json['myReview']),
-        fetchedAt: DateTime.fromMillisecondsSinceEpoch(
-          row.fetchedAt,
-          isUtc: true,
-        ),
+        fetchedAt: DateTime.fromMillisecondsSinceEpoch(row.fetchedAt, isUtc: true),
       );
     } on FormatException {
       return null;
@@ -158,8 +145,7 @@ final class PlaceExtrasRepository {
           json: jsonEncode({
             'photos': photosToJson(extras.photos),
             'reviews': reviewPageToJson(extras.reviews),
-            if (extras.myReview != null)
-              'myReview': reviewToJson(extras.myReview!),
+            if (extras.myReview != null) 'myReview': reviewToJson(extras.myReview!),
           }),
           fetchedAt: extras.fetchedAt.millisecondsSinceEpoch,
         ),

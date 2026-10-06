@@ -44,9 +44,7 @@ abstract final class ThumbHash {
       for (var cy = 0; cy < ny; cy++) {
         for (var cx = cy == 0 ? 1 : 0; cx * ny < nx * (ny - cy); cx++) {
           final i = acStart + (acIndex >> 1);
-          final nibble = i < hash.length
-              ? (hash[i] >> ((acIndex & 1) << 2)) & 15
-              : 7;
+          final nibble = i < hash.length ? (hash[i] >> ((acIndex & 1) << 2)) & 15 : 7;
           ac.add((nibble / 7.5 - 1) * scale);
           acIndex++;
         }
@@ -117,8 +115,7 @@ abstract final class ThumbHash {
   /// The hash of an image of at most 100 by 100 pixels: the demo and the
   /// tests make theirs this way.
   static Uint8List encode(int w, int h, Uint8List rgba) {
-    if (w > 100 || h > 100)
-      throw ArgumentError('${w}x$h does not fit in 100x100');
+    if (w > 100 || h > 100) throw ArgumentError('${w}x$h does not fit in 100x100');
     var avgR = 0.0;
     var avgG = 0.0;
     var avgB = 0.0;
@@ -153,11 +150,7 @@ abstract final class ThumbHash {
       q[i] = r - g;
       a[i] = alpha;
     }
-    (double, List<double>, double) channel(
-      List<double> values,
-      int nx,
-      int ny,
-    ) {
+    (double, List<double>, double) channel(List<double> values, int nx, int ny) {
       var dc = 0.0;
       final ac = <double>[];
       var scale = 0.0;
@@ -217,9 +210,7 @@ abstract final class ThumbHash {
     final acStart = hasAlpha ? 6 : 5;
     var acIndex = 0;
     if (alphaChannel != null) {
-      hash.add(
-        (15 * alphaChannel.$1).round() | ((15 * alphaChannel.$3).round() << 4),
-      );
+      hash.add((15 * alphaChannel.$1).round() | ((15 * alphaChannel.$3).round() << 4));
     }
     for (final ac in [lAc, pAc, qAc, ?alphaChannel?.$2]) {
       for (final f in ac) {
@@ -255,14 +246,11 @@ final class ThumbHashImage extends ImageProvider<ThumbHashImage> {
   final String hash;
 
   @override
-  Future<ThumbHashImage> obtainKey(ImageConfiguration configuration) =>
-      SynchronousFuture(this);
+  Future<ThumbHashImage> obtainKey(ImageConfiguration configuration) => SynchronousFuture(this);
 
   @override
-  ImageStreamCompleter loadImage(
-    ThumbHashImage key,
-    ImageDecoderCallback decode,
-  ) => OneFrameImageStreamCompleter(_load());
+  ImageStreamCompleter loadImage(ThumbHashImage key, ImageDecoderCallback decode) =>
+      OneFrameImageStreamCompleter(_load());
 
   Future<ImageInfo> _load() async {
     final bytes = ThumbHash.fromBase64(hash);
@@ -283,8 +271,7 @@ final class ThumbHashImage extends ImageProvider<ThumbHashImage> {
   }
 
   @override
-  bool operator ==(Object other) =>
-      other is ThumbHashImage && other.hash == hash;
+  bool operator ==(Object other) => other is ThumbHashImage && other.hash == hash;
 
   @override
   int get hashCode => hash.hashCode;

@@ -24,52 +24,30 @@ import 'package:lunaway/shared/widgets/form_sheet.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 
 /// Adds a place at [position]: the level first (2), then the form.
-Future<void> startAddPlace(
-  BuildContext context,
-  WidgetRef ref,
-  LatLng position,
-) async {
+Future<void> startAddPlace(BuildContext context, WidgetRef ref, LatLng position) async {
   final t = context.t;
-  if (!await passesGate(
+  if (!await passesGate(context, ref, level: TrustLevels.addPlace, title: t.gate.addPlace)) {
+    return;
+  }
+  if (!context.mounted) return;
+  await showFormSheet<void>(
     context,
-    ref,
-    level: TrustLevels.addPlace,
-    title: t.gate.addPlace,
-  )) {
+    builder: (context, scroll) => PlaceForm(position: position, scrollController: scroll),
+  );
+}
+
+/// Edits [place]: applied at once from level 3, a proposal for a moderator
+/// from level 1, closed below.
+Future<void> startEditPlace(BuildContext context, WidgetRef ref, Place place) async {
+  final t = context.t;
+  if (!await passesGate(context, ref, level: TrustLevels.proposeEdit, title: t.gate.edit)) {
     return;
   }
   if (!context.mounted) return;
   await showFormSheet<void>(
     context,
     builder: (context, scroll) =>
-        PlaceForm(position: position, scrollController: scroll),
-  );
-}
-
-/// Edits [place]: applied at once from level 3, a proposal for a moderator
-/// from level 1, closed below.
-Future<void> startEditPlace(
-  BuildContext context,
-  WidgetRef ref,
-  Place place,
-) async {
-  final t = context.t;
-  if (!await passesGate(
-    context,
-    ref,
-    level: TrustLevels.proposeEdit,
-    title: t.gate.edit,
-  )) {
-    return;
-  }
-  if (!context.mounted) return;
-  await showFormSheet<void>(
-    context,
-    builder: (context, scroll) => PlaceForm(
-      position: place.position,
-      place: place,
-      scrollController: scroll,
-    ),
+        PlaceForm(position: place.position, place: place, scrollController: scroll),
   );
 }
 
@@ -77,12 +55,7 @@ Future<void> startEditPlace(
 /// is, its name, the night, its services, and, folded, the details. A new
 /// place may take a photo, sent once the server has placed it.
 class PlaceForm extends ConsumerStatefulWidget {
-  const new({
-    required this.position,
-    this.place,
-    this.scrollController,
-    super.key,
-  });
+  const new({required this.position, this.place, this.scrollController, super.key});
 
   final LatLng position;
   final Place? place;
@@ -95,22 +68,15 @@ class PlaceForm extends ConsumerStatefulWidget {
 class _PlaceFormState extends ConsumerState<PlaceForm> {
   final _form = GlobalKey<FormState>();
   late PlaceKind? _kind = widget.place?.kind;
-  late OvernightStatus _night =
-      widget.place?.overnight ?? OvernightStatus.unknown;
+  late OvernightStatus _night = widget.place?.overnight ?? OvernightStatus.unknown;
   late Set<Service> _services = {...?widget.place?.services};
   late final _name = TextEditingController(text: widget.place?.name ?? '');
   late final _description = TextEditingController();
   late final Map<String, TextEditingController> _details = {
-    'priceParking': TextEditingController(
-      text: _number(widget.place?.priceParkingEur),
-    ),
-    'priceServices': TextEditingController(
-      text: _number(widget.place?.priceServicesEur),
-    ),
+    'priceParking': TextEditingController(text: _number(widget.place?.priceParkingEur)),
+    'priceServices': TextEditingController(text: _number(widget.place?.priceServicesEur)),
     'maxHeight': TextEditingController(text: _number(widget.place?.maxHeightM)),
-    'capacity': TextEditingController(
-      text: widget.place?.capacity?.toString() ?? '',
-    ),
+    'capacity': TextEditingController(text: widget.place?.capacity?.toString() ?? ''),
     'website': TextEditingController(text: widget.place?.website ?? ''),
     'phone': TextEditingController(text: widget.place?.phone ?? ''),
   };
@@ -119,12 +85,8 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
 
   bool get _editing => widget.place != null;
 
-  String _number(double? v) => v == null
-      ? ''
-      : NumberFormat(
-          '0.##',
-          LocaleSettings.currentLocale.languageCode,
-        ).format(v);
+  String _number(double? v) =>
+      v == null ? '' : NumberFormat('0.##', LocaleSettings.currentLocale.languageCode).format(v);
 
   static double? _parse(String text) {
     final cleaned = text.trim().replaceAll(',', '.').replaceAll(' ', '');
@@ -152,9 +114,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
 
     double? num(String key) => _parse(_details[key]!.text);
     final name = _name.text.trim().isEmpty ? null : _name.text.trim();
-    final description = _description.text.trim().isEmpty
-        ? null
-        : _description.text.trim();
+    final description = _description.text.trim().isEmpty ? null : _description.text.trim();
     final capacity = int.tryParse(_details['capacity']!.text.trim());
     if (place == null) {
       return PlaceDetails(
@@ -171,15 +131,22 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
         phone: text('phone'),
       );
     }
-    T? changed<T>(T? value, T? before) =>
-        value != null && value != before ? value : null;
+    T? changed<T>(T? value, T? before) => value != null && value != before ? value : null;
+    // A field the place had that the form now leaves empty is cleared: the
+    // community stops stating it.
+    final clear = {
+      if (place.priceParkingEur != null && num('priceParking') == null) PlaceField.priceParking,
+      if (place.priceServicesEur != null && num('priceServices') == null) PlaceField.priceServices,
+      if (place.maxHeightM != null && num('maxHeight') == null) PlaceField.maxHeight,
+      if (place.capacity != null && capacity == null) PlaceField.capacity,
+      if (place.website != null && text('website') == null) PlaceField.website,
+      if (place.phone != null && text('phone') == null) PlaceField.phone,
+    };
     return PlaceDetails(
       name: changed(name, place.name),
       kind: changed(_kind, place.kind),
       overnight: changed(_night, place.overnight),
-      services: const SetEquality<Service>().equals(_services, place.services)
-          ? null
-          : _services,
+      services: const SetEquality<Service>().equals(_services, place.services) ? null : _services,
       description: description,
       descriptionLang: LocaleSettings.currentLocale.languageCode,
       priceParkingEur: changed(num('priceParking'), place.priceParkingEur),
@@ -188,6 +155,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
       capacity: changed(capacity, place.capacity),
       website: changed(text('website'), place.website),
       phone: changed(text('phone'), place.phone),
+      clear: clear,
     );
   }
 
@@ -199,10 +167,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
     final details = _details0();
     final navigator = Navigator.of(context);
     if (_editing && details.isEmpty) {
-      showMessage(
-        ScaffoldMessenger.maybeOf(context),
-        t.placeForm.nothingChanged,
-      );
+      showMessage(ScaffoldMessenger.maybeOf(context), t.placeForm.nothingChanged);
       navigator.pop();
       return;
     }
@@ -235,9 +200,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
         root,
         ContributionKind.editPlace,
         placeId: place.id,
-        sentText: level >= TrustLevels.editDirectly
-            ? t.placeForm.added
-            : t.placeForm.proposed,
+        sentText: level >= TrustLevels.editDirectly ? t.placeForm.added : t.placeForm.proposed,
         payload: {'placeId': place.id, 'patch': details.toInput()},
       );
     }
@@ -251,36 +214,22 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
     final level = ref.watch(trustLevelProvider);
     final direct = level >= TrustLevels.editDirectly;
     final contact =
-        _details['website']!.text.trim().isNotEmpty ||
-        _details['phone']!.text.trim().isNotEmpty;
+        _details['website']!.text.trim().isNotEmpty || _details['phone']!.text.trim().isNotEmpty;
     Widget heading(String text) => Padding(
       padding: const EdgeInsets.only(top: Space.xl, bottom: Space.s),
-      child: Semantics(
-        header: true,
-        child: Text(text, style: theme.textTheme.titleMedium),
-      ),
+      child: Semantics(header: true, child: Text(text, style: theme.textTheme.titleMedium)),
     );
-    Widget numberField(
-      String key,
-      String label,
-      IconData icon, {
-      bool integer = false,
-    }) => Padding(
+    Widget numberField(String key, String label, IconData icon, {bool integer = false}) => Padding(
       padding: const EdgeInsets.only(bottom: Space.m),
       child: TextFormField(
         controller: _details[key],
         keyboardType: integer
             ? TextInputType.number
             : const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(
-            RegExp(integer ? '[0-9]' : '[0-9.,]'),
-          ),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(integer ? '[0-9]' : '[0-9.,]'))],
         decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-        validator: (v) => v == null || v.trim().isEmpty || _parse(v) != null
-            ? null
-            : t.placeForm.invalidNumber,
+        validator: (v) =>
+            v == null || v.trim().isEmpty || _parse(v) != null ? null : t.placeForm.invalidNumber,
       ),
     );
 
@@ -297,8 +246,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!_editing) Text(t.placeForm.toVerify),
-            if (_editing)
-              Text(direct ? t.placeForm.direct : t.placeForm.proposal),
+            if (_editing) Text(direct ? t.placeForm.direct : t.placeForm.proposal),
             if (contact && !direct) Text(t.placeForm.moderated),
             Text(t.placeForm.licence),
           ],
@@ -328,10 +276,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        t.placeForm.position,
-                        style: theme.textTheme.labelMedium,
-                      ),
+                      Text(t.placeForm.position, style: theme.textTheme.labelMedium),
                       Text(
                         CoordinateFormat.decimal.format(widget.position),
                         style: theme.textTheme.bodyLarge,
@@ -387,9 +332,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
               final length = (v ?? '').trim().runes.length;
               // A new place needs a name; an edit may leave it as it is.
               if (_editing && length == 0) return null;
-              return length < ContributionLimits.placeNameMin
-                  ? t.placeForm.nameInvalid
-                  : null;
+              return length < ContributionLimits.placeNameMin ? t.placeForm.nameInvalid : null;
             },
           ),
           heading(t.placeForm.night),
@@ -417,9 +360,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
                   label: Text(t.service(s)),
                   selected: _services.contains(s),
                   onSelected: (on) => setState(
-                    () => _services = on
-                        ? {..._services, s}
-                        : ({..._services}..remove(s)),
+                    () => _services = on ? {..._services, s} : ({..._services}..remove(s)),
                   ),
                 ),
             ],
@@ -451,29 +392,13 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
           const SizedBox(height: Space.s),
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            title: Text(
-              t.placeForm.details,
-              style: theme.textTheme.titleMedium,
-            ),
+            title: Text(t.placeForm.details, style: theme.textTheme.titleMedium),
             childrenPadding: const EdgeInsets.only(top: Space.s),
             children: [
-              numberField(
-                'priceParking',
-                t.placeForm.priceNight,
-                AppIcons.pricePerNight,
-              ),
-              numberField(
-                'priceServices',
-                t.placeForm.priceServices,
-                AppIcons.priceServices,
-              ),
+              numberField('priceParking', t.placeForm.priceNight, AppIcons.pricePerNight),
+              numberField('priceServices', t.placeForm.priceServices, AppIcons.priceServices),
               numberField('maxHeight', t.placeForm.maxHeight, AppIcons.height),
-              numberField(
-                'capacity',
-                t.placeForm.capacity,
-                AppIcons.capacity,
-                integer: true,
-              ),
+              numberField('capacity', t.placeForm.capacity, AppIcons.capacity, integer: true),
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.m),
                 child: TextFormField(
@@ -514,11 +439,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
 }
 
 class _PhotoField extends StatelessWidget {
-  const new({
-    required this.photo,
-    required this.onPick,
-    required this.onRemove,
-  });
+  const new({required this.photo, required this.onPick, required this.onRemove});
 
   final PreparedPhoto? photo;
   final VoidCallback onPick;
@@ -550,9 +471,7 @@ class _PhotoField extends StatelessWidget {
           ),
         ),
         const SizedBox(width: Space.m),
-        Expanded(
-          child: Text(t.placeForm.photoReady, style: theme.textTheme.bodyLarge),
-        ),
+        Expanded(child: Text(t.placeForm.photoReady, style: theme.textTheme.bodyLarge)),
         IconButton(
           tooltip: t.placeForm.removePhoto,
           icon: const Icon(AppIcons.delete),

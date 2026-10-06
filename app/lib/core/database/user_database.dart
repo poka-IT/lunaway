@@ -16,9 +16,7 @@ final class UserDatabase extends _$UserDatabase {
   factory open({required bool demo}) => UserDatabase(
     driftDatabase(
       name: demo ? 'lunaway_user_demo' : 'lunaway_user',
-      native: const DriftNativeOptions(
-        databaseDirectory: getApplicationSupportDirectory,
-      ),
+      native: const DriftNativeOptions(databaseDirectory: getApplicationSupportDirectory),
       web: DriftWebOptions(
         sqlite3Wasm: Uri.parse('sqlite3.wasm'),
         driftWorker: Uri.parse('drift_worker.js'),
@@ -28,9 +26,10 @@ final class UserDatabase extends _$UserDatabase {
 
   // Version 1 is the first shipped schema: earlier ones never left a
   // developer's device, so they get no migration. Version 2 adds the
-  // account's favourites sync and the outbox of contributions.
+  // account's favourites sync and the outbox of contributions, version 3
+  // the vehicle's fuel.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -42,6 +41,11 @@ final class UserDatabase extends _$UserDatabase {
         await m.createTable(outbox);
         await m.createIndex(outboxOrder);
         await m.createTable(outboxFiles);
+      }
+      if (from < 3) {
+        for (final column in [vehicles.fuel, vehicles.consumptionL100, vehicles.lpgHeating]) {
+          await m.addColumn(vehicles, column);
+        }
       }
     },
     beforeOpen: (details) async {

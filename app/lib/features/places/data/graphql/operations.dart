@@ -9,11 +9,55 @@ import 'package:meta/meta.dart';
 /// test validates against `schema/lunaway.graphql`.
 @immutable
 final class GraphQLOperation<T> {
-  const new({required this.name, required this.document, required this.parse});
+  const new({required this.name, required this.document, required this.parse, this.older});
 
   final String name;
   final String document;
   final T Function(Map<String, dynamic> data) parse;
+
+  /// The same request for an API that predates an argument or an input
+  /// field this one sends: the client sends it when the server answers that
+  /// it does not know one (an app published before the API it was built
+  /// against).
+  final OlderForm? older;
+}
+
+/// An operation as an older API reads it: [document] without the arguments
+/// it does not know, and [variables] that drops what they carried.
+@immutable
+final class OlderForm {
+  const new({required this.document, required this.variables, this.usable = _always});
+
+  /// The form of [document] without [arguments]: their variables and their
+  /// uses, wherever they stand on a line. [usable] says which requests may
+  /// go in it: one whose meaning needs an argument the older API lacks
+  /// waits for the API instead.
+  factory without(
+    String document,
+    Set<String> arguments, {
+    bool Function(Map<String, Object?> variables) usable = _always,
+  }) {
+    var older = document;
+    for (final a in arguments) {
+      older = older
+          .replaceAll(RegExp(r',?\s*\$' + a + r':\s*[A-Za-z_!\[\]]+'), '')
+          .replaceAll(RegExp(r',?\s*\b' + a + r':\s*\$' + a + r'\b'), '');
+    }
+    return OlderForm(
+      document: older,
+      variables: (v) => {
+        for (final MapEntry(:key, :value) in v.entries)
+          if (!arguments.contains(key)) key: value,
+      },
+      usable: usable,
+    );
+  }
+
+  final String document;
+  final Map<String, Object?> Function(Map<String, Object?> variables) variables;
+  final bool Function(Map<String, Object?> variables) usable;
+
+  static bool _always(Map<String, Object?> _) => true;
 }
 
 /// Everything the offline store keeps of a place. Photos and reviews are
@@ -122,8 +166,7 @@ $_placeFields''',
     final set = data['changes'] as Map<String, dynamic>;
     return ChangeSet(
       places: [
-        for (final p in set['places'] as List<dynamic>)
-          placeFromJson(p as Map<String, dynamic>),
+        for (final p in set['places'] as List<dynamic>) placeFromJson(p as Map<String, dynamic>),
       ],
       deleted: [for (final d in set['deleted'] as List<dynamic>) d as String],
       cursor: set['cursor'] as String,
@@ -132,29 +175,17 @@ $_placeFields''',
   },
 );
 
-Map<String, Object?> changesVariables({
-  required GeoBounds bbox,
-  String? since,
-  int first = 1000,
-}) => {
-  'bbox': {
-    'south': bbox.south,
-    'west': bbox.west,
-    'north': bbox.north,
-    'east': bbox.east,
-  },
-  'since': since,
-  'first': first,
-};
+Map<String, Object?> changesVariables({required GeoBounds bbox, String? since, int first = 1000}) =>
+    {
+      'bbox': {'south': bbox.south, 'west': bbox.west, 'north': bbox.north, 'east': bbox.east},
+      'since': since,
+      'first': first,
+    };
 
 /// What a place shows online: its photos, the first page of reviews, and
 /// the reader's own review (null when anonymous); null when the place no
 /// longer exists.
-typedef PlaceExtrasRead = ({
-  List<Photo> photos,
-  ReviewPage reviews,
-  Review? myReview,
-});
+typedef PlaceExtrasRead = ({List<Photo> photos, ReviewPage reviews, Review? myReview});
 
 final extrasOperation = GraphQLOperation<PlaceExtrasRead?>(
   name: 'PlaceExtras',
@@ -192,9 +223,7 @@ query PlaceReviews(\$id: UUID!, \$first: Int, \$after: String) {
 $_reviewFields''',
   parse: (data) {
     final place = data['place'];
-    return place is Map<String, dynamic>
-        ? reviewPageFromJson(place['reviews'])
-        : ReviewPage.empty;
+    return place is Map<String, dynamic> ? reviewPageFromJson(place['reviews']) : ReviewPage.empty;
   },
 );
 

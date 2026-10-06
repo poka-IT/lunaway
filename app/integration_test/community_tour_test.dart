@@ -39,18 +39,9 @@ import 'package:lunaway/shared/widgets/form_sheet.dart';
 /// development server) the tour recovers that account instead, shows the
 /// forms the levels open (a review, a photo, a new place) and keeps the
 /// account.
-const _locale = String.fromEnvironment(
-  'LUNAWAY_TOUR_LOCALE',
-  defaultValue: 'fr',
-);
-const _theme = String.fromEnvironment(
-  'LUNAWAY_TOUR_THEME',
-  defaultValue: 'light',
-);
-const _tag = String.fromEnvironment(
-  'LUNAWAY_TOUR_TAG',
-  defaultValue: 'community',
-);
+const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr');
+const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
+const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'community');
 const _recoveryCode = String.fromEnvironment('LUNAWAY_TOUR_RECOVERY_CODE');
 
 /// With a recovery code: delete the recovered account at the end too (the
@@ -66,11 +57,7 @@ Future<void> settle(WidgetTester tester, Duration duration) async {
 }
 
 /// Awaits [work] while pumping frames.
-Future<T?> pumping<T>(
-  WidgetTester tester,
-  Future<T> work, {
-  int seconds = 30,
-}) async {
+Future<T?> pumping<T>(WidgetTester tester, Future<T> work, {int seconds = 30}) async {
   var done = false;
   T? result;
   unawaited(() async {
@@ -104,13 +91,11 @@ Future<void> _deleteContributions(ProviderContainer container) async {
   final api = container.read(communityApiProvider);
   final mine = await api.recent(first: 50);
   final targets = <(ContributionKind, String)>[
-    for (final c in mine.confirmations)
-      (ContributionKind.deleteConfirmation, c.id),
+    for (final c in mine.confirmations) (ContributionKind.deleteConfirmation, c.id),
     for (final i in mine.issues) (ContributionKind.deleteIssueReport, i.id),
     for (final r in mine.reviews) (ContributionKind.deleteReview, r.id),
     for (final p in mine.photos) (ContributionKind.deletePhoto, p.id),
-    for (final s in mine.submissions)
-      (ContributionKind.deletePlaceSubmission, s.id),
+    for (final s in mine.submissions) (ContributionKind.deletePlaceSubmission, s.id),
   ];
   for (final (kind, id) in targets) {
     await api.send(kind, {'id': id});
@@ -119,10 +104,7 @@ Future<void> _deleteContributions(ProviderContainer container) async {
 }
 
 /// Waits until the account read from the device's storage is known.
-Future<void> _accountKnown(
-  WidgetTester tester,
-  ProviderContainer container,
-) async {
+Future<void> _accountKnown(WidgetTester tester, ProviderContainer container) async {
   final end = DateTime.now().add(const Duration(seconds: 20));
   while (container.read(accountControllerProvider) is AccountLoading &&
       DateTime.now().isBefore(end)) {
@@ -166,11 +148,7 @@ Future<Uint8List> _picture() async {
           const ui.Color(0xFFF5D9A8),
         ]),
     )
-    ..drawCircle(
-      const Offset(1150, 330),
-      110,
-      ui.Paint()..color = const ui.Color(0xFFFFF3C4),
-    );
+    ..drawCircle(const Offset(1150, 330), 110, ui.Paint()..color = const ui.Color(0xFFFFF3C4));
   final ground = ui.Path()..moveTo(0, 1200);
   for (var x = 0.0; x <= 1600; x += 40) {
     ground.lineTo(x, 820 - 60 * (x / 1600 - 0.5).abs() * 4);
@@ -191,14 +169,10 @@ void main() {
   testWidgets('community tour', (tester) async {
     await app.main();
     await settle(tester, const Duration(seconds: 1));
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(LunawayApp)),
-    );
+    final container = ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
     final settings = container.read(settingsProvider.notifier);
     await settings.setLocale(AppLocaleUtils.parse(_locale));
-    await settings.setTheme(
-      _theme == 'dark' ? ThemePreference.dark : ThemePreference.light,
-    );
+    await settings.setTheme(_theme == 'dark' ? ThemePreference.dark : ThemePreference.light);
     await settings.setFilter(PlaceFilter.none);
     final t = AppLocaleUtils.parse(_locale).buildSync();
     final router = container.read(routerProvider);
@@ -223,8 +197,7 @@ void main() {
     if (_recoveryCode.isEmpty) {
       await pumping(tester, _deleteAccount(container), seconds: 60);
     }
-    if (_recoveryCode.isNotEmpty &&
-        container.read(accountControllerProvider) is! SignedIn) {
+    if (_recoveryCode.isNotEmpty && container.read(accountControllerProvider) is! SignedIn) {
       await pumping(
         tester,
         container
@@ -241,8 +214,7 @@ void main() {
     // A map whose style cannot load (a basemap host this machine does not
     // reach) never reports a camera: the tour goes on without moving it.
     final camera = DateTime.now().add(const Duration(seconds: 30));
-    while (container.read(viewportProvider) == null &&
-        DateTime.now().isBefore(camera)) {
+    while (container.read(viewportProvider) == null && DateTime.now().isBefore(camera)) {
       await tester.pump(const Duration(milliseconds: 250));
     }
     final map = container.read(mapControllerProvider);
@@ -252,20 +224,14 @@ void main() {
     // A place with a name near Annecy.
     final places = await container.read(mapPlacesProvider.future);
     final near =
-        places
-            .where(
-              (p) => p.name != null && p.position.distanceTo(_area) < 20000,
-            )
-            .toList()
-          ..sort(
-            (a, b) => (b.kind == PlaceKind.motorhomeArea ? 1 : 0).compareTo(
-              a.kind == PlaceKind.motorhomeArea ? 1 : 0,
-            ),
-          );
+        places.where((p) => p.name != null && p.position.distanceTo(_area) < 20000).toList()..sort(
+          (a, b) => (b.kind == PlaceKind.motorhomeArea ? 1 : 0).compareTo(
+            a.kind == PlaceKind.motorhomeArea ? 1 : 0,
+          ),
+        );
     final place = near.first;
     container.read(selectionProvider.notifier).select(PlaceSelection(place.id));
-    if (map != null)
-      await pumping(tester, map.moveTo(place.position, zoom: 13.5));
+    if (map != null) await pumping(tester, map.moveTo(place.position, zoom: 13.5));
     await settle(tester, const Duration(seconds: 3));
     await shot(tester, 'place');
 
@@ -326,17 +292,14 @@ void main() {
     // A photo: its preview with what publishing it means, then its upload.
     final photo = await pumping(
       tester,
-      _picture().then(
-        (bytes) => container.read(photoPreparerProvider).prepare(bytes),
-      ),
+      _picture().then((bytes) => container.read(photoPreparerProvider).prepare(bytes)),
     );
     if (photo != null) {
       final context = tester.element(find.byType(PlaceDetailsBody).first);
       unawaited(
         showFormSheet<bool>(
           context,
-          builder: (context, scroll) =>
-              PhotoPreview(photo: photo, scrollController: scroll),
+          builder: (context, scroll) => PhotoPreview(photo: photo, scrollController: scroll),
         ),
       );
       await shot(tester, 'photo-preview');
@@ -345,10 +308,7 @@ void main() {
 
     // A problem, and a report to the moderators: the sheets, not sent.
     unawaited(
-      showIssueSheet(
-        tester.element(find.byType(PlaceDetailsBody).first),
-        placeId: place.id,
-      ),
+      showIssueSheet(tester.element(find.byType(PlaceDetailsBody).first), placeId: place.id),
     );
     await settle(tester, const Duration(seconds: 1));
     await tapText(tester, t.issueSheet.kind.serviceBroken);
@@ -367,10 +327,7 @@ void main() {
       // The form's own list, held by its element: the heading it is found
       // from scrolls away and is disposed.
       final list = find
-          .ancestor(
-            of: find.text(t.placeForm.kind),
-            matching: find.byType(Scrollable),
-          )
+          .ancestor(of: find.text(t.placeForm.kind), matching: find.byType(Scrollable))
           .evaluate()
           .first;
       final sheet = find.byElementPredicate((e) => identical(e, list));
@@ -453,9 +410,7 @@ void main() {
       // The kept account leaves nothing of the tour behind it.
       await pumping(
         tester,
-        _deleteRecovered
-            ? _deleteAccount(container)
-            : _deleteContributions(container),
+        _deleteRecovered ? _deleteAccount(container) : _deleteContributions(container),
         seconds: 60,
       );
     }

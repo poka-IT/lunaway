@@ -57,9 +57,7 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
       darkTheme: _dark,
       // Light or dark is decided by the app (the user's choice, or the sun),
       // never by the system's own setting.
-      themeMode: brightness == Brightness.dark
-          ? ThemeMode.dark
-          : ThemeMode.light,
+      themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
       // At sunset the colours turn slowly rather than at once.
       themeAnimationDuration: Motion.pulse,
       debugShowCheckedModeBanner: false,

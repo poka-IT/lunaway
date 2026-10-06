@@ -4,11 +4,7 @@ import 'package:lunaway/shared/theme/map_look.dart';
 /// Evaluates the part of the MapLibre expression language the cluster
 /// label uses, with the engines' semantics: `round` takes halves away from
 /// zero, `concat` writes integers without a decimal point.
-Object _eval(
-  Object expr,
-  Map<String, num> properties, [
-  Map<String, Object> vars = const {},
-]) {
+Object _eval(Object expr, Map<String, num> properties, [Map<String, Object> vars = const {}]) {
   if (expr is! List) return expr;
   final op = expr.first as String;
   Object arg(int i) => _eval(expr[i] as Object, properties, vars);
@@ -34,16 +30,14 @@ Object _eval(
     case '==':
       return n(1) == n(2);
     case 'any':
-      return [for (var i = 1; i < expr.length; i++) arg(i)]
-          .any((v) => v == true);
+      return [for (var i = 1; i < expr.length; i++) arg(i)].any((v) => v == true);
     case 'concat':
       // Numbers become text as `to-string` writes them: integers without
       // a decimal point.
       return [
         for (var i = 1; i < expr.length; i++)
           switch (arg(i)) {
-            final num v =>
-              v == v.roundToDouble() ? v.round().toString() : v.toString(),
+            final num v => v == v.roundToDouble() ? v.round().toString() : v.toString(),
             final other => other,
           },
       ].join();

@@ -1,1 +1,0 @@
-First release: map and list of places in metropolitan France, overnight status on every page, filters, search and place pages without a network, favourites in lists, vehicle profile. Reviews, photos, confirmations and new places with an account that needs no e-mail.

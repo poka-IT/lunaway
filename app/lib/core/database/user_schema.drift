@@ -47,7 +47,12 @@ CREATE TABLE vehicles (
   width_m REAL,
   length_m REAL,
   weight_t REAL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  -- The engine's fuel (`FuelType.wire`), the litres per 100 km and whether
+  -- the living area heats on LPG (added in version 3).
+  fuel TEXT,
+  consumption_l100 REAL,
+  lpg_heating BOOLEAN NOT NULL DEFAULT FALSE
 ) AS VehicleRow;
 
 -- The account's lists as the last favourites sync left them: the common

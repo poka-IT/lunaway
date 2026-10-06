@@ -24,11 +24,7 @@ final class LocalizedText {
 /// The average rating a source gives a place, and over how many reviews.
 @immutable
 final class SourceRating {
-  const new({
-    required this.sourceId,
-    required this.average,
-    required this.count,
-  });
+  const new({required this.sourceId, required this.average, required this.count});
 
   final String sourceId;
   final double average;
@@ -139,12 +135,21 @@ final class Photo {
       other.status == status;
 
   @override
-  int get hashCode =>
-      Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId);
+  int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId);
 }
 
-/// The source of what Lunaway users write: reviews, photos, places.
+/// The source of what Lunaway users contribute to the places database
+/// (places, edits, confirmations), under the ODbL.
 const communitySourceId = 'community';
+
+/// The source of what Lunaway users publish under their own name: reviews,
+/// ratings and photos, under CC BY 4.0.
+const communityCcBySourceId = 'community-cc-by';
+
+/// Whether [sourceId] is one of Lunaway's own users: the places database's
+/// (ODbL) or their reviews, ratings and photos (CC BY 4.0).
+bool isLunawayCommunity(String sourceId) =>
+    sourceId == communitySourceId || sourceId == communityCcBySourceId;
 
 /// The vehicle a reviewer travelled in, as the API names it.
 enum ReviewVehicle {
@@ -160,8 +165,7 @@ enum ReviewVehicle {
 
   /// Null for a value this version does not know: a newer server may add
   /// one, and the review still shows without it.
-  static ReviewVehicle? fromWire(Object? wire) =>
-      values.where((v) => v.wire == wire).firstOrNull;
+  static ReviewVehicle? fromWire(Object? wire) => values.where((v) => v.wire == wire).firstOrNull;
 }
 
 /// What a visitor wrote about a place, on the source it was written on.
@@ -261,20 +265,14 @@ final class ReviewPage {
       other.totalCount == totalCount;
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(nodes), endCursor, hasNextPage, totalCount);
+  int get hashCode => Object.hash(Object.hashAll(nodes), endCursor, hasNextPage, totalCount);
 }
 
 /// What the offline sync leaves out of a place: its photos, its reviews and
 /// the reader's own review, read online and kept in a cache.
 @immutable
 final class PlaceExtras {
-  const new({
-    required this.photos,
-    required this.reviews,
-    required this.fetchedAt,
-    this.myReview,
-  });
+  const new({required this.photos, required this.reviews, required this.fetchedAt, this.myReview});
 
   final List<Photo> photos;
   final ReviewPage reviews;
@@ -284,12 +282,8 @@ final class PlaceExtras {
   /// anonymous or when there is none.
   final Review? myReview;
 
-  PlaceExtras withReviews(ReviewPage reviews) => PlaceExtras(
-    photos: photos,
-    reviews: reviews,
-    fetchedAt: fetchedAt,
-    myReview: myReview,
-  );
+  PlaceExtras withReviews(ReviewPage reviews) =>
+      PlaceExtras(photos: photos, reviews: reviews, fetchedAt: fetchedAt, myReview: myReview);
 
   @override
   bool operator ==(Object other) =>
@@ -300,8 +294,7 @@ final class PlaceExtras {
       other.myReview == myReview;
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(photos), reviews, fetchedAt, myReview);
+  int get hashCode => Object.hash(Object.hashAll(photos), reviews, fetchedAt, myReview);
 }
 
 /// The rating of a place across its sources: the mean weighted by the number
@@ -327,7 +320,6 @@ final class PlaceExtras {
   if (texts.isEmpty) return null;
   final own = texts.where((t) => t.lang == lang).firstOrNull;
   if (own != null) return (text: own, inUserLanguage: true);
-  final fallback =
-      texts.where((t) => t.lang == 'en').firstOrNull ?? texts.first;
+  final fallback = texts.where((t) => t.lang == 'en').firstOrNull ?? texts.first;
   return (text: fallback, inUserLanguage: false);
 }

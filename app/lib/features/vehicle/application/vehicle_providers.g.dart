@@ -149,3 +149,44 @@ final class VehicleHeightProvider
 }
 
 String _$vehicleHeightHash() => r'bcbc1a720e3ff802f00ef8cc6b6f15e7a974507f';
+
+@ProviderFor(vehicleFuel)
+final vehicleFuelProvider = VehicleFuelProvider._();
+
+final class VehicleFuelProvider
+    extends $FunctionalProvider<VehicleFuel, VehicleFuel, VehicleFuel>
+    with $Provider<VehicleFuel> {
+  VehicleFuelProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'vehicleFuelProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$vehicleFuelHash();
+
+  @$internal
+  @override
+  $ProviderElement<VehicleFuel> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  VehicleFuel create(Ref ref) {
+    return vehicleFuel(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(VehicleFuel value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<VehicleFuel>(value),
+    );
+  }
+}
+
+String _$vehicleFuelHash() => r'ccbdad5b7865b3c8c46fcc498a70efd874262cad';

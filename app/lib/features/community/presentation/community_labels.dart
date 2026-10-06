@@ -65,22 +65,10 @@ extension CommunityLabels on Translations {
     final needed = '${r.needed ?? 0}';
     final current = '${r.current ?? 0}';
     return switch (r.kind) {
-      .accountAgeDays => _t.account.requirement.age(
-        needed: needed,
-        current: current,
-      ),
-      .confirmations => _t.account.requirement.confirmations(
-        needed: needed,
-        current: current,
-      ),
-      .contributions => _t.account.requirement.contributions(
-        needed: needed,
-        current: current,
-      ),
-      .activeDays => _t.account.requirement.activeDays(
-        needed: needed,
-        current: current,
-      ),
+      .accountAgeDays => _t.account.requirement.age(needed: needed, current: current),
+      .confirmations => _t.account.requirement.confirmations(needed: needed, current: current),
+      .contributions => _t.account.requirement.contributions(needed: needed, current: current),
+      .activeDays => _t.account.requirement.activeDays(needed: needed, current: current),
       .noRemoval => _t.account.requirement.noRemoval,
       .sponsor => _t.account.requirement.sponsor,
       .nomination => _t.account.requirement.nomination,
@@ -97,8 +85,7 @@ extension CommunityLabels on Translations {
       .deleteReview => _t.outbox.kind.deleteReview,
       .confirm => _t.outbox.kind.confirm(
         status: confirmationStatus(
-          ConfirmationStatus.fromWire(p['status']) ??
-              ConfirmationStatus.stillOk,
+          ConfirmationStatus.fromWire(p['status']) ?? ConfirmationStatus.stillOk,
         ),
       ),
       .deleteConfirmation => _t.outbox.kind.deleteConfirmation,
@@ -114,6 +101,8 @@ extension CommunityLabels on Translations {
       .deletePhoto => _t.outbox.kind.deletePhoto,
       .mute => _t.outbox.kind.mute,
       .unmute => _t.outbox.kind.unmute,
+      .confirmPoi => p['stillThere'] == false ? _t.outbox.kind.poiGone : _t.outbox.kind.poiThere,
+      .addVendingMachine => _t.outbox.kind.addVendingMachine,
     };
   }
 
@@ -134,6 +123,7 @@ extension CommunityLabels on Translations {
     OutboxError.placeRefused => _t.outbox.error.placeRefused,
     OutboxError.fileLost => _t.outbox.error.fileLost,
     OutboxError.otherAccount => _t.outbox.error.otherAccount,
+    OutboxError.duplicate => _t.outbox.error.duplicate,
     _ => _t.outbox.error.other,
   };
 }

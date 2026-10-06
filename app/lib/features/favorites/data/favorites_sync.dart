@@ -29,9 +29,7 @@ abstract interface class FavoritesRemote {
 
   /// Merges each list into the account's list of the same name (made when
   /// missing) and returns every list. Unknown places are skipped.
-  Future<List<RemoteList>> import(
-    List<({String name, List<String> placeIds})> lists,
-  );
+  Future<List<RemoteList>> import(List<({String name, List<String> placeIds})> lists);
 
   /// False when the server does not know the place.
   Future<bool> add(String listId, String placeId);
@@ -99,13 +97,9 @@ final class FavoritesSync {
   /// Forgets every link to an account (signed out, deleted, another
   /// account): the lists stay on the device, unsynced.
   Future<void> unlink() => db.transaction(() async {
-    await db
-        .update(db.favoriteLists)
-        .write(const FavoriteListsCompanion(serverId: Value(null)));
+    await db.update(db.favoriteLists).write(const FavoriteListsCompanion(serverId: Value(null)));
     await db.delete(db.favoriteSyncBase).go();
-    await (db.delete(
-      db.settings,
-    )..where((r) => r.id.equals(_boundSetting))).go();
+    await (db.delete(db.settings)..where((r) => r.id.equals(_boundSetting))).go();
   });
 
   /// Syncs the lists with the account [accountId].
@@ -113,24 +107,17 @@ final class FavoritesSync {
     final bound = await (db.select(
       db.settings,
     )..where((r) => r.id.equals(_boundSetting))).getSingleOrNull();
-    final linked = await (db.select(
-      db.favoriteLists,
-    )..where((l) => l.serverId.isNotNull())).get();
-    if (bound?.value != accountId && (bound != null || linked.isNotEmpty))
-      await unlink();
+    final linked = await (db.select(db.favoriteLists)..where((l) => l.serverId.isNotNull())).get();
+    if (bound?.value != accountId && (bound != null || linked.isNotEmpty)) await unlink();
     await db
         .into(db.settings)
-        .insertOnConflictUpdate(
-          SettingsCompanion.insert(id: _boundSetting, value: accountId),
-        );
+        .insertOnConflictUpdate(SettingsCompanion.insert(id: _boundSetting, value: accountId));
     await _sync();
   }
 
   Future<void> _sync() async {
     final remoteLists = {for (final r in await remote.lists()) r.id: r};
-    final base = {
-      for (final b in await db.select(db.favoriteSyncBase).get()) b.serverId: b,
-    };
+    final base = {for (final b in await db.select(db.favoriteSyncBase).get()) b.serverId: b};
     final local = await db.select(db.favoriteLists).get();
     final bound = <String>{};
 
@@ -143,11 +130,7 @@ final class FavoritesSync {
       for (final list in unbound) {
         final name = _serverName(list);
         final match = remoteLists.values
-            .where(
-              (r) =>
-                  !taken.contains(r.id) &&
-                  _sameName(r.name, name, list.isDefault),
-            )
+            .where((r) => !taken.contains(r.id) && _sameName(r.name, name, list.isDefault))
             .firstOrNull;
         if (match != null) {
           taken.add(match.id);
@@ -155,18 +138,13 @@ final class FavoritesSync {
         } else {
           toImport.add((
             list: list,
-            name: _unique(
-              name,
-              remoteLists.values,
-              toImport.map((t) => t.name),
-            ),
+            name: _unique(name, remoteLists.values, toImport.map((t) => t.name)),
           ));
         }
       }
       if (toImport.isNotEmpty) {
         final imported = await _importAll([
-          for (final t in toImport)
-            (name: t.name, placeIds: (await _itemIds(t.list.id)).toList()),
+          for (final t in toImport) (name: t.name, placeIds: (await _itemIds(t.list.id)).toList()),
         ]);
         for (final t in toImport) {
           final r = imported.where((r) => r.name == t.name).firstOrNull;
@@ -200,9 +178,7 @@ final class FavoritesSync {
             const SetEquality<String>().equals(localIds, baseIds) &&
             (list.isDefault || list.name == b.name);
         if (unchanged && !list.isDefault) {
-          await (db.delete(
-            db.favoriteLists,
-          )..where((l) => l.id.equals(list.id))).go();
+          await (db.delete(db.favoriteLists)..where((l) => l.id.equals(list.id))).go();
           await _dropBase(serverId);
           continue;
         }
@@ -242,18 +218,16 @@ final class FavoritesSync {
           await remote.rename(serverId, mine);
           name = mine;
         } else if (list.name != r.name) {
-          await (db.update(db.favoriteLists)
-                ..where((l) => l.id.equals(list.id)))
-              .write(FavoriteListsCompanion(name: Value(r.name)));
+          await (db.update(
+            db.favoriteLists,
+          )..where((l) => l.id.equals(list.id))).write(FavoriteListsCompanion(name: Value(r.name)));
         }
       }
       await _applyItems(list.id, localIds, merged);
-      await _writeBase(
-        serverId,
-        name,
-        merged.difference(localOnly).difference(refused),
-        {...localOnly.intersection(merged), ...refused},
-      );
+      await _writeBase(serverId, name, merged.difference(localOnly).difference(refused), {
+        ...localOnly.intersection(merged),
+        ...refused,
+      });
     }
 
     // Lists of the account this device has no list for.
@@ -263,8 +237,7 @@ final class FavoritesSync {
         // Deleted on this device since the last sync: deleted on the
         // account too, unless another device changed it since.
         final unchanged =
-            r.name == b.name &&
-            const SetEquality<String>().equals(r.placeIds, _ids(b.placeIds));
+            r.name == b.name && const SetEquality<String>().equals(r.placeIds, _ids(b.placeIds));
         if (unchanged) {
           await remote.delete(r.id);
           await _dropBase(r.id);
@@ -273,9 +246,7 @@ final class FavoritesSync {
       }
       final isDefault =
           defaultNames.contains(r.name) &&
-          !(await db.select(db.favoriteLists).get()).any(
-            (l) => l.isDefault && l.serverId != null,
-          );
+          !(await db.select(db.favoriteLists).get()).any((l) => l.isDefault && l.serverId != null);
       final int listId;
       if (isDefault) {
         listId = await _defaultListId();
@@ -300,17 +271,11 @@ final class FavoritesSync {
     }
 
     // A base nobody refers to any more.
-    final keep = {
-      for (final l in await db.select(db.favoriteLists).get()) ?l.serverId,
-    };
-    await (db.delete(
-      db.favoriteSyncBase,
-    )..where((b) => b.serverId.isNotIn(keep))).go();
+    final keep = {for (final l in await db.select(db.favoriteLists).get()) ?l.serverId};
+    await (db.delete(db.favoriteSyncBase)..where((b) => b.serverId.isNotIn(keep))).go();
   }
 
-  Future<List<RemoteList>> _importAll(
-    List<({String name, List<String> placeIds})> lists,
-  ) async {
+  Future<List<RemoteList>> _importAll(List<({String name, List<String> placeIds})> lists) async {
     // The server takes 100 lists and 1000 places a call.
     var result = <RemoteList>[];
     final batch = <({String name, List<String> placeIds})>[];
@@ -335,11 +300,7 @@ final class FavoritesSync {
     return result;
   }
 
-  Future<void> _applyItems(
-    int listId,
-    Set<String> before,
-    Set<String> after,
-  ) async {
+  Future<void> _applyItems(int listId, Set<String> before, Set<String> after) async {
     for (final p in before.difference(after)) {
       await (db.delete(
         db.favoriteItems,
@@ -395,27 +356,15 @@ final class FavoritesSync {
       _clip(list.isDefault ? defaultName() : (list.name ?? defaultName()));
 
   static String _clip(String name) {
-    final words = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .join(' ');
-    return words.length <= maxName
-        ? words
-        : words.substring(0, maxName).trimRight();
+    final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).join(' ');
+    return words.length <= maxName ? words : words.substring(0, maxName).trimRight();
   }
 
   static bool _sameName(String remoteName, String name, bool isDefault) =>
-      isDefault
-      ? defaultNames.contains(remoteName) || remoteName == name
-      : remoteName == name;
+      isDefault ? defaultNames.contains(remoteName) || remoteName == name : remoteName == name;
 
   /// [name], or "name (2)" and so on when the account or this batch has it.
-  static String _unique(
-    String name,
-    Iterable<RemoteList> remote,
-    Iterable<String> batch,
-  ) {
+  static String _unique(String name, Iterable<RemoteList> remote, Iterable<String> batch) {
     final used = {...remote.map((r) => r.name), ...batch};
     if (!used.contains(name)) return name;
     for (var n = 2; ; n++) {
@@ -433,30 +382,24 @@ final class FavoritesSync {
       i.placeId,
   };
 
-  Future<void> _bind(int listId, String serverId) =>
-      (db.update(db.favoriteLists)..where((l) => l.id.equals(listId))).write(
-        FavoriteListsCompanion(serverId: Value(serverId)),
-      );
+  Future<void> _bind(int listId, String serverId) => (db.update(
+    db.favoriteLists,
+  )..where((l) => l.id.equals(listId))).write(FavoriteListsCompanion(serverId: Value(serverId)));
 
-  Future<void> _writeBase(
-    String serverId,
-    String name,
-    Set<String> ids,
-    Set<String> localOnly,
-  ) => db
-      .into(db.favoriteSyncBase)
-      .insertOnConflictUpdate(
-        FavoriteSyncBaseCompanion.insert(
-          serverId: serverId,
-          name: name,
-          placeIds: jsonEncode(ids.toList()..sort()),
-          localOnly: Value(jsonEncode(localOnly.toList()..sort())),
-        ),
-      );
+  Future<void> _writeBase(String serverId, String name, Set<String> ids, Set<String> localOnly) =>
+      db
+          .into(db.favoriteSyncBase)
+          .insertOnConflictUpdate(
+            FavoriteSyncBaseCompanion.insert(
+              serverId: serverId,
+              name: name,
+              placeIds: jsonEncode(ids.toList()..sort()),
+              localOnly: Value(jsonEncode(localOnly.toList()..sort())),
+            ),
+          );
 
-  Future<void> _dropBase(String serverId) => (db.delete(
-    db.favoriteSyncBase,
-  )..where((b) => b.serverId.equals(serverId))).go();
+  Future<void> _dropBase(String serverId) =>
+      (db.delete(db.favoriteSyncBase)..where((b) => b.serverId.equals(serverId))).go();
 
   static Set<String> _ids(String json) => {
     for (final id in jsonDecode(json) as List<dynamic>) id as String,
@@ -475,8 +418,7 @@ final class GraphQLFavoritesRemote implements FavoritesRemote {
         id: l['id'] as String,
         name: l['name'] as String,
         placeIds: {
-          for (final p
-              in (l['places'] as List<dynamic>).cast<Map<String, dynamic>>())
+          for (final p in (l['places'] as List<dynamic>).cast<Map<String, dynamic>>())
             p['placeId'] as String,
         },
       ),
@@ -541,9 +483,7 @@ query FavoritePlace($id: UUID!) {
         id: p['id'] as String,
         name: p['name'] as String?,
         city:
-            (address is Map<String, dynamic>
-                ? address['city'] as String?
-                : null) ??
+            (address is Map<String, dynamic> ? address['city'] as String? : null) ??
             p['municipality'] as String?,
         kind: PlaceKind.fromWire(p['kind'] as String),
         lat: (p['lat'] as num).toDouble(),
@@ -569,31 +509,25 @@ query FavoritePlace($id: UUID!) {
   Future<List<RemoteList>> lists() => account.run(listsOperation);
 
   @override
-  Future<List<RemoteList>> import(
-    List<({String name, List<String> placeIds})> lists,
-  ) => account.run(
-    importOperation,
-    variables: {
-      'lists': [
-        for (final l in lists) {'name': l.name, 'placeIds': l.placeIds},
-      ],
-    },
-  );
+  Future<List<RemoteList>> import(List<({String name, List<String> placeIds})> lists) =>
+      account.run(
+        importOperation,
+        variables: {
+          'lists': [
+            for (final l in lists) {'name': l.name, 'placeIds': l.placeIds},
+          ],
+        },
+      );
 
   @override
   Future<bool> add(String listId, String placeId) async {
     try {
-      await account.run(
-        saveOperation,
-        variables: {'listId': listId, 'placeId': placeId},
-      );
+      await account.run(saveOperation, variables: {'listId': listId, 'placeId': placeId});
       return true;
     } on GraphQLResponseException catch (e) {
       // The place is gone from the data (the list is there: it was just
       // read).
-      if (e.errors.any(
-        (x) => x.code == GraphQLError.notFound && x.message.contains('place'),
-      )) {
+      if (e.errors.any((x) => x.code == GraphQLError.notFound && x.message.contains('place'))) {
         return false;
       }
       rethrow;
@@ -601,10 +535,8 @@ query FavoritePlace($id: UUID!) {
   }
 
   @override
-  Future<void> remove(String listId, String placeId) => account.run(
-    removeOperation,
-    variables: {'listId': listId, 'placeId': placeId},
-  );
+  Future<void> remove(String listId, String placeId) =>
+      account.run(removeOperation, variables: {'listId': listId, 'placeId': placeId});
 
   @override
   Future<void> rename(String listId, String name) =>
@@ -620,6 +552,5 @@ query FavoritePlace($id: UUID!) {
   }
 
   @override
-  Future<PlaceSummary?> place(String id) =>
-      account.client.execute(placeOperation, {'id': id});
+  Future<PlaceSummary?> place(String id) => account.client.execute(placeOperation, {'id': id});
 }

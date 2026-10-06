@@ -7,25 +7,17 @@ abstract final class PhosphorRegular {
   static const arrowClockwise = IconData(0xe036, fontFamily: 'PhosphorRegular');
   static const arrowLeft = IconData(0xe058, fontFamily: 'PhosphorRegular');
   static const arrowSquareOut = IconData(0xe5de, fontFamily: 'PhosphorRegular');
-  static const arrowsClockwise = IconData(
-    0xe094,
-    fontFamily: 'PhosphorRegular',
-  );
-  static const arrowsHorizontal = IconData(
-    0xeb06,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const arrowsClockwise = IconData(0xe094, fontFamily: 'PhosphorRegular');
+  static const arrowsHorizontal = IconData(0xeb06, fontFamily: 'PhosphorRegular');
   static const arrowsVertical = IconData(0xeb04, fontFamily: 'PhosphorRegular');
   static const baby = IconData(0xe774, fontFamily: 'PhosphorRegular');
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
   static const barricade = IconData(0xe948, fontFamily: 'PhosphorRegular');
+  static const basket = IconData(0xe964, fontFamily: 'PhosphorRegular');
   static const bicycle = IconData(0xe0d6, fontFamily: 'PhosphorRegular');
   static const binoculars = IconData(0xea64, fontFamily: 'PhosphorRegular');
   static const bookmarkSimple = IconData(0xe0ea, fontFamily: 'PhosphorRegular');
-  static const bookmarksSimple = IconData(
-    0xe5f0,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const bookmarksSimple = IconData(0xe5f0, fontFamily: 'PhosphorRegular');
   static const bread = IconData(0xe81c, fontFamily: 'PhosphorRegular');
   static const buildings = IconData(0xe102, fontFamily: 'PhosphorRegular');
   static const calendarBlank = IconData(0xe10a, fontFamily: 'PhosphorRegular');
@@ -41,12 +33,10 @@ abstract final class PhosphorRegular {
   static const circleHalf = IconData(0xe18c, fontFamily: 'PhosphorRegular');
   static const clock = IconData(0xe19a, fontFamily: 'PhosphorRegular');
   static const clockCountdown = IconData(0xed2c, fontFamily: 'PhosphorRegular');
-  static const clockCounterClockwise = IconData(
-    0xe1a0,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const clockCounterClockwise = IconData(0xe1a0, fontFamily: 'PhosphorRegular');
   static const cloudArrowDown = IconData(0xe1ac, fontFamily: 'PhosphorRegular');
   static const cloudArrowUp = IconData(0xe1ae, fontFamily: 'PhosphorRegular');
+  static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorRegular');
   static const cloudSlash = IconData(0xe1b6, fontFamily: 'PhosphorRegular');
   static const code = IconData(0xe1bc, fontFamily: 'PhosphorRegular');
   static const compass = IconData(0xe1c8, fontFamily: 'PhosphorRegular');
@@ -54,16 +44,14 @@ abstract final class PhosphorRegular {
   static const crosshair = IconData(0xe1d6, fontFamily: 'PhosphorRegular');
   static const deviceMobile = IconData(0xe1e0, fontFamily: 'PhosphorRegular');
   static const dotsThree = IconData(0xe1fe, fontFamily: 'PhosphorRegular');
-  static const dotsThreeVertical = IconData(
-    0xe208,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const dotsThreeVertical = IconData(0xe208, fontFamily: 'PhosphorRegular');
   static const downloadSimple = IconData(0xe20c, fontFamily: 'PhosphorRegular');
   static const drop = IconData(0xe210, fontFamily: 'PhosphorRegular');
   static const dropHalfBottom = IconData(0xeb40, fontFamily: 'PhosphorRegular');
   static const eyeSlash = IconData(0xe224, fontFamily: 'PhosphorRegular');
   static const fileImage = IconData(0xea24, fontFamily: 'PhosphorRegular');
   static const fileText = IconData(0xe23a, fontFamily: 'PhosphorRegular');
+  static const firstAid = IconData(0xe56e, fontFamily: 'PhosphorRegular');
   static const fish = IconData(0xe728, fontFamily: 'PhosphorRegular');
   static const fishSimple = IconData(0xe72a, fontFamily: 'PhosphorRegular');
   static const flag = IconData(0xe244, fontFamily: 'PhosphorRegular');
@@ -71,13 +59,11 @@ abstract final class PhosphorRegular {
   static const gasPump = IconData(0xe768, fontFamily: 'PhosphorRegular');
   static const gear = IconData(0xe270, fontFamily: 'PhosphorRegular');
   static const globe = IconData(0xe288, fontFamily: 'PhosphorRegular');
-  static const globeHemisphereEast = IconData(
-    0xe28a,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const globeHemisphereEast = IconData(0xe28a, fontFamily: 'PhosphorRegular');
   static const gpsFix = IconData(0xedd6, fontFamily: 'PhosphorRegular');
   static const gpsSlash = IconData(0xedd4, fontFamily: 'PhosphorRegular');
   static const handHeart = IconData(0xe810, fontFamily: 'PhosphorRegular');
+  static const hardDrives = IconData(0xe2a0, fontFamily: 'PhosphorRegular');
   static const heart = IconData(0xe2a8, fontFamily: 'PhosphorRegular');
   static const hourglass = IconData(0xe2b2, fontFamily: 'PhosphorRegular');
   static const image = IconData(0xe2ca, fontFamily: 'PhosphorRegular');
@@ -88,16 +74,10 @@ abstract final class PhosphorRegular {
   static const leaf = IconData(0xe2da, fontFamily: 'PhosphorRegular');
   static const listBullets = IconData(0xe2f2, fontFamily: 'PhosphorRegular');
   static const listChecks = IconData(0xeadc, fontFamily: 'PhosphorRegular');
-  static const magnifyingGlass = IconData(
-    0xe30c,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorRegular');
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorRegular');
   static const mapPinPlus = IconData(0xe314, fontFamily: 'PhosphorRegular');
-  static const mapPinSimpleLine = IconData(
-    0xee38,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const mapPinSimpleLine = IconData(0xee38, fontFamily: 'PhosphorRegular');
   static const mapTrifold = IconData(0xe31a, fontFamily: 'PhosphorRegular');
   static const megaphone = IconData(0xe324, fontFamily: 'PhosphorRegular');
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorRegular');
@@ -105,23 +85,17 @@ abstract final class PhosphorRegular {
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorRegular');
   static const motorcycle = IconData(0xe80a, fontFamily: 'PhosphorRegular');
   static const mountains = IconData(0xe7ae, fontFamily: 'PhosphorRegular');
-  static const navigationArrow = IconData(
-    0xeade,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const navigationArrow = IconData(0xeade, fontFamily: 'PhosphorRegular');
   static const notePencil = IconData(0xe34c, fontFamily: 'PhosphorRegular');
   static const path = IconData(0xe39c, fontFamily: 'PhosphorRegular');
+  static const pause = IconData(0xe39e, fontFamily: 'PhosphorRegular');
   static const pawPrint = IconData(0xe648, fontFamily: 'PhosphorRegular');
   static const pencilSimple = IconData(0xe3b4, fontFamily: 'PhosphorRegular');
-  static const personSimpleHike = IconData(
-    0xed54,
-    fontFamily: 'PhosphorRegular',
-  );
-  static const personSimpleSwim = IconData(
-    0xe736,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const personSimpleHike = IconData(0xed54, fontFamily: 'PhosphorRegular');
+  static const personSimpleSwim = IconData(0xe736, fontFamily: 'PhosphorRegular');
   static const phone = IconData(0xe3b8, fontFamily: 'PhosphorRegular');
+  static const pizza = IconData(0xe796, fontFamily: 'PhosphorRegular');
+  static const play = IconData(0xe3d0, fontFamily: 'PhosphorRegular');
   static const plug = IconData(0xe946, fontFamily: 'PhosphorRegular');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorRegular');
   static const printer = IconData(0xe3dc, fontFamily: 'PhosphorRegular');
@@ -138,12 +112,11 @@ abstract final class PhosphorRegular {
   static const shower = IconData(0xe776, fontFamily: 'PhosphorRegular');
   static const signOut = IconData(0xe42a, fontFamily: 'PhosphorRegular');
   static const signpost = IconData(0xe89c, fontFamily: 'PhosphorRegular');
-  static const slidersHorizontal = IconData(
-    0xe434,
-    fontFamily: 'PhosphorRegular',
-  );
+  static const slidersHorizontal = IconData(0xe434, fontFamily: 'PhosphorRegular');
   static const smileyAngry = IconData(0xec62, fontFamily: 'PhosphorRegular');
   static const snowflake = IconData(0xe5aa, fontFamily: 'PhosphorRegular');
+  static const speakerHigh = IconData(0xe44a, fontFamily: 'PhosphorRegular');
+  static const speakerSlash = IconData(0xe45a, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
   static const stack = IconData(0xe466, fontFamily: 'PhosphorRegular');
   static const star = IconData(0xe46a, fontFamily: 'PhosphorRegular');
@@ -173,22 +146,50 @@ abstract final class PhosphorRegular {
 /// Phosphor icons, fill: active states, pins and avatars.
 abstract final class PhosphorFill {
   static const barn = IconData(0xec72, fontFamily: 'PhosphorFill');
+  static const basket = IconData(0xe964, fontFamily: 'PhosphorFill');
+  static const bread = IconData(0xe81c, fontFamily: 'PhosphorFill');
+  static const carProfile = IconData(0xe8cc, fontFamily: 'PhosphorFill');
+  static const carrot = IconData(0xed38, fontFamily: 'PhosphorFill');
+  static const chargingStation = IconData(0xe8d0, fontFamily: 'PhosphorFill');
   static const checkCircle = IconData(0xe184, fontFamily: 'PhosphorFill');
+  static const cheese = IconData(0xe9fe, fontFamily: 'PhosphorFill');
   static const coffee = IconData(0xe1c2, fontFamily: 'PhosphorFill');
   static const crosshair = IconData(0xe1d6, fontFamily: 'PhosphorFill');
+  static const cylinder = IconData(0xe8fc, fontFamily: 'PhosphorFill');
   static const drop = IconData(0xe210, fontFamily: 'PhosphorFill');
+  static const dropHalfBottom = IconData(0xeb40, fontFamily: 'PhosphorFill');
+  static const egg = IconData(0xe812, fontFamily: 'PhosphorFill');
+  static const envelopeSimple = IconData(0xe218, fontFamily: 'PhosphorFill');
+  static const firstAid = IconData(0xe56e, fontFamily: 'PhosphorFill');
+  static const gasPump = IconData(0xe768, fontFamily: 'PhosphorFill');
   static const heart = IconData(0xe2a8, fontFamily: 'PhosphorFill');
+  static const hospital = IconData(0xe844, fontFamily: 'PhosphorFill');
   static const houseLine = IconData(0xe2c4, fontFamily: 'PhosphorFill');
+  static const info = IconData(0xe2ce, fontFamily: 'PhosphorFill');
   static const jeep = IconData(0xe2d4, fontFamily: 'PhosphorFill');
+  static const knife = IconData(0xe636, fontFamily: 'PhosphorFill');
   static const letterCircleP = IconData(0xec08, fontFamily: 'PhosphorFill');
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorFill');
   static const mapTrifold = IconData(0xe31a, fontFamily: 'PhosphorFill');
+  static const money = IconData(0xe588, fontFamily: 'PhosphorFill');
   static const navigationArrow = IconData(0xeade, fontFamily: 'PhosphorFill');
+  static const package = IconData(0xe390, fontFamily: 'PhosphorFill');
+  static const pawPrint = IconData(0xe648, fontFamily: 'PhosphorFill');
   static const picnicTable = IconData(0xee26, fontFamily: 'PhosphorFill');
+  static const pizza = IconData(0xe796, fontFamily: 'PhosphorFill');
+  static const recycle = IconData(0xe75a, fontFamily: 'PhosphorFill');
+  static const shoppingCart = IconData(0xe41e, fontFamily: 'PhosphorFill');
+  static const shower = IconData(0xe776, fontFamily: 'PhosphorFill');
+  static const snowflake = IconData(0xe5aa, fontFamily: 'PhosphorFill');
   static const star = IconData(0xe46a, fontFamily: 'PhosphorFill');
+  static const stethoscope = IconData(0xe7ea, fontFamily: 'PhosphorFill');
+  static const storefront = IconData(0xe470, fontFamily: 'PhosphorFill');
   static const tent = IconData(0xe8ba, fontFamily: 'PhosphorFill');
+  static const toilet = IconData(0xe79a, fontFamily: 'PhosphorFill');
+  static const toiletPaper = IconData(0xe79c, fontFamily: 'PhosphorFill');
   static const treeEvergreen = IconData(0xe6dc, fontFamily: 'PhosphorFill');
   static const user = IconData(0xe4c2, fontFamily: 'PhosphorFill');
   static const van = IconData(0xe826, fontFamily: 'PhosphorFill');
+  static const washingMachine = IconData(0xede8, fontFamily: 'PhosphorFill');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorFill');
 }

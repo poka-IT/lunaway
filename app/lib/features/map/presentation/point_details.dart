@@ -4,6 +4,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/poi/presentation/add_vending.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -56,16 +57,11 @@ class PointDetails extends StatelessWidget {
                 children: [
                   Semantics(
                     header: true,
-                    child: Text(
-                      t.map.pointTitle,
-                      style: theme.textTheme.headlineSmall,
-                    ),
+                    child: Text(t.map.pointTitle, style: theme.textTheme.headlineSmall),
                   ),
                   Text(
                     t.map.pointHint,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -74,9 +70,7 @@ class PointDetails extends StatelessWidget {
               IconButton(
                 tooltip: t.common.close,
                 onPressed: onClose,
-                style: IconButton.styleFrom(
-                  backgroundColor: scheme.surfaceContainerHigh,
-                ),
+                style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
                 icon: const Icon(AppIcons.close, size: 20),
               ),
           ],
@@ -90,11 +84,11 @@ class PointDetails extends StatelessWidget {
             onPressed: () => startAddPlace(context, ref, position),
             icon: const Icon(AppIcons.addPlace),
             label: Text(t.contribute.addPlaceHere),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-            ),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
         ),
+        const SizedBox(height: Space.l),
+        VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
       ],
@@ -127,14 +121,9 @@ class PointActionBar extends ConsumerWidget {
           Expanded(
             child: FilledButton.icon(
               onPressed: () => openDirections(context, ref, position),
-              onLongPress: () =>
-                  openDirections(context, ref, position, choose: true),
+              onLongPress: () => openDirections(context, ref, position, choose: true),
               icon: const Icon(AppIcons.directions),
-              label: Text(
-                t.place.directions,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-              ),
+              label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
             ),
           ),
@@ -143,11 +132,7 @@ class PointActionBar extends ConsumerWidget {
             child: OutlinedButton.icon(
               onPressed: () => copyCoordinates(context, position),
               icon: const Icon(AppIcons.copy),
-              label: Text(
-                t.place.copyShort,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-              ),
+              label: Text(t.place.copyShort, maxLines: 2, textAlign: TextAlign.center),
               style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),
             ),
           ),

@@ -24,6 +24,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
+import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 
@@ -61,6 +64,15 @@ List<(String, Size, void Function(Canvas))> _images() => [
           PinGeometry(selected: selected).canvas,
           (c) => paintPin(c, kind: kind, overnight: overnight, selected: selected),
         ),
+  for (final kind in PoiKind.values)
+    for (final (quiet, selected) in [(false, false), (true, false), (false, true)])
+      (
+        PoiMapStyle.imageId(kind, quiet: quiet, selected: selected),
+        PoiPinGeometry(quiet: quiet, selected: selected).canvas,
+        (c) => paintPoiPin(c, kind, quiet: quiet, selected: selected),
+      ),
+  for (final category in PoiCategory.values)
+    (PoiMapStyle.dotImageId(category), poiDotSize, (c) => paintPoiDot(c, category)),
 ];
 
 /// Packs every image in rows on one sheet at [ratio]; returns the PNG and
@@ -136,6 +148,9 @@ void main() {
         }
       }
     });
-    expect(Directory('assets/map/pins/3x').listSync(), hasLength(allPinImageIds().length));
+    expect(
+      Directory('assets/map/pins/3x').listSync(),
+      hasLength(allPinImageIds().length + PoiMapStyle.allImageIds().length),
+    );
   });
 }

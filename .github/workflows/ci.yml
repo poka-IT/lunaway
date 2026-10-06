@@ -112,6 +112,15 @@ jobs:
       - name: packages
         working-directory: app
         run: flutter pub get
+      # The guidance engine is a Rust crate the Flutter build hook compiles
+      # for the host before the tests load it.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/packages/lunaway_nav/rust
+          key: ${{ hashFiles('app/packages/lunaway_nav/rust/Cargo.toml') }}
+      - name: guidance engine for the host
+        working-directory: app/packages/lunaway_nav/rust
+        run: cargo build --locked --release
       - name: tests
         working-directory: app
         run: flutter test --no-pub
@@ -189,6 +198,35 @@ jobs:
       - name: build
         working-directory: app
         run: flutter build ios --release --no-codesign --no-pub
+
+  nav-crate:
+    # The guidance engine (app/packages/lunaway_nav/rust): the same gates as
+    # the backend's crates, with the backend's licence and advisory policy.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app/packages/lunaway_nav/rust
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/packages/lunaway_nav/rust
+          key: ${{ hashFiles('app/packages/lunaway_nav/rust/Cargo.toml') }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: format
+        run: cargo fmt -- --check
+      - name: clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: tests
+        run: cargo test --locked
+      - name: licences, sources, advisories
+        # cargo-deny itself: in `cargo deny --config`, cargo reads the flag.
+        run: cargo-deny --log-level error --config ../../../../backend/deny.toml check bans licenses sources advisories
 
   backend:
     runs-on: ubuntu-latest

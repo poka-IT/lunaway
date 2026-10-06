@@ -10,6 +10,8 @@ import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/thumbhash.dart';
@@ -28,17 +30,12 @@ class ContributionsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final pending = byAttention(
-      ref.watch(outboxEntriesProvider).value ?? const [],
-    );
+    final pending = byAttention(ref.watch(outboxEntriesProvider).value ?? const []);
     final mine = ref.watch(myContributionsProvider);
     return SubPage(
       title: t.mine.title,
       children: [
-        if (pending.isNotEmpty) ...[
-          _Pending(entries: pending),
-          const SizedBox(height: Space.xl),
-        ],
+        if (pending.isNotEmpty) ...[_Pending(entries: pending), const SizedBox(height: Space.xl)],
         switch (mine) {
           AsyncData(:final value) => _Published(mine: value),
           AsyncError() => MessageView(
@@ -58,31 +55,21 @@ class ContributionsScreen extends ConsumerWidget {
 }
 
 /// "The latest 20 of 34" when the page shows only part of a kind.
-String? _latest(Translations t, int shown, int total) => total > shown
-    ? t.mine.latest(shown: t.number(shown), total: t.number(total))
-    : null;
+String? _latest(Translations t, int shown, int total) =>
+    total > shown ? t.mine.latest(shown: t.number(shown), total: t.number(total)) : null;
 
 Widget _heading(BuildContext context, String text, {String? hint}) {
   final theme = Theme.of(context);
   return Padding(
-    padding: const EdgeInsets.only(
-      left: Space.xs,
-      bottom: Space.s,
-      top: Space.l,
-    ),
+    padding: const EdgeInsets.only(left: Space.xs, bottom: Space.s, top: Space.l),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(
-          header: true,
-          child: Text(text, style: theme.textTheme.titleLarge),
-        ),
+        Semantics(header: true, child: Text(text, style: theme.textTheme.titleLarge)),
         if (hint != null)
           Text(
             hint,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
       ],
     ),
@@ -104,8 +91,7 @@ class _Pending extends ConsumerWidget {
     final store = ref.read(outboxStoreProvider);
     final runner = ref.read(outboxRunnerProvider.notifier);
     final sending = ref.watch(outboxRunnerProvider);
-    final progress =
-        ref.watch(uploadProgressProvider).value ?? const <String, double>{};
+    final progress = ref.watch(uploadProgressProvider).value ?? const <String, double>{};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -130,18 +116,14 @@ class _Pending extends ConsumerWidget {
                     final status = e.failed
                         ? t.outboxError(e.errorCode)
                         : e.state == OutboxState.sending && share != null
-                        ? t.photoFlow.sending(
-                            percent: '${(share * 100).round()}',
-                          )
+                        ? t.photoFlow.sending(percent: '${(share * 100).round()}')
                         : e.state == OutboxState.sending
                         ? t.outbox.sending
                         : t.outbox.waiting;
                     return ListTile(
                       leading: Icon(
                         e.failed ? AppIcons.error : AppIcons.waiting,
-                        color: e.failed
-                            ? scheme.error
-                            : scheme.onSurfaceVariant,
+                        color: e.failed ? scheme.error : scheme.onSurfaceVariant,
                       ),
                       title: Text(t.pendingLabel(e)),
                       subtitle: Text(
@@ -164,13 +146,11 @@ class _Pending extends ConsumerWidget {
                                 content: Text(t.mine.discardBody),
                                 actions: [
                                   TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
+                                    onPressed: () => Navigator.of(context).pop(false),
                                     child: Text(t.common.cancel),
                                   ),
                                   FilledButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
+                                    onPressed: () => Navigator.of(context).pop(true),
                                     child: Text(t.mine.discard),
                                   ),
                                 ],
@@ -184,9 +164,7 @@ class _Pending extends ConsumerWidget {
                             value: 'retry',
                             child: ListTile(
                               leading: const Icon(AppIcons.retry),
-                              title: Text(
-                                e.failed ? t.mine.retry : t.mine.sendNow,
-                              ),
+                              title: Text(e.failed ? t.mine.retry : t.mine.sendNow),
                             ),
                           ),
                           PopupMenuItem(
@@ -248,11 +226,14 @@ class _Published extends ConsumerWidget {
       );
     }
 
+    // [made], the contribution itself: the entries of the outbox that may
+    // have made it go with it (see `mayHaveMade`).
     Future<void> delete(
       ContributionKind kind,
       String id, {
       String? placeId,
       String? body,
+      Object? made,
     }) async {
       final ok = await showDialog<bool>(
         context: context,
@@ -278,6 +259,7 @@ class _Published extends ConsumerWidget {
         placeId: placeId,
         payload: {'id': id},
         sentText: t.mine.deleted,
+        deleting: made,
       );
     }
 
@@ -290,27 +272,19 @@ class _Published extends ConsumerWidget {
     Widget placeLine(String? placeId) {
       if (placeId == null) return Text(t.mine.aPlace);
       return Consumer(
-        builder: (context, ref, _) =>
-            Text(switch (ref.watch(placeProvider(placeId)).value) {
-              final p? => t.placeTitle(
-                name: p.name,
-                kind: p.kind,
-                city: p.address?.city,
-              ),
-              null => t.mine.aPlace,
-            }),
+        builder: (context, ref, _) => Text(switch (ref.watch(placeProvider(placeId)).value) {
+          final p? => t.placeTitle(name: p.name, kind: p.kind, city: p.address?.city),
+          null => t.mine.aPlace,
+        }),
       );
     }
 
-    Widget status(ContributionStatus? s) =>
-        s == null || s == ContributionStatus.published
+    Widget status(ContributionStatus? s) => s == null || s == ContributionStatus.published
         ? const SizedBox.shrink()
         : Text(
             t.contributionStatus(s),
             style: theme.textTheme.labelMedium?.copyWith(
-              color: s == ContributionStatus.pending
-                  ? scheme.onSurfaceVariant
-                  : scheme.error,
+              color: s == ContributionStatus.pending ? scheme.onSurfaceVariant : scheme.error,
             ),
           );
 
@@ -335,8 +309,7 @@ class _Published extends ConsumerWidget {
                       children: [
                         Text(
                           [
-                            if (r.rating != null)
-                              t.place.stars(rating: '${r.rating}'),
+                            if (r.rating != null) t.place.stars(rating: '${r.rating}'),
                             date(r.createdAt),
                           ].join(' · '),
                         ),
@@ -349,11 +322,7 @@ class _Published extends ConsumerWidget {
                       ],
                     ),
                     trailing: deleteButton(
-                      () => delete(
-                        ContributionKind.deleteReview,
-                        r.id,
-                        placeId: r.placeId,
-                      ),
+                      () => delete(ContributionKind.deleteReview, r.id, placeId: r.placeId),
                     ),
                   ),
               ],
@@ -361,20 +330,13 @@ class _Published extends ConsumerWidget {
           ),
         ],
         if (mine.photos.isNotEmpty) ...[
-          _heading(
-            context,
-            t.mine.photos,
-            hint: _latest(t, mine.photos.length, mine.photoTotal),
-          ),
+          _heading(context, t.mine.photos, hint: _latest(t, mine.photos.length, mine.photoTotal)),
           Wrap(
             spacing: Space.s,
             runSpacing: Space.s,
             children: [
               for (final p in mine.photos)
-                _MyPhoto(
-                  photo: p,
-                  onDelete: () => delete(ContributionKind.deletePhoto, p.id),
-                ),
+                _MyPhoto(photo: p, onDelete: () => delete(ContributionKind.deletePhoto, p.id)),
             ],
           ),
         ],
@@ -391,14 +353,13 @@ class _Published extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(AppIcons.confirmed),
                     title: placeLine(c.placeId),
-                    subtitle: Text(
-                      '${t.confirmationStatus(c.status)} · ${date(c.createdAt)}',
-                    ),
+                    subtitle: Text('${t.confirmationStatus(c.status)} · ${date(c.createdAt)}'),
                     trailing: deleteButton(
                       () => delete(
                         ContributionKind.deleteConfirmation,
                         c.id,
                         placeId: c.placeId,
+                        made: c,
                       ),
                     ),
                   ),
@@ -407,11 +368,7 @@ class _Published extends ConsumerWidget {
           ),
         ],
         if (mine.issues.isNotEmpty) ...[
-          _heading(
-            context,
-            t.mine.issues,
-            hint: _latest(t, mine.issues.length, mine.issueTotal),
-          ),
+          _heading(context, t.mine.issues, hint: _latest(t, mine.issues.length, mine.issueTotal)),
           SectionCard(
             child: Column(
               children: [
@@ -419,14 +376,13 @@ class _Published extends ConsumerWidget {
                   ListTile(
                     leading: Icon(AppIcons.issue(i.kind)),
                     title: placeLine(i.placeId),
-                    subtitle: Text(
-                      '${t.issueKind(i.kind)} · ${date(i.createdAt)}',
-                    ),
+                    subtitle: Text('${t.issueKind(i.kind)} · ${date(i.createdAt)}'),
                     trailing: deleteButton(
                       () => delete(
                         ContributionKind.deleteIssueReport,
                         i.id,
                         placeId: i.placeId,
+                        made: i,
                       ),
                     ),
                   ),
@@ -445,24 +401,17 @@ class _Published extends ConsumerWidget {
               children: [
                 for (final s in mine.submissions)
                   ListTile(
-                    leading: Icon(
-                      s.kind == SubmissionKind.create
-                          ? AppIcons.addPlace
-                          : AppIcons.rename,
-                    ),
+                    leading: Icon(switch (s.kind) {
+                      SubmissionKind.create => AppIcons.addPlace,
+                      SubmissionKind.edit => AppIcons.rename,
+                      SubmissionKind.poi => PoiLook.category(PoiCategory.vending),
+                    }),
                     title: s.placeId == null
-                        ? Text(
-                            s.kind == SubmissionKind.create
-                                ? t.mine.newPlace
-                                : t.mine.edit,
-                          )
+                        ? Text(_submissionKind(t, s.kind))
                         : placeLine(s.placeId),
                     subtitle: Text(
                       [
-                        if (s.kind == SubmissionKind.create)
-                          t.mine.newPlace
-                        else
-                          t.mine.edit,
+                        _submissionKind(t, s.kind),
                         t.submissionStatus(s.status),
                         date(s.createdAt),
                       ].join(' · '),
@@ -475,6 +424,7 @@ class _Published extends ConsumerWidget {
                             () => delete(
                               ContributionKind.deletePlaceSubmission,
                               s.id,
+                              made: s,
                               body: s.status == SubmissionStatus.applied
                                   ? t.mine.deleteApplied
                                   : null,
@@ -516,22 +466,16 @@ class _MyPhoto extends ConsumerWidget {
                   height: 111,
                   child: Image(
                     image: ResizeImage(
-                      CachedImage(
-                        photo.thumbUrl,
-                        fetcher: ref.watch(imageFetcherProvider),
-                      ),
+                      CachedImage(photo.thumbUrl, fetcher: ref.watch(imageFetcherProvider)),
                       width: 400,
                     ),
                     fit: BoxFit.cover,
                     excludeFromSemantics: true,
-                    frameBuilder: (context, child, frame, _) =>
-                        frame != null || hash == null
+                    frameBuilder: (context, child, frame, _) => frame != null || hash == null
                         ? child
                         : Image(image: ThumbHashImage(hash), fit: BoxFit.cover),
                     errorBuilder: (context, _, _) => hash == null
-                        ? ColoredBox(
-                            color: theme.colorScheme.surfaceContainerHigh,
-                          )
+                        ? ColoredBox(color: theme.colorScheme.surfaceContainerHigh)
                         : Image(image: ThumbHashImage(hash), fit: BoxFit.cover),
                   ),
                 ),
@@ -548,12 +492,15 @@ class _MyPhoto extends ConsumerWidget {
             ),
           ),
           if (status != null && status != ContributionStatus.published)
-            Text(
-              t.contributionStatus(status),
-              style: theme.textTheme.labelMedium,
-            ),
+            Text(t.contributionStatus(status), style: theme.textTheme.labelMedium),
         ],
       ),
     );
   }
 }
+
+String _submissionKind(Translations t, SubmissionKind kind) => switch (kind) {
+  SubmissionKind.create => t.mine.newPlace,
+  SubmissionKind.edit => t.mine.edit,
+  SubmissionKind.poi => t.mine.newVendingMachine,
+};

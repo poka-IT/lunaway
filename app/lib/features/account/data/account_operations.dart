@@ -67,26 +67,41 @@ mutation AuthChallenge {
 }''',
   parse: (data) {
     final c = data['authChallenge'] as Map<String, dynamic>;
-    return Challenge(
-      nonce: c['nonce'] as String,
-      message: c['message'] as String,
-    );
+    return Challenge(nonce: c['nonce'] as String, message: c['message'] as String);
   },
 );
 
-final signInOperation = GraphQLOperation<SignInResult>(
-  name: 'SignIn',
-  document: '''
-mutation SignIn(\$jwk: String!, \$nonce: String!, \$signature: String!, \$locale: String) {
-  signIn(publicKeyJwk: \$jwk, nonce: \$nonce, signature: \$signature, locale: \$locale) {
+const _signInDocument = '''
+mutation SignIn(
+  \$jwk: String!
+  \$nonce: String!
+  \$signature: String!
+  \$locale: String
+  \$createIfUnknown: Boolean!
+) {
+  signIn(
+    publicKeyJwk: \$jwk
+    nonce: \$nonce
+    signature: \$signature
+    locale: \$locale
+    createIfUnknown: \$createIfUnknown
+  ) {
     token
     expiresAt
     created
     account { ...AccountFields }
   }
 }
-$_accountFields''',
+$_accountFields''';
+
+final signInOperation = GraphQLOperation<SignInResult>(
+  name: 'SignIn',
+  document: _signInDocument,
   parse: (data) => _signInResult(data['signIn']),
+  // The API before `createIfUnknown` creates an account for any key it
+  // does not know: the account service deletes one made behind a key that
+  // held another.
+  older: OlderForm.without(_signInDocument, const {'createIfUnknown'}),
 );
 
 final recoverAccountOperation = GraphQLOperation<SignInResult>(
@@ -117,10 +132,9 @@ $_accountFields''',
 );
 
 /// The account with its level, and the authors it mutes.
-final myAccountOperation =
-    GraphQLOperation<({Account account, List<Author> muted})>(
-      name: 'MyAccount',
-      document: '''
+final myAccountOperation = GraphQLOperation<({Account account, List<Author> muted})>(
+  name: 'MyAccount',
+  document: '''
 query MyAccount {
   myAccount {
     ...AccountFields
@@ -128,22 +142,17 @@ query MyAccount {
   }
 }
 $_accountFields''',
-      parse: (data) {
-        final a = data['myAccount'] as Map<String, dynamic>;
-        return (
-          account: _account(a),
-          muted: [
-            for (final m
-                in (a['mutedAuthors'] as List<dynamic>)
-                    .cast<Map<String, dynamic>>())
-              Author(
-                id: m['id'] as String,
-                pseudonym: m['pseudonym'] as String,
-              ),
-          ],
-        );
-      },
+  parse: (data) {
+    final a = data['myAccount'] as Map<String, dynamic>;
+    return (
+      account: _account(a),
+      muted: [
+        for (final m in (a['mutedAuthors'] as List<dynamic>).cast<Map<String, dynamic>>())
+          Author(id: m['id'] as String, pseudonym: m['pseudonym'] as String),
+      ],
     );
+  },
+);
 
 final updateProfileOperation = GraphQLOperation<Account>(
   name: 'UpdateProfile',
@@ -161,8 +170,7 @@ final createRecoveryCodeOperation = GraphQLOperation<String>(
 mutation CreateRecoveryCode {
   createRecoveryCode { code }
 }''',
-  parse: (data) =>
-      (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
+  parse: (data) => (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
 );
 
 final signOutOperation = GraphQLOperation<bool>(
@@ -194,8 +202,7 @@ query MyDevices {
 }''',
   parse: (data) => [
     for (final d
-        in ((data['myAccount'] as Map<String, dynamic>)['devices']
-                as List<dynamic>)
+        in ((data['myAccount'] as Map<String, dynamic>)['devices'] as List<dynamic>)
             .cast<Map<String, dynamic>>())
       Device(
         id: d['id'] as String,

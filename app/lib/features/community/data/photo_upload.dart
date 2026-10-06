@@ -9,13 +9,7 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 
 /// The server refused an upload, or it did not complete.
 final class UploadException implements Exception {
-  const new(
-    this.status,
-    this.message, {
-    this.code,
-    this.requiredLevel,
-    this.retryAfter,
-  });
+  const new(this.status, this.message, {this.code, this.requiredLevel, this.retryAfter});
 
   /// The HTTP status; 0 when no answer came (offline, timeout).
   final int status;
@@ -27,12 +21,10 @@ final class UploadException implements Exception {
   final Duration? retryAfter;
 
   /// Worth sending again later: no answer, a full server, a spent budget.
-  bool get transient =>
-      status == 0 || status == 429 || status == 408 || status >= 500;
+  bool get transient => status == 0 || status == 429 || status == 408 || status >= 500;
 
   @override
-  String toString() =>
-      'UploadException($status${code == null ? '' : ' $code'}): $message';
+  String toString() => 'UploadException($status${code == null ? '' : ' $code'}): $message';
 }
 
 /// Sends a photo to `POST /upload` as the API takes it: a multipart form
@@ -78,9 +70,7 @@ final class PhotoUploader {
     final total = head.length + jpeg.length + tail.length;
     final abort = Completer<void>();
     final request =
-        _ProgressRequest(endpoint, [head, jpeg, tail], chunk, abort.future, (
-            sent,
-          ) {
+        _ProgressRequest(endpoint, [head, jpeg, tail], chunk, abort.future, (sent) {
             onProgress?.call(sent / total);
           })
           ..contentLength = total
@@ -122,10 +112,7 @@ final class PhotoUploader {
       throw const UploadException(200, 'the answer carries no photo');
     }
     final errors = body?['errors'];
-    final first =
-        errors is List &&
-            errors.isNotEmpty &&
-            errors.first is Map<String, dynamic>
+    final first = errors is List && errors.isNotEmpty && errors.first is Map<String, dynamic>
         ? errors.first as Map<String, dynamic>
         : const <String, dynamic>{};
     final ext = first['extensions'] is Map<String, dynamic>
@@ -156,8 +143,7 @@ final class PhotoUploader {
 /// A request whose body is produced a chunk at a time, as the connection
 /// asks for it.
 final class _ProgressRequest extends http.BaseRequest with http.Abortable {
-  new(Uri url, this._parts, this._chunk, this.abortTrigger, this._onSent)
-    : super('POST', url);
+  new(Uri url, this._parts, this._chunk, this.abortTrigger, this._onSent) : super('POST', url);
 
   @override
   final Future<void> abortTrigger;

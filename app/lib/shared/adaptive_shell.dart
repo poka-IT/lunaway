@@ -38,11 +38,7 @@ class BottomFade extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            surface.withValues(alpha: 0),
-            surface.withValues(alpha: 0.92),
-            surface,
-          ],
+          colors: [surface.withValues(alpha: 0), surface.withValues(alpha: 0.92), surface],
           stops: const [0, 0.45, 1],
         ),
       ),
@@ -60,8 +56,7 @@ class AdaptiveShell extends ConsumerWidget {
   final StatefulNavigationShell shell;
 
   // Tapping the current destination again returns to its first page.
-  void _go(int index) =>
-      shell.goBranch(index, initialLocation: index == shell.currentIndex);
+  void _go(int index) => shell.goBranch(index, initialLocation: index == shell.currentIndex);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -80,24 +75,18 @@ class AdaptiveShell extends ConsumerWidget {
       if (!fresh || before) return;
       ref.read(accountControllerProvider.notifier).welcomed();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted)
-          unawaited(showAccountWelcome(context, next.account));
+        if (context.mounted) unawaited(showAccountWelcome(context, next.account));
       });
     });
     final destinations = [
       _Destination(AppIcons.map, AppIcons.mapSelected, t.nav.map),
-      _Destination(
-        AppIcons.favorite,
-        AppIcons.favoriteSelected,
-        t.nav.favorites,
-      ),
+      _Destination(AppIcons.favorite, AppIcons.favoriteSelected, t.nav.favorites),
       _Destination(AppIcons.profile, AppIcons.profileSelected, t.nav.profile),
     ];
     final size = WindowSize.of(context);
 
     if (size == .compact) {
-      final placeOpen =
-          shell.currentIndex == 0 && ref.watch(selectionProvider) != null;
+      final placeOpen = shell.currentIndex == 0 && ref.watch(selectionProvider) != null;
       final media = MediaQuery.of(context);
       return _Messages(
         // The dock's slot: its height and the margin under it. A message
@@ -111,9 +100,7 @@ class AdaptiveShell extends ConsumerWidget {
           extendBody: true,
           body: MediaQuery(
             data: media.copyWith(
-              padding: media.padding.copyWith(
-                bottom: media.padding.bottom + dockSpace,
-              ),
+              padding: media.padding.copyWith(bottom: media.padding.bottom + dockSpace),
             ),
             child: shell,
           ),
@@ -131,9 +118,7 @@ class AdaptiveShell extends ConsumerWidget {
                     // What scrolls under the dock fades into the page rather
                     // than running under it and under the system's gesture
                     // bar; taps go through the fade.
-                    const Positioned.fill(
-                      child: IgnorePointer(child: BottomFade()),
-                    ),
+                    const Positioned.fill(child: IgnorePointer(child: BottomFade())),
                     Padding(
                       padding: const EdgeInsets.only(top: BottomFade.lead),
                       child: SafeArea(
@@ -212,19 +197,10 @@ class _MessagesState extends State<_Messages> {
       // Only the messages' own theme changes: a whole Theme would rebuild
       // the app each time a place opens.
       builder: (context, child) {
-        final bottom = math.max(
-          Space.l,
-          _clearance.value + Space.s - widget.reserved,
-        );
+        final bottom = math.max(Space.l, _clearance.value + Space.s - widget.reserved);
         return SnackBarTheme(
-          data: SnackBarTheme.of(context).copyWith(
-            insetPadding: EdgeInsets.fromLTRB(
-              widget.side,
-              0,
-              widget.side,
-              bottom,
-            ),
-          ),
+          data: SnackBarTheme.of(context)
+              .copyWith(insetPadding: EdgeInsets.fromLTRB(widget.side, 0, widget.side, bottom)),
           child: child!,
         );
       },
@@ -244,11 +220,7 @@ final class _Destination {
 /// The phone's navigation: a pill floating above the content, navy by day
 /// and cream by night, the current destination lit in amber.
 class _Dock extends StatelessWidget {
-  const new({
-    required this.destinations,
-    required this.selected,
-    required this.onSelected,
-  });
+  const new({required this.destinations, required this.selected, required this.onSelected});
 
   final List<_Destination> destinations;
   final int selected;
@@ -266,9 +238,7 @@ class _Dock extends StatelessWidget {
         container: true,
         explicitChildNodes: true,
         child: Container(
-          constraints: BoxConstraints(
-            maxWidth: width < 400 ? width - Space.xxl * 2 : 340,
-          ),
+          constraints: BoxConstraints(maxWidth: width < 400 ? width - Space.xxl * 2 : 340),
           height: 64,
           padding: const EdgeInsets.all(Space.xs),
           decoration: BoxDecoration(
@@ -288,9 +258,7 @@ class _Dock extends StatelessWidget {
                     child: Material(
                       type: MaterialType.transparency,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(
-                          LunaTokens.radiusPill,
-                        ),
+                        borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                         onTap: () {
                           Haptics.select();
                           onSelected(i);
@@ -299,12 +267,8 @@ class _Dock extends StatelessWidget {
                           duration: Motion.of(context, Motion.medium),
                           curve: Motion.standard,
                           decoration: BoxDecoration(
-                            color: i == selected
-                                ? tokens.dockSelected
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(
-                              LunaTokens.radiusPill,
-                            ),
+                            color: i == selected ? tokens.dockSelected : Colors.transparent,
+                            borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -373,20 +337,11 @@ class _Rail extends StatelessWidget {
       child: SafeArea(
         right: false,
         child: Column(
-          crossAxisAlignment: extended
-              ? CrossAxisAlignment.start
-              : CrossAxisAlignment.center,
+          crossAxisAlignment: extended ? CrossAxisAlignment.start : CrossAxisAlignment.center,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(
-                extended ? Space.xl : 0,
-                Space.xl,
-                0,
-                Space.xxl,
-              ),
-              child: extended
-                  ? const BrandLockup(height: 34)
-                  : const BrandMark(height: 38),
+              padding: EdgeInsets.fromLTRB(extended ? Space.xl : 0, Space.xl, 0, Space.xxl),
+              child: extended ? const BrandLockup(height: 34) : const BrandMark(height: 38),
             ),
             for (final (i, d) in destinations.indexed)
               Padding(
@@ -408,16 +363,10 @@ class _Rail extends StatelessWidget {
                           ? AnimatedContainer(
                               duration: Motion.of(context, Motion.medium),
                               height: 52,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Space.l,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: Space.l),
                               decoration: BoxDecoration(
-                                color: i == selected
-                                    ? scheme.primary
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(
-                                  LunaTokens.radiusPill,
-                                ),
+                                color: i == selected ? scheme.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                               ),
                               child: Row(
                                 children: [
@@ -434,9 +383,7 @@ class _Rail extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: text.labelLarge?.copyWith(
-                                        color: i == selected
-                                            ? scheme.onPrimary
-                                            : scheme.onSurface,
+                                        color: i == selected ? scheme.onPrimary : scheme.onSurface,
                                       ),
                                     ),
                                   ),
@@ -444,9 +391,7 @@ class _Rail extends StatelessWidget {
                               ),
                             )
                           : Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: Space.xs,
-                              ),
+                              padding: const EdgeInsets.symmetric(vertical: Space.xs),
                               child: Column(
                                 children: [
                                   AnimatedContainer(
@@ -454,12 +399,8 @@ class _Rail extends StatelessWidget {
                                     width: 60,
                                     height: 34,
                                     decoration: BoxDecoration(
-                                      color: i == selected
-                                          ? scheme.primary
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(
-                                        LunaTokens.radiusPill,
-                                      ),
+                                      color: i == selected ? scheme.primary : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                                     ),
                                     child: Icon(
                                       i == selected ? d.selectedIcon : d.icon,
@@ -473,9 +414,7 @@ class _Rail extends StatelessWidget {
                                     d.label,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: text.labelMedium?.copyWith(
-                                      color: scheme.onSurface,
-                                    ),
+                                    style: text.labelMedium?.copyWith(color: scheme.onSurface),
                                   ),
                                 ],
                               ),

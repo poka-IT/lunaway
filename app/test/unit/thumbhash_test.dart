@@ -21,31 +21,24 @@ Uint8List _image(int w, int h, int Function(int x, int y) colour) {
 }
 
 void main() {
-  test(
-    'a landscape photo keeps its shape and its colours in the placeholder',
-    () {
-      // A blue sky over green ground, 4:3.
-      final hash = ThumbHash.encode(
-        40,
-        30,
-        _image(40, 30, (x, y) => y < 18 ? 0xFF4A90D9 : 0xFF2E7D32),
-      );
-      expect(hash.length, lessThan(30));
-      expect(ThumbHash.aspectRatio(hash), closeTo(4 / 3, 0.2));
-      final decoded = ThumbHash.decode(hash);
-      expect(decoded.width, 32);
-      expect(decoded.height, closeTo(24, 2));
-      int at(int x, int y, int channel) =>
-          decoded.rgba[(y * decoded.width + x) * 4 + channel];
-      // The top is blue (more blue than red), the bottom green (more green).
-      expect(at(16, 2, 2), greaterThan(at(16, 2, 0) + 40));
-      expect(
-        at(16, decoded.height - 2, 1),
-        greaterThan(at(16, decoded.height - 2, 2) + 20),
-      );
-      expect(at(16, 2, 3), 255, reason: 'an opaque photo stays opaque');
-    },
-  );
+  test('a landscape photo keeps its shape and its colours in the placeholder', () {
+    // A blue sky over green ground, 4:3.
+    final hash = ThumbHash.encode(
+      40,
+      30,
+      _image(40, 30, (x, y) => y < 18 ? 0xFF4A90D9 : 0xFF2E7D32),
+    );
+    expect(hash.length, lessThan(30));
+    expect(ThumbHash.aspectRatio(hash), closeTo(4 / 3, 0.2));
+    final decoded = ThumbHash.decode(hash);
+    expect(decoded.width, 32);
+    expect(decoded.height, closeTo(24, 2));
+    int at(int x, int y, int channel) => decoded.rgba[(y * decoded.width + x) * 4 + channel];
+    // The top is blue (more blue than red), the bottom green (more green).
+    expect(at(16, 2, 2), greaterThan(at(16, 2, 0) + 40));
+    expect(at(16, decoded.height - 2, 1), greaterThan(at(16, decoded.height - 2, 2) + 20));
+    expect(at(16, 2, 3), 255, reason: 'an opaque photo stays opaque');
+  });
 
   test('a portrait photo reads as a portrait', () {
     final hash = ThumbHash.encode(30, 60, _image(30, 60, (x, y) => 0xFFE0B080));
@@ -58,11 +51,7 @@ void main() {
   test('the base64 of the API reads back, and a malformed one is refused', () {
     final hash = ThumbHash.encode(8, 8, _image(8, 8, (x, y) => 0xFF808080));
     const text = 'AAAAAA==';
-    expect(
-      ThumbHash.fromBase64(text),
-      isNull,
-      reason: 'too short to be a hash',
-    );
+    expect(ThumbHash.fromBase64(text), isNull, reason: 'too short to be a hash');
     expect(ThumbHash.fromBase64('not base64!'), isNull);
     expect(ThumbHash.fromBase64(null), isNull);
     expect(ThumbHash.fromBase64(_b64(hash)), hash);

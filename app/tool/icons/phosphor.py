@@ -31,25 +31,29 @@ FILES = {
 ICONS = {
     "regular": """
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowSquareOut arrowsVertical
-        baby bank barricade bicycle binoculars bookmarkSimple bookmarksSimple bread buildings
-        calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
+        baby bank barricade basket bicycle binoculars bookmarkSimple bookmarksSimple bread
+        buildings calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
         chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
-        cloudArrowDown cloudArrowUp cloudSlash code compass copy crosshair deviceMobile
-        dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage
-        fileText fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
-        gpsSlash handHeart heart hourglass image imageBroken images info key leaf listBullets
-        listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold megaphone
-        minus moon moonStars motorcycle mountains navigationArrow notePencil path pawPrint
-        pencilSimple personSimpleHike personSimpleSwim phone plug plus printer prohibit qrCode
-        ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck shieldStar shower
-        signOut signpost slidersHorizontal smileyAngry snowflake squaresFour stack star sun
+        cloudArrowDown cloudArrowUp cloudCheck cloudSlash code compass copy crosshair deviceMobile
+        dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText
+        firstAid fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
+        gpsSlash handHeart hardDrives heart hourglass image imageBroken images info key leaf
+        listBullets listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold
+        megaphone minus moon moonStars motorcycle mountains navigationArrow notePencil path pause
+        pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
+        prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
+        shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake speakerHigh
+        speakerSlash squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
         truckTrailer user userCircle van warning warningCircle washingMachine waves wifiHigh
         wind wrench x
     """,
     "fill": """
-        barn checkCircle coffee crosshair drop heart houseLine jeep letterCircleP mapPin
-        mapTrifold navigationArrow picnicTable star tent treeEvergreen user van wrench
+        barn basket bread carProfile carrot chargingStation checkCircle cheese coffee crosshair
+        cylinder drop dropHalfBottom egg envelopeSimple firstAid gasPump heart hospital
+        houseLine info jeep knife letterCircleP mapPin mapTrifold money navigationArrow package
+        pawPrint picnicTable pizza recycle shoppingCart shower snowflake star stethoscope
+        storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench
     """,
 }
 

@@ -16,16 +16,13 @@ final class DriftPendingFiles implements PendingFiles {
   @override
   Future<String> put(Uint8List bytes) async {
     final id = newFileId();
-    await _db
-        .into(_db.outboxFiles)
-        .insert(OutboxFilesCompanion.insert(id: id, bytes: bytes));
+    await _db.into(_db.outboxFiles).insert(OutboxFilesCompanion.insert(id: id, bytes: bytes));
     return id;
   }
 
   @override
-  Future<Uint8List?> read(String id) async => (await (_db.select(
-    _db.outboxFiles,
-  )..where((f) => f.id.equals(id))).getSingleOrNull())?.bytes;
+  Future<Uint8List?> read(String id) async =>
+      (await (_db.select(_db.outboxFiles)..where((f) => f.id.equals(id))).getSingleOrNull())?.bytes;
 
   @override
   Future<void> delete(String id) =>

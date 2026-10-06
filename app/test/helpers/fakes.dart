@@ -52,8 +52,7 @@ final class FakePlacesRepository implements PlacesRepository {
     yield* _changes.stream.map((_) => read());
   }
 
-  bool _keeps(Place p, PlaceFilter f) =>
-      f.matches(p.summary, maxHeightM: p.maxHeightM);
+  bool _keeps(Place p, PlaceFilter f) => f.matches(p.summary, maxHeightM: p.maxHeightM);
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) => _watch(
@@ -70,15 +69,10 @@ final class FakePlacesRepository implements PlacesRepository {
     required LatLng center,
     int limit = 200,
   }) => _watch(() {
-    final inside =
-        [
-          for (final p in _places.values)
-            if (bounds.contains(p.position) && _keeps(p, filter)) p.summary,
-        ]..sort(
-          (a, b) => a.position
-              .distanceTo(center)
-              .compareTo(b.position.distanceTo(center)),
-        );
+    final inside = [
+      for (final p in _places.values)
+        if (bounds.contains(p.position) && _keeps(p, filter)) p.summary,
+    ]..sort((a, b) => a.position.distanceTo(center).compareTo(b.position.distanceTo(center)));
     return inside.take(limit).toList();
   });
 
@@ -86,11 +80,7 @@ final class FakePlacesRepository implements PlacesRepository {
   Stream<Place?> watchPlace(String id) => _watch(() => _places[id]);
 
   @override
-  Future<SearchResults> search(
-    String text, {
-    LatLng? near,
-    int limit = 20,
-  }) async {
+  Future<SearchResults> search(String text, {LatLng? near, int limit = 20}) async {
     final q = text.toLowerCase().trim();
     if (q.isEmpty) return SearchResults.empty;
     final places = [
@@ -108,11 +98,7 @@ final class FakePlacesRepository implements PlacesRepository {
       places: places.take(limit).toList(),
       municipalities: [
         for (final e in towns.entries)
-          Municipality(
-            name: e.key,
-            center: e.value.first.position,
-            placeCount: e.value.length,
-          ),
+          Municipality(name: e.key, center: e.value.first.position, placeCount: e.value.length),
       ],
     );
   }
@@ -167,9 +153,8 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   );
 
   @override
-  Stream<List<FavoriteEntry>> watchEntries(int listId) => _watch(
-    () => _entries.where((e) => e.listId == listId).toList().reversed.toList(),
-  );
+  Stream<List<FavoriteEntry>> watchEntries(int listId) =>
+      _watch(() => _entries.where((e) => e.listId == listId).toList().reversed.toList());
 
   @override
   Stream<Set<int>> watchListsOf(String placeId) => _watch(
@@ -211,9 +196,7 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   @override
   Future<FavoriteEntry?> remove(int listId, String placeId) async {
     if (failWrites) throw StateError('disk full');
-    final removed = _entries
-        .where((e) => e.listId == listId && e.placeId == placeId)
-        .firstOrNull;
+    final removed = _entries.where((e) => e.listId == listId && e.placeId == placeId).firstOrNull;
     _entries.removeWhere((e) => e.listId == listId && e.placeId == placeId);
     _changed();
     return removed;
@@ -274,23 +257,16 @@ final class FakeExternalActions implements ExternalActions {
   }
 
   @override
-  Future<bool> navigate(
-    NavigationApp app,
-    LatLng to, {
-    LatLng? from,
-    String? label,
-  }) async {
+  Future<bool> navigate(NavigationApp app, LatLng to, {LatLng? from, String? label}) async {
     routes.add((app: app, to: to));
     return openSucceeds;
   }
 
   @override
-  Future<bool> canNavigateWith(NavigationApp app) async =>
-      installed.contains(app);
+  Future<bool> canNavigateWith(NavigationApp app) async => installed.contains(app);
 
   @override
-  Future<void> share(String text, {String? subject, Rect? origin}) async =>
-      shared.add(text);
+  Future<void> share(String text, {String? subject, Rect? origin}) async => shared.add(text);
 }
 
 /// The location permission, answered from fields the test sets.
@@ -321,12 +297,7 @@ final class FakeLocationPermissions implements LocationPermissions {
 /// Photos and reviews served from memory; [online] false makes the network
 /// fail.
 final class FakeExtrasSource implements PlaceExtrasSource {
-  new({
-    this.photos = const [],
-    this.reviews = const [],
-    this.pageSize = 2,
-    this.myReview,
-  });
+  new({this.photos = const [], this.reviews = const [], this.pageSize = 2, this.myReview});
 
   final List<Photo> photos;
   final List<Review> reviews;

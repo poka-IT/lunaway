@@ -85,7 +85,7 @@ class PlacePhotos extends ConsumerWidget {
         _Thumb(
           photo: photo,
           fetcher: ref.watch(imageFetcherProvider),
-          source: sourceName(t, photo.sourceId, sources: place.sources),
+          source: itemSourceLabel(t, photo.sourceId, sources: place.sources),
           label: t.place.photoPosition(index: i + 1, count: photos.length),
           onTap: () => showPhotoViewer(
             context,
@@ -121,9 +121,7 @@ class PlacePhotos extends ConsumerWidget {
             ),
           if (extras is AsyncError && photos.isEmpty) ...[
             const SizedBox(height: Space.s),
-            _OfflineNote(
-              onRetry: () => ref.invalidate(placeExtrasProvider(place.id)),
-            ),
+            _OfflineNote(onRetry: () => ref.invalidate(placeExtrasProvider(place.id))),
           ],
         ],
       ),
@@ -221,11 +219,7 @@ class _PendingThumb extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               if (bytes != null)
-                Image.memory(
-                  bytes,
-                  fit: BoxFit.cover,
-                  excludeFromSemantics: true,
-                )
+                Image.memory(bytes, fit: BoxFit.cover, excludeFromSemantics: true)
               else
                 ColoredBox(color: scheme.surfaceContainerHigh),
               ColoredBox(color: scheme.scrim.withValues(alpha: 0.35)),
@@ -279,11 +273,7 @@ class _Thumb extends StatelessWidget {
     // the strip never shows an empty box.
     final placeholder = hash == null
         ? const Skeleton(width: width, height: PlacePhotos.height, radius: 0)
-        : Image(
-            image: ThumbHashImage(hash),
-            fit: BoxFit.cover,
-            excludeFromSemantics: true,
-          );
+        : Image(image: ThumbHashImage(hash), fit: BoxFit.cover, excludeFromSemantics: true);
     return Semantics(
       button: true,
       label: '$label, $source',
@@ -296,10 +286,7 @@ class _Thumb extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image(
-                image: ResizeImage(
-                  CachedImage(photo.thumbUrl, fetcher: fetcher),
-                  width: 480,
-                ),
+                image: ResizeImage(CachedImage(photo.thumbUrl, fetcher: fetcher), width: 480),
                 fit: BoxFit.cover,
                 excludeFromSemantics: true,
                 frameBuilder: (context, child, frame, _) => AnimatedSwitcher(
@@ -309,9 +296,7 @@ class _Thumb extends StatelessWidget {
                 errorBuilder: (context, _, _) => hash != null
                     ? placeholder
                     : ColoredBox(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHigh,
+                        color: Theme.of(context).colorScheme.surfaceContainerHigh,
                         child: const Icon(AppIcons.noImage),
                       ),
               ),
@@ -321,9 +306,7 @@ class _Thumb extends StatelessWidget {
                 right: Space.s,
                 child: Align(
                   alignment: Alignment.bottomLeft,
-                  child: ExcludeSemantics(
-                    child: SourceBadge(label: source, onPhoto: true),
-                  ),
+                  child: ExcludeSemantics(child: SourceBadge(label: source, onPhoto: true)),
                 ),
               ),
               Material(
@@ -349,10 +332,7 @@ class _OfflineNote extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       child: ListTile(
-        leading: Icon(
-          AppIcons.offline,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+        leading: Icon(AppIcons.offline, color: theme.colorScheme.onSurfaceVariant),
         title: Text(t.place.extrasOffline, style: theme.textTheme.bodyMedium),
         trailing: TextButton(onPressed: onRetry, child: Text(t.common.retry)),
       ),
@@ -405,9 +385,7 @@ class PhotoViewer extends ConsumerStatefulWidget {
 }
 
 class _PhotoViewerState extends ConsumerState<PhotoViewer> {
-  late final PageController _pages = PageController(
-    initialPage: widget.initial,
-  );
+  late final PageController _pages = PageController(initialPage: widget.initial);
   late int _index = widget.initial;
 
   @override
@@ -467,7 +445,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
     final photo = widget.photos[_index];
     final account = ref.watch(accountControllerProvider);
     final mine = account is SignedIn && photo.authorId == account.account.id;
-    final community = photo.sourceId == communitySourceId;
+    final community = isLunawayCommunity(photo.sourceId);
     final onBackdrop = LunaTokens.of(context).onPhotoBackdrop;
     return Scaffold(
       backgroundColor: LunaTokens.of(context).photoBackdrop,
@@ -498,20 +476,14 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                       policy: ResizeImagePolicy.fit,
                     ),
                     fit: BoxFit.contain,
-                    semanticLabel: t.place.photoPosition(
-                      index: i + 1,
-                      count: widget.photos.length,
-                    ),
+                    semanticLabel: t.place.photoPosition(index: i + 1, count: widget.photos.length),
                     // The ThumbHash in the photo's own frame while it loads.
                     frameBuilder: (context, child, frame, _) => frame != null
                         ? child
                         : hash != null && ratio != null
                         ? AspectRatio(
                             aspectRatio: ratio,
-                            child: Image(
-                              image: ThumbHashImage(hash),
-                              fit: BoxFit.fill,
-                            ),
+                            child: Image(image: ThumbHashImage(hash), fit: BoxFit.fill),
                           )
                         : const Center(child: CircularProgressIndicator()),
                     errorBuilder: (context, _, _) => Icon(
@@ -536,18 +508,13 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                   ),
                   const Spacer(),
                   SourceBadge(
-                    label: sourceName(
-                      t,
-                      photo.sourceId,
-                      sources: widget.sources,
-                    ),
+                    label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
                     onPhoto: true,
                   ),
                   const SizedBox(width: Space.m),
                   Text(
                     '${_index + 1} / ${widget.photos.length}',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(color: onBackdrop),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: onBackdrop),
                   ),
                   if (community)
                     PopupMenuButton<String>(
@@ -571,15 +538,12 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                               title: Text(t.reportSheet.photo),
                             ),
                           ),
-                          if (photo.authorId != null &&
-                              photo.authorName != null)
+                          if (photo.authorId != null && photo.authorName != null)
                             PopupMenuItem(
                               value: 'mute',
                               child: ListTile(
                                 leading: const Icon(AppIcons.muted),
-                                title: Text(
-                                  t.reportSheet.mute(name: photo.authorName!),
-                                ),
+                                title: Text(t.reportSheet.mute(name: photo.authorName!)),
                               ),
                             ),
                         ],
@@ -600,8 +564,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                 top: false,
                 child: Text(
                   photo.authorName!,
-                  style: Theme.of(context).textTheme.bodyMedium
-                      ?.copyWith(color: onBackdrop),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: onBackdrop),
                 ),
               ),
             ),
@@ -629,8 +592,7 @@ class PlaceReviewsSection extends ConsumerWidget {
     // The account's own review shows in its own card above; a muted
     // author's never.
     bool shown(Review r) =>
-        (r.authorId == null || !muted.contains(r.authorId)) &&
-        (me == null || r.authorId != me);
+        (r.authorId == null || !muted.contains(r.authorId)) && (me == null || r.authorId != me);
     final ownText =
         OwnReview.of(
           ref.watch(placeExtrasProvider(place.id)).value?.myReview,
@@ -644,10 +606,7 @@ class PlaceReviewsSection extends ConsumerWidget {
         children: [
           Semantics(
             header: true,
-            child: Text(
-              t.place.reviewsTitle,
-              style: theme.textTheme.titleLarge,
-            ),
+            child: Text(t.place.reviewsTitle, style: theme.textTheme.titleLarge),
           ),
           const SizedBox(height: Space.sm),
           Wrap(
@@ -660,9 +619,7 @@ class PlaceReviewsSection extends ConsumerWidget {
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    SourceBadge(
-                      label: sourceName(t, r.sourceId, sources: place.sources),
-                    ),
+                    SourceBadge(label: itemSourceLabel(t, r.sourceId, sources: place.sources)),
                     RatingText(average: r.average, count: r.count),
                   ],
                 ),
@@ -672,27 +629,21 @@ class PlaceReviewsSection extends ConsumerWidget {
           YourReview(place: place),
           const SizedBox(height: Space.l),
           switch (reviews) {
-            AsyncData(:final value)
-                when value.page.nodes.where(shown).isEmpty =>
-              Text(
-                // With the account's own review just above, "none" would read
-                // as if it had not been kept.
-                ownText ? t.place.noOtherReviews : t.place.noReviews,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+            AsyncData(:final value) when value.page.nodes.where(shown).isEmpty => Text(
+              // With the account's own review just above, "none" would read
+              // as if it had not been kept.
+              ownText ? t.place.noOtherReviews : t.place.noReviews,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
             AsyncData(:final value) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final r in value.page.nodes.where(shown))
                   Padding(
                     padding: const EdgeInsets.only(bottom: Space.sm),
-                    child: ReviewCard(
-                      review: r,
-                      sources: place.sources,
-                      placeId: place.id,
-                    ),
+                    child: ReviewCard(review: r, sources: place.sources, placeId: place.id),
                   ),
                 if (value.page.hasNextPage)
                   Align(
@@ -702,24 +653,15 @@ class PlaceReviewsSection extends ConsumerWidget {
                             padding: EdgeInsets.all(Space.m),
                             child: SizedBox.square(
                               dimension: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
                             ),
                           )
                         : TextButton.icon(
-                            onPressed: () => ref
-                                .read(placeReviewsProvider(place.id).notifier)
-                                .loadMore(),
-                            icon: Icon(
-                              value.moreFailed
-                                  ? AppIcons.retry
-                                  : AppIcons.expand,
-                            ),
+                            onPressed: () =>
+                                ref.read(placeReviewsProvider(place.id).notifier).loadMore(),
+                            icon: Icon(value.moreFailed ? AppIcons.retry : AppIcons.expand),
                             label: Text(
-                              value.moreFailed
-                                  ? t.place.moreReviewsFailed
-                                  : t.place.moreReviews,
+                              value.moreFailed ? t.place.moreReviewsFailed : t.place.moreReviews,
                             ),
                           ),
                   ),
@@ -744,12 +686,7 @@ class PlaceReviewsSection extends ConsumerWidget {
 }
 
 class ReviewCard extends StatelessWidget {
-  const new({
-    required this.review,
-    this.sources = const [],
-    this.placeId,
-    super.key,
-  });
+  const new({required this.review, this.sources = const [], this.placeId, super.key});
 
   final Review review;
   final List<PlaceSource> sources;
@@ -768,8 +705,7 @@ class ReviewCard extends StatelessWidget {
         .format(review.visitedAt ?? review.createdAt.toLocal());
     // A deleted account leaves its community reviews without a name.
     final author =
-        review.authorName ??
-        (review.sourceId == communitySourceId ? t.place.deletedAccount : null);
+        review.authorName ?? (isLunawayCommunity(review.sourceId) ? t.place.deletedAccount : null);
     final vehicle = review.authorVehicle;
     return Card(
       child: Padding(
@@ -804,9 +740,7 @@ class ReviewCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SourceBadge(
-                      label: sourceName(t, review.sourceId, sources: sources),
-                    ),
+                    SourceBadge(label: itemSourceLabel(t, review.sourceId, sources: sources)),
                     ReviewMenu(review: review, placeId: placeId),
                   ],
                 ),
@@ -818,14 +752,8 @@ class ReviewCard extends StatelessWidget {
             ],
             const SizedBox(height: Space.s),
             Text(
-              [
-                ?author,
-                if (vehicle != null) t.reviewVehicle(vehicle),
-                date,
-              ].join(' · '),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              [?author, if (vehicle != null) t.reviewVehicle(vehicle), date].join(' · '),
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],
         ),

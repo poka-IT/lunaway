@@ -1,0 +1,3 @@
+.dart_tool/
+# The app's pubspec.lock pins this package's dependencies.
+pubspec.lock

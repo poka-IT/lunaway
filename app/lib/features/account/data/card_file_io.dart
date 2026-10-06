@@ -12,9 +12,7 @@ final _log = Logger('account');
 /// file holds the recovery code; left behind, it would sit outside the
 /// protected storage (share_plus never removes the copies it makes).
 Future<XFile> cardFile(Uint8List png, String name) async {
-  final dir = Directory(
-    '${(await getTemporaryDirectory()).path}/recovery-card',
-  );
+  final dir = Directory('${(await getTemporaryDirectory()).path}/recovery-card');
   await forgetCardFiles();
   await dir.create(recursive: true);
   final file = File('${dir.path}/$name.png');

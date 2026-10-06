@@ -9,12 +9,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// for the dock and the system's gesture area, so the last line is never
 /// under them.
 class SubPage extends StatelessWidget {
-  const new({
-    required this.title,
-    required this.children,
-    this.subtitle,
-    super.key,
-  });
+  const new({required this.title, required this.children, this.subtitle, super.key});
 
   final String title;
   final String? subtitle;
@@ -42,21 +37,16 @@ class SubPage extends StatelessWidget {
                 Row(
                   children: [
                     IconButton(
-                      tooltip: MaterialLocalizations.of(context)
-                          .backButtonTooltip,
+                      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                       icon: const Icon(AppIcons.back),
-                      onPressed: () => context.canPop()
-                          ? context.pop()
-                          : Navigator.of(context).maybePop(),
+                      onPressed: () =>
+                          context.canPop() ? context.pop() : Navigator.of(context).maybePop(),
                     ),
                     const SizedBox(width: Space.xs),
                     Expanded(
                       child: Semantics(
                         header: true,
-                        child: Text(
-                          title,
-                          style: theme.textTheme.headlineSmall,
-                        ),
+                        child: Text(title, style: theme.textTheme.headlineSmall),
                       ),
                     ),
                   ],

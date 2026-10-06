@@ -11,12 +11,8 @@ import 'package:lunaway/features/community/domain/contribution.dart';
 /// days. Every change goes through here: the screens watch it, the sender
 /// works it.
 final class OutboxStore {
-  new(
-    this._db, {
-    required this.files,
-    this.clock = DateTime.now,
-    Random? random,
-  }) : _random = random ?? Random.secure();
+  new(this._db, {required this.files, this.clock = DateTime.now, Random? random})
+    : _random = random ?? Random.secure();
 
   final UserDatabase _db;
   final PendingFiles files;
@@ -25,23 +21,18 @@ final class OutboxStore {
 
   /// Every entry, oldest first.
   Stream<List<PendingContribution>> watch() =>
-      (_db.select(_db.outbox)..orderBy([(o) => OrderingTerm.asc(o.createdAt)]))
-          .watch()
-          .map((rows) => [...rows.map(_entry).nonNulls]);
+      (_db.select(_db.outbox)..orderBy([(o) => OrderingTerm.asc(o.createdAt)])).watch().map(
+        (rows) => [...rows.map(_entry).nonNulls],
+      );
 
   Future<List<PendingContribution>> all() async => [
     ...(await (_db.select(
-          _db.outbox,
-        )..orderBy([(o) => OrderingTerm.asc(o.createdAt)])).get())
-        .map(_entry)
-        .nonNulls,
+      _db.outbox,
+    )..orderBy([(o) => OrderingTerm.asc(o.createdAt)])).get()).map(_entry).nonNulls,
   ];
 
-  Future<PendingContribution?> byId(String id) async => _entryOrNull(
-    await (_db.select(
-      _db.outbox,
-    )..where((o) => o.id.equals(id))).getSingleOrNull(),
-  );
+  Future<PendingContribution?> byId(String id) async =>
+      _entryOrNull(await (_db.select(_db.outbox)..where((o) => o.id.equals(id))).getSingleOrNull());
 
   /// Queues a contribution. A newer one replaces what it supersedes: a
   /// second rating of a place replaces the first, an unmute cancels a mute
@@ -60,9 +51,7 @@ final class OutboxStore {
         .where(
           (e) =>
               e.state == OutboxState.pending &&
-              (e.accountId == null ||
-                  accountId == null ||
-                  e.accountId == accountId),
+              (e.accountId == null || accountId == null || e.accountId == accountId),
         )
         .toList();
     Iterable<PendingContribution> same(
@@ -73,19 +62,12 @@ final class OutboxStore {
       case ContributionKind.rate:
         // A rating changes the stars of a review still waiting, and keeps
         // its text, as the server does.
-        final review = same({
-          ContributionKind.review,
-        }, (e) => e.placeId == placeId).firstOrNull;
+        final review = same({ContributionKind.review}, (e) => e.placeId == placeId).firstOrNull;
         if (review != null) {
-          await updatePayload(review.id, {
-            ...review.payload,
-            'stars': payload['stars'],
-          });
+          await updatePayload(review.id, {...review.payload, 'stars': payload['stars']});
           return await byId(review.id);
         }
-        for (final e in same({
-          ContributionKind.rate,
-        }, (e) => e.placeId == placeId)) {
+        for (final e in same({ContributionKind.rate}, (e) => e.placeId == placeId)) {
           await _remove(e);
         }
       case ContributionKind.review:
@@ -98,33 +80,30 @@ final class OutboxStore {
         }
 
       case ContributionKind.confirm:
-        for (final e in same({
-          ContributionKind.confirm,
-        }, (e) => e.placeId == placeId)) {
+        for (final e in same({ContributionKind.confirm}, (e) => e.placeId == placeId)) {
+          await _remove(e);
+        }
+      case ContributionKind.confirmPoi:
+        // Only the latest answer of an account about a point counts.
+        for (final e in same({kind}, (e) => e.payload['poiId'] == payload['poiId'])) {
           await _remove(e);
         }
       case ContributionKind.mute || ContributionKind.unmute:
         final opposite = kind == ContributionKind.mute
             ? ContributionKind.unmute
             : ContributionKind.mute;
-        final cancelled = same({
-          opposite,
-        }, (e) => e.payload['id'] == payload['id']).toList();
+        final cancelled = same({opposite}, (e) => e.payload['id'] == payload['id']).toList();
         if (cancelled.isNotEmpty) {
           for (final e in cancelled) {
             await _remove(e);
           }
           return null;
         }
-        if (same({kind}, (e) => e.payload['id'] == payload['id']).isNotEmpty)
-          return null;
+        if (same({kind}, (e) => e.payload['id'] == payload['id']).isNotEmpty) return null;
       case ContributionKind.reportContent:
-        final duplicate = same(
-          {kind},
-          (e) =>
-              e.payload['id'] == payload['id'] &&
-              e.payload['target'] == payload['target'],
-        );
+        final duplicate = same({
+          kind,
+        }, (e) => e.payload['id'] == payload['id'] && e.payload['target'] == payload['target']);
         if (duplicate.isNotEmpty) return duplicate.first;
       case ContributionKind.deleteReview ||
           ContributionKind.deleteConfirmation ||
@@ -134,7 +113,8 @@ final class OutboxStore {
           ContributionKind.editPlace ||
           ContributionKind.deletePlaceSubmission ||
           ContributionKind.photo ||
-          ContributionKind.deletePhoto:
+          ContributionKind.deletePhoto ||
+          ContributionKind.addVendingMachine:
         break;
     }
     final now = clock().toUtc();
@@ -167,21 +147,15 @@ final class OutboxStore {
 
   /// The server accepted it: the entry and its file go, unless [keepFile]
   /// (another entry takes the file over).
-  Future<void> done(String id, {bool keepFile = false}) =>
-      _db.transaction(() async {
-        final entry = await byId(id);
-        if (entry == null) return;
-        await _remove(entry, keepFile: keepFile);
-      });
+  Future<void> done(String id, {bool keepFile = false}) => _db.transaction(() async {
+    final entry = await byId(id);
+    if (entry == null) return;
+    await _remove(entry, keepFile: keepFile);
+  });
 
   /// Not sent this time; tried again at [at]. [uncertain] when the request
   /// may have reached the server.
-  Future<void> retryAt(
-    String id,
-    DateTime at, {
-    required bool uncertain,
-    String? detail,
-  }) async {
+  Future<void> retryAt(String id, DateTime at, {required bool uncertain, String? detail}) async {
     final entry = await byId(id);
     if (entry == null) return;
     await _write(
@@ -229,17 +203,15 @@ final class OutboxStore {
       _write(id, OutboxCompanion(payload: Value(jsonEncode(payload))));
 
   /// The entry was found on the server: it is no longer uncertain.
-  Future<void> settle(String id) =>
-      _write(id, const OutboxCompanion(uncertain: Value(false)));
+  Future<void> settle(String id) => _write(id, const OutboxCompanion(uncertain: Value(false)));
 
   /// The user gives an entry up, with its file.
   Future<void> discard(String id) => done(id);
 
   /// Gives the entries made before the account existed to [accountId].
-  Future<void> claimFor(String accountId) =>
-      (_db.update(_db.outbox)..where((o) => o.accountId.isNull())).write(
-        OutboxCompanion(accountId: Value(accountId)),
-      );
+  Future<void> claimFor(String accountId) => (_db.update(
+    _db.outbox,
+  )..where((o) => o.accountId.isNull())).write(OutboxCompanion(accountId: Value(accountId)));
 
   /// The mark of a rating or review the user deleted while it was being
   /// sent: once the server has it, the sender deletes it there. Kept in the
@@ -263,10 +235,7 @@ final class OutboxStore {
     await _db
         .into(_db.settings)
         .insertOnConflictUpdate(
-          SettingsCompanion.insert(
-            id: _claimedSetting,
-            value: jsonEncode(times),
-          ),
+          SettingsCompanion.insert(id: _claimedSetting, value: jsonEncode(times)),
         );
   });
 
@@ -283,6 +252,23 @@ final class OutboxStore {
       return {};
     }
   }
+
+  /// Drops the oldest entry whose request may have reached the server
+  /// (being sent, or uncertain after a broken answer) and that [made] says
+  /// may have made what the user now deletes: the outbox sends oldest
+  /// first, so that is the one whose attempt landed. Another one that
+  /// matches (a second new place) stays. An entry that never reached the
+  /// server made nothing, and one refused for good waits for the user.
+  /// Whether one went.
+  Future<bool> forgetMakerOf(bool Function(PendingContribution) made) => _db.transaction(() async {
+    for (final e in await all()) {
+      final reached = e.uncertain || e.state == OutboxState.sending;
+      if (e.failed || !reached || !made(e)) continue;
+      await _remove(e);
+      return true;
+    }
+    return false;
+  });
 
   /// Forgets every entry and its files (signed out, account deleted).
   Future<void> clear() => _db.transaction(() async {
@@ -310,15 +296,12 @@ final class OutboxStore {
         '${h.substring(16, 20)}-${h.substring(20)}';
   }
 
-  static PendingContribution? _entryOrNull(OutboxRow? row) =>
-      row == null ? null : _entry(row);
+  static PendingContribution? _entryOrNull(OutboxRow? row) => row == null ? null : _entry(row);
 
   /// Null for a row this version cannot read (written by a newer one).
   static PendingContribution? _entry(OutboxRow r) {
     final kind = ContributionKind.fromName(r.kind);
-    final state = OutboxState.values
-        .where((s) => s.name == r.state)
-        .firstOrNull;
+    final state = OutboxState.values.where((s) => s.name == r.state).firstOrNull;
     if (kind == null || state == null) return null;
     DateTime? at(int? micros) => micros == null || micros == 0
         ? null
@@ -327,8 +310,7 @@ final class OutboxStore {
       id: r.id,
       kind: kind,
       placeId: r.placeId,
-      payload: (jsonDecode(r.payload) as Map<String, dynamic>)
-          .cast<String, Object?>(),
+      payload: (jsonDecode(r.payload) as Map<String, dynamic>).cast<String, Object?>(),
       fileId: r.fileId,
       accountId: r.accountId,
       createdAt: DateTime.fromMicrosecondsSinceEpoch(r.createdAt, isUtc: true),

@@ -1,0 +1,13 @@
+# The bridge under lib/src/rust/ is written by flutter_rust_bridge_codegen and
+# regenerated, never edited; the crate is Rust.
+analyzer:
+  exclude:
+    - lib/src/rust/**
+    - rust/**
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+formatter:
+  page_width: 100

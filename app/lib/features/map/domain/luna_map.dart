@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 
 /// What the map shows of the camera once it stops moving.
 @immutable
@@ -61,6 +63,9 @@ final class LunaMapProps {
     this.attributionInset = EdgeInsets.zero,
     this.language = 'en',
     this.fitInitial = false,
+    this.pois,
+    this.onPoiTap,
+    this.onPoisInView,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -99,9 +104,17 @@ final class LunaMapProps {
   /// rather than on [initialCenter] at [initialZoom], so no cluster starts
   /// under the search and the chips.
   final bool fitInitial;
+
+  /// The points of interest layer; null leaves it out.
+  final PoiLayerView? pois;
+
+  /// A tap on a point of interest.
+  final ValueChanged<PoiFeature>? onPoiTap;
+
+  /// The points of the tiles under the view, reported each time the map
+  /// settles after a move: their hours and their neighbours decide how
+  /// [pois] draws them.
+  final ValueChanged<List<PoiFeature>>? onPoisInView;
 }
 
-typedef LunaMapBuilder = Widget Function(
-  BuildContext context,
-  LunaMapProps props,
-);
+typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);

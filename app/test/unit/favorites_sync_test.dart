@@ -31,21 +31,14 @@ final class _Account implements FavoritesRemote {
   ];
 
   @override
-  Future<List<RemoteList>> import(
-    List<({String name, List<String> placeIds})> imported,
-  ) async {
+  Future<List<RemoteList>> import(List<({String name, List<String> placeIds})> imported) async {
     calls++;
     for (final l in imported) {
-      final existing = held.entries
-          .where((e) => e.value.name == l.name)
-          .firstOrNull;
+      final existing = held.entries.where((e) => e.value.name == l.name).firstOrNull;
       final id = existing?.key ?? 'L${_next++}';
       held[id] = (
         name: l.name,
-        places: {
-          ...?existing?.value.places,
-          ...l.placeIds.where(known.contains),
-        },
+        places: {...?existing?.value.places, ...l.placeIds.where(known.contains)},
       );
     }
     return await lists();
@@ -78,11 +71,9 @@ final class _Account implements FavoritesRemote {
   }
 
   @override
-  Future<PlaceSummary?> place(String id) async =>
-      known.contains(id) ? _place(id) : null;
+  Future<PlaceSummary?> place(String id) async => known.contains(id) ? _place(id) : null;
 
-  String idOf(String name) =>
-      held.entries.firstWhere((e) => e.value.name == name).key;
+  String idOf(String name) => held.entries.firstWhere((e) => e.value.name == name).key;
 }
 
 void main() {
@@ -154,62 +145,50 @@ void main() {
     expect((await localLists())['Mes favoris'], {'p3', 'p4'});
   });
 
-  test(
-    "a rename made here wins; otherwise the account's name comes down",
-    () async {
-      final listId = await repo.createList('Été');
-      await repo.add(listId, _place('p1'));
-      await sync.sync(accountId: 'acc-a');
-      await repo.renameList(listId, 'Été 2027');
-      await sync.sync(accountId: 'acc-a');
-      expect(accountLists().keys, contains('Été 2027'));
+  test("a rename made here wins; otherwise the account's name comes down", () async {
+    final listId = await repo.createList('Été');
+    await repo.add(listId, _place('p1'));
+    await sync.sync(accountId: 'acc-a');
+    await repo.renameList(listId, 'Été 2027');
+    await sync.sync(accountId: 'acc-a');
+    expect(accountLists().keys, contains('Été 2027'));
 
-      final id = account.idOf('Été 2027');
-      account.held[id] = (name: 'Vacances', places: account.held[id]!.places);
-      await sync.sync(accountId: 'acc-a');
-      expect((await localLists()).keys, contains('Vacances'));
-    },
-  );
+    final id = account.idOf('Été 2027');
+    account.held[id] = (name: 'Vacances', places: account.held[id]!.places);
+    await sync.sync(accountId: 'acc-a');
+    expect((await localLists()).keys, contains('Vacances'));
+  });
 
-  test(
-    'a list deleted elsewhere goes here, unless it changed here since',
-    () async {
-      final a = await repo.createList('A');
-      await repo.add(a, _place('p1'));
-      final b = await repo.createList('B');
-      await repo.add(b, _place('p2'));
-      await sync.sync(accountId: 'acc-a');
-      account.held.remove(account.idOf('A'));
-      account.held.remove(account.idOf('B'));
-      await repo.add(b, _place('p3'));
-      await sync.sync(accountId: 'acc-a');
-      final local = await localLists();
-      expect(local.containsKey('A'), isFalse);
-      expect(local['B'], {'p2', 'p3'});
-      expect(accountLists()['B'], {
-        'p2',
-        'p3',
-      }, reason: 'it comes back with the change');
-    },
-  );
+  test('a list deleted elsewhere goes here, unless it changed here since', () async {
+    final a = await repo.createList('A');
+    await repo.add(a, _place('p1'));
+    final b = await repo.createList('B');
+    await repo.add(b, _place('p2'));
+    await sync.sync(accountId: 'acc-a');
+    account.held.remove(account.idOf('A'));
+    account.held.remove(account.idOf('B'));
+    await repo.add(b, _place('p3'));
+    await sync.sync(accountId: 'acc-a');
+    final local = await localLists();
+    expect(local.containsKey('A'), isFalse);
+    expect(local['B'], {'p2', 'p3'});
+    expect(accountLists()['B'], {'p2', 'p3'}, reason: 'it comes back with the change');
+  });
 
-  test(
-    'a list deleted here goes from the account, unless it changed there since',
-    () async {
-      final a = await repo.createList('A');
-      await repo.add(a, _place('p1'));
-      final b = await repo.createList('B');
-      await repo.add(b, _place('p2'));
-      await sync.sync(accountId: 'acc-a');
-      await repo.deleteList(a);
-      await repo.deleteList(b);
-      account.held[account.idOf('B')]!.places.add('p5');
-      await sync.sync(accountId: 'acc-a');
-      expect(accountLists().containsKey('A'), isFalse);
-      expect(accountLists()['B'], {'p2', 'p5'});
-      expect((await localLists())['B'], {'p2', 'p5'});
-    },
-  );
+  test('a list deleted here goes from the account, unless it changed there since', () async {
+    final a = await repo.createList('A');
+    await repo.add(a, _place('p1'));
+    final b = await repo.createList('B');
+    await repo.add(b, _place('p2'));
+    await sync.sync(accountId: 'acc-a');
+    await repo.deleteList(a);
+    await repo.deleteList(b);
+    account.held[account.idOf('B')]!.places.add('p5');
+    await sync.sync(accountId: 'acc-a');
+    expect(accountLists().containsKey('A'), isFalse);
+    expect(accountLists()['B'], {'p2', 'p5'});
+    expect((await localLists())['B'], {'p2', 'p5'});
+  });
 
   test('a list made on another device arrives with its places', () async {
     await sync.sync(accountId: 'acc-a');
@@ -218,18 +197,15 @@ void main() {
     expect((await localLists())['Alpes'], {'p7', 'p8'});
   });
 
-  test(
-    "the device's default list merges into the account's, in either language",
-    () async {
-      account.held['other'] = (name: 'My favourites', places: {'p9'});
-      await repo.addToDefault(_place('p1'));
-      await sync.sync(accountId: 'acc-a');
-      expect(accountLists(), {
-        'My favourites': {'p1', 'p9'},
-      });
-      expect((await localLists())['Mes favoris'], {'p1', 'p9'});
-    },
-  );
+  test("the device's default list merges into the account's, in either language", () async {
+    account.held['other'] = (name: 'My favourites', places: {'p9'});
+    await repo.addToDefault(_place('p1'));
+    await sync.sync(accountId: 'acc-a');
+    expect(accountLists(), {
+      'My favourites': {'p1', 'p9'},
+    });
+    expect((await localLists())['Mes favoris'], {'p1', 'p9'});
+  });
 
   test('a place the server no longer knows stays on the device and is not sent again', () async {
     await repo.addToDefault(_place('gone-1'));
@@ -242,55 +218,49 @@ void main() {
     expect((await localLists())['Mes favoris'], {'gone-1', 'p1'});
   });
 
-  test(
-    'unlinking keeps the lists on the device, ready for another account',
-    () async {
-      await repo.addToDefault(_place('p1'));
-      await sync.sync(accountId: 'acc-a');
-      await sync.unlink();
-      expect((await localLists())['Mes favoris'], {'p1'});
-      final other = _Account();
-      await FavoritesSync(
-        db: db,
-        remote: other,
-        lookup: (id) async => _place(id),
-        defaultName: () => 'Mes favoris',
-      ).sync(accountId: 'acc-b');
-      expect(other.held.values.single.places, {'p1'});
-    },
-  );
+  test('unlinking keeps the lists on the device, ready for another account', () async {
+    await repo.addToDefault(_place('p1'));
+    await sync.sync(accountId: 'acc-a');
+    await sync.unlink();
+    expect((await localLists())['Mes favoris'], {'p1'});
+    final other = _Account();
+    await FavoritesSync(
+      db: db,
+      remote: other,
+      lookup: (id) async => _place(id),
+      defaultName: () => 'Mes favoris',
+    ).sync(accountId: 'acc-b');
+    expect(other.held.values.single.places, {'p1'});
+  });
 
-  test(
-    "lists linked to one account are never read as another account's",
-    () async {
-      // A database restored from a backup, or a device that changed account
-      // without signing out here: the lists keep links to account A.
-      await repo.addToDefault(_place('p1'));
-      final summer = await repo.createList('Été');
-      await repo.add(summer, _place('p2'));
-      await sync.sync(accountId: 'acc-a');
-      expect(account.held, hasLength(2));
+  test("lists linked to one account are never read as another account's", () async {
+    // A database restored from a backup, or a device that changed account
+    // without signing out here: the lists keep links to account A.
+    await repo.addToDefault(_place('p1'));
+    final summer = await repo.createList('Été');
+    await repo.add(summer, _place('p2'));
+    await sync.sync(accountId: 'acc-a');
+    expect(account.held, hasLength(2));
 
-      final other = _Account();
-      await FavoritesSync(
-        db: db,
-        remote: other,
-        lookup: (id) async => _place(id),
-        defaultName: () => 'Mes favoris',
-      ).sync(accountId: 'acc-b');
-      // Without the binding, B's empty account would read as both lists
-      // deleted elsewhere, and "Été" would go from the device.
-      expect(await localLists(), {
+    final other = _Account();
+    await FavoritesSync(
+      db: db,
+      remote: other,
+      lookup: (id) async => _place(id),
+      defaultName: () => 'Mes favoris',
+    ).sync(accountId: 'acc-b');
+    // Without the binding, B's empty account would read as both lists
+    // deleted elsewhere, and "Été" would go from the device.
+    expect(await localLists(), {
+      'Mes favoris': {'p1'},
+      'Été': {'p2'},
+    });
+    expect(
+      {for (final l in other.held.values) l.name: l.places},
+      {
         'Mes favoris': {'p1'},
         'Été': {'p2'},
-      });
-      expect(
-        {for (final l in other.held.values) l.name: l.places},
-        {
-          'Mes favoris': {'p1'},
-          'Été': {'p2'},
-        },
-      );
-    },
-  );
+      },
+    );
+  });
 }

@@ -34,11 +34,7 @@ void main() {
       );
       var aborted = false;
       async.flushMicrotasks();
-      unawaited(
-        (client.request! as http.Abortable).abortTrigger!.then(
-          (_) => aborted = true,
-        ),
-      );
+      unawaited((client.request! as http.Abortable).abortTrigger!.then((_) => aborted = true));
 
       async.elapse(const Duration(seconds: 119));
       expect(aborted, isFalse);
@@ -49,10 +45,7 @@ void main() {
 
       // A client that cannot abort is still bounded, a little later.
       async.elapse(const Duration(seconds: 5));
-      expect(
-        failure,
-        isA<UploadException>().having((e) => e.status, 'status', 0),
-      );
+      expect(failure, isA<UploadException>().having((e) => e.status, 'status', 0));
     });
   });
 }

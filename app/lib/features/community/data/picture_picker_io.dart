@@ -22,8 +22,7 @@ final class SystemPicturePicker implements PicturePicker {
       defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
-  bool offers(PictureSource source) =>
-      source == PictureSource.gallery || _phone;
+  bool offers(PictureSource source) => source == PictureSource.gallery || _phone;
 
   @override
   Future<Uint8List?> pick(PictureSource source) async {
@@ -33,9 +32,7 @@ final class SystemPicturePicker implements PicturePicker {
     // preparer shrinks it. iOS keeps them, which also turn HEIC into JPEG.
     final scaled = defaultTargetPlatform == TargetPlatform.iOS;
     final file = await ImagePicker().pickImage(
-      source: source == PictureSource.camera
-          ? ImageSource.camera
-          : ImageSource.gallery,
+      source: source == PictureSource.camera ? ImageSource.camera : ImageSource.gallery,
       maxWidth: scaled ? PhotoPreparer.maxSide.toDouble() : null,
       maxHeight: scaled ? PhotoPreparer.maxSide.toDouble() : null,
       imageQuality: scaled ? 92 : null,

@@ -12,4 +12,7 @@ abstract final class AppRoutes {
   static const muted = '/profile/muted';
   static const devices = '/profile/devices';
   static const deleteAccount = '/profile/delete-account';
+
+  /// The offline maps, under the profile.
+  static const offlineMaps = '/profile/offline-maps';
 }

@@ -5,16 +5,11 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:meta/meta.dart';
 import 'package:pointycastle/api.dart'
-    show
-        KeyParameter,
-        ParametersWithRandom,
-        PrivateKeyParameter,
-        PublicKeyParameter;
+    show KeyParameter, ParametersWithRandom, PrivateKeyParameter, PublicKeyParameter;
 import 'package:pointycastle/digests/sha256.dart';
 import 'package:pointycastle/ecc/api.dart';
 import 'package:pointycastle/ecc/curves/secp256r1.dart';
-import 'package:pointycastle/key_generators/api.dart'
-    show ECKeyGeneratorParameters;
+import 'package:pointycastle/key_generators/api.dart' show ECKeyGeneratorParameters;
 import 'package:pointycastle/key_generators/ec_key_generator.dart';
 import 'package:pointycastle/macs/hmac.dart';
 import 'package:pointycastle/random/fortuna_random.dart';
@@ -35,9 +30,7 @@ abstract final class P256 {
   /// A new private scalar, from the platform's secure random source.
   static BigInt generatePrivate([Random? random]) {
     final source = random ?? Random.secure();
-    final seed = Uint8List.fromList([
-      for (var i = 0; i < 32; i++) source.nextInt(256),
-    ]);
+    final seed = Uint8List.fromList([for (var i = 0; i < 32; i++) source.nextInt(256)]);
     final fortuna = FortunaRandom()..seed(KeyParameter(seed));
     final generator = ECKeyGenerator()
       ..init(ParametersWithRandom(ECKeyGeneratorParameters(domain), fortuna));
@@ -97,8 +90,7 @@ abstract final class P256 {
   /// Strict DER: a SEQUENCE of two minimal positive INTEGERs, short
   /// lengths, nothing after it.
   static ECSignature? _parseDer(Uint8List b) {
-    if (b.length < 8 || b[0] != 0x30 || b[1] != b.length - 2 || b[1] >= 0x80)
-      return null;
+    if (b.length < 8 || b[0] != 0x30 || b[1] != b.length - 2 || b[1] >= 0x80) return null;
     var i = 2;
     BigInt? integer() {
       if (i + 2 > b.length || b[i] != 0x02) return null;
@@ -141,8 +133,7 @@ abstract final class P256 {
   static BigInt scalar(List<int> bytes) => _int(bytes);
 
   /// base64url without padding (RFC 7515).
-  static String b64url(List<int> bytes) =>
-      base64Url.encode(bytes).replaceAll('=', '');
+  static String b64url(List<int> bytes) => base64Url.encode(bytes).replaceAll('=', '');
 
   /// Decodes base64url, with or without padding; null for another alphabet
   /// or a malformed value.
@@ -176,14 +167,11 @@ final class PublicJwk {
 
   /// The RFC 7638 thumbprint: the server's name for the key.
   String get thumbprint => P256.b64url(
-    crypto.sha256
-        .convert(utf8.encode('{"crv":"P-256","kty":"EC","x":"$x","y":"$y"}'))
-        .bytes,
+    crypto.sha256.convert(utf8.encode('{"crv":"P-256","kty":"EC","x":"$x","y":"$y"}')).bytes,
   );
 
   @override
-  bool operator ==(Object other) =>
-      other is PublicJwk && other.x == x && other.y == y;
+  bool operator ==(Object other) => other is PublicJwk && other.x == x && other.y == y;
 
   @override
   int get hashCode => Object.hash(x, y);

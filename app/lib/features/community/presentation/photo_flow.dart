@@ -83,10 +83,7 @@ Future<T> showBusy<T>(BuildContext context, String text, Future<T> work) async {
       child: AlertDialog(
         content: Row(
           children: [
-            const SizedBox.square(
-              dimension: 28,
-              child: CircularProgressIndicator(),
-            ),
+            const SizedBox.square(dimension: 28, child: CircularProgressIndicator()),
             const SizedBox(width: Space.l),
             Expanded(child: Text(text)),
           ],
@@ -105,26 +102,15 @@ Future<T> showBusy<T>(BuildContext context, String text, Future<T> work) async {
 /// Adds a photo to a place: the level first, then the picture, a look at
 /// it with what its publication means, and the outbox, which sends it now
 /// or when the network comes back.
-Future<void> addPhotoToPlace(
-  BuildContext context,
-  WidgetRef ref,
-  String placeId,
-) async {
+Future<void> addPhotoToPlace(BuildContext context, WidgetRef ref, String placeId) async {
   final t = context.t;
-  if (!await passesGate(
-    context,
-    ref,
-    level: TrustLevels.photo,
-    title: t.gate.photo,
-  ))
-    return;
+  if (!await passesGate(context, ref, level: TrustLevels.photo, title: t.gate.photo)) return;
   if (!context.mounted) return;
   final photo = await pickPhoto(context, ref);
   if (photo == null || !context.mounted) return;
   final send = await showFormSheet<bool>(
     context,
-    builder: (context, scroll) =>
-        PhotoPreview(photo: photo, scrollController: scroll),
+    builder: (context, scroll) => PhotoPreview(photo: photo, scrollController: scroll),
   );
   if (!(send ?? false) || !context.mounted) return;
   final fileId = await ref.read(pendingFilesProvider).put(photo.jpeg);
@@ -164,11 +150,7 @@ class PhotoPreview extends StatelessWidget {
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           child: AspectRatio(
             aspectRatio: photo.width / photo.height,
-            child: Image.memory(
-              photo.jpeg,
-              fit: BoxFit.cover,
-              excludeFromSemantics: true,
-            ),
+            child: Image.memory(photo.jpeg, fit: BoxFit.cover, excludeFromSemantics: true),
           ),
         ),
         const SizedBox(height: Space.m),
@@ -176,12 +158,7 @@ class PhotoPreview extends StatelessWidget {
           children: [
             Icon(AppIcons.privacy, color: theme.colorScheme.secondary),
             const SizedBox(width: Space.s),
-            Expanded(
-              child: Text(
-                t.photoFlow.stripped,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ),
+            Expanded(child: Text(t.photoFlow.stripped, style: theme.textTheme.bodyMedium)),
           ],
         ),
       ],

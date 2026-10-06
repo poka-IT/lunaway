@@ -42,11 +42,8 @@ final class SoftwareDeviceKey implements DeviceKey {
   @override
   Future<Uint8List> sign(Uint8List message) async => P256.sign(_d, message);
 
-  String toStored() => jsonEncode({
-    'd': P256.b64url(P256.unsigned(_d, 32)),
-    'x': publicJwk.x,
-    'y': publicJwk.y,
-  });
+  String toStored() =>
+      jsonEncode({'d': P256.b64url(P256.unsigned(_d, 32)), 'x': publicJwk.x, 'y': publicJwk.y});
 
   /// Null for a damaged value: the device then has no key.
   static SoftwareDeviceKey? fromStored(String stored) {
@@ -57,8 +54,7 @@ final class SoftwareDeviceKey implements DeviceKey {
       final key = SoftwareDeviceKey(P256.scalar(d));
       // The stored public half must be the private half's: anything else
       // is a damaged value.
-      if (key.publicJwk.x != json['x'] || key.publicJwk.y != json['y'])
-        return null;
+      if (key.publicJwk.x != json['x'] || key.publicJwk.y != json['y']) return null;
       return key;
     } on Object {
       return null;
@@ -80,12 +76,10 @@ final class SoftwareDeviceKeys implements DeviceKeys {
   }
 
   @override
-  Future<DeviceKey> generate() async =>
-      SoftwareDeviceKey(P256.generatePrivate());
+  Future<DeviceKey> generate() async => SoftwareDeviceKey(P256.generatePrivate());
 
   @override
-  Future<void> save(DeviceKey key) =>
-      _secrets.write(_slot, (key as SoftwareDeviceKey).toStored());
+  Future<void> save(DeviceKey key) => _secrets.write(_slot, (key as SoftwareDeviceKey).toStored());
 
   @override
   Future<void> delete() => _secrets.delete(_slot);

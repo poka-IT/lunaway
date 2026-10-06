@@ -24,6 +24,7 @@ import 'package:lunaway/features/community/data/picture_picker_io.dart'
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'community_providers.g.dart';
@@ -32,8 +33,7 @@ final _log = Logger('outbox');
 
 // keepAlive: the store of the photos waiting to be sent, one for the run.
 @Riverpod(keepAlive: true)
-PendingFiles pendingFiles(Ref ref) =>
-    platformPendingFiles(ref.watch(userDatabaseProvider));
+PendingFiles pendingFiles(Ref ref) => platformPendingFiles(ref.watch(userDatabaseProvider));
 
 // keepAlive: a stateless service; tests replace it.
 @Riverpod(keepAlive: true)
@@ -90,8 +90,7 @@ OutboxSender outboxSender(Ref ref) {
 
 /// Every contribution waiting, oldest first.
 @riverpod
-Stream<List<PendingContribution>> outboxEntries(Ref ref) =>
-    ref.watch(outboxStoreProvider).watch();
+Stream<List<PendingContribution>> outboxEntries(Ref ref) => ref.watch(outboxStoreProvider).watch();
 
 /// The entries of the account this device holds, and those made before it
 /// had one: another account's (a restored backup, a lost account) count
@@ -101,9 +100,7 @@ List<PendingContribution> ownOutboxEntries(Ref ref) {
   final account = ref.watch(accountControllerProvider);
   final id = account is SignedIn ? account.account.id : null;
   return [
-    for (final e
-        in ref.watch(outboxEntriesProvider).value ??
-            const <PendingContribution>[])
+    for (final e in ref.watch(outboxEntriesProvider).value ?? const <PendingContribution>[])
       if (e.accountId == null || e.accountId == id) e,
   ];
 }
@@ -183,23 +180,38 @@ class OutboxRunner extends _$OutboxRunner {
     unawaited(kick());
   }
 
-  /// Queues a contribution and tries to send it now.
+  /// Queues a contribution and tries to send it now. [deleting], for a
+  /// deletion, is the contribution it deletes: the entry that may have made
+  /// it goes first (see [mayHaveMade]), unless an entry is already known to
+  /// have made it.
   Future<PendingContribution?> enqueue(
     ContributionKind kind, {
     required Map<String, Object?> payload,
     String? placeId,
     String? fileId,
+    Object? deleting,
   }) async {
     final account = ref.read(accountControllerProvider);
-    final entry = await ref
-        .read(outboxStoreProvider)
-        .add(
-          kind,
-          payload: payload,
-          placeId: placeId,
-          fileId: fileId,
-          accountId: account is SignedIn ? account.account.id : null,
-        );
+    final store = ref.read(outboxStoreProvider);
+    // A contribution accepted lately for a known entry, or awaited by a
+    // photo, was not made by a waiting one: none goes for it.
+    final taken = {
+      ...await store.claimed(),
+      for (final e in await store.all())
+        if (e.payload['submissionId'] case final String id) id,
+    };
+    if (deleting != null && !taken.contains(payload['id'])) {
+      if (await store.forgetMakerOf((e) => mayHaveMade(e, deleting))) {
+        _log.info('outbox: the entry that made what is deleted dropped');
+      }
+    }
+    final entry = await store.add(
+      kind,
+      payload: payload,
+      placeId: placeId,
+      fileId: fileId,
+      accountId: account is SignedIn ? account.account.id : null,
+    );
     unawaited(kick());
     return entry;
   }
@@ -246,10 +258,7 @@ class OutboxRunner extends _$OutboxRunner {
     final next = report?.nextAttemptAt;
     if (next != null) {
       final wait = next.difference(ref.read(clockProvider)());
-      _timer = Timer(
-        wait.isNegative ? const Duration(seconds: 1) : wait,
-        () => unawaited(kick()),
-      );
+      _timer = Timer(wait.isNegative ? const Duration(seconds: 1) : wait, () => unawaited(kick()));
     }
   }
 
@@ -259,9 +268,7 @@ class OutboxRunner extends _$OutboxRunner {
     final placeId = e.placeId;
     final extras = ref.read(placeExtrasRepositoryProvider);
     switch (e.kind) {
-      case ContributionKind.rate ||
-          ContributionKind.review ||
-          ContributionKind.deleteReview:
+      case ContributionKind.rate || ContributionKind.review || ContributionKind.deleteReview:
         // The server's answer is the account's review as it now stands: the
         // place shows it at once; the next read brings the rest.
         if (placeId != null) {
@@ -290,14 +297,24 @@ class OutboxRunner extends _$OutboxRunner {
         // The worker writes what the community said in a second or so; the
         // next sync brings it to the map.
         Timer(const Duration(seconds: 3), () {
-          if (ref.mounted)
-            unawaited(ref.read(syncControllerProvider.notifier).sync());
+          if (ref.mounted) unawaited(ref.read(syncControllerProvider.notifier).sync());
         });
       case ContributionKind.deleteConfirmation ||
           ContributionKind.deleteIssueReport ||
           ContributionKind.reportContent ||
-          ContributionKind.deletePlaceSubmission:
+          ContributionKind.deletePlaceSubmission ||
+          ContributionKind.addVendingMachine:
         break;
+      case ContributionKind.confirmPoi:
+        // The page shows when the point was last said to be there: read it
+        // again.
+        if (e.payload['poiId'] case final String poiId) {
+          unawaited(
+            ref.read(poiRepositoryProvider).forgetPage(poiId).then((_) {
+              if (ref.mounted) ref.invalidate(poiPageProvider(poiId));
+            }),
+          );
+        }
     }
     ref.invalidate(myContributionsProvider);
     // Contributions move the level: read it again.
@@ -309,20 +326,13 @@ class OutboxRunner extends _$OutboxRunner {
 @Riverpod(retry: noRetry)
 Future<MyContributions> myContributions(Ref ref) =>
     // The latest twenty of each kind: the page says when there are more.
-    ref
-        .watch(accountServiceProvider)
-        .run(myContributionsOperation, variables: {'first': 20});
+    ref.watch(accountServiceProvider).run(myContributionsOperation, variables: {'first': 20});
 
 /// What the device holds of the account's level for an action: whether it
 /// may do it now, and the level it needs.
 @immutable
 final class Gate {
-  const new({
-    required this.allowed,
-    required this.required,
-    required this.level,
-    this.next,
-  });
+  const new({required this.allowed, required this.required, required this.level, this.next});
 
   final bool allowed;
   final int required;

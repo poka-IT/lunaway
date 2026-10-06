@@ -7,6 +7,9 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_search.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -50,6 +53,15 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     _clear();
     ref.read(selectionProvider.notifier).select(null);
     await ref.read(mapControllerProvider)?.moveTo(town.center, zoom: 12);
+  }
+
+  Future<void> _goToPoi(Poi poi) async {
+    _clear();
+    ref.read(selectionProvider.notifier).select(PoiSelection(poi.feature));
+    final viewport = ref.read(viewportProvider);
+    await ref
+        .read(mapControllerProvider)
+        ?.moveTo(poi.position, zoom: (viewport?.zoom ?? 0) < 15 ? 15 : null);
   }
 
   Future<void> _goToPlace(String id, LatLng at) async {
@@ -133,7 +145,12 @@ class _MapSearchState extends ConsumerState<MapSearch> {
               ? const SizedBox(width: double.infinity)
               : Padding(
                   padding: const EdgeInsets.only(top: Space.s),
-                  child: _Results(query: query, onTown: _goToTown, onPlace: _goToPlace),
+                  child: _Results(
+                    query: query,
+                    onTown: _goToTown,
+                    onPlace: _goToPlace,
+                    onPoi: _goToPoi,
+                  ),
                 ),
         ),
       ],
@@ -142,11 +159,17 @@ class _MapSearchState extends ConsumerState<MapSearch> {
 }
 
 class _Results extends ConsumerWidget {
-  const new({required this.query, required this.onTown, required this.onPlace});
+  const new({
+    required this.query,
+    required this.onTown,
+    required this.onPlace,
+    required this.onPoi,
+  });
 
   final String query;
   final ValueChanged<Municipality> onTown;
   final void Function(String id, LatLng at) onPlace;
+  final ValueChanged<Poi> onPoi;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -154,7 +177,11 @@ class _Results extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final user = ref.watch(userLocationProvider);
-    final near = user ?? ref.read(viewportProvider)?.center;
+    final centre = ref.read(viewportProvider)?.center;
+    final near = user ?? centre;
+    // The shops are ranked from the map's centre on a coarse grid: the same
+    // cell keeps the same search.
+    final anchor = centre == null ? null : searchAnchor(centre);
     final results = ref.watch(searchResultsProvider(query, near: near));
     // The screen's own insets: the shell's Scaffold removes the keyboard from
     // the MediaQuery below it, yet the list must end above the keyboard.
@@ -184,14 +211,22 @@ class _Results extends ConsumerWidget {
             distanceM: user == null ? null : place.position.distanceTo(user),
             onTap: () => onPlace(place.id, place.position),
           ),
+        PoiSearchSection(query: query, near: anchor, from: user, onTap: onPoi),
       ],
     );
     // The previous results stay while the next ones load: no flash of a
     // spinner at every keystroke.
     final body = switch (results) {
-      AsyncValue(value: final value?) when value.isEmpty => Padding(
-        padding: const EdgeInsets.all(Space.xl),
-        child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
+      AsyncValue(value: final value?) when value.isEmpty => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.only(bottom: Space.s),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(Space.xl),
+            child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
+          ),
+          PoiSearchSection(query: query, near: anchor, from: user, onTap: onPoi),
+        ],
       ),
       AsyncValue(value: final value?) => list(value),
       AsyncError() => Padding(

@@ -9,6 +9,9 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/navigation/presentation/route_entry.dart';
+import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
+import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -52,14 +55,18 @@ class ProfileScreen extends ConsumerWidget {
             ref.watch(accountControllerProvider) is SignedIn
                 ? t.profile.noTracking
                 : t.profile.noAccountNeeded,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
     );
-    const left = [AccountSection(), _Vehicle(), _OfflineData(), _Directions()];
+    const left = [
+      AccountSection(),
+      _Vehicle(),
+      _OfflineData(),
+      _Directions(),
+      RouteSettingsSection(),
+    ];
     const right = [_Appearance(), _Language(), _About(), _Attributions()];
     final padding = EdgeInsets.fromLTRB(
       size == .compact ? Space.l : Space.xxl,
@@ -101,10 +108,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   static List<Widget> _spaced(List<Widget> sections) => [
-    for (final (i, c) in sections.indexed) ...[
-      if (i > 0) const SizedBox(height: Space.xxl),
-      c,
-    ],
+    for (final (i, c) in sections.indexed) ...[if (i > 0) const SizedBox(height: Space.xxl), c],
   ];
 }
 
@@ -246,13 +250,10 @@ class _OfflineData extends ConsumerWidget {
     final size = ref.watch(storageSizeProvider).value;
     final state = ref.watch(syncStateProvider).value;
     final status = ref.watch(syncControllerProvider);
-    final now =
-        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final running = status is SyncRunning;
     final complete = state?.completedAt != null;
-    final muted = theme.textTheme.bodyMedium?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
     final last = state?.completedAt;
     return _Section(
       title: t.profile.offline,
@@ -267,24 +268,17 @@ class _OfflineData extends ConsumerWidget {
                 children: [
                   TextSpan(
                     text: count == null ? ' ' : t.number(count),
-                    style: LunaType.number(
-                      30,
-                      weight: 420,
-                      color: scheme.onSurface,
-                    ),
+                    style: LunaType.number(30, weight: 420, color: scheme.onSurface),
                   ),
                   TextSpan(
-                    text: count == null
-                        ? ''
-                        : ' ${t.profile.placesOnDevice(n: count)}',
+                    text: count == null ? '' : ' ${t.profile.placesOnDevice(n: count)}',
                     style: theme.textTheme.titleMedium,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: Space.xs),
-            if (size != null)
-              Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
+            if (size != null) Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
             Text(
               !complete
                   ? (count ?? 0) > 0
@@ -308,9 +302,7 @@ class _OfflineData extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const ClipRRect(
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(LunaTokens.radiusPill),
-                        ),
+                        borderRadius: BorderRadius.all(Radius.circular(LunaTokens.radiusPill)),
                         child: LinearProgressIndicator(minHeight: 6),
                       ),
                       const SizedBox(height: Space.xs),
@@ -328,9 +320,7 @@ class _OfflineData extends ConsumerWidget {
                     retryIn == null
                         ? syncFailureText(t, failure)
                         : '${syncFailureText(t, failure)} ${t.sync.willRetry}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.error,
-                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
                   ),
                 ),
                 _ => const SizedBox.shrink(key: ValueKey('idle')),
@@ -338,16 +328,12 @@ class _OfflineData extends ConsumerWidget {
             ),
             const SizedBox(height: Space.m),
             OutlinedButton.icon(
-              onPressed: running
-                  ? null
-                  : () => ref.read(syncControllerProvider.notifier).sync(),
+              onPressed: running ? null : () => ref.read(syncControllerProvider.notifier).sync(),
               icon: const Icon(AppIcons.sync),
-              label: Text(
-                !complete && (count ?? 0) > 0
-                    ? t.sync.resume
-                    : t.profile.syncNow,
-              ),
+              label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
             ),
+            const Divider(height: Space.xxl),
+            const OfflineMapsEntry(),
           ],
         ),
       ),
@@ -361,14 +347,20 @@ class _Directions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final app = NavigationApp.fromId(
-      ref.watch(settingsProvider.select((s) => s.navigationApp)),
-    );
+    final id = ref.watch(settingsProvider.select((s) => s.navigationApp));
+    final app = NavigationApp.fromId(id);
+    final lunaway = id == lunawayDirectionsId;
     return _Section(
       title: t.directions.settingTitle,
       icon: AppIcons.navigationApps,
       child: ListTile(
-        title: Text(app == null ? t.directions.askEachTime : app.label(t)),
+        title: Text(
+          lunaway
+              ? t.navigation.entry.lunaway
+              : app == null
+              ? t.directions.askEachTime
+              : app.label(t),
+        ),
         subtitle: Text(t.directions.settingHint),
         trailing: const Icon(AppIcons.chevron),
         onTap: () async {
@@ -383,10 +375,11 @@ class _Directions extends ConsumerWidget {
             context,
             available,
             selected: app,
+            lunawaySelected: lunaway,
           );
           if (picked == null) return;
           await settings.setNavigationApp(
-            picked.remember ? picked.app.id : null,
+            picked.remember ? picked.app?.id ?? lunawayDirectionsId : null,
           );
         },
       ),
@@ -496,12 +489,7 @@ class _About extends ConsumerWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.l,
-              Space.l,
-              Space.l,
-              Space.xs,
-            ),
+            padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, Space.xs),
             child: Row(
               children: [
                 const BrandMark(height: 36),
@@ -510,15 +498,11 @@ class _About extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        t.appTitle,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
+                      Text(t.appTitle, style: Theme.of(context).textTheme.titleLarge),
                       Text(
                         t.profile.version(version: version),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -564,34 +548,27 @@ class _Attributions extends ConsumerWidget {
       icon: AppIcons.attributions,
       child: Column(
         children: [
-          entry(
-            t.profile.attributionOsm,
-            'https://www.openstreetmap.org/copyright',
-          ),
-          entry(
-            t.profile.attributionOdbl,
-            'https://opendatacommons.org/licenses/odbl/',
-          ),
+          entry(t.profile.attributionOsm, 'https://www.openstreetmap.org/copyright'),
+          entry(t.profile.attributionOdbl, 'https://opendatacommons.org/licenses/odbl/'),
           entry(
             t.profile.attributionAtout,
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
+          entry(t.profile.attributionCommunes, 'https://opendatacommons.org/licenses/odbl/'),
           entry(
-            t.profile.attributionCommunes,
-            'https://opendatacommons.org/licenses/odbl/',
+            t.profile.attributionBdTopo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
+          entry(t.profile.attributionPoiOdbl, 'https://opendatacommons.org/licenses/odbl/'),
           entry(
-            t.profile.attributionTiles,
-            'https://github.com/protomaps/basemaps',
+            t.profile.attributionPoiLo,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
-          entry(
-            t.profile.attributionFonts,
-            'https://github.com/undercasetype/Fraunces',
-          ),
-          entry(
-            t.profile.attributionIcons,
-            'https://github.com/phosphor-icons/flutter',
-          ),
+          entry(t.profile.attributionPacks, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(t.profile.attributionOfflineLabels, 'https://github.com/protomaps/basemaps-assets'),
+          entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
+          entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
+          entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),
         ],
       ),
     );

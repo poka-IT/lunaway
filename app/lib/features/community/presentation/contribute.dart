@@ -36,6 +36,7 @@ Future<Submitted> submitContribution(
   String? placeId,
   String? fileId,
   String? sentText,
+  Object? deleting,
 }) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
@@ -46,6 +47,7 @@ Future<Submitted> submitContribution(
     payload: payload,
     placeId: placeId,
     fileId: fileId,
+    deleting: deleting,
   );
   if (entry == null) {
     // It only cancelled a contribution still waiting: nothing to send.
@@ -60,10 +62,7 @@ Future<Submitted> submitContribution(
     return Submitted.sent;
   }
   if (after.failed) {
-    showMessage(
-      messenger,
-      t.outbox.refused(reason: t.outboxError(after.errorCode)),
-    );
+    showMessage(messenger, t.outbox.refused(reason: t.outboxError(after.errorCode)));
     return Submitted.refused;
   }
   showMessage(messenger, t.outbox.queued);
@@ -84,8 +83,7 @@ Future<bool> passesGate(
   await showFormSheet<void>(
     context,
     tall: false,
-    builder: (context, scroll) =>
-        _GateSheet(title: title, gate: gate, scrollController: scroll),
+    builder: (context, scroll) => _GateSheet(title: title, gate: gate, scrollController: scroll),
   );
   return false;
 }
@@ -108,10 +106,7 @@ class _GateSheet extends ConsumerWidget {
     return FormSheetFrame(
       title: title,
       scrollController: scrollController,
-      action: FilledButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: Text(t.common.ok),
-      ),
+      action: FilledButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.ok)),
       children: [
         Text(t.gate.why, style: theme.textTheme.bodyLarge),
         const SizedBox(height: Space.l),
@@ -125,42 +120,30 @@ class _GateSheet extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hasAccount
-                    ? t.gate.yourLevel(level: '${gate.level}')
-                    : t.gate.noAccount,
+                hasAccount ? t.gate.yourLevel(level: '${gate.level}') : t.gate.noAccount,
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: Space.s),
               if (nextIsIt) ...[
                 Text(
                   t.account.nextLevel(level: '${next.level}'),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: Space.xs),
-                for (final r in next.missing)
-                  _Requirement(text: t.requirement(r)),
+                for (final r in next.missing) _Requirement(text: t.requirement(r)),
                 if (next.instead != null)
                   _Requirement(
-                    text: t.account.orInstead(
-                      requirement: t.requirement(next.instead!),
-                    ),
+                    text: t.account.orInstead(requirement: t.requirement(next.instead!)),
                   ),
               ] else
-                Text(
-                  t.gate.later(level: '${gate.required}'),
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(t.gate.later(level: '${gate.required}'), style: theme.textTheme.bodyMedium),
             ],
           ),
         ),
         const SizedBox(height: Space.l),
         Text(
           t.gate.meanwhile,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
     );
@@ -182,11 +165,7 @@ class _Requirement extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              AppIcons.chevron,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            child: Icon(AppIcons.chevron, size: 16, color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: Space.s),
           Expanded(child: Text(text, style: theme.textTheme.bodyMedium)),

@@ -3717,6 +3717,272 @@ class DeviceStateCompanion extends UpdateCompanion<DeviceStateRow> {
   }
 }
 
+class PoiCache extends Table with TableInfo<PoiCache, PoiCacheRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  PoiCache(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cacheKeyMeta = const VerificationMeta(
+    'cacheKey',
+  );
+  late final GeneratedColumn<String> cacheKey = GeneratedColumn<String>(
+    'cache_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL PRIMARY KEY',
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
+    'fetchedAt',
+  );
+  late final GeneratedColumn<int> fetchedAt = GeneratedColumn<int>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [cacheKey, json, fetchedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'poi_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PoiCacheRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('cache_key')) {
+      context.handle(
+        _cacheKeyMeta,
+        cacheKey.isAcceptableOrUnknown(data['cache_key']!, _cacheKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cacheKeyMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(
+        _jsonMeta,
+        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cacheKey};
+  @override
+  PoiCacheRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PoiCacheRow(
+      cacheKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cache_key'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+    );
+  }
+
+  @override
+  PoiCache createAlias(String alias) {
+    return PoiCache(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class PoiCacheRow extends DataClass implements Insertable<PoiCacheRow> {
+  final String cacheKey;
+  final String json;
+  final int fetchedAt;
+  const PoiCacheRow({
+    required this.cacheKey,
+    required this.json,
+    required this.fetchedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['cache_key'] = Variable<String>(cacheKey);
+    map['json'] = Variable<String>(json);
+    map['fetched_at'] = Variable<int>(fetchedAt);
+    return map;
+  }
+
+  PoiCacheCompanion toCompanion(bool nullToAbsent) {
+    return PoiCacheCompanion(
+      cacheKey: Value(cacheKey),
+      json: Value(json),
+      fetchedAt: Value(fetchedAt),
+    );
+  }
+
+  factory PoiCacheRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PoiCacheRow(
+      cacheKey: serializer.fromJson<String>(json['cache_key']),
+      json: serializer.fromJson<String>(json['json']),
+      fetchedAt: serializer.fromJson<int>(json['fetched_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cache_key': serializer.toJson<String>(cacheKey),
+      'json': serializer.toJson<String>(json),
+      'fetched_at': serializer.toJson<int>(fetchedAt),
+    };
+  }
+
+  PoiCacheRow copyWith({String? cacheKey, String? json, int? fetchedAt}) =>
+      PoiCacheRow(
+        cacheKey: cacheKey ?? this.cacheKey,
+        json: json ?? this.json,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+      );
+  PoiCacheRow copyWithCompanion(PoiCacheCompanion data) {
+    return PoiCacheRow(
+      cacheKey: data.cacheKey.present ? data.cacheKey.value : this.cacheKey,
+      json: data.json.present ? data.json.value : this.json,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PoiCacheRow(')
+          ..write('cacheKey: $cacheKey, ')
+          ..write('json: $json, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cacheKey, json, fetchedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PoiCacheRow &&
+          other.cacheKey == this.cacheKey &&
+          other.json == this.json &&
+          other.fetchedAt == this.fetchedAt);
+}
+
+class PoiCacheCompanion extends UpdateCompanion<PoiCacheRow> {
+  final Value<String> cacheKey;
+  final Value<String> json;
+  final Value<int> fetchedAt;
+  final Value<int> rowid;
+  const PoiCacheCompanion({
+    this.cacheKey = const Value.absent(),
+    this.json = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PoiCacheCompanion.insert({
+    required String cacheKey,
+    required String json,
+    required int fetchedAt,
+    this.rowid = const Value.absent(),
+  }) : cacheKey = Value(cacheKey),
+       json = Value(json),
+       fetchedAt = Value(fetchedAt);
+  static Insertable<PoiCacheRow> custom({
+    Expression<String>? cacheKey,
+    Expression<String>? json,
+    Expression<int>? fetchedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (cacheKey != null) 'cache_key': cacheKey,
+      if (json != null) 'json': json,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PoiCacheCompanion copyWith({
+    Value<String>? cacheKey,
+    Value<String>? json,
+    Value<int>? fetchedAt,
+    Value<int>? rowid,
+  }) {
+    return PoiCacheCompanion(
+      cacheKey: cacheKey ?? this.cacheKey,
+      json: json ?? this.json,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cacheKey.present) {
+      map['cache_key'] = Variable<String>(cacheKey.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<int>(fetchedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PoiCacheCompanion(')
+          ..write('cacheKey: $cacheKey, ')
+          ..write('json: $json, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$CacheDatabase extends GeneratedDatabase {
   _$CacheDatabase(QueryExecutor e) : super(e);
   late final Places places = Places(this);
@@ -3737,6 +4003,7 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
   late final RegionSyncs regionSyncs = RegionSyncs(this);
   late final PlaceExtrasCache placeExtrasCache = PlaceExtrasCache(this);
   late final DeviceState deviceState = DeviceState(this);
+  late final PoiCache poiCache = PoiCache(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3751,6 +4018,7 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
     regionSyncs,
     placeExtrasCache,
     deviceState,
+    poiCache,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

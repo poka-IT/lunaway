@@ -23,6 +23,7 @@ import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -30,12 +31,15 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import 'fake_api.dart';
 import 'fakes.dart';
+import 'poi_fakes.dart';
 import 'samples.dart';
 
 const phone = Size(400, 860);
@@ -70,11 +74,7 @@ final class FakeChangesSource implements ChangesSource {
   int requests = 0;
 
   @override
-  Future<ChangeSet> changes({
-    required GeoBounds bbox,
-    required int first,
-    String? since,
-  }) async {
+  Future<ChangeSet> changes({required GeoBounds bbox, required int first, String? since}) async {
     requests++;
     if (failing) throw GraphQLNetworkException('offline', null);
     final start = int.tryParse(since ?? '') ?? 0;
@@ -127,10 +127,8 @@ final class TestApp {
 /// An in-memory database whose query streams stop at once when their last
 /// listener goes: drift otherwise stops them on a timer, which outlives the
 /// widget tree of a test.
-DatabaseConnection memoryDatabase() => DatabaseConnection(
-  NativeDatabase.memory(),
-  closeStreamsSynchronously: true,
-);
+DatabaseConnection memoryDatabase() =>
+    DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true);
 
 /// Pumps the whole app at [size] with fakes around it: no network, no disk,
 /// a fixed clock ([testNow]) that does not tick, and a fake map. The theme
@@ -153,6 +151,11 @@ Future<TestApp> pumpLunaway(
   AppConfig? config,
   FakeApi? api,
   bool signedIn = false,
+  FakePoiSource? pois,
+  MemoryPackFiles? packFiles,
+  bool? reachable = true,
+  http.Client? httpClient,
+  // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -165,9 +168,7 @@ Future<TestApp> pumpLunaway(
   final initial =
       settings ??
       AppSettings(
-        theme: brightness == Brightness.dark
-            ? ThemePreference.dark
-            : ThemePreference.light,
+        theme: brightness == Brightness.dark ? ThemePreference.dark : ThemePreference.light,
       );
 
   final app = TestApp(
@@ -177,18 +178,13 @@ Future<TestApp> pumpLunaway(
           sync ??
           (neverSynced
               ? SyncState.none
-              : SyncState(
-                  cursor: 'c',
-                  completedAt: testNow.subtract(const Duration(hours: 1)),
-                )),
+              : SyncState(cursor: 'c', completedAt: testNow.subtract(const Duration(hours: 1)))),
     ),
     favorites: FakeFavoritesRepository(),
     external: FakeExternalActions(),
     map: map ?? FakeMap(),
     settings: MemorySettings(initial),
-    extras:
-        extras ??
-        FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
+    extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
     location: FakeLocationPermissions(),
@@ -197,9 +193,7 @@ Future<TestApp> pumpLunaway(
     api: api,
   );
   if (api != null) {
-    addTearDown(
-      () => expect(api.violations, isEmpty, reason: 'the API schema'),
-    );
+    addTearDown(() => expect(api.violations, isEmpty, reason: 'the API schema'));
     if (signedIn) await seedAccount(app.secrets, api);
   }
   // The in-memory databases are left to the garbage collector: closing one
@@ -227,21 +221,20 @@ Future<TestApp> pumpLunaway(
         secretStoreProvider.overrideWithValue(app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
-        httpClientProvider.overrideWithValue(api?.client(_demo) ?? _demo),
+        httpClientProvider.overrideWithValue(httpClient ?? api?.client(_demo) ?? _demo),
         placeExtrasRepositoryProvider.overrideWithValue(
-          PlaceExtrasRepository(
-            db: app.cache,
-            source: app.extras,
-            clock: () => testNow,
-          ),
+          PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
         syncServiceProvider.overrideWithValue(
-          syncService ??
-              SyncService(
-                source: FakeChangesSource(const []),
-                store: _NoStore(),
-              ),
+          syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
+        // The points of interest in memory, the basemap's host answering
+        // (or not, as the test says), the offline maps' folder in memory.
+        poiRepositoryProvider.overrideWithValue(
+          PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
+        ),
+        basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
+        packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
@@ -260,9 +253,7 @@ final http.Client _demo = demoApiClient(
 /// A device that already holds an account of [api]: its key, the account
 /// and a session, as a sign-in would have left them.
 Future<void> seedAccount(MemorySecretStore secrets, FakeApi api) async {
-  final key = SoftwareDeviceKey(
-    BigInt.parse('1234567890abcdef1234567890abcdef', radix: 16),
-  );
+  final key = SoftwareDeviceKey(BigInt.parse('1234567890abcdef1234567890abcdef', radix: 16));
   api.addSession('seeded', key.publicJwk.thumbprint);
   await secrets.write('device_key', key.toStored());
   await secrets.write('account', jsonEncode(api.account()));
@@ -282,11 +273,7 @@ Future<void> settleShort(
   WidgetTester tester, [
   Duration total = const Duration(milliseconds: 900),
 ]) async {
-  for (
-    var waited = Duration.zero;
-    waited < total;
-    waited += const Duration(milliseconds: 100)
-  ) {
+  for (var waited = Duration.zero; waited < total; waited += const Duration(milliseconds: 100)) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -306,8 +293,7 @@ final class _NoStore implements SyncStore {
   Future<void> applyPage(String region, ChangeSet page) async {}
 
   @override
-  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async =>
-      0;
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async => 0;
 
   @override
   Future<void> reset(String region, GeoBounds bounds) async {}
@@ -321,11 +307,8 @@ final class MemorySyncStore implements SyncStore {
   Future<SyncState> stateOf(String region) async => state;
 
   @override
-  Future<void> beginFullSync(String region) async => state = SyncState(
-    generation: state.generation + 1,
-    fullSync: true,
-    running: true,
-  );
+  Future<void> beginFullSync(String region) async =>
+      state = SyncState(generation: state.generation + 1, fullSync: true, running: true);
 
   @override
   Future<void> beginDeltaSync(String region) async => state = SyncState(
@@ -336,26 +319,20 @@ final class MemorySyncStore implements SyncStore {
   );
 
   @override
-  Future<void> applyPage(String region, ChangeSet page) async =>
-      state = SyncState(
-        cursor: page.cursor,
-        generation: state.generation,
-        fullSync: state.fullSync,
-        running: true,
-        completedAt: state.completedAt,
-      );
+  Future<void> applyPage(String region, ChangeSet page) async => state = SyncState(
+    cursor: page.cursor,
+    generation: state.generation,
+    fullSync: state.fullSync,
+    running: true,
+    completedAt: state.completedAt,
+  );
 
   @override
   Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async {
-    state = SyncState(
-      cursor: state.cursor,
-      generation: state.generation,
-      completedAt: at,
-    );
+    state = SyncState(cursor: state.cursor, generation: state.generation, completedAt: at);
     return 0;
   }
 
   @override
-  Future<void> reset(String region, GeoBounds bounds) async =>
-      state = SyncState.none;
+  Future<void> reset(String region, GeoBounds bounds) async => state = SyncState.none;
 }

@@ -124,6 +124,15 @@ extension Labels on Translations {
     .other => _t.place.reviewVehicle.other,
   };
 
+  String fuelType(FuelType f) => switch (f) {
+    .diesel => _t.poi.fuel.diesel,
+    .e10 => _t.poi.fuel.e10,
+    .sp95 => _t.poi.fuel.sp95,
+    .sp98 => _t.poi.fuel.sp98,
+    .e85 => _t.poi.fuel.e85,
+    .lpg => _t.poi.fuel.lpg,
+  };
+
   String towing(Towing w) => switch (w) {
     .none => _t.vehicle.towing.none,
     .car => _t.vehicle.towing.car,

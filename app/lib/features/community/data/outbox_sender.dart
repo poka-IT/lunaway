@@ -27,12 +27,7 @@ final class SentContribution {
 /// What a pass over the outbox did.
 @immutable
 final class SendReport {
-  const new({
-    this.sent = 0,
-    this.failed = 0,
-    this.offline = false,
-    this.nextAttemptAt,
-  });
+  const new({this.sent = 0, this.failed = 0, this.offline = false, this.nextAttemptAt});
 
   final int sent;
   final int failed;
@@ -42,6 +37,30 @@ final class SendReport {
 
   /// When an entry waits to be tried again; null when nothing waits.
   final DateTime? nextAttemptAt;
+}
+
+/// Whether [e], a queued entry that has left the device at least once, may
+/// be what made [made] on the server (a [Confirmation], an [IssueReport] or
+/// a [PlaceSubmission]): the same kind of contribution, on the same place
+/// with the same answer, made after the entry was queued (less the
+/// difference of the clocks). The user deleting [made] drops such an entry:
+/// the idempotency key goes with what it made, so sending the entry again
+/// would make it anew.
+bool mayHaveMade(PendingContribution e, Object made) {
+  bool since(DateTime at) => !at.isBefore(e.createdAt.subtract(OutboxSender.uncertaintyWindow));
+  return switch ((e.kind, made)) {
+    (ContributionKind.confirm, final Confirmation c) =>
+      c.placeId == e.placeId && c.status.wire == e.payload['status'] && since(c.createdAt),
+    (ContributionKind.reportIssue, final IssueReport i) =>
+      i.placeId == e.placeId && i.kind.wire == e.payload['kind'] && since(i.createdAt),
+    (ContributionKind.addPlace, final PlaceSubmission s) =>
+      s.kind == SubmissionKind.create && since(s.createdAt),
+    (ContributionKind.editPlace, final PlaceSubmission s) =>
+      s.kind == SubmissionKind.edit && s.placeId == e.placeId && since(s.createdAt),
+    (ContributionKind.addVendingMachine, final PlaceSubmission s) =>
+      s.kind == SubmissionKind.poi && since(s.createdAt),
+    _ => false,
+  };
 }
 
 /// Sends the outbox, oldest first, and keeps a replay from ever
@@ -126,8 +145,7 @@ final class OutboxSender {
     for (var e in await outbox.all()) {
       if (e.state == OutboxState.failed) continue;
       final at = clock();
-      if (!now && e.nextAttemptAt != null && e.nextAttemptAt!.isAfter(at))
-        continue;
+      if (!now && e.nextAttemptAt != null && e.nextAttemptAt!.isAfter(at)) continue;
       // Read again for each entry: the account may have gone during the
       // pass (signed out, deleted), and the entry with it, or come with the
       // first contribution, which gave it the waiting entries.
@@ -148,15 +166,13 @@ final class OutboxSender {
       try {
         // Without an account kept, nothing was sent: a contribution leaves
         // only once the session and its account are stored.
-        if (unsure &&
-            account != null &&
-            !e.kind.idempotent &&
-            e.kind != ContributionKind.photo) {
+        // A keyed entry is looked for too: an API older than the keys, or
+        // a version of the app before them, sent it without one.
+        final lookUp = !e.kind.idempotent || e.kind.keyed;
+        if (unsure && account != null && lookUp && e.kind != ContributionKind.photo) {
           final found = _alreadySent(e, await recentOnce(), await _taken());
           if (found != null) {
-            _log.info(
-              '${e.kind.name} ${e.id}: found on the server, not sent again',
-            );
+            _log.info('${e.kind.name} ${e.id}: found on the server, not sent again');
             await _accepted(e, found);
             sent++;
             continue;
@@ -168,12 +184,7 @@ final class OutboxSender {
         await outbox.markSending(e.id);
         final result = await _send(e, recentOnce);
         if (result is _Held) {
-          await outbox.retryAt(
-            e.id,
-            at.add(result.wait),
-            uncertain: false,
-            detail: result.why,
-          );
+          await outbox.retryAt(e.id, at.add(result.wait), uncertain: false, detail: result.why);
           continue;
         }
         await _accepted(e, result);
@@ -192,6 +203,9 @@ final class OutboxSender {
         final code = outcome.code;
         if (code != null) {
           _log.info('${e.kind.name} ${e.id} refused: $error');
+          if (outcome.existingId case final existing?) {
+            await outbox.updatePayload(e.id, {...e.payload, OutboxError.existingIdKey: existing});
+          }
           await outbox.fail(e.id, code: code, detail: '$error');
           failed++;
           continue;
@@ -201,7 +215,7 @@ final class OutboxSender {
           at.add(outcome.wait ?? delays[min(e.attempts, delays.length - 1)]),
           // The request may have reached the server before the connection
           // broke.
-          uncertain: !e.kind.idempotent && _mayHaveArrived(error),
+          uncertain: (!e.kind.idempotent || e.kind.keyed) && _mayHaveArrived(error),
           detail: '$error',
         );
         if (outcome.offline) {
@@ -216,11 +230,7 @@ final class OutboxSender {
             nextAttemptAt: next?.nextAttemptAt ?? await _next(),
           );
         }
-        _log.warning(
-          '${e.kind.name} ${e.id} not sent, tried again later',
-          error,
-          stack,
-        );
+        _log.warning('${e.kind.name} ${e.id} not sent, tried again later', error, stack);
       }
     }
     return SendReport(sent: sent, failed: failed, nextAttemptAt: await _next());
@@ -236,10 +246,7 @@ final class OutboxSender {
     return next;
   }
 
-  Future<Object?> _send(
-    PendingContribution e,
-    Future<MyContributions> Function() recent,
-  ) async {
+  Future<Object?> _send(PendingContribution e, Future<MyContributions> Function() recent) async {
     // Only a contribution made before the device had an account may make
     // one; the others go as their account or not at all.
     final create = e.accountId == null;
@@ -248,6 +255,10 @@ final class OutboxSender {
       final variables = {
         for (final MapEntry(:key, :value) in e.payload.entries)
           if (!key.startsWith('_')) key: value,
+        // The same key on every attempt: an API that knows the keys answers
+        // a replay with the first one's result; the look-up above covers one
+        // that does not.
+        if (e.kind.keyed) 'idempotencyKey': e.id,
       };
       return await api.send(e.kind, variables, create: create);
     }
@@ -260,8 +271,7 @@ final class OutboxSender {
       final submission = (await recent()).submissions
           .where((s) => s.id == submissionId)
           .firstOrNull;
-      if (submission == null)
-        return _Held(placeWait, 'the new place is not listed yet');
+      if (submission == null) return _Held(placeWait, 'the new place is not listed yet');
       switch (submission.status) {
         case SubmissionStatus.rejected || SubmissionStatus.withdrawn:
           throw const _Refused(OutboxError.placeRefused);
@@ -289,15 +299,12 @@ final class OutboxSender {
 
   Future<void> _accepted(PendingContribution e, Object? result) async {
     final serverId = switch (result) {
-      Confirmation(:final id) ||
-      IssueReport(:final id) ||
-      PlaceSubmission(:final id) => id,
+      Confirmation(:final id) || IssueReport(:final id) || PlaceSubmission(:final id) => id,
       _ => null,
     };
     if (serverId != null) await outbox.claim(serverId);
     // The mark may have been set while the request was out: read it again.
-    final marked =
-        (await outbox.byId(e.id))?.payload[OutboxStore.deleteOnceSent] == true;
+    final marked = (await outbox.byId(e.id))?.payload[OutboxStore.deleteOnceSent] == true;
     if (marked && result is Review) {
       // Deleted by the user while it was on its way: it goes now that the
       // server has it.
@@ -310,9 +317,7 @@ final class OutboxSender {
       );
     }
     final file = e.fileId;
-    if (e.kind == ContributionKind.addPlace &&
-        file != null &&
-        result is PlaceSubmission) {
+    if (e.kind == ContributionKind.addPlace && file != null && result is PlaceSubmission) {
       // The photo taken with the new place becomes its own entry, which
       // waits for the server to place the new place.
       await outbox.add(
@@ -334,11 +339,7 @@ final class OutboxSender {
   /// A contribution already taken by another entry (accepted lately, or a
   /// new place whose photo waits for it) is never this one's;
   /// among the others, the oldest in the window is.
-  Object? _alreadySent(
-    PendingContribution e,
-    MyContributions recent,
-    Set<String> taken,
-  ) {
+  Object? _alreadySent(PendingContribution e, MyContributions recent, Set<String> taken) {
     final attempt = e.attemptStartedAt ?? e.createdAt;
     final since = attempt.subtract(uncertaintyWindow);
     final until = attempt.add(uncertaintyWindow);
@@ -361,25 +362,22 @@ final class OutboxSender {
       ContributionKind.reportIssue => oldest<IssueReport>(
         recent.issues.where(
           (i) =>
-              i.placeId == e.placeId &&
-              i.kind.wire == e.payload['kind'] &&
-              free(i.id, i.createdAt),
+              i.placeId == e.placeId && i.kind.wire == e.payload['kind'] && free(i.id, i.createdAt),
         ),
         (i) => i.createdAt,
       ),
       ContributionKind.addPlace => oldest<PlaceSubmission>(
-        recent.submissions.where(
-          (s) => s.kind == SubmissionKind.create && free(s.id, s.createdAt),
-        ),
+        recent.submissions.where((s) => s.kind == SubmissionKind.create && free(s.id, s.createdAt)),
         (s) => s.createdAt,
       ),
       ContributionKind.editPlace => oldest<PlaceSubmission>(
         recent.submissions.where(
-          (s) =>
-              s.kind == SubmissionKind.edit &&
-              s.placeId == e.placeId &&
-              free(s.id, s.createdAt),
+          (s) => s.kind == SubmissionKind.edit && s.placeId == e.placeId && free(s.id, s.createdAt),
         ),
+        (s) => s.createdAt,
+      ),
+      ContributionKind.addVendingMachine => oldest<PlaceSubmission>(
+        recent.submissions.where((s) => s.kind == SubmissionKind.poi && free(s.id, s.createdAt)),
         (s) => s.createdAt,
       ),
       _ => null,
@@ -417,11 +415,7 @@ final class OutboxSender {
     ].any(m.contains);
   }
 
-  _Outcome _classify(
-    PendingContribution e,
-    Object error, {
-    required bool unsure,
-  }) {
+  _Outcome _classify(PendingContribution e, Object error, {required bool unsure}) {
     switch (error) {
       case _Refused(:final code):
         return _Outcome(code: code);
@@ -442,14 +436,18 @@ final class OutboxSender {
         return const _Outcome();
       case final GraphQLResponseException r:
         if (r.hasCode(GraphQLError.notFound)) {
-          return e.kind.deletes
-              ? _Outcome.done
-              : const _Outcome(code: OutboxError.notFound);
+          return e.kind.deletes ? _Outcome.done : const _Outcome(code: OutboxError.notFound);
         }
-        if (r.hasCode(GraphQLError.forbidden))
-          return const _Outcome(code: OutboxError.forbidden);
-        if (r.hasCode(GraphQLError.invalidInput))
-          return const _Outcome(code: OutboxError.invalid);
+        if (r.hasCode(GraphQLError.forbidden)) return const _Outcome(code: OutboxError.forbidden);
+        // An API older than this request (an edit that empties a field): it
+        // goes once the API knows how.
+        if (r.errors.any((e) => e.unknownInput)) return const _Outcome();
+        // A machine of the same kind already stands there; after an attempt
+        // whose answer was lost, it may be this very one.
+        if (r.withCode(GraphQLError.invalidInput)?.existingId case final existing?) {
+          return _Outcome(code: OutboxError.duplicate, existingId: existing);
+        }
+        if (r.hasCode(GraphQLError.invalidInput)) return const _Outcome(code: OutboxError.invalid);
         if (r.hasCode(GraphQLError.unauthenticated)) return const _Outcome();
         return const _Outcome(code: OutboxError.other);
       case UploadException(:final transient, :final retryAfter) when transient:
@@ -463,9 +461,7 @@ final class OutboxSender {
       case UploadException(status: 422):
         // After an attempt whose answer was lost, "already sent" is this
         // very photo arriving twice.
-        return unsure
-            ? _Outcome.done
-            : const _Outcome(code: OutboxError.unreadablePhoto);
+        return unsure ? _Outcome.done : const _Outcome(code: OutboxError.unreadablePhoto);
       case UploadException(status: 415):
         return const _Outcome(code: OutboxError.unreadablePhoto);
       case UploadException():
@@ -496,11 +492,14 @@ final class _Refused implements Exception {
 /// What a failed attempt means: accepted after all ([done]), refused for
 /// good ([code]), or to try again (after [wait]; [offline] stops the pass).
 final class _Outcome {
-  const new({this.code, this.offline = false, this.wait, this.isDone = false});
+  const new({this.code, this.offline = false, this.wait, this.isDone = false, this.existingId});
 
   static const done = _Outcome(isDone: true);
 
   final String? code;
+
+  /// With [OutboxError.duplicate]: the machine that already stands there.
+  final String? existingId;
   final bool offline;
   final Duration? wait;
   final bool isDone;

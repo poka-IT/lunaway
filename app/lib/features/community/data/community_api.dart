@@ -13,11 +13,7 @@ abstract interface class CommunityApi {
   /// server answered (a review, a submission, a confirmation, a flag).
   /// [create] lets it make the account: only a contribution made before
   /// the device had one may.
-  Future<Object?> send(
-    ContributionKind kind,
-    Map<String, Object?> variables, {
-    bool create = true,
-  });
+  Future<Object?> send(ContributionKind kind, Map<String, Object?> variables, {bool create = true});
 
   /// Sends a photo of [placeId].
   Future<Photo> upload(
@@ -39,27 +35,25 @@ final class GraphQLCommunityApi implements CommunityApi {
   final AccountService account;
   final PhotoUploader uploader;
 
-  static GraphQLOperation<Object?> operationOf(ContributionKind kind) =>
-      switch (kind) {
-        ContributionKind.rate => rateOperation,
-        ContributionKind.review => reviewOperation,
-        ContributionKind.deleteReview => deleteReviewOperation,
-        ContributionKind.confirm => confirmOperation,
-        ContributionKind.deleteConfirmation => deleteConfirmationOperation,
-        ContributionKind.reportIssue => reportIssueOperation,
-        ContributionKind.deleteIssueReport => deleteIssueReportOperation,
-        ContributionKind.reportContent => reportContentOperation,
-        ContributionKind.addPlace => addPlaceOperation,
-        ContributionKind.editPlace => editPlaceOperation,
-        ContributionKind.deletePlaceSubmission =>
-          deletePlaceSubmissionOperation,
-        ContributionKind.deletePhoto => deletePhotoOperation,
-        ContributionKind.mute => muteAuthorOperation,
-        ContributionKind.unmute => unmuteAuthorOperation,
-        ContributionKind.photo => throw ArgumentError(
-          'a photo goes through upload',
-        ),
-      };
+  static GraphQLOperation<Object?> operationOf(ContributionKind kind) => switch (kind) {
+    ContributionKind.rate => rateOperation,
+    ContributionKind.review => reviewOperation,
+    ContributionKind.deleteReview => deleteReviewOperation,
+    ContributionKind.confirm => confirmOperation,
+    ContributionKind.deleteConfirmation => deleteConfirmationOperation,
+    ContributionKind.reportIssue => reportIssueOperation,
+    ContributionKind.deleteIssueReport => deleteIssueReportOperation,
+    ContributionKind.reportContent => reportContentOperation,
+    ContributionKind.addPlace => addPlaceOperation,
+    ContributionKind.editPlace => editPlaceOperation,
+    ContributionKind.deletePlaceSubmission => deletePlaceSubmissionOperation,
+    ContributionKind.deletePhoto => deletePhotoOperation,
+    ContributionKind.mute => muteAuthorOperation,
+    ContributionKind.unmute => unmuteAuthorOperation,
+    ContributionKind.confirmPoi => confirmPoiOperation,
+    ContributionKind.addVendingMachine => addVendingMachineOperation,
+    ContributionKind.photo => throw ArgumentError('a photo goes through upload'),
+  };
 
   @override
   Future<Object?> send(
