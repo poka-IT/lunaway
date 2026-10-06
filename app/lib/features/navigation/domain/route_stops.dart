@@ -64,10 +64,28 @@ int bestInsertion({
 /// the stop costs is shown on its card.
 @immutable
 final class StopQuote {
-  const new({required this.stops, required this.plan, required this.extraS, required this.extraM});
+  const new({
+    required this.stop,
+    required this.stops,
+    required this.plan,
+    required this.extraS,
+    required this.extraM,
+    this.base = const [],
+    this.from,
+  });
+
+  /// The stop it adds.
+  final RouteStop stop;
 
   /// The stops with the new one in its place.
   final List<RouteStop> stops;
+
+  /// The stops it was computed from: another list since means another
+  /// route to compute.
+  final List<RouteStop> base;
+
+  /// Where the vehicle was, for a quote made during guidance.
+  final LatLng? from;
   final RoutePlan plan;
 
   /// Seconds and metres the stop adds to the route; null when the new
@@ -106,7 +124,10 @@ List<RouteStop> insertStop(List<RouteStop> stops, int index, RouteStop stop) => 
     final x = ax + t * dx;
     final y = ay + t * dy;
     final d = math.sqrt(x * x + y * y);
-    final segment = math.sqrt(len2);
+    // The plane tangent at p gives the offset and where the perpendicular
+    // falls; the length along the line adds true distances, which the plane
+    // shortens far from p.
+    final segment = line[i - 1].distanceTo(line[i]);
     if (d < best) {
       best = d;
       bestAlong = along + t * segment;

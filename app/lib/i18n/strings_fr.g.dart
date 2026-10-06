@@ -766,6 +766,8 @@ class _Translations$navigation$stops$fr extends Translations$navigation$stops$en
 	@override String get moved => 'Ordre des étapes changé';
 	@override String get destinationChanged => 'Nouvelle destination';
 	@override String get failed => 'L\'itinéraire n\'a pas pu être changé.';
+	@override String get noQuote => 'Le détour n\'a pas pu être calculé.';
+	@override String get offline => 'Pas de réseau pour calculer le détour.';
 }
 
 // Path: navigation.fuel
@@ -1347,6 +1349,8 @@ extension on TranslationsFr {
 			'navigation.stops.moved' => 'Ordre des étapes changé',
 			'navigation.stops.destinationChanged' => 'Nouvelle destination',
 			'navigation.stops.failed' => 'L\'itinéraire n\'a pas pu être changé.',
+			'navigation.stops.noQuote' => 'Le détour n\'a pas pu être calculé.',
+			'navigation.stops.offline' => 'Pas de réseau pour calculer le détour.',
 			'navigation.fuel.action' => 'Carburant',
 			'navigation.fuel.nextCheap' => 'Carburant le moins cher devant',
 			'navigation.fuel.title' => 'Carburant sur le trajet',
@@ -1567,10 +1571,10 @@ extension on TranslationsFr {
 			'profile.lastSync' => ({required Object when}) => 'Dernière mise à jour ${when}',
 			'profile.neverSynced' => 'Jamais téléchargé',
 			'profile.syncNow' => 'Mettre à jour',
-			'profile.syncing' => 'Mise à jour en cours',
-			'profile.about' => 'À propos',
 			_ => null,
 		} ?? switch (path) {
+			'profile.syncing' => 'Mise à jour en cours',
+			'profile.about' => 'À propos',
 			'profile.version' => ({required Object version}) => 'Version ${version}',
 			'profile.website' => 'Site web',
 			'profile.privacy' => 'Confidentialité',

@@ -290,24 +290,27 @@ class RoutePreviewController extends _$RoutePreviewController {
     final current = state.value;
     final origin = current?.origin;
     final profile = current?.vehicle.profile;
-    final plan = current?.plan;
-    if (current == null || origin == null || profile == null || plan == null) return null;
-    if (current.stops.length >= maxRouteStops) return null;
+    final base = ref.read(routeStopsControllerProvider(target));
+    if (current == null || origin == null || profile == null || current.plan == null) return null;
+    if (base.length >= maxRouteStops) return null;
     final at = bestInsertion(
       origin: origin,
-      stops: current.stops,
+      stops: base,
       destination: target.destination,
       stop: stop.position,
     );
-    final stops = insertStop(current.stops, at, stop);
+    final stops = insertStop(base, at, stop);
+    // The settings and the language the build reads: the request is the
+    // one the build makes once the stop is added, and its answer is reused.
+    final settings = await ref.read(routeSettingsControllerProvider.future);
     final next = await ref
         .read(routeServiceProvider)
         .route(
           _request(
             origin: origin,
             vehicle: profile,
-            avoid: plan.applied.avoid,
-            language: plan.applied.language,
+            avoid: settings.avoid,
+            language: RouteLanguage.of(ref.read(routeLanguageCodeProvider)),
             stops: stops,
           ),
         );
@@ -315,7 +318,9 @@ class RoutePreviewController extends _$RoutePreviewController {
     final after = next.routes.firstOrNull;
     final comparable = before != null && after != null && next.status == RouteStatus.ok;
     return StopQuote(
+      stop: stop,
       stops: stops,
+      base: base,
       plan: next,
       extraS: comparable ? after.durationS - before.durationS : null,
       extraM: comparable ? after.distanceM - before.distanceM : null,

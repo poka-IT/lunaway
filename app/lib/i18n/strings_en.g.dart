@@ -1522,6 +1522,12 @@ class Translations$navigation$stops$en {
 
 	/// en: 'The route could not be changed.'
 	String get failed => 'The route could not be changed.';
+
+	/// en: 'The detour could not be worked out.'
+	String get noQuote => 'The detour could not be worked out.';
+
+	/// en: 'No network to work out the detour.'
+	String get offline => 'No network to work out the detour.';
 }
 
 // Path: navigation.fuel
@@ -2427,6 +2433,8 @@ extension on Translations {
 			'navigation.stops.moved' => 'Stops reordered',
 			'navigation.stops.destinationChanged' => 'New destination',
 			'navigation.stops.failed' => 'The route could not be changed.',
+			'navigation.stops.noQuote' => 'The detour could not be worked out.',
+			'navigation.stops.offline' => 'No network to work out the detour.',
 			'navigation.fuel.action' => 'Fuel',
 			'navigation.fuel.nextCheap' => 'Cheapest fuel ahead',
 			'navigation.fuel.title' => 'Fuel along the route',
@@ -2647,10 +2655,10 @@ extension on Translations {
 			'profile.lastSync' => ({required Object when}) => 'Last update ${when}',
 			'profile.neverSynced' => 'Never downloaded',
 			'profile.syncNow' => 'Update now',
-			'profile.syncing' => 'Updating',
-			'profile.about' => 'About',
 			_ => null,
 		} ?? switch (path) {
+			'profile.syncing' => 'Updating',
+			'profile.about' => 'About',
 			'profile.version' => ({required Object version}) => 'Version ${version}',
 			'profile.website' => 'Website',
 			'profile.privacy' => 'Privacy policy',

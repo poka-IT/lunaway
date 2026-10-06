@@ -2,7 +2,8 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:meta/meta.dart';
 
-/// Whether a station is open when the vehicle gets there.
+/// Whether a station is open now, as its opening hours read (`openNow` of
+/// the API).
 enum StationOpen { open, closed, unknown }
 
 /// A station along the route, its price for one fuel, and what reaching it
@@ -17,6 +18,7 @@ final class FuelOffer {
     required this.detourM,
     required this.detourS,
     required this.alongM,
+    required this.fuel,
     this.name,
     this.brand,
     this.open = StationOpen.unknown,
@@ -25,6 +27,9 @@ final class FuelOffer {
 
   /// The point of interest of the station.
   final String id;
+
+  /// The fuel the price is for.
+  final VehicleFuel fuel;
   final String? name;
   final String? brand;
   final LatLng position;
@@ -64,17 +69,21 @@ const refillLitres = 50.0;
 
 /// The price per litre that counts the detour: the fuel burnt going there
 /// and back, at [consumptionL100], spread over a refill of [refillLitres].
-/// A station 2 km off the road at 1.75 EUR/L and 11 L/100 km costs
+/// A detour of 2 km at 1.75 EUR/L and 11 L/100 km costs
 /// 1.75 * (1 + 0.22 / 50), 1.758 EUR/L.
 double effectivePrice(FuelOffer offer, {required double consumptionL100}) {
   final burnt = offer.detourM / 1000 * consumptionL100 / 100;
   return offer.priceEur * (1 + burnt / refillLitres);
 }
 
-/// [offers] cheapest first, the detour counted; at an equal price, the
-/// nearest detour first.
+/// [offers] cheapest first, the detour counted, the stations closed now
+/// after the others; at an equal price, the nearest detour first.
 List<FuelOffer> rankOffers(List<FuelOffer> offers, {required double consumptionL100}) =>
     [...offers]..sort((a, b) {
+      final closed = (a.open == StationOpen.closed ? 1 : 0).compareTo(
+        b.open == StationOpen.closed ? 1 : 0,
+      );
+      if (closed != 0) return closed;
       final byPrice = effectivePrice(
         a,
         consumptionL100: consumptionL100,

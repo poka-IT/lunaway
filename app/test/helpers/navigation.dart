@@ -505,12 +505,14 @@ List<Override> navigationOverrides({
   List<PlaceSummary> placesNearRoute = const [],
   FuelStationsSource? fuel,
   DangerZoneSource? zones,
+  // The service in place of [routes], when a test wraps it (in the cache).
+  RouteService? service,
 }) => [
   if (clock != null) clockProvider.overrideWithValue(clock),
-  placesNearRouteProvider.overrideWith((ref, line) => Stream.value(placesNearRoute)),
+  placesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   fuelStationsProvider.overrideWithValue(fuel ?? FakeFuelStations(const [])),
   dangerZonesProvider.overrideWithValue(zones ?? const NoDangerZones()),
-  routeServiceProvider.overrideWithValue(routes),
+  routeServiceProvider.overrideWithValue(service ?? routes),
   locationFeedProvider.overrideWithValue(
     feed ?? FakeLocationFeed(position: const LatLng(45.84719, 1.28476)),
   ),

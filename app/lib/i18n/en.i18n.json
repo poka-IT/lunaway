@@ -376,7 +376,9 @@
       "removed": "Stop removed",
       "moved": "Stops reordered",
       "destinationChanged": "New destination",
-      "failed": "The route could not be changed."
+      "failed": "The route could not be changed.",
+      "noQuote": "The detour could not be worked out.",
+      "offline": "No network to work out the detour."
     },
     "fuel": {
       "action": "Fuel",

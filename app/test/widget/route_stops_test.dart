@@ -6,6 +6,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -15,6 +16,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/navigation.dart';
@@ -41,6 +43,7 @@ FuelOffer station(String id, {required double price, double detourM = 0, double 
       detourM: detourM,
       detourS: detourM / 14,
       alongM: at,
+      fuel: VehicleFuel.e10,
       open: StationOpen.open,
       detourEstimated: true,
     );
@@ -57,6 +60,7 @@ void main() {
       List<PlaceSummary> places = const [],
       FakeFuelStations? fuel,
       MemoryRouteSettings? settings,
+      bool cached = false,
     }) async {
       routes = FakeRouteService(answers ?? [routeFixture('utrillo_motorhome')]);
       final app = await pumpLunaway(
@@ -67,6 +71,7 @@ void main() {
           placesNearRoute: places,
           fuel: fuel,
           settings: settings,
+          service: cached ? CachingRouteService(routes) : null,
         ),
       );
       unawaited(
@@ -98,6 +103,67 @@ void main() {
       await tester.tap(find.text('Annuler'));
       await settleShort(tester);
       expect(find.text('Étapes'), findsNothing);
+      expect(routes.requests.last.stops, isEmpty);
+    });
+
+    testWidgets('the detour computed for the card is the route taken: asked once', (tester) async {
+      await preview(
+        tester,
+        answers: [routeFixture('utrillo_motorhome'), routeFixture('limoges_drive')],
+        places: [aire],
+        cached: true,
+      );
+      SchematicRouteMap.last!.onMarkTap!('place:aire-naveix');
+      await settleShort(tester);
+      await tester.tap(find.text('Ajouter une étape · +2 min'));
+      await settleShort(tester);
+      expect(find.text('Étapes'), findsOneWidget);
+      expect(routes.requests, hasLength(2), reason: 'the preview, then the detour; no third');
+    });
+
+    testWidgets('without network, the card says so rather than blame the vehicle', (tester) async {
+      await preview(
+        tester,
+        answers: [routeFixture('utrillo_motorhome'), const RouteFailure(RouteFailureKind.offline)],
+        places: [aire],
+      );
+      SchematicRouteMap.last!.onMarkTap!('place:aire-naveix');
+      await settleShort(tester);
+      expect(find.text('Pas de réseau pour calculer le détour.'), findsOneWidget);
+      expect(find.text("Pas d'itinéraire par ce point pour votre véhicule."), findsNothing);
+    });
+
+    testWidgets("a place's card opens over the route, the route kept", (tester) async {
+      // The sample lake's id: its full card is in the test database.
+      const lake = PlaceSummary(
+        id: 'test-lake',
+        kind: PlaceKind.motorhomeArea,
+        lat: 45.8462,
+        lon: 1.2828,
+        overnight: OvernightStatus.allowed,
+        name: 'Aire du Lac Bleu (démo)',
+      );
+      await preview(tester, places: [lake]);
+      SchematicRouteMap.last!.onMarkTap!('place:test-lake');
+      await settleShort(tester);
+      await tester.tap(find.text('Voir la fiche'));
+      await settleShort(tester);
+      expect(find.byType(PlaceDetails), findsOneWidget);
+      expect(find.text('Aire du Lac Bleu (démo)'), findsWidgets);
+      expect(find.text('Vers Aire de la rue Utrillo'), findsWidgets, reason: 'the preview stays');
+    });
+
+    testWidgets('a stop on the map is taken out from its card', (tester) async {
+      final app = await preview(tester);
+      const a = RouteStop(position: LatLng(45.846, 1.283), label: 'Étape A');
+      app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([a]);
+      await settleShort(tester);
+      final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.stop);
+      SchematicRouteMap.last!.onMarkTap!(mark.id!);
+      await settleShort(tester);
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(app.container(tester).read(routeStopsControllerProvider(utrillo)), isEmpty);
       expect(routes.requests.last.stops, isEmpty);
     });
 
@@ -261,6 +327,26 @@ void main() {
       );
       await drive(tester, plan, toM: 900);
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
+    });
+
+    testWidgets('a stop is taken out from its card on the guidance map', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final at = LineTrack(plan.routes.first).at(2000);
+      final app = await guide(
+        tester,
+        plan,
+        answers: [plan],
+        more: [plan],
+        stops: [RouteStop(position: at, label: 'Pause')],
+      );
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onMarkTap!('stop:0');
+      await settleShort(tester);
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
+      expect(routes.requests.last.stops, isEmpty);
+      expect(find.text('Étape retirée'), findsOneWidget);
     });
 
     testWidgets('a stop off the road is behind once the route has passed it', (tester) async {

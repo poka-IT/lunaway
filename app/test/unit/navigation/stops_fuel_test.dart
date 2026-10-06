@@ -26,6 +26,7 @@ FuelOffer offer(String id, {required double price, double detourM = 0}) => FuelO
   detourM: detourM,
   detourS: detourM / 14,
   alongM: 400,
+  fuel: VehicleFuel.diesel,
 );
 
 void main() {
@@ -50,6 +51,18 @@ void main() {
       expect([for (final s in inserted) s.label], ['A', null, 'B']);
     });
 
+    test('along a long diagonal route, the distance along it stays true', () {
+      // From the Pyrenees to the Alps, 366 km as the crow flies.
+      final line = [for (var i = 0; i <= 300; i++) LatLng(42.3 + i * 0.009, i * 0.01)];
+      final last = line.last;
+      var length = 0.0;
+      for (var i = 1; i < line.length; i++) {
+        length += line[i - 1].distanceTo(line[i]);
+      }
+      final near = nearestOnLine(LatLng(last.lat + 0.001, last.lon), line)!;
+      expect(near.alongM, closeTo(length, 200));
+    });
+
     test('a point is measured to the nearest point of the route, and along it', () {
       // 0.009 degrees of latitude: about a kilometre north of the road.
       final near = nearestOnLine(const LatLng(45.009, 1.0635), road)!;
@@ -70,6 +83,19 @@ void main() {
         offer('a bit off', price: 1.72, detourM: 3000),
       ], consumptionL100: 11);
       expect([for (final o in ranked) o.id], ['a bit off', 'on the road', 'cheap but far']);
+      final closed = FuelOffer(
+        id: 'closed',
+        position: const LatLng(45, 1.005),
+        priceEur: 1.50,
+        priceUpdatedAt: DateTime.utc(2026, 10, 6, 7),
+        detourM: 0,
+        detourS: 0,
+        alongM: 400,
+        fuel: VehicleFuel.diesel,
+        open: StationOpen.closed,
+      );
+      final withClosed = rankOffers([closed, ...ranked], consumptionL100: 11);
+      expect(withClosed.last.id, 'closed', reason: 'cheapest, but closed now');
     });
 
     test('the fuel and the consumption are kept with the route settings', () {
@@ -156,7 +182,17 @@ void main() {
         stops: const [LatLng(45.85, 1.25)],
       );
       await service.route(request);
-      await service.route(request);
+      // Built again, field by field, as the preview does after the card.
+      await service.route(
+        RouteRequest(
+          origin: const LatLng(45.8, 1.2),
+          destination: const LatLng(45.9, 1.3),
+          vehicle: checkVehicle(motorhome).profile!,
+          avoid: const AvoidOptions(),
+          language: RouteLanguage.fr,
+          stops: const [LatLng(45.85, 1.25)],
+        ),
+      );
       expect(inner.requests, hasLength(1));
       now = now.add(const Duration(minutes: 3));
       await service.route(request);

@@ -376,7 +376,9 @@
       "removed": "Étape retirée",
       "moved": "Ordre des étapes changé",
       "destinationChanged": "Nouvelle destination",
-      "failed": "L'itinéraire n'a pas pu être changé."
+      "failed": "L'itinéraire n'a pas pu être changé.",
+      "noQuote": "Le détour n'a pas pu être calculé.",
+      "offline": "Pas de réseau pour calculer le détour."
     },
     "fuel": {
       "action": "Carburant",

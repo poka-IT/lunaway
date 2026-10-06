@@ -6,7 +6,6 @@ import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
-import 'package:lunaway/shared/theme/tokens.dart';
 
 /// Replaces the stops of the route to [target] with [next] and says so, with
 /// the way back: every change of the stops can be undone.
@@ -66,10 +65,7 @@ class StopsStrip extends ConsumerWidget {
                 index: i,
                 child: Tooltip(
                   message: t.navigation.stops.reorder,
-                  child: const Padding(
-                    padding: EdgeInsets.all(Space.s),
-                    child: Icon(AppIcons.reorder),
-                  ),
+                  child: const SizedBox.square(dimension: 48, child: Icon(AppIcons.reorder)),
                 ),
               ),
               title: Text(

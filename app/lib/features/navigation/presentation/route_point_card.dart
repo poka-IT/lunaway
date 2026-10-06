@@ -1,18 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
-/// A point of the route map the user tapped or held: a place, a station or
-/// a bare point.
+final _log = Logger('route_point');
+
+/// A point of the route map the user tapped or held: a place, a station, a
+/// stop of the route, or a bare point.
 @immutable
 final class RoutePoint {
-  const new({required this.position, this.title, this.subtitle, this.placeId, this.poiId});
+  const new({
+    required this.position,
+    this.title,
+    this.subtitle,
+    this.placeId,
+    this.poiId,
+    this.stopIndex,
+  });
 
   final LatLng position;
 
@@ -23,6 +36,9 @@ final class RoutePoint {
   final String? subtitle;
   final String? placeId;
   final String? poiId;
+
+  /// Its place among the route's stops, when it is one already.
+  final int? stopIndex;
 
   RouteStop get stop => RouteStop(position: position, label: title, placeId: placeId, poiId: poiId);
 }
@@ -39,6 +55,13 @@ final class AddStopChoice extends RoutePointChoice {
   final StopQuote quote;
 }
 
+/// Take the stop out of the route.
+final class RemoveStopChoice extends RoutePointChoice {
+  const new(this.index);
+
+  final int index;
+}
+
 /// Go to the point instead of the destination, without the stops.
 final class GoDirectlyChoice extends RoutePointChoice {
   const new();
@@ -49,10 +72,12 @@ final class OpenCardChoice extends RoutePointChoice {
   const new();
 }
 
-/// The card of [point], with its three actions in reach: add it as a stop
-/// (the extra time shown once the detour is computed by [quote]), go there
-/// directly, see its card when it is a place. [quote] answers null when no
-/// stop can be added (five already, no position yet).
+/// The card of [point], with its actions in reach: add it as a stop (the
+/// extra time shown once the detour is computed by [quote]) or take it out
+/// when it is one, go there directly, see its card when it is a place.
+/// [quote] answers null when no stop can be added (five already, no
+/// position yet), and throws a [RouteFailure] when the route was not
+/// computed.
 Future<RoutePointChoice?> showRoutePointCard(
   BuildContext context, {
   required RoutePoint point,
@@ -62,6 +87,23 @@ Future<RoutePointChoice?> showRoutePointCard(
   context: context,
   showDragHandle: true,
   builder: (context) => RoutePointCard(point: point, quote: quote, stopsFull: stopsFull),
+);
+
+/// The place's own card over the route, in a sheet: the route and the
+/// guidance stay where they are.
+Future<void> showPlaceCard(BuildContext context, String placeId) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  builder: (context) => DraggableScrollableSheet(
+    expand: false,
+    initialChildSize: 0.7,
+    maxChildSize: 0.94,
+    builder: (context, scroll) => PlaceDetails(
+      placeId: placeId,
+      scrollController: scroll,
+      onClose: () => Navigator.pop(context),
+    ),
+  ),
 );
 
 /// The body of the card, public for the tests.
@@ -79,27 +121,45 @@ class RoutePointCard extends StatefulWidget {
 class _RoutePointCardState extends State<RoutePointCard> {
   StopQuote? _quote;
   bool _quoting = false;
-  bool _failed = false;
+
+  /// Why no detour is shown: null while it is fine.
+  String Function(Translations t)? _problem;
+
+  bool get _isStop => widget.point.stopIndex != null;
 
   @override
   void initState() {
     super.initState();
-    if (!widget.stopsFull) unawaited(_ask());
+    if (!widget.stopsFull && !_isStop) unawaited(_ask());
   }
 
   Future<void> _ask() async {
     setState(() => _quoting = true);
     StopQuote? quote;
+    String Function(Translations t)? problem;
     try {
       quote = await widget.quote(widget.point.stop);
-    } on Object {
-      quote = null;
+      if (quote == null) {
+        problem = (t) => t.navigation.stops.noQuote;
+      } else if (quote.plan.status != RouteStatus.ok) {
+        problem = (t) => t.navigation.stops.noRoute;
+      } else if (quote.extraS == null) {
+        problem = (t) => t.navigation.stops.noQuote;
+      }
+    } on RouteFailure catch (f) {
+      // Offline or refused is no verdict on the vehicle.
+      problem = f.kind == RouteFailureKind.offline
+          ? (t) => t.navigation.stops.offline
+          : (t) => t.navigation.stops.noQuote;
+    } on Object catch (e, st) {
+      _log.warning('a stop could not be priced', e, st);
+      problem = (t) => t.navigation.stops.noQuote;
     }
     if (!mounted) return;
     setState(() {
       _quoting = false;
       _quote = quote;
-      _failed = quote == null || quote.extraS == null;
+      _problem = problem;
     });
   }
 
@@ -113,12 +173,9 @@ class _RoutePointCardState extends State<RoutePointCard> {
     final where =
         '${point.position.lat.toStringAsFixed(5)}, ${point.position.lon.toStringAsFixed(5)}';
     final quote = _quote;
-    final canAdd = !widget.stopsFull && !_quoting && !_failed && quote != null;
-    final hint = widget.stopsFull
-        ? t.navigation.stops.full
-        : _failed
-        ? t.navigation.stops.noRoute
-        : null;
+    final canAdd = !widget.stopsFull && !_quoting && _problem == null && quote != null;
+    final hint = widget.stopsFull ? t.navigation.stops.full : _problem?.call(t);
+    final index = point.stopIndex;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.l),
@@ -133,23 +190,32 @@ class _RoutePointCardState extends State<RoutePointCard> {
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: Space.l),
-            FilledButton.icon(
-              onPressed: canAdd ? () => Navigator.pop(context, AddStopChoice(quote)) : null,
-              icon: _quoting
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(AppIcons.add),
-              label: Text(t.addStop(quote, quoting: _quoting)),
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-            ),
-            if (hint != null) ...[
-              const SizedBox(height: Space.xs),
-              Text(
-                hint,
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            if (index != null)
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(context, RemoveStopChoice(index)),
+                icon: const Icon(AppIcons.close),
+                label: Text(t.navigation.stops.remove),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+              )
+            else ...[
+              FilledButton.icon(
+                onPressed: canAdd ? () => Navigator.pop(context, AddStopChoice(quote)) : null,
+                icon: _quoting
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(AppIcons.add),
+                label: Text(t.addStop(quote, quoting: _quoting)),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
               ),
+              if (hint != null) ...[
+                const SizedBox(height: Space.xs),
+                Text(
+                  hint,
+                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
             ],
             const SizedBox(height: Space.s),
             OutlinedButton.icon(

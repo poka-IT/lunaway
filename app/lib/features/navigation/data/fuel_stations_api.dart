@@ -123,6 +123,7 @@ final class NearbyFuelStations implements FuelStationsSource {
       detourM: detourM,
       detourS: detourM / _detourSpeedMps,
       alongM: near.alongM,
+      fuel: fuel,
       open: open,
       detourEstimated: true,
     );

@@ -118,25 +118,31 @@ abstract class _$RouteStopsController extends $Notifier<List<RouteStop>> {
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.
+/// Asked stretch by stretch, so a long route has its places from the start
+/// to the end, not only around its middle; the first 300 km.
 
 @ProviderFor(placesNearRoute)
 final placesNearRouteProvider = PlacesNearRouteFamily._();
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.
+/// Asked stretch by stretch, so a long route has its places from the start
+/// to the end, not only around its middle; the first 300 km.
 
 final class PlacesNearRouteProvider
     extends
         $FunctionalProvider<
           AsyncValue<List<PlaceSummary>>,
           List<PlaceSummary>,
-          Stream<List<PlaceSummary>>
+          FutureOr<List<PlaceSummary>>
         >
     with
         $FutureModifier<List<PlaceSummary>>,
-        $StreamProvider<List<PlaceSummary>> {
+        $FutureProvider<List<PlaceSummary>> {
   /// The places of the device along [line], those the user's filters keep,
   /// nearest the route first: the pins of the route map, a tap from a stop.
+  /// Asked stretch by stretch, so a long route has its places from the start
+  /// to the end, not only around its middle; the first 300 km.
   PlacesNearRouteProvider._({
     required PlacesNearRouteFamily super.from,
     required List<LatLng> super.argument,
@@ -160,12 +166,12 @@ final class PlacesNearRouteProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<PlaceSummary>> $createElement(
+  $FutureProviderElement<List<PlaceSummary>> $createElement(
     $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  ) => $FutureProviderElement(pointer);
 
   @override
-  Stream<List<PlaceSummary>> create(Ref ref) {
+  FutureOr<List<PlaceSummary>> create(Ref ref) {
     final argument = this.argument as List<LatLng>;
     return placesNearRoute(ref, argument);
   }
@@ -181,13 +187,15 @@ final class PlacesNearRouteProvider
   }
 }
 
-String _$placesNearRouteHash() => r'fbd421f7214120aed3dbd62d6a865a6f68364539';
+String _$placesNearRouteHash() => r'142b1ea25b8cf149e4c5f384a51db2b865161cd8';
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.
+/// Asked stretch by stretch, so a long route has its places from the start
+/// to the end, not only around its middle; the first 300 km.
 
 final class PlacesNearRouteFamily extends $Family
-    with $FunctionalFamilyOverride<Stream<List<PlaceSummary>>, List<LatLng>> {
+    with $FunctionalFamilyOverride<FutureOr<List<PlaceSummary>>, List<LatLng>> {
   PlacesNearRouteFamily._()
     : super(
         retry: null,
@@ -199,6 +207,8 @@ final class PlacesNearRouteFamily extends $Family
 
   /// The places of the device along [line], those the user's filters keep,
   /// nearest the route first: the pins of the route map, a tap from a stop.
+  /// Asked stretch by stretch, so a long route has its places from the start
+  /// to the end, not only around its middle; the first 300 km.
 
   PlacesNearRouteProvider call(List<LatLng> line) =>
       PlacesNearRouteProvider._(argument: line, from: this);

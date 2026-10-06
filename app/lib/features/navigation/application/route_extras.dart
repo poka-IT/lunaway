@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
@@ -27,29 +29,54 @@ const placesNearRouteM = 800.0;
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.
+/// Asked stretch by stretch, so a long route has its places from the start
+/// to the end, not only around its middle; the first 300 km.
 @riverpod
-Stream<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) {
-  final bounds = GeoBounds.around(line);
-  if (bounds == null) return Stream.value(const []);
-  // About 800 m around the route's box.
-  const pad = 0.008;
-  final around = GeoBounds(
-    south: bounds.south - pad,
-    west: bounds.west - pad,
-    north: bounds.north + pad,
-    east: bounds.east + pad,
-  );
-  return ref
-      .watch(placesRepositoryProvider)
-      .watchInBounds(around, ref.watch(effectiveFilterProvider), center: around.center, limit: 400)
-      .map(
-        (places) => [
-          for (final p in places)
-            if (nearestOnLine(LatLng(p.lat, p.lon), line) case final near?
-                when near.offM <= placesNearRouteM)
-              p,
-        ].take(80).toList(),
-      );
+Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) async {
+  final repository = ref.watch(placesRepositoryProvider);
+  final filter = ref.watch(effectiveFilterProvider);
+  final found = <String, ({PlaceSummary place, double offM})>{};
+  for (final stretch in _stretches(line, metres: 15000).take(20)) {
+    final box = GeoBounds.around(stretch);
+    if (box == null) continue;
+    // 800 m: a hundredth of a degree of latitude is 1.1 km; longitude
+    // degrees shrink with the latitude.
+    const padLat = placesNearRouteM / 111195;
+    final padLon = padLat / math.max(0.2, math.cos(box.center.lat * math.pi / 180));
+    final around = GeoBounds(
+      south: box.south - padLat,
+      west: box.west - padLon,
+      north: box.north + padLat,
+      east: box.east + padLon,
+    );
+    final places = await repository.watchInBounds(around, filter, center: around.center).first;
+    for (final p in places) {
+      final near = nearestOnLine(LatLng(p.lat, p.lon), stretch);
+      if (near == null || near.offM > placesNearRouteM) continue;
+      final known = found[p.id];
+      if (known == null || near.offM < known.offM) found[p.id] = (place: p, offM: near.offM);
+    }
+  }
+  final sorted = found.values.toList()..sort((a, b) => a.offM.compareTo(b.offM));
+  return [for (final f in sorted.take(120)) f.place];
+}
+
+/// [line] cut into pieces of about [metres], each sharing its first point
+/// with the end of the one before.
+Iterable<List<LatLng>> _stretches(List<LatLng> line, {required double metres}) sync* {
+  if (line.length < 2) return;
+  var piece = <LatLng>[line.first];
+  var length = 0.0;
+  for (var i = 1; i < line.length; i++) {
+    length += line[i - 1].distanceTo(line[i]);
+    piece.add(line[i]);
+    if (length >= metres) {
+      yield piece;
+      piece = [line[i]];
+      length = 0;
+    }
+  }
+  if (piece.length >= 2) yield piece;
 }
 
 /// Stations along a route; the server's search along a route replaces the

@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
-import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -19,12 +18,12 @@ import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
+import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -237,28 +236,12 @@ class _GuidanceMap extends ConsumerWidget {
     final places = route.line.length < 2
         ? const <PlaceSummary>[]
         : ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[];
-    final stations = ref.watch(shownFuelOffersProvider);
-    final t = context.t;
-    RoutePoint? pointOf(String id) {
-      if (id.startsWith('place:')) {
-        final place = places.where((x) => 'place:${x.id}' == id).firstOrNull;
-        if (place == null) return null;
-        return RoutePoint(
-          position: LatLng(place.lat, place.lon),
-          title: t.summaryTitle(place),
-          subtitle: t.kind(place.kind),
-          placeId: place.id,
-        );
-      }
-      final station = stations.where((x) => 'poi:${x.id}' == id).firstOrNull;
-      if (station == null) return null;
-      return RoutePoint(
-        position: station.position,
-        title: station.name ?? station.brand ?? t.navigation.fuel.station,
-        subtitle: t.litrePrice(station.priceEur),
-        poiId: station.id,
-      );
-    }
+    final points = RoutePoints(
+      places: places,
+      stations: ref.watch(shownFuelOffersProvider),
+      stops: session.stops,
+    );
+    final now = ref.watch(clockProvider)();
 
     return ref.watch(routeMapBuilderProvider)(
       context,
@@ -267,16 +250,7 @@ class _GuidanceMap extends ConsumerWidget {
         dark: dark,
         lines: [RouteMapLine(index: route.index, points: route.line, selected: true)],
         marks: [
-          for (final place in places)
-            RouteMapMark(
-              position: LatLng(place.lat, place.lon),
-              kind: RouteMarkKind.place,
-              id: 'place:${place.id}',
-            ),
-          for (final s in stations)
-            RouteMapMark(position: s.position, kind: RouteMarkKind.station, id: 'poi:${s.id}'),
-          for (final s in session.stops)
-            RouteMapMark(position: s.position, kind: RouteMarkKind.stop),
+          ...points.marks,
           RouteMapMark(position: session.target.destination, kind: RouteMarkKind.destination),
           for (final w in route.warnings)
             RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
@@ -287,7 +261,9 @@ class _GuidanceMap extends ConsumerWidget {
         camera: camera,
         padding: padding,
         onMarkTap: (id) {
-          if (pointOf(id) case final point?) unawaited(openGuidancePoint(context, ref, point));
+          if (points.pointOf(id, context.t, now) case final point?) {
+            unawaited(openGuidancePoint(context, ref, point));
+          }
         },
         onLongPress: (at) => unawaited(openGuidancePoint(context, ref, RoutePoint(position: at))),
       ),
@@ -300,7 +276,6 @@ class _GuidanceMap extends ConsumerWidget {
 /// each change with the way back.
 Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint point) async {
   final t = context.t;
-  final router = GoRouter.of(context);
   final messenger = ScaffoldMessenger.maybeOf(context);
   final controller = ref.read(guidanceControllerProvider.notifier);
   final session = ref.read(guidanceControllerProvider);
@@ -321,6 +296,15 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         done: t.navigation.stops.added,
         undo: () => controller.setStops(before),
       );
+    case RemoveStopChoice(:final index):
+      final before = session.stops;
+      _said(
+        messenger,
+        t,
+        ok: await controller.setStops([...before]..removeAt(index)),
+        done: t.navigation.stops.removed,
+        undo: () => controller.setStops(before),
+      );
     case GoDirectlyChoice():
       final (target, stops) = (session.target, session.stops);
       _said(
@@ -333,7 +317,7 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         undo: () => controller.goTo(target, stops: stops),
       );
     case OpenCardChoice():
-      if (point.placeId case final id?) unawaited(router.push<void>('${AppRoutes.map}?place=$id'));
+      if (point.placeId case final id? when context.mounted) unawaited(showPlaceCard(context, id));
     case null:
   }
 }
@@ -345,6 +329,10 @@ Future<void> addGuidanceStop(BuildContext context, WidgetRef ref, RouteStop stop
   final messenger = ScaffoldMessenger.maybeOf(context);
   final controller = ref.read(guidanceControllerProvider.notifier);
   final before = ref.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
+  if (before.length >= maxRouteStops) {
+    showMessage(messenger, t.navigation.stops.full);
+    return;
+  }
   final quote = await controller.quoteStop(stop);
   _said(
     messenger,
@@ -369,7 +357,13 @@ void _said(
   showMessage(
     messenger,
     done,
-    action: SnackBarAction(label: t.common.undo, onPressed: () => unawaited(undo())),
+    action: SnackBarAction(
+      label: t.common.undo,
+      onPressed: () async {
+        // While a new route is on its way the way back waits; say so.
+        if (!await undo()) showMessage(messenger, t.navigation.stops.failed);
+      },
+    ),
   );
 }
 

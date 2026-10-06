@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
@@ -138,14 +139,30 @@ class ConsumptionTile extends StatefulWidget {
 }
 
 class _ConsumptionTileState extends State<ConsumptionTile> {
-  late final _text = TextEditingController(text: _format(widget.litres));
+  final _text = TextEditingController();
+  final _focus = FocusNode();
 
-  static String _format(double litres) =>
-      litres == litres.roundToDouble() ? '${litres.round()}' : litres.toStringAsFixed(1);
+  String _format(double litres) =>
+      NumberFormat('0.#', context.t.$meta.locale.languageCode).format(litres);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_text.text.isEmpty) _text.text = _format(widget.litres);
+  }
+
+  /// The stored value arrives after the first build (the settings load), or
+  /// changes elsewhere: the field shows it unless the user is typing.
+  @override
+  void didUpdateWidget(ConsumptionTile old) {
+    super.didUpdateWidget(old);
+    if (!_focus.hasFocus && widget.litres != old.litres) _text.text = _format(widget.litres);
+  }
 
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -156,16 +173,14 @@ class _ConsumptionTileState extends State<ConsumptionTile> {
     return ListTile(
       title: Text(t.navigation.settings.consumption),
       subtitle: Text(t.navigation.settings.consumptionHint),
-      trailing: SizedBox(
-        width: 132,
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 96, maxWidth: 150),
         child: TextField(
           controller: _text,
+          focusNode: _focus,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textAlign: TextAlign.end,
-          decoration: InputDecoration(
-            isDense: true,
-            suffixText: t.navigation.settings.consumptionUnit,
-          ),
+          decoration: InputDecoration(suffixText: t.navigation.settings.consumptionUnit),
           onChanged: (raw) {
             final litres = double.tryParse(raw.replaceAll(',', '.'));
             if (litres != null && litres >= range.min && litres <= range.max) {

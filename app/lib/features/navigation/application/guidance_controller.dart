@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -238,6 +239,9 @@ const _movingMps = 1.5;
 
 const _alertFor = Duration(seconds: 10);
 
+/// A quote made this far behind the vehicle is made again before use, metres.
+const _quoteReachM = 300.0;
+
 /// A stop counts as reached this close, metres.
 const _stopReachedM = 80.0;
 
@@ -371,17 +375,31 @@ class GuidanceController extends _$GuidanceController {
     final before = state!.snapshot;
     final comparable = after != null && before != null && plan.status == RouteStatus.ok;
     return StopQuote(
+      stop: stop,
       stops: stops,
+      base: s.stops,
+      from: fix.position,
       plan: plan,
       extraS: comparable ? after.durationS - before.durationRemainingS : null,
       extraM: comparable ? after.distanceM - before.distanceRemainingM : null,
     );
   }
 
-  /// Takes the route of [quote]: its stop is added. False when it could not
-  /// be (a recalculation running, the guidance over).
-  Future<bool> applyQuote(StopQuote quote) =>
-      _change(RerouteReason.stops, stops: quote.stops, known: quote.plan);
+  /// Takes the route of [quote]: its stop is added. A quote made before a
+  /// stop was passed, or from too far behind, is made again first. False
+  /// when it could not be (a recalculation running, the guidance over).
+  Future<bool> applyQuote(StopQuote quote) async {
+    final s = state;
+    final fix = s?.lastFix;
+    if (s == null || fix == null) return false;
+    final from = quote.from;
+    final stale =
+        !listEquals(quote.base, s.stops) ||
+        (from != null && from.distanceTo(fix.position) > _quoteReachM);
+    final fresh = stale ? await quoteStop(quote.stop) : quote;
+    if (fresh == null || fresh.extraS == null) return false;
+    return await _change(RerouteReason.stops, stops: fresh.stops, known: stale ? null : fresh.plan);
+  }
 
   /// A new route through [stops], in their order.
   Future<bool> setStops(List<RouteStop> stops) =>

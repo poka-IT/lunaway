@@ -79,17 +79,23 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
               child: Text(t.navigation.fuel.title, style: theme.textTheme.titleLarge),
             ),
             const SizedBox(height: Space.s),
-            Wrap(
-              spacing: Space.s,
-              runSpacing: Space.s,
-              children: [
-                for (final f in VehicleFuel.values)
-                  ChoiceChip(
-                    label: Text(t.fuelName(f)),
-                    selected: f == fuel,
-                    onSelected: (_) => setState(() => _fuel = f),
-                  ),
-              ],
+            // One row that scrolls: the list keeps its height on a phone
+            // turned sideways with large text.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final f in VehicleFuel.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: Space.s),
+                      child: ChoiceChip(
+                        label: Text(t.fuelName(f)),
+                        selected: f == fuel,
+                        onSelected: (_) => setState(() => _fuel = f),
+                      ),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: Space.s),
             Expanded(

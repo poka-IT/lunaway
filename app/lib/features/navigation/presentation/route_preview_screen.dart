@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
-import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -20,6 +20,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
+import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
@@ -257,46 +258,21 @@ class _PreviewMap extends ConsumerWidget {
     final places = line.length < 2
         ? const <PlaceSummary>[]
         : ref.watch(placesNearRouteProvider(line)).value ?? const <PlaceSummary>[];
-    final stations = ref.watch(shownFuelOffersProvider);
+    final points = RoutePoints(
+      places: places,
+      stations: ref.watch(shownFuelOffersProvider),
+      stops: p?.stops ?? const [],
+    );
+    final now = ref.watch(clockProvider)();
     final marks = [
-      for (final place in places)
-        RouteMapMark(
-          position: LatLng(place.lat, place.lon),
-          kind: RouteMarkKind.place,
-          id: 'place:${place.id}',
-        ),
-      for (final s in stations)
-        RouteMapMark(position: s.position, kind: RouteMarkKind.station, id: 'poi:${s.id}'),
+      ...points.marks,
       if (p?.origin != null) RouteMapMark(position: p!.origin!, kind: RouteMarkKind.origin),
-      for (final s in p?.stops ?? const <RouteStop>[])
-        RouteMapMark(position: s.position, kind: RouteMarkKind.stop),
       RouteMapMark(position: target.destination, kind: RouteMarkKind.destination),
       for (final w in selected?.warnings ?? const <RouteWarning>[])
         RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
       for (final b in plan?.blockers ?? const <RouteWarning>[])
         RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
     ];
-    final t = context.t;
-    RoutePoint? pointOf(String id) {
-      if (id.startsWith('place:')) {
-        final place = places.where((x) => 'place:${x.id}' == id).firstOrNull;
-        if (place == null) return null;
-        return RoutePoint(
-          position: LatLng(place.lat, place.lon),
-          title: t.summaryTitle(place),
-          subtitle: t.kind(place.kind),
-          placeId: place.id,
-        );
-      }
-      final station = stations.where((x) => 'poi:${x.id}' == id).firstOrNull;
-      if (station == null) return null;
-      return RoutePoint(
-        position: station.position,
-        title: station.name ?? station.brand ?? t.navigation.fuel.station,
-        subtitle: t.litrePrice(station.priceEur),
-        poiId: station.id,
-      );
-    }
 
     // Every route in view, so an alternative can be compared and tapped;
     // choosing one leaves the camera where it is.
@@ -322,7 +298,7 @@ class _PreviewMap extends ConsumerWidget {
         padding: padding,
         onLineTap: (i) => ref.read(routePreviewControllerProvider(target).notifier).select(i),
         onMarkTap: (id) {
-          if (pointOf(id) case final point?) {
+          if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openPreviewPoint(context, ref, target, point));
           }
         },
@@ -510,6 +486,8 @@ Future<void> openPreviewPoint(
   switch (choice) {
     case AddStopChoice(:final quote):
       changeStops(context, ref, target, quote.stops, t.navigation.stops.added);
+    case RemoveStopChoice(:final index):
+      changeStops(context, ref, target, [...stops]..removeAt(index), t.navigation.stops.removed);
     case GoDirectlyChoice():
       unawaited(
         router.pushReplacement<void>(
@@ -519,7 +497,7 @@ Future<void> openPreviewPoint(
         ),
       );
     case OpenCardChoice():
-      if (point.placeId case final id?) unawaited(router.push<void>('${AppRoutes.map}?place=$id'));
+      if (point.placeId case final id?) unawaited(showPlaceCard(context, id));
     case null:
   }
 }
@@ -530,7 +508,11 @@ void addPreviewStop(BuildContext context, WidgetRef ref, RouteTarget target, Rou
   final preview = ref.read(routePreviewControllerProvider(target)).value;
   final origin = preview?.origin;
   final stops = ref.read(routeStopsControllerProvider(target));
-  if (origin == null || stops.length >= maxRouteStops) return;
+  if (stops.length >= maxRouteStops) {
+    showMessage(ScaffoldMessenger.maybeOf(context), context.t.navigation.stops.full);
+    return;
+  }
+  if (origin == null) return;
   final at = bestInsertion(
     origin: origin,
     stops: stops,
