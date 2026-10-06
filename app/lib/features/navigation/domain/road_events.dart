@@ -99,6 +99,26 @@ final class RoadEventSchedule {
   }
 }
 
+/// The direction of traffic an event concerns (`RoadEventDirection`).
+enum RoadEventDirection {
+  both,
+  forward,
+  north,
+  south,
+  east,
+  west;
+
+  /// The course of a cardinal direction, degrees from north; null when the
+  /// event concerns every direction, or the one of its own line.
+  double? get degrees => switch (this) {
+    north => 0,
+    east => 90,
+    south => 180,
+    west => 270,
+    both || forward => null,
+  };
+}
+
 /// A road event, as the API's delta carries it.
 @immutable
 final class RoadEvent {
@@ -119,6 +139,8 @@ final class RoadEvent {
     this.schedule = const RoadEventSchedule(),
     this.roadNumber,
     this.updatedAt,
+    this.direction = RoadEventDirection.both,
+    this.headingDeg,
   });
 
   /// Stable across deltas.
@@ -149,6 +171,12 @@ final class RoadEvent {
   /// When the source last changed it: an open event this old stops
   /// blocking.
   final DateTime? updatedAt;
+
+  /// The direction of traffic it concerns.
+  final RoadEventDirection direction;
+
+  /// The course of the users who reported it, degrees from north.
+  final double? headingDeg;
 
   /// Whether it is in force at [at], margins included.
   bool activeAt(DateTime at) {
@@ -195,7 +223,14 @@ final class RoadEvent {
         if (l.length >= 2) EventShape(id: id, points: l, directed: true, part: i),
     ],
     RoadEventPlacement.point when position != null => [
-      EventShape(id: id, points: [position!]),
+      // The server's point rule: the reported course within 60 degrees, or
+      // the cardinal direction within 100.
+      EventShape(
+        id: id,
+        points: [position!],
+        headingDeg: headingDeg ?? direction.degrees,
+        headingToleranceDeg: headingDeg != null ? 60 : 100,
+      ),
     ],
     _ => const [],
   };
@@ -204,17 +239,24 @@ final class RoadEvent {
 /// How fresh a source's events are.
 @immutable
 final class RoadEventSourceStatus {
-  const new({required this.id, required this.fresh, this.lastReadAt, this.staleAfter});
+  const new({required this.id, required this.fresh, this.lastReadAt, this.dataAt, this.staleAfter});
 
   final String id;
   final bool fresh;
+
+  /// The last successful read of the source: the poller is alive.
   final DateTime? lastReadAt;
+
+  /// How recent the data itself is: what freshness counts from.
+  final DateTime? dataAt;
   final Duration? staleAfter;
 
-  /// Fresh for the server, and not grown stale on the phone since.
-  bool freshAt(DateTime at) =>
-      fresh &&
-      (lastReadAt == null || staleAfter == null || !at.isAfter(lastReadAt!.add(staleAfter!)));
+  /// Fresh for the server, and not grown stale on the phone since: the
+  /// data's own date counts, a successful read of old data does not.
+  bool freshAt(DateTime at) {
+    final since = dataAt ?? lastReadAt;
+    return fresh && (since == null || staleAfter == null || !at.isAfter(since.add(staleAfter!)));
+  }
 }
 
 /// The events changed since a cursor (`RoadEventDelta`).

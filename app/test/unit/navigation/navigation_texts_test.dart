@@ -56,6 +56,10 @@ void main() {
     test('masses in tonnes, sizes in metres, bans without a figure', () {
       expect(fr.warningTitle(warning(RouteWarningKind.tooHeavy, limit: 3.5)), 'Poids limité 3,5 t');
       expect(
+        en.warningTitle(warning(RouteWarningKind.goodsVehicleWeight, limit: 7.5)),
+        'Goods vehicle weight limit 7.5 t',
+      );
+      expect(
         fr.warningTitle(warning(RouteWarningKind.narrow, limit: 2.2)),
         'Passage étroit 2,20 m',
       );

@@ -163,6 +163,12 @@ pub struct EventShape {
     /// The line runs in the direction of traffic it concerns: only a route
     /// that follows it that way meets it (one carriageway of a dual road).
     pub directed: bool,
+    /// For a point: the course of the traffic it concerns, degrees from
+    /// north. A route that passes it on another course does not meet it.
+    pub heading_deg: Option<f64>,
+    /// How far the route's course may stray from [`EventShape::heading_deg`]:
+    /// 60 degrees for a reported course, 100 for a cardinal direction.
+    pub heading_tolerance_deg: f64,
 }
 
 /// Where the route ahead drives through an event.

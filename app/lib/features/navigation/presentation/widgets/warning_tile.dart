@@ -11,7 +11,9 @@ IconData warningIcon(RouteWarningKind kind) => switch (kind) {
   RouteWarningKind.lowClearance || RouteWarningKind.unknownClearance => AppIcons.height,
   RouteWarningKind.narrow => AppIcons.width,
   RouteWarningKind.tooLong => AppIcons.length,
-  RouteWarningKind.tooHeavy || RouteWarningKind.axleLoad => AppIcons.weight,
+  RouteWarningKind.tooHeavy ||
+  RouteWarningKind.axleLoad ||
+  RouteWarningKind.goodsVehicleWeight => AppIcons.weight,
   RouteWarningKind.motorhomeBan => AppIcons.vehicle,
   RouteWarningKind.trailerBan => AppIcons.towing,
 };
@@ -46,9 +48,11 @@ class WarningTile extends StatelessWidget {
           )
         : t.navigation.warning.ahead(distance: t.routeDistance(aheadM!, units));
     final details = [where, ?t.warningVehicle(warning), ?warning.name].join(' · ');
-    final source = warning.certainty == RestrictionCertainty.disputed
-        ? '${t.warningSource(warning)} · ${t.navigation.warning.disputed}'
-        : t.warningSource(warning);
+    final source = [
+      t.warningSource(warning),
+      if (warning.certainty == RestrictionCertainty.disputed) t.navigation.warning.disputed,
+      if (warning.kind == RouteWarningKind.goodsVehicleWeight) t.navigation.warning.goodsOnly,
+    ].join(' · ');
     return Semantics(
       button: onTap != null,
       child: InkWell(

@@ -71,11 +71,31 @@ void main() {
       final warning = Map<String, dynamic>.of(
         ((routes.first as Map<String, dynamic>)['warnings'] as List<dynamic>).first
             as Map<String, dynamic>,
-      )..['kind'] = 'GOODS_VEHICLE_WEIGHT';
+      )..['kind'] = 'SNOW_CHAINS';
       (routes.first as Map<String, dynamic>)['warnings'] = [warning];
       final plan = routePlanFromJson(json);
       expect(plan.routes.single.warnings, isEmpty);
     });
+
+    test(
+      'a goods vehicle weight limit of a DiaLog order is kept, as the road events schema adds',
+      () {
+        final json = routeAnswer('utrillo_van');
+        final routes = json['routes'] as List<dynamic>;
+        final warning =
+            Map<String, dynamic>.of(
+                ((routes.first as Map<String, dynamic>)['warnings'] as List<dynamic>).first
+                    as Map<String, dynamic>,
+              )
+              ..['kind'] = 'GOODS_VEHICLE_WEIGHT'
+              ..['source'] = 'DIALOG'
+              ..['limit'] = 3.5;
+        (routes.first as Map<String, dynamic>)['warnings'] = [warning];
+        final w = routePlanFromJson(json).routes.single.warnings.single;
+        expect(w.kind, RouteWarningKind.goodsVehicleWeight);
+        expect(w.source, RestrictionSource.dialog);
+      },
+    );
   });
 
   group('the shape of a route', () {

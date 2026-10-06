@@ -158,10 +158,29 @@ class EventShape {
   /// that follows it that way meets it (one carriageway of a dual road).
   final bool directed;
 
-  const EventShape({required this.id, required this.points, required this.directed});
+  /// For a point: the course of the traffic it concerns, degrees from
+  /// north. A route that passes it on another course does not meet it.
+  final double? headingDeg;
+
+  /// How far the route's course may stray from [`EventShape::heading_deg`]:
+  /// 60 degrees for a reported course, 100 for a cardinal direction.
+  final double headingToleranceDeg;
+
+  const EventShape({
+    required this.id,
+    required this.points,
+    required this.directed,
+    this.headingDeg,
+    required this.headingToleranceDeg,
+  });
 
   @override
-  int get hashCode => id.hashCode ^ points.hashCode ^ directed.hashCode;
+  int get hashCode =>
+      id.hashCode ^
+      points.hashCode ^
+      directed.hashCode ^
+      headingDeg.hashCode ^
+      headingToleranceDeg.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -170,7 +189,9 @@ class EventShape {
           runtimeType == other.runtimeType &&
           id == other.id &&
           points == other.points &&
-          directed == other.directed;
+          directed == other.directed &&
+          headingDeg == other.headingDeg &&
+          headingToleranceDeg == other.headingToleranceDeg;
 }
 
 /// A position fix of the device.

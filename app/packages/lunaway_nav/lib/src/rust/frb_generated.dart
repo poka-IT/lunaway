@@ -411,11 +411,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EventShape dco_decode_event_shape(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 5) throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return EventShape(
       id: dco_decode_String(arr[0]),
       points: dco_decode_list_lat_lon(arr[1]),
       directed: dco_decode_bool(arr[2]),
+      headingDeg: dco_decode_opt_box_autoadd_f_64(arr[3]),
+      headingToleranceDeg: dco_decode_f_64(arr[4]),
     );
   }
 
@@ -766,7 +768,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_id = sse_decode_String(deserializer);
     var var_points = sse_decode_list_lat_lon(deserializer);
     var var_directed = sse_decode_bool(deserializer);
-    return EventShape(id: var_id, points: var_points, directed: var_directed);
+    var var_headingDeg = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_headingToleranceDeg = sse_decode_f_64(deserializer);
+    return EventShape(
+      id: var_id,
+      points: var_points,
+      directed: var_directed,
+      headingDeg: var_headingDeg,
+      headingToleranceDeg: var_headingToleranceDeg,
+    );
   }
 
   @protected
@@ -1164,6 +1174,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.id, serializer);
     sse_encode_list_lat_lon(self.points, serializer);
     sse_encode_bool(self.directed, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.headingDeg, serializer);
+    sse_encode_f_64(self.headingToleranceDeg, serializer);
   }
 
   @protected

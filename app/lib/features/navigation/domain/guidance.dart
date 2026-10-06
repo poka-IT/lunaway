@@ -116,7 +116,14 @@ final class GuidanceSnapshot {
 /// A road event's shape, for the check of the route ahead.
 @immutable
 final class EventShape {
-  const new({required this.id, required this.points, this.directed = false, this.part = 0});
+  const new({
+    required this.id,
+    required this.points,
+    this.directed = false,
+    this.part = 0,
+    this.headingDeg,
+    this.headingToleranceDeg = 0,
+  });
 
   /// The event's id; several shapes of one event share it.
   final String id;
@@ -130,6 +137,13 @@ final class EventShape {
 
   /// Which line of the event, for the log.
   final int part;
+
+  /// For a point: the course of the traffic it concerns, degrees from
+  /// north; a route passing it on another course does not meet it.
+  final double? headingDeg;
+
+  /// How far the route's course may stray from [headingDeg].
+  final double headingToleranceDeg;
 }
 
 /// The server's tolerances for road events: a route follows a matched line

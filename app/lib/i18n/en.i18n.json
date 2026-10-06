@@ -409,13 +409,16 @@
       "axleLoad": "Axle load limit $limit",
       "motorhomeBan": "No motorhomes",
       "trailerBan": "No trailers",
+      "goodsVehicleWeight": "Goods vehicle weight limit $limit",
       "yours": "your vehicle: $value",
       "fromStart": "$distance from the start",
       "ahead": "in $distance",
       "disputed": "sources disagree, the lower figure applies",
+      "goodsOnly": "for heavy goods vehicles, check the signs",
       "osm": "OpenStreetMap",
       "ign": "IGN BD TOPO",
-      "community": "Lunaway report"
+      "community": "Lunaway report",
+      "dialog": "Traffic order (DiaLog)"
     },
     "guidance": {
       "then": "Then",

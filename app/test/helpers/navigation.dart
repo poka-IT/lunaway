@@ -41,9 +41,11 @@ Map<String, dynamic> routeAnswer(String name) {
 }
 
 /// A recorded answer, parsed as the app parses it, shapes and steps
-/// included.
-RoutePlan routeFixture(String name) {
-  final plan = routePlanFromJson(routeAnswer(name));
+/// included; [edit] changes the answer first.
+RoutePlan routeFixture(String name, {void Function(Map<String, dynamic> answer)? edit}) {
+  final answer = routeAnswer(name);
+  edit?.call(answer);
+  final plan = routePlanFromJson(answer);
   final json = plan.osrmJson;
   if (json == null) return plan;
   final shapes = readOsrmShapes(json);

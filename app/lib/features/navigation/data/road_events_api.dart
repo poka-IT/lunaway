@@ -21,6 +21,8 @@ query RoadEvents($since: String) {
     upserts {
       id
       class
+      direction
+      headingDeg
       roadNumber
       limits { maxHeightM maxWidthM maxLengthM maxWeightT appliesTo }
       validFrom
@@ -42,7 +44,7 @@ query RoadEvents($since: String) {
       firstSeenAt
       source
     }
-    sources { id lastReadAt staleAfterSeconds fresh }
+    sources { id lastReadAt dataAt staleAfterSeconds fresh }
   }
 }
 ''',
@@ -95,6 +97,7 @@ RoadEventsDelta roadEventsDeltaFromJson(Map<String, dynamic> json) {
             id: s['id'] as String,
             fresh: s['fresh'] == true,
             lastReadAt: _date(s['lastReadAt']),
+            dataAt: _date(s['dataAt']),
             staleAfter: (s['staleAfterSeconds'] as num?) == null
                 ? null
                 : Duration(seconds: (s['staleAfterSeconds'] as num).toInt()),
@@ -151,6 +154,17 @@ RoadEvent? _event(Map<String, dynamic> e) {
     validFrom: _date(e['validFrom']),
     validTo: _date(e['validTo']),
     roadNumber: e['roadNumber'] as String?,
+    // An unknown direction is read as both: the event then meets a route
+    // whichever way it passes, the cautious side.
+    direction: switch (e['direction']) {
+      'FORWARD' => RoadEventDirection.forward,
+      'NORTH' => RoadEventDirection.north,
+      'SOUTH' => RoadEventDirection.south,
+      'EAST' => RoadEventDirection.east,
+      'WEST' => RoadEventDirection.west,
+      _ => RoadEventDirection.both,
+    },
+    headingDeg: (e['headingDeg'] as num?)?.toDouble(),
     updatedAt: _date(e['sourceUpdatedAt']) ?? _date(e['firstSeenAt']),
     schedule: schedule == null
         ? const RoadEventSchedule()

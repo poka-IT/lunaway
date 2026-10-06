@@ -257,6 +257,8 @@ fn shape(id: &str, points: Vec<LatLon>, directed: bool) -> EventShape {
         id: id.into(),
         points,
         directed,
+        heading_deg: None,
+        heading_tolerance_deg: 0.0,
     }
 }
 
@@ -361,5 +363,40 @@ fn a_point_event_counts_within_fifteen_metres_of_the_route_ahead() {
     assert!(
         (hits[0].start_m - 2_500.0).abs() < 80.0,
         "where the route passes it: {hits:?}"
+    );
+}
+
+#[test]
+fn a_point_event_of_the_other_direction_is_not_on_the_route() {
+    let guidance =
+        Guidance::new(LIMOGES.to_owned(), 0, GuidanceSettings::default()).expect("a route");
+    let points = line(LIMOGES, 0);
+    // Avenue des Benedictins, about 1 km in, runs east-north-east.
+    let pair = points_between(&points, 1_000.0, 1_040.0);
+    let (a, b) = (pair[0], pair[pair.len() - 1]);
+    let course = (b.lon - a.lon)
+        .mul_add(a.lat.to_radians().cos(), 0.0)
+        .atan2(b.lat - a.lat)
+        .to_degrees()
+        .rem_euclid(360.0);
+    let with = |id: &str, heading: f64, tolerance: f64| EventShape {
+        heading_deg: Some(heading),
+        heading_tolerance_deg: tolerance,
+        ..shape(id, vec![a], false)
+    };
+    let hits = guidance.events_ahead(
+        0.0,
+        vec![
+            with("report/same-way", course + 30.0, 60.0),
+            with("report/other-way", course + 180.0, 60.0),
+            with("dir/cardinal", course + 80.0, 100.0),
+        ],
+        LINE_M,
+        POINT_M,
+    );
+    assert_eq!(
+        hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+        ["report/same-way", "dir/cardinal"],
+        "{hits:?}"
     );
 }

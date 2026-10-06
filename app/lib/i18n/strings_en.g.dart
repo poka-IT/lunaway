@@ -1581,6 +1581,9 @@ class Translations$navigation$warning$en {
 	/// en: 'No trailers'
 	String get trailerBan => 'No trailers';
 
+	/// en: 'Goods vehicle weight limit $limit'
+	String goodsVehicleWeight({required Object limit}) => 'Goods vehicle weight limit ${limit}';
+
 	/// en: 'your vehicle: $value'
 	String yours({required Object value}) => 'your vehicle: ${value}';
 
@@ -1593,6 +1596,9 @@ class Translations$navigation$warning$en {
 	/// en: 'sources disagree, the lower figure applies'
 	String get disputed => 'sources disagree, the lower figure applies';
 
+	/// en: 'for heavy goods vehicles, check the signs'
+	String get goodsOnly => 'for heavy goods vehicles, check the signs';
+
 	/// en: 'OpenStreetMap'
 	String get osm => 'OpenStreetMap';
 
@@ -1601,6 +1607,9 @@ class Translations$navigation$warning$en {
 
 	/// en: 'Lunaway report'
 	String get community => 'Lunaway report';
+
+	/// en: 'Traffic order (DiaLog)'
+	String get dialog => 'Traffic order (DiaLog)';
 }
 
 // Path: navigation.guidance
@@ -2251,13 +2260,16 @@ extension on Translations {
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			'navigation.warning.motorhomeBan' => 'No motorhomes',
 			'navigation.warning.trailerBan' => 'No trailers',
+			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
 			'navigation.warning.fromStart' => ({required Object distance}) => '${distance} from the start',
 			'navigation.warning.ahead' => ({required Object distance}) => 'in ${distance}',
 			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
+			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			'navigation.warning.osm' => 'OpenStreetMap',
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Lunaway report',
+			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
 			'navigation.guidance.then' => 'Then',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
 			'navigation.guidance.offRoute' => 'Off the route',

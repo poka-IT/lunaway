@@ -63,6 +63,7 @@ Map<String, dynamic> deltaJson() => {
       'lines': <Object>[],
       'position': {'lat': 45.84, 'lon': 1.28},
       'match': 'POINT',
+      'direction': 'NORTH',
       'mayBlock': true,
       'sourceUpdatedAt': null,
       'firstSeenAt': '2026-10-06T07:00:00Z',
@@ -71,7 +72,13 @@ Map<String, dynamic> deltaJson() => {
     {'id': 'e-future', 'class': 'FLOOD', 'match': 'MATCHED', 'source': 'dir'},
   ],
   'sources': [
-    {'id': 'dir', 'lastReadAt': '2026-10-06T13:00:00Z', 'staleAfterSeconds': 7800, 'fresh': true},
+    {
+      'id': 'dir',
+      'lastReadAt': '2026-10-06T13:00:00Z',
+      'dataAt': '2026-10-06T11:00:00Z',
+      'staleAfterSeconds': 7800,
+      'fresh': true,
+    },
   ],
 };
 
@@ -129,8 +136,27 @@ void main() {
       expect(height.maxHeightM, 3.0);
       expect(height.position, const LatLng(45.84, 1.28));
       expect(height.updatedAt, DateTime.parse('2026-10-06T07:00:00Z'));
+      // Northbound only: a route passing it within 100 degrees of north.
+      expect(height.shapes.single.headingDeg, 0);
+      expect(height.shapes.single.headingToleranceDeg, 100);
+      expect(closure.direction, RoadEventDirection.both);
+      // Read at 13:00, but data of 11:00: stale 2 h 10 after the data.
       expect(delta.sources.single.freshAt(now), isTrue);
-      expect(delta.sources.single.freshAt(now.add(const Duration(hours: 3))), isFalse);
+      expect(delta.sources.single.freshAt(now.add(const Duration(minutes: 30))), isFalse);
+    });
+
+    test('a reported course binds a point event closer than a cardinal direction', () {
+      const reported = RoadEvent(
+        id: 'r',
+        eventClass: RoadEventClass.closure,
+        placement: RoadEventPlacement.point,
+        source: 'community',
+        position: LatLng(45, 1),
+        direction: RoadEventDirection.north,
+        headingDeg: 200,
+      );
+      expect(reported.shapes.single.headingDeg, 200);
+      expect(reported.shapes.single.headingToleranceDeg, 60);
     });
   });
 

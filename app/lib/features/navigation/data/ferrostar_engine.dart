@@ -77,6 +77,8 @@ final class _FerrostarTrack implements GuidanceTrack {
             id: e.id,
             points: [for (final p in e.points) nav.LatLon(lat: p.lat, lon: p.lon)],
             directed: e.directed,
+            headingDeg: e.headingDeg,
+            headingToleranceDeg: e.headingToleranceDeg,
           ),
       ],
       lineToleranceM: eventLineToleranceM,

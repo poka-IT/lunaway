@@ -435,10 +435,14 @@ impl SseDecode for crate::api::engine::EventShape {
         let mut var_id = <String>::sse_decode(deserializer);
         let mut var_points = <Vec<crate::api::engine::LatLon>>::sse_decode(deserializer);
         let mut var_directed = <bool>::sse_decode(deserializer);
+        let mut var_headingDeg = <Option<f64>>::sse_decode(deserializer);
+        let mut var_headingToleranceDeg = <f64>::sse_decode(deserializer);
         return crate::api::engine::EventShape {
             id: var_id,
             points: var_points,
             directed: var_directed,
+            heading_deg: var_headingDeg,
+            heading_tolerance_deg: var_headingToleranceDeg,
         };
     }
 }
@@ -870,6 +874,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::engine::EventShape {
             self.id.into_into_dart().into_dart(),
             self.points.into_into_dart().into_dart(),
             self.directed.into_into_dart().into_dart(),
+            self.heading_deg.into_into_dart().into_dart(),
+            self.heading_tolerance_deg.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1136,6 +1142,8 @@ impl SseEncode for crate::api::engine::EventShape {
         <String>::sse_encode(self.id, serializer);
         <Vec<crate::api::engine::LatLon>>::sse_encode(self.points, serializer);
         <bool>::sse_encode(self.directed, serializer);
+        <Option<f64>>::sse_encode(self.heading_deg, serializer);
+        <f64>::sse_encode(self.heading_tolerance_deg, serializer);
     }
 }
 

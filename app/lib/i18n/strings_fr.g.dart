@@ -791,13 +791,16 @@ class _Translations$navigation$warning$fr extends Translations$navigation$warnin
 	@override String axleLoad({required Object limit}) => 'Charge à l\'essieu limitée ${limit}';
 	@override String get motorhomeBan => 'Interdit aux camping-cars';
 	@override String get trailerBan => 'Interdit aux remorques';
+	@override String goodsVehicleWeight({required Object limit}) => 'Poids limité pour les poids lourds ${limit}';
 	@override String yours({required Object value}) => 'votre véhicule : ${value}';
 	@override String fromStart({required Object distance}) => 'à ${distance} du départ';
 	@override String ahead({required Object distance}) => 'dans ${distance}';
 	@override String get disputed => 'les sources divergent, la valeur la plus basse s\'applique';
+	@override String get goodsOnly => 'vise les poids lourds de marchandises, voyez les panneaux';
 	@override String get osm => 'OpenStreetMap';
 	@override String get ign => 'IGN BD TOPO';
 	@override String get community => 'Signalement Lunaway';
+	@override String get dialog => 'Arrêté de circulation (DiaLog)';
 }
 
 // Path: navigation.guidance
@@ -1286,13 +1289,16 @@ extension on TranslationsFr {
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
 			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
+			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'votre véhicule : ${value}',
 			'navigation.warning.fromStart' => ({required Object distance}) => 'à ${distance} du départ',
 			'navigation.warning.ahead' => ({required Object distance}) => 'dans ${distance}',
 			'navigation.warning.disputed' => 'les sources divergent, la valeur la plus basse s\'applique',
+			'navigation.warning.goodsOnly' => 'vise les poids lourds de marchandises, voyez les panneaux',
 			'navigation.warning.osm' => 'OpenStreetMap',
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
+			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
 			'navigation.guidance.then' => 'Puis',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrivée ${time}',
 			'navigation.guidance.offRoute' => 'Hors itinéraire',

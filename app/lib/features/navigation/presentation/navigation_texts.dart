@@ -42,7 +42,9 @@ extension NavigationTexts on Translations {
   /// The figure of a restriction in its own unit: metres for a size, tonnes
   /// for a mass. French road signs are metric, whatever the app's units.
   String limitFigure(RouteWarningKind kind, double value) => switch (kind) {
-    RouteWarningKind.tooHeavy || RouteWarningKind.axleLoad => tonnes(value),
+    RouteWarningKind.tooHeavy ||
+    RouteWarningKind.axleLoad ||
+    RouteWarningKind.goodsVehicleWeight => tonnes(value),
     _ => metres(value),
   };
 
@@ -67,6 +69,7 @@ extension NavigationTexts on Translations {
       RouteWarningKind.axleLoad => _t.navigation.warning.axleLoad(limit: limit),
       RouteWarningKind.motorhomeBan => _t.navigation.warning.motorhomeBan,
       RouteWarningKind.trailerBan => _t.navigation.warning.trailerBan,
+      RouteWarningKind.goodsVehicleWeight => _t.navigation.warning.goodsVehicleWeight(limit: limit),
     }.trim();
   }
 
@@ -79,6 +82,7 @@ extension NavigationTexts on Translations {
     RestrictionSource.osm => _t.navigation.warning.osm,
     RestrictionSource.ign => _t.navigation.warning.ign,
     RestrictionSource.community => _t.navigation.warning.community,
+    RestrictionSource.dialog => _t.navigation.warning.dialog,
   };
 
   /// A distance as spoken: rounded the way a driver counts ("500 metres",

@@ -181,6 +181,29 @@ void main() {
       );
     });
 
+    testWidgets('a weight limit for goods vehicles says whom it binds', (tester) async {
+      final plan = routeFixture(
+        'utrillo_van',
+        edit: (answer) {
+          final route = (answer['routes'] as List<dynamic>).first as Map<String, dynamic>;
+          ((route['warnings'] as List<dynamic>).first as Map<String, dynamic>)
+            ..['kind'] = 'GOODS_VEHICLE_WEIGHT'
+            ..['source'] = 'DIALOG'
+            ..['certainty'] = 'KNOWN'
+            ..['limit'] = 3.5
+            ..['vehicleValue'] = 3.5;
+        },
+      );
+      await openPreview(tester, answers: [plan]);
+      expect(find.text('Poids limité pour les poids lourds 3,5 t'), findsOneWidget);
+      expect(
+        find.text(
+          'Arrêté de circulation (DiaLog) · vise les poids lourds de marchandises, voyez les panneaux',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('no safe route: what stopped it, the vehicle used, and what to do', (tester) async {
       await openPreview(tester, answers: [routeFixture('bregere_bar')]);
       expect(find.text('Aucun itinéraire sûr pour votre véhicule'), findsOneWidget);

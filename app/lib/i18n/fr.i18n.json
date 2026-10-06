@@ -409,13 +409,16 @@
       "axleLoad": "Charge à l'essieu limitée $limit",
       "motorhomeBan": "Interdit aux camping-cars",
       "trailerBan": "Interdit aux remorques",
+      "goodsVehicleWeight": "Poids limité pour les poids lourds $limit",
       "yours": "votre véhicule : $value",
       "fromStart": "à $distance du départ",
       "ahead": "dans $distance",
       "disputed": "les sources divergent, la valeur la plus basse s'applique",
+      "goodsOnly": "vise les poids lourds de marchandises, voyez les panneaux",
       "osm": "OpenStreetMap",
       "ign": "IGN BD TOPO",
-      "community": "Signalement Lunaway"
+      "community": "Signalement Lunaway",
+      "dialog": "Arrêté de circulation (DiaLog)"
     },
     "guidance": {
       "then": "Puis",

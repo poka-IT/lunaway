@@ -27,6 +27,10 @@ enum RouteWarningKind {
   axleLoad,
   motorhomeBan,
   trailerBan,
+
+  /// A weight limit for heavy goods vehicles (a traffic order): it does not
+  /// bind a motorhome, the signs say whom it binds.
+  goodsVehicleWeight,
 }
 
 /// Whether the vehicle may pass.
@@ -39,7 +43,7 @@ enum WarningSeverity {
 }
 
 /// Where a restriction's figure comes from.
-enum RestrictionSource { osm, ign, community }
+enum RestrictionSource { osm, ign, community, dialog }
 
 /// How sure the figure is.
 enum RestrictionCertainty {

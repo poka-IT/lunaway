@@ -99,12 +99,26 @@ void main() {
     addTearDown(track.dispose);
     final line = LineTrack(plan.routes.single);
     final naveix = [for (var m = 1500.0; m <= 1900; m += 20) line.at(m)];
+    final point = LatLng(line.at(2500).lat + 0.0001, line.at(2500).lon);
+    final course = bearing(line.at(2495), line.at(2505));
     final hits = track.eventsAhead(0, [
       EventShape(id: 'this-way', points: naveix, directed: true),
       EventShape(id: 'other-way', points: naveix.reversed.toList(), directed: true),
-      EventShape(id: 'point', points: [LatLng(line.at(2500).lat + 0.0001, line.at(2500).lon)]),
+      EventShape(id: 'point', points: [point]),
+      EventShape(
+        id: 'point-this-way',
+        points: [point],
+        headingDeg: course,
+        headingToleranceDeg: 60,
+      ),
+      EventShape(
+        id: 'point-other-way',
+        points: [point],
+        headingDeg: (course + 180) % 360,
+        headingToleranceDeg: 60,
+      ),
     ]);
-    expect(hits.map((h) => h.id), ['this-way', 'point']);
+    expect(hits.map((h) => h.id), ['this-way', 'point', 'point-this-way']);
     expect(hits.first.startM, closeTo(1500, 60));
     expect(track.eventsAhead(2000, [EventShape(id: 'behind', points: naveix)]), isEmpty);
   }, skip: skip);

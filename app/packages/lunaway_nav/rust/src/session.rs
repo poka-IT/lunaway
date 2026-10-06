@@ -340,6 +340,11 @@ pub fn events_ahead(
             // report): the route passes by it, as the server's point rule
             // says, farther than the corridor's 2 m for a mapped node.
             [point] => nearest_on_route(line, *point, from_m, point_tolerance_m)
+                .filter(|s| {
+                    event.heading_deg.is_none_or(|h| {
+                        angle_between(course_at(line, *s), h) <= event.heading_tolerance_deg
+                    })
+                })
                 .map(|s| vec![(s, s, line.point_at(s))])
                 .unwrap_or_default(),
             _ => match_route(line, &shape, line_tolerance_m)
@@ -361,6 +366,22 @@ pub fn events_ahead(
     }
     hits.sort_by(|a, b| a.start_m.total_cmp(&b.start_m));
     hits
+}
+
+/// The route's course at `at_m` metres from its start, degrees from north,
+/// over the ten metres around it.
+fn course_at(line: &RouteLine, at_m: f64) -> f64 {
+    let (east, north) = offset(
+        line.point_at((at_m - 5.0).max(0.0)),
+        line.point_at(at_m + 5.0),
+    );
+    east.atan2(north).to_degrees().rem_euclid(360.0)
+}
+
+/// The smaller angle between two courses, 0 to 180 degrees.
+fn angle_between(a: f64, b: f64) -> f64 {
+    let d = (a - b).rem_euclid(360.0);
+    d.min(360.0 - d)
 }
 
 /// Metres east and north of `b` from `a`, on a plane tangent at `a`.
