@@ -5,6 +5,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_view.dart';
@@ -130,6 +131,17 @@ LastPositionStore lastPositionStore(Ref ref) =>
 // keepAlive: a constant of the run.
 @Riverpod(keepAlive: true)
 LatLng? initialPosition(Ref ref) => null;
+
+/// Where the map was left between runs.
+// keepAlive: a repository over the app-wide database.
+@Riverpod(keepAlive: true)
+LastViewStore lastViewStore(Ref ref) => DriftLastViewStore(ref.watch(cacheDatabaseProvider));
+
+/// The view the previous run left the map on, read in `main` before the
+/// first frame: the map opens there, null on a first launch.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+SavedView? initialView(Ref ref) => null;
 
 /// The basemap style templates, read from the assets in `main` before the
 /// first frame, so the map never waits on a file to get its style.

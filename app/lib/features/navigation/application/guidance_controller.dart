@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
@@ -221,6 +222,16 @@ final class GuidanceSession {
 /// Restrictions are shown from this far ahead, metres.
 const warningReachM = 3000.0;
 
+/// The road events of [route] within [warningReachM] ahead of [alongM] that
+/// are worth a look while driving (lanes closed, a closure not placed for
+/// sure), nearest first; works beside the road stay in the preview.
+List<({RouteRoadEvent event, double aheadM})> roadEventsAhead(RouteOption route, double alongM) => [
+  for (final e in route.roadEvents)
+    if (e.weight != RoadEventWeight.info)
+      if (e.distanceFromStartM - alongM case final d when d >= -e.lengthM && d <= warningReachM)
+        (event: e, aheadM: math.max(0, d)),
+]..sort((a, b) => a.aheadM.compareTo(b.aheadM));
+
 /// And announced at these distances, once each.
 const warningCallsM = [2000.0, 500.0];
 
@@ -232,6 +243,14 @@ const _maxBackoff = Duration(minutes: 2);
 
 /// Fixes off the route before a recalculation: one is noise.
 const _offRouteFixes = 2;
+
+/// Until the vehicle first reaches the route, being off it within this
+/// distance of where it started is the way to the route, metres: a
+/// motorhome leaves an aire or a car park, off the road network.
+const _joinWithinM = 250.0;
+
+/// A fix this close to its point on the route is on the route, metres.
+const _onRouteM = 30.0;
 
 /// Below this speed, metres per second, the vehicle is parked: off the
 /// route in a car park is not a wrong turn.
@@ -273,6 +292,11 @@ class GuidanceController extends _$GuidanceController {
   final Set<String> _announced = {};
   int _fixRetries = 0;
   int _offRoute = 0;
+
+  /// Whether the vehicle has been on the current route yet, and where it
+  /// was when the route began.
+  bool _joined = false;
+  LatLng? _joinFrom;
   DateTime? _lastReroute;
   DateTime? _lastEventCheck;
   Duration _backoff = _minBackoff;
@@ -514,6 +538,8 @@ class GuidanceController extends _$GuidanceController {
     _announced.clear();
     _fixRetries = 0;
     _offRoute = 0;
+    _joined = false;
+    _joinFrom = null;
     _lastReroute = null;
     _lastEventCheck = null;
     // The events stay known across guidances (the cursor goes on); what a
@@ -630,7 +656,7 @@ class GuidanceController extends _$GuidanceController {
     if (next.alert != null && !fix.at.isBefore(next.alert!.until)) {
       next = next.copyWith(alert: () => null);
     }
-    if (snap.offRoute) {
+    if (_offRouteNow(snap, fix)) {
       _offRoute++;
       if (!_rerouting) next = next.copyWith(phase: GuidancePhase.offRoute);
     } else {
@@ -645,6 +671,20 @@ class GuidanceController extends _$GuidanceController {
       // distances, and whether one now lies ahead, follow it.
       _checkEvents();
     }
+  }
+
+  /// Whether [snap] puts the vehicle off the route for the guidance: before
+  /// it first reaches the route, only once it has gone [_joinWithinM] from
+  /// where it started, so a start from a car park is neither shown nor said
+  /// as a wrong turn.
+  bool _offRouteNow(GuidanceSnapshot snap, Fix fix) {
+    // Joined once the fix lies on the route itself: an engine may not call
+    // its very first fix off the route, wherever it is.
+    if (fix.position.distanceTo(snap.position) <= _onRouteM) _joined = true;
+    if (!snap.offRoute) return false;
+    if (_joined) return true;
+    final from = _joinFrom ??= fix.position;
+    return fix.position.distanceTo(from) > _joinWithinM;
   }
 
   static bool _passed(RouteStop stop, Fix fix, GuidanceSnapshot snap, RouteOption route) {
@@ -721,6 +761,8 @@ class GuidanceController extends _$GuidanceController {
       _track = track;
       _warned.clear();
       _offRoute = 0;
+      _joined = false;
+      _joinFrom = fix.position;
       _backoff = _minBackoff;
       _events.resetHandled();
       final before = state!.snapshot?.durationRemainingS;
@@ -732,7 +774,7 @@ class GuidanceController extends _$GuidanceController {
         plan: plan,
         routeIndex: plan.routes.first.index,
         snapshot: snap,
-        phase: snap.offRoute ? GuidancePhase.offRoute : GuidancePhase.navigating,
+        phase: _offRouteNow(snap, fix) ? GuidancePhase.offRoute : GuidancePhase.navigating,
         reroutes: state!.reroutes + 1,
         alert: () => ReroutedAlert(reason: reason, extra: extra, until: alertUntil),
       );
@@ -774,7 +816,7 @@ class GuidanceController extends _$GuidanceController {
     final s = state!;
     final until = fix.at.add(_alertFor * 3);
     state = s.copyWith(
-      phase: (s.snapshot?.offRoute ?? false) ? GuidancePhase.offRoute : GuidancePhase.navigating,
+      phase: _offRoute > 0 ? GuidancePhase.offRoute : GuidancePhase.navigating,
       eventAlerts: cause == null
           ? null
           : [cause, ...s.eventAlerts.where((e) => e.event.id != cause.event.id)],

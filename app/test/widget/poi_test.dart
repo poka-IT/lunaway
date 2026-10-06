@@ -44,6 +44,7 @@ void main() {
       expect(find.text('Santé'), findsOneWidget);
       expect(map.lastProps!.pois!.category, isNull, reason: 'none on by default');
 
+      await tester.ensureVisible(find.text('Distributeurs'));
       await tester.tap(find.text('Distributeurs'));
       await settleShort(tester);
       expect(map.lastProps!.pois!.category, PoiCategory.vending);
@@ -63,8 +64,10 @@ void main() {
       final map = FakeMap();
       await pumpLunaway(tester, map: map);
       expect(find.text(t.poi.openNow), findsNothing);
+      await tester.ensureVisible(find.text('Courses'));
       await tester.tap(find.text('Courses'));
       await settleShort(tester);
+      await tester.ensureVisible(find.text(t.poi.openNow));
       await tester.tap(find.text(t.poi.openNow));
       await settleShort(tester);
       expect(map.lastProps!.pois!.openNowOnly, isTrue);
@@ -122,7 +125,7 @@ void main() {
       expect(lpg.dy, lessThan(diesel.dy));
       expect(inPoi(find.textContaining('1,029')), findsOneWidget);
       expect(inPoi(find.text('Prix mis à jour il y a 2 heures')), findsWidgets);
-      expect(inPoi(find.text('Flux des prix lu il y a 10 minutes')), findsOneWidget);
+      expect(inPoi(find.text('Prix relevés il y a 10 minutes')), findsOneWidget);
       expect(inPoi(find.text('E85 · ${t.poi.shortageTemporary}')), findsOneWidget);
       expect(inPoi(find.text(t.poi.selfService24h)), findsOneWidget);
       expect(inPoi(find.text('Licence Ouverte 2.0')), findsOneWidget, reason: 'its source');
@@ -222,7 +225,7 @@ void main() {
       final app = await pumpLunaway(tester, size: _tall, pois: FakePoiSource()..online = false);
       app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
-      expect(inPlace(find.text(t.poi.aroundError)), findsOneWidget);
+      expect(inPlace(find.text(t.poi.aroundOffline)), findsOneWidget);
     });
   });
 

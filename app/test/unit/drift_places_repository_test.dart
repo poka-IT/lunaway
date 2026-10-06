@@ -203,6 +203,11 @@ void main() {
       expect(kept.contains(lakeArea.id), isTrue, reason: 'no known barrier');
     });
 
+    test('"free" keeps the places whose night is known to be free, not the unknown ones', () async {
+      expect(await ids(const PlaceFilter(freeOnly: true)), {dayParking.id});
+      expect(await repo.countMatching(const PlaceFilter(freeOnly: true)), 1);
+    });
+
     test('the count matches the filtered list', () async {
       const filter = PlaceFilter(overnight: nightPossible, amenities: {Amenity.water});
       expect(await repo.countMatching(filter), (await ids(filter)).length);

@@ -21,10 +21,14 @@ import 'package:lunaway/shared/widgets/floating.dart';
 /// it while there is a query. Everything is answered by the local index,
 /// without network.
 class MapSearch extends ConsumerStatefulWidget {
-  const new({this.floating = true, super.key});
+  const new({this.floating = true, this.brand = true, super.key});
 
   /// Floating over the map (true) or sitting in a pane (false).
   final bool floating;
+
+  /// The brand mark at the start of a floating pill; a rail that already
+  /// shows the brand leaves it out.
+  final bool brand;
 
   @override
   ConsumerState<MapSearch> createState() => _MapSearchState();
@@ -77,12 +81,19 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final query = ref.watch(searchQueryProvider);
+    // A query cleared from elsewhere (the system back) empties the field too.
+    ref.listen(searchQueryProvider, (_, next) {
+      if (next.isEmpty && _controller.text.isNotEmpty) {
+        _controller.clear();
+        _focus.unfocus();
+      }
+    });
     final row = SizedBox(
       height: 56,
       child: Row(
         children: [
           const SizedBox(width: Space.ml),
-          if (widget.floating)
+          if (widget.floating && widget.brand)
             const BrandMark(height: 30)
           else
             Icon(AppIcons.search, color: scheme.onSurfaceVariant),
@@ -113,7 +124,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
               icon: const Icon(AppIcons.close),
               onPressed: _clear,
             )
-          else if (widget.floating)
+          else if (widget.floating && widget.brand)
             Padding(
               padding: const EdgeInsets.only(right: Space.ml),
               child: Icon(AppIcons.search, color: scheme.onSurfaceVariant),

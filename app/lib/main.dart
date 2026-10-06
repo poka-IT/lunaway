@@ -14,6 +14,7 @@ import 'package:lunaway/core/licences.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
@@ -67,6 +68,14 @@ Future<void> main() async {
   } on Object catch (error, stack) {
     Logger('startup').warning('the last position could not be read', error, stack);
   }
+  // Where the map was left, for the same reason: a damaged row opens the
+  // map on France.
+  SavedView? view;
+  try {
+    view = await DriftLastViewStore(cache).load();
+  } on Object catch (error, stack) {
+    Logger('startup').warning('the last view could not be read', error, stack);
+  }
   final basemap = await BasemapTemplates.load();
   final locale = settings.localeCode;
   if (locale == null) {
@@ -85,6 +94,7 @@ Future<void> main() async {
         appVersionProvider.overrideWithValue(version),
         initialSettingsProvider.overrideWithValue(settings),
         initialPositionProvider.overrideWithValue(position),
+        initialViewProvider.overrideWithValue(view),
         basemapTemplatesProvider.overrideWithValue(basemap),
         // A constant condition: a release build drops the demo server and
         // its data entirely.

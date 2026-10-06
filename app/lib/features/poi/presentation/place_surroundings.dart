@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
@@ -66,9 +67,15 @@ class PlaceSurroundings extends ConsumerWidget {
             ],
           );
         }(),
-      AsyncError() => Row(
+      AsyncError(:final error) => Row(
         children: [
-          Expanded(child: Text(t.poi.aroundError, style: muted)),
+          Expanded(
+            child: Text(
+              // No network and no copy kept: the network, not the place.
+              error is GraphQLNetworkException ? t.poi.aroundOffline : t.poi.aroundError,
+              style: muted,
+            ),
+          ),
           TextButton(
             onPressed: () => ref.invalidate(placeSurroundingsProvider(place.id)),
             child: Text(t.common.retry),

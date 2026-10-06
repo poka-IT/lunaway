@@ -281,6 +281,40 @@ void main() {
     });
   });
 
+  group("the basemap's host", () {
+    test('is asked again when the map rests on an answer 30 s old', () async {
+      var now = DateTime.utc(2026, 10, 6, 12);
+      var asked = 0;
+      var online = true;
+      final client = MockClient((request) async {
+        asked++;
+        if (!online) throw http.ClientException('no network');
+        return http.Response('{}', 200);
+      });
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          clockProvider.overrideWithValue(() => now),
+        ],
+      );
+      final host = container.read(basemapReachabilityProvider.notifier);
+      await host.probe();
+      expect(container.read(basemapReachabilityProvider), isTrue);
+      online = false;
+      now = now.add(const Duration(seconds: 10));
+      await host.probeIfStale();
+      expect(asked, 1, reason: 'a fresh answer stands');
+      now = now.add(const Duration(seconds: 25));
+      await host.probeIfStale();
+      expect(asked, 2);
+      expect(
+        container.read(basemapReachabilityProvider),
+        isFalse,
+        reason: 'the map now reads a downloaded pack',
+      );
+    });
+  });
+
   group('the offline maps of the device', () {
     late MemoryPackFiles files;
     late ProviderContainer container;

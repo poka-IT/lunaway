@@ -4,6 +4,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/filters_sheet.dart';
+import 'package:lunaway/features/poi/presentation/poi_chips.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
@@ -15,12 +16,17 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 
-/// The filters a traveller flips most, one tap each, after the button to the
-/// full filter sheet with the count of active filters. The row scrolls
-/// sideways and fades at its edges, so a chip cut by the screen edge reads
-/// as "more this way" rather than as a mistake.
+/// The one row of chips under the search: the button to the full filters
+/// with the count of those active, the filters a traveller flips most, then
+/// the six categories of shops and services around (one at a time), and
+/// the vehicle's height last. One row rather than two leaves the map the
+/// room; it scrolls sideways and fades at its edges, so a chip cut by the
+/// screen edge reads as "more this way" rather than as a mistake.
 class QuickFilters extends ConsumerWidget {
   const new({this.padding = EdgeInsets.zero, this.floating = true, super.key});
+
+  /// The height the row takes, for the map's top padding.
+  static const double height = 48 + Space.s * 2;
 
   final EdgeInsets padding;
 
@@ -58,14 +64,17 @@ class QuickFilters extends ConsumerWidget {
         floating: floating,
         onTap: () => apply(filter.withNightOk(on: !filter.nightOk)),
       ),
-      for (final a in Amenity.quick)
-        MapChip(
-          icon: AppIcons.amenity(a),
-          label: t.amenity(a),
-          selected: filter.amenities.contains(a),
-          floating: floating,
-          onTap: () => apply(filter.toggleAmenity(a)),
-        ),
+      MapChip(
+        icon: AppIcons.free,
+        label: t.filters.freeOnly,
+        selected: filter.freeOnly,
+        floating: floating,
+        onTap: () => apply(filter.copyWith(freeOnly: !filter.freeOnly)),
+      ),
+      _PoiGroup(
+        label: t.poi.chipsLabel,
+        chips: poiCategoryChips(context, ref, floating: floating),
+      ),
       MapChip(
         icon: AppIcons.vehicleFits,
         label: vehicle?.heightM == null
@@ -100,15 +109,43 @@ class QuickFilters extends ConsumerWidget {
         child: Row(
           children: [
             for (final c in chips)
-              Padding(
-                padding: const EdgeInsets.only(right: Space.s),
-                child: c,
-              ),
+              // The categories' group pads its own chips.
+              if (c is _PoiGroup)
+                c
+              else
+                Padding(
+                  padding: const EdgeInsets.only(right: Space.s),
+                  child: c,
+                ),
           ],
         ),
       ),
     );
   }
+}
+
+/// The categories of shops and services in the row, one group for a screen
+/// reader, each chip padded as the others.
+class _PoiGroup extends StatelessWidget {
+  const new({required this.label, required this.chips});
+
+  final String label;
+  final List<Widget> chips;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    label: label,
+    child: Row(
+      children: [
+        for (final c in chips)
+          Padding(
+            padding: const EdgeInsets.only(right: Space.s),
+            child: c,
+          ),
+      ],
+    ),
+  );
 }
 
 /// A chip over the map: a floating pill, amber-tinted when on. Shared with
@@ -153,6 +190,9 @@ class MapChip extends StatelessWidget {
         button: true,
         selected: selected,
         label: semanticsLabel == null ? null : '$label, $semanticsLabel',
+        // With its own label the chip excludes its children, the ink's tap
+        // among them: the node carries the tap again.
+        onTap: semanticsLabel == null ? null : onTap,
         excludeSemantics: semanticsLabel != null,
         child: AnimatedContainer(
           duration: Motion.of(context, Motion.short),

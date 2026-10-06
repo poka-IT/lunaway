@@ -256,7 +256,7 @@ class _Level extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: Space.xxs),
                       child: Text(
-                        t.account.orInstead(requirement: t.requirement(next.instead!)),
+                        t.insteadRequirement(next.instead!),
                         style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ),

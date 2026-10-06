@@ -68,6 +68,7 @@ void main() {
     'braille_tall',
     'limoges_drive',
     'brive_ussel_en',
+    'aix_marseille_closures',
   ]) {
     test('the recorded answer $name matches the selection', () {
       final body = jsonDecode(

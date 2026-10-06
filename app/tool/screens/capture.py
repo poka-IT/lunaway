@@ -134,6 +134,13 @@ def run(cmd, env, args, kind, height):
         # Flushed per line: the log of a long run is read while it runs.
         sys.stdout.write(line)
         sys.stdout.flush()
+        # A tour that shows the device's position asks for it to be granted:
+        # the install that `flutter test` makes starts without permissions.
+        if kind == "android" and "GRANT LOCATION" in line:
+            ident = args.device.partition(":")[2]
+            for perm in ("ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"):
+                subprocess.run(["adb", "-s", ident, "shell", "pm", "grant", "legal.p2p.lunaway",
+                                f"android.permission.{perm}"], check=False)
         marker = line.find("SHOT ")
         if marker >= 0:
             name = line[marker + 5:].strip()

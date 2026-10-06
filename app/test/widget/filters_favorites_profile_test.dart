@@ -58,12 +58,24 @@ void main() {
       );
       await settleShort(tester);
       expect(find.text('Afficher 1 lieu'), findsOneWidget);
-      await tester.tap(find.text('Nuit autorisée').last);
+      final allowed = find.descendant(
+        of: find.byType(FiltersPanel),
+        matching: find.text('Nuit autorisée'),
+      );
+      await tester.ensureVisible(allowed);
+      await tester.pump();
+      await tester.tap(allowed);
       await settleShort(tester);
       expect(find.text('Aucun lieu ne correspond'), findsOneWidget);
       await tester.tap(find.text('Tout effacer'));
       await settleShort(tester);
       expect(find.text('Afficher 5 lieux'), findsOneWidget);
+      // Back to the top of the sheet, where the families are.
+      await tester.drag(
+        find.descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable)).first,
+        const Offset(0, 2000),
+      );
+      await settleShort(tester);
       await tester.tap(find.text('Campings et accueils'));
       await settleShort(tester);
       await tester.tap(find.text('Afficher 1 lieu'));
@@ -317,7 +329,7 @@ void main() {
       await tester.tap(find.text('English'));
       await settleShort(tester);
       expect(find.text('Map'), findsOneWidget);
-      expect(find.text('Offline data'), findsOneWidget);
+      expect(find.text('Offline'), findsOneWidget);
       expect(app.settings.value.localeCode, 'en');
       await tester.tap(find.text('Français'));
       await settleShort(tester);
@@ -328,7 +340,7 @@ void main() {
       await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
       final semantics = tester.ensureSemantics();
-      expect(tester.getSemantics(find.text('Appareil')), isSemantics(isSelected: true));
+      expect(tester.getSemantics(find.text("Comme l'appareil")), isSemantics(isSelected: true));
       semantics.dispose();
     });
 
@@ -391,7 +403,7 @@ void main() {
     ) async {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
-      for (final label in ['Site web', 'Confidentialité', 'Code source']) {
+      for (final label in ['Site web', 'Politique de confidentialité', 'Code source']) {
         await tester.tap(find.text(label));
         await settleShort(tester);
       }

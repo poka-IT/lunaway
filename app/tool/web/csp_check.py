@@ -24,8 +24,7 @@ blocked for "csp"). Then it checks:
     no missing glyph.
 
 Screenshots and a report go to --out. Exits 1 on a failed check. Needs the
-`websockets` Python package. Until api.lunaway.net resolves, give --api the
-server's sslip.io name (docs/deploy.md).
+`websockets` Python package.
 """
 
 import argparse

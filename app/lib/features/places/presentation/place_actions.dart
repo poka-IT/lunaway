@@ -231,6 +231,9 @@ class _ActionTile extends StatelessWidget {
       button: true,
       label: label,
       hint: hint,
+      // The label stands for the icon and the text, which are excluded with
+      // the ink's own actions: the node carries the tap again.
+      onTap: onPressed,
       customSemanticsActions: onLongPress == null || longPressLabel == null
           ? null
           : {CustomSemanticsAction(label: longPressLabel!): onLongPress!},

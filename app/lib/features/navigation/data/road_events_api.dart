@@ -88,31 +88,34 @@ RoadEventsDelta roadEventsDeltaFromJson(Map<String, dynamic> json) {
     removals: [for (final r in json['removals'] as List? ?? const []) '$r'],
     upserts: [
       for (final e in json['upserts'] as List? ?? const [])
-        if (e is Map<String, dynamic>) ?_event(e),
+        if (e is Map<String, dynamic>) ?roadEventFromJson(e),
     ],
     sources: [
       for (final s in json['sources'] as List? ?? const [])
-        if (s is Map<String, dynamic>)
-          RoadEventSourceStatus(
-            id: s['id'] as String,
-            fresh: s['fresh'] == true,
-            name: s['name'] as String?,
-            attribution: s['attribution'] as String?,
-            lastReadAt: _date(s['lastReadAt']),
-            dataAt: _date(s['dataAt']),
-            staleAfter: (s['staleAfterSeconds'] as num?) == null
-                ? null
-                : Duration(seconds: (s['staleAfterSeconds'] as num).toInt()),
-          ),
+        if (s is Map<String, dynamic>) roadEventSourceFromJson(s),
     ],
   );
 }
 
+/// A source of road events and the age of its data (`RoadEventSourceStatus`).
+RoadEventSourceStatus roadEventSourceFromJson(Map<String, dynamic> s) => RoadEventSourceStatus(
+  id: s['id'] as String,
+  fresh: s['fresh'] == true,
+  name: s['name'] as String?,
+  attribution: s['attribution'] as String?,
+  lastReadAt: _date(s['lastReadAt']),
+  dataAt: _date(s['dataAt']),
+  staleAfter: (s['staleAfterSeconds'] as num?) == null
+      ? null
+      : Duration(seconds: (s['staleAfterSeconds'] as num).toInt()),
+);
+
 DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v) : null;
 
 /// An event this app cannot read (a class or a placement of a newer server)
-/// is left out: the server's own route check still knows it.
-RoadEvent? _event(Map<String, dynamic> e) {
+/// is left out: the server's own route check still knows it. Read from the
+/// delta and from a route's answer, which asks fewer fields.
+RoadEvent? roadEventFromJson(Map<String, dynamic> e) {
   final eventClass = switch (e['class']) {
     'CLOSURE' => RoadEventClass.closure,
     'VEHICLE_LIMIT' => RoadEventClass.vehicleLimit,
@@ -156,6 +159,7 @@ RoadEvent? _event(Map<String, dynamic> e) {
     validFrom: _date(e['validFrom']),
     validTo: _date(e['validTo']),
     roadNumber: e['roadNumber'] as String?,
+    roadName: e['roadName'] as String?,
     // An unknown direction is read as both: the event then meets a route
     // whichever way it passes, the cautious side.
     direction: switch (e['direction']) {

@@ -116,8 +116,8 @@ class _Translations$common$fr extends Translations$common$en {
 	@override String get send => 'Envoyer';
 	@override String get later => 'Plus tard';
 	@override String get next => 'Continuer';
-	@override String get failed => 'Ça n\'a pas abouti. Réessayez dans un moment.';
-	@override String get offline => 'Pas de réseau pour l\'instant. Réessayez quand la connexion revient.';
+	@override String get failed => 'L\'opération n\'a pas abouti. Réessayez dans un moment.';
+	@override String get offline => 'Pas de réseau pour l\'instant. Réessayez quand il reviendra.';
 }
 
 // Path: kinds
@@ -154,7 +154,7 @@ class _Translations$families$fr extends Translations$families$en {
 	@override String get nature => 'Nature';
 	@override String get natureHint => 'Lieux en pleine nature, pistes';
 	@override String get services => 'Services';
-	@override String get servicesHint => 'Eau et vidange, sans nuit';
+	@override String get servicesHint => 'Eau et vidange, pas de nuit sur place';
 }
 
 // Path: services
@@ -180,7 +180,7 @@ class _Translations$services$fr extends Translations$services$en {
 	@override String get swimmingPool => 'Piscine';
 	@override String get petsAllowed => 'Animaux acceptés';
 	@override String get mobileData => 'Réseau mobile';
-	@override String get winterCaravanning => 'Séjour en hiver';
+	@override String get winterCaravanning => 'Ouvert en hiver';
 }
 
 // Path: activities
@@ -235,7 +235,7 @@ class _Translations$overnight$fr extends Translations$overnight$en {
 	@override String get forbidden => 'Nuit interdite';
 	@override String get unknown => 'Nuit non renseignée';
 	@override String get allowedHint => 'Vous pouvez passer la nuit ici.';
-	@override String get toleratedHint => 'Une nuit est en général acceptée. Restez discret et ne laissez aucune trace.';
+	@override String get toleratedHint => 'Une nuit est en général acceptée. Discrétion de rigueur, ne laissez aucune trace.';
 	@override String get dayOnlyHint => 'Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.';
 	@override String get forbiddenHint => 'Passer la nuit ici est interdit.';
 	@override String get unknownHint => 'Personne ne l\'a encore indiqué. Renseignez-vous sur place.';
@@ -248,9 +248,9 @@ class _Translations$freshness$fr extends Translations$freshness$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String confirmed({required Object when}) => 'Confirmé ${when}';
-	@override String updated({required Object when}) => 'Mis à jour ${when}';
-	@override String get stale => 'Pas confirmé depuis plus d\'un an';
+	@override String confirmed({required Object when}) => 'Confirmé par un voyageur ${when}';
+	@override String get unconfirmed => 'Pas encore confirmé par un voyageur';
+	@override String get stale => 'Dernière confirmation il y a plus d\'un an';
 	@override String get today => 'aujourd\'hui';
 	@override String daysAgo({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: 'hier',
@@ -290,9 +290,13 @@ class _Translations$map$fr extends Translations$map$en {
 		one: 'lieu ici',
 		other: 'lieux ici',
 	);
-	@override String nearestPlacesLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
-		one: 'lieu le plus proche',
-		other: 'lieux les plus proches',
+	@override String nearestYouLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'lieu le plus proche de vous',
+		other: 'lieux les plus proches de vous',
+	);
+	@override String nearestCentreLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'lieu le plus proche du centre',
+		other: 'lieux les plus proches du centre',
 	);
 	@override String get pointTitle => 'Point choisi';
 	@override String get pointHint => 'Ses coordonnées et l\'itinéraire jusqu\'à lui';
@@ -336,16 +340,16 @@ class _Translations$location$fr extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Afficher votre position ?';
-	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, et de façon approchée pour le carburant le long du trajet, votre position part vers le serveur de Lunaway, qui n\'en garde rien.';
+	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant sur le trajet, seule une position approchée est envoyée.';
 	@override String get allow => 'Continuer';
 	@override String get notNow => 'Pas maintenant';
 	@override String get deniedTitle => 'Position désactivée pour Lunaway';
 	@override String get denied => 'Vous avez refusé l\'accès à la position. Pour l\'utiliser, autorisez-le dans les réglages de l\'appareil.';
 	@override String get openSettings => 'Ouvrir les réglages';
-	@override String get serviceOffTitle => 'Localisation éteinte';
-	@override String get serviceOff => 'La localisation de l\'appareil est éteinte. Allumez-la dans les réglages rapides, puis réessayez.';
+	@override String get serviceOffTitle => 'Localisation désactivée';
+	@override String get serviceOff => 'La localisation de l\'appareil est désactivée. Activez-la dans les réglages rapides, puis réessayez.';
 	@override String get notAllowed => 'Position non autorisée. La carte fonctionne sans elle.';
-	@override String get noFix => 'Votre position n\'arrive pas. Essayez à découvert, ou dans un instant.';
+	@override String get noFix => 'Position introuvable pour l\'instant. Réessayez à découvert ou dans un moment.';
 	@override String get unsupported => 'Cet appareil ne donne pas sa position.';
 }
 
@@ -375,16 +379,19 @@ class _Translations$filters$fr extends Translations$filters$en {
 	@override String get title => 'Filtres';
 	@override String get families => 'Type de lieu';
 	@override String get familiesHint => 'Aucun choix : tous les types';
-	@override String get night => 'La nuit';
+	@override String get night => 'Nuit sur place';
 	@override String get nightHint => 'Aucun choix : tous les lieux';
 	@override String get nightPossible => 'Nuit possible';
 	@override String get amenities => 'Services';
 	@override String get amenitiesHint => 'Le lieu doit tous les avoir';
+	@override String get price => 'Prix de la nuit';
+	@override String get freeOnly => 'Gratuit';
+	@override String get freeHint => 'Seulement les lieux dont la nuit est gratuite d\'après leurs sources';
 	@override String get vehicle => 'Mon véhicule';
 	@override String get myVehicleFits => 'Mon véhicule passe';
 	@override String myVehicleFitsHeight({required Object height}) => 'Passe à ${height}';
-	@override String myVehicleHint({required Object height}) => 'Masque les lieux limités sous ${height}. Les hauteurs inconnues restent.';
-	@override String get myVehicleUnknown => 'Indiquez la hauteur de votre véhicule pour l\'utiliser.';
+	@override String myVehicleHint({required Object height}) => 'Masque les lieux limités sous ${height}. Les lieux sans hauteur connue restent affichés.';
+	@override String get myVehicleUnknown => 'Indiquez la hauteur de votre véhicule pour activer ce filtre.';
 	@override String get reset => 'Tout effacer';
 	@override String get apply => 'Appliquer';
 	@override String show({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
@@ -418,7 +425,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get removedToast => 'Retiré de Mes favoris';
 	@override String get pricePerNight => 'Prix de la nuit';
 	@override String get priceFree => 'Gratuit';
-	@override String get priceUnknown => 'Inconnu';
+	@override String get priceUnknown => 'Non indiqué';
 	@override String get priceServices => 'Services';
 	@override String get maxHeight => 'Hauteur max.';
 	@override String get capacity => 'Emplacements';
@@ -446,14 +453,13 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get formatGoogle => 'Lien Google Maps';
 	@override String get formatOsm => 'Lien OpenStreetMap';
 	@override String get sources => 'Sources';
-	@override String fetched({required Object when}) => 'Lu ${when}';
-	@override String matchScore({required Object score}) => 'Correspondance ${score} %';
+	@override String fetched({required Object when}) => 'Relevé ${when}';
 	@override String get viewSource => 'Voir à la source';
-	@override String get gone => 'Ce lieu n\'est plus dans les données';
+	@override String get gone => 'Ce lieu n\'est plus sur la carte';
 	@override String get goneHint => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.';
-	@override String get arriving => 'Ce lieu arrive avec le téléchargement des lieux';
+	@override String get arriving => 'Ce lieu est en cours de téléchargement';
 	@override String get arrivingHint => 'Les lieux de France se téléchargent pour que la carte marche sans réseau. La fiche s\'ouvre dès que celui-ci est arrivé.';
-	@override String get loadError => 'Ce lieu n\'a pas pu être lu.';
+	@override String get loadError => 'Ce lieu n\'a pas pu s\'afficher.';
 	@override String get openFailed => 'Aucune application n\'a pu ouvrir ce lien.';
 	@override String get photos => 'Photos';
 	@override String get extrasOffline => 'Les photos et les avis demandent une connexion.';
@@ -471,7 +477,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
-	@override String get links => 'Ailleurs';
+	@override String get links => 'Sur d\'autres sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
 }
@@ -496,12 +502,17 @@ class _Translations$hours$fr extends Translations$hours$en {
 		one: 'Fermé, ouvre dans ${n} minute',
 		other: 'Fermé, ouvre dans ${n} minutes',
 	);
-	@override String get closedWindow => 'Fermé pour les deux prochaines semaines';
+	@override String get closedWindow => 'Fermé pendant les deux semaines à venir';
 	@override String get tomorrow => 'demain';
 	@override String onDate({required Object date}) => 'le ${date}';
 	@override String get midnight => 'minuit';
-	@override String get stale => 'Ouverture inconnue : données à mettre à jour';
-	@override String get localTime => 'Heures du lieu';
+	@override String get stale => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.';
+	@override String get localTime => 'Horaires à l\'heure locale du lieu';
+	@override late final _Translations$hours$codes$fr codes = _Translations$hours$codes$fr._(_root);
+	@override late final _Translations$hours$months$fr months = _Translations$hours$months$fr._(_root);
+	@override String dayOfMonth({required Object day, required Object month}) => '${day} ${month}';
+	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
+	@override String get allWeek => '24 h/24, 7 j/7';
 }
 
 // Path: directions
@@ -540,6 +551,7 @@ class _Translations$navigation$fr extends Translations$navigation$en {
 	@override late final _Translations$navigation$fuel$fr fuel = _Translations$navigation$fuel$fr._(_root);
 	@override late final _Translations$navigation$states$fr states = _Translations$navigation$states$fr._(_root);
 	@override late final _Translations$navigation$warning$fr warning = _Translations$navigation$warning$fr._(_root);
+	@override late final _Translations$navigation$roadEvents$fr roadEvents = _Translations$navigation$roadEvents$fr._(_root);
 	@override late final _Translations$navigation$guidance$fr guidance = _Translations$navigation$guidance$fr._(_root);
 	@override late final _Translations$navigation$voice$fr voice = _Translations$navigation$voice$fr._(_root);
 	@override late final _Translations$navigation$units$fr units = _Translations$navigation$units$fr._(_root);
@@ -553,10 +565,12 @@ class _Translations$list$fr extends Translations$list$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String get title => 'Lieux autour';
+	@override String get title => 'Lieux à proximité';
 	@override String get empty => 'Aucun lieu par ici avec ces filtres';
 	@override String get emptyHint => 'Déplacez la carte, dézoomez ou assouplissez les filtres.';
-	@override String get error => 'La liste n\'a pas pu être lue.';
+	@override String get downloading => 'Les lieux arrivent';
+	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
+	@override String get error => 'La liste n\'a pas pu s\'afficher.';
 }
 
 // Path: favorites
@@ -585,7 +599,7 @@ class _Translations$favorites$fr extends Translations$favorites$en {
 		one: '${n} lieu',
 		other: '${n} lieux',
 	);
-	@override String get error => 'Vos favoris n\'ont pas pu être lus.';
+	@override String get error => 'Vos favoris n\'ont pas pu s\'afficher.';
 }
 
 // Path: vehicle
@@ -596,8 +610,8 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 
 	// Translations
 	@override String get title => 'Mon véhicule';
-	@override String get why => 'Sa taille filtre les lieux où il ne passe pas. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.';
-	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.';
+	@override String get why => 'Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d\'itinéraire, sans être conservées.';
+	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle est envoyée avec chaque demande d\'itinéraire, sans être conservée.';
 	@override String get none => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.';
 	@override String get add => 'Décrire mon véhicule';
 	@override String get edit => 'Modifier';
@@ -610,7 +624,7 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get height => 'Hauteur';
 	@override String get width => 'Largeur';
 	@override String get length => 'Longueur totale, attelage compris';
-	@override String get weight => 'Poids total autorisé';
+	@override String get weight => 'Poids total autorisé (PTAC)';
 	@override String heightShort({required Object value}) => 'H ${value}';
 	@override String widthShort({required Object value}) => 'l ${value}';
 	@override String lengthShort({required Object value}) => 'L ${value}';
@@ -624,7 +638,7 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get consumption => 'Consommation';
 	@override String get consumptionUnit => 'L/100 km';
 	@override String get lpgHeating => 'Chauffage au GPL';
-	@override String get lpgHeatingHint => 'Le prix du GPL compte aussi pour vous.';
+	@override String get lpgHeatingHint => 'Le prix du GPL s\'affiche aussi sur les stations.';
 }
 
 // Path: profile
@@ -635,9 +649,9 @@ class _Translations$profile$fr extends Translations$profile$en {
 
 	// Translations
 	@override String get title => 'Profil';
-	@override String get noAccountNeeded => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.';
+	@override String get noAccountNeeded => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.';
 	@override String get language => 'Langue';
-	@override String get languageSystem => 'Appareil';
+	@override String get languageSystem => 'Comme l\'appareil';
 	@override String get appearance => 'Apparence';
 	@override String get themeAuto => 'Auto';
 	@override String get themeLight => 'Clair';
@@ -645,7 +659,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get themeAutoHint => 'Clair le jour, sombre après le coucher du soleil là où vous êtes.';
 	@override String get themeLightHint => 'Toujours clair, de jour comme de nuit.';
 	@override String get themeDarkHint => 'Toujours sombre, doux pour les yeux la nuit.';
-	@override String get offline => 'Données hors connexion';
+	@override String get offline => 'Hors ligne';
 	@override String placesOnDevice({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: 'lieu sur cet appareil',
 		other: 'lieux sur cet appareil',
@@ -658,11 +672,11 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get about => 'À propos';
 	@override String version({required Object version}) => 'Version ${version}';
 	@override String get website => 'Site web';
-	@override String get privacy => 'Confidentialité';
+	@override String get privacy => 'Politique de confidentialité';
 	@override String get sourceCode => 'Code source';
 	@override String get licences => 'Licences';
 	@override String get appLicence => 'Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure.';
-	@override String get attributions => 'Sources et attributions';
+	@override String get attributions => 'Sources et crédits';
 	@override String get attributionOsm => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.';
 	@override String get attributionOdbl => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).';
 	@override String get attributionAtout => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).';
@@ -670,7 +684,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionTiles => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.';
 	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
-	@override String get noTracking => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
+	@override String get noTracking => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
 	@override String get attributionBdTopo => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
 	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
 	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
@@ -724,7 +738,7 @@ class _Translations$account$fr extends Translations$account$en {
 	// Translations
 	@override String get title => 'Votre compte';
 	@override String get noneTitle => 'Pas encore de compte';
-	@override String get noneBody => 'La carte, la recherche et les favoris marchent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris le rejoignent alors.';
+	@override String get noneBody => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées.';
 	@override String get recover => 'Retrouver mon compte';
 	@override String memberSince({required Object date}) => 'Membre depuis ${date}';
 	@override String get editPseudonym => 'Modifier le pseudonyme';
@@ -738,7 +752,7 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String nextLevel({required Object level}) => 'Pour le niveau ${level}';
 	@override String get levelTop => 'Vous êtes au niveau le plus haut.';
 	@override late final _Translations$account$requirement$fr requirement = _Translations$account$requirement$fr._(_root);
-	@override String orInstead({required Object requirement}) => 'Ou bien : ${requirement}';
+	@override String orInstead({required Object requirement}) => 'Ou bien ${requirement}';
 	@override String get recoveryNone => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.';
 	@override String get recoveryCreate => 'Faire ma carte de secours';
 	@override String recoveryMade({required Object date}) => 'Carte de secours faite le ${date}';
@@ -753,16 +767,16 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String get signOut => 'Se déconnecter';
 	@override String get delete => 'Supprimer mon compte';
 	@override String get signOutTitle => 'Se déconnecter de cet appareil ?';
-	@override String get signOutBody => 'La clé du compte quitte cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.';
+	@override String get signOutBody => 'La clé du compte est effacée de cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.';
 	@override String get signOutNoCard => 'Vous n\'avez pas fait de carte de secours sur cet appareil. Sans elle, ce compte sera perdu pour de bon.';
 	@override String signOutPending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: 'Une contribution en attente d\'envoi ne partira pas.',
 		other: '${n} contributions en attente d\'envoi ne partiront pas.',
 	);
 	@override String get signedOut => 'Déconnecté. Vos favoris restent sur cet appareil.';
-	@override String get lost => 'Ce compte ne s\'ouvre plus sur cet appareil. Votre carte de secours le ramène.';
+	@override String get lost => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.';
 	@override String get welcomeTitle => 'Merci pour votre première contribution';
-	@override String welcomeBody({required Object name}) => 'Elle a créé votre compte, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
+	@override String welcomeBody({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
 	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
 	@override String get welcomeFavorites => 'Vos listes de favoris sont maintenant gardées avec votre compte.';
 }
@@ -775,19 +789,19 @@ class _Translations$recovery$fr extends Translations$recovery$en {
 
 	// Translations
 	@override String get title => 'Carte de secours';
-	@override String get intro => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte : personne ne pourra vous le redonner.';
+	@override String get intro => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway ne conserve pas ce code : personne ne pourra vous le redonner.';
 	@override String get replaces => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.';
 	@override String get make => 'Faire la carte';
 	@override String get codeLabel => 'Votre code de secours';
 	@override String get shownOnce => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.';
 	@override String get saveImage => 'Enregistrer l\'image';
-	@override String get done => 'C\'est noté';
+	@override String get done => 'J\'ai noté le code';
 	@override String get doneTitle => 'Vous avez bien gardé le code ?';
 	@override String get doneBody => 'Une fois cette page fermée, il ne s\'affichera plus.';
 	@override String get keep => 'Rester sur la page';
 	@override String get cardHeading => 'Carte de secours Lunaway';
 	@override String cardAccount({required Object name}) => 'Compte : ${name}';
-	@override String get cardHow => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis tapez ou lisez ce code.';
+	@override String get cardHow => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis saisissez ce code ou photographiez la carte.';
 	@override String cardMade({required Object date}) => 'Faite le ${date}';
 	@override String get cardWarning => 'Ce code ouvre le compte : ne le confiez à personne.';
 	@override String get failed => 'La carte n\'a pas pu être faite. Il faut une connexion.';
@@ -819,7 +833,7 @@ class _Translations$recover$fr extends Translations$recover$en {
 	@override String get reading => 'Lecture de la carte';
 	@override String get scanFailed => 'Aucun code lisible sur cette image. Essayez une photo plus nette, la carte bien à plat.';
 	@override String get revoke => 'Mon ancien appareil est perdu ou volé : le déconnecter';
-	@override String get revokeHint => 'Toutes les autres clés du compte seront retirées.';
+	@override String get revokeHint => 'Tous vos autres appareils seront déconnectés.';
 	@override String get submit => 'Retrouver le compte';
 	@override String get notFound => 'Aucun compte n\'a ce code. Vérifiez la carte, ou faites-en une nouvelle depuis un appareil connecté.';
 	@override String get tooMany => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.';
@@ -874,7 +888,7 @@ class _Translations$devices$fr extends Translations$devices$en {
 		one: '${n} session fermée',
 		other: '${n} sessions fermées',
 	);
-	@override String get error => 'Les appareils n\'ont pas pu être lus. Il faut une connexion.';
+	@override String get error => 'Les appareils n\'ont pas pu s\'afficher. Il faut du réseau.';
 }
 
 // Path: muted
@@ -886,7 +900,7 @@ class _Translations$muted$fr extends Translations$muted$en {
 	// Translations
 	@override String get title => 'Auteurs masqués';
 	@override String get empty => 'Personne n\'est masqué';
-	@override String get emptyHint => 'Depuis un avis ou une photo, le menu masque tout ce que publie son auteur, pour vous seulement.';
+	@override String get emptyHint => 'Pour masquer quelqu\'un, ouvrez le menu d\'un de ses avis ou d\'une de ses photos. Le masquage ne vaut que pour vous.';
 	@override String get unmute => 'Ne plus masquer';
 	@override String unmuted({required Object name}) => 'Les contributions de ${name} s\'afficheront de nouveau';
 }
@@ -914,7 +928,7 @@ class _Translations$mine$fr extends Translations$mine$en {
 	@override String get empty => 'Rien pour l\'instant';
 	@override String get emptyHint => 'Noter un lieu ou confirmer qu\'il est toujours là, c\'est déjà une contribution.';
 	@override String latest({required Object shown, required Object total}) => 'Les ${shown} contributions les plus récentes, sur ${total}';
-	@override String get error => 'Vos contributions n\'ont pas pu être lues. Il faut une connexion.';
+	@override String get error => 'Vos contributions n\'ont pas pu s\'afficher. Il faut du réseau.';
 	@override String get deleteTitle => 'Supprimer cette contribution ?';
 	@override String get deleteBody => 'Elle disparaît de Lunaway.';
 	@override String get deleteApplied => 'Ce lieu fait déjà partie de la carte : il y reste, sans votre nom.';
@@ -966,7 +980,7 @@ class _Translations$contribute$fr extends Translations$contribute$en {
 	@override String get deleteRatingTitle => 'Retirer votre note ?';
 	@override String get deleteRatingBody => 'Votre note disparaît de la fiche.';
 	@override String get pendingSend => 'En attente d\'envoi';
-	@override String get statusPending => 'En relecture : visible de vous seul pour l\'instant';
+	@override String get statusPending => 'En relecture : visible par vous uniquement pour l\'instant';
 	@override String get statusHidden => 'Masqué après des signalements, en attente d\'un modérateur';
 	@override String get statusRemoved => 'Retiré par la modération';
 	@override String get addPhoto => 'Ajouter une photo';
@@ -978,8 +992,8 @@ class _Translations$contribute$fr extends Translations$contribute$en {
 	@override String get editPlace => 'Modifier le lieu';
 	@override String get reportPlace => 'Signaler ce lieu à la modération';
 	@override String get toVerifyTitle => 'À vérifier';
-	@override String get toVerifyBody => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous y êtes passé ? Dites-le.';
-	@override String get issuesTitle => 'Signalé ces 30 derniers jours';
+	@override String get toVerifyBody => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous le connaissez ? Confirmez-le.';
+	@override String get issuesTitle => 'Signalements des 30 derniers jours';
 	@override String issueCount({required Object kind, required Object count}) => '${kind} (${count})';
 	@override String get addPlace => 'Ajouter un lieu';
 	@override String get addPlaceHere => 'Ajouter un lieu ici';
@@ -994,13 +1008,13 @@ class _Translations$confirmSheet$fr extends Translations$confirmSheet$en {
 
 	// Translations
 	@override String get title => 'Toujours là ?';
-	@override String get body => 'Vous y êtes passé récemment ? Votre réponse date la fiche pour les suivants. Aucune position n\'est envoyée.';
+	@override String get body => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.';
 	@override String get stillOk => 'Oui, comme décrit';
 	@override String get closed => 'Fermé';
 	@override String get changed => 'Changé';
 	@override String get closedHint => 'N\'accueille plus de voyageurs';
 	@override String get changedHint => 'Existe, mais quelque chose a changé';
-	@override String get note => 'Une précision pour les modérateurs (facultatif)';
+	@override String get note => 'Une précision (facultative)';
 	@override String get noteHint => 'Par exemple : barrière de hauteur posée, borne déplacée';
 	@override late final _Translations$confirmSheet$status$fr status = _Translations$confirmSheet$status$fr._(_root);
 }
@@ -1016,7 +1030,7 @@ class _Translations$issueSheet$fr extends Translations$issueSheet$en {
 	@override String get body => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.';
 	@override late final _Translations$issueSheet$kind$fr kind = _Translations$issueSheet$kind$fr._(_root);
 	@override late final _Translations$issueSheet$hint$fr hint = _Translations$issueSheet$hint$fr._(_root);
-	@override String get note => 'Une précision (facultatif)';
+	@override String get note => 'Une précision (facultative)';
 	@override String get send => 'Signaler';
 }
 
@@ -1065,7 +1079,7 @@ class _Translations$reviewSheet$fr extends Translations$reviewSheet$en {
 	@override String get visitedNone => 'Non précisée';
 	@override String get vehicle => 'Votre véhicule';
 	@override String get vehicleNone => 'Ne pas préciser';
-	@override String get licence => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. Mis bout à bout, vos avis et leurs dates peuvent montrer par où vous êtes passé : la date du séjour est facultative.';
+	@override String get licence => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. La date du séjour est facultative : réunies, les dates de vos avis peuvent révéler votre parcours.';
 	@override String get publish => 'Publier l\'avis';
 }
 
@@ -1076,15 +1090,15 @@ class _Translations$gate$fr extends Translations$gate$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String get review => 'Les avis écrits s\'ouvrent au niveau 1';
-	@override String get photo => 'Les photos s\'ouvrent au niveau 1';
-	@override String get addPlace => 'L\'ajout de lieux s\'ouvre au niveau 2';
-	@override String get edit => 'Les propositions de modification s\'ouvrent au niveau 1';
-	@override String get why => 'Les niveaux tiennent les abus loin de la carte. Ils viennent avec le temps et les contributions, sans rien à acheter.';
+	@override String get review => 'Avis écrits : à partir du niveau 1';
+	@override String get photo => 'Photos : à partir du niveau 1';
+	@override String get addPlace => 'Ajout de lieux : à partir du niveau 2';
+	@override String get edit => 'Propositions de modification : à partir du niveau 1';
+	@override String get why => 'Les niveaux protègent la carte des abus. Ils viennent avec le temps et les contributions, sans rien à acheter.';
 	@override String yourLevel({required Object level}) => 'Votre niveau : ${level}';
 	@override String get noAccount => 'Pas encore de compte : un compte commence au niveau 0.';
 	@override String later({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.';
-	@override String get meanwhile => 'En attendant, vous pouvez noter ce lieu, confirmer qu\'il est toujours là ou signaler un problème.';
+	@override String get meanwhile => 'En attendant, vous pouvez noter les lieux, confirmer qu\'ils sont toujours là ou signaler un problème.';
 }
 
 // Path: photoFlow
@@ -1116,13 +1130,13 @@ class _Translations$placeForm$fr extends Translations$placeForm$en {
 	@override String get addTitle => 'Ajouter un lieu';
 	@override String get editTitle => 'Modifier le lieu';
 	@override String get proposeTitle => 'Proposer une modification';
-	@override String get position => 'Emplacement';
+	@override String get position => 'Position sur la carte';
 	@override String get kind => 'Type de lieu';
 	@override String get kindRequired => 'Choisissez un type de lieu';
 	@override String get name => 'Nom';
 	@override String get nameHint => 'Le nom affiché sur place, ou une description courte';
 	@override String get nameInvalid => 'De 2 à 120 caractères';
-	@override String get night => 'La nuit';
+	@override String get night => 'Nuit sur place';
 	@override String get services => 'Services sur place';
 	@override String get description => 'Description';
 	@override String get descriptionHint => 'Ce qui aide à trouver et à choisir le lieu';
@@ -1133,7 +1147,7 @@ class _Translations$placeForm$fr extends Translations$placeForm$en {
 	@override String get capacity => 'Emplacements';
 	@override String get website => 'Site web';
 	@override String get phone => 'Téléphone';
-	@override String get photo => 'Photo (facultatif)';
+	@override String get photo => 'Photo (facultative)';
 	@override String get photoReady => 'Photo prête';
 	@override String get removePhoto => 'Retirer la photo';
 	@override String get toVerify => 'Le lieu apparaîtra « à vérifier » jusqu\'à ce que deux autres voyageurs le confirment.';
@@ -1181,7 +1195,7 @@ class _Translations$poi$fr extends Translations$poi$en {
 	@override String get openNow => 'Ouvert maintenant';
 	@override String get alwaysOpen => 'Ouvert jour et nuit';
 	@override String get hoursUnknown => 'Horaires inconnus';
-	@override String get maybeClosed => 'Indiqué fermé par FINESS : il a peut-être fermé définitivement.';
+	@override String get maybeClosed => 'Fermé selon l\'annuaire officiel des établissements de santé (FINESS).';
 	@override String maybeClosedSince({required Object date}) => 'Indiqué fermé par FINESS depuis le ${date} : il a peut-être fermé définitivement.';
 	@override String get seasonal => 'Saisonnier : il peut être fermé en hiver.';
 	@override String get fee => 'Payant';
@@ -1189,18 +1203,18 @@ class _Translations$poi$fr extends Translations$poi$en {
 	@override String get stillThereTitle => 'Toujours là ?';
 	@override String get stillThereHint => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.';
 	@override String get stillThere => 'Toujours là';
-	@override String get gone => 'Plus là';
-	@override String lastConfirmed({required Object when}) => 'Dit toujours là ${when}';
+	@override String get gone => 'N\'existe plus';
+	@override String lastConfirmed({required Object when}) => 'Confirmé présent ${when}';
 	@override String checkedOn({required Object date}) => 'Vérifié sur place le ${date}';
-	@override String get thanksThere => 'Merci : noté toujours là.';
-	@override String get thanksGone => 'Merci : noté plus là.';
+	@override String get thanksThere => 'Merci, c\'est noté : toujours là.';
+	@override String get thanksGone => 'Merci, c\'est noté : n\'existe plus.';
 	@override String get fuelPrices => 'Prix des carburants';
 	@override String perLitre({required Object price}) => '${price}/L';
 	@override String priceUpdated({required Object when}) => 'Prix mis à jour ${when}';
-	@override String feedRead({required Object when}) => 'Flux des prix lu ${when}';
+	@override String feedRead({required Object when}) => 'Prix relevés ${when}';
 	@override String get shortageTemporary => 'En rupture pour l\'instant';
 	@override String get shortageDefinitive => 'N\'en vend plus';
-	@override String get selfService24h => 'Automate carte jour et nuit';
+	@override String get selfService24h => 'Paiement par carte 24 h/24';
 	@override String get highway => 'Sur autoroute';
 	@override String get lpgYes => 'Vend du GPL';
 	@override late final _Translations$poi$fuel$fr fuel = _Translations$poi$fuel$fr._(_root);
@@ -1217,14 +1231,15 @@ class _Translations$poi$fr extends Translations$poi$en {
 		one: 'il y a ${n} heure',
 		other: 'il y a ${n} heures',
 	);
-	@override String readOffline({required Object when}) => 'Lu ${when} : pas de réseau maintenant';
-	@override String readStale({required Object when}) => 'Lu ${when} : impossible de le relire pour l\'instant.';
+	@override String readOffline({required Object when}) => 'Relevé ${when} : pas de réseau pour l\'actualiser';
+	@override String readStale({required Object when}) => 'Relevé ${when} : l\'actualisation n\'a pas abouti pour l\'instant.';
 	@override String get goneTitle => 'Ce point n\'est plus sur la carte';
 	@override String get goneHint => 'Des voyageurs l\'ont dit disparu, ou la dernière mise à jour l\'a retiré.';
-	@override String get loadError => 'Le détail n\'a pas pu être lu. Ce que la carte en sait est au-dessus.';
+	@override String get loadError => 'Le détail n\'a pas pu s\'afficher. Ce que la carte en sait est au-dessus.';
 	@override String get around => 'Autour de ce lieu';
 	@override String get aroundEmpty => 'Aucun commerce ni service connu autour.';
-	@override String get aroundError => 'Ce qu\'il y a autour n\'a pas pu être lu.';
+	@override String get aroundError => 'Les commerces et services autour n\'ont pas pu s\'afficher.';
+	@override String get aroundOffline => 'Pas de réseau : les commerces et services autour s\'afficheront avec une connexion.';
 	@override String get onSite => 'Sur place';
 	@override String backTo({required Object name}) => 'Retour à ${name}';
 	@override String get backToPlace => 'Retour au lieu';
@@ -1249,7 +1264,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get web => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.';
 	@override String get desktopTitle => 'Les cartes hors ligne sont sur le téléphone';
 	@override String get desktop => 'Les applications Android et iOS gardent des régions pour la route. Sur ordinateur, la carte a besoin du réseau.';
-	@override String get unreadable => 'Les cartes hors ligne de cet appareil n\'ont pas pu être lues.';
+	@override String get unreadable => 'Les cartes hors ligne de cet appareil n\'ont pas pu s\'afficher.';
 	@override String get none => 'Aucune région sur cet appareil pour l\'instant.';
 	@override String used({required Object size}) => 'Espace utilisé : ${size}';
 	@override String get downloads => 'Téléchargements';
@@ -1274,7 +1289,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get failedNetwork => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.';
 	@override String get failedServer => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.';
 	@override String get failedCorrupt => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.';
-	@override String get failedStorage => 'Plus assez de place sur l\'appareil.';
+	@override String get failedStorage => 'Plus assez de place sur l\'appareil. Libérez de l\'espace, puis réessayez.';
 	@override String get keepOpen => 'Gardez l\'application ouverte pendant le téléchargement : il s\'interrompt quand elle passe en arrière-plan et reprend quand vous y revenez.';
 	@override String dataOf({required Object date}) => 'données du ${date}';
 	@override String update({required Object size}) => 'Mettre à jour, ${size}';
@@ -1306,6 +1321,49 @@ class _Translations$place$reviewVehicle$fr extends Translations$place$reviewVehi
 	@override String get motorhome => 'Camping-car';
 	@override String get caravan => 'Caravane';
 	@override String get other => 'Autre véhicule';
+}
+
+// Path: hours.codes
+class _Translations$hours$codes$fr extends Translations$hours$codes$en {
+	_Translations$hours$codes$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get mo => 'lun.';
+	@override String get tu => 'mar.';
+	@override String get we => 'mer.';
+	@override String get th => 'jeu.';
+	@override String get fr => 'ven.';
+	@override String get sa => 'sam.';
+	@override String get su => 'dim.';
+	@override String get ph => 'jours fériés';
+	@override String get sh => 'vacances scolaires';
+	@override String get off => 'fermé';
+	@override String get closed => 'fermé';
+	@override String get sunrise => 'lever du soleil';
+	@override String get sunset => 'coucher du soleil';
+}
+
+// Path: hours.months
+class _Translations$hours$months$fr extends Translations$hours$months$en {
+	_Translations$hours$months$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get jan => 'janv.';
+	@override String get feb => 'févr.';
+	@override String get mar => 'mars';
+	@override String get apr => 'avr.';
+	@override String get may => 'mai';
+	@override String get jun => 'juin';
+	@override String get jul => 'juil.';
+	@override String get aug => 'août';
+	@override String get sep => 'sept.';
+	@override String get oct => 'oct.';
+	@override String get nov => 'nov.';
+	@override String get dec => 'déc.';
 }
 
 // Path: navigation.entry
@@ -1350,10 +1408,10 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override String get avoidTolls => 'Péages';
 	@override String get avoidMotorways => 'Autoroutes';
 	@override String get avoidFerries => 'Ferries';
-	@override String get avoidUnpaved => 'Non revêtues';
+	@override String get avoidUnpaved => 'Routes non revêtues';
 	@override String get roadbook => 'Feuille de route';
-	@override String get roadbookShow => 'Voir les étapes';
-	@override String get roadbookHide => 'Masquer les étapes';
+	@override String get roadbookShow => 'Voir les instructions';
+	@override String get roadbookHide => 'Masquer les instructions';
 	@override String dataOf({required Object date}) => 'Données routières du ${date}';
 	@override String get attributionOsm => '© les contributeurs d\'OpenStreetMap';
 	@override String attributionIgn({required Object date}) => 'IGN, BD TOPO, édition du ${date}';
@@ -1398,10 +1456,10 @@ class _Translations$navigation$fuel$fr extends Translations$navigation$fuel$en {
 
 	// Translations
 	@override String get action => 'Carburant';
-	@override String get nextCheap => 'Carburant le moins cher devant';
+	@override String get nextCheap => 'Carburant le moins cher sur la route';
 	@override String get title => 'Carburant sur le trajet';
 	@override String price({required Object price}) => '${price} €/L';
-	@override String withDetour({required Object price}) => '${price} €/L avec le détour';
+	@override String withDetour({required Object price}) => '${price} €/L détour compris';
 	@override String detour({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min';
 	@override String get onRoute => 'sur le trajet';
 	@override String get open => 'Ouvert';
@@ -1412,7 +1470,7 @@ class _Translations$navigation$fuel$fr extends Translations$navigation$fuel$en {
 	@override String get empty => 'Aucune station de ce carburant près du trajet.';
 	@override String get failed => 'Les stations n\'ont pas pu être chargées.';
 	@override String get estimated => 'Détours estimés d\'après la distance à la route.';
-	@override String get attribution => 'Prix : Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)';
+	@override String get attribution => 'Prix : ministère de l\'Économie (data.economie.gouv.fr)';
 	@override String minutesAgo({required Object n}) => 'il y a ${n} min';
 	@override String hoursAgo({required Object n}) => 'il y a ${n} h';
 	@override String daysAgo({required Object n}) => 'il y a ${n} j';
@@ -1441,7 +1499,7 @@ class _Translations$navigation$states$fr extends Translations$navigation$states$
 	@override String get unavailableTitle => 'Calcul d\'itinéraire indisponible';
 	@override String get unavailableHint => 'Le service est arrêté pour le moment. Réessayez plus tard.';
 	@override String get refusedTitle => 'Pas d\'itinéraire ici';
-	@override String get refusedHint => 'Les itinéraires couvrent la France pour l\'instant.';
+	@override String get refusedHint => 'Les itinéraires couvrent la France pour l\'instant. Choisissez une destination en France.';
 	@override String get noSafeTitle => 'Aucun itinéraire sûr pour votre véhicule';
 	@override String get noSafeHint => 'Chaque route possible passe par une limite que votre véhicule dépasse :';
 	@override String get whatToDo => 'Ce que vous pouvez faire';
@@ -1481,6 +1539,41 @@ class _Translations$navigation$warning$fr extends Translations$navigation$warnin
 	@override String get dialog => 'Arrêté de circulation (DiaLog)';
 }
 
+// Path: navigation.roadEvents
+class _Translations$navigation$roadEvents$fr extends Translations$navigation$roadEvents$en {
+	_Translations$navigation$roadEvents$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Travaux et fermetures';
+	@override String get none => 'Pas de travaux ni de fermeture connus sur ce trajet.';
+	@override String get stale => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.';
+	@override String avoided({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Itinéraire calculé autour d\'une fermeture : ${names}',
+		other: 'Itinéraire calculé autour de ${n} fermetures : ${names}',
+	);
+	@override String atDistance({required Object distance}) => 'à ${distance} du départ';
+	@override String more({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Et ${n} autre sur le trajet',
+		other: 'Et ${n} autres sur le trajet',
+	);
+	@override String get classClosure => 'Route fermée';
+	@override String get classWorks => 'Travaux';
+	@override String get classLaneRestriction => 'Voies réduites';
+	@override String get classVehicleLimit => 'Gabarit limité';
+	@override String get classDetour => 'Déviation signalée';
+	@override String get reasonUnmatched => 'position incertaine, peut-être sur le trajet';
+	@override String get reasonStale => 'source pas lue récemment';
+	@override String get reasonOutsideHours => 'hors des heures supposées';
+	@override String get reasonGoodsVehicles => 'pour les poids lourds';
+	@override String get reasonUnconfirmed => 'signalé par un seul voyageur';
+	@override String get reasonAged => 'signalement ancien';
+	@override String get reasonInside => 'le trajet commence ou finit dedans';
+	@override String get reasonNearLimit => 'de justesse';
+	@override String get reasonOverLimit => 'au-dessus de la limite de votre véhicule';
+}
+
 // Path: navigation.guidance
 class _Translations$navigation$guidance$fr extends Translations$navigation$guidance$en {
 	_Translations$navigation$guidance$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -1503,6 +1596,11 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String eventLimit({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}';
 	@override String eventSource({required Object source, required Object time}) => '${source}, données de ${time}';
 	@override String eventSourceOn({required Object source, required Object day, required Object time}) => '${source}, données du ${day} à ${time}';
+	@override String avoidedClosures({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Itinéraire calculé autour d\'une fermeture',
+		other: 'Itinéraire calculé autour de ${n} fermetures',
+	);
+	@override String roadEventAhead({required Object what, required Object distance}) => '${what} dans ${distance}';
 	@override String closureOffline({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin';
 	@override String closureFailed({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin';
 	@override String get voiceOn => 'Activer la voix';
@@ -1513,7 +1611,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get endTitle => 'Terminer le guidage ?';
 	@override String get endConfirm => 'Terminer';
 	@override String get endKeep => 'Continuer';
-	@override String get arrivedTitle => 'Vous êtes arrivé';
+	@override String get arrivedTitle => 'Vous êtes à destination';
 	@override String get done => 'Terminer';
 	@override String get speed => 'Vitesse';
 	@override String get limit => 'Limite';
@@ -1551,7 +1649,7 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	@override String unknownClearance({required Object distance}) => 'Attention, passage bas de hauteur inconnue dans ${distance}.';
 	@override String narrow({required Object width, required Object distance}) => 'Attention, passage étroit de ${width} dans ${distance}.';
 	@override String limit({required Object what, required Object distance}) => 'Attention, ${what} dans ${distance}.';
-	@override String get arrived => 'Vous êtes arrivé.';
+	@override String get arrived => 'Vous êtes à destination.';
 	@override String metres({required Object n}) => '${n} mètres';
 	@override String kilometres({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
 		one: '${n} kilomètre',
@@ -1930,10 +2028,10 @@ class _Translations$poi$cheapest$fr extends Translations$poi$cheapest$en {
 	// Translations
 	@override String get title => 'Moins cher autour de moi';
 	@override String get show => 'Moins cher autour';
-	@override String get zoomIn => 'Rapprochez la carte pour comparer les prix des stations.';
+	@override String get zoomIn => 'Zoomez pour comparer les prix des stations.';
 	@override String get none => 'Aucune station de la carte ne vend ce carburant.';
 	@override String get noneHint => 'Déplacez la carte ou choisissez un autre carburant.';
-	@override String get error => 'Les prix des stations n\'ont pas pu être lus.';
+	@override String get error => 'Les prix des stations n\'ont pas pu s\'afficher.';
 }
 
 // Path: navigation.states.dimension
@@ -1987,8 +2085,8 @@ extension on TranslationsFr {
 			'common.send' => 'Envoyer',
 			'common.later' => 'Plus tard',
 			'common.next' => 'Continuer',
-			'common.failed' => 'Ça n\'a pas abouti. Réessayez dans un moment.',
-			'common.offline' => 'Pas de réseau pour l\'instant. Réessayez quand la connexion revient.',
+			'common.failed' => 'L\'opération n\'a pas abouti. Réessayez dans un moment.',
+			'common.offline' => 'Pas de réseau pour l\'instant. Réessayez quand il reviendra.',
 			'kinds.motorhomeArea' => 'Aire de camping-car',
 			'kinds.serviceArea' => 'Aire de services',
 			'kinds.campsite' => 'Camping',
@@ -2007,7 +2105,7 @@ extension on TranslationsFr {
 			'families.nature' => 'Nature',
 			'families.natureHint' => 'Lieux en pleine nature, pistes',
 			'families.services' => 'Services',
-			'families.servicesHint' => 'Eau et vidange, sans nuit',
+			'families.servicesHint' => 'Eau et vidange, pas de nuit sur place',
 			'services.drinkingWater' => 'Eau potable',
 			'services.greyWater' => 'Vidange eaux grises',
 			'services.blackWater' => 'Vidange cassette',
@@ -2024,7 +2122,7 @@ extension on TranslationsFr {
 			'services.swimmingPool' => 'Piscine',
 			'services.petsAllowed' => 'Animaux acceptés',
 			'services.mobileData' => 'Réseau mobile',
-			'services.winterCaravanning' => 'Séjour en hiver',
+			'services.winterCaravanning' => 'Ouvert en hiver',
 			'activities.monuments' => 'Visites',
 			'activities.windsurfKitesurf' => 'Planche à voile, kitesurf',
 			'activities.mountainBiking' => 'VTT',
@@ -2052,13 +2150,13 @@ extension on TranslationsFr {
 			'overnight.forbidden' => 'Nuit interdite',
 			'overnight.unknown' => 'Nuit non renseignée',
 			'overnight.allowedHint' => 'Vous pouvez passer la nuit ici.',
-			'overnight.toleratedHint' => 'Une nuit est en général acceptée. Restez discret et ne laissez aucune trace.',
+			'overnight.toleratedHint' => 'Une nuit est en général acceptée. Discrétion de rigueur, ne laissez aucune trace.',
 			'overnight.dayOnlyHint' => 'Stationnement de jour uniquement. Cherchez un autre lieu pour la nuit.',
 			'overnight.forbiddenHint' => 'Passer la nuit ici est interdit.',
 			'overnight.unknownHint' => 'Personne ne l\'a encore indiqué. Renseignez-vous sur place.',
-			'freshness.confirmed' => ({required Object when}) => 'Confirmé ${when}',
-			'freshness.updated' => ({required Object when}) => 'Mis à jour ${when}',
-			'freshness.stale' => 'Pas confirmé depuis plus d\'un an',
+			'freshness.confirmed' => ({required Object when}) => 'Confirmé par un voyageur ${when}',
+			'freshness.unconfirmed' => 'Pas encore confirmé par un voyageur',
+			'freshness.stale' => 'Dernière confirmation il y a plus d\'un an',
 			'freshness.today' => 'aujourd\'hui',
 			'freshness.daysAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'hier', other: 'il y a ${n} jours', ), 
 			'freshness.monthsAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a un mois', other: 'il y a ${n} mois', ), 
@@ -2074,7 +2172,8 @@ extension on TranslationsFr {
 			'map.showList' => 'Liste',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Liste (${n})', other: 'Liste (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu ici', other: 'lieux ici', ), 
-			'map.nearestPlacesLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche', other: 'lieux les plus proches', ), 
+			'map.nearestYouLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche de vous', other: 'lieux les plus proches de vous', ), 
+			'map.nearestCentreLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche du centre', other: 'lieux les plus proches du centre', ), 
 			'map.pointTitle' => 'Point choisi',
 			'map.pointHint' => 'Ses coordonnées et l\'itinéraire jusqu\'à lui',
 			'map.downloading' => 'Téléchargement des lieux de France',
@@ -2096,16 +2195,16 @@ extension on TranslationsFr {
 			'sync.resuming' => ({required Object count}) => 'Téléchargement en cours : ${count} lieux',
 			'sync.resume' => 'Reprendre',
 			'location.rationaleTitle' => 'Afficher votre position ?',
-			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, et de façon approchée pour le carburant le long du trajet, votre position part vers le serveur de Lunaway, qui n\'en garde rien.',
+			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant sur le trajet, seule une position approchée est envoyée.',
 			'location.allow' => 'Continuer',
 			'location.notNow' => 'Pas maintenant',
 			'location.deniedTitle' => 'Position désactivée pour Lunaway',
 			'location.denied' => 'Vous avez refusé l\'accès à la position. Pour l\'utiliser, autorisez-le dans les réglages de l\'appareil.',
 			'location.openSettings' => 'Ouvrir les réglages',
-			'location.serviceOffTitle' => 'Localisation éteinte',
-			'location.serviceOff' => 'La localisation de l\'appareil est éteinte. Allumez-la dans les réglages rapides, puis réessayez.',
+			'location.serviceOffTitle' => 'Localisation désactivée',
+			'location.serviceOff' => 'La localisation de l\'appareil est désactivée. Activez-la dans les réglages rapides, puis réessayez.',
 			'location.notAllowed' => 'Position non autorisée. La carte fonctionne sans elle.',
-			'location.noFix' => 'Votre position n\'arrive pas. Essayez à découvert, ou dans un instant.',
+			'location.noFix' => 'Position introuvable pour l\'instant. Réessayez à découvert ou dans un moment.',
 			'location.unsupported' => 'Cet appareil ne donne pas sa position.',
 			'search.towns' => 'Communes',
 			'search.places' => 'Lieux',
@@ -2114,16 +2213,19 @@ extension on TranslationsFr {
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
-			'filters.night' => 'La nuit',
+			'filters.night' => 'Nuit sur place',
 			'filters.nightHint' => 'Aucun choix : tous les lieux',
 			'filters.nightPossible' => 'Nuit possible',
 			'filters.amenities' => 'Services',
 			'filters.amenitiesHint' => 'Le lieu doit tous les avoir',
+			'filters.price' => 'Prix de la nuit',
+			'filters.freeOnly' => 'Gratuit',
+			'filters.freeHint' => 'Seulement les lieux dont la nuit est gratuite d\'après leurs sources',
 			'filters.vehicle' => 'Mon véhicule',
 			'filters.myVehicleFits' => 'Mon véhicule passe',
 			'filters.myVehicleFitsHeight' => ({required Object height}) => 'Passe à ${height}',
-			'filters.myVehicleHint' => ({required Object height}) => 'Masque les lieux limités sous ${height}. Les hauteurs inconnues restent.',
-			'filters.myVehicleUnknown' => 'Indiquez la hauteur de votre véhicule pour l\'utiliser.',
+			'filters.myVehicleHint' => ({required Object height}) => 'Masque les lieux limités sous ${height}. Les lieux sans hauteur connue restent affichés.',
+			'filters.myVehicleUnknown' => 'Indiquez la hauteur de votre véhicule pour activer ce filtre.',
 			'filters.reset' => 'Tout effacer',
 			'filters.apply' => 'Appliquer',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu ne correspond', one: 'Afficher ${count} lieu', other: 'Afficher ${count} lieux', ), 
@@ -2141,7 +2243,7 @@ extension on TranslationsFr {
 			'place.removedToast' => 'Retiré de Mes favoris',
 			'place.pricePerNight' => 'Prix de la nuit',
 			'place.priceFree' => 'Gratuit',
-			'place.priceUnknown' => 'Inconnu',
+			'place.priceUnknown' => 'Non indiqué',
 			'place.priceServices' => 'Services',
 			'place.maxHeight' => 'Hauteur max.',
 			'place.capacity' => 'Emplacements',
@@ -2166,14 +2268,13 @@ extension on TranslationsFr {
 			'place.formatGoogle' => 'Lien Google Maps',
 			'place.formatOsm' => 'Lien OpenStreetMap',
 			'place.sources' => 'Sources',
-			'place.fetched' => ({required Object when}) => 'Lu ${when}',
-			'place.matchScore' => ({required Object score}) => 'Correspondance ${score} %',
+			'place.fetched' => ({required Object when}) => 'Relevé ${when}',
 			'place.viewSource' => 'Voir à la source',
-			'place.gone' => 'Ce lieu n\'est plus dans les données',
+			'place.gone' => 'Ce lieu n\'est plus sur la carte',
 			'place.goneHint' => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.',
-			'place.arriving' => 'Ce lieu arrive avec le téléchargement des lieux',
+			'place.arriving' => 'Ce lieu est en cours de téléchargement',
 			'place.arrivingHint' => 'Les lieux de France se téléchargent pour que la carte marche sans réseau. La fiche s\'ouvre dès que celui-ci est arrivé.',
-			'place.loadError' => 'Ce lieu n\'a pas pu être lu.',
+			'place.loadError' => 'Ce lieu n\'a pas pu s\'afficher.',
 			'place.openFailed' => 'Aucune application n\'a pu ouvrir ce lien.',
 			'place.photos' => 'Photos',
 			'place.extrasOffline' => 'Les photos et les avis demandent une connexion.',
@@ -2192,7 +2293,7 @@ extension on TranslationsFr {
 			'place.reviewVehicle.other' => 'Autre véhicule',
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
-			'place.links' => 'Ailleurs',
+			'place.links' => 'Sur d\'autres sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
 			'hours.open' => 'Ouvert maintenant',
@@ -2202,12 +2303,40 @@ extension on TranslationsFr {
 			'hours.closedUntil' => ({required Object time}) => 'Fermé, ouvre à ${time}',
 			'hours.closedUntilDay' => ({required Object day, required Object time}) => 'Fermé, ouvre ${day} à ${time}',
 			'hours.opensIn' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Fermé, ouvre dans ${n} minute', other: 'Fermé, ouvre dans ${n} minutes', ), 
-			'hours.closedWindow' => 'Fermé pour les deux prochaines semaines',
+			'hours.closedWindow' => 'Fermé pendant les deux semaines à venir',
 			'hours.tomorrow' => 'demain',
 			'hours.onDate' => ({required Object date}) => 'le ${date}',
 			'hours.midnight' => 'minuit',
-			'hours.stale' => 'Ouverture inconnue : données à mettre à jour',
-			'hours.localTime' => 'Heures du lieu',
+			'hours.stale' => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.',
+			'hours.localTime' => 'Horaires à l\'heure locale du lieu',
+			'hours.codes.mo' => 'lun.',
+			'hours.codes.tu' => 'mar.',
+			'hours.codes.we' => 'mer.',
+			'hours.codes.th' => 'jeu.',
+			'hours.codes.fr' => 'ven.',
+			'hours.codes.sa' => 'sam.',
+			'hours.codes.su' => 'dim.',
+			'hours.codes.ph' => 'jours fériés',
+			'hours.codes.sh' => 'vacances scolaires',
+			'hours.codes.off' => 'fermé',
+			'hours.codes.closed' => 'fermé',
+			'hours.codes.sunrise' => 'lever du soleil',
+			'hours.codes.sunset' => 'coucher du soleil',
+			'hours.months.jan' => 'janv.',
+			'hours.months.feb' => 'févr.',
+			'hours.months.mar' => 'mars',
+			'hours.months.apr' => 'avr.',
+			'hours.months.may' => 'mai',
+			'hours.months.jun' => 'juin',
+			'hours.months.jul' => 'juil.',
+			'hours.months.aug' => 'août',
+			'hours.months.sep' => 'sept.',
+			'hours.months.oct' => 'oct.',
+			'hours.months.nov' => 'nov.',
+			'hours.months.dec' => 'déc.',
+			'hours.dayOfMonth' => ({required Object day, required Object month}) => '${day} ${month}',
+			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
+			'hours.allWeek' => '24 h/24, 7 j/7',
 			'directions.title' => 'Itinéraire avec',
 			'directions.hint' => 'Choisissez qui vous guide. Seul le guidage Lunaway connaît le gabarit de votre véhicule.',
 			'directions.remember' => 'Toujours utiliser cette application',
@@ -2245,10 +2374,10 @@ extension on TranslationsFr {
 			'navigation.preview.avoidTolls' => 'Péages',
 			'navigation.preview.avoidMotorways' => 'Autoroutes',
 			'navigation.preview.avoidFerries' => 'Ferries',
-			'navigation.preview.avoidUnpaved' => 'Non revêtues',
+			'navigation.preview.avoidUnpaved' => 'Routes non revêtues',
 			'navigation.preview.roadbook' => 'Feuille de route',
-			'navigation.preview.roadbookShow' => 'Voir les étapes',
-			'navigation.preview.roadbookHide' => 'Masquer les étapes',
+			'navigation.preview.roadbookShow' => 'Voir les instructions',
+			'navigation.preview.roadbookHide' => 'Masquer les instructions',
 			'navigation.preview.dataOf' => ({required Object date}) => 'Données routières du ${date}',
 			'navigation.preview.attributionOsm' => '© les contributeurs d\'OpenStreetMap',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, édition du ${date}',
@@ -2275,10 +2404,10 @@ extension on TranslationsFr {
 			'navigation.stops.noQuote' => 'Le détour n\'a pas pu être calculé.',
 			'navigation.stops.offline' => 'Pas de réseau pour calculer le détour.',
 			'navigation.fuel.action' => 'Carburant',
-			'navigation.fuel.nextCheap' => 'Carburant le moins cher devant',
+			'navigation.fuel.nextCheap' => 'Carburant le moins cher sur la route',
 			'navigation.fuel.title' => 'Carburant sur le trajet',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
-			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L avec le détour',
+			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L détour compris',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
 			'navigation.fuel.onRoute' => 'sur le trajet',
 			'navigation.fuel.open' => 'Ouvert',
@@ -2289,7 +2418,7 @@ extension on TranslationsFr {
 			'navigation.fuel.empty' => 'Aucune station de ce carburant près du trajet.',
 			'navigation.fuel.failed' => 'Les stations n\'ont pas pu être chargées.',
 			'navigation.fuel.estimated' => 'Détours estimés d\'après la distance à la route.',
-			'navigation.fuel.attribution' => 'Prix : Ministère de l\'Économie, prix des carburants (data.economie.gouv.fr)',
+			'navigation.fuel.attribution' => 'Prix : ministère de l\'Économie (data.economie.gouv.fr)',
 			'navigation.fuel.minutesAgo' => ({required Object n}) => 'il y a ${n} min',
 			'navigation.fuel.hoursAgo' => ({required Object n}) => 'il y a ${n} h',
 			'navigation.fuel.daysAgo' => ({required Object n}) => 'il y a ${n} j',
@@ -2312,7 +2441,7 @@ extension on TranslationsFr {
 			'navigation.states.unavailableTitle' => 'Calcul d\'itinéraire indisponible',
 			'navigation.states.unavailableHint' => 'Le service est arrêté pour le moment. Réessayez plus tard.',
 			'navigation.states.refusedTitle' => 'Pas d\'itinéraire ici',
-			'navigation.states.refusedHint' => 'Les itinéraires couvrent la France pour l\'instant.',
+			'navigation.states.refusedHint' => 'Les itinéraires couvrent la France pour l\'instant. Choisissez une destination en France.',
 			'navigation.states.noSafeTitle' => 'Aucun itinéraire sûr pour votre véhicule',
 			'navigation.states.noSafeHint' => 'Chaque route possible passe par une limite que votre véhicule dépasse :',
 			'navigation.states.whatToDo' => 'Ce que vous pouvez faire',
@@ -2346,6 +2475,26 @@ extension on TranslationsFr {
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
 			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
+			'navigation.roadEvents.title' => 'Travaux et fermetures',
+			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
+			'navigation.roadEvents.stale' => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.',
+			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture : ${names}', other: 'Itinéraire calculé autour de ${n} fermetures : ${names}', ), 
+			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
+			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
+			'navigation.roadEvents.classClosure' => 'Route fermée',
+			'navigation.roadEvents.classWorks' => 'Travaux',
+			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
+			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
+			'navigation.roadEvents.classDetour' => 'Déviation signalée',
+			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
+			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
+			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
+			'navigation.roadEvents.reasonGoodsVehicles' => 'pour les poids lourds',
+			'navigation.roadEvents.reasonUnconfirmed' => 'signalé par un seul voyageur',
+			'navigation.roadEvents.reasonAged' => 'signalement ancien',
+			'navigation.roadEvents.reasonInside' => 'le trajet commence ou finit dedans',
+			'navigation.roadEvents.reasonNearLimit' => 'de justesse',
+			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
 			'navigation.guidance.then' => 'Puis',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrivée ${time}',
 			'navigation.guidance.offRoute' => 'Hors itinéraire',
@@ -2361,6 +2510,8 @@ extension on TranslationsFr {
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, données de ${time}',
 			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, données du ${day} à ${time}',
+			'navigation.guidance.avoidedClosures' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture', other: 'Itinéraire calculé autour de ${n} fermetures', ), 
+			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} dans ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin',
 			'navigation.guidance.voiceOn' => 'Activer la voix',
@@ -2371,7 +2522,7 @@ extension on TranslationsFr {
 			'navigation.guidance.endTitle' => 'Terminer le guidage ?',
 			'navigation.guidance.endConfirm' => 'Terminer',
 			'navigation.guidance.endKeep' => 'Continuer',
-			'navigation.guidance.arrivedTitle' => 'Vous êtes arrivé',
+			'navigation.guidance.arrivedTitle' => 'Vous êtes à destination',
 			'navigation.guidance.done' => 'Terminer',
 			'navigation.guidance.speed' => 'Vitesse',
 			'navigation.guidance.limit' => 'Limite',
@@ -2397,7 +2548,7 @@ extension on TranslationsFr {
 			'navigation.voice.unknownClearance' => ({required Object distance}) => 'Attention, passage bas de hauteur inconnue dans ${distance}.',
 			'navigation.voice.narrow' => ({required Object width, required Object distance}) => 'Attention, passage étroit de ${width} dans ${distance}.',
 			'navigation.voice.limit' => ({required Object what, required Object distance}) => 'Attention, ${what} dans ${distance}.',
-			'navigation.voice.arrived' => 'Vous êtes arrivé.',
+			'navigation.voice.arrived' => 'Vous êtes à destination.',
 			'navigation.voice.metres' => ({required Object n}) => '${n} mètres',
 			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} kilomètre', other: '${n} kilomètres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} pieds',
@@ -2417,10 +2568,12 @@ extension on TranslationsFr {
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilomètres',
 			'navigation.settings.imperial' => 'Miles',
-			'list.title' => 'Lieux autour',
+			'list.title' => 'Lieux à proximité',
 			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
-			'list.error' => 'La liste n\'a pas pu être lue.',
+			'list.downloading' => 'Les lieux arrivent',
+			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
+			'list.error' => 'La liste n\'a pas pu s\'afficher.',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -2429,6 +2582,8 @@ extension on TranslationsFr {
 			'favorites.listName' => 'Nom de la liste',
 			'favorites.renameList' => 'Renommer la liste',
 			'favorites.deleteList' => 'Supprimer la liste',
+			_ => null,
+		} ?? switch (path) {
 			'favorites.deleteListConfirm' => ({required Object name}) => 'Supprimer « ${name} » ? Les lieux restent sur la carte.',
 			'favorites.listActions' => 'Options de la liste',
 			'favorites.placeActions' => 'Options du lieu',
@@ -2436,10 +2591,10 @@ extension on TranslationsFr {
 			'favorites.remove' => 'Retirer de la liste',
 			'favorites.removed' => 'Retiré de la liste',
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Vide', one: '${n} lieu', other: '${n} lieux', ), 
-			'favorites.error' => 'Vos favoris n\'ont pas pu être lus.',
+			'favorites.error' => 'Vos favoris n\'ont pas pu s\'afficher.',
 			'vehicle.title' => 'Mon véhicule',
-			'vehicle.why' => 'Sa taille filtre les lieux où il ne passe pas. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.',
-			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle part avec chaque demande d\'itinéraire, et le serveur ne la garde pas.',
+			'vehicle.why' => 'Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d\'itinéraire, sans être conservées.',
+			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle est envoyée avec chaque demande d\'itinéraire, sans être conservée.',
 			'vehicle.none' => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.',
 			'vehicle.add' => 'Décrire mon véhicule',
 			'vehicle.edit' => 'Modifier',
@@ -2458,7 +2613,7 @@ extension on TranslationsFr {
 			'vehicle.height' => 'Hauteur',
 			'vehicle.width' => 'Largeur',
 			'vehicle.length' => 'Longueur totale, attelage compris',
-			'vehicle.weight' => 'Poids total autorisé',
+			'vehicle.weight' => 'Poids total autorisé (PTAC)',
 			'vehicle.heightShort' => ({required Object value}) => 'H ${value}',
 			'vehicle.widthShort' => ({required Object value}) => 'l ${value}',
 			'vehicle.lengthShort' => ({required Object value}) => 'L ${value}',
@@ -2472,11 +2627,11 @@ extension on TranslationsFr {
 			'vehicle.consumption' => 'Consommation',
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Chauffage au GPL',
-			'vehicle.lpgHeatingHint' => 'Le prix du GPL compte aussi pour vous.',
+			'vehicle.lpgHeatingHint' => 'Le prix du GPL s\'affiche aussi sur les stations.',
 			'profile.title' => 'Profil',
-			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans pisteur : tout reste sur cet appareil.',
+			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.',
 			'profile.language' => 'Langue',
-			'profile.languageSystem' => 'Appareil',
+			'profile.languageSystem' => 'Comme l\'appareil',
 			'profile.appearance' => 'Apparence',
 			'profile.themeAuto' => 'Auto',
 			'profile.themeLight' => 'Clair',
@@ -2484,9 +2639,7 @@ extension on TranslationsFr {
 			'profile.themeAutoHint' => 'Clair le jour, sombre après le coucher du soleil là où vous êtes.',
 			'profile.themeLightHint' => 'Toujours clair, de jour comme de nuit.',
 			'profile.themeDarkHint' => 'Toujours sombre, doux pour les yeux la nuit.',
-			_ => null,
-		} ?? switch (path) {
-			'profile.offline' => 'Données hors connexion',
+			'profile.offline' => 'Hors ligne',
 			'profile.placesOnDevice' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu sur cet appareil', other: 'lieux sur cet appareil', ), 
 			'profile.offlineSize' => ({required Object size}) => 'Espace utilisé : ${size}',
 			'profile.lastSync' => ({required Object when}) => 'Dernière mise à jour ${when}',
@@ -2496,11 +2649,11 @@ extension on TranslationsFr {
 			'profile.about' => 'À propos',
 			'profile.version' => ({required Object version}) => 'Version ${version}',
 			'profile.website' => 'Site web',
-			'profile.privacy' => 'Confidentialité',
+			'profile.privacy' => 'Politique de confidentialité',
 			'profile.sourceCode' => 'Code source',
 			'profile.licences' => 'Licences',
 			'profile.appLicence' => 'Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure.',
-			'profile.attributions' => 'Sources et attributions',
+			'profile.attributions' => 'Sources et crédits',
 			'profile.attributionOsm' => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.',
 			'profile.attributionOdbl' => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).',
 			'profile.attributionAtout' => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).',
@@ -2508,7 +2661,7 @@ extension on TranslationsFr {
 			'profile.attributionTiles' => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.',
 			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
-			'profile.noTracking' => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
+			'profile.noTracking' => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
 			'profile.attributionBdTopo' => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
 			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
 			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
@@ -2526,7 +2679,7 @@ extension on TranslationsFr {
 			'locale.fr' => 'Français',
 			'account.title' => 'Votre compte',
 			'account.noneTitle' => 'Pas encore de compte',
-			'account.noneBody' => 'La carte, la recherche et les favoris marchent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris le rejoignent alors.',
+			'account.noneBody' => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées.',
 			'account.recover' => 'Retrouver mon compte',
 			'account.memberSince' => ({required Object date}) => 'Membre depuis ${date}',
 			'account.editPseudonym' => 'Modifier le pseudonyme',
@@ -2551,7 +2704,7 @@ extension on TranslationsFr {
 			'account.requirement.sponsor' => 'Le parrainage d\'un membre de niveau 2',
 			'account.requirement.nomination' => 'Une nomination par la modération',
 			'account.requirement.administration' => 'Une désignation par l\'équipe de Lunaway',
-			'account.orInstead' => ({required Object requirement}) => 'Ou bien : ${requirement}',
+			'account.orInstead' => ({required Object requirement}) => 'Ou bien ${requirement}',
 			'account.recoveryNone' => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryCreate' => 'Faire ma carte de secours',
 			'account.recoveryMade' => ({required Object date}) => 'Carte de secours faite le ${date}',
@@ -2563,29 +2716,29 @@ extension on TranslationsFr {
 			'account.signOut' => 'Se déconnecter',
 			'account.delete' => 'Supprimer mon compte',
 			'account.signOutTitle' => 'Se déconnecter de cet appareil ?',
-			'account.signOutBody' => 'La clé du compte quitte cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.',
+			'account.signOutBody' => 'La clé du compte est effacée de cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.',
 			'account.signOutNoCard' => 'Vous n\'avez pas fait de carte de secours sur cet appareil. Sans elle, ce compte sera perdu pour de bon.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Une contribution en attente d\'envoi ne partira pas.', other: '${n} contributions en attente d\'envoi ne partiront pas.', ), 
 			'account.signedOut' => 'Déconnecté. Vos favoris restent sur cet appareil.',
-			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Votre carte de secours le ramène.',
+			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.',
 			'account.welcomeTitle' => 'Merci pour votre première contribution',
-			'account.welcomeBody' => ({required Object name}) => 'Elle a créé votre compte, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
+			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris sont maintenant gardées avec votre compte.',
 			'recovery.title' => 'Carte de secours',
-			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte : personne ne pourra vous le redonner.',
+			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway ne conserve pas ce code : personne ne pourra vous le redonner.',
 			'recovery.replaces' => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.',
 			'recovery.make' => 'Faire la carte',
 			'recovery.codeLabel' => 'Votre code de secours',
 			'recovery.shownOnce' => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.',
 			'recovery.saveImage' => 'Enregistrer l\'image',
-			'recovery.done' => 'C\'est noté',
+			'recovery.done' => 'J\'ai noté le code',
 			'recovery.doneTitle' => 'Vous avez bien gardé le code ?',
 			'recovery.doneBody' => 'Une fois cette page fermée, il ne s\'affichera plus.',
 			'recovery.keep' => 'Rester sur la page',
 			'recovery.cardHeading' => 'Carte de secours Lunaway',
 			'recovery.cardAccount' => ({required Object name}) => 'Compte : ${name}',
-			'recovery.cardHow' => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis tapez ou lisez ce code.',
+			'recovery.cardHow' => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis saisissez ce code ou photographiez la carte.',
 			'recovery.cardMade' => ({required Object date}) => 'Faite le ${date}',
 			'recovery.cardWarning' => 'Ce code ouvre le compte : ne le confiez à personne.',
 			'recovery.failed' => 'La carte n\'a pas pu être faite. Il faut une connexion.',
@@ -2605,7 +2758,7 @@ extension on TranslationsFr {
 			'recover.reading' => 'Lecture de la carte',
 			'recover.scanFailed' => 'Aucun code lisible sur cette image. Essayez une photo plus nette, la carte bien à plat.',
 			'recover.revoke' => 'Mon ancien appareil est perdu ou volé : le déconnecter',
-			'recover.revokeHint' => 'Toutes les autres clés du compte seront retirées.',
+			'recover.revokeHint' => 'Tous vos autres appareils seront déconnectés.',
 			'recover.submit' => 'Retrouver le compte',
 			'recover.notFound' => 'Aucun compte n\'a ce code. Vérifiez la carte, ou faites-en une nouvelle depuis un appareil connecté.',
 			'recover.tooMany' => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.',
@@ -2642,10 +2795,10 @@ extension on TranslationsFr {
 			'devices.revoked' => 'Appareil retiré',
 			'devices.signOutOthers' => 'Déconnecter tous les autres appareils',
 			'devices.signedOutOthers' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucune autre session ouverte', one: '${n} session fermée', other: '${n} sessions fermées', ), 
-			'devices.error' => 'Les appareils n\'ont pas pu être lus. Il faut une connexion.',
+			'devices.error' => 'Les appareils n\'ont pas pu s\'afficher. Il faut du réseau.',
 			'muted.title' => 'Auteurs masqués',
 			'muted.empty' => 'Personne n\'est masqué',
-			'muted.emptyHint' => 'Depuis un avis ou une photo, le menu masque tout ce que publie son auteur, pour vous seulement.',
+			'muted.emptyHint' => 'Pour masquer quelqu\'un, ouvrez le menu d\'un de ses avis ou d\'une de ses photos. Le masquage ne vaut que pour vous.',
 			'muted.unmute' => 'Ne plus masquer',
 			'muted.unmuted' => ({required Object name}) => 'Les contributions de ${name} s\'afficheront de nouveau',
 			'mine.title' => 'Mes contributions',
@@ -2664,7 +2817,7 @@ extension on TranslationsFr {
 			'mine.empty' => 'Rien pour l\'instant',
 			'mine.emptyHint' => 'Noter un lieu ou confirmer qu\'il est toujours là, c\'est déjà une contribution.',
 			'mine.latest' => ({required Object shown, required Object total}) => 'Les ${shown} contributions les plus récentes, sur ${total}',
-			'mine.error' => 'Vos contributions n\'ont pas pu être lues. Il faut une connexion.',
+			'mine.error' => 'Vos contributions n\'ont pas pu s\'afficher. Il faut du réseau.',
 			'mine.deleteTitle' => 'Supprimer cette contribution ?',
 			'mine.deleteBody' => 'Elle disparaît de Lunaway.',
 			'mine.deleteApplied' => 'Ce lieu fait déjà partie de la carte : il y reste, sans votre nom.',
@@ -2728,7 +2881,7 @@ extension on TranslationsFr {
 			'contribute.deleteRatingTitle' => 'Retirer votre note ?',
 			'contribute.deleteRatingBody' => 'Votre note disparaît de la fiche.',
 			'contribute.pendingSend' => 'En attente d\'envoi',
-			'contribute.statusPending' => 'En relecture : visible de vous seul pour l\'instant',
+			'contribute.statusPending' => 'En relecture : visible par vous uniquement pour l\'instant',
 			'contribute.statusHidden' => 'Masqué après des signalements, en attente d\'un modérateur',
 			'contribute.statusRemoved' => 'Retiré par la modération',
 			'contribute.addPhoto' => 'Ajouter une photo',
@@ -2740,20 +2893,20 @@ extension on TranslationsFr {
 			'contribute.editPlace' => 'Modifier le lieu',
 			'contribute.reportPlace' => 'Signaler ce lieu à la modération',
 			'contribute.toVerifyTitle' => 'À vérifier',
-			'contribute.toVerifyBody' => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous y êtes passé ? Dites-le.',
-			'contribute.issuesTitle' => 'Signalé ces 30 derniers jours',
+			'contribute.toVerifyBody' => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous le connaissez ? Confirmez-le.',
+			'contribute.issuesTitle' => 'Signalements des 30 derniers jours',
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
 			'contribute.addPlace' => 'Ajouter un lieu',
 			'contribute.addPlaceHere' => 'Ajouter un lieu ici',
 			'contribute.addPlaceHint' => 'Un appui long sur la carte déplace le point.',
 			'confirmSheet.title' => 'Toujours là ?',
-			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse date la fiche pour les suivants. Aucune position n\'est envoyée.',
+			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.',
 			'confirmSheet.stillOk' => 'Oui, comme décrit',
 			'confirmSheet.closed' => 'Fermé',
 			'confirmSheet.changed' => 'Changé',
 			'confirmSheet.closedHint' => 'N\'accueille plus de voyageurs',
 			'confirmSheet.changedHint' => 'Existe, mais quelque chose a changé',
-			'confirmSheet.note' => 'Une précision pour les modérateurs (facultatif)',
+			'confirmSheet.note' => 'Une précision (facultative)',
 			'confirmSheet.noteHint' => 'Par exemple : barrière de hauteur posée, borne déplacée',
 			'confirmSheet.status.stillOk' => 'toujours là',
 			'confirmSheet.status.closed' => 'fermé',
@@ -2768,7 +2921,7 @@ extension on TranslationsFr {
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
-			'issueSheet.note' => 'Une précision (facultatif)',
+			'issueSheet.note' => 'Une précision (facultative)',
 			'issueSheet.send' => 'Signaler',
 			'reportSheet.review' => 'Signaler cet avis',
 			'reportSheet.photo' => 'Signaler cette photo',
@@ -2800,17 +2953,17 @@ extension on TranslationsFr {
 			'reviewSheet.visitedNone' => 'Non précisée',
 			'reviewSheet.vehicle' => 'Votre véhicule',
 			'reviewSheet.vehicleNone' => 'Ne pas préciser',
-			'reviewSheet.licence' => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. Mis bout à bout, vos avis et leurs dates peuvent montrer par où vous êtes passé : la date du séjour est facultative.',
+			'reviewSheet.licence' => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. La date du séjour est facultative : réunies, les dates de vos avis peuvent révéler votre parcours.',
 			'reviewSheet.publish' => 'Publier l\'avis',
-			'gate.review' => 'Les avis écrits s\'ouvrent au niveau 1',
-			'gate.photo' => 'Les photos s\'ouvrent au niveau 1',
-			'gate.addPlace' => 'L\'ajout de lieux s\'ouvre au niveau 2',
-			'gate.edit' => 'Les propositions de modification s\'ouvrent au niveau 1',
-			'gate.why' => 'Les niveaux tiennent les abus loin de la carte. Ils viennent avec le temps et les contributions, sans rien à acheter.',
+			'gate.review' => 'Avis écrits : à partir du niveau 1',
+			'gate.photo' => 'Photos : à partir du niveau 1',
+			'gate.addPlace' => 'Ajout de lieux : à partir du niveau 2',
+			'gate.edit' => 'Propositions de modification : à partir du niveau 1',
+			'gate.why' => 'Les niveaux protègent la carte des abus. Ils viennent avec le temps et les contributions, sans rien à acheter.',
 			'gate.yourLevel' => ({required Object level}) => 'Votre niveau : ${level}',
 			'gate.noAccount' => 'Pas encore de compte : un compte commence au niveau 0.',
 			'gate.later' => ({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.',
-			'gate.meanwhile' => 'En attendant, vous pouvez noter ce lieu, confirmer qu\'il est toujours là ou signaler un problème.',
+			'gate.meanwhile' => 'En attendant, vous pouvez noter les lieux, confirmer qu\'ils sont toujours là ou signaler un problème.',
 			'photoFlow.title' => 'Ajouter une photo',
 			'photoFlow.camera' => 'Prendre une photo',
 			'photoFlow.gallery' => 'Choisir dans la galerie',
@@ -2824,13 +2977,13 @@ extension on TranslationsFr {
 			'placeForm.addTitle' => 'Ajouter un lieu',
 			'placeForm.editTitle' => 'Modifier le lieu',
 			'placeForm.proposeTitle' => 'Proposer une modification',
-			'placeForm.position' => 'Emplacement',
+			'placeForm.position' => 'Position sur la carte',
 			'placeForm.kind' => 'Type de lieu',
 			'placeForm.kindRequired' => 'Choisissez un type de lieu',
 			'placeForm.name' => 'Nom',
 			'placeForm.nameHint' => 'Le nom affiché sur place, ou une description courte',
 			'placeForm.nameInvalid' => 'De 2 à 120 caractères',
-			'placeForm.night' => 'La nuit',
+			'placeForm.night' => 'Nuit sur place',
 			'placeForm.services' => 'Services sur place',
 			'placeForm.description' => 'Description',
 			'placeForm.descriptionHint' => 'Ce qui aide à trouver et à choisir le lieu',
@@ -2841,7 +2994,7 @@ extension on TranslationsFr {
 			'placeForm.capacity' => 'Emplacements',
 			'placeForm.website' => 'Site web',
 			'placeForm.phone' => 'Téléphone',
-			'placeForm.photo' => 'Photo (facultatif)',
+			'placeForm.photo' => 'Photo (facultative)',
 			'placeForm.photoReady' => 'Photo prête',
 			'placeForm.removePhoto' => 'Retirer la photo',
 			'placeForm.toVerify' => 'Le lieu apparaîtra « à vérifier » jusqu\'à ce que deux autres voyageurs le confirment.',
@@ -2908,7 +3061,7 @@ extension on TranslationsFr {
 			'poi.openNow' => 'Ouvert maintenant',
 			'poi.alwaysOpen' => 'Ouvert jour et nuit',
 			'poi.hoursUnknown' => 'Horaires inconnus',
-			'poi.maybeClosed' => 'Indiqué fermé par FINESS : il a peut-être fermé définitivement.',
+			'poi.maybeClosed' => 'Fermé selon l\'annuaire officiel des établissements de santé (FINESS).',
 			'poi.maybeClosedSince' => ({required Object date}) => 'Indiqué fermé par FINESS depuis le ${date} : il a peut-être fermé définitivement.',
 			'poi.seasonal' => 'Saisonnier : il peut être fermé en hiver.',
 			'poi.fee' => 'Payant',
@@ -2916,18 +3069,18 @@ extension on TranslationsFr {
 			'poi.stillThereTitle' => 'Toujours là ?',
 			'poi.stillThereHint' => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.',
 			'poi.stillThere' => 'Toujours là',
-			'poi.gone' => 'Plus là',
-			'poi.lastConfirmed' => ({required Object when}) => 'Dit toujours là ${when}',
+			'poi.gone' => 'N\'existe plus',
+			'poi.lastConfirmed' => ({required Object when}) => 'Confirmé présent ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Vérifié sur place le ${date}',
-			'poi.thanksThere' => 'Merci : noté toujours là.',
-			'poi.thanksGone' => 'Merci : noté plus là.',
+			'poi.thanksThere' => 'Merci, c\'est noté : toujours là.',
+			'poi.thanksGone' => 'Merci, c\'est noté : n\'existe plus.',
 			'poi.fuelPrices' => 'Prix des carburants',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
-			'poi.feedRead' => ({required Object when}) => 'Flux des prix lu ${when}',
+			'poi.feedRead' => ({required Object when}) => 'Prix relevés ${when}',
 			'poi.shortageTemporary' => 'En rupture pour l\'instant',
 			'poi.shortageDefinitive' => 'N\'en vend plus',
-			'poi.selfService24h' => 'Automate carte jour et nuit',
+			'poi.selfService24h' => 'Paiement par carte 24 h/24',
 			'poi.highway' => 'Sur autoroute',
 			'poi.lpgYes' => 'Vend du GPL',
 			'poi.fuel.diesel' => 'Gazole',
@@ -2943,6 +3096,8 @@ extension on TranslationsFr {
 			'poi.product.eggs' => 'Œufs',
 			'poi.product.milk' => 'Lait',
 			'poi.product.cheese' => 'Fromage',
+			_ => null,
+		} ?? switch (path) {
 			'poi.product.meat' => 'Viande',
 			'poi.product.vegetables' => 'Légumes',
 			'poi.product.fruit' => 'Fruits',
@@ -2959,14 +3114,15 @@ extension on TranslationsFr {
 			'poi.justNow' => 'à l\'instant',
 			'poi.minutesAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a ${n} minute', other: 'il y a ${n} minutes', ), 
 			'poi.hoursAgo' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'il y a ${n} heure', other: 'il y a ${n} heures', ), 
-			'poi.readOffline' => ({required Object when}) => 'Lu ${when} : pas de réseau maintenant',
-			'poi.readStale' => ({required Object when}) => 'Lu ${when} : impossible de le relire pour l\'instant.',
+			'poi.readOffline' => ({required Object when}) => 'Relevé ${when} : pas de réseau pour l\'actualiser',
+			'poi.readStale' => ({required Object when}) => 'Relevé ${when} : l\'actualisation n\'a pas abouti pour l\'instant.',
 			'poi.goneTitle' => 'Ce point n\'est plus sur la carte',
 			'poi.goneHint' => 'Des voyageurs l\'ont dit disparu, ou la dernière mise à jour l\'a retiré.',
-			'poi.loadError' => 'Le détail n\'a pas pu être lu. Ce que la carte en sait est au-dessus.',
+			'poi.loadError' => 'Le détail n\'a pas pu s\'afficher. Ce que la carte en sait est au-dessus.',
 			'poi.around' => 'Autour de ce lieu',
 			'poi.aroundEmpty' => 'Aucun commerce ni service connu autour.',
-			'poi.aroundError' => 'Ce qu\'il y a autour n\'a pas pu être lu.',
+			'poi.aroundError' => 'Les commerces et services autour n\'ont pas pu s\'afficher.',
+			'poi.aroundOffline' => 'Pas de réseau : les commerces et services autour s\'afficheront avec une connexion.',
 			'poi.onSite' => 'Sur place',
 			'poi.backTo' => ({required Object name}) => 'Retour à ${name}',
 			'poi.backToPlace' => 'Retour au lieu',
@@ -2987,19 +3143,17 @@ extension on TranslationsFr {
 			'poi.add.duplicateGone' => 'Non, il n\'y est plus',
 			'poi.cheapest.title' => 'Moins cher autour de moi',
 			'poi.cheapest.show' => 'Moins cher autour',
-			'poi.cheapest.zoomIn' => 'Rapprochez la carte pour comparer les prix des stations.',
+			'poi.cheapest.zoomIn' => 'Zoomez pour comparer les prix des stations.',
 			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',
 			'poi.cheapest.noneHint' => 'Déplacez la carte ou choisissez un autre carburant.',
-			'poi.cheapest.error' => 'Les prix des stations n\'ont pas pu être lus.',
+			'poi.cheapest.error' => 'Les prix des stations n\'ont pas pu s\'afficher.',
 			'offlineMaps.title' => 'Cartes hors ligne',
 			'offlineMaps.intro' => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.',
 			'offlineMaps.webTitle' => 'Les cartes hors ligne sont dans l\'application',
 			'offlineMaps.web' => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.',
 			'offlineMaps.desktopTitle' => 'Les cartes hors ligne sont sur le téléphone',
 			'offlineMaps.desktop' => 'Les applications Android et iOS gardent des régions pour la route. Sur ordinateur, la carte a besoin du réseau.',
-			'offlineMaps.unreadable' => 'Les cartes hors ligne de cet appareil n\'ont pas pu être lues.',
-			_ => null,
-		} ?? switch (path) {
+			'offlineMaps.unreadable' => 'Les cartes hors ligne de cet appareil n\'ont pas pu s\'afficher.',
 			'offlineMaps.none' => 'Aucune région sur cet appareil pour l\'instant.',
 			'offlineMaps.used' => ({required Object size}) => 'Espace utilisé : ${size}',
 			'offlineMaps.downloads' => 'Téléchargements',
@@ -3021,7 +3175,7 @@ extension on TranslationsFr {
 			'offlineMaps.failedNetwork' => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.',
 			'offlineMaps.failedServer' => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.',
 			'offlineMaps.failedCorrupt' => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.',
-			'offlineMaps.failedStorage' => 'Plus assez de place sur l\'appareil.',
+			'offlineMaps.failedStorage' => 'Plus assez de place sur l\'appareil. Libérez de l\'espace, puis réessayez.',
 			'offlineMaps.keepOpen' => 'Gardez l\'application ouverte pendant le téléchargement : il s\'interrompt quand elle passe en arrière-plan et reprend quand vous y revenez.',
 			'offlineMaps.dataOf' => ({required Object date}) => 'données du ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Mettre à jour, ${size}',

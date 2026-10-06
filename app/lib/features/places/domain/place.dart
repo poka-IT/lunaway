@@ -115,9 +115,6 @@ final class Place {
 
   LatLng get position => LatLng(lat, lon);
 
-  /// The freshest date that says the data still holds.
-  DateTime get freshness => lastConfirmedAt ?? updatedAt;
-
   PlaceSummary get summary => PlaceSummary(
     id: id,
     name: name,

@@ -366,7 +366,11 @@ base class FakeMap implements LunaMapController {
   @override
   Future<LatLng?> locateUser() async => userPosition;
 
+  /// The props of the first build: the camera the map is made with.
+  LunaMapProps? firstProps;
+
   Widget build(BuildContext context, LunaMapProps props) {
+    firstProps ??= props;
     lastProps = props;
     return _FakeMapView(map: this, props: props);
   }

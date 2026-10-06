@@ -17,8 +17,8 @@
     "send": "Send",
     "later": "Later",
     "next": "Continue",
-    "failed": "That did not go through. Try again in a moment.",
-    "offline": "No network right now. Try again once the connection is back."
+    "failed": "That did not work. Try again in a moment.",
+    "offline": "No connection right now. Try again once you are back online."
   },
   "kinds": {
     "motorhomeArea": "Motorhome area",
@@ -41,7 +41,7 @@
     "nature": "Nature",
     "natureHint": "Spots in nature, tracks",
     "services": "Services",
-    "servicesHint": "Water and dump points, no night"
+    "servicesHint": "Water and dump points, no overnight stay"
   },
   "services": {
     "drinkingWater": "Drinking water",
@@ -100,9 +100,9 @@
     "unknownHint": "Nobody has said yet. Ask on site."
   },
   "freshness": {
-    "confirmed": "Confirmed $when",
-    "updated": "Updated $when",
-    "stale": "Not confirmed for over a year",
+    "confirmed": "Confirmed by a traveller $when",
+    "unconfirmed": "Not yet confirmed by a traveller",
+    "stale": "Last confirmed over a year ago",
     "today": "today",
     "daysAgo(param=n)": {
       "one": "yesterday",
@@ -135,9 +135,13 @@
       "one": "place here",
       "other": "places here"
     },
-    "nearestPlacesLabel(param=n)": {
-      "one": "nearest place",
-      "other": "nearest places"
+    "nearestYouLabel(param=n)": {
+      "one": "place nearest to you",
+      "other": "places nearest to you"
+    },
+    "nearestCentreLabel(param=n)": {
+      "one": "place nearest the centre",
+      "other": "places nearest the centre"
     },
     "pointTitle": "Chosen point",
     "pointHint": "Its coordinates and the way there",
@@ -167,7 +171,7 @@
   },
   "location": {
     "rationaleTitle": "Show your position?",
-    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway's server, which keeps nothing of it.",
+    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For fuel along the way, only an approximate position is sent.",
     "allow": "Continue",
     "notNow": "Not now",
     "deniedTitle": "Position turned off for Lunaway",
@@ -176,7 +180,7 @@
     "serviceOffTitle": "Location is off",
     "serviceOff": "Location is turned off on this device. Turn it on in the quick settings, then try again.",
     "notAllowed": "Position not allowed. The map works without it.",
-    "noFix": "Your position is not coming through. Try in the open, or in a moment.",
+    "noFix": "Your position cannot be found yet. Try again in the open or in a moment.",
     "unsupported": "This device does not give its position."
   },
   "search": {
@@ -192,16 +196,19 @@
     "title": "Filters",
     "families": "Kind of place",
     "familiesHint": "None chosen: every kind",
-    "night": "The night",
+    "night": "Overnight",
     "nightHint": "None chosen: every place",
     "nightPossible": "Night possible",
     "amenities": "Services",
     "amenitiesHint": "The place must have all of them",
+    "price": "Price of the night",
+    "freeOnly": "Free",
+    "freeHint": "Only places whose night is free according to their sources",
     "vehicle": "My vehicle",
     "myVehicleFits": "My vehicle fits",
     "myVehicleFitsHeight": "Fits $height",
-    "myVehicleHint": "Hides places limited below $height. Unknown heights stay.",
-    "myVehicleUnknown": "Give your vehicle's height to use it.",
+    "myVehicleHint": "Hides places limited below $height. Places with no known limit stay on the map.",
+    "myVehicleUnknown": "Give your vehicle's height to use this filter.",
     "reset": "Clear all",
     "apply": "Apply",
     "show(param=n)": {
@@ -228,11 +235,11 @@
     "removedToast": "Removed from My favourites",
     "pricePerNight": "Per night",
     "priceFree": "Free",
-    "priceUnknown": "Unknown",
+    "priceUnknown": "Not given",
     "priceServices": "Services",
     "maxHeight": "Max. height",
     "capacity": "Pitches",
-    "classification": "Rating",
+    "classification": "Star rating",
     "classStars(param=n)": {
       "one": "$n star",
       "other": "$n stars"
@@ -256,14 +263,13 @@
     "formatGoogle": "Google Maps link",
     "formatOsm": "OpenStreetMap link",
     "sources": "Sources",
-    "fetched": "Read $when",
-    "matchScore": "Match $score %",
+    "fetched": "Retrieved $when",
     "viewSource": "View at the source",
-    "gone": "This place is no longer in the data",
+    "gone": "This place is no longer on the map",
     "goneHint": "It was removed or merged with another since the last update.",
-    "arriving": "This place comes with the download of the places",
+    "arriving": "This place is still downloading",
     "arrivingHint": "The places of France are downloading so the map works without a network. The page opens as soon as this one is here.",
-    "loadError": "This place could not be read.",
+    "loadError": "This place could not be loaded.",
     "openFailed": "No app could open this link.",
     "photos": "Photos",
     "extrasOffline": "Photos and reviews need a connection.",
@@ -287,7 +293,7 @@
     },
     "originalLanguage": "Original text in $language",
     "photoPosition": "Photo $index of $count",
-    "links": "Elsewhere",
+    "links": "On other sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0"
   },
@@ -309,8 +315,40 @@
     "tomorrow": "tomorrow",
     "onDate": "on $date",
     "midnight": "midnight",
-    "stale": "Opening unknown: data to update",
-    "localTime": "Local time of the place"
+    "stale": "Open or closed? Update the places in Profile.",
+    "localTime": "Times are local to the place",
+    "codes": {
+      "mo": "Mon",
+      "tu": "Tue",
+      "we": "Wed",
+      "th": "Thu",
+      "fr": "Fri",
+      "sa": "Sat",
+      "su": "Sun",
+      "ph": "public holidays",
+      "sh": "school holidays",
+      "off": "closed",
+      "closed": "closed",
+      "sunrise": "sunrise",
+      "sunset": "sunset"
+    },
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    },
+    "dayOfMonth": "$month $day",
+    "dayOfYear": "$month $day, $year",
+    "allWeek": "24/7"
   },
   "directions": {
     "title": "Directions with",
@@ -358,13 +396,13 @@
       "avoidTolls": "Tolls",
       "avoidMotorways": "Motorways",
       "avoidFerries": "Ferries",
-      "avoidUnpaved": "Unpaved",
+      "avoidUnpaved": "Unpaved roads",
       "roadbook": "Turn by turn",
-      "roadbookShow": "Show the turns",
-      "roadbookHide": "Hide the turns",
-      "dataOf": "Road data of $date",
+      "roadbookShow": "Show the directions",
+      "roadbookHide": "Hide the directions",
+      "dataOf": "Road data from $date",
       "attributionOsm": "© OpenStreetMap contributors",
-      "attributionIgn": "IGN, BD TOPO, edition of $date",
+      "attributionIgn": "IGN, BD TOPO, $date edition",
       "disclaimer": "Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.",
       "otherApps": "Open in another app",
       "back": "Back"
@@ -392,10 +430,10 @@
     },
     "fuel": {
       "action": "Fuel",
-      "nextCheap": "Cheapest fuel ahead",
+      "nextCheap": "Cheapest fuel on the way",
       "title": "Fuel along the route",
       "price": "$price €/L",
-      "withDetour": "$price €/L counting the detour",
+      "withDetour": "$price €/L including the detour",
       "detour": "+$distance · +$minutes min",
       "onRoute": "on the route",
       "open": "Open",
@@ -406,7 +444,7 @@
       "empty": "No station selling this fuel near the route.",
       "failed": "The stations could not be loaded.",
       "estimated": "Detours estimated from the distance to the route.",
-      "attribution": "Prices: Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)",
+      "attribution": "Prices: French Ministry of the Economy (data.economie.gouv.fr)",
       "minutesAgo": "$n min ago",
       "hoursAgo": "$n h ago",
       "daysAgo": "$n d ago"
@@ -428,12 +466,12 @@
       "locate": "Locate me",
       "offlineTitle": "No connection",
       "offlineHint": "Routes are computed on Lunaway's server. Try again once connected.",
-      "rateLimitedTitle": "Too many routes asked",
+      "rateLimitedTitle": "Too many route requests",
       "rateLimitedHint": "Try again in $seconds s.",
       "unavailableTitle": "Routing is down",
       "unavailableHint": "The route service is stopped for now. Try again later.",
       "refusedTitle": "No route here",
-      "refusedHint": "Routes cover France for now.",
+      "refusedHint": "Routes cover France for now. Pick a destination in France.",
       "noSafeTitle": "No safe route for your vehicle",
       "noSafeHint": "Every possible road meets a limit your vehicle exceeds:",
       "whatToDo": "What you can do",
@@ -472,6 +510,34 @@
       "community": "Lunaway report",
       "dialog": "Traffic order (DiaLog)"
     },
+    "roadEvents": {
+      "title": "Works and closures",
+      "none": "No works or closures known on this route.",
+      "stale": "Works and closures: the sources have not been read recently.",
+      "avoided(param=n)": {
+        "one": "Route planned around a closure: $names",
+        "other": "Route planned around $n closures: $names"
+      },
+      "atDistance": "$distance from the start",
+      "more(param=n)": {
+        "one": "And $n more on the route",
+        "other": "And $n more on the route"
+      },
+      "classClosure": "Road closed",
+      "classWorks": "Works",
+      "classLaneRestriction": "Lanes closed",
+      "classVehicleLimit": "Size limit",
+      "classDetour": "Detour signposted",
+      "reasonUnmatched": "uncertain position, maybe on the route",
+      "reasonStale": "source not read recently",
+      "reasonOutsideHours": "outside its assumed hours",
+      "reasonGoodsVehicles": "for heavy goods vehicles",
+      "reasonUnconfirmed": "reported by a single traveller",
+      "reasonAged": "old report",
+      "reasonInside": "the route starts or ends inside it",
+      "reasonNearLimit": "with little margin",
+      "reasonOverLimit": "over your vehicle's limit"
+    },
     "guidance": {
       "then": "Then",
       "arrival": "Arrive $time",
@@ -486,8 +552,13 @@
       "eventAhead": "Works in $distance",
       "eventClosure": "Road closed in $distance",
       "eventLimit": "Size limited by roadworks in $distance",
-      "eventSource": "$source, data of $time",
-      "eventSourceOn": "$source, data of $day at $time",
+      "eventSource": "$source, as of $time",
+      "eventSourceOn": "$source, as of $day at $time",
+      "avoidedClosures(param=n)": {
+        "one": "Route planned around a closure",
+        "other": "Route planned around $n closures"
+      },
+      "roadEventAhead": "$what in $distance",
       "closureOffline": "Road closed in $distance: no network to look for another way",
       "closureFailed": "Road closed in $distance: no other way yet",
       "voiceOn": "Turn the voice on",
@@ -562,10 +633,12 @@
     }
   },
   "list": {
-    "title": "Places around",
+    "title": "Places nearby",
     "empty": "No places around here with these filters",
     "emptyHint": "Move the map, zoom out or loosen the filters.",
-    "error": "The list could not be read."
+    "downloading": "Places are on their way",
+    "downloadingHint": "The list fills in while they download.",
+    "error": "The list could not be loaded."
   },
   "favorites": {
     "title": "Favourites",
@@ -587,13 +660,13 @@
       "one": "$n place",
       "other": "$n places"
     },
-    "error": "Your favourites could not be read."
+    "error": "Your favourites could not be loaded."
   },
   "vehicle": {
     "title": "My vehicle",
-    "why": "Its size filters out the places it does not fit. It goes with each request for directions, and the server does not keep it.",
-    "whyHeight": "To keep only the places it fits, give at least its height. It goes with each request for directions, and the server does not keep it.",
-    "none": "Describe your vehicle to hide the places it does not fit.",
+    "why": "Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.",
+    "whyHeight": "To keep only the places it can get into, give at least its height. It is sent with each route request and not kept.",
+    "none": "Describe your vehicle to hide the places it cannot get into.",
     "add": "Describe my vehicle",
     "edit": "Edit",
     "type": "Type",
@@ -629,13 +702,13 @@
     "consumption": "Consumption",
     "consumptionUnit": "L/100 km",
     "lpgHeating": "Heating on LPG",
-    "lpgHeatingHint": "The price of LPG matters to you too."
+    "lpgHeatingHint": "LPG prices also show on the stations."
   },
   "profile": {
     "title": "Profile",
-    "noAccountNeeded": "No account, no ads, no trackers: everything stays on this device.",
+    "noAccountNeeded": "No account, no ads, no trackers. Your favourites stay on this device.",
     "language": "Language",
-    "languageSystem": "Device",
+    "languageSystem": "Same as device",
     "appearance": "Appearance",
     "themeAuto": "Auto",
     "themeLight": "Light",
@@ -643,7 +716,7 @@
     "themeAutoHint": "Light by day, dark after sunset where you are.",
     "themeLightHint": "Always light, day and night.",
     "themeDarkHint": "Always dark, easy on the eyes at night.",
-    "offline": "Offline data",
+    "offline": "Offline",
     "placesOnDevice(param=n)": {
       "one": "place on this device",
       "other": "places on this device"
@@ -668,7 +741,7 @@
     "attributionTiles": "Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.",
     "attributionFonts": "Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.",
     "attributionIcons": "Phosphor icons, MIT licence.",
-    "noTracking": "No ads, no tracker. Your account knows neither your e-mail nor your phone number.",
+    "noTracking": "No ads, no trackers. Your account knows neither your e-mail nor your phone number.",
     "attributionBdTopo": "Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.",
     "attributionPoiOdbl": "Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.",
     "attributionPoiLo": "Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).",
@@ -694,7 +767,7 @@
   "account": {
     "title": "Your account",
     "noneTitle": "No account yet",
-    "noneBody": "The map, search and favourites work without an account. One is made for you at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists then join it.",
+    "noneBody": "The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.",
     "recover": "Recover my account",
     "memberSince": "Member since $date",
     "editPseudonym": "Change the pseudonym",
@@ -723,7 +796,7 @@
       "nomination": "A nomination by a moderator",
       "administration": "An appointment by the Lunaway team"
     },
-    "orInstead": "Or instead: $requirement",
+    "orInstead": "Or $requirement",
     "recoveryNone": "No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.",
     "recoveryCreate": "Make my recovery card",
     "recoveryMade": "Recovery card made on $date",
@@ -738,36 +811,36 @@
     "signOut": "Sign out",
     "delete": "Delete my account",
     "signOutTitle": "Sign out of this device?",
-    "signOutBody": "The account's key leaves this device. To come back, you will need your recovery card. Your favourites stay here.",
+    "signOutBody": "The account's key is removed from this device. To come back, you will need your recovery card. Your favourites stay here.",
     "signOutNoCard": "You have not made a recovery card on this device. Without one, this account will be lost for good.",
     "signOutPending(param=n)": {
       "one": "One contribution waiting to be sent will not be sent.",
       "other": "$n contributions waiting to be sent will not be sent."
     },
     "signedOut": "Signed out. Your favourites stay on this device.",
-    "lost": "This account no longer opens on this device. Your recovery card brings it back.",
+    "lost": "This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.",
     "welcomeTitle": "Thank you for your first contribution",
-    "welcomeBody": "It made your account, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.",
+    "welcomeBody": "Your account is created, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.",
     "welcomeCard": "Make your recovery card to find this account on another device.",
     "welcomeFavorites": "Your favourite lists are now kept with your account."
   },
   "recovery": {
     "title": "Recovery card",
-    "intro": "A code that brings your account to a new device. Lunaway keeps only a fingerprint of it: nobody can give it back to you.",
+    "intro": "A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.",
     "replaces": "A new card replaces the previous one, which stops working.",
     "make": "Make the card",
     "codeLabel": "Your recovery code",
     "shownOnce": "This code shows only once. Write it down, or save the image, before closing.",
     "saveImage": "Save the image",
-    "done": "I have it",
+    "done": "I have noted the code",
     "doneTitle": "Did you keep the code?",
     "doneBody": "Once this page is closed, it will not show again.",
     "keep": "Stay on the page",
     "cardHeading": "Lunaway recovery card",
     "cardAccount": "Account: $name",
-    "cardHow": "To recover the account: Profile, Recover my account, then type or read this code.",
+    "cardHow": "To recover the account: Profile, Recover my account, then type this code or scan the card.",
     "cardMade": "Made on $date",
-    "cardWarning": "This code opens the account: entrust it to nobody.",
+    "cardWarning": "This code opens the account: never share it.",
     "failed": "The card could not be made. A connection is needed.",
     "fileName": "lunaway-recovery-card",
     "step1": "Make the card: the code shows only once.",
@@ -790,7 +863,7 @@
     "reading": "Reading the card",
     "scanFailed": "No readable code in this picture. Try a sharper photo, with the card held flat.",
     "revoke": "My old device is lost or stolen: sign it out",
-    "revokeHint": "Every other key of the account will be removed.",
+    "revokeHint": "All your other devices will be signed out.",
     "submit": "Recover the account",
     "notFound": "No account has this code. Check the card, or make a new one from a signed-in device.",
     "tooMany": "Too many attempts for now. Try again in an hour.",
@@ -799,7 +872,7 @@
   "deletion": {
     "title": "Delete my account",
     "intro": "Deletion is immediate and final.",
-    "goneTitle": "What goes",
+    "goneTitle": "What is deleted",
     "gone": {
       "identity": "Your pseudonym and the keys of your devices",
       "sessions": "Your sessions and your recovery code",
@@ -814,7 +887,7 @@
     "web": "You can also delete it on lunaway.net with your recovery code.",
     "webLink": "lunaway.net/account/delete",
     "confirmTitle": "Delete for good?",
-    "confirmBody": "The account “$name” and everything listed go now. Nobody can bring it back.",
+    "confirmBody": "The account “$name” and everything listed are deleted now. Nobody can bring it back.",
     "confirmCheck": "I understand this is final",
     "confirm": "Delete the account",
     "done": "Account deleted",
@@ -837,12 +910,12 @@
       "one": "$n session closed",
       "other": "$n sessions closed"
     },
-    "error": "The devices could not be read. A connection is needed."
+    "error": "The devices could not be loaded. A connection is needed."
   },
   "muted": {
     "title": "Hidden authors",
     "empty": "Nobody is hidden",
-    "emptyHint": "From a review or a photo, the menu hides everything its author posts, for you only.",
+    "emptyHint": "To hide someone, open the menu of one of their reviews or photos. Hiding applies to you only.",
     "unmute": "Show again",
     "unmuted": "Contributions by $name will show again"
   },
@@ -852,8 +925,8 @@
     "pendingHint": "They leave as soon as the network is back.",
     "sendNow": "Send now",
     "retry": "Try again",
-    "discard": "Give up",
-    "discardTitle": "Give up this contribution?",
+    "discard": "Discard",
+    "discardTitle": "Discard this contribution?",
     "discardBody": "It will not be sent.",
     "reviews": "Reviews and ratings",
     "photos": "Photos",
@@ -863,9 +936,9 @@
     "empty": "Nothing yet",
     "emptyHint": "Rating a place or confirming it is still there already counts as a contribution.",
     "latest": "The latest $shown of $total",
-    "error": "Your contributions could not be read. A connection is needed.",
+    "error": "Your contributions could not be loaded. A connection is needed.",
     "deleteTitle": "Delete this contribution?",
-    "deleteBody": "It goes from Lunaway.",
+    "deleteBody": "It is removed from Lunaway.",
     "deleteApplied": "This place is already part of the map: it stays there, without your name.",
     "deleted": "Contribution deleted",
     "ratingOnly": "Rating only",
@@ -923,7 +996,7 @@
       "duplicate": "Refused: the same machine is already listed within 25 m."
     },
     "sent": "Thank you, it is sent",
-    "queued": "No network: it leaves as soon as it is back",
+    "queued": "No connection: it will be sent once you are back online",
     "refused": "Not sent. $reason"
   },
   "contribute": {
@@ -937,7 +1010,7 @@
     "editReview": "Edit your review",
     "deleteReview": "Delete your review",
     "deleteReviewTitle": "Delete your review?",
-    "deleteReviewBody": "The text and the rating go from the page.",
+    "deleteReviewBody": "The text and the rating are removed from the page.",
     "deleteRating": "Remove your rating",
     "deleteRatingTitle": "Remove your rating?",
     "deleteRatingBody": "Your rating leaves the place's page.",
@@ -954,8 +1027,8 @@
     "editPlace": "Edit the place",
     "reportPlace": "Report this place to the moderators",
     "toVerifyTitle": "To verify",
-    "toVerifyBody": "Added by the community, waiting for two confirmations. Been there? Say so.",
-    "issuesTitle": "Reported over the last 30 days",
+    "toVerifyBody": "Added by the community, waiting for two confirmations. Know it? Confirm it.",
+    "issuesTitle": "Reports from the last 30 days",
     "issueCount": "$kind ($count)",
     "addPlace": "Add a place",
     "addPlaceHere": "Add a place here",
@@ -963,13 +1036,13 @@
   },
   "confirmSheet": {
     "title": "Still there?",
-    "body": "Been there recently? Your answer dates the page for the next travellers. No position is sent.",
+    "body": "Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.",
     "stillOk": "Yes, as described",
     "closed": "Closed",
     "changed": "Changed",
     "closedHint": "No longer takes visitors",
     "changedHint": "Still there, but something changed",
-    "note": "A note for the moderators (optional)",
+    "note": "Anything to add? (optional)",
     "noteHint": "For instance: a height barrier put up, a service point moved",
     "status": {
       "stillOk": "still there",
@@ -992,7 +1065,7 @@
       "noAccess": "A barrier, roadworks, a closed road",
       "danger": "Theft, assault, unstable ground"
     },
-    "note": "A note (optional)",
+    "note": "Anything to add? (optional)",
     "send": "Report"
   },
   "reportSheet": {
@@ -1009,7 +1082,7 @@
     },
     "note": "Tell more (optional)",
     "noteOther": "Say what is wrong",
-    "sent": "Thank you, the moderators will look",
+    "sent": "Thank you, the moderators will take a look",
     "mute": "Hide reviews and photos by $name",
     "muteAuthor": "Hide this author",
     "muteTitle": "Hide $name?",
@@ -1017,7 +1090,7 @@
     "muted": "$name is hidden",
     "deletePhoto": "Delete my photo",
     "deletePhotoTitle": "Delete this photo?",
-    "deletePhotoBody": "It goes from the page and from our servers."
+    "deletePhotoBody": "It is removed from the page and from our servers."
   },
   "reviewSheet": {
     "titleNew": "Your review",
@@ -1032,20 +1105,20 @@
     "visited": "Date of the stay",
     "visitedNone": "Not given",
     "vehicle": "Your vehicle",
-    "vehicleNone": "Do not say",
-    "licence": "Published under CC BY 4.0, with your pseudonym. Put together, your reviews and their dates can show where you went: the date of the stay is optional.",
+    "vehicleNone": "Prefer not to say",
+    "licence": "Published under CC BY 4.0, with your pseudonym. The date of the stay is optional: put together, the dates of your reviews can reveal your route.",
     "publish": "Publish the review"
   },
   "gate": {
-    "review": "Written reviews open at level 1",
-    "photo": "Photos open at level 1",
-    "addPlace": "Adding places opens at level 2",
-    "edit": "Suggesting changes opens at level 1",
-    "why": "Levels keep abuse off the map. They come with time and contributions, with nothing to buy.",
+    "review": "Written reviews: from level 1",
+    "photo": "Photos: from level 1",
+    "addPlace": "Adding places: from level 2",
+    "edit": "Suggesting changes: from level 1",
+    "why": "Levels protect the map from abuse. They come with time and contributions, with nothing to buy.",
     "yourLevel": "Your level: $level",
     "noAccount": "No account yet: an account starts at level 0.",
     "later": "Level $level comes after the previous ones, with time and published contributions.",
-    "meanwhile": "Meanwhile, you can rate this place, confirm it is still there or report a problem."
+    "meanwhile": "Meanwhile, you can rate places, confirm they are still there or report a problem."
   },
   "photoFlow": {
     "title": "Add a photo",
@@ -1063,13 +1136,13 @@
     "addTitle": "Add a place",
     "editTitle": "Edit the place",
     "proposeTitle": "Suggest a change",
-    "position": "Location",
+    "position": "Position on the map",
     "kind": "Kind of place",
     "kindRequired": "Choose a kind of place",
     "name": "Name",
     "nameHint": "The name shown on site, or a short description",
     "nameInvalid": "2 to 120 characters",
-    "night": "The night",
+    "night": "Overnight",
     "services": "Services on site",
     "description": "Description",
     "descriptionHint": "What helps to find and choose the place",
@@ -1155,26 +1228,26 @@
     "openNow": "Open now",
     "alwaysOpen": "Open day and night",
     "hoursUnknown": "Opening hours unknown",
-    "maybeClosed": "Listed as closed by FINESS: it may have shut for good.",
+    "maybeClosed": "Closed according to the official register of health facilities (FINESS).",
     "maybeClosedSince": "Listed as closed by FINESS since $date: it may have shut for good.",
     "seasonal": "Seasonal: it may be shut in winter.",
-    "fee": "Paying",
+    "fee": "Fee",
     "free": "Free",
     "stillThereTitle": "Still there?",
     "stillThereHint": "Seen it lately? Your answer helps the next travellers. No position is sent.",
     "stillThere": "Still there",
     "gone": "Gone",
-    "lastConfirmed": "Said to be there $when",
+    "lastConfirmed": "Confirmed there $when",
     "checkedOn": "Checked on the spot on $date",
-    "thanksThere": "Thank you: noted as still there.",
-    "thanksGone": "Thank you: noted as gone.",
+    "thanksThere": "Thank you, noted: still there.",
+    "thanksGone": "Thank you, noted: gone.",
     "fuelPrices": "Fuel prices",
     "perLitre": "$price/L",
     "priceUpdated": "Price updated $when",
-    "feedRead": "Price feed read $when",
+    "feedRead": "Prices checked $when",
     "shortageTemporary": "Out of stock for now",
     "shortageDefinitive": "No longer sold",
-    "selfService24h": "Card pump day and night",
+    "selfService24h": "Pay at pump 24/7",
     "highway": "On a motorway",
     "lpgYes": "Sells LPG",
     "fuel": {
@@ -1218,14 +1291,15 @@
       "one": "$n hour ago",
       "other": "$n hours ago"
     },
-    "readOffline": "Read $when: no network now",
-    "readStale": "Read $when: it could not be read again now.",
+    "readOffline": "Checked $when: no connection to refresh it",
+    "readStale": "Checked $when: it could not be refreshed just now.",
     "goneTitle": "This point is no longer on the map",
     "goneHint": "Travellers said it is gone, or the last update removed it.",
-    "loadError": "The details could not be read. What the map knows is above.",
+    "loadError": "The details could not be loaded. What the map knows is above.",
     "around": "Around this place",
     "aroundEmpty": "No shop or service known around here.",
-    "aroundError": "What is around could not be read.",
+    "aroundError": "The shops and services nearby could not be loaded.",
+    "aroundOffline": "No connection: the shops and services nearby will show once you are online.",
     "onSite": "On site",
     "backTo": "Back to $name",
     "backToPlace": "Back to the place",
@@ -1252,7 +1326,7 @@
       "zoomIn": "Zoom in to compare the stations' prices.",
       "none": "No station on the map sells this fuel.",
       "noneHint": "Move the map or pick another fuel.",
-      "error": "The stations' prices could not be read."
+      "error": "The stations' prices could not be loaded."
     }
   },
   "offlineMaps": {
@@ -1262,7 +1336,7 @@
     "web": "The Android and iOS apps keep regions for the road. In a browser, the map needs the network.",
     "desktopTitle": "Offline maps are on the phone",
     "desktop": "The Android and iOS apps keep regions for the road. On a computer, the map needs the network.",
-    "unreadable": "The offline maps of this device could not be read.",
+    "unreadable": "The offline maps of this device could not be loaded.",
     "none": "No region on this device yet.",
     "used": "Space used: $size",
     "downloads": "Downloading",
@@ -1285,14 +1359,14 @@
     "paused": "Paused at $done of $total",
     "verifying": "Checking the file",
     "failedNetwork": "Stopped: no network. It resumes where it stopped once the network is back.",
-    "failedServer": "The server sent something else than the map. Try again later.",
+    "failedServer": "The server sent something other than the map. Try again later.",
     "failedCorrupt": "The file arrived damaged and was removed. Try again.",
-    "failedStorage": "Not enough room left on the device.",
+    "failedStorage": "Not enough room left on the device. Free some space, then try again.",
     "keepOpen": "Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.",
-    "dataOf": "data of $date",
+    "dataOf": "data from $date",
     "update": "Update, $size",
-    "deleteNamed": "Remove $name",
-    "deleteTitle": "Remove $name from this device?",
+    "deleteNamed": "Delete $name",
+    "deleteTitle": "Delete $name from this device?",
     "deleteBody": "It will no longer show without network. You can download it again.",
     "listOffline": "The list of regions needs the network.",
     "listCopy": "List kept from the last connection.",

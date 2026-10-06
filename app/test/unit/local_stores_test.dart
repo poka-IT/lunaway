@@ -50,6 +50,7 @@ void main() {
           overnight: {OvernightStatus.allowed},
           amenities: {Amenity.dumpStation, Amenity.showers},
           fitsMyVehicle: true,
+          freeOnly: true,
         );
         await SettingsRepository(user).save(
           const AppSettings(
@@ -74,6 +75,13 @@ void main() {
       final loaded = await SettingsRepository(user).load();
       expect(loaded.localeCode, isNull);
       expect(loaded.navigationApp, isNull);
+    });
+
+    test('a filter no longer offered (LPG) is dropped from a stored value', () {
+      expect(
+        SettingsRepository.decodeFilter('{"amenities": ["lpg", "water"]}'),
+        const PlaceFilter(amenities: {Amenity.water}),
+      );
     });
 
     test('a corrupt or older filter value falls back without blocking the start', () {

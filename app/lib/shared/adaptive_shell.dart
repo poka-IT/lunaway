@@ -84,57 +84,68 @@ class AdaptiveShell extends ConsumerWidget {
       _Destination(AppIcons.profile, AppIcons.profileSelected, t.nav.profile),
     ];
     final size = WindowSize.of(context);
+    // The system back on Favourites or Profile returns to the map, the
+    // first destination, rather than leaving the app from there.
+    Widget backToMap(Widget child) => PopScope(
+      canPop: shell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) shell.goBranch(0);
+      },
+      child: child,
+    );
 
     if (size == .compact) {
       final placeOpen = shell.currentIndex == 0 && ref.watch(selectionProvider) != null;
       final media = MediaQuery.of(context);
-      return _Messages(
-        // The dock's slot: its height and the margin under it. A message
-        // floats above that slot, and above the taller bar of a place's
-        // actions that takes the dock's place.
-        reserved: 64 + math.max(media.padding.bottom, Space.m),
-        side: Space.l,
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          // The dock is the Scaffold's bottom bar, drawn over the content.
-          extendBody: true,
-          body: MediaQuery(
-            data: media.copyWith(
-              padding: media.padding.copyWith(bottom: media.padding.bottom + dockSpace),
+      return backToMap(
+        _Messages(
+          // The dock's slot: its height and the margin under it. A message
+          // floats above that slot, and above the taller bar of a place's
+          // actions that takes the dock's place.
+          reserved: 64 + math.max(media.padding.bottom, Space.m),
+          side: Space.l,
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            // The dock is the Scaffold's bottom bar, drawn over the content.
+            extendBody: true,
+            body: MediaQuery(
+              data: media.copyWith(
+                padding: media.padding.copyWith(bottom: media.padding.bottom + dockSpace),
+              ),
+              child: shell,
             ),
-            child: shell,
-          ),
-          bottomNavigationBar: AnimatedSlide(
-            duration: Motion.of(context, Motion.medium),
-            curve: placeOpen ? Motion.exit : Motion.enter,
-            offset: placeOpen ? const Offset(0, 1.4) : Offset.zero,
-            child: AnimatedOpacity(
-              duration: Motion.of(context, Motion.short),
-              opacity: placeOpen ? 0 : 1,
-              child: IgnorePointer(
-                ignoring: placeOpen,
-                child: Stack(
-                  children: [
-                    // What scrolls under the dock fades into the page rather
-                    // than running under it and under the system's gesture
-                    // bar; taps go through the fade.
-                    const Positioned.fill(child: IgnorePointer(child: BottomFade())),
-                    Padding(
-                      padding: const EdgeInsets.only(top: BottomFade.lead),
-                      child: SafeArea(
-                        top: false,
-                        minimum: const EdgeInsets.only(bottom: Space.m),
-                        child: Center(
-                          heightFactor: 1,
-                          child: _Dock(
-                            destinations: destinations,
-                            selected: shell.currentIndex,
-                            onSelected: _go,
+            bottomNavigationBar: AnimatedSlide(
+              duration: Motion.of(context, Motion.medium),
+              curve: placeOpen ? Motion.exit : Motion.enter,
+              offset: placeOpen ? const Offset(0, 1.4) : Offset.zero,
+              child: AnimatedOpacity(
+                duration: Motion.of(context, Motion.short),
+                opacity: placeOpen ? 0 : 1,
+                child: IgnorePointer(
+                  ignoring: placeOpen,
+                  child: Stack(
+                    children: [
+                      // What scrolls under the dock fades into the page rather
+                      // than running under it and under the system's gesture
+                      // bar; taps go through the fade.
+                      const Positioned.fill(child: IgnorePointer(child: BottomFade())),
+                      Padding(
+                        padding: const EdgeInsets.only(top: BottomFade.lead),
+                        child: SafeArea(
+                          top: false,
+                          minimum: const EdgeInsets.only(bottom: Space.m),
+                          child: Center(
+                            heightFactor: 1,
+                            child: _Dock(
+                              destinations: destinations,
+                              selected: shell.currentIndex,
+                              onSelected: _go,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -146,20 +157,22 @@ class AdaptiveShell extends ConsumerWidget {
     // On wide screens a message floats centred, above the panes' action
     // bars at their foot.
     final width = MediaQuery.sizeOf(context).width;
-    return _Messages(
-      reserved: 0,
-      side: ((width - 440) / 2).clamp(Space.l, double.infinity),
-      child: Scaffold(
-        body: Row(
-          children: [
-            _Rail(
-              destinations: destinations,
-              selected: shell.currentIndex,
-              onSelected: _go,
-              extended: size == .expanded,
-            ),
-            Expanded(child: shell),
-          ],
+    return backToMap(
+      _Messages(
+        reserved: 0,
+        side: ((width - 440) / 2).clamp(Space.l, double.infinity),
+        child: Scaffold(
+          body: Row(
+            children: [
+              _Rail(
+                destinations: destinations,
+                selected: shell.currentIndex,
+                onSelected: _go,
+                extended: size == .expanded,
+              ),
+              Expanded(child: shell),
+            ],
+          ),
         ),
       ),
     );
@@ -254,6 +267,10 @@ class _Dock extends StatelessWidget {
                     selected: i == selected,
                     button: true,
                     label: d.label,
+                    // The label replaces the icon and text below, and with
+                    // them the ink's own tap: the node carries it again, or
+                    // a screen reader could not switch tabs.
+                    onTap: () => onSelected(i),
                     excludeSemantics: true,
                     child: Material(
                       type: MaterialType.transparency,
@@ -329,7 +346,9 @@ class _Rail extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Container(
-      width: extended ? 232 : 92,
+      // A phone on its side puts its camera cut-out on the left: the rail
+      // grows by it, so its labels keep their room.
+      width: (extended ? 232 : 92) + MediaQuery.paddingOf(context).left,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
         border: Border(right: BorderSide(color: scheme.outlineVariant)),
@@ -353,6 +372,8 @@ class _Rail extends StatelessWidget {
                   selected: i == selected,
                   button: true,
                   label: d.label,
+                  // As in the dock: the tap the excluded ink would have given.
+                  onTap: () => onSelected(i),
                   excludeSemantics: true,
                   child: Material(
                     type: MaterialType.transparency,

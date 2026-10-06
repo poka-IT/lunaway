@@ -21,8 +21,19 @@ enum Amenity {
   /// A place offers the amenity when it has any of these.
   final Set<Service> services;
 
-  /// The four a traveller checks first, offered one tap away on the map.
-  static const List<Amenity> quick = [water, dumpStation, electricity, toilets];
+  /// The ones the filters offer. LPG stays out: the places' sources do not
+  /// carry it, and the stations selling it are on the fuel layer with their
+  /// prices.
+  static const List<Amenity> offered = [
+    water,
+    dumpStation,
+    electricity,
+    toilets,
+    showers,
+    wasteBin,
+    laundry,
+    wifi,
+  ];
 
   int get mask => Service.maskOf(services);
 
@@ -42,6 +53,7 @@ final class PlaceFilter {
     this.overnight = const {},
     this.amenities = const {},
     this.fitsMyVehicle = false,
+    this.freeOnly = false,
     this.vehicleHeightM,
   });
 
@@ -62,24 +74,34 @@ final class PlaceFilter {
   /// screens resolve it into [vehicleHeightM] before querying.
   final bool fitsMyVehicle;
 
+  /// Keep only the places whose night is known to be free: an unknown
+  /// price is not a free one.
+  final bool freeOnly;
+
   /// Excludes places whose known maximum height is lower. Unknown heights
   /// stay: hiding them would hide most of the map. Set from the vehicle
   /// profile when [fitsMyVehicle] is on; never stored on its own.
   final double? vehicleHeightM;
 
-  bool get isEmpty => families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle;
+  bool get isEmpty =>
+      families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle && !freeOnly;
 
   /// The "night possible" shortcut is on.
   bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
 
   /// How many criteria are active, for the badge on the filter button.
   int get activeCount =>
-      families.length + (overnight.isEmpty ? 0 : 1) + amenities.length + (fitsMyVehicle ? 1 : 0);
+      families.length +
+      (overnight.isEmpty ? 0 : 1) +
+      amenities.length +
+      (fitsMyVehicle ? 1 : 0) +
+      (freeOnly ? 1 : 0);
 
   bool matches(PlaceSummary place, {double? maxHeightM}) {
     if (families.isNotEmpty && !families.contains(place.kind.family)) return false;
     if (overnight.isNotEmpty && !overnight.contains(place.overnight)) return false;
     if (!amenities.every((a) => a.offeredBy(place.services))) return false;
+    if (freeOnly && place.priceParkingEur != 0) return false;
     final height = vehicleHeightM;
     if (height != null && maxHeightM != null && maxHeightM < height) return false;
     return true;
@@ -90,12 +112,14 @@ final class PlaceFilter {
     Set<OvernightStatus>? overnight,
     Set<Amenity>? amenities,
     bool? fitsMyVehicle,
+    bool? freeOnly,
     double? Function()? vehicleHeightM,
   }) => PlaceFilter(
     families: families ?? this.families,
     overnight: overnight ?? this.overnight,
     amenities: amenities ?? this.amenities,
     fitsMyVehicle: fitsMyVehicle ?? this.fitsMyVehicle,
+    freeOnly: freeOnly ?? this.freeOnly,
     vehicleHeightM: vehicleHeightM == null ? this.vehicleHeightM : vehicleHeightM(),
   );
 
@@ -124,6 +148,7 @@ final class PlaceFilter {
       const SetEquality<OvernightStatus>().equals(other.overnight, overnight) &&
       const SetEquality<Amenity>().equals(other.amenities, amenities) &&
       other.fitsMyVehicle == fitsMyVehicle &&
+      other.freeOnly == freeOnly &&
       other.vehicleHeightM == vehicleHeightM;
 
   @override
@@ -132,6 +157,7 @@ final class PlaceFilter {
     Object.hashAllUnordered(overnight),
     Object.hashAllUnordered(amenities),
     fitsMyVehicle,
+    freeOnly,
     vehicleHeightM,
   );
 }

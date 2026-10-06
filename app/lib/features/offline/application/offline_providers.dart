@@ -575,13 +575,20 @@ class OfflinePacks extends _$OfflinePacks {
 /// when it does not (the device is offline, or the host is down: the map
 /// then reads a downloaded pack where there is one). A small TileJSON read,
 /// at launch, on each return to the foreground, every ten minutes online
-/// and every minute offline, only while the app is in the foreground.
+/// and every minute offline, only while the app is in the foreground; and
+/// when the map comes to rest or the guidance moves on with an answer older
+/// than [staleAfter] (see [probeIfStale]).
 // keepAlive: the map and its notice read it for the whole run.
 @Riverpod(keepAlive: true)
 class BasemapReachability extends _$BasemapReachability {
   Timer? _timer;
   AppLifecycleListener? _lifecycle;
   bool _paused = false;
+  DateTime? _askedAt;
+  bool _asking = false;
+
+  /// How old an answer may be when the map is in use.
+  static const staleAfter = Duration(seconds: 30);
 
   @override
   bool? build() {
@@ -608,9 +615,21 @@ class BasemapReachability extends _$BasemapReachability {
   @visibleForTesting
   void assume({required bool? reachable}) => state = reachable;
 
+  /// Asks again when the last answer is older than [staleAfter]. The
+  /// ten-minute rhythm alone left the map blank for that long when the
+  /// network went in the middle of a trip, a downloaded pack beside it.
+  Future<void> probeIfStale() async {
+    final at = _askedAt;
+    if (_asking) return;
+    if (at != null && ref.read(clockProvider)().difference(at) < staleAfter) return;
+    await probe();
+  }
+
   /// Asks the host now, then again later.
   Future<void> probe() async {
     _timer?.cancel();
+    _asking = true;
+    _askedAt = ref.read(clockProvider)();
     final base = ref.read(appConfigProvider).basemapBase;
     var reachable = false;
     try {
@@ -624,6 +643,8 @@ class BasemapReachability extends _$BasemapReachability {
       reachable = response.statusCode == 200;
     } on Object catch (e) {
       _log.fine('basemap host not reached: $e');
+    } finally {
+      _asking = false;
     }
     if (!ref.mounted) return;
     state = reachable;

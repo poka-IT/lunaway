@@ -247,6 +247,34 @@ void main() {
     expect(session().phase, GuidancePhase.offRoute);
   });
 
+  test(
+    'starting from a car park off the road is not a wrong turn, leaving the wrong way is',
+    () async {
+      final a = routeFixture('limoges_drive');
+      await start(a);
+      final start0 = LineTrack(a.routes.single).at(0);
+      Fix at(LatLng p, int s) => Fix(
+        position: p,
+        accuracyM: 5,
+        at: t0.add(Duration(seconds: s)),
+        speedMps: 3,
+      );
+      // 80 m off the start, then a little further, moving: the way out of
+      // an aire.
+      final parkedAt = LatLng(start0.lat + 0.0007, start0.lon);
+      await send([at(parkedAt, 1), at(LatLng(parkedAt.lat + 0.0003, parkedAt.lon), 3)]);
+      expect(session().phase, GuidancePhase.navigating);
+      expect(routes.requests, isEmpty);
+      expect(voice.said, isNot(contains(fr.navigation.voice.rerouting)));
+      // Driven 400 m away without ever meeting the route: a wrong way, and
+      // a new route from there.
+      final away = LatLng(parkedAt.lat + 0.0036, parkedAt.lon);
+      await send([at(away, 40), at(LatLng(away.lat + 0.0002, away.lon), 42)]);
+      expect(routes.requests, hasLength(1));
+      expect(voice.said, contains(fr.navigation.voice.rerouting));
+    },
+  );
+
   test('a failed recalculation keeps the route and waits longer before the next', () async {
     final a = routeFixture('limoges_drive');
     await start(a, answers: [const RouteFailure(RouteFailureKind.offline)]);
@@ -439,7 +467,7 @@ void main() {
     expect(session().phase, GuidancePhase.arrived);
     expect(feed.listening, isFalse, reason: 'the GPS stops at the arrival');
     expect(wake.on, isTrue, reason: 'the arrival card stays readable');
-    expect(voice.said.last, 'Vous êtes arrivé.');
+    expect(voice.said.last, 'Vous êtes à destination.');
     controller.stop();
     expect(container.read(guidanceControllerProvider), isNull);
     expect(wake.on, isFalse);

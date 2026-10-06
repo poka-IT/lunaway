@@ -131,10 +131,7 @@ class _GateSheet extends ConsumerWidget {
                 ),
                 const SizedBox(height: Space.xs),
                 for (final r in next.missing) _Requirement(text: t.requirement(r)),
-                if (next.instead != null)
-                  _Requirement(
-                    text: t.account.orInstead(requirement: t.requirement(next.instead!)),
-                  ),
+                if (next.instead != null) _Requirement(text: t.insteadRequirement(next.instead!)),
               ] else
                 Text(t.gate.later(level: '${gate.required}'), style: theme.textTheme.bodyMedium),
             ],

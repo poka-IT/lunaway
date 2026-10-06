@@ -23,6 +23,7 @@ import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -46,6 +47,12 @@ class GuidanceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(guidanceControllerProvider);
     if (session == null) return const _NoGuidance();
+    // The map follows the vehicle and never rests: each new position checks
+    // whether the basemap's host still answers, at most every 30 s, so the
+    // downloaded map takes over soon after the network goes.
+    ref.listen(guidanceControllerProvider.select((s) => s?.lastFix), (_, _) {
+      unawaited(ref.read(basemapReachabilityProvider.notifier).probeIfStale());
+    });
     return PopScope(
       canPop: session.phase == GuidancePhase.arrived,
       onPopInvokedWithResult: (popped, _) async {
@@ -522,22 +529,15 @@ class _ManeuverBanner extends ConsumerWidget {
 }
 
 /// Where a road event comes from and how recent its data is: the source's
-/// name, else its id, so the origin always shows; the day as well when the
-/// data is not of today.
-String _eventSource(Translations t, RoadEventFinding e, DateTime now) {
-  final source = e.source;
-  final name = source?.name ?? source?.attribution ?? e.event.source;
-  final at = (source?.dataAt ?? source?.lastReadAt)?.toLocal();
-  if (at == null) return name;
-  final today = at.year == now.year && at.month == now.month && at.day == now.day;
-  return today
-      ? t.navigation.guidance.eventSource(source: name, time: t.clockTime(at))
-      : t.navigation.guidance.eventSourceOn(
-          source: name,
-          day: t.dayMonth(at),
-          time: t.clockTime(at),
-        );
-}
+/// credit line (shorter than its full name), else its name, else its id, so
+/// the origin always shows; the day as well when the data is not of today.
+/// Every road event notice and the route preview name a source this way.
+String _eventSource(Translations t, RoadEventSourceStatus? source, String id, DateTime now) =>
+    t.roadDataSource(
+      source?.attribution ?? source?.name ?? id,
+      source?.dataAt ?? source?.lastReadAt,
+      now,
+    );
 
 /// What the driver should know besides the next maneuver: a new route and
 /// why, a closure ahead, off the route, the restriction coming up, the
@@ -634,7 +634,41 @@ class _Notices extends ConsumerWidget {
               ),
               _ => t.navigation.guidance.eventAhead(distance: t.routeDistance(e.aheadM, units)),
             },
-            _eventSource(t, e, now),
+            _eventSource(t, e.source, e.event.source, now),
+          ].join('\n'),
+        ),
+      // The road events of the route itself (lanes closed ahead), each with
+      // its source and the age of its data.
+      for (final ahead in roadEventsAhead(
+        session.route,
+        along,
+      ).where((a) => !session.eventAlerts.any((e) => e.event.id == a.event.event.id)).take(1))
+        _Notice(
+          icon: AppIcons.roadEvent(ahead.event.event.eventClass),
+          text: [
+            t.navigation.guidance.roadEventAhead(
+              what: [
+                ?ahead.event.event.road,
+                t.roadEventWhat(ahead.event.event.eventClass),
+              ].join(' · '),
+              distance: t.routeDistance(ahead.aheadM, units),
+            ),
+            if (session.plan.sourceOf(ahead.event.event.source) case final source)
+              t.roadDataSource(
+                source?.attribution ?? source?.name ?? ahead.event.event.source,
+                ahead.event.dataAt ?? source?.dataAt ?? source?.lastReadAt,
+                now,
+              ),
+          ].join('\n'),
+        ),
+      // At the start, the closures the route was planned around.
+      if (alert == null && session.plan.avoidedRoadEvents.isNotEmpty && along < 1500)
+        _Notice(
+          icon: AppIcons.roadEvent(RoadEventClass.closure),
+          text: [
+            t.navigation.guidance.avoidedClosures(n: session.plan.avoidedRoadEvents.length),
+            for (final id in {for (final e in session.plan.avoidedRoadEvents) e.source})
+              _eventSource(t, session.plan.sourceOf(id), id, now),
           ].join('\n'),
         ),
       if (session.voiceOn && session.voice != VoiceReadiness.ready) _VoiceNotice(session: session),

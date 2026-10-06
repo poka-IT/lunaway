@@ -184,6 +184,83 @@ void main() {
       );
     });
 
+    testWidgets('the closures gone around and the works on the way, with their sources', (
+      tester,
+    ) async {
+      await openPreview(tester, answers: [routeFixture('aix_marseille_closures')]);
+      expect(find.text('Travaux et fermetures'), findsOneWidget);
+      expect(
+        find.text(
+          'Itinéraire calculé autour de 2 fermetures : Tunnel de la Joliette, Tunnel du Vieux-Port',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('A51 · Voies réduites'), findsOneWidget);
+      expect(
+        find.text('A51 · Route fermée, position incertaine, peut-être sur le trajet'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('à 3,2 km du départ · DIR, Bison Futé'), findsOneWidget);
+      expect(
+        find.textContaining('Métropole Aix-Marseille-Provence (data.ampmetropole.fr), données'),
+        findsOneWidget,
+      );
+      final marks = SchematicRouteMap.last!.marks;
+      expect(marks.where((m) => m.kind == RouteMarkKind.blocker), hasLength(2));
+      expect(marks.where((m) => m.kind == RouteMarkKind.event), hasLength(4));
+    });
+
+    testWidgets('raised to the top, the sheet stops under the back button', (tester) async {
+      // A status bar above the app, as on a device.
+      tester.view.padding = const FakeViewPadding(top: 48);
+      await openPreview(tester, size: phone);
+      await tester.drag(find.text('Vers Aire de la rue Utrillo'), const Offset(0, -1500));
+      await settleShort(tester);
+      final title = tester.getRect(find.text('Vers Aire de la rue Utrillo'));
+      final back = tester.getRect(find.byTooltip('Retour'));
+      expect(title.top, greaterThanOrEqualTo(back.bottom));
+    });
+
+    Map<String, Object?> source({required bool fresh}) => {
+      'id': 'dir',
+      'name': 'DIR',
+      'attribution': 'DIR, Bison Futé',
+      'lastReadAt': '2026-10-06T08:00:00Z',
+      'dataAt': '2026-10-06T08:00:00Z',
+      'staleAfterSeconds': 7800,
+      'fresh': fresh,
+    };
+
+    testWidgets('a route with no known works or closure says so', (tester) async {
+      await openPreview(
+        tester,
+        answers: [
+          routeFixture(
+            'utrillo_motorhome',
+            edit: (a) => a['roadEventSources'] = [source(fresh: true)],
+          ),
+        ],
+      );
+      expect(find.text('Pas de travaux ni de fermeture connus sur ce trajet.'), findsOneWidget);
+    });
+
+    testWidgets('with its sources gone stale, "none known" is not promised', (tester) async {
+      await openPreview(
+        tester,
+        answers: [
+          routeFixture(
+            'utrillo_motorhome',
+            edit: (a) => a['roadEventSources'] = [source(fresh: false)],
+          ),
+        ],
+      );
+      expect(find.text('Pas de travaux ni de fermeture connus sur ce trajet.'), findsNothing);
+      expect(
+        find.text("Travaux et fermetures : les sources n'ont pas été lues récemment."),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a weight limit for goods vehicles says whom it binds', (tester) async {
       final plan = routeFixture(
         'utrillo_van',
@@ -528,6 +605,35 @@ void main() {
       expect(find.textContaining('DIR Centre-Ouest, données de $dataAt'), findsOneWidget);
     });
 
+    testWidgets(
+      'lanes closed ahead on the route show with their source; the closures gone round at the start',
+      (tester) async {
+        final plan = routeFixture('aix_marseille_closures');
+        await guide(tester, plan);
+        await drive(tester, plan, toM: 400);
+        expect(
+          find.textContaining(
+            RegExp(
+              r'^Itinéraire calculé autour de 2 fermetures\nMétropole Aix-Marseille-Provence '
+              r'\(data\.ampmetropole\.fr\), données',
+            ),
+          ),
+          findsOneWidget,
+        );
+        await drive(tester, plan, toM: 1400);
+        expect(
+          find.textContaining(
+            RegExp(
+              r'A51 · Voies réduites dans .*\nDIR, Bison Futé \(transport\.data\.gouv\.fr\), données',
+            ),
+          ),
+          findsOneWidget,
+        );
+        await drive(tester, plan, toM: 2000);
+        expect(find.textContaining('Itinéraire calculé autour de 2 fermetures'), findsNothing);
+      },
+    );
+
     testWidgets('the restriction coming up shows with its distance', (tester) async {
       final plan = routeFixture('utrillo_van');
       await guide(tester, plan);
@@ -601,7 +707,7 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan);
-      expect(find.text('Vous êtes arrivé'), findsOneWidget);
+      expect(find.text('Vous êtes à destination'), findsOneWidget);
       expect(find.text('Aire de la rue Utrillo'), findsOneWidget);
       await tester.tap(find.text('Toujours là ?'));
       await settleShort(tester);

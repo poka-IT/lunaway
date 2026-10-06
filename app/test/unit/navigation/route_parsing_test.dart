@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
+import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 
@@ -11,6 +12,25 @@ import '../../helpers/navigation.dart';
 /// answers recorded on 2026-10-06 (`test/fixtures/navigation/`).
 void main() {
   group('a route answer', () {
+    test('Aix to Marseille at night: the events met and the closures gone around', () {
+      final plan = routeFixture('aix_marseille_closures');
+      final events = plan.routes.single.roadEvents;
+      expect(events, hasLength(4));
+      final first = events.first;
+      expect(first.event.eventClass, RoadEventClass.laneRestriction);
+      expect(first.event.road, 'A51');
+      expect(first.reason, RoadEventReason.laneRestriction);
+      expect(first.weight, RoadEventWeight.warning);
+      expect(first.distanceFromStartM, closeTo(3160.5, 0.1));
+      expect(first.dataAt, DateTime.parse('2026-10-06T20:38:47.033Z'));
+      expect(events[1].reason, RoadEventReason.unmatched);
+      expect(plan.avoidedRoadEvents.map((e) => e.road), [
+        'Tunnel de la Joliette',
+        'Tunnel du Vieux-Port',
+      ]);
+      expect(plan.sourceOf('aix-marseille-tunnels')?.attribution, contains('Aix-Marseille'));
+    });
+
     test('Rue Maurice Utrillo at 3.30 m: the recommended route and one alternative', () {
       final plan = routeFixture('utrillo_motorhome');
       expect(plan.status, RouteStatus.ok);

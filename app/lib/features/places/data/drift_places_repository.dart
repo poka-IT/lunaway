@@ -376,6 +376,7 @@ _Where _filterSql(PlaceFilter filter) {
     clauses.add('(p.services & ?) != 0');
     variables.add(Variable.withInt(amenity.mask));
   }
+  if (filter.freeOnly) clauses.add('p.price_parking = 0');
   final height = filter.vehicleHeightM;
   if (height != null) {
     clauses.add('(p.max_height IS NULL OR p.max_height >= ?)');

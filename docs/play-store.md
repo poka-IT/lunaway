@@ -197,17 +197,18 @@ no third-party SDK for analytics, crash reports or ads.
 | Route request: start, destination, stops, the vehicle's dimensions, heading | the user asks for a route, and during guidance each new route (off the route, a closure ahead, a stop added or removed) and the route through a stop priced before it is confirmed | nothing: a POST body, and the access log keeps the method and path only | `app/lib/features/navigation/data/route_operations.dart`, `route_service.dart`; `backend/crates/lunaway-api/src/lib.rs` |
 | Points of a route, for its fuel stations | the user opens the fuel list of a route | nothing; five points of the route ahead, each rounded to a hundredth of a degree (about a kilometre) | `app/lib/features/navigation/data/fuel_stations_api.dart` |
 | Road events of the guidance | during guidance, at the start and every three minutes | nothing; the request carries no position | `app/lib/features/navigation/data/road_events_api.dart` |
-| New place, place edit | the user submits | `place_submissions`: the payload, with the position the user confirms in the form (a long press, or the map centre, which after "locate me" is the device's own position), linked to the account and device key | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `backend/crates/lunaway-db/src/submissions.rs` |
+| New place, place edit | the user submits | `place_submissions`: the payload, with the position the user confirms in the form (a long press, or the map centre, which after "locate me", or a launch that opens the map on the user, is the device's own position), linked to the account and device key | `app/lib/features/map/presentation/map_screen.dart`, `locate_flow.dart`, `app/lib/features/community/presentation/place_form.dart`, `backend/crates/lunaway-db/src/submissions.rs` |
 | Favourite lists | after the first sync | list names and place ids (`favorite_lists`, `favorite_items`) | `favorites_sync.dart` |
 | Muted authors, sponsorships | the user mutes (sponsoring exists in the API only, the app has no action for it yet) | `muted_authors`, `account_endorsements` | 20261006005548 |
 | Client address | every request | not stored: rate limits count per IPv4 address or IPv6 /64 in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
 | Request line and headers | every request | access log: date, method, path without query string, status, User-Agent and Accept-Language, IP truncated to /16 (IPv4) or /32 (IPv6), photo paths and tile coordinates masked; the file rolls at 50 MiB and rolled files go after 14 days, so the live file can hold older lines; system journal, one month at most; both also sit in Hetzner's 7 daily images of the root disk | `infra/caddy/Caddyfile` (`roll_size`, `roll_keep_for`), `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` |
 
-The device position reaches the server in one case only: as the position
-of a new place, when the user centres the map on themselves ("locate me")
-and adds a place there. No other request carries it: no directions,
-"around me" or server search request exists in the app (search runs on
-the device, `app/lib/features/places/data/drift_places_repository.dart`),
+The device position reaches the server as the position of a new place,
+when the map is centred on the user ("locate me", or a launch that opens on
+them when the position is already allowed) and they add a place there; and
+as the start of a route the user asks for in the app (the route rows of this
+inventory). No "around me" or server search request carries it (search runs
+on the device, `app/lib/features/places/data/drift_places_repository.dart`),
 and a confirmation carries none. Not sent either: search text, contacts,
 e-mail, phone number, crash data. The position also goes, on the device,
 to another app the user opens for directions when that app takes a start
@@ -243,7 +244,9 @@ and none of these data exist before the first contribution or favourites
 sync. Not declared, with the reason:
 
 - Location, Approximate location: the basemap tiles requested after
-  "locate me" cover the area around the device (zoom 12); nothing is
+  "locate me", or at a launch that opens the map on the user when the
+  position is already allowed, cover the area around the device (zoom 11
+  to 12); nothing is
   stored and the access log keeps the zoom level only. Read as a map
   view; declare Approximate location, processed ephemerally, if Google
   reads it otherwise.
