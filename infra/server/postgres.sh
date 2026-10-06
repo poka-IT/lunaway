@@ -124,9 +124,13 @@ BEGIN
   END IF;
 END
 $$;
+-- Caps under max_connections (50, 3 kept for superusers): the API's pool
+-- (LUNAWAY_DB_POOL_SIZE, 16) with room, and two CLI runs at once for
+-- lunaway_ingest (an import and the conflation its success starts while
+-- another import runs), each opening 4 connections.
 ALTER ROLE lunaway_owner NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 5;
-ALTER ROLE lunaway_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 40;
-ALTER ROLE lunaway_ingest NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 5;
+ALTER ROLE lunaway_app NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 30;
+ALTER ROLE lunaway_ingest NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 10;
 -- An import or a conflation runs longer than an API request.
 ALTER ROLE lunaway_ingest SET statement_timeout = '10min';
 ALTER ROLE lunaway_ingest SET idle_in_transaction_session_timeout = '5min';
@@ -152,6 +156,9 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 -- Default privileges an earlier version of this script granted are taken
 -- back (a no-op when there are none).
 GRANT USAGE ON SCHEMA public TO lunaway_app, lunaway_ingest;
+-- pg_stat_statements makes its views readable by PUBLIC; only the
+-- administrator reads them.
+REVOKE ALL ON pg_stat_statements, pg_stat_statements_info FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE lunaway_owner IN SCHEMA public
   REVOKE ALL ON TABLES FROM lunaway_app, lunaway_ingest;
 ALTER DEFAULT PRIVILEGES FOR ROLE lunaway_owner IN SCHEMA public

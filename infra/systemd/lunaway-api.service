@@ -19,6 +19,8 @@ ExecStart=/opt/lunaway/current/lunaway-api
 EnvironmentFile=/etc/lunaway/api.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484
 Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
 Restart=on-failure
 RestartSec=2s
 TimeoutStopSec=20s

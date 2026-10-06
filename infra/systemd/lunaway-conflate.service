@@ -16,6 +16,8 @@ UMask=0077
 EnvironmentFile=/etc/lunaway/ingest.env
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway conflate
 TimeoutStartSec=1h
 Nice=10

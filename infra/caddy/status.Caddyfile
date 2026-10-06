@@ -28,6 +28,7 @@
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
 			resp_headers>Set-Cookie delete
+			request>uri regexp "\?.*$" "?"
 			remote ip_mask 16 32
 		}
 	}
@@ -48,6 +49,7 @@ __STATUS_HOSTS__ {
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
 			resp_headers>Set-Cookie delete
+			request>uri regexp "\?.*$" "?"
 		}
 	}
 	encode zstd gzip

@@ -42,7 +42,7 @@ only (`.claude/rules/data-sources.md`); the imports run on the backend.
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
-| `infra/verify.sh` | here | external and internal checks of both servers, the status page and the pulls |
+| `infra/verify.sh` | here | external and internal checks of both servers, the status page, the pulls, and what each database role may do (`infra/server/test-grants.sh`) |
 | `infra/files/` | server | configuration files, installed at the same path under `/`; `files/roles/<role>/` holds the per-role ones |
 | `infra/systemd/` | server | units and drop-ins, installed in `/etc/systemd/system/` |
 | `infra/caddy/` | servers | the backend's Caddyfile and domain sites, the ops server's `status.Caddyfile` |
@@ -501,7 +501,7 @@ decisions are taken:
 | system | sysctl hardening (rp_filter, no redirects or source routing, syncookies, kptr and dmesg restriction, BPF and ptrace limits, protected links), unused protocols and filesystems blacklisted, no core dumps, AppArmor, chrony, persistent journal capped at 1 GB and one month, swap on zram (compressed memory, never on a disk) |
 | packages | the Caddy repository's signing key accepted only with its pinned fingerprint, the source line written from the repository; Gatus and the Rust build image pinned by digest |
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
-| PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it; data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
+| PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 30, imports 10, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
 | web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, 1 MB request bodies on the API, header and body read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, kept 14 days |
 | API | systemd sandbox: dynamic user, no capabilities, read-only system, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1 GB; CORS for `https://lunaway.net` only |

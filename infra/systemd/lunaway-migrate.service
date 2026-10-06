@@ -17,6 +17,8 @@ EnvironmentFile=/etc/lunaway/owner.env
 # The CLI's default data directory is a build path; nothing is cached here.
 Environment=LUNAWAY_DATA_DIR=/nonexistent
 Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway migrate
 TimeoutStartSec=30min
 

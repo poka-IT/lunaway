@@ -123,11 +123,16 @@ print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") o
   host_ssh "$role" 'mkdir -p ~/infra/server'
   lunaway_scp "$LUNAWAY_INFRA_DIR/server/common.sh" "$LUNAWAY_INFRA_DIR/server/inspect.sh" \
     "$LUNAWAY_INFRA_DIR/server/test-fail2ban.sh" "$LUNAWAY_INFRA_DIR/server/test-ops-access.sh" \
-    "$(role_get "$role" alias):infra/server/"
+    "$LUNAWAY_INFRA_DIR/server/test-grants.sh" "$(role_get "$role" alias):infra/server/"
   host_ssh "$role" "sudo bash ~/infra/server/inspect.sh $role"
 
   section "$server, inside: fail2ban end to end"
   host_ssh "$role" 'sudo bash ~/infra/server/test-fail2ban.sh'
+
+  if [ "$role" = backend ]; then
+    section "$server, inside: what the API and import roles may do in the database"
+    host_ssh backend 'sudo bash ~/infra/server/test-grants.sh'
+  fi
 
   if [ "$role" = ops ] && [ -n "$(role_var backend IPV4)" ]; then
     section "what the ops server's keys reach on the backend, over the private network"

@@ -22,6 +22,8 @@ EnvironmentFile=/etc/lunaway/ingest.env
 # interrupted run resumes instead of fetching again.
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --refresh
 TimeoutStartSec=4h
 Nice=10
