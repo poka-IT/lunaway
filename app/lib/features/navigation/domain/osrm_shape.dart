@@ -100,10 +100,11 @@ RouteStep _step(Map<String, dynamic> s, {Map<String, dynamic>? next}) {
   );
 }
 
-/// The lanes the vehicle sees as it reaches the maneuver that ends [step]:
-/// those of the intersection where [next] starts, else of the last
-/// intersection of [step] that has any (Valhalla puts them on the
-/// intersections, not in a sub-banner).
+/// The lanes the vehicle sees as it nears the maneuver that ends [step]:
+/// those of the intersection where [next] starts, else those of the last
+/// intersection of [step] that has some within [_lanesReachM] of the
+/// maneuver (Valhalla puts lanes on the intersections, not in a
+/// sub-banner, and often on the junction just before a turn).
 List<LaneHint> _lanesBefore(Map<String, dynamic> step, Map<String, dynamic>? next) {
   List<LaneHint>? lanesOf(Object? intersection) {
     if (intersection is! Map<String, dynamic>) return null;
@@ -124,5 +125,24 @@ List<LaneHint> _lanesBefore(Map<String, dynamic> step, Map<String, dynamic>? nex
     final atManeuver = lanesOf(nextIntersections.first);
     if (atManeuver != null) return atManeuver;
   }
+  final maneuver = _location(next?['maneuver']);
+  final own = step['intersections'];
+  if (maneuver == null || own is! List) return const [];
+  for (final i in own.reversed) {
+    final lanes = lanesOf(i);
+    final at = _location(i is Map<String, dynamic> ? i : null);
+    if (lanes != null && at != null && at.distanceTo(maneuver) <= _lanesReachM) return lanes;
+  }
   return const [];
+}
+
+/// How far before a maneuver the lanes of a junction still guide it.
+const _lanesReachM = 300.0;
+
+LatLng? _location(Object? node) {
+  if (node is! Map<String, dynamic>) return null;
+  final l = node['location'];
+  return l is List && l.length >= 2
+      ? LatLng((l[1] as num).toDouble(), (l[0] as num).toDouble())
+      : null;
 }

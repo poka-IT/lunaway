@@ -72,9 +72,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _overnightMeta = const VerificationMeta(
-    'overnight',
-  );
+  static const VerificationMeta _overnightMeta = const VerificationMeta('overnight');
   late final GeneratedColumn<String> overnight = GeneratedColumn<String>(
     'overnight',
     aliasedName,
@@ -83,9 +81,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _servicesMeta = const VerificationMeta(
-    'services',
-  );
+  static const VerificationMeta _servicesMeta = const VerificationMeta('services');
   late final GeneratedColumn<int> services = GeneratedColumn<int>(
     'services',
     aliasedName,
@@ -95,9 +91,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT 0',
     defaultValue: const CustomExpression('0'),
   );
-  static const VerificationMeta _activitiesMeta = const VerificationMeta(
-    'activities',
-  );
+  static const VerificationMeta _activitiesMeta = const VerificationMeta('activities');
   late final GeneratedColumn<int> activities = GeneratedColumn<int>(
     'activities',
     aliasedName,
@@ -107,9 +101,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT 0',
     defaultValue: const CustomExpression('0'),
   );
-  static const VerificationMeta _descriptionMeta = const VerificationMeta(
-    'description',
-  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta('description');
   late final GeneratedColumn<String> description = GeneratedColumn<String>(
     'description',
     aliasedName,
@@ -127,9 +119,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _postcodeMeta = const VerificationMeta(
-    'postcode',
-  );
+  static const VerificationMeta _postcodeMeta = const VerificationMeta('postcode');
   late final GeneratedColumn<String> postcode = GeneratedColumn<String>(
     'postcode',
     aliasedName,
@@ -147,9 +137,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _countryCodeMeta = const VerificationMeta(
-    'countryCode',
-  );
+  static const VerificationMeta _countryCodeMeta = const VerificationMeta('countryCode');
   late final GeneratedColumn<String> countryCode = GeneratedColumn<String>(
     'country_code',
     aliasedName,
@@ -158,9 +146,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _priceParkingMeta = const VerificationMeta(
-    'priceParking',
-  );
+  static const VerificationMeta _priceParkingMeta = const VerificationMeta('priceParking');
   late final GeneratedColumn<double> priceParking = GeneratedColumn<double>(
     'price_parking',
     aliasedName,
@@ -169,9 +155,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _priceServicesMeta = const VerificationMeta(
-    'priceServices',
-  );
+  static const VerificationMeta _priceServicesMeta = const VerificationMeta('priceServices');
   late final GeneratedColumn<double> priceServices = GeneratedColumn<double>(
     'price_services',
     aliasedName,
@@ -180,9 +164,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _maxHeightMeta = const VerificationMeta(
-    'maxHeight',
-  );
+  static const VerificationMeta _maxHeightMeta = const VerificationMeta('maxHeight');
   late final GeneratedColumn<double> maxHeight = GeneratedColumn<double>(
     'max_height',
     aliasedName,
@@ -191,9 +173,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _capacityMeta = const VerificationMeta(
-    'capacity',
-  );
+  static const VerificationMeta _capacityMeta = const VerificationMeta('capacity');
   late final GeneratedColumn<int> capacity = GeneratedColumn<int>(
     'capacity',
     aliasedName,
@@ -202,9 +182,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _openingHoursMeta = const VerificationMeta(
-    'openingHours',
-  );
+  static const VerificationMeta _openingHoursMeta = const VerificationMeta('openingHours');
   late final GeneratedColumn<String> openingHours = GeneratedColumn<String>(
     'opening_hours',
     aliasedName,
@@ -213,8 +191,9 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _openingHoursParsedMeta =
-      const VerificationMeta('openingHoursParsed');
+  static const VerificationMeta _openingHoursParsedMeta = const VerificationMeta(
+    'openingHoursParsed',
+  );
   late final GeneratedColumn<bool> openingHoursParsed = GeneratedColumn<bool>(
     'opening_hours_parsed',
     aliasedName,
@@ -224,17 +203,17 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT FALSE',
     defaultValue: const CustomExpression('FALSE'),
   );
-  static const VerificationMeta _openingIntervalsJsonMeta =
-      const VerificationMeta('openingIntervalsJson');
-  late final GeneratedColumn<String> openingIntervalsJson =
-      GeneratedColumn<String>(
-        'opening_intervals_json',
-        aliasedName,
-        true,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-        $customConstraints: '',
-      );
+  static const VerificationMeta _openingIntervalsJsonMeta = const VerificationMeta(
+    'openingIntervalsJson',
+  );
+  late final GeneratedColumn<String> openingIntervalsJson = GeneratedColumn<String>(
+    'opening_intervals_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   static const VerificationMeta _openingValidUntilMeta = const VerificationMeta(
     'openingValidUntil',
   );
@@ -255,9 +234,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _syncGenMeta = const VerificationMeta(
-    'syncGen',
-  );
+  static const VerificationMeta _syncGenMeta = const VerificationMeta('syncGen');
   late final GeneratedColumn<int> syncGen = GeneratedColumn<int>(
     'sync_gen',
     aliasedName,
@@ -267,9 +244,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT 0',
     defaultValue: const CustomExpression('0'),
   );
-  static const VerificationMeta _websiteMeta = const VerificationMeta(
-    'website',
-  );
+  static const VerificationMeta _websiteMeta = const VerificationMeta('website');
   late final GeneratedColumn<String> website = GeneratedColumn<String>(
     'website',
     aliasedName,
@@ -287,9 +262,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _lastConfirmedAtMeta = const VerificationMeta(
-    'lastConfirmedAt',
-  );
+  static const VerificationMeta _lastConfirmedAtMeta = const VerificationMeta('lastConfirmedAt');
   late final GeneratedColumn<int> lastConfirmedAt = GeneratedColumn<int>(
     'last_confirmed_at',
     aliasedName,
@@ -298,9 +271,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta('updatedAt');
   late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
     'updated_at',
     aliasedName,
@@ -309,9 +280,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _sourcesJsonMeta = const VerificationMeta(
-    'sourcesJson',
-  );
+  static const VerificationMeta _sourcesJsonMeta = const VerificationMeta('sourcesJson');
   late final GeneratedColumn<String> sourcesJson = GeneratedColumn<String>(
     'sources_json',
     aliasedName,
@@ -321,9 +290,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
-  static const VerificationMeta _provenanceJsonMeta = const VerificationMeta(
-    'provenanceJson',
-  );
+  static const VerificationMeta _provenanceJsonMeta = const VerificationMeta('provenanceJson');
   late final GeneratedColumn<String> provenanceJson = GeneratedColumn<String>(
     'provenance_json',
     aliasedName,
@@ -333,9 +300,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
-  static const VerificationMeta _descriptionsJsonMeta = const VerificationMeta(
-    'descriptionsJson',
-  );
+  static const VerificationMeta _descriptionsJsonMeta = const VerificationMeta('descriptionsJson');
   late final GeneratedColumn<String> descriptionsJson = GeneratedColumn<String>(
     'descriptions_json',
     aliasedName,
@@ -345,9 +310,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
-  static const VerificationMeta _ratingsJsonMeta = const VerificationMeta(
-    'ratingsJson',
-  );
+  static const VerificationMeta _ratingsJsonMeta = const VerificationMeta('ratingsJson');
   late final GeneratedColumn<String> ratingsJson = GeneratedColumn<String>(
     'ratings_json',
     aliasedName,
@@ -357,9 +320,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
-  static const VerificationMeta _linksJsonMeta = const VerificationMeta(
-    'linksJson',
-  );
+  static const VerificationMeta _linksJsonMeta = const VerificationMeta('linksJson');
   late final GeneratedColumn<String> linksJson = GeneratedColumn<String>(
     'links_json',
     aliasedName,
@@ -369,9 +330,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
-  static const VerificationMeta _ratingAvgMeta = const VerificationMeta(
-    'ratingAvg',
-  );
+  static const VerificationMeta _ratingAvgMeta = const VerificationMeta('ratingAvg');
   late final GeneratedColumn<double> ratingAvg = GeneratedColumn<double>(
     'rating_avg',
     aliasedName,
@@ -380,9 +339,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _ratingCountMeta = const VerificationMeta(
-    'ratingCount',
-  );
+  static const VerificationMeta _ratingCountMeta = const VerificationMeta('ratingCount');
   late final GeneratedColumn<int> ratingCount = GeneratedColumn<int>(
     'rating_count',
     aliasedName,
@@ -437,17 +394,11 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
   String get actualTableName => $name;
   static const String $name = 'places';
   @override
-  VerificationContext validateIntegrity(
-    Insertable<PlaceRow> instance, {
-    bool isInserting = false,
-  }) {
+  VerificationContext validateIntegrity(Insertable<PlaceRow> instance, {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('rid')) {
-      context.handle(
-        _ridMeta,
-        rid.isAcceptableOrUnknown(data['rid']!, _ridMeta),
-      );
+      context.handle(_ridMeta, rid.isAcceptableOrUnknown(data['rid']!, _ridMeta));
     }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
@@ -455,40 +406,25 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
       context.missing(_idMeta);
     }
     if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     }
     if (data.containsKey('kind')) {
-      context.handle(
-        _kindMeta,
-        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
-      );
+      context.handle(_kindMeta, kind.isAcceptableOrUnknown(data['kind']!, _kindMeta));
     } else if (isInserting) {
       context.missing(_kindMeta);
     }
     if (data.containsKey('family')) {
-      context.handle(
-        _familyMeta,
-        family.isAcceptableOrUnknown(data['family']!, _familyMeta),
-      );
+      context.handle(_familyMeta, family.isAcceptableOrUnknown(data['family']!, _familyMeta));
     } else if (isInserting) {
       context.missing(_familyMeta);
     }
     if (data.containsKey('lat')) {
-      context.handle(
-        _latMeta,
-        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
-      );
+      context.handle(_latMeta, lat.isAcceptableOrUnknown(data['lat']!, _latMeta));
     } else if (isInserting) {
       context.missing(_latMeta);
     }
     if (data.containsKey('lon')) {
-      context.handle(
-        _lonMeta,
-        lon.isAcceptableOrUnknown(data['lon']!, _lonMeta),
-      );
+      context.handle(_lonMeta, lon.isAcceptableOrUnknown(data['lon']!, _lonMeta));
     } else if (isInserting) {
       context.missing(_lonMeta);
     }
@@ -515,17 +451,11 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     if (data.containsKey('description')) {
       context.handle(
         _descriptionMeta,
-        description.isAcceptableOrUnknown(
-          data['description']!,
-          _descriptionMeta,
-        ),
+        description.isAcceptableOrUnknown(data['description']!, _descriptionMeta),
       );
     }
     if (data.containsKey('street')) {
-      context.handle(
-        _streetMeta,
-        street.isAcceptableOrUnknown(data['street']!, _streetMeta),
-      );
+      context.handle(_streetMeta, street.isAcceptableOrUnknown(data['street']!, _streetMeta));
     }
     if (data.containsKey('postcode')) {
       context.handle(
@@ -534,36 +464,24 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
       );
     }
     if (data.containsKey('city')) {
-      context.handle(
-        _cityMeta,
-        city.isAcceptableOrUnknown(data['city']!, _cityMeta),
-      );
+      context.handle(_cityMeta, city.isAcceptableOrUnknown(data['city']!, _cityMeta));
     }
     if (data.containsKey('country_code')) {
       context.handle(
         _countryCodeMeta,
-        countryCode.isAcceptableOrUnknown(
-          data['country_code']!,
-          _countryCodeMeta,
-        ),
+        countryCode.isAcceptableOrUnknown(data['country_code']!, _countryCodeMeta),
       );
     }
     if (data.containsKey('price_parking')) {
       context.handle(
         _priceParkingMeta,
-        priceParking.isAcceptableOrUnknown(
-          data['price_parking']!,
-          _priceParkingMeta,
-        ),
+        priceParking.isAcceptableOrUnknown(data['price_parking']!, _priceParkingMeta),
       );
     }
     if (data.containsKey('price_services')) {
       context.handle(
         _priceServicesMeta,
-        priceServices.isAcceptableOrUnknown(
-          data['price_services']!,
-          _priceServicesMeta,
-        ),
+        priceServices.isAcceptableOrUnknown(data['price_services']!, _priceServicesMeta),
       );
     }
     if (data.containsKey('max_height')) {
@@ -581,10 +499,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     if (data.containsKey('opening_hours')) {
       context.handle(
         _openingHoursMeta,
-        openingHours.isAcceptableOrUnknown(
-          data['opening_hours']!,
-          _openingHoursMeta,
-        ),
+        openingHours.isAcceptableOrUnknown(data['opening_hours']!, _openingHoursMeta),
       );
     }
     if (data.containsKey('opening_hours_parsed')) {
@@ -615,36 +530,21 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
       );
     }
     if (data.containsKey('stars')) {
-      context.handle(
-        _starsMeta,
-        stars.isAcceptableOrUnknown(data['stars']!, _starsMeta),
-      );
+      context.handle(_starsMeta, stars.isAcceptableOrUnknown(data['stars']!, _starsMeta));
     }
     if (data.containsKey('sync_gen')) {
-      context.handle(
-        _syncGenMeta,
-        syncGen.isAcceptableOrUnknown(data['sync_gen']!, _syncGenMeta),
-      );
+      context.handle(_syncGenMeta, syncGen.isAcceptableOrUnknown(data['sync_gen']!, _syncGenMeta));
     }
     if (data.containsKey('website')) {
-      context.handle(
-        _websiteMeta,
-        website.isAcceptableOrUnknown(data['website']!, _websiteMeta),
-      );
+      context.handle(_websiteMeta, website.isAcceptableOrUnknown(data['website']!, _websiteMeta));
     }
     if (data.containsKey('phone')) {
-      context.handle(
-        _phoneMeta,
-        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
-      );
+      context.handle(_phoneMeta, phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta));
     }
     if (data.containsKey('last_confirmed_at')) {
       context.handle(
         _lastConfirmedAtMeta,
-        lastConfirmedAt.isAcceptableOrUnknown(
-          data['last_confirmed_at']!,
-          _lastConfirmedAtMeta,
-        ),
+        lastConfirmedAt.isAcceptableOrUnknown(data['last_confirmed_at']!, _lastConfirmedAtMeta),
       );
     }
     if (data.containsKey('updated_at')) {
@@ -658,37 +558,25 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     if (data.containsKey('sources_json')) {
       context.handle(
         _sourcesJsonMeta,
-        sourcesJson.isAcceptableOrUnknown(
-          data['sources_json']!,
-          _sourcesJsonMeta,
-        ),
+        sourcesJson.isAcceptableOrUnknown(data['sources_json']!, _sourcesJsonMeta),
       );
     }
     if (data.containsKey('provenance_json')) {
       context.handle(
         _provenanceJsonMeta,
-        provenanceJson.isAcceptableOrUnknown(
-          data['provenance_json']!,
-          _provenanceJsonMeta,
-        ),
+        provenanceJson.isAcceptableOrUnknown(data['provenance_json']!, _provenanceJsonMeta),
       );
     }
     if (data.containsKey('descriptions_json')) {
       context.handle(
         _descriptionsJsonMeta,
-        descriptionsJson.isAcceptableOrUnknown(
-          data['descriptions_json']!,
-          _descriptionsJsonMeta,
-        ),
+        descriptionsJson.isAcceptableOrUnknown(data['descriptions_json']!, _descriptionsJsonMeta),
       );
     }
     if (data.containsKey('ratings_json')) {
       context.handle(
         _ratingsJsonMeta,
-        ratingsJson.isAcceptableOrUnknown(
-          data['ratings_json']!,
-          _ratingsJsonMeta,
-        ),
+        ratingsJson.isAcceptableOrUnknown(data['ratings_json']!, _ratingsJsonMeta),
       );
     }
     if (data.containsKey('links_json')) {
@@ -706,10 +594,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     if (data.containsKey('rating_count')) {
       context.handle(
         _ratingCountMeta,
-        ratingCount.isAcceptableOrUnknown(
-          data['rating_count']!,
-          _ratingCountMeta,
-        ),
+        ratingCount.isAcceptableOrUnknown(data['rating_count']!, _ratingCountMeta),
       );
     }
     return context;
@@ -721,34 +606,16 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
   PlaceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PlaceRow(
-      rid: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}rid'],
-      )!,
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      ),
-      kind: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}kind'],
-      )!,
+      rid: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}rid'])!,
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name']),
+      kind: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}kind'])!,
       family: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}family'],
       )!,
-      lat: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lat'],
-      )!,
-      lon: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lon'],
-      )!,
+      lat: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}lat'])!,
+      lon: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}lon'])!,
       overnight: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}overnight'],
@@ -773,10 +640,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.string,
         data['${effectivePrefix}postcode'],
       ),
-      city: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}city'],
-      ),
+      city: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}city']),
       countryCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}country_code'],
@@ -813,10 +677,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.int,
         data['${effectivePrefix}opening_valid_until'],
       ),
-      stars: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}stars'],
-      ),
+      stars: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}stars']),
       syncGen: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sync_gen'],
@@ -1061,31 +922,19 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       overnight: Value(overnight),
       services: Value(services),
       activities: Value(activities),
-      description: description == null && nullToAbsent
-          ? const Value.absent()
-          : Value(description),
-      street: street == null && nullToAbsent
-          ? const Value.absent()
-          : Value(street),
-      postcode: postcode == null && nullToAbsent
-          ? const Value.absent()
-          : Value(postcode),
+      description: description == null && nullToAbsent ? const Value.absent() : Value(description),
+      street: street == null && nullToAbsent ? const Value.absent() : Value(street),
+      postcode: postcode == null && nullToAbsent ? const Value.absent() : Value(postcode),
       city: city == null && nullToAbsent ? const Value.absent() : Value(city),
-      countryCode: countryCode == null && nullToAbsent
-          ? const Value.absent()
-          : Value(countryCode),
+      countryCode: countryCode == null && nullToAbsent ? const Value.absent() : Value(countryCode),
       priceParking: priceParking == null && nullToAbsent
           ? const Value.absent()
           : Value(priceParking),
       priceServices: priceServices == null && nullToAbsent
           ? const Value.absent()
           : Value(priceServices),
-      maxHeight: maxHeight == null && nullToAbsent
-          ? const Value.absent()
-          : Value(maxHeight),
-      capacity: capacity == null && nullToAbsent
-          ? const Value.absent()
-          : Value(capacity),
+      maxHeight: maxHeight == null && nullToAbsent ? const Value.absent() : Value(maxHeight),
+      capacity: capacity == null && nullToAbsent ? const Value.absent() : Value(capacity),
       openingHours: openingHours == null && nullToAbsent
           ? const Value.absent()
           : Value(openingHours),
@@ -1096,16 +945,10 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       openingValidUntil: openingValidUntil == null && nullToAbsent
           ? const Value.absent()
           : Value(openingValidUntil),
-      stars: stars == null && nullToAbsent
-          ? const Value.absent()
-          : Value(stars),
+      stars: stars == null && nullToAbsent ? const Value.absent() : Value(stars),
       syncGen: Value(syncGen),
-      website: website == null && nullToAbsent
-          ? const Value.absent()
-          : Value(website),
-      phone: phone == null && nullToAbsent
-          ? const Value.absent()
-          : Value(phone),
+      website: website == null && nullToAbsent ? const Value.absent() : Value(website),
+      phone: phone == null && nullToAbsent ? const Value.absent() : Value(phone),
       lastConfirmedAt: lastConfirmedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastConfirmedAt),
@@ -1115,17 +958,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       descriptionsJson: Value(descriptionsJson),
       ratingsJson: Value(ratingsJson),
       linksJson: Value(linksJson),
-      ratingAvg: ratingAvg == null && nullToAbsent
-          ? const Value.absent()
-          : Value(ratingAvg),
+      ratingAvg: ratingAvg == null && nullToAbsent ? const Value.absent() : Value(ratingAvg),
       ratingCount: Value(ratingCount),
     );
   }
 
-  factory PlaceRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory PlaceRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PlaceRow(
       rid: serializer.fromJson<int>(json['rid']),
@@ -1148,12 +986,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       maxHeight: serializer.fromJson<double?>(json['max_height']),
       capacity: serializer.fromJson<int?>(json['capacity']),
       openingHours: serializer.fromJson<String?>(json['opening_hours']),
-      openingHoursParsed: serializer.fromJson<bool>(
-        json['opening_hours_parsed'],
-      ),
-      openingIntervalsJson: serializer.fromJson<String?>(
-        json['opening_intervals_json'],
-      ),
+      openingHoursParsed: serializer.fromJson<bool>(json['opening_hours_parsed']),
+      openingIntervalsJson: serializer.fromJson<String?>(json['opening_intervals_json']),
       openingValidUntil: serializer.fromJson<int?>(json['opening_valid_until']),
       stars: serializer.fromJson<int?>(json['stars']),
       syncGen: serializer.fromJson<int>(json['sync_gen']),
@@ -1195,9 +1029,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'capacity': serializer.toJson<int?>(capacity),
       'opening_hours': serializer.toJson<String?>(openingHours),
       'opening_hours_parsed': serializer.toJson<bool>(openingHoursParsed),
-      'opening_intervals_json': serializer.toJson<String?>(
-        openingIntervalsJson,
-      ),
+      'opening_intervals_json': serializer.toJson<String?>(openingIntervalsJson),
       'opening_valid_until': serializer.toJson<int?>(openingValidUntil),
       'stars': serializer.toJson<int?>(stars),
       'sync_gen': serializer.toJson<int>(syncGen),
@@ -1269,9 +1101,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     city: city.present ? city.value : this.city,
     countryCode: countryCode.present ? countryCode.value : this.countryCode,
     priceParking: priceParking.present ? priceParking.value : this.priceParking,
-    priceServices: priceServices.present
-        ? priceServices.value
-        : this.priceServices,
+    priceServices: priceServices.present ? priceServices.value : this.priceServices,
     maxHeight: maxHeight.present ? maxHeight.value : this.maxHeight,
     capacity: capacity.present ? capacity.value : this.capacity,
     openingHours: openingHours.present ? openingHours.value : this.openingHours,
@@ -1279,16 +1109,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     openingIntervalsJson: openingIntervalsJson.present
         ? openingIntervalsJson.value
         : this.openingIntervalsJson,
-    openingValidUntil: openingValidUntil.present
-        ? openingValidUntil.value
-        : this.openingValidUntil,
+    openingValidUntil: openingValidUntil.present ? openingValidUntil.value : this.openingValidUntil,
     stars: stars.present ? stars.value : this.stars,
     syncGen: syncGen ?? this.syncGen,
     website: website.present ? website.value : this.website,
     phone: phone.present ? phone.value : this.phone,
-    lastConfirmedAt: lastConfirmedAt.present
-        ? lastConfirmedAt.value
-        : this.lastConfirmedAt,
+    lastConfirmedAt: lastConfirmedAt.present ? lastConfirmedAt.value : this.lastConfirmedAt,
     updatedAt: updatedAt ?? this.updatedAt,
     sourcesJson: sourcesJson ?? this.sourcesJson,
     provenanceJson: provenanceJson ?? this.provenanceJson,
@@ -1309,29 +1135,17 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       lon: data.lon.present ? data.lon.value : this.lon,
       overnight: data.overnight.present ? data.overnight.value : this.overnight,
       services: data.services.present ? data.services.value : this.services,
-      activities: data.activities.present
-          ? data.activities.value
-          : this.activities,
-      description: data.description.present
-          ? data.description.value
-          : this.description,
+      activities: data.activities.present ? data.activities.value : this.activities,
+      description: data.description.present ? data.description.value : this.description,
       street: data.street.present ? data.street.value : this.street,
       postcode: data.postcode.present ? data.postcode.value : this.postcode,
       city: data.city.present ? data.city.value : this.city,
-      countryCode: data.countryCode.present
-          ? data.countryCode.value
-          : this.countryCode,
-      priceParking: data.priceParking.present
-          ? data.priceParking.value
-          : this.priceParking,
-      priceServices: data.priceServices.present
-          ? data.priceServices.value
-          : this.priceServices,
+      countryCode: data.countryCode.present ? data.countryCode.value : this.countryCode,
+      priceParking: data.priceParking.present ? data.priceParking.value : this.priceParking,
+      priceServices: data.priceServices.present ? data.priceServices.value : this.priceServices,
       maxHeight: data.maxHeight.present ? data.maxHeight.value : this.maxHeight,
       capacity: data.capacity.present ? data.capacity.value : this.capacity,
-      openingHours: data.openingHours.present
-          ? data.openingHours.value
-          : this.openingHours,
+      openingHours: data.openingHours.present ? data.openingHours.value : this.openingHours,
       openingHoursParsed: data.openingHoursParsed.present
           ? data.openingHoursParsed.value
           : this.openingHoursParsed,
@@ -1349,23 +1163,15 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ? data.lastConfirmedAt.value
           : this.lastConfirmedAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-      sourcesJson: data.sourcesJson.present
-          ? data.sourcesJson.value
-          : this.sourcesJson,
-      provenanceJson: data.provenanceJson.present
-          ? data.provenanceJson.value
-          : this.provenanceJson,
+      sourcesJson: data.sourcesJson.present ? data.sourcesJson.value : this.sourcesJson,
+      provenanceJson: data.provenanceJson.present ? data.provenanceJson.value : this.provenanceJson,
       descriptionsJson: data.descriptionsJson.present
           ? data.descriptionsJson.value
           : this.descriptionsJson,
-      ratingsJson: data.ratingsJson.present
-          ? data.ratingsJson.value
-          : this.ratingsJson,
+      ratingsJson: data.ratingsJson.present ? data.ratingsJson.value : this.ratingsJson,
       linksJson: data.linksJson.present ? data.linksJson.value : this.linksJson,
       ratingAvg: data.ratingAvg.present ? data.ratingAvg.value : this.ratingAvg,
-      ratingCount: data.ratingCount.present
-          ? data.ratingCount.value
-          : this.ratingCount,
+      ratingCount: data.ratingCount.present ? data.ratingCount.value : this.ratingCount,
     );
   }
 
@@ -1671,10 +1477,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       if (maxHeight != null) 'max_height': maxHeight,
       if (capacity != null) 'capacity': capacity,
       if (openingHours != null) 'opening_hours': openingHours,
-      if (openingHoursParsed != null)
-        'opening_hours_parsed': openingHoursParsed,
-      if (openingIntervalsJson != null)
-        'opening_intervals_json': openingIntervalsJson,
+      if (openingHoursParsed != null) 'opening_hours_parsed': openingHoursParsed,
+      if (openingIntervalsJson != null) 'opening_intervals_json': openingIntervalsJson,
       if (openingValidUntil != null) 'opening_valid_until': openingValidUntil,
       if (stars != null) 'stars': stars,
       if (syncGen != null) 'sync_gen': syncGen,
@@ -1837,9 +1641,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       map['opening_hours_parsed'] = Variable<bool>(openingHoursParsed.value);
     }
     if (openingIntervalsJson.present) {
-      map['opening_intervals_json'] = Variable<String>(
-        openingIntervalsJson.value,
-      );
+      map['opening_intervals_json'] = Variable<String>(openingIntervalsJson.value);
     }
     if (openingValidUntil.present) {
       map['opening_valid_until'] = Variable<int>(openingValidUntil.value);
@@ -1931,9 +1733,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
 }
 
 class PlaceBounds extends Table
-    with
-        TableInfo<PlaceBounds, PlaceBound>,
-        VirtualTableInfo<PlaceBounds, PlaceBound> {
+    with TableInfo<PlaceBounds, PlaceBound>, VirtualTableInfo<PlaceBounds, PlaceBound> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -1998,42 +1798,27 @@ class PlaceBounds extends Table
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('rid')) {
-      context.handle(
-        _ridMeta,
-        rid.isAcceptableOrUnknown(data['rid']!, _ridMeta),
-      );
+      context.handle(_ridMeta, rid.isAcceptableOrUnknown(data['rid']!, _ridMeta));
     } else if (isInserting) {
       context.missing(_ridMeta);
     }
     if (data.containsKey('min_lat')) {
-      context.handle(
-        _minLatMeta,
-        minLat.isAcceptableOrUnknown(data['min_lat']!, _minLatMeta),
-      );
+      context.handle(_minLatMeta, minLat.isAcceptableOrUnknown(data['min_lat']!, _minLatMeta));
     } else if (isInserting) {
       context.missing(_minLatMeta);
     }
     if (data.containsKey('max_lat')) {
-      context.handle(
-        _maxLatMeta,
-        maxLat.isAcceptableOrUnknown(data['max_lat']!, _maxLatMeta),
-      );
+      context.handle(_maxLatMeta, maxLat.isAcceptableOrUnknown(data['max_lat']!, _maxLatMeta));
     } else if (isInserting) {
       context.missing(_maxLatMeta);
     }
     if (data.containsKey('min_lon')) {
-      context.handle(
-        _minLonMeta,
-        minLon.isAcceptableOrUnknown(data['min_lon']!, _minLonMeta),
-      );
+      context.handle(_minLonMeta, minLon.isAcceptableOrUnknown(data['min_lon']!, _minLonMeta));
     } else if (isInserting) {
       context.missing(_minLonMeta);
     }
     if (data.containsKey('max_lon')) {
-      context.handle(
-        _maxLonMeta,
-        maxLon.isAcceptableOrUnknown(data['max_lon']!, _maxLonMeta),
-      );
+      context.handle(_maxLonMeta, maxLon.isAcceptableOrUnknown(data['max_lon']!, _maxLonMeta));
     } else if (isInserting) {
       context.missing(_maxLonMeta);
     }
@@ -2046,10 +1831,7 @@ class PlaceBounds extends Table
   PlaceBound map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PlaceBound(
-      rid: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}rid'],
-      )!,
+      rid: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}rid'])!,
       minLat: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}min_lat'],
@@ -2114,10 +1896,7 @@ class PlaceBound extends DataClass implements Insertable<PlaceBound> {
     );
   }
 
-  factory PlaceBound.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory PlaceBound.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PlaceBound(
       rid: serializer.fromJson<int>(json['rid']),
@@ -2139,19 +1918,14 @@ class PlaceBound extends DataClass implements Insertable<PlaceBound> {
     };
   }
 
-  PlaceBound copyWith({
-    int? rid,
-    double? minLat,
-    double? maxLat,
-    double? minLon,
-    double? maxLon,
-  }) => PlaceBound(
-    rid: rid ?? this.rid,
-    minLat: minLat ?? this.minLat,
-    maxLat: maxLat ?? this.maxLat,
-    minLon: minLon ?? this.minLon,
-    maxLon: maxLon ?? this.maxLon,
-  );
+  PlaceBound copyWith({int? rid, double? minLat, double? maxLat, double? minLon, double? maxLon}) =>
+      PlaceBound(
+        rid: rid ?? this.rid,
+        minLat: minLat ?? this.minLat,
+        maxLat: maxLat ?? this.maxLat,
+        minLon: minLon ?? this.minLon,
+        maxLon: maxLon ?? this.maxLon,
+      );
   PlaceBound copyWithCompanion(PlaceBoundsCompanion data) {
     return PlaceBound(
       rid: data.rid.present ? data.rid.value : this.rid,
@@ -2289,9 +2063,7 @@ class PlaceBoundsCompanion extends UpdateCompanion<PlaceBound> {
 }
 
 class PlaceSearch extends Table
-    with
-        TableInfo<PlaceSearch, PlaceSearchData>,
-        VirtualTableInfo<PlaceSearch, PlaceSearchData> {
+    with TableInfo<PlaceSearch, PlaceSearchData>, VirtualTableInfo<PlaceSearch, PlaceSearchData> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -2314,9 +2086,7 @@ class PlaceSearch extends Table
     requiredDuringInsert: true,
     $customConstraints: '',
   );
-  static const VerificationMeta _postcodeMeta = const VerificationMeta(
-    'postcode',
-  );
+  static const VerificationMeta _postcodeMeta = const VerificationMeta('postcode');
   late final GeneratedColumn<String> postcode = GeneratedColumn<String>(
     'postcode',
     aliasedName,
@@ -2340,18 +2110,12 @@ class PlaceSearch extends Table
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
     if (data.containsKey('city')) {
-      context.handle(
-        _cityMeta,
-        city.isAcceptableOrUnknown(data['city']!, _cityMeta),
-      );
+      context.handle(_cityMeta, city.isAcceptableOrUnknown(data['city']!, _cityMeta));
     } else if (isInserting) {
       context.missing(_cityMeta);
     }
@@ -2372,14 +2136,8 @@ class PlaceSearch extends Table
   PlaceSearchData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return PlaceSearchData(
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      city: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}city'],
-      )!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      city: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}city'])!,
       postcode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}postcode'],
@@ -2403,11 +2161,7 @@ class PlaceSearchData extends DataClass implements Insertable<PlaceSearchData> {
   final String name;
   final String city;
   final String postcode;
-  const PlaceSearchData({
-    required this.name,
-    required this.city,
-    required this.postcode,
-  });
+  const PlaceSearchData({required this.name, required this.city, required this.postcode});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2418,17 +2172,10 @@ class PlaceSearchData extends DataClass implements Insertable<PlaceSearchData> {
   }
 
   PlaceSearchCompanion toCompanion(bool nullToAbsent) {
-    return PlaceSearchCompanion(
-      name: Value(name),
-      city: Value(city),
-      postcode: Value(postcode),
-    );
+    return PlaceSearchCompanion(name: Value(name), city: Value(city), postcode: Value(postcode));
   }
 
-  factory PlaceSearchData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory PlaceSearchData.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PlaceSearchData(
       name: serializer.fromJson<String>(json['name']),
@@ -2446,12 +2193,11 @@ class PlaceSearchData extends DataClass implements Insertable<PlaceSearchData> {
     };
   }
 
-  PlaceSearchData copyWith({String? name, String? city, String? postcode}) =>
-      PlaceSearchData(
-        name: name ?? this.name,
-        city: city ?? this.city,
-        postcode: postcode ?? this.postcode,
-      );
+  PlaceSearchData copyWith({String? name, String? city, String? postcode}) => PlaceSearchData(
+    name: name ?? this.name,
+    city: city ?? this.city,
+    postcode: postcode ?? this.postcode,
+  );
   PlaceSearchData copyWithCompanion(PlaceSearchCompanion data) {
     return PlaceSearchData(
       name: data.name.present ? data.name.value : this.name,
@@ -2581,9 +2327,7 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _generationMeta = const VerificationMeta(
-    'generation',
-  );
+  static const VerificationMeta _generationMeta = const VerificationMeta('generation');
   late final GeneratedColumn<int> generation = GeneratedColumn<int>(
     'generation',
     aliasedName,
@@ -2593,9 +2337,7 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
     $customConstraints: 'NOT NULL DEFAULT 0',
     defaultValue: const CustomExpression('0'),
   );
-  static const VerificationMeta _fullSyncMeta = const VerificationMeta(
-    'fullSync',
-  );
+  static const VerificationMeta _fullSyncMeta = const VerificationMeta('fullSync');
   late final GeneratedColumn<bool> fullSync = GeneratedColumn<bool>(
     'full_sync',
     aliasedName,
@@ -2605,9 +2347,7 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
     $customConstraints: 'NOT NULL DEFAULT FALSE',
     defaultValue: const CustomExpression('FALSE'),
   );
-  static const VerificationMeta _runningMeta = const VerificationMeta(
-    'running',
-  );
+  static const VerificationMeta _runningMeta = const VerificationMeta('running');
   late final GeneratedColumn<bool> running = GeneratedColumn<bool>(
     'running',
     aliasedName,
@@ -2617,9 +2357,7 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
     $customConstraints: 'NOT NULL DEFAULT FALSE',
     defaultValue: const CustomExpression('FALSE'),
   );
-  static const VerificationMeta _completedAtMeta = const VerificationMeta(
-    'completedAt',
-  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta('completedAt');
   late final GeneratedColumn<int> completedAt = GeneratedColumn<int>(
     'completed_at',
     aliasedName,
@@ -2650,18 +2388,12 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('region')) {
-      context.handle(
-        _regionMeta,
-        region.isAcceptableOrUnknown(data['region']!, _regionMeta),
-      );
+      context.handle(_regionMeta, region.isAcceptableOrUnknown(data['region']!, _regionMeta));
     } else if (isInserting) {
       context.missing(_regionMeta);
     }
     if (data.containsKey('cursor')) {
-      context.handle(
-        _cursorMeta,
-        cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta),
-      );
+      context.handle(_cursorMeta, cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta));
     }
     if (data.containsKey('generation')) {
       context.handle(
@@ -2676,18 +2408,12 @@ class RegionSyncs extends Table with TableInfo<RegionSyncs, SyncStateRow> {
       );
     }
     if (data.containsKey('running')) {
-      context.handle(
-        _runningMeta,
-        running.isAcceptableOrUnknown(data['running']!, _runningMeta),
-      );
+      context.handle(_runningMeta, running.isAcceptableOrUnknown(data['running']!, _runningMeta));
     }
     if (data.containsKey('completed_at')) {
       context.handle(
         _completedAtMeta,
-        completedAt.isAcceptableOrUnknown(
-          data['completed_at']!,
-          _completedAtMeta,
-        ),
+        completedAt.isAcceptableOrUnknown(data['completed_at']!, _completedAtMeta),
       );
     }
     return context;
@@ -2781,22 +2507,15 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
   RegionSyncsCompanion toCompanion(bool nullToAbsent) {
     return RegionSyncsCompanion(
       region: Value(region),
-      cursor: cursor == null && nullToAbsent
-          ? const Value.absent()
-          : Value(cursor),
+      cursor: cursor == null && nullToAbsent ? const Value.absent() : Value(cursor),
       generation: Value(generation),
       fullSync: Value(fullSync),
       running: Value(running),
-      completedAt: completedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(completedAt),
+      completedAt: completedAt == null && nullToAbsent ? const Value.absent() : Value(completedAt),
     );
   }
 
-  factory SyncStateRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory SyncStateRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncStateRow(
       region: serializer.fromJson<String>(json['region']),
@@ -2839,14 +2558,10 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
     return SyncStateRow(
       region: data.region.present ? data.region.value : this.region,
       cursor: data.cursor.present ? data.cursor.value : this.cursor,
-      generation: data.generation.present
-          ? data.generation.value
-          : this.generation,
+      generation: data.generation.present ? data.generation.value : this.generation,
       fullSync: data.fullSync.present ? data.fullSync.value : this.fullSync,
       running: data.running.present ? data.running.value : this.running,
-      completedAt: data.completedAt.present
-          ? data.completedAt.value
-          : this.completedAt,
+      completedAt: data.completedAt.present ? data.completedAt.value : this.completedAt,
     );
   }
 
@@ -2864,8 +2579,7 @@ class SyncStateRow extends DataClass implements Insertable<SyncStateRow> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(region, cursor, generation, fullSync, running, completedAt);
+  int get hashCode => Object.hash(region, cursor, generation, fullSync, running, completedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2986,15 +2700,12 @@ class RegionSyncsCompanion extends UpdateCompanion<SyncStateRow> {
   }
 }
 
-class PlaceExtrasCache extends Table
-    with TableInfo<PlaceExtrasCache, PlaceExtrasCacheRow> {
+class PlaceExtrasCache extends Table with TableInfo<PlaceExtrasCache, PlaceExtrasCacheRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   PlaceExtrasCache(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _placeIdMeta = const VerificationMeta(
-    'placeId',
-  );
+  static const VerificationMeta _placeIdMeta = const VerificationMeta('placeId');
   late final GeneratedColumn<String> placeId = GeneratedColumn<String>(
     'place_id',
     aliasedName,
@@ -3012,9 +2723,7 @@ class PlaceExtrasCache extends Table
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
-    'fetchedAt',
-  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta('fetchedAt');
   late final GeneratedColumn<int> fetchedAt = GeneratedColumn<int>(
     'fetched_at',
     aliasedName,
@@ -3038,18 +2747,12 @@ class PlaceExtrasCache extends Table
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('place_id')) {
-      context.handle(
-        _placeIdMeta,
-        placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta),
-      );
+      context.handle(_placeIdMeta, placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta));
     } else if (isInserting) {
       context.missing(_placeIdMeta);
     }
     if (data.containsKey('json')) {
-      context.handle(
-        _jsonMeta,
-        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
-      );
+      context.handle(_jsonMeta, json.isAcceptableOrUnknown(data['json']!, _jsonMeta));
     } else if (isInserting) {
       context.missing(_jsonMeta);
     }
@@ -3074,10 +2777,7 @@ class PlaceExtrasCache extends Table
         DriftSqlType.string,
         data['${effectivePrefix}place_id'],
       )!,
-      json: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}json'],
-      )!,
+      json: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}json'])!,
       fetchedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}fetched_at'],
@@ -3094,16 +2794,11 @@ class PlaceExtrasCache extends Table
   bool get dontWriteConstraints => true;
 }
 
-class PlaceExtrasCacheRow extends DataClass
-    implements Insertable<PlaceExtrasCacheRow> {
+class PlaceExtrasCacheRow extends DataClass implements Insertable<PlaceExtrasCacheRow> {
   final String placeId;
   final String json;
   final int fetchedAt;
-  const PlaceExtrasCacheRow({
-    required this.placeId,
-    required this.json,
-    required this.fetchedAt,
-  });
+  const PlaceExtrasCacheRow({required this.placeId, required this.json, required this.fetchedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3121,10 +2816,7 @@ class PlaceExtrasCacheRow extends DataClass
     );
   }
 
-  factory PlaceExtrasCacheRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory PlaceExtrasCacheRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PlaceExtrasCacheRow(
       placeId: serializer.fromJson<String>(json['place_id']),
@@ -3142,15 +2834,12 @@ class PlaceExtrasCacheRow extends DataClass
     };
   }
 
-  PlaceExtrasCacheRow copyWith({
-    String? placeId,
-    String? json,
-    int? fetchedAt,
-  }) => PlaceExtrasCacheRow(
-    placeId: placeId ?? this.placeId,
-    json: json ?? this.json,
-    fetchedAt: fetchedAt ?? this.fetchedAt,
-  );
+  PlaceExtrasCacheRow copyWith({String? placeId, String? json, int? fetchedAt}) =>
+      PlaceExtrasCacheRow(
+        placeId: placeId ?? this.placeId,
+        json: json ?? this.json,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+      );
   PlaceExtrasCacheRow copyWithCompanion(PlaceExtrasCacheCompanion data) {
     return PlaceExtrasCacheRow(
       placeId: data.placeId.present ? data.placeId.value : this.placeId,
@@ -3300,10 +2989,7 @@ class DeviceState extends Table with TableInfo<DeviceState, DeviceStateRow> {
       context.missing(_idMeta);
     }
     if (data.containsKey('value')) {
-      context.handle(
-        _valueMeta,
-        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
-      );
+      context.handle(_valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
     } else if (isInserting) {
       context.missing(_valueMeta);
     }
@@ -3316,10 +3002,7 @@ class DeviceState extends Table with TableInfo<DeviceState, DeviceStateRow> {
   DeviceStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return DeviceStateRow(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       value: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}value'],
@@ -3352,10 +3035,7 @@ class DeviceStateRow extends DataClass implements Insertable<DeviceStateRow> {
     return DeviceStateCompanion(id: Value(id), value: Value(value));
   }
 
-  factory DeviceStateRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory DeviceStateRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DeviceStateRow(
       id: serializer.fromJson<String>(json['id']),
@@ -3394,9 +3074,7 @@ class DeviceStateRow extends DataClass implements Insertable<DeviceStateRow> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is DeviceStateRow &&
-          other.id == this.id &&
-          other.value == this.value);
+      (other is DeviceStateRow && other.id == this.id && other.value == this.value);
 }
 
 class DeviceStateCompanion extends UpdateCompanion<DeviceStateRow> {
@@ -3426,11 +3104,7 @@ class DeviceStateCompanion extends UpdateCompanion<DeviceStateRow> {
     });
   }
 
-  DeviceStateCompanion copyWith({
-    Value<String>? id,
-    Value<String>? value,
-    Value<int>? rowid,
-  }) {
+  DeviceStateCompanion copyWith({Value<String>? id, Value<String>? value, Value<int>? rowid}) {
     return DeviceStateCompanion(
       id: id ?? this.id,
       value: value ?? this.value,
@@ -3502,30 +3176,21 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
     WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'places',
-        limitUpdateKind: UpdateKind.insert,
-      ),
+      on: TableUpdateQuery.onTableName('places', limitUpdateKind: UpdateKind.insert),
       result: [
         TableUpdate('place_bounds', kind: UpdateKind.insert),
         TableUpdate('place_search', kind: UpdateKind.insert),
       ],
     ),
     WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'places',
-        limitUpdateKind: UpdateKind.delete,
-      ),
+      on: TableUpdateQuery.onTableName('places', limitUpdateKind: UpdateKind.delete),
       result: [
         TableUpdate('place_bounds', kind: UpdateKind.delete),
         TableUpdate('place_search', kind: UpdateKind.insert),
       ],
     ),
     WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'places',
-        limitUpdateKind: UpdateKind.update,
-      ),
+      on: TableUpdateQuery.onTableName('places', limitUpdateKind: UpdateKind.update),
       result: [
         TableUpdate('place_bounds', kind: UpdateKind.update),
         TableUpdate('place_search', kind: UpdateKind.insert),

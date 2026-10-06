@@ -16,14 +16,16 @@ GuidanceSettings defaultGuidanceSettings() =>
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Guidance>>
 abstract class Guidance implements RustOpaqueInterface {
-  /// Where the route, from `from_m` metres from its start onwards, drives
-  /// through each of `events`, within `tolerance_m` of its line, by the
-  /// server's corridor rule: along a road, not across it. In driving
-  /// order.
+  /// Where the route, from `from_m` metres from its start onwards, meets
+  /// each of `events`, in driving order. A line counts when the route
+  /// follows it within `line_tolerance_m` (the server's corridor rule:
+  /// along a road, not across it; one way only when it is directed); a
+  /// point, when the route passes within `point_tolerance_m` of it.
   List<EventHit> eventsAhead({
     required double fromM,
     required List<EventShape> events,
-    required double toleranceM,
+    required double lineToleranceM,
+    required double pointToleranceM,
   });
 
   /// Guidance along route `route_index` of `osrm_json`, the `osrmJson`
@@ -152,10 +154,14 @@ class EventShape {
   /// One point, or the line of the road it covers.
   final List<LatLon> points;
 
-  const EventShape({required this.id, required this.points});
+  /// The line runs in the direction of traffic it concerns: only a route
+  /// that follows it that way meets it (one carriageway of a dual road).
+  final bool directed;
+
+  const EventShape({required this.id, required this.points, required this.directed});
 
   @override
-  int get hashCode => id.hashCode ^ points.hashCode;
+  int get hashCode => id.hashCode ^ points.hashCode ^ directed.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -163,7 +169,8 @@ class EventShape {
       other is EventShape &&
           runtimeType == other.runtimeType &&
           id == other.id &&
-          points == other.points;
+          points == other.points &&
+          directed == other.directed;
 }
 
 /// A position fix of the device.

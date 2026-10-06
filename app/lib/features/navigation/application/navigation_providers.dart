@@ -4,6 +4,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/data/ferrostar_engine.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
@@ -96,10 +97,13 @@ VoiceOutput voiceOutput(Ref ref) {
 @Riverpod(keepAlive: true)
 ScreenWake screenWake(Ref ref) => const WakelockScreenWake();
 
-/// The road events of the area; none until the API serves them.
+/// The road events of the area, from the API's `roadEvents` delta. Until
+/// the server serves it, its refusal leaves the guidance without events,
+/// as before.
 // keepAlive: stateless, wired once.
 @Riverpod(keepAlive: true)
-RoadEventsSource roadEventsSource(Ref ref) => const NoRoadEventsSource();
+RoadEventsSource roadEventsSource(Ref ref) =>
+    GraphQLRoadEventsSource(ref.watch(routingClientProvider));
 
 /// How often the guidance asks for road events: every three minutes, the
 /// rhythm of the national feed's increments

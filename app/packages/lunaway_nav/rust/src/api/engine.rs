@@ -160,6 +160,9 @@ pub struct EventShape {
     pub id: String,
     /// One point, or the line of the road it covers.
     pub points: Vec<LatLon>,
+    /// The line runs in the direction of traffic it concerns: only a route
+    /// that follows it that way meets it (one carriageway of a dual road).
+    pub directed: bool,
 }
 
 /// Where the route ahead drives through an event.
@@ -262,18 +265,26 @@ impl Guidance {
         self.session.step_count()
     }
 
-    /// Where the route, from `from_m` metres from its start onwards, drives
-    /// through each of `events`, within `tolerance_m` of its line, by the
-    /// server's corridor rule: along a road, not across it. In driving
-    /// order.
+    /// Where the route, from `from_m` metres from its start onwards, meets
+    /// each of `events`, in driving order. A line counts when the route
+    /// follows it within `line_tolerance_m` (the server's corridor rule:
+    /// along a road, not across it; one way only when it is directed); a
+    /// point, when the route passes within `point_tolerance_m` of it.
     #[frb(sync)]
     #[must_use]
     pub fn events_ahead(
         &self,
         from_m: f64,
         events: Vec<EventShape>,
-        tolerance_m: f64,
+        line_tolerance_m: f64,
+        point_tolerance_m: f64,
     ) -> Vec<EventHit> {
-        session::events_ahead(self.session.line(), from_m, &events, tolerance_m)
+        session::events_ahead(
+            self.session.line(),
+            from_m,
+            &events,
+            line_tolerance_m,
+            point_tolerance_m,
+        )
     }
 }

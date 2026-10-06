@@ -422,19 +422,25 @@ final class ScreenWakeProvider extends $FunctionalProvider<ScreenWake, ScreenWak
 
 String _$screenWakeHash() => r'52a14e528c239808da4b03caf9757bcdd7140556';
 
-/// The road events of the area; none until the API serves them.
+/// The road events of the area, from the API's `roadEvents` delta. Until
+/// the server serves it, its refusal leaves the guidance without events,
+/// as before.
 // keepAlive: stateless, wired once.
 
 @ProviderFor(roadEventsSource)
 final roadEventsSourceProvider = RoadEventsSourceProvider._();
 
-/// The road events of the area; none until the API serves them.
+/// The road events of the area, from the API's `roadEvents` delta. Until
+/// the server serves it, its refusal leaves the guidance without events,
+/// as before.
 // keepAlive: stateless, wired once.
 
 final class RoadEventsSourceProvider
     extends $FunctionalProvider<RoadEventsSource, RoadEventsSource, RoadEventsSource>
     with $Provider<RoadEventsSource> {
-  /// The road events of the area; none until the API serves them.
+  /// The road events of the area, from the API's `roadEvents` delta. Until
+  /// the server serves it, its refusal leaves the guidance without events,
+  /// as before.
   // keepAlive: stateless, wired once.
   RoadEventsSourceProvider._()
     : super(
@@ -469,7 +475,7 @@ final class RoadEventsSourceProvider
   }
 }
 
-String _$roadEventsSourceHash() => r'2862345dcf3b78ef0e0e975690f79eb0811054f5';
+String _$roadEventsSourceHash() => r'11498a9c00d6ef110d0c4638c2632dbd7229042d';
 
 /// How often the guidance asks for road events: every three minutes, the
 /// rhythm of the national feed's increments

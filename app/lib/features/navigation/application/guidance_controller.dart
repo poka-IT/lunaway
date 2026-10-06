@@ -205,6 +205,10 @@ const _movingMps = 1.5;
 
 const _alertFor = Duration(seconds: 10);
 
+/// How often the route ahead is checked again against the known events as
+/// the vehicle moves.
+const _eventCheckEvery = Duration(seconds: 10);
+
 /// The guidance: the engine fed with each fix, the spoken instructions, the
 /// recalculation when the vehicle leaves the route or a road event closes
 /// it ahead.
@@ -216,12 +220,15 @@ class GuidanceController extends _$GuidanceController {
   StreamSubscription<Fix>? _fixes;
   Timer? _poll;
   GuidanceWording? _words;
+  VoiceOutput? _voice;
+  ScreenWake? _wake;
   final _events = RoadEventsTracker();
   final Set<String> _spoken = {};
   final Map<String, int> _warned = {};
   final Set<String> _reroutedFor = {};
   int _offRoute = 0;
   DateTime? _lastReroute;
+  DateTime? _lastEventCheck;
   Duration _backoff = _minBackoff;
   bool _rerouting = false;
 
@@ -252,6 +259,8 @@ class GuidanceController extends _$GuidanceController {
     }
     _track = track;
     _words = words;
+    _voice = ref.read(voiceOutputProvider);
+    _wake = ref.read(screenWakeProvider);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
     state = GuidanceSession(
       target: target,
@@ -270,7 +279,6 @@ class GuidanceController extends _$GuidanceController {
         .read(locationFeedProvider)
         .guidance(words.notice)
         .listen(_onFix, onError: (Object e) => _log.warning('position stream: $e'));
-    _poll = Timer.periodic(ref.read(roadEventsPollProvider), (_) => unawaited(_pollEvents()));
     unawaited(_pollEvents());
     return true;
   }
@@ -316,12 +324,20 @@ class GuidanceController extends _$GuidanceController {
     _reroutedFor.clear();
     _offRoute = 0;
     _lastReroute = null;
+    _lastEventCheck = null;
+    // The events stay known across guidances (the cursor goes on); what a
+    // guidance acted on does not.
+    _events.resetHandled();
     _backoff = _minBackoff;
     _rerouting = false;
-    if (state != null) {
-      unawaited(ref.read(voiceOutputProvider).stop());
-      unawaited(ref.read(screenWakeProvider).keepOn(on: false));
-    }
+    // Held since the start: the release also runs when the provider is
+    // disposed, where no other provider may be read.
+    final voice = _voice;
+    final wake = _wake;
+    _voice = null;
+    _wake = null;
+    if (voice != null) unawaited(voice.stop());
+    if (wake != null) unawaited(wake.keepOn(on: false));
   }
 
   bool get _speaking {
@@ -381,7 +397,14 @@ class GuidanceController extends _$GuidanceController {
       if (!_rerouting) next = next.copyWith(phase: GuidancePhase.navigating);
     }
     state = next;
-    if (_shouldReroute(fix)) unawaited(_reroute(RerouteReason.offRoute, fix));
+    if (_shouldReroute(fix)) {
+      unawaited(_reroute(RerouteReason.offRoute, fix));
+    } else if (!_rerouting &&
+        (_lastEventCheck == null || fix.at.difference(_lastEventCheck!) >= _eventCheckEvery)) {
+      // The events known stay put while the vehicle moves on: their
+      // distances, and whether one now lies ahead, follow it.
+      _checkEvents();
+    }
   }
 
   /// The restrictions of the route within [warningReachM] ahead.
@@ -481,18 +504,44 @@ class GuidanceController extends _$GuidanceController {
     if (cause != null && failure == null) _say(_words!.noDetour(cause));
   }
 
+  /// Asks for the road events now rather than at the next poll: when the
+  /// network comes back, and in tests.
+  Future<void> refreshRoadEvents() => _pollEvents();
+
+  void _schedulePoll(Duration wait) {
+    _poll?.cancel();
+    _poll = Timer(wait, () => unawaited(_pollEvents()));
+  }
+
+  /// One poll of the road events, then the next one scheduled: at the
+  /// server's rhythm when it gives one, after its wait when it asks for one.
+  /// No position goes with the request.
   Future<void> _pollEvents() async {
+    var wait = ref.read(roadEventsPollProvider);
     try {
-      final delta = await ref.read(roadEventsSourceProvider).delta(cursor: _events.cursor);
-      if (!ref.mounted || state == null) return;
-      _events.apply(delta);
-      state = state!.copyWith(eventsAsOf: delta.asOf);
+      final source = ref.read(roadEventsSourceProvider);
+      // The pages of a first load follow one another at once; a bound
+      // keeps a misbehaving server from holding the loop.
+      for (var page = 0; page < 20; page++) {
+        final delta = await source.delta(cursor: _events.cursor);
+        if (!ref.mounted || state == null) return;
+        _events.apply(delta);
+        state = state!.copyWith(eventsAsOf: delta.asOf);
+        wait = delta.pollInterval ?? wait;
+        if (!delta.hasMore) break;
+      }
       _checkEvents();
     } on RoadEventsUnavailable catch (e) {
+      if (e.cursorRefused) _events.restart();
+      wait = e.retryAfter ?? wait;
       _log.fine('road events: $e');
     } on Object catch (e) {
       // The last events stay valid; the next poll tries again.
       _log.info('road events poll failed: $e');
+    } finally {
+      if (ref.mounted && state != null && state!.phase != GuidancePhase.arrived) {
+        _schedulePoll(wait);
+      }
     }
   }
 
@@ -506,11 +555,17 @@ class GuidanceController extends _$GuidanceController {
     if (s == null || track == null || fix == null || s.phase == GuidancePhase.arrived) {
       return false;
     }
+    final snap = s.snapshot;
+    _lastEventCheck = fix.at;
     final found = _events.check(
       track: track,
-      alongM: s.snapshot?.distanceAlongM ?? 0,
+      alongM: snap?.distanceAlongM ?? 0,
       vehicle: s.plan.applied.vehicle,
-      at: ref.read(clockProvider)(),
+      now: ref.read(clockProvider)(),
+      // The time to reach an event, at the router's pace for this route.
+      secondsPerMetre: snap == null || snap.distanceRemainingM <= 0
+          ? 0
+          : snap.durationRemainingS / snap.distanceRemainingM,
     );
     var next = s.copyWith(eventAlerts: found.alerts);
     final blocking = found.blocking;

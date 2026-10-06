@@ -468,9 +468,15 @@
       "limit": "Caution, $what in $distance.",
       "arrived": "You have arrived.",
       "metres": "$n metres",
-      "kilometres": "$n kilometres",
+      "kilometres(param=count)": {
+        "one": "$n kilometre",
+        "other": "$n kilometres"
+      },
       "feet": "$n feet",
-      "miles": "$n miles",
+      "miles(param=count)": {
+        "one": "$n mile",
+        "other": "$n miles"
+      },
       "size": "$metres.$cm metres",
       "sizeWhole": "$metres metres"
     },

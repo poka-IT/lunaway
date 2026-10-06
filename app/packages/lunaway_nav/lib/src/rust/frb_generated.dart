@@ -79,7 +79,8 @@ abstract class RustLibApi extends BaseApi {
     required Guidance that,
     required double fromM,
     required List<EventShape> events,
-    required double toleranceM,
+    required double lineToleranceM,
+    required double pointToleranceM,
   });
 
   Guidance crateApiEngineGuidanceNew({
@@ -118,7 +119,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required Guidance that,
     required double fromM,
     required List<EventShape> events,
-    required double toleranceM,
+    required double lineToleranceM,
+    required double pointToleranceM,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -130,12 +132,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
           sse_encode_f_64(fromM, serializer);
           sse_encode_list_event_shape(events, serializer);
-          sse_encode_f_64(toleranceM, serializer);
+          sse_encode_f_64(lineToleranceM, serializer);
+          sse_encode_f_64(pointToleranceM, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1)!;
         },
         codec: SseCodec(decodeSuccessData: sse_decode_list_event_hit, decodeErrorData: null),
         constMeta: kCrateApiEngineGuidanceEventsAheadConstMeta,
-        argValues: [that, fromM, events, toleranceM],
+        argValues: [that, fromM, events, lineToleranceM, pointToleranceM],
         apiImpl: this,
       ),
     );
@@ -143,7 +146,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiEngineGuidanceEventsAheadConstMeta => const TaskConstMeta(
     debugName: "Guidance_events_ahead",
-    argNames: ["that", "fromM", "events", "toleranceM"],
+    argNames: ["that", "fromM", "events", "lineToleranceM", "pointToleranceM"],
   );
 
   @override
@@ -408,8 +411,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EventShape dco_decode_event_shape(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-    return EventShape(id: dco_decode_String(arr[0]), points: dco_decode_list_lat_lon(arr[1]));
+    if (arr.length != 3) throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return EventShape(
+      id: dco_decode_String(arr[0]),
+      points: dco_decode_list_lat_lon(arr[1]),
+      directed: dco_decode_bool(arr[2]),
+    );
   }
 
   @protected
@@ -758,7 +765,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
     var var_points = sse_decode_list_lat_lon(deserializer);
-    return EventShape(id: var_id, points: var_points);
+    var var_directed = sse_decode_bool(deserializer);
+    return EventShape(id: var_id, points: var_points, directed: var_directed);
   }
 
   @protected
@@ -1155,6 +1163,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
     sse_encode_list_lat_lon(self.points, serializer);
+    sse_encode_bool(self.directed, serializer);
   }
 
   @protected
@@ -1403,19 +1412,22 @@ class GuidanceImpl extends RustOpaque implements Guidance {
         RustLib.instance.api.rust_arc_decrement_strong_count_GuidancePtr,
   );
 
-  /// Where the route, from `from_m` metres from its start onwards, drives
-  /// through each of `events`, within `tolerance_m` of its line, by the
-  /// server's corridor rule: along a road, not across it. In driving
-  /// order.
+  /// Where the route, from `from_m` metres from its start onwards, meets
+  /// each of `events`, in driving order. A line counts when the route
+  /// follows it within `line_tolerance_m` (the server's corridor rule:
+  /// along a road, not across it; one way only when it is directed); a
+  /// point, when the route passes within `point_tolerance_m` of it.
   List<EventHit> eventsAhead({
     required double fromM,
     required List<EventShape> events,
-    required double toleranceM,
+    required double lineToleranceM,
+    required double pointToleranceM,
   }) => RustLib.instance.api.crateApiEngineGuidanceEventsAhead(
     that: this,
     fromM: fromM,
     events: events,
-    toleranceM: toleranceM,
+    lineToleranceM: lineToleranceM,
+    pointToleranceM: pointToleranceM,
   );
 
   /// The route's length, metres, as the router measured it.

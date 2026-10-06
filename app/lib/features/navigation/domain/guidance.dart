@@ -116,13 +116,27 @@ final class GuidanceSnapshot {
 /// A road event's shape, for the check of the route ahead.
 @immutable
 final class EventShape {
-  const new({required this.id, required this.points});
+  const new({required this.id, required this.points, this.directed = false, this.part = 0});
 
+  /// The event's id; several shapes of one event share it.
   final String id;
 
   /// One point, or the line of the road it covers.
   final List<LatLng> points;
+
+  /// The line runs in the direction of the traffic it concerns: a route
+  /// meets it only by following it that way (one carriageway).
+  final bool directed;
+
+  /// Which line of the event, for the log.
+  final int part;
 }
+
+/// The server's tolerances for road events: a route follows a matched line
+/// within 12 m, passes a point within 15 m
+/// (`plan/research/21-backend-travaux.md`, part 5).
+const eventLineToleranceM = 12.0;
+const eventPointToleranceM = 15.0;
 
 /// Where the route ahead drives through an event.
 @immutable
@@ -145,9 +159,10 @@ abstract interface class GuidanceTrack {
   /// The guidance after [fix].
   GuidanceSnapshot update(Fix fix);
 
-  /// Where the route, from [fromM] metres onwards, drives along each of
-  /// [events] (the server's corridor rule), in driving order.
-  List<EventHit> eventsAhead(double fromM, List<EventShape> events, {double toleranceM = 12});
+  /// Where the route, from [fromM] metres onwards, meets each of [events]
+  /// (the server's corridor rule for lines, its distance for points), in
+  /// driving order.
+  List<EventHit> eventsAhead(double fromM, List<EventShape> events);
 
   /// Releases the native side.
   void dispose();

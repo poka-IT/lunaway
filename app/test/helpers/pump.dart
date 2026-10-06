@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
@@ -126,6 +127,8 @@ Future<TestApp> pumpLunaway(
   bool settle = true,
   BasemapTemplates basemap = BasemapTemplates.blank,
   AppConfig? config,
+  // More fakes, for a feature's own providers (the navigation's).
+  List<Override> overrides = const [],
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -189,6 +192,7 @@ Future<TestApp> pumpLunaway(
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
+        ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
     ),

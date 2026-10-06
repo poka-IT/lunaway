@@ -46,10 +46,7 @@ class Settings extends Table with TableInfo<Settings, SettingRow> {
       context.missing(_idMeta);
     }
     if (data.containsKey('value')) {
-      context.handle(
-        _valueMeta,
-        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
-      );
+      context.handle(_valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
     } else if (isInserting) {
       context.missing(_valueMeta);
     }
@@ -62,10 +59,7 @@ class Settings extends Table with TableInfo<Settings, SettingRow> {
   SettingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return SettingRow(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
       value: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}value'],
@@ -98,10 +92,7 @@ class SettingRow extends DataClass implements Insertable<SettingRow> {
     return SettingsCompanion(id: Value(id), value: Value(value));
   }
 
-  factory SettingRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory SettingRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SettingRow(
       id: serializer.fromJson<String>(json['id']),
@@ -170,11 +161,7 @@ class SettingsCompanion extends UpdateCompanion<SettingRow> {
     });
   }
 
-  SettingsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? value,
-    Value<int>? rowid,
-  }) {
+  SettingsCompanion copyWith({Value<String>? id, Value<String>? value, Value<int>? rowid}) {
     return SettingsCompanion(
       id: id ?? this.id,
       value: value ?? this.value,
@@ -208,8 +195,7 @@ class SettingsCompanion extends UpdateCompanion<SettingRow> {
   }
 }
 
-class FavoriteLists extends Table
-    with TableInfo<FavoriteLists, FavoriteListRow> {
+class FavoriteLists extends Table with TableInfo<FavoriteLists, FavoriteListRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -233,9 +219,7 @@ class FavoriteLists extends Table
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _isDefaultMeta = const VerificationMeta(
-    'isDefault',
-  );
+  static const VerificationMeta _isDefaultMeta = const VerificationMeta('isDefault');
   late final GeneratedColumn<bool> isDefault = GeneratedColumn<bool>(
     'is_default',
     aliasedName,
@@ -245,9 +229,7 @@ class FavoriteLists extends Table
     $customConstraints: 'NOT NULL DEFAULT FALSE',
     defaultValue: const CustomExpression('FALSE'),
   );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta('createdAt');
   late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
     'created_at',
     aliasedName,
@@ -274,10 +256,7 @@ class FavoriteLists extends Table
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
     if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     }
     if (data.containsKey('is_default')) {
       context.handle(
@@ -302,14 +281,8 @@ class FavoriteLists extends Table
   FavoriteListRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FavoriteListRow(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      ),
+      id: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name']),
       isDefault: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_default'],
@@ -364,10 +337,7 @@ class FavoriteListRow extends DataClass implements Insertable<FavoriteListRow> {
     );
   }
 
-  factory FavoriteListRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory FavoriteListRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FavoriteListRow(
       id: serializer.fromJson<int>(json['id']),
@@ -505,8 +475,7 @@ class FavoriteListsCompanion extends UpdateCompanion<FavoriteListRow> {
   }
 }
 
-class FavoriteItems extends Table
-    with TableInfo<FavoriteItems, FavoriteItemRow> {
+class FavoriteItems extends Table with TableInfo<FavoriteItems, FavoriteItemRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -518,12 +487,9 @@ class FavoriteItems extends Table
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    $customConstraints:
-        'NOT NULL REFERENCES favorite_lists(id)ON DELETE CASCADE',
+    $customConstraints: 'NOT NULL REFERENCES favorite_lists(id)ON DELETE CASCADE',
   );
-  static const VerificationMeta _placeIdMeta = const VerificationMeta(
-    'placeId',
-  );
+  static const VerificationMeta _placeIdMeta = const VerificationMeta('placeId');
   late final GeneratedColumn<String> placeId = GeneratedColumn<String>(
     'place_id',
     aliasedName,
@@ -550,9 +516,7 @@ class FavoriteItems extends Table
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _overnightMeta = const VerificationMeta(
-    'overnight',
-  );
+  static const VerificationMeta _overnightMeta = const VerificationMeta('overnight');
   late final GeneratedColumn<String> overnight = GeneratedColumn<String>(
     'overnight',
     aliasedName,
@@ -589,9 +553,7 @@ class FavoriteItems extends Table
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
-  static const VerificationMeta _addedAtMeta = const VerificationMeta(
-    'addedAt',
-  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta('addedAt');
   late final GeneratedColumn<int> addedAt = GeneratedColumn<int>(
     'added_at',
     aliasedName,
@@ -625,32 +587,20 @@ class FavoriteItems extends Table
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('list_id')) {
-      context.handle(
-        _listIdMeta,
-        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
-      );
+      context.handle(_listIdMeta, listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta));
     } else if (isInserting) {
       context.missing(_listIdMeta);
     }
     if (data.containsKey('place_id')) {
-      context.handle(
-        _placeIdMeta,
-        placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta),
-      );
+      context.handle(_placeIdMeta, placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta));
     } else if (isInserting) {
       context.missing(_placeIdMeta);
     }
     if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     }
     if (data.containsKey('kind')) {
-      context.handle(
-        _kindMeta,
-        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
-      );
+      context.handle(_kindMeta, kind.isAcceptableOrUnknown(data['kind']!, _kindMeta));
     } else if (isInserting) {
       context.missing(_kindMeta);
     }
@@ -661,32 +611,20 @@ class FavoriteItems extends Table
       );
     }
     if (data.containsKey('city')) {
-      context.handle(
-        _cityMeta,
-        city.isAcceptableOrUnknown(data['city']!, _cityMeta),
-      );
+      context.handle(_cityMeta, city.isAcceptableOrUnknown(data['city']!, _cityMeta));
     }
     if (data.containsKey('lat')) {
-      context.handle(
-        _latMeta,
-        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
-      );
+      context.handle(_latMeta, lat.isAcceptableOrUnknown(data['lat']!, _latMeta));
     } else if (isInserting) {
       context.missing(_latMeta);
     }
     if (data.containsKey('lon')) {
-      context.handle(
-        _lonMeta,
-        lon.isAcceptableOrUnknown(data['lon']!, _lonMeta),
-      );
+      context.handle(_lonMeta, lon.isAcceptableOrUnknown(data['lon']!, _lonMeta));
     } else if (isInserting) {
       context.missing(_lonMeta);
     }
     if (data.containsKey('added_at')) {
-      context.handle(
-        _addedAtMeta,
-        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
-      );
+      context.handle(_addedAtMeta, addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta));
     } else if (isInserting) {
       context.missing(_addedAtMeta);
     }
@@ -707,30 +645,15 @@ class FavoriteItems extends Table
         DriftSqlType.string,
         data['${effectivePrefix}place_id'],
       )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      ),
-      kind: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}kind'],
-      )!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name']),
+      kind: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}kind'])!,
       overnight: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}overnight'],
       )!,
-      city: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}city'],
-      ),
-      lat: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lat'],
-      )!,
-      lon: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lon'],
-      )!,
+      city: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}city']),
+      lat: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}lat'])!,
+      lon: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}lon'])!,
       addedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}added_at'],
@@ -744,9 +667,7 @@ class FavoriteItems extends Table
   }
 
   @override
-  List<String> get customConstraints => const [
-    'PRIMARY KEY(list_id, place_id)',
-  ];
+  List<String> get customConstraints => const ['PRIMARY KEY(list_id, place_id)'];
   @override
   bool get dontWriteConstraints => true;
 }
@@ -805,10 +726,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     );
   }
 
-  factory FavoriteItemRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory FavoriteItemRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FavoriteItemRow(
       listId: serializer.fromJson<int>(json['list_id']),
@@ -890,17 +808,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
-    listId,
-    placeId,
-    name,
-    kind,
-    overnight,
-    city,
-    lat,
-    lon,
-    addedAt,
-  );
+  int get hashCode => Object.hash(listId, placeId, name, kind, overnight, city, lat, lon, addedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1095,9 +1003,7 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     $customConstraints: 'NOT NULL DEFAULT \'none\'',
     defaultValue: const CustomExpression('\'none\''),
   );
-  static const VerificationMeta _heightMMeta = const VerificationMeta(
-    'heightM',
-  );
+  static const VerificationMeta _heightMMeta = const VerificationMeta('heightM');
   late final GeneratedColumn<double> heightM = GeneratedColumn<double>(
     'height_m',
     aliasedName,
@@ -1115,9 +1021,7 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _lengthMMeta = const VerificationMeta(
-    'lengthM',
-  );
+  static const VerificationMeta _lengthMMeta = const VerificationMeta('lengthM');
   late final GeneratedColumn<double> lengthM = GeneratedColumn<double>(
     'length_m',
     aliasedName,
@@ -1126,9 +1030,7 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _weightTMeta = const VerificationMeta(
-    'weightT',
-  );
+  static const VerificationMeta _weightTMeta = const VerificationMeta('weightT');
   late final GeneratedColumn<double> weightT = GeneratedColumn<double>(
     'weight_t',
     aliasedName,
@@ -1137,9 +1039,7 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta('updatedAt');
   late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
     'updated_at',
     aliasedName,
@@ -1175,42 +1075,24 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     }
     if (data.containsKey('type')) {
-      context.handle(
-        _typeMeta,
-        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
-      );
+      context.handle(_typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
     } else if (isInserting) {
       context.missing(_typeMeta);
     }
     if (data.containsKey('towing')) {
-      context.handle(
-        _towingMeta,
-        towing.isAcceptableOrUnknown(data['towing']!, _towingMeta),
-      );
+      context.handle(_towingMeta, towing.isAcceptableOrUnknown(data['towing']!, _towingMeta));
     }
     if (data.containsKey('height_m')) {
-      context.handle(
-        _heightMMeta,
-        heightM.isAcceptableOrUnknown(data['height_m']!, _heightMMeta),
-      );
+      context.handle(_heightMMeta, heightM.isAcceptableOrUnknown(data['height_m']!, _heightMMeta));
     }
     if (data.containsKey('width_m')) {
-      context.handle(
-        _widthMMeta,
-        widthM.isAcceptableOrUnknown(data['width_m']!, _widthMMeta),
-      );
+      context.handle(_widthMMeta, widthM.isAcceptableOrUnknown(data['width_m']!, _widthMMeta));
     }
     if (data.containsKey('length_m')) {
-      context.handle(
-        _lengthMMeta,
-        lengthM.isAcceptableOrUnknown(data['length_m']!, _lengthMMeta),
-      );
+      context.handle(_lengthMMeta, lengthM.isAcceptableOrUnknown(data['length_m']!, _lengthMMeta));
     }
     if (data.containsKey('weight_t')) {
-      context.handle(
-        _weightTMeta,
-        weightT.isAcceptableOrUnknown(data['weight_t']!, _weightTMeta),
-      );
+      context.handle(_weightTMeta, weightT.isAcceptableOrUnknown(data['weight_t']!, _weightTMeta));
     }
     if (data.containsKey('updated_at')) {
       context.handle(
@@ -1229,14 +1111,8 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
   VehicleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return VehicleRow(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      type: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}type'],
-      )!,
+      id: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      type: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}type'])!,
       towing: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}towing'],
@@ -1319,26 +1195,15 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       id: Value(id),
       type: Value(type),
       towing: Value(towing),
-      heightM: heightM == null && nullToAbsent
-          ? const Value.absent()
-          : Value(heightM),
-      widthM: widthM == null && nullToAbsent
-          ? const Value.absent()
-          : Value(widthM),
-      lengthM: lengthM == null && nullToAbsent
-          ? const Value.absent()
-          : Value(lengthM),
-      weightT: weightT == null && nullToAbsent
-          ? const Value.absent()
-          : Value(weightT),
+      heightM: heightM == null && nullToAbsent ? const Value.absent() : Value(heightM),
+      widthM: widthM == null && nullToAbsent ? const Value.absent() : Value(widthM),
+      lengthM: lengthM == null && nullToAbsent ? const Value.absent() : Value(lengthM),
+      weightT: weightT == null && nullToAbsent ? const Value.absent() : Value(weightT),
       updatedAt: Value(updatedAt),
     );
   }
 
-  factory VehicleRow.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
+  factory VehicleRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return VehicleRow(
       id: serializer.fromJson<int>(json['id']),
@@ -1414,16 +1279,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    type,
-    towing,
-    heightM,
-    widthM,
-    lengthM,
-    weightT,
-    updatedAt,
-  );
+  int get hashCode => Object.hash(id, type, towing, heightM, widthM, lengthM, weightT, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1582,10 +1438,7 @@ abstract class _$UserDatabase extends GeneratedDatabase {
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
     WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'favorite_lists',
-        limitUpdateKind: UpdateKind.delete,
-      ),
+      on: TableUpdateQuery.onTableName('favorite_lists', limitUpdateKind: UpdateKind.delete),
       result: [TableUpdate('favorite_items', kind: UpdateKind.delete)],
     ),
   ]);

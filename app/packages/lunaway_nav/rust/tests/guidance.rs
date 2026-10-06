@@ -247,25 +247,57 @@ fn points_between(points: &[Position], from_m: f64, to_m: f64) -> Vec<LatLon> {
     out
 }
 
+/// The server's tolerances: 12 m along a matched line, 15 m from a point
+/// (`plan/research/21-backend-travaux.md`, part 5).
+const LINE_M: f64 = 12.0;
+const POINT_M: f64 = 15.0;
+
+fn shape(id: &str, points: Vec<LatLon>, directed: bool) -> EventShape {
+    EventShape {
+        id: id.into(),
+        points,
+        directed,
+    }
+}
+
 #[test]
 fn a_closure_on_the_road_ahead_is_found_and_one_behind_is_not() {
     let guidance =
         Guidance::new(LIMOGES.to_owned(), 0, GuidanceSettings::default()).expect("a route");
     let points = line(LIMOGES, 0);
-    let ahead = EventShape {
-        id: "dir/closure-ahead".into(),
-        points: points_between(&points, 1_500.0, 1_700.0),
-    };
-    let behind = EventShape {
-        id: "dir/closure-behind".into(),
-        points: points_between(&points, 200.0, 400.0),
-    };
-    let hits = guidance.events_ahead(1_000.0, vec![ahead, behind], 12.0);
+    let ahead = shape(
+        "dir/closure-ahead",
+        points_between(&points, 1_500.0, 1_700.0),
+        true,
+    );
+    let behind = shape(
+        "dir/closure-behind",
+        points_between(&points, 200.0, 400.0),
+        true,
+    );
+    let hits = guidance.events_ahead(1_000.0, vec![ahead, behind], LINE_M, POINT_M);
     assert_eq!(hits.len(), 1, "only the closure ahead: {hits:?}");
     assert_eq!(hits[0].id, "dir/closure-ahead");
     assert!(
         hits[0].start_m > 1_400.0 && hits[0].start_m < 1_600.0,
         "{hits:?}"
+    );
+}
+
+#[test]
+fn a_closure_of_the_other_carriageway_is_not_on_the_route() {
+    let guidance =
+        Guidance::new(LIMOGES.to_owned(), 0, GuidanceSettings::default()).expect("a route");
+    let points = line(LIMOGES, 0);
+    let mut reversed = points_between(&points, 1_500.0, 1_700.0);
+    reversed.reverse();
+    let other_way = shape("dir/other-way", reversed.clone(), true);
+    let both_ways = shape("dir/both-ways", reversed, false);
+    let hits = guidance.events_ahead(0.0, vec![other_way, both_ways], LINE_M, POINT_M);
+    assert_eq!(
+        hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+        ["dir/both-ways"],
+        "a directed line drawn the other way closes the opposite direction only"
     );
 }
 
@@ -280,9 +312,9 @@ fn a_closed_street_the_route_only_crosses_is_not_on_the_route() {
     let (dlat, dlon) = (b.lat - a.lat, b.lon - a.lon);
     let norm = (dlat * dlat + dlon * dlon).sqrt();
     let (plat, plon) = (-dlon / norm * 0.0006, dlat / norm * 0.0006);
-    let crossing = EventShape {
-        id: "city/crossing".into(),
-        points: vec![
+    let crossing = shape(
+        "city/crossing",
+        vec![
             LatLon {
                 lat: a.lat - plat,
                 lon: a.lon - plon,
@@ -292,24 +324,42 @@ fn a_closed_street_the_route_only_crosses_is_not_on_the_route() {
                 lon: a.lon + plon,
             },
         ],
-    };
-    let hits = guidance.events_ahead(0.0, vec![crossing], 12.0);
+        false,
+    );
+    let hits = guidance.events_ahead(0.0, vec![crossing], LINE_M, POINT_M);
     assert!(hits.is_empty(), "a crossing is not a following: {hits:?}");
 }
 
 #[test]
-fn a_point_event_on_the_route_ahead_is_found() {
+fn a_point_event_counts_within_fifteen_metres_of_the_route_ahead() {
     let guidance =
         Guidance::new(LIMOGES.to_owned(), 0, GuidanceSettings::default()).expect("a route");
     let points = line(LIMOGES, 0);
     let at = points_between(&points, 2_500.0, 2_510.0)[0];
-    let hits = guidance.events_ahead(
-        100.0,
-        vec![EventShape {
-            id: "dialog/height-limit".into(),
-            points: vec![at],
+    // 0.0001 degrees of latitude: 11 m; 0.0003: 33 m.
+    let near = shape(
+        "dialog/near",
+        vec![LatLon {
+            lat: at.lat + 0.0001,
+            lon: at.lon,
         }],
-        12.0,
+        false,
     );
-    assert_eq!(hits.len(), 1, "{hits:?}");
+    let far = shape(
+        "dialog/far",
+        vec![LatLon {
+            lat: at.lat + 0.0003,
+            lon: at.lon,
+        }],
+        false,
+    );
+    let hits = guidance.events_ahead(100.0, vec![near, far], LINE_M, POINT_M);
+    assert_eq!(
+        hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+        ["dialog/near"]
+    );
+    assert!(
+        (hits[0].start_m - 2_500.0).abs() < 80.0,
+        "where the route passes it: {hits:?}"
+    );
 }

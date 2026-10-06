@@ -89,14 +89,19 @@ extension NavigationTexts on Translations {
       if (miles < 0.2) {
         return _t.navigation.voice.feet(n: '${(metres * _feetPerMetre / 100).round() * 100}');
       }
-      return _t.navigation.voice.miles(n: NumberFormat('0.#', _locale).format(_half(miles)));
+      final half = _half(miles);
+      return _t.navigation.voice.miles(count: half, n: NumberFormat('0.#', _locale).format(half));
     }
     if (metres < 1000) {
       final step = metres < 200 ? 10 : 50;
       return _t.navigation.voice.metres(n: '${(metres / step).round() * step}');
     }
+    // French counts 1.5 kilometres in the singular, English in the plural:
+    // the plural rule of each language decides.
+    final half = _half(metres / 1000);
     return _t.navigation.voice.kilometres(
-      n: NumberFormat('0.#', _locale).format(_half(metres / 1000)),
+      count: half,
+      n: NumberFormat('0.#', _locale).format(half),
     );
   }
 

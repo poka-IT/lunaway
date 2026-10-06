@@ -1,0 +1,154 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/route_operations.dart';
+import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
+
+import '../../helpers/navigation.dart';
+
+/// The answers of the API's `route` query as the app reads them, from
+/// answers recorded on 2026-10-06 (`test/fixtures/navigation/`).
+void main() {
+  group('a route answer', () {
+    test('Rue Maurice Utrillo at 3.30 m: the recommended route and one alternative', () {
+      final plan = routeFixture('utrillo_motorhome');
+      expect(plan.status, RouteStatus.ok);
+      expect(plan.routes.map((r) => r.index), [0, 1]);
+      expect(plan.routes.first.distanceM, closeTo(1812.279, 0.001));
+      expect(plan.routes.first.durationS, closeTo(191.341, 0.001));
+      expect(plan.applied.vehicle.heightM, 3.3);
+      expect(plan.applied.vehicle.type, RouterVehicleType.integrated);
+      expect(plan.applied.language, RouteLanguage.fr);
+      expect(plan.disclaimerKey, 'routing.disclaimer.v1');
+      expect(plan.graph.osmDataAt, DateTime.parse('2026-10-04T20:20:21Z'));
+      expect(plan.graph.ignEdition, DateTime(2026, 6, 15));
+    });
+
+    test('a 2.50 m van under the 2.70 m bridge carries the warning with its place', () {
+      final w = routeFixture('utrillo_van').routes.single.warnings.single;
+      expect(w.kind, RouteWarningKind.lowClearance);
+      expect(w.severity, WarningSeverity.warning);
+      expect(w.limit, 2.7);
+      expect(w.vehicleValue, 2.5);
+      expect(w.place, RestrictionPlace.underpass);
+      expect(w.certainty, RestrictionCertainty.disputed);
+      expect(w.source, RestrictionSource.osm);
+      expect(w.externalId, 'way/52984577');
+      expect(w.name, 'Rue Maurice Utrillo');
+      expect(w.geometryIndex, 8);
+      expect(w.position, const LatLng(45.846841, 1.285024));
+    });
+
+    test('the 1.90 m height bar of Rue de la Brégère stops every route', () {
+      final plan = routeFixture('bregere_bar');
+      expect(plan.status, RouteStatus.noSafeRoute);
+      expect(plan.osrmJson, isNull);
+      expect(plan.routes, isEmpty);
+      final b = plan.blockers.single;
+      expect(b.severity, WarningSeverity.blocking);
+      expect(b.place, RestrictionPlace.barrier);
+      expect(b.limit, 1.9);
+      expect(b.vehicleValue, 3.3);
+    });
+
+    test('no road to the destination', () {
+      expect(routeFixture('braille_tall').status, RouteStatus.noRoute);
+    });
+
+    test('a long trip says it uses a toll motorway', () {
+      final route = routeFixture('brive_ussel_en').routes.single;
+      expect(route.hasToll, isTrue);
+      expect(route.hasMotorway, isTrue);
+      expect(route.hasFerry, isFalse);
+      expect(route.steps, hasLength(33));
+      expect(route.steps.first.instruction, startsWith('Drive'));
+    });
+
+    test('an unknown kind of warning from a newer server is left out, the route kept', () {
+      final json = routeAnswer('utrillo_van');
+      final routes = json['routes'] as List<dynamic>;
+      final warning = Map<String, dynamic>.of(
+        ((routes.first as Map<String, dynamic>)['warnings'] as List<dynamic>).first
+            as Map<String, dynamic>,
+      )..['kind'] = 'GOODS_VEHICLE_WEIGHT';
+      (routes.first as Map<String, dynamic>)['warnings'] = [warning];
+      final plan = routePlanFromJson(json);
+      expect(plan.routes.single.warnings, isEmpty);
+    });
+  });
+
+  group('the shape of a route', () {
+    test('the line starts at the depart maneuver and ends at the arrival', () {
+      final route = routeFixture('limoges_drive').routes.single;
+      expect(route.line.length, greaterThan(50));
+      expect(route.line.first.distanceTo(route.steps.first.position), lessThan(1));
+      expect(route.line.last.distanceTo(route.steps.last.position), lessThan(1));
+      var length = 0.0;
+      for (var i = 1; i < route.line.length; i++) {
+        length += route.line[i - 1].distanceTo(route.line[i]);
+      }
+      expect(length, closeTo(route.distanceM, route.distanceM * 0.01));
+    });
+
+    test('steps keep their maneuver, their road and the lanes at the next maneuver', () {
+      final steps = routeFixture('limoges_drive').routes.single.steps;
+      expect(steps, hasLength(10));
+      expect(steps.first.maneuverType, 'depart');
+      expect(steps.last.maneuverType, 'arrive');
+      expect(steps[1].modifier, 'left');
+      expect(steps[1].roadName, 'Boulevard Carnot');
+      expect(steps.any((s) => s.lanes.isNotEmpty), isTrue, reason: 'Limoges maps turn lanes');
+      final lanes = steps.firstWhere((s) => s.lanes.isNotEmpty).lanes;
+      expect(lanes.any((l) => l.active), isTrue);
+    });
+
+    test('a polyline6 decodes as Valhalla encodes it, and a cut one stops cleanly', () {
+      // Two points of the Utrillo route, encoded by Valhalla.
+      final points = decodePolyline('yhhmvAshlmAD_@');
+      expect(points, hasLength(2));
+      expect(points.first.lat, closeTo(45.847197, 1e-6));
+      expect(points.first.lon, closeTo(1.284762, 1e-6));
+      expect(decodePolyline('yhhmvAshlmAD'), hasLength(1));
+    });
+  });
+
+  group('the request', () {
+    test('sends the profile, the avoid options, the language and the heading', () {
+      final vars = routeVariables(
+        origin: const LatLng(45.8, 1.2),
+        destination: const LatLng(45.9, 1.3),
+        vehicle: const VehicleProfile(
+          type: RouterVehicleType.overcab,
+          heightM: 3.15,
+          widthM: 2.3,
+          lengthM: 7,
+          weightT: 3.5,
+          trailer: assumedTrailer,
+        ),
+        avoid: const AvoidOptions(tolls: true, unpaved: true),
+        language: RouteLanguage.en,
+        headingDeg: 370,
+        alternatives: 2,
+      );
+      final input = vars['input']! as Map<String, Object?>;
+      expect(input['origin'], {'lat': 45.8, 'lon': 1.2, 'headingDeg': 10});
+      expect(input['language'], 'EN');
+      expect(input['alternatives'], 2);
+      expect(input['options'], {
+        'avoidTolls': true,
+        'avoidMotorways': false,
+        'avoidFerries': false,
+        'avoidUnpaved': true,
+      });
+      expect(input['vehicle'], {
+        'kind': 'OVERCAB',
+        'heightM': 3.15,
+        'widthM': 2.3,
+        'lengthM': 7,
+        'weightT': 3.5,
+        'trailer': {'lengthM': 4.78, 'weightT': 1.5, 'widthM': 2.1},
+      });
+    });
+  });
+}

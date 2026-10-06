@@ -68,7 +68,7 @@ final class _FerrostarTrack implements GuidanceTrack {
   );
 
   @override
-  List<EventHit> eventsAhead(double fromM, List<EventShape> events, {double toleranceM = 12}) => [
+  List<EventHit> eventsAhead(double fromM, List<EventShape> events) => [
     for (final h in _guidance.eventsAhead(
       fromM: fromM,
       events: [
@@ -76,9 +76,11 @@ final class _FerrostarTrack implements GuidanceTrack {
           nav.EventShape(
             id: e.id,
             points: [for (final p in e.points) nav.LatLon(lat: p.lat, lon: p.lon)],
+            directed: e.directed,
           ),
       ],
-      toleranceM: toleranceM,
+      lineToleranceM: eventLineToleranceM,
+      pointToleranceM: eventPointToleranceM,
     ))
       EventHit(id: h.id, startM: h.startM, endM: h.endM, at: LatLng(h.lat, h.lon)),
   ];

@@ -1758,14 +1758,20 @@ class Translations$navigation$voice$en {
 	/// en: '$n metres'
 	String metres({required Object n}) => '${n} metres';
 
-	/// en: '$n kilometres'
-	String kilometres({required Object n}) => '${n} kilometres';
+	/// en: '(one) {$n kilometre} (other) {$n kilometres}'
+	String kilometres({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${n} kilometre',
+		other: '${n} kilometres',
+	);
 
 	/// en: '$n feet'
 	String feet({required Object n}) => '${n} feet';
 
-	/// en: '$n miles'
-	String miles({required Object n}) => '${n} miles';
+	/// en: '(one) {$n mile} (other) {$n miles}'
+	String miles({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${n} mile',
+		other: '${n} miles',
+	);
 
 	/// en: '$metres.$cm metres'
 	String size({required Object metres, required Object cm}) => '${metres}.${cm} metres';
@@ -2297,9 +2303,9 @@ extension on Translations {
 			'navigation.voice.limit' => ({required Object what, required Object distance}) => 'Caution, ${what} in ${distance}.',
 			'navigation.voice.arrived' => 'You have arrived.',
 			'navigation.voice.metres' => ({required Object n}) => '${n} metres',
-			'navigation.voice.kilometres' => ({required Object n}) => '${n} kilometres',
+			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} kilometre', other: '${n} kilometres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} feet',
-			'navigation.voice.miles' => ({required Object n}) => '${n} miles',
+			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} mile', other: '${n} miles', ), 
 			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres}.${cm} metres',
 			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} metres',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',

@@ -74,7 +74,8 @@ fn wire__crate__api__engine__Guidance_events_ahead_impl(
             >>::sse_decode(&mut deserializer);
             let api_from_m = <f64>::sse_decode(&mut deserializer);
             let api_events = <Vec<crate::api::engine::EventShape>>::sse_decode(&mut deserializer);
-            let api_tolerance_m = <f64>::sse_decode(&mut deserializer);
+            let api_line_tolerance_m = <f64>::sse_decode(&mut deserializer);
+            let api_point_tolerance_m = <f64>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let mut api_that_guard = None;
@@ -95,7 +96,8 @@ fn wire__crate__api__engine__Guidance_events_ahead_impl(
                     &*api_that_guard,
                     api_from_m,
                     api_events,
-                    api_tolerance_m,
+                    api_line_tolerance_m,
+                    api_point_tolerance_m,
                 ))?;
                 std::result::Result::Ok(output_ok)
             })())
@@ -432,9 +434,11 @@ impl SseDecode for crate::api::engine::EventShape {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_id = <String>::sse_decode(deserializer);
         let mut var_points = <Vec<crate::api::engine::LatLon>>::sse_decode(deserializer);
+        let mut var_directed = <bool>::sse_decode(deserializer);
         return crate::api::engine::EventShape {
             id: var_id,
             points: var_points,
+            directed: var_directed,
         };
     }
 }
@@ -865,6 +869,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::engine::EventShape {
         [
             self.id.into_into_dart().into_dart(),
             self.points.into_into_dart().into_dart(),
+            self.directed.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1130,6 +1135,7 @@ impl SseEncode for crate::api::engine::EventShape {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.id, serializer);
         <Vec<crate::api::engine::LatLon>>::sse_encode(self.points, serializer);
+        <bool>::sse_encode(self.directed, serializer);
     }
 }
 

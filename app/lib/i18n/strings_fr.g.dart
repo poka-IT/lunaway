@@ -864,9 +864,15 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	@override String limit({required Object what, required Object distance}) => 'Attention, ${what} dans ${distance}.';
 	@override String get arrived => 'Vous êtes arrivé.';
 	@override String metres({required Object n}) => '${n} mètres';
-	@override String kilometres({required Object n}) => '${n} kilomètres';
+	@override String kilometres({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${n} kilomètre',
+		other: '${n} kilomètres',
+	);
 	@override String feet({required Object n}) => '${n} pieds';
-	@override String miles({required Object n}) => '${n} miles';
+	@override String miles({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${n} mile',
+		other: '${n} miles',
+	);
 	@override String size({required Object metres, required Object cm}) => '${metres} mètres ${cm}';
 	@override String sizeWhole({required Object metres}) => '${metres} mètres';
 }
@@ -1332,9 +1338,9 @@ extension on TranslationsFr {
 			'navigation.voice.limit' => ({required Object what, required Object distance}) => 'Attention, ${what} dans ${distance}.',
 			'navigation.voice.arrived' => 'Vous êtes arrivé.',
 			'navigation.voice.metres' => ({required Object n}) => '${n} mètres',
-			'navigation.voice.kilometres' => ({required Object n}) => '${n} kilomètres',
+			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} kilomètre', other: '${n} kilomètres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} pieds',
-			'navigation.voice.miles' => ({required Object n}) => '${n} miles',
+			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} mile', other: '${n} miles', ), 
 			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres} mètres ${cm}',
 			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} mètres',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',

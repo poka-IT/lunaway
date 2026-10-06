@@ -324,30 +324,106 @@ pub fn events_ahead(
     line: &RouteLine,
     from_m: f64,
     events: &[EventShape],
-    tolerance_m: f64,
+    line_tolerance_m: f64,
+    point_tolerance_m: f64,
 ) -> Vec<EventHit> {
-    let mut hits: Vec<EventHit> = events
-        .iter()
-        .flat_map(|event| {
-            let shape: Vec<Position> = event
-                .points
-                .iter()
-                .filter_map(|p| Position::new(p.lat, p.lon).ok())
-                .collect();
-            match_route(line, &shape, tolerance_m)
+    let mut hits: Vec<EventHit> = Vec::new();
+    for event in events {
+        let shape: Vec<Position> = event
+            .points
+            .iter()
+            .filter_map(|p| Position::new(p.lat, p.lon).ok())
+            .collect();
+        let found: Vec<(f64, f64, Position)> = match shape.as_slice() {
+            [] => Vec::new(),
+            // A point event (a closed slip road placed on its axis, a
+            // report): the route passes by it, as the server's point rule
+            // says, farther than the corridor's 2 m for a mapped node.
+            [point] => nearest_on_route(line, *point, from_m, point_tolerance_m)
+                .map(|s| vec![(s, s, line.point_at(s))])
+                .unwrap_or_default(),
+            _ => match_route(line, &shape, line_tolerance_m)
                 .into_iter()
-                // An event the vehicle is inside of still lies ahead: its
-                // end is.
-                .filter(move |h| h.end_m >= from_m)
-                .map(|h| EventHit {
-                    id: event.id.clone(),
-                    start_m: h.start_m,
-                    end_m: h.end_m,
-                    lat: h.at.lat(),
-                    lon: h.at.lon(),
-                })
-        })
-        .collect();
+                .filter(|h| !event.directed || same_way(line, &shape, h.start_m, h.end_m))
+                .map(|h| (h.start_m, h.end_m, h.at))
+                .collect(),
+        };
+        // An event the vehicle is inside of still lies ahead: its end does.
+        hits.extend(found.into_iter().filter(|(_, end, _)| *end >= from_m).map(
+            |(start, end, at)| EventHit {
+                id: event.id.clone(),
+                start_m: start,
+                end_m: end,
+                lat: at.lat(),
+                lon: at.lon(),
+            },
+        ));
+    }
     hits.sort_by(|a, b| a.start_m.total_cmp(&b.start_m));
     hits
+}
+
+/// Metres east and north of `b` from `a`, on a plane tangent at `a`.
+fn offset(a: Position, b: Position) -> (f64, f64) {
+    const M_PER_DEG: f64 = 6_371_008.8 * std::f64::consts::PI / 180.0;
+    (
+        (b.lon() - a.lon()) * M_PER_DEG * a.lat().to_radians().cos(),
+        (b.lat() - a.lat()) * M_PER_DEG,
+    )
+}
+
+/// The distance from the start of the route of its point nearest to `p`,
+/// from `from_m` onwards, when that point is within `max_m` of `p`.
+fn nearest_on_route(line: &RouteLine, p: Position, from_m: f64, max_m: f64) -> Option<f64> {
+    let points = line.points();
+    let mut along = 0.0;
+    let mut best: Option<(f64, f64)> = None;
+    for pair in points.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        let length = a.distance_m(b);
+        if along + length >= from_m {
+            let (ax, ay) = offset(p, a);
+            let (bx, by) = offset(p, b);
+            let (dx, dy) = (bx - ax, by - ay);
+            let len2 = dx * dx + dy * dy;
+            let t = if len2 > 0.0 {
+                (-(ax * dx + ay * dy) / len2).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let d = (ax + t * dx).hypot(ay + t * dy);
+            let s = along + t * length;
+            if d <= max_m && s >= from_m && best.is_none_or(|(_, bd)| d < bd) {
+                best = Some((s, d));
+            }
+        }
+        along += length;
+    }
+    best.map(|(s, _)| s)
+}
+
+/// Whether the route, between `start_m` and `end_m`, runs along `shape` in
+/// the shape's direction: the shape's first point projects nearer the
+/// route's start than its last.
+fn same_way(line: &RouteLine, shape: &[Position], start_m: f64, end_m: f64) -> bool {
+    let (Some(first), Some(last)) = (shape.first(), shape.last()) else {
+        return true;
+    };
+    // Ten metres either side of the stretch the route follows.
+    let window = (start_m - 10.0).max(0.0);
+    let reach = end_m - window + 10.0 + 200.0;
+    let at = |p: Position| nearest_on_route(line, p, window, reach.max(50.0));
+    match (at(*first), at(*last)) {
+        (Some(a), Some(b)) => b >= a,
+        // An end of the shape far from the route: judge on the stretch the
+        // route follows, by the shape's own heading against the route's.
+        _ => {
+            let (sx, sy) = offset(*first, *last);
+            let (rx, ry) = offset(
+                line.point_at(start_m),
+                line.point_at(end_m.max(start_m + 1.0)),
+            );
+            sx * rx + sy * ry >= 0.0
+        }
+    }
 }
