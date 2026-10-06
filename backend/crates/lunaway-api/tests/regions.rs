@@ -455,6 +455,69 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         Err(PackError::UnknownRegion(code)) if code == "FR-BRT"
     ));
 
+    // Another place moves from the Pays de la Loire to Brittany and is taken
+    // down before any build. The takedown names Brittany, where the place
+    // is now; the Pays de la Loire, whose pack still holds it, is built
+    // again too.
+    let second: uuid::Uuid = sqlx::query_scalar(
+        "SELECT id FROM places WHERE region = 'FR-PDL' AND deleted_at IS NULL ORDER BY id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    for change in [
+        "UPDATE places SET municipality_code = '35238', \
+         updated_seq = nextval('place_change_seq') WHERE id = $1",
+        "UPDATE places SET deleted_at = now(), \
+         updated_seq = nextval('place_change_seq') WHERE id = $1",
+    ] {
+        sqlx::query(change)
+            .bind(second)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    let report = build(
+        &pool,
+        ApiConfig::default(),
+        &PackOptions {
+            dir: dir.path().to_owned(),
+            only: vec!["fr-bre".into()],
+            takedown: true,
+        },
+    )
+    .await
+    .unwrap();
+    let codes: Vec<&str> = report
+        .built
+        .iter()
+        .map(|b| b.pack.region.as_str())
+        .collect();
+    assert_eq!(
+        codes,
+        ["FR-PDL"],
+        "the region the place left is built again, without it"
+    );
+    let rebuilt = std::fs::read(dir.path().join(&report.built[0].pack.file)).unwrap();
+    let ids: Vec<Value> = read_pack(&rebuilt, &report.built[0].pack.sha256)
+        .into_iter()
+        .map(|p| p["id"].clone())
+        .collect();
+    assert!(!ids.contains(&json!(second.to_string())));
+    let mut files: Vec<String> = std::fs::read_dir(dir.path().join("places"))
+        .unwrap()
+        .map(|e| format!("places/{}", e.unwrap().file_name().to_string_lossy()))
+        .collect();
+    files.sort_unstable();
+    let mut recorded: Vec<String> = lunaway_db::packs::all(&pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|p| p.file)
+        .collect();
+    recorded.sort_unstable();
+    assert_eq!(files, recorded, "no older file of any region remains");
+
     let both = gql(
         &app,
         &changes_query().replace(
@@ -467,6 +530,40 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     assert_eq!(code(&both), "INVALID_INPUT", "a box or a region, not both");
     let unknown = gql(&app, &changes_query(), json!({"region": "XX-ZZZ"})).await;
     assert_eq!(code(&unknown), "INVALID_INPUT");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_build_waits_for_the_running_one_past_its_role_s_statement_timeout(pool: PgPool) {
+    // As the import role in production: every statement bounded on the
+    // server (10 minutes there, 300 ms here).
+    let bounded = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(4)
+        .connect_with(
+            (*pool.connect_options())
+                .clone()
+                .options([("statement_timeout", "300ms")]),
+        )
+        .await
+        .unwrap();
+    let running = lunaway_db::packs::BuildLock::acquire(&pool).await.unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let options = PackOptions {
+        dir: dir.path().to_owned(),
+        only: Vec::new(),
+        takedown: false,
+    };
+    let second = tokio::spawn(async move { build(&bounded, ApiConfig::default(), &options).await });
+    tokio::time::sleep(std::time::Duration::from_millis(900)).await;
+    assert!(
+        !second.is_finished(),
+        "a takedown started during the daily build waits for it"
+    );
+    running.release().await.unwrap();
+    let done = second.await.unwrap();
+    assert!(
+        done.is_ok(),
+        "then runs, after three times its statement limit: {done:?}"
+    );
 }
 
 #[tokio::test]

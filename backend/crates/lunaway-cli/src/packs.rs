@@ -22,8 +22,8 @@ pub(crate) enum Packs {
         only: Vec<String>,
         /// After a place was taken down: rebuilds the regions named even if
         /// nothing changed, and every region whose pack is behind, and
-        /// removes every previous pack at once. A region left without a
-        /// live place loses its pack and its files.
+        /// removes every pack file the manifest does not name. A region
+        /// left without a live place loses its pack and its files.
         #[arg(long, requires = "only")]
         takedown: bool,
     },
@@ -40,9 +40,7 @@ pub(crate) async fn run(pool: &PgPool, action: Packs) -> anyhow::Result<()> {
         } => {
             let options = PackOptions {
                 dir,
-                // The codes are upper case (`FR-BRE`); an operator may type
-                // them otherwise.
-                only: only.iter().map(|r| r.to_ascii_uppercase()).collect(),
+                only,
                 takedown,
             };
             let report =

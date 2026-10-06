@@ -232,8 +232,10 @@ pub struct PackOptions {
     /// After a place was taken down (personal data, a court order): builds
     /// the packs of `only` even when nothing changed in them, builds every
     /// other region whose pack is behind (the place may have left one of
-    /// them), and leaves no region its previous file, so no file still
-    /// serves the place.
+    /// them), and removes every pack file the manifest does not name, so
+    /// no file still serves the place. The place's tombstone must be in the
+    /// change feed first (a new `updated_seq`), or its region does not
+    /// look behind.
     pub takedown: bool,
 }
 
@@ -262,7 +264,7 @@ pub struct BuildReport {
     pub built: Vec<Built>,
     /// The regions whose packs were withdrawn.
     pub dropped: Vec<Dropped>,
-    /// Previous files of regions not built again, removed by a takedown.
+    /// Pack files the manifest no longer names, removed by a takedown.
     pub pruned: Vec<String>,
 }
 
@@ -300,12 +302,8 @@ impl Writer {
             path: path.to_owned(),
             source,
         };
-        if path.exists() {
-            std::fs::remove_file(path).map_err(|source| PackError::Io {
-                path: path.to_owned(),
-                source,
-            })?;
-        }
+        // An empty file made by `tempfile`, which SQLite opens as an empty
+        // database.
         let conn = rusqlite::Connection::open(path).map_err(err)?;
         // A plain table with rowids: rows of about 2 KB stay on their leaf
         // page, where a table keyed by the id spilled them over overflow
@@ -434,10 +432,11 @@ pub async fn build(
         .collect::<Result<_, _>>()?;
     let lock = packs::BuildLock::acquire(pool).await?;
     let built = build_locked(pool, config, options, &only).await;
-    let released = lock.release().await;
-    let built = built?;
-    released?;
-    Ok(built)
+    if let Err(error) = lock.release().await {
+        // The lock goes with its connection, which is closed anyway.
+        tracing::warn!(%error, "the pack build lock was not released cleanly");
+    }
+    built
 }
 
 async fn build_locked(
@@ -447,12 +446,20 @@ async fn build_locked(
     only: &[String],
 ) -> Result<BuildReport, PackError> {
     let dir = options.dir.join("places");
-    tokio::fs::create_dir_all(&dir)
-        .await
-        .map_err(|source| PackError::Io {
-            path: dir.clone(),
-            source,
-        })?;
+    // Files being written, beside the served ones on the same disk (an
+    // atomic rename) but outside `places/`: a half-written pack or the raw
+    // database of a build that stopped is never served. What a stopped
+    // build left there goes now; builds run one at a time.
+    let work = options.dir.join(".work");
+    for d in [&dir, &work] {
+        tokio::fs::create_dir_all(d)
+            .await
+            .map_err(|source| PackError::Io {
+                path: d.clone(),
+                source,
+            })?;
+    }
+    clear_work(&work).await?;
     let current: HashMap<String, RegionPack> = packs::all(pool)
         .await?
         .into_iter()
@@ -502,9 +509,17 @@ async fn build_locked(
             ))
             .data(state.clone())
             .finish();
-        // Outside the served directory, under a name nobody can guess: the
-        // raw database of a build that stopped must not be downloadable.
-        let raw_path = std::env::temp_dir().join(format!("lunaway-pack-{}.sqlite", Uuid::now_v7()));
+        // Removed when dropped, whichever way the build ends.
+        let raw_file = tempfile::Builder::new()
+            .prefix("raw-")
+            .suffix(".sqlite")
+            .tempfile_in(&work)
+            .map_err(|source| PackError::Io {
+                path: work.clone(),
+                source,
+            })?
+            .into_temp_path();
+        let raw_path = raw_file.to_path_buf();
         let generated_at = Utc::now();
         let describe = vec![
             ("format", FORMAT.to_owned()),
@@ -565,14 +580,17 @@ async fn build_locked(
             Ok((compressed, sha256))
         })
         .await?;
-        remove_file(&raw_path).await?;
+        raw_file.close().map_err(|source| PackError::Io {
+            path: raw_path.clone(),
+            source,
+        })?;
         let file_name = format!(
             "{}-{}-{}.sqlite.gz",
             extent.region,
             head.last_seq,
             &sha256[..12]
         );
-        write_atomically(&dir.join(&file_name), &compressed).await?;
+        write_atomically(&work, &dir.join(&file_name), &compressed).await?;
         let pack = RegionPack {
             region: extent.region.clone(),
             seq: head.last_seq,
@@ -608,17 +626,6 @@ async fn build_locked(
         out.built.push(Built { pack, removed });
     }
     let keep: Vec<String> = regions.iter().map(|r| r.region.clone()).collect();
-    if options.takedown {
-        // The place may have left another region, whose previous file
-        // still holds it.
-        for pack in current.values() {
-            if keep.contains(&pack.region)
-                && !out.built.iter().any(|b| b.pack.region == pack.region)
-            {
-                out.pruned.extend(remove_older(&dir, pack, None).await?);
-            }
-        }
-    }
     // A region whose last place went (taken down, moved, retired) keeps no
     // pack: its last file would still serve the place. Its files go before
     // its row, so a removal that fails is tried again by the next build.
@@ -639,6 +646,17 @@ async fn build_locked(
         packs::forget_others(pool, &keep).await?;
     } else if !gone.is_empty() {
         packs::forget(pool, &gone).await?;
+    }
+    if options.takedown {
+        // The place may have left another region, whose previous file
+        // still holds it, or sit in a file a stopped build wrote and never
+        // recorded: only the packs the manifest names stay.
+        let recorded: Vec<String> = packs::all(pool)
+            .await?
+            .into_iter()
+            .map(|p| p.file)
+            .collect();
+        out.pruned = remove_unrecorded(&dir, &recorded).await?;
     }
     Ok(out)
 }
@@ -673,22 +691,43 @@ fn gzip(bytes: &[u8], dir: &Path) -> Result<Vec<u8>, PackError> {
     encoder.finish().map_err(io)
 }
 
-async fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), PackError> {
+/// Writes `bytes` to `path` through a file of `work`, so `path` appears
+/// whole or not at all.
+async fn write_atomically(work: &Path, path: &Path, bytes: &[u8]) -> Result<(), PackError> {
     let io = |source| PackError::Io {
         path: path.to_owned(),
         source,
     };
-    let tmp = path.with_extension("partial");
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let tmp = work.join(format!("{name}.partial"));
     let written = match tokio::fs::write(&tmp, bytes).await {
         Ok(()) => tokio::fs::rename(&tmp, path).await,
         Err(e) => Err(e),
     };
     if written.is_err() {
         // A disk full or a rename refused leaves no half file behind; one
-        // left by a crash is removed with the region's other files.
+        // left by a crash goes at the next build (`clear_work`).
         let _ignored = tokio::fs::remove_file(&tmp).await;
     }
     written.map_err(io)
+}
+
+/// Removes what a build that stopped left in `work`: half-written packs
+/// and raw databases, which hold places that may since have been taken
+/// down.
+async fn clear_work(work: &Path) -> Result<(), PackError> {
+    let io = |source| PackError::Io {
+        path: work.to_owned(),
+        source,
+    };
+    let mut entries = tokio::fs::read_dir(work).await.map_err(io)?;
+    while let Some(entry) = entries.next_entry().await.map_err(io)? {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.ends_with(".partial") || name.ends_with(".sqlite") {
+            remove_file(&entry.path()).await?;
+        }
+    }
+    Ok(())
 }
 
 async fn remove_file(path: &Path) -> Result<(), PackError> {
@@ -702,19 +741,11 @@ async fn remove_file(path: &Path) -> Result<(), PackError> {
     }
 }
 
-/// Whether the file `name` is a pack of the region whose prefix (its code
-/// and a dash) is `prefix`, named as a build names it:
-/// `<prefix><seq>-<12 hex>.sqlite.gz`, or the `.sqlite.partial` a write
-/// that failed left. `FR-` also starts `FR-BRE-` and `FR-20R-`, whose
-/// next part is not all digits; any other file in the directory is left
-/// alone.
-fn is_pack_of(name: &str, prefix: &str) -> bool {
-    let Some((seq, hash)) = name
-        .strip_prefix(prefix)
-        .and_then(|rest| {
-            rest.strip_suffix(".sqlite.gz")
-                .or_else(|| rest.strip_suffix(".sqlite.partial"))
-        })
+/// Whether `rest` reads `<seq>-<12 hex>.sqlite.gz`, the end of the name a
+/// build gives a pack after its region's code and a dash.
+fn is_pack_tail(rest: &str) -> bool {
+    let Some((seq, hash)) = rest
+        .strip_suffix(".sqlite.gz")
         .and_then(|rest| rest.split_once('-'))
     else {
         return false;
@@ -723,6 +754,50 @@ fn is_pack_of(name: &str, prefix: &str) -> bool {
         && seq.bytes().all(|b| b.is_ascii_digit())
         && hash.len() == 12
         && hash.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// Whether the file `name` is a pack of the region whose prefix (its code
+/// and a dash) is `prefix`. `FR-` also starts `FR-BRE-` and `FR-20R-`,
+/// whose next part is not all digits; any other file in the directory is
+/// left alone.
+fn is_pack_of(name: &str, prefix: &str) -> bool {
+    name.strip_prefix(prefix).is_some_and(is_pack_tail)
+}
+
+/// Whether the file `name` is a pack of some region. A code holds dashes
+/// too (`FR-BRE`), so each dash is tried as the end of the code.
+fn is_pack_name(name: &str) -> bool {
+    name.match_indices('-').any(|(i, _)| {
+        let (code, rest) = (&name[..i], &name[i + 1..]);
+        !code.is_empty()
+            && code
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'-')
+            && is_pack_tail(rest)
+    })
+}
+
+/// Removes every pack file of `dir` that `recorded` (the `file` column of
+/// `region_packs`) does not name.
+async fn remove_unrecorded(dir: &Path, recorded: &[String]) -> Result<Vec<String>, PackError> {
+    let io = |source| PackError::Io {
+        path: dir.to_owned(),
+        source,
+    };
+    let mut removed = Vec::new();
+    let mut entries = tokio::fs::read_dir(dir).await.map_err(io)?;
+    while let Some(entry) = entries.next_entry().await.map_err(io)? {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let named = recorded
+            .iter()
+            .any(|f| f.strip_prefix("places/") == Some(name.as_str()));
+        if is_pack_name(&name) && !named {
+            remove_file(&entry.path()).await?;
+            removed.push(name);
+        }
+    }
+    removed.sort_unstable();
+    Ok(removed)
 }
 
 /// Removes every file of `region`.
@@ -771,6 +846,7 @@ async fn remove_older(
             removed.push(name);
         }
     }
+    removed.sort_unstable();
     Ok(removed)
 }
 
@@ -788,14 +864,16 @@ mod tests {
         assert!(!is_pack_of("FR-BRE-18415-4f2777014568.sqlite.gz", "FR-"));
         assert!(is_pack_of("FR-20R-18415-5649afa75e53.sqlite.gz", "FR-20R-"));
         assert!(!is_pack_of("FR-20R.sqlite.building", "FR-20R-"));
+        assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.partial", "FR-"));
+        assert!(is_pack_name("FR-20R-18415-5649afa75e53.sqlite.gz"));
+        assert!(is_pack_name("FR-18415-c2f0d06ad6d6.sqlite.gz"));
+        assert!(is_pack_name("ES-7-c2f0d06ad6d6.sqlite.gz"));
+        assert!(!is_pack_name("-7-c2f0d06ad6d6.sqlite.gz"));
         assert!(
-            is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.partial", "FR-"),
-            "a write that failed leaves a file a takedown must remove"
+            !is_pack_name("fr-7-c2f0d06ad6d6.sqlite.gz"),
+            "only the names a build gives"
         );
-        assert!(!is_pack_of(
-            "FR-20R-18415-5649afa75e53.sqlite.partial",
-            "FR-"
-        ));
+        assert!(!is_pack_name("notes.txt"));
         assert!(!is_pack_of("FR-18415-c2f0d06ad6d6.sqlite.gz.bak", "FR-"));
         assert!(!is_pack_of("FR-18415-notes.sqlite.gz", "FR-"));
     }

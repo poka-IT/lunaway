@@ -349,6 +349,7 @@ const BUILD_LOCK: i64 = 0x6c75_6e61_7061_636b;
 /// The pack builders' lock, held for a whole build: a daily build that took
 /// its snapshot before a takedown would otherwise record, after it, a pack
 /// that still holds the place taken down.
+#[must_use = "the lock is held while this value lives"]
 pub struct BuildLock(PgConnection);
 
 impl std::fmt::Debug for BuildLock {
@@ -361,13 +362,19 @@ impl BuildLock {
     /// Waits for the lock, on a connection taken out of the pool: a
     /// session lock on a pooled connection would outlive a build that
     /// failed, while a process that dies closes this connection and frees
-    /// the lock.
+    /// the lock. It waits up to half an hour whatever the role's
+    /// `statement_timeout` (10 minutes for the import role): a takedown
+    /// started during a build waits for it rather than failing.
     ///
     /// # Errors
     ///
     /// [`DbError`] when no connection is available or the lock fails.
     pub async fn acquire(pool: &PgPool) -> Result<Self, DbError> {
         let mut conn = pool.acquire().await?.detach();
+        // The connection is closed after the build: no need to restore it.
+        sqlx::query!("SET statement_timeout = '30min'")
+            .execute(&mut conn)
+            .await?;
         sqlx::query!("SELECT pg_advisory_lock($1)", BUILD_LOCK)
             .execute(&mut conn)
             .await?;

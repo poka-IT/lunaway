@@ -373,13 +373,16 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   (byte ranges, a year of cache: a file never changes under its name), and
   `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`. The route
   serves only names of the form
-  `^/packs/places/[A-Z0-9-]+-[0-9]+-[0-9a-f]{12}\.sqlite\.gz$`, so a
-  file a failed write left (`.sqlite.partial`) is never served. After a
-  place is taken down, `lunaway packs build --region <code> --takedown`
-  rebuilds its region and every region whose pack is behind, and removes
-  every previous file at once (a region left without a live place loses
-  its pack and its files). Builds take an advisory lock: a takedown run
-  during the daily build waits for it.
+  `^/packs/places/[A-Z0-9-]+-[0-9]+-[0-9a-f]{12}\.sqlite\.gz$` (the
+  build writes its work files in `/srv/data/packs/.work/`, never served),
+  and the access log masks them as `/packs/places/[pack]`, since a pack
+  names the region a traveller is heading for. After a place is taken down
+  (its tombstone in the feed), `lunaway packs build --region <code>
+  --takedown` rebuilds its region and every region whose pack is behind,
+  and removes every pack file the manifest does not name (a region left
+  without a live place loses its pack and its files). Builds take an
+  advisory lock: a takedown run during the daily build waits for it, up to
+  half an hour.
 - **Once, at the deployment:** `lunaway conflate --full`, so a place only
   the community describes gets the country of its position, hence a sync
   region.

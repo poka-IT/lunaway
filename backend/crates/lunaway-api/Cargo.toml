@@ -33,13 +33,14 @@ tower-http.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+# The raw database of a pack, removed whatever happens to the build.
+tempfile.workspace = true
 
 [dev-dependencies]
 lunaway-conflate.workspace = true
 lunaway-ingest.workspace = true
 p256.workspace = true
 sqlx.workspace = true
-tempfile.workspace = true
 tower.workspace = true
 
 [lints]

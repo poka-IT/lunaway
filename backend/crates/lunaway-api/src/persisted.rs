@@ -40,9 +40,9 @@ use crate::client::ClientKey;
 /// Documents kept at most: the app names 41 operations (`app/lib`,
 /// 2026-10-06).
 pub const MAX_ENTRIES: usize = 512;
-/// New documents kept per minute, all clients together: the app's twenty
-/// after a restart fit in the first minute; a flood needs over eight
-/// minutes to replace the whole registry.
+/// New documents kept per minute, all clients together: a flood needs over
+/// eight minutes to replace the whole registry, and the documents the app's
+/// devices keep using stay the most recent.
 pub const NEW_PER_MINUTE: u32 = 60;
 /// New documents kept per minute from one client: a device that runs more
 /// new operations in a minute sends the others whole until a later minute

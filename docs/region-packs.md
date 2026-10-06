@@ -77,14 +77,17 @@ pack of a region stays served until the next build, so a device that read
 the manifest just before a build still finds its file. A region left
 without a live place loses its pack (`pack` null) and every file of it at
 the next build, previous file included: nothing of the region remains to
-serve. After a place is taken down (personal data, a court order),
-`lunaway packs build --region <code> --takedown` rebuilds its region, and
-every region whose pack is behind (the place may have left one), and
-removes every previous file at once; a device that reads a file the
-manifest no longer names gets a 404 and reads the manifest again. A code
-that is not a sync region fails the command. One build runs at a time: a
-takedown started during the daily build waits for it, then removes what it
-wrote.
+serve. After a place is taken down (personal data, a court order), and
+once its tombstone is in the change feed (written by the worker, or under
+the writers' lock with a new `updated_seq`), `lunaway packs build
+--region <code> --takedown` rebuilds its region, and every region whose
+pack is behind (the place may have left one), and removes every pack file
+the manifest does not name; a device that reads a file the manifest no
+longer names gets a 404 and reads the manifest again. A code that is not a
+sync region fails the command. One build runs at a time: a takedown
+started during the daily build waits for it (half an hour at most), then
+removes what it wrote. A build writes its files in `.work/`, beside
+`places/` and never served, and clears what a stopped build left there.
 
 Before using the file, the device checks its size against `bytes` and its
 SHA-256 against `sha256`, then decompresses it (gzip) to a temporary file
