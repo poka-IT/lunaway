@@ -260,7 +260,7 @@ class _PreviewMap extends ConsumerWidget {
         : ref.watch(placesNearRouteProvider(line)).value ?? const <PlaceSummary>[];
     final points = RoutePoints(
       places: places,
-      stations: ref.watch(shownFuelOffersProvider),
+      stations: ref.watch(shownFuelOffersProvider(line)),
       stops: p?.stops ?? const [],
     );
     final now = ref.watch(clockProvider)();
@@ -486,8 +486,13 @@ Future<void> openPreviewPoint(
   switch (choice) {
     case AddStopChoice(:final quote):
       changeStops(context, ref, target, quote.stops, t.navigation.stops.added);
-    case RemoveStopChoice(:final index):
-      changeStops(context, ref, target, [...stops]..removeAt(index), t.navigation.stops.removed);
+    case RemoveStopChoice(:final stop):
+      // The marks are those of the route on screen, the list may have
+      // moved on since: the stop is taken out of the list as it is now.
+      final now = ref.read(routeStopsControllerProvider(target));
+      if (now.contains(stop)) {
+        changeStops(context, ref, target, [...now]..remove(stop), t.navigation.stops.removed);
+      }
     case GoDirectlyChoice():
       unawaited(
         router.pushReplacement<void>(
@@ -889,6 +894,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       showMessage(messenger, t.navigation.guidance.unavailable);
       return;
     }
+    // An "undo" of the preview's stops has nothing left to undo once the
+    // guidance runs with them.
+    messenger?.clearSnackBars();
     unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
   }
 }

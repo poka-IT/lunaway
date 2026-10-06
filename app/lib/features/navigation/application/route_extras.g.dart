@@ -62,7 +62,7 @@ final class RouteStopsControllerProvider
 }
 
 String _$routeStopsControllerHash() =>
-    r'708e88b5bd24e520b3681e2c23c8df61176cd50f';
+    r'e4d1279f16e1ff72f63124a8ae64680218413cf6';
 
 /// The stops on the way to [target], in order, as the preview edits them.
 
@@ -364,31 +364,38 @@ final class FuelOffersFamily extends $Family
   String toString() => r'fuelOffersProvider';
 }
 
-/// The stations the fuel list showed last, drawn on the route map so they
-/// can be tapped there too.
+/// The stations the fuel list showed last for the route [line], drawn on
+/// its map so they can be tapped there too; another route starts without.
 
 @ProviderFor(ShownFuelOffers)
-final shownFuelOffersProvider = ShownFuelOffersProvider._();
+final shownFuelOffersProvider = ShownFuelOffersFamily._();
 
-/// The stations the fuel list showed last, drawn on the route map so they
-/// can be tapped there too.
+/// The stations the fuel list showed last for the route [line], drawn on
+/// its map so they can be tapped there too; another route starts without.
 final class ShownFuelOffersProvider
     extends $NotifierProvider<ShownFuelOffers, List<FuelOffer>> {
-  /// The stations the fuel list showed last, drawn on the route map so they
-  /// can be tapped there too.
-  ShownFuelOffersProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'shownFuelOffersProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
+  /// The stations the fuel list showed last for the route [line], drawn on
+  /// its map so they can be tapped there too; another route starts without.
+  ShownFuelOffersProvider._({
+    required ShownFuelOffersFamily super.from,
+    required List<LatLng> super.argument,
+  }) : super(
+         retry: null,
+         name: r'shownFuelOffersProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
 
   @override
   String debugGetCreateSourceHash() => _$shownFuelOffersHash();
+
+  @override
+  String toString() {
+    return r'shownFuelOffersProvider'
+        ''
+        '($argument)';
+  }
 
   @$internal
   @override
@@ -401,15 +408,59 @@ final class ShownFuelOffersProvider
       providerOverride: $SyncValueProvider<List<FuelOffer>>(value),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ShownFuelOffersProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
 }
 
-String _$shownFuelOffersHash() => r'a00b18ad541426473234d4e8b9d3cbbfe4e4a2ef';
+String _$shownFuelOffersHash() => r'27bb3b0b2d3fa10d4d40ed0d2149bb2ff04937f1';
 
-/// The stations the fuel list showed last, drawn on the route map so they
-/// can be tapped there too.
+/// The stations the fuel list showed last for the route [line], drawn on
+/// its map so they can be tapped there too; another route starts without.
+
+final class ShownFuelOffersFamily extends $Family
+    with
+        $ClassFamilyOverride<
+          ShownFuelOffers,
+          List<FuelOffer>,
+          List<FuelOffer>,
+          List<FuelOffer>,
+          List<LatLng>
+        > {
+  ShownFuelOffersFamily._()
+    : super(
+        retry: null,
+        name: r'shownFuelOffersProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The stations the fuel list showed last for the route [line], drawn on
+  /// its map so they can be tapped there too; another route starts without.
+
+  ShownFuelOffersProvider call(List<LatLng> line) =>
+      ShownFuelOffersProvider._(argument: line, from: this);
+
+  @override
+  String toString() => r'shownFuelOffersProvider';
+}
+
+/// The stations the fuel list showed last for the route [line], drawn on
+/// its map so they can be tapped there too; another route starts without.
 
 abstract class _$ShownFuelOffers extends $Notifier<List<FuelOffer>> {
-  List<FuelOffer> build();
+  late final _$args = ref.$arg as List<LatLng>;
+  List<LatLng> get line => _$args;
+
+  List<FuelOffer> build(List<LatLng> line);
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
@@ -422,7 +473,7 @@ abstract class _$ShownFuelOffers extends $Notifier<List<FuelOffer>> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, build);
+    return element.handleCreate(ref, () => build(_$args));
   }
 }
 

@@ -238,7 +238,7 @@ class _GuidanceMap extends ConsumerWidget {
         : ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[];
     final points = RoutePoints(
       places: places,
-      stations: ref.watch(shownFuelOffersProvider),
+      stations: ref.watch(shownFuelOffersProvider(route.line)),
       stops: session.stops,
     );
     final now = ref.watch(clockProvider)();
@@ -278,39 +278,42 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final controller = ref.read(guidanceControllerProvider.notifier);
-  final session = ref.read(guidanceControllerProvider);
-  if (session == null) return;
+  final opened = ref.read(guidanceControllerProvider);
+  if (opened == null) return;
   final choice = await showRoutePointCard(
     context,
     point: point,
     quote: controller.quoteStop,
-    stopsFull: session.stops.length >= maxRouteStops,
+    stopsFull: opened.stops.length >= maxRouteStops,
   );
+  // The vehicle went on while the card was open: a stop may be behind now.
+  // Each change, and its way back, works on the stops of its own moment.
+  final session = ref.read(guidanceControllerProvider);
+  if (session == null) return;
   switch (choice) {
     case AddStopChoice(:final quote):
-      final before = session.stops;
-      _said(
+      await _said(
         messenger,
         t,
-        ok: await controller.applyQuote(quote),
+        action: () => controller.applyQuote(quote),
         done: t.navigation.stops.added,
-        undo: () => controller.setStops(before),
+        undo: () => controller.removeStop(quote.stop),
       );
-    case RemoveStopChoice(:final index):
+    case RemoveStopChoice(:final stop):
       final before = session.stops;
-      _said(
+      await _said(
         messenger,
         t,
-        ok: await controller.setStops([...before]..removeAt(index)),
+        action: () => controller.removeStop(stop),
         done: t.navigation.stops.removed,
-        undo: () => controller.setStops(before),
+        undo: () => controller.restoreStop(stop, before),
       );
     case GoDirectlyChoice():
       final (target, stops) = (session.target, session.stops);
-      _said(
+      await _said(
         messenger,
         t,
-        ok: await controller.goTo(
+        action: () => controller.goTo(
           RouteTarget(destination: point.position, label: point.title, placeId: point.placeId),
         ),
         done: t.navigation.stops.destinationChanged,
@@ -333,25 +336,41 @@ Future<void> addGuidanceStop(BuildContext context, WidgetRef ref, RouteStop stop
     showMessage(messenger, t.navigation.stops.full);
     return;
   }
-  final quote = await controller.quoteStop(stop);
-  _said(
+  await _said(
     messenger,
     t,
-    ok: quote != null && quote.extraS != null && await controller.applyQuote(quote),
+    action: () async {
+      final quote = await controller.quoteStop(stop);
+      return quote != null && quote.extraS != null && await controller.applyQuote(quote);
+    },
     done: t.navigation.stops.added,
-    undo: () => controller.setStops(before),
+    undo: () => controller.removeStop(stop),
   );
 }
 
-void _said(
+/// Runs [action], then says it is [done] with its [undo], or why it failed:
+/// no network is told apart from a route that could not be changed.
+Future<void> _said(
   ScaffoldMessengerState? messenger,
   Translations t, {
-  required bool ok,
+  required Future<bool> Function() action,
   required String done,
   required Future<bool> Function() undo,
-}) {
-  if (!ok) {
-    showMessage(messenger, t.navigation.stops.failed);
+}) async {
+  Future<String?> attempt(Future<bool> Function() run) async {
+    try {
+      // While a new route is on its way a change waits; say so.
+      return await run() ? null : t.navigation.stops.failed;
+    } on RouteFailure catch (f) {
+      return f.kind == RouteFailureKind.offline
+          ? t.navigation.stops.offline
+          : t.navigation.stops.failed;
+    }
+  }
+
+  final problem = await attempt(action);
+  if (problem != null) {
+    showMessage(messenger, problem);
     return;
   }
   showMessage(
@@ -360,8 +379,7 @@ void _said(
     action: SnackBarAction(
       label: t.common.undo,
       onPressed: () async {
-        // While a new route is on its way the way back waits; say so.
-        if (!await undo()) showMessage(messenger, t.navigation.stops.failed);
+        if (await attempt(undo) case final problem?) showMessage(messenger, problem);
       },
     ),
   );
@@ -526,8 +544,12 @@ class _Notices extends ConsumerWidget {
       _ => null,
     };
     final now = ref.watch(clockProvider)().toLocal();
-    final zone = session.dangerZone;
     final along = session.snapshot?.distanceAlongM ?? 0;
+    // Checked again only every few seconds: the banner ends with the zone.
+    final zone = switch (session.dangerZone) {
+      final z? when along <= z.startM + z.lengthM => z,
+      _ => null,
+    };
     final notices = <Widget>[
       if (zone != null)
         _Notice(

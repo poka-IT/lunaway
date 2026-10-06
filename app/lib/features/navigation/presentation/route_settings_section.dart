@@ -142,6 +142,23 @@ class _ConsumptionTileState extends State<ConsumptionTile> {
   final _text = TextEditingController();
   final _focus = FocusNode();
 
+  /// A typed value the settings refuse: said under the field, never saved.
+  bool _outOfRange = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      // Left with a refused value: the field shows the one kept.
+      if (!_focus.hasFocus && _outOfRange) {
+        setState(() {
+          _outOfRange = false;
+          _text.text = _format(widget.litres);
+        });
+      }
+    });
+  }
+
   String _format(double litres) =>
       NumberFormat('0.#', context.t.$meta.locale.languageCode).format(litres);
 
@@ -175,18 +192,32 @@ class _ConsumptionTileState extends State<ConsumptionTile> {
       subtitle: Text(t.navigation.settings.consumptionHint),
       trailing: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 96, maxWidth: 150),
-        child: TextField(
-          controller: _text,
-          focusNode: _focus,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textAlign: TextAlign.end,
-          decoration: InputDecoration(suffixText: t.navigation.settings.consumptionUnit),
-          onChanged: (raw) {
-            final litres = double.tryParse(raw.replaceAll(',', '.'));
-            if (litres != null && litres >= range.min && litres <= range.max) {
-              widget.onChanged(litres);
-            }
-          },
+        // The field's own name for a screen reader: the tile's title is
+        // another node.
+        child: Semantics(
+          label: t.navigation.settings.consumption,
+          child: TextField(
+            controller: _text,
+            focusNode: _focus,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.end,
+            decoration: InputDecoration(
+              suffixText: t.navigation.settings.consumptionUnit,
+              errorText: _outOfRange
+                  ? t.navigation.settings.consumptionRange(
+                      min: _format(range.min),
+                      max: _format(range.max),
+                    )
+                  : null,
+              errorMaxLines: 3,
+            ),
+            onChanged: (raw) {
+              final litres = double.tryParse(raw.replaceAll(',', '.').trim());
+              final ok = litres != null && litres >= range.min && litres <= range.max;
+              if (ok) widget.onChanged(litres);
+              if (ok == _outOfRange) setState(() => _outOfRange = !ok);
+            },
+          ),
         ),
       ),
     );

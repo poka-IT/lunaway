@@ -560,7 +560,8 @@
       "fuel": "Vehicle fuel",
       "consumption": "Consumption",
       "consumptionUnit": "L/100 km",
-      "consumptionHint": "To weigh the detour to a cheaper station."
+      "consumptionHint": "To weigh the detour to a cheaper station.",
+      "consumptionRange": "Between $min and $max L/100 km"
     }
   },
   "list": {

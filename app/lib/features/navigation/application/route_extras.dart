@@ -20,8 +20,11 @@ class RouteStopsController extends _$RouteStopsController {
   @override
   List<RouteStop> build(RouteTarget target) => const [];
 
-  /// The stops, [maxRouteStops] at most.
-  void set(List<RouteStop> stops) => state = List.unmodifiable(stops.take(maxRouteStops));
+  /// The stops, [maxRouteStops] at most. An undo that comes after the
+  /// preview closed (its message stays a few seconds) changes nothing.
+  void set(List<RouteStop> stops) {
+    if (ref.mounted) state = List.unmodifiable(stops.take(maxRouteStops));
+  }
 }
 
 /// How far from the route a place still shows on its map, metres.
@@ -120,12 +123,12 @@ Future<List<FuelOffer>> fuelOffers(Ref ref, FuelQuery query) async {
   return rankOffers(offers, consumptionL100: await consumptionFuture);
 }
 
-/// The stations the fuel list showed last, drawn on the route map so they
-/// can be tapped there too.
+/// The stations the fuel list showed last for the route [line], drawn on
+/// its map so they can be tapped there too; another route starts without.
 @riverpod
 class ShownFuelOffers extends _$ShownFuelOffers {
   @override
-  List<FuelOffer> build() => const [];
+  List<FuelOffer> build(List<LatLng> line) => const [];
 
   void show(List<FuelOffer> offers) => state = offers;
 }

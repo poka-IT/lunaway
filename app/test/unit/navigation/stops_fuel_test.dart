@@ -1,18 +1,25 @@
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 
+import '../../helpers/fakes.dart';
 import '../../helpers/navigation.dart';
 
 /// A straight road east along the 45th parallel, 10 km long.
@@ -165,6 +172,60 @@ void main() {
       expect(o.detourEstimated, isTrue);
       // 55 m off the road: 2 x 55 m x 1.3 by road.
       expect(o.detourM, closeTo(143, 5));
+    });
+  });
+
+  group('the places by the route', () {
+    /// [metres] east of the meridian 1°E at [lat].
+    Place at(String id, double lat, double metres) => Place(
+      id: id,
+      kind: PlaceKind.motorhomeArea,
+      lat: lat,
+      lon: 1 + metres / (111195 * 0.7071),
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026),
+    );
+
+    // North along 1°E for 55 km, then 3 km east: four stretches of 15 km.
+    final line = [
+      for (var i = 0; i <= 100; i++) LatLng(45 + i * 0.005, 1),
+      for (var i = 1; i <= 10; i++) LatLng(45.5, 1 + i * 0.004),
+    ];
+
+    Future<List<PlaceSummary>> near(List<Place> places) async {
+      final container = ProviderContainer.test(
+        overrides: [
+          placesRepositoryProvider.overrideWithValue(FakePlacesRepository(places)),
+          effectiveFilterProvider.overrideWithValue(PlaceFilter.none),
+        ],
+      );
+      return await container.read(placesNearRouteProvider(line).future);
+    }
+
+    test('come from the whole route, not only around its middle, each once', () async {
+      final found = await near([
+        at('start', 45.01, 100),
+        // Where the first stretch ends and the second begins: in both.
+        at('boundary', 45.135, 200),
+        at('end', 45.49, 300),
+        // A crowd in the middle (the third stretch), more than one query
+        // returns around it.
+        for (var i = 0; i < 250; i++) at('crowd-$i', 45.33 + i * 0.00001, 400),
+      ]);
+      final ids = [for (final p in found) p.id];
+      expect(ids.take(3), ['start', 'boundary', 'end']);
+      expect(ids.toSet(), hasLength(ids.length), reason: 'a place shows once');
+      expect(ids, hasLength(120), reason: 'the nearest 120');
+    });
+
+    test('farther than 800 m from the road, a place in its box is left out', () async {
+      final found = await near([
+        at('by the road', 45.45, 700),
+        // Inside the box of the last stretch, which turns east: 2 km from
+        // both of its legs.
+        at('in the corner', 45.48, 2700),
+      ]);
+      expect([for (final p in found) p.id], ['by the road']);
     });
   });
 

@@ -2016,6 +2016,9 @@ class Translations$navigation$settings$en {
 
 	/// en: 'To weigh the detour to a cheaper station.'
 	String get consumptionHint => 'To weigh the detour to a cheaper station.';
+
+	/// en: 'Between $min and $max L/100 km'
+	String consumptionRange({required Object min, required Object max}) => 'Between ${min} and ${max} L/100 km';
 }
 
 // Path: vehicle.types
@@ -2588,6 +2591,7 @@ extension on Translations {
 			'navigation.settings.consumption' => 'Consumption',
 			'navigation.settings.consumptionUnit' => 'L/100 km',
 			'navigation.settings.consumptionHint' => 'To weigh the detour to a cheaper station.',
+			'navigation.settings.consumptionRange' => ({required Object min, required Object max}) => 'Between ${min} and ${max} L/100 km',
 			'list.title' => 'Places around',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -2654,9 +2658,9 @@ extension on Translations {
 			'profile.offlineSize' => ({required Object size}) => 'Storage used: ${size}',
 			'profile.lastSync' => ({required Object when}) => 'Last update ${when}',
 			'profile.neverSynced' => 'Never downloaded',
-			'profile.syncNow' => 'Update now',
 			_ => null,
 		} ?? switch (path) {
+			'profile.syncNow' => 'Update now',
 			'profile.syncing' => 'Updating',
 			'profile.about' => 'About',
 			'profile.version' => ({required Object version}) => 'Version ${version}',

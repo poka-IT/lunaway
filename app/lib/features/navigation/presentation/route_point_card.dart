@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -25,6 +26,7 @@ final class RoutePoint {
     this.placeId,
     this.poiId,
     this.stopIndex,
+    this.credit,
   });
 
   final LatLng position;
@@ -39,6 +41,9 @@ final class RoutePoint {
 
   /// Its place among the route's stops, when it is one already.
   final int? stopIndex;
+
+  /// Where what the card says comes from (a station's price).
+  final String? credit;
 
   RouteStop get stop => RouteStop(position: position, label: title, placeId: placeId, poiId: poiId);
 }
@@ -57,9 +62,9 @@ final class AddStopChoice extends RoutePointChoice {
 
 /// Take the stop out of the route.
 final class RemoveStopChoice extends RoutePointChoice {
-  const new(this.index);
+  const new(this.stop);
 
-  final int index;
+  final RouteStop stop;
 }
 
 /// Go to the point instead of the destination, without the stops.
@@ -85,6 +90,9 @@ Future<RoutePointChoice?> showRoutePointCard(
   required bool stopsFull,
 }) => showModalBottomSheet<RoutePointChoice>(
   context: context,
+  // A phone on its side in the cab, or large text: the card scrolls
+  // rather than hide its last actions.
+  isScrollControlled: true,
   showDragHandle: true,
   builder: (context) => RoutePointCard(point: point, quote: quote, stopsFull: stopsFull),
 );
@@ -130,11 +138,11 @@ class _RoutePointCardState extends State<RoutePointCard> {
   @override
   void initState() {
     super.initState();
-    if (!widget.stopsFull && !_isStop) unawaited(_ask());
+    _quoting = !widget.stopsFull && !_isStop;
+    if (_quoting) unawaited(_ask());
   }
 
   Future<void> _ask() async {
-    setState(() => _quoting = true);
     StopQuote? quote;
     String Function(Translations t)? problem;
     try {
@@ -170,14 +178,14 @@ class _RoutePointCardState extends State<RoutePointCard> {
     final scheme = theme.colorScheme;
     final point = widget.point;
     final title = point.title ?? t.navigation.stops.point;
-    final where =
-        '${point.position.lat.toStringAsFixed(5)}, ${point.position.lon.toStringAsFixed(5)}';
+    final degrees = NumberFormat('0.00000', t.$meta.locale.languageCode);
+    final where = '${degrees.format(point.position.lat)} · ${degrees.format(point.position.lon)}';
     final quote = _quote;
     final canAdd = !widget.stopsFull && !_quoting && _problem == null && quote != null;
     final hint = widget.stopsFull ? t.navigation.stops.full : _problem?.call(t);
     final index = point.stopIndex;
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.l),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -189,10 +197,17 @@ class _RoutePointCardState extends State<RoutePointCard> {
               point.subtitle ?? where,
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            if (point.credit case final credit?) ...[
+              const SizedBox(height: Space.xxs),
+              Text(
+                credit,
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
             const SizedBox(height: Space.l),
             if (index != null)
               FilledButton.icon(
-                onPressed: () => Navigator.pop(context, RemoveStopChoice(index)),
+                onPressed: () => Navigator.pop(context, RemoveStopChoice(point.stop)),
                 icon: const Icon(AppIcons.close),
                 label: Text(t.navigation.stops.remove),
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),

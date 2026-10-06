@@ -40,7 +40,9 @@ query FuelNear($at: LatLonInput!, $radiusM: Float!) {
 /// [FuelStationsSource] until the server searches along a route: the
 /// stations around a few points of the route ahead, their detour reckoned
 /// from their distance to it (there and back, a third longer by road, at
-/// 50 km/h). Marked as estimated.
+/// 50 km/h). Marked as estimated. The server gives the 10 nearest stations
+/// of each point (`perCategory` at most): in a town, a cheaper one a little
+/// further can be left out.
 final class NearbyFuelStations implements FuelStationsSource {
   new(this._client);
 

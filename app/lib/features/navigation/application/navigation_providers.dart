@@ -302,18 +302,19 @@ class RoutePreviewController extends _$RoutePreviewController {
     final stops = insertStop(base, at, stop);
     // The settings and the language the build reads: the request is the
     // one the build makes once the stop is added, and its answer is reused.
+    final language = RouteLanguage.of(ref.read(routeLanguageCodeProvider));
+    final service = ref.read(routeServiceProvider);
     final settings = await ref.read(routeSettingsControllerProvider.future);
-    final next = await ref
-        .read(routeServiceProvider)
-        .route(
-          _request(
-            origin: origin,
-            vehicle: profile,
-            avoid: settings.avoid,
-            language: RouteLanguage.of(ref.read(routeLanguageCodeProvider)),
-            stops: stops,
-          ),
-        );
+    if (!ref.mounted) return null;
+    final next = await service.route(
+      _request(
+        origin: origin,
+        vehicle: profile,
+        avoid: settings.avoid,
+        language: language,
+        stops: stops,
+      ),
+    );
     final before = current.route;
     final after = next.routes.firstOrNull;
     final comparable = before != null && after != null && next.status == RouteStatus.ok;

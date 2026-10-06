@@ -61,11 +61,12 @@ void main() {
       FakeFuelStations? fuel,
       MemoryRouteSettings? settings,
       bool cached = false,
+      Size size = tallPhone,
     }) async {
       routes = FakeRouteService(answers ?? [routeFixture('utrillo_motorhome')]);
       final app = await pumpLunaway(
         tester,
-        size: tallPhone,
+        size: size,
         overrides: navigationOverrides(
           routes: routes,
           placesNearRoute: places,
@@ -153,6 +154,27 @@ void main() {
       expect(find.text('Vers Aire de la rue Utrillo'), findsWidgets, reason: 'the preview stays');
     });
 
+    testWidgets('the card scrolls on a phone on its side, its last action in reach', (
+      tester,
+    ) async {
+      const lake = PlaceSummary(
+        id: 'test-lake',
+        kind: PlaceKind.motorhomeArea,
+        lat: 45.8462,
+        lon: 1.2828,
+        overnight: OvernightStatus.allowed,
+        name: 'Aire du Lac Bleu (démo)',
+      );
+      await preview(tester, places: [lake], size: const Size(800, 360));
+      SchematicRouteMap.last!.onMarkTap!('place:test-lake');
+      await settleShort(tester);
+      await tester.ensureVisible(find.text('Voir la fiche'));
+      await settleShort(tester);
+      await tester.tap(find.text('Voir la fiche'));
+      await settleShort(tester);
+      expect(find.byType(PlaceDetails), findsOneWidget);
+    });
+
     testWidgets('a stop on the map is taken out from its card', (tester) async {
       final app = await preview(tester);
       const a = RouteStop(position: LatLng(45.846, 1.283), label: 'Étape A');
@@ -195,6 +217,29 @@ void main() {
       await tester.tap(find.text('Annuler'));
       await settleShort(tester);
       expect(find.text('Étape A'), findsOneWidget);
+      expect(routes.requests.last.stops, [a.position, b.position]);
+    });
+
+    testWidgets('a stop dragged below the next one changes their order, undoable', (tester) async {
+      final app = await preview(tester);
+      const a = RouteStop(position: LatLng(45.846, 1.283), label: 'Étape A');
+      const b = RouteStop(position: LatLng(45.845, 1.285), label: 'Étape B');
+      app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([a, b]);
+      await settleShort(tester);
+      final handle = find.byTooltip("Glisser pour changer l'ordre").first;
+      final drag = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 8; i++) {
+        await drag.moveBy(const Offset(0, 10));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await drag.up();
+      await settleShort(tester);
+      expect(app.container(tester).read(routeStopsControllerProvider(utrillo)), [b, a]);
+      expect(routes.requests.last.stops, [b.position, a.position]);
+      expect(find.text('Ordre des étapes changé'), findsOneWidget);
+      await tester.tap(find.text('Annuler'));
+      await settleShort(tester);
       expect(routes.requests.last.stops, [a.position, b.position]);
     });
 
@@ -252,6 +297,7 @@ void main() {
       feed = FakeLocationFeed(position: plan.routes.first.line.first);
       final app = await pumpLunaway(
         tester,
+        size: tallPhone,
         overrides: navigationOverrides(
           routes: routes,
           feed: feed,
@@ -311,6 +357,67 @@ void main() {
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
       expect(routes.requests.last.stops, isEmpty);
+    });
+
+    testWidgets('without network, the fuel list says why the station is not added', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final app = await guide(
+        tester,
+        plan,
+        answers: [const RouteFailure(RouteFailureKind.offline)],
+        fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
+      );
+      await drive(tester, plan, toM: 500);
+      await tester.tap(find.byTooltip('Carburant le moins cher devant'));
+      await settleShort(tester);
+      await tester.tap(find.text('Ajouter'));
+      await settleShort(tester);
+      expect(find.text('Pas de réseau pour calculer le détour.'), findsOneWidget);
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
+    });
+
+    testWidgets('a detour priced from too far behind is priced again from where the vehicle is', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final detour = routeFixture('closure_detour');
+      final track = LineTrack(plan.routes.first);
+      final app = await guide(tester, plan, answers: [detour], more: [detour, detour]);
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onLongPress!(track.at(2500));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(1), reason: 'the card prices the stop');
+      // The card stays open while the vehicle drives on 500 m.
+      await drive(tester, plan, toM: 800);
+      await tester.tap(find.textContaining('Ajouter une étape'));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(2), reason: 'priced again, then that route taken');
+      expect(routes.requests.last.origin.distanceTo(track.at(800)), lessThan(15));
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, hasLength(1));
+    });
+
+    testWidgets("a stop passed while the next one's card is open: only that one goes", (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final track = LineTrack(plan.routes.first);
+      final a = RouteStop(position: track.at(800), label: 'Pause');
+      final b = RouteStop(position: track.at(2000), label: 'Fontaine');
+      final app = await guide(tester, plan, answers: [plan], more: [plan, plan], stops: [a, b]);
+      List<RouteStop> stops() => app.container(tester).read(guidanceControllerProvider)!.stops;
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onMarkTap!('stop:1');
+      await settleShort(tester);
+      await drive(tester, plan, toM: 900);
+      expect(stops(), [b], reason: 'the first stop is behind');
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(stops(), isEmpty);
+      expect(routes.requests.last.stops, isEmpty, reason: 'no way back to the first stop');
+      await tester.tap(find.text('Annuler'));
+      await settleShort(tester);
+      expect(stops(), [b]);
+      expect(routes.requests.last.stops, [b.position]);
     });
 
     testWidgets('a stop is left behind once the vehicle has been there', (tester) async {
@@ -373,6 +480,17 @@ void main() {
       await drive(tester, plan, toM: 1000);
       expect(find.text('Zone de danger dans 500 m'), findsOneWidget);
     });
+
+    testWidgets('in the zone the banner says so, and it ends with the zone', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, zone: const OneDangerZone(startM: 1000, lengthM: 300));
+      await drive(tester, plan, toM: 1100);
+      expect(find.text('Zone de danger'), findsOneWidget);
+      // Past its end, before the next check of the zones.
+      await drive(tester, plan, toM: 1350);
+      expect(find.text('Zone de danger'), findsNothing);
+      expect(find.textContaining('Zone de danger dans'), findsNothing);
+    });
   });
 
   testWidgets('the profile keeps the fuel and the consumption', (tester) async {
@@ -392,5 +510,9 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, '11'), '13,5');
     await settleShort(tester);
     expect(settings.value.consumptionL100, 13.5);
+    await tester.enterText(find.widgetWithText(TextField, '13,5'), '45');
+    await settleShort(tester);
+    expect(find.text('Entre 4 et 40 L/100 km'), findsOneWidget);
+    expect(settings.value.consumptionL100, 13.5, reason: 'a refused value is not kept');
   });
 }

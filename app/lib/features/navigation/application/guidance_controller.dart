@@ -356,7 +356,8 @@ class GuidanceController extends _$GuidanceController {
 
   /// The route with [stop] added where it lengthens the rest of the trip
   /// the least, from where the vehicle is, and what it adds; null without a
-  /// position yet, or with no room for another stop.
+  /// position yet, or with no room for another stop. Throws a
+  /// [RouteFailure] when the route could not be asked for.
   Future<StopQuote?> quoteStop(RouteStop stop) async {
     final s = state;
     final fix = s?.lastFix;
@@ -379,6 +380,7 @@ class GuidanceController extends _$GuidanceController {
       stops: stops,
       base: s.stops,
       from: fix.position,
+      routeVersion: s.reroutes,
       plan: plan,
       extraS: comparable ? after.durationS - before.durationRemainingS : null,
       extraM: comparable ? after.distanceM - before.distanceRemainingM : null,
@@ -386,24 +388,63 @@ class GuidanceController extends _$GuidanceController {
   }
 
   /// Takes the route of [quote]: its stop is added. A quote made before a
-  /// stop was passed, or from too far behind, is made again first. False
-  /// when it could not be (a recalculation running, the guidance over).
+  /// stop was passed, on another route, or from too far behind, is made
+  /// again first. False when it could not be (a recalculation running, the
+  /// guidance over); throws a [RouteFailure] when the new quote could not be
+  /// asked for.
   Future<bool> applyQuote(StopQuote quote) async {
     final s = state;
     final fix = s?.lastFix;
     if (s == null || fix == null) return false;
     final from = quote.from;
+    final version = quote.routeVersion;
     final stale =
         !listEquals(quote.base, s.stops) ||
+        (version != null && version != s.reroutes) ||
         (from != null && from.distanceTo(fix.position) > _quoteReachM);
     final fresh = stale ? await quoteStop(quote.stop) : quote;
     if (fresh == null || fresh.extraS == null) return false;
-    return await _change(RerouteReason.stops, stops: fresh.stops, known: stale ? null : fresh.plan);
+    // The fresh quote's route starts where the vehicle is: taken as it is.
+    return await _change(RerouteReason.stops, stops: fresh.stops, known: fresh.plan);
   }
 
   /// A new route through [stops], in their order.
   Future<bool> setStops(List<RouteStop> stops) =>
       _change(RerouteReason.stops, stops: List.unmodifiable(stops.take(maxRouteStops)));
+
+  /// Takes [stop] out of the stops ahead. True when it is no longer on the
+  /// route, also when it was passed meanwhile.
+  Future<bool> removeStop(RouteStop stop) async {
+    final s = state;
+    if (s == null) return false;
+    if (!s.stops.contains(stop)) return true;
+    return await _change(RerouteReason.stops, stops: [...s.stops]..remove(stop));
+  }
+
+  /// Puts [stop] back after it was taken out of [before]: in its place when
+  /// the other stops are still those, else where it lengthens the trip the
+  /// least.
+  Future<bool> restoreStop(RouteStop stop, List<RouteStop> before) async {
+    final s = state;
+    final fix = s?.lastFix;
+    if (s == null || fix == null) return false;
+    if (s.stops.contains(stop)) return true;
+    if (s.stops.length >= maxRouteStops) return false;
+    final others = [...before]..remove(stop);
+    final stops = listEquals(others, s.stops)
+        ? before
+        : insertStop(
+            s.stops,
+            bestInsertion(
+              origin: fix.position,
+              stops: s.stops,
+              destination: s.target.destination,
+              stop: stop.position,
+            ),
+            stop,
+          );
+    return await _change(RerouteReason.stops, stops: stops);
+  }
 
   /// A new route straight to [target], without stops unless [stops] are
   /// given (to put a destination back, with its stops).
@@ -554,6 +595,7 @@ class GuidanceController extends _$GuidanceController {
         ahead: const [],
         eventAlerts: const [],
         alert: () => null,
+        dangerZone: () => null,
       );
       _say(_words!.arrived);
       return;

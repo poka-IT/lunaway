@@ -980,6 +980,7 @@ class _Translations$navigation$settings$fr extends Translations$navigation$setti
 	@override String get consumption => 'Consommation';
 	@override String get consumptionUnit => 'L/100 km';
 	@override String get consumptionHint => 'Pour peser le détour vers une station moins chère.';
+	@override String consumptionRange({required Object min, required Object max}) => 'Entre ${min} et ${max} L/100 km';
 }
 
 // Path: vehicle.types
@@ -1504,6 +1505,7 @@ extension on TranslationsFr {
 			'navigation.settings.consumption' => 'Consommation',
 			'navigation.settings.consumptionUnit' => 'L/100 km',
 			'navigation.settings.consumptionHint' => 'Pour peser le détour vers une station moins chère.',
+			'navigation.settings.consumptionRange' => ({required Object min, required Object max}) => 'Entre ${min} et ${max} L/100 km',
 			'list.title' => 'Lieux autour',
 			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
@@ -1570,9 +1572,9 @@ extension on TranslationsFr {
 			'profile.offlineSize' => ({required Object size}) => 'Espace utilisé : ${size}',
 			'profile.lastSync' => ({required Object when}) => 'Dernière mise à jour ${when}',
 			'profile.neverSynced' => 'Jamais téléchargé',
-			'profile.syncNow' => 'Mettre à jour',
 			_ => null,
 		} ?? switch (path) {
+			'profile.syncNow' => 'Mettre à jour',
 			'profile.syncing' => 'Mise à jour en cours',
 			'profile.about' => 'À propos',
 			'profile.version' => ({required Object version}) => 'Version ${version}',

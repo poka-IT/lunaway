@@ -49,16 +49,12 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
     final scheme = theme.colorScheme;
     final settings = ref.watch(routeSettingsControllerProvider).value ?? const NavigationSettings();
     final fuel = _fuel ?? settings.fuel;
-    // From the last half kilometre: a list asked again while driving reuses
-    // the answer of the same stretch.
-    final query = FuelQuery(
-      line: widget.line,
-      fromM: (widget.fromM / 500).floor() * 500,
-      fuel: fuel,
-    );
+    final query = FuelQuery(line: widget.line, fromM: widget.fromM, fuel: fuel);
     final offers = ref.watch(fuelOffersProvider(query));
     ref.listen(fuelOffersProvider(query), (_, next) {
-      if (next.value case final shown?) ref.read(shownFuelOffersProvider.notifier).show(shown);
+      if (next.value case final shown?) {
+        ref.read(shownFuelOffersProvider(widget.line).notifier).show(shown);
+      }
     });
     final now = ref.watch(clockProvider)();
     return SizedBox(

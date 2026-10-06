@@ -8,7 +8,8 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 
 /// Replaces the stops of the route to [target] with [next] and says so, with
-/// the way back: every change of the stops can be undone.
+/// the way back: every change of the stops can be undone. The preview is the
+/// only place they change, so the way back is the list before.
 void changeStops(
   BuildContext context,
   WidgetRef ref,

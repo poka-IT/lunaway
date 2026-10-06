@@ -72,6 +72,7 @@ final class StopQuote {
     required this.extraM,
     this.base = const [],
     this.from,
+    this.routeVersion,
   });
 
   /// The stop it adds.
@@ -86,6 +87,11 @@ final class StopQuote {
 
   /// Where the vehicle was, for a quote made during guidance.
   final LatLng? from;
+
+  /// The guidance's route it was computed against, counted by its
+  /// recalculations: another route since (a closure, a wrong turn) means
+  /// another quote.
+  final int? routeVersion;
   final RoutePlan plan;
 
   /// Seconds and metres the stop adds to the route; null when the new
