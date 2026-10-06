@@ -1,0 +1,1 @@
+campervan,RV,camper,overnight,dump station,water,parking,LPG,offline,France,stopover,road trip

@@ -13,7 +13,7 @@ TROUVER UN LIEU
 • Itinéraire vers le lieu dans l'application de navigation de votre choix, partage d'une fiche
 
 SANS RÉSEAU
-Les lieux de France métropolitaine sont copiés sur le téléphone et se mettent à jour quand la connexion revient. La liste, la recherche, les fiches et vos favoris marchent sans réseau. Le fond de carte, les photos et les avis demandent une connexion.
+Les lieux de France métropolitaine sont copiés sur l'appareil et se mettent à jour quand la connexion revient. La liste, la recherche, les fiches et vos favoris marchent sans réseau. Le fond de carte, les photos et les avis demandent une connexion.
 
 PARTICIPER
 • Notes, avis et photos
@@ -23,14 +23,14 @@ PARTICIPER
 • Signalez un contenu à la modération, masquez un auteur
 
 UN COMPTE SANS E-MAIL
-Consulter la carte ne demande pas de compte. Il se crée à votre première contribution, sans e-mail ni mot de passe : une clé gardée sur votre téléphone, et un pseudonyme que vous pouvez changer. Une carte de secours permet de retrouver le compte sur un autre appareil. Chaque contribution, comme le compte entier, se supprime depuis l'application.
+Consulter la carte ne demande pas de compte. Il se crée à votre première contribution, sans e-mail ni mot de passe : une clé gardée sur votre appareil, et un pseudonyme que vous pouvez changer. Une carte de secours permet de retrouver le compte sur un autre appareil. Chaque contribution, comme le compte entier, se supprime depuis l'application.
 
 FAVORIS ET VÉHICULE
-• Favoris rangés en listes, gardés sur le téléphone, et avec votre compte si vous le choisissez
+• Favoris rangés en listes, gardés sur l'appareil, et avec votre compte si vous le choisissez
 • Profil du véhicule : type, remorque, hauteur, largeur, longueur, poids
 
 AFFICHAGE
-Thème clair le jour et sombre après le coucher du soleil, ou au choix. En français et en anglais. Mise en page pour le téléphone et pour la tablette.
+Thème clair le jour et sombre après le coucher du soleil, ou au choix. En français et en anglais. Mise en page pour l'iPhone et pour l'iPad.
 
 SOURCES
 Les lieux viennent de données ouvertes et des contributions de la communauté Lunaway. Chaque fiche affiche ses sources et leur licence. La couverture est aujourd'hui la France métropolitaine.
