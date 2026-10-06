@@ -4,7 +4,7 @@
 # lunaway-routing-refresh.timer as root (it restarts valhalla.service);
 # installed to /usr/local/sbin/ by the server step listed in
 # plan/research/15-navigation-backend.md. The graph is built by the GitHub
-# Actions workflow (infra/routing/github-workflow.yml) and published as the
+# Actions workflow (.github/workflows/routing-graph.yml) and published as the
 # assets of the release `routing-graph`; this script pulls it, because the
 # backend's SSH is closed to anything but the admin sources.
 #

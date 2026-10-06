@@ -61,7 +61,7 @@ community mirrors the first adapter tried in turn are no longer defaults.
 
 The motorhome routing graph is derived from OpenStreetMap (ODbL) and IGN
 BD TOPO (Licence Ouverte 2.0): it is built weekly on a GitHub-hosted runner
-(`infra/routing/github-workflow.yml`), which downloads the France extract
+(`.github/workflows/routing-graph.yml`), which downloads the France extract
 from `download.geofabrik.de` and the restricted sections from
 `data.geopf.fr` as above, then published as the assets of the release
 `routing-graph` of the public repository. The backend downloads it from

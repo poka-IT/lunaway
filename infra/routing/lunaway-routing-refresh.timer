@@ -1,5 +1,5 @@
 # Daily: the GitHub Actions build runs on Sundays from 01:00 UTC
-# (infra/routing/github-workflow.yml); every morning the refresh reads the
+# (.github/workflows/routing-graph.yml); every morning the refresh reads the
 # published build.json and stops at once when that graph already serves, so
 # a run that met a half-uploaded release tries again the next day. After the
 # nightly dump (00:15) and the upgrade run (01:30), before the daytime

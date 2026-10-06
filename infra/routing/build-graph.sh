@@ -2,7 +2,7 @@
 # Builds a routing graph bundle for motorhomes, from an OpenStreetMap extract
 # and IGN BD TOPO's restricted road sections, and checks it before anyone
 # serves it (docs/deploy.md, "Routing"). Run weekly by the GitHub Actions
-# workflow infra/routing/github-workflow.yml; runs as well on any machine
+# workflow .github/workflows/routing-graph.yml; runs as well on any machine
 # with Docker, Rust and 25 GB of free disk for France.
 #
 #   infra/routing/build-graph.sh <extract.osm.pbf> <output dir> [options]

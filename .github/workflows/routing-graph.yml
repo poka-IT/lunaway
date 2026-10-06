@@ -1,7 +1,7 @@
-# Weekly routing graph of France (docs/deploy.md, "Routing"). Kept here as a
-# draft; it runs once copied to .github/workflows/routing-graph.yml, with the
+# Weekly routing graph of France (docs/deploy.md, "Routing"). Runs with the
 # environment `routing-graph` (deployment branch: main) holding the secret
-# ROUTING_SIGNING_KEY (plan/research/15-navigation-backend.md, wiring list).
+# ROUTING_SIGNING_KEY, whose public half the backend trusts in
+# /etc/lunaway/routing-signers.
 #
 # Why here and not on the backend: the France build measured about 6 GiB of
 # anonymous memory at its peak, 16.5 GiB of work files and 16 to 18 minutes
@@ -129,7 +129,7 @@ jobs:
         run: |
           gh release view routing-graph >/dev/null 2>&1 || gh release create routing-graph \
             --prerelease --title "Routing graph (weekly)" \
-            --notes "Valhalla graph of France for the Lunaway API, rebuilt weekly by infra/routing/github-workflow.yml. ODbL (OpenStreetMap contributors) and Licence Ouverte 2.0 (IGN, BD TOPO)."
+            --notes "Valhalla graph of France for the Lunaway API, rebuilt weekly by .github/workflows/routing-graph.yml. ODbL (OpenStreetMap contributors) and Licence Ouverte 2.0 (IGN, BD TOPO)."
           gh release upload routing-graph graph.tar.gz.part-* restrictions.ndjson.gz prepare.json test-routes.txt --clobber
           gh release upload routing-graph SHA256SUMS SHA256SUMS.sig --clobber
           gh release upload routing-graph build.json --clobber
