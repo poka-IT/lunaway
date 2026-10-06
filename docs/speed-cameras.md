@@ -31,18 +31,22 @@ least every settlement and major road on the correct side of the border"
 - an official list's cameras take the list's country, wherever a position
   reads near a border;
 - nothing within 1 km of Switzerland is stored, from any source
-  (`BORDER_MARGIN_M`, `near_country`);
+  (`BORDER_MARGIN_M`, `near_country`: the point and 16 points on circles
+  of 500 m and 1 km around it, none of the disc more than about 400 m from
+  one of them; the 1 km itself is an assumption on how far the simplified
+  boundaries stray, not measured);
 - a camera takes the rule of its country and of every country within 1 km
   of it, the strictest form of what may leave the server (`served_form`:
   off, then zones, then points): a Spanish camera at Irun becomes a zone, a
   French one by Monaco gets nothing.
 
 The server applies the table twice: when it builds the items, and again when
-it serves each one (`enforcement_query::allowed`): a point where only zones
-may be shown (its country, or a country within 1 km of the point), an item
-of a country that is off, a zone running into a country that is off, or a
-section's road running into a zone country never leaves the server,
-whatever a row says. The app applies the table again by the country it is
+it serves each one (`enforcement_query::allowed`, off the async threads):
+a point where only zones may be shown (its country, or a country within
+1 km of the point), an item of a country that is off, a zone running into
+a country that is off, or a section's road running into a zone country
+(lines read every 20th point there, every fourth with the margin at the
+build) never leaves the server, whatever a row says. The app applies the table again by the country it is
 in, the stricter rule at once at a border.
 
 ## Zone lengths
@@ -73,24 +77,31 @@ routing engine on loopback:
    on the camera's road by its reference or name, never by a ramp; where it
    leaves, a new route goes on from there.
 3. The zone is cut from that road with the camera at a share of its length
-   between 15 % and 85 %, drawn from a keyed hash of the camera's id, the
-   zone's length and its direction (eastward or not), with a server secret
-   (`LUNAWAY_ZONE_SECRET`, 32 characters at least, never changed once zones
-   are served). The share stays while the zone keeps its length and
-   direction. A zone whose length changes (a limit mapped or removed on the
-   OpenStreetMap node that completes the camera, anyone may edit it) or
-   whose direction flips takes another share: with one share for both, the
-   two versions' starts would solve for the camera (reviews of 2026-10-06).
-   Two versions compared narrow the camera to where they overlap, never
-   closer than 15 % of the shorter zone on each side (75 m in town).
+   between 15 % and 85 %, measured along the road's canonical direction
+   (read toward the east: the road's own heading at the camera, 50 m
+   either side, taken modulo 180 degrees), so the same road driven either
+   way gives the same zone, whatever a direction tag says (`zone_sides`).
+   The share comes from a keyed hash of the camera's id, the zone's length
+   and the half of the compass its canonical direction points to, with a
+   server secret (`LUNAWAY_ZONE_SECRET`, 32 characters at least, never
+   changed once zones are served). A zone whose length changes (a limit
+   mapped or removed on the OpenStreetMap node that completes the camera:
+   anyone may edit it) or whose road's heading wavers across due north
+   between two graphs takes another share: with one share for both, the two
+   versions' ends would solve for the camera (reviews of 2026-10-06). Each
+   version narrows the camera down to where the versions overlap, toward
+   15 % of the shortest zone on each side of it; a camera has at most six
+   (three lengths, two halves), and nothing else may change its share.
 4. The zone is drawn with a point every 50 m along its road from its start
    (`ZONE_STEP_M`), none of them a vertex of the road: the engine cuts its
    route where the camera snaps, OpenStreetMap often maps the camera as a
    node of its road, and a gap where vertices were removed around the
    camera would mark it as well. A chord of 50 m strays at most 18 m from
    the road at a right-angled corner. A zone that drives some road twice,
-   whose ends come back near the camera, or that reaches within 1 km of a
-   country that is off, is not served.
+   whose ends come back near the camera, whose road steps sideways at the
+   camera (the road behind and the road ahead snapped to two
+   carriageways), or that reaches within 1 km of a country that is off
+   (every fourth point read), is not served.
 5. An average speed section with a known end gives one zone from before its
    start to after its end.
 
@@ -100,15 +111,16 @@ drives along its line, either way.
 Measured on 2026-10-06 against Valhalla 3.9.0 on the Limousin extract (the
 build server's graph), with the French list of that day and the
 OpenStreetMap cameras of the extract: 62 cameras stand on the graph's
-roads; 58 got a zone. Of those, 51 keep at least 90 % of the stretch before
-the camera on the camera's road, 48 the stretch after it (a red light at a
+roads; 57 got a zone. Of those, 50 keep at least 90 % of the stretch before
+the camera on the camera's road, 47 the stretch after it (a red light at a
 junction turns off, as a driver does), by the engine's own matching of
 each zone. The whole build of the 3 204 French cameras stored (2 within
-1 km of Switzerland are not) took about 25 s and 24 600 engine calls, most
-of them failing at once for the cameras outside the extract.
+1 km of Switzerland are not) took 27 s and 24 600 engine calls, most of
+them failing at once for the cameras outside the extract.
 
 An item is built again only when what it comes from changes; after a new
-routing graph, the build runs with `--full`. A build that would retire more
+routing graph, the build runs with `--full`, and an item built again the
+same as it is served is not written (phones do not fetch it again). A build that would retire more
 than a tenth of the live items retires none and fails, after writing the
 new and changed ones (an engine without its graph places nothing);
 `--allow-retire` lifts that guard when the cause is known (a country turned

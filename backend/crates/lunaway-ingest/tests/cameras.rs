@@ -83,6 +83,11 @@ fn the_polish_list_reads_from_windows_1250_with_its_sections_ends() {
         ]),
         "a red light at a railway is a level crossing"
     );
+    assert_eq!(
+        find(&parsed, "CEN.1.109").raw[1],
+        "Aleksandrów Łódzki",
+        "the row is kept in its own letters"
+    );
     let section = find(&parsed, "CAN.O.1.012");
     assert_eq!(section.device.kind, DeviceKind::Section);
     assert_eq!(section.device.section_length_m, Some(2_520.0));

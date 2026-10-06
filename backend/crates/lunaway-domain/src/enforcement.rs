@@ -250,9 +250,13 @@ pub fn served_form(modes: impl IntoIterator<Item = Mode>) -> Mode {
         .unwrap_or(Mode::Off)
 }
 
-/// The points on a circle of [`BORDER_MARGIN_M`] around `p`, every 45°.
+/// The points around `p` a border check reads: every 45 degrees on circles
+/// of half [`BORDER_MARGIN_M`] and of the whole of it, 16 points, none of
+/// them more than about 400 m from any point of the disc.
 fn ring(p: Position) -> impl Iterator<Item = Position> {
-    (0..8).filter_map(move |k| toward(p, f64::from(k) * 45.0, BORDER_MARGIN_M))
+    [BORDER_MARGIN_M / 2.0, BORDER_MARGIN_M]
+        .into_iter()
+        .flat_map(move |r| (0..8).filter_map(move |k| toward(p, f64::from(k) * 45.0, r)))
 }
 
 /// The form the server may serve at `p`: the rule of the country it lies
@@ -332,27 +336,52 @@ pub fn zone_length_m(lengths: ZoneLengths, limit_kmh: Option<u16>) -> u32 {
     }
 }
 
-/// What a zone's share depends on besides its camera: its length, and
-/// which way it runs. A zone whose length or direction changes (a limit
-/// mapped, a direction guessed the other way) takes a share of its own, so
-/// that the old and the new zone do not solve for the camera together.
+/// How a zone lies on its road, whichever way the road is driven: its
+/// length, and the half of the compass its road points to when read toward
+/// the east (its canonical direction, a heading from 0 to 180 degrees).
+///
+/// The share of a zone is measured along that canonical direction, so the
+/// same road driven either way gives the same zone: a direction tag edited
+/// on OpenStreetMap, or a direction guessed the other way, changes nothing.
+/// The share also depends on the frame: a zone whose length changes (a
+/// limit mapped or removed), or whose road reads in the other half of the
+/// compass (a road running north and south, its heading wavering across
+/// due north between two graphs, flips its canonical direction), takes
+/// another share, so that the old and the new zone do not solve for the
+/// camera together. Each version narrows the camera down to where the
+/// versions overlap; a camera has at most six (three lengths, two halves).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ZoneFrame {
     /// The zone's length, metres.
     pub length_m: u32,
-    /// Whether it runs toward the east (a heading from 0 inclusive to 180
-    /// exclusive degrees).
-    pub eastward: bool,
+    /// Whether its canonical direction points to the north-east half
+    /// (0 to 90 degrees) rather than the south-east one (90 to 180).
+    pub north_east: bool,
 }
 
 impl ZoneFrame {
-    /// The frame of a zone of `length_m` driven heading `heading_deg`.
+    /// The frame of a zone of `length_m` whose road heads `road_heading_deg`
+    /// at the camera, in either direction.
     #[must_use]
-    pub fn new(length_m: u32, heading_deg: f64) -> Self {
+    pub fn new(length_m: u32, road_heading_deg: f64) -> Self {
         Self {
             length_m,
-            eastward: heading_deg.rem_euclid(360.0) < 180.0,
+            north_east: road_heading_deg.rem_euclid(180.0) < 90.0,
         }
+    }
+}
+
+/// The metres of a zone of `length_m` before and after its camera, in the
+/// order its road is driven (heading `road_heading_deg` at the camera), for
+/// the camera at `share` of the zone along the road's canonical direction:
+/// the road driven the other way gives the same stretch.
+#[must_use]
+pub fn zone_sides(length_m: f64, share: f64, road_heading_deg: f64) -> (f64, f64) {
+    let (canonical_before, canonical_after) = (share * length_m, (1.0 - share) * length_m);
+    if road_heading_deg.rem_euclid(360.0) < 180.0 {
+        (canonical_before, canonical_after)
+    } else {
+        (canonical_after, canonical_before)
     }
 }
 
@@ -368,7 +397,7 @@ pub fn zone_fraction(secret: &[u8], camera: &str, frame: ZoneFrame) -> f64 {
     h.update(secret);
     h.update(b"zone-share:");
     h.update(frame.length_m.to_be_bytes());
-    h.update([u8::from(frame.eastward)]);
+    h.update([u8::from(frame.north_east)]);
     h.update(camera.as_bytes());
     let digest = h.finalize();
     let mut first = [0u8; 8];
@@ -629,14 +658,14 @@ mod tests {
         assert_eq!(zone_length_m(FRENCH_ZONES, Some(80)), 2_000);
         assert_eq!(zone_length_m(FRENCH_ZONES, Some(50)), 500);
         assert_eq!(zone_length_m(FRENCH_ZONES, None), 2_000);
-        let rural = ZoneFrame::new(2_000, 90.0);
+        let rural = ZoneFrame::new(2_000, 45.0);
         let a = zone_fraction(b"secret", "fr/60004", rural);
         assert_eq!(a, zone_fraction(b"secret", "fr/60004", rural), "stable");
         assert_ne!(a, zone_fraction(b"other", "fr/60004", rural), "keyed");
         assert_eq!(
             a,
-            zone_fraction(b"secret", "fr/60004", ZoneFrame::new(2_000, 100.0)),
-            "the same frame for a direction a little different"
+            zone_fraction(b"secret", "fr/60004", ZoneFrame::new(2_000, 225.0)),
+            "the same frame for the road driven the other way"
         );
         let shares: Vec<f64> = (0..1_000)
             .map(|i| zone_fraction(b"secret", &format!("fr/{i}"), rural))
@@ -678,7 +707,7 @@ mod tests {
         for i in 0..200 {
             let key = format!("securite-routiere/{i}");
             let zone = |length: u32| {
-                let s = zone_fraction(b"secret", &key, ZoneFrame::new(length, 90.0));
+                let s = zone_fraction(b"secret", &key, ZoneFrame::new(length, 45.0));
                 let l = f64::from(length);
                 zone_cut(&road, &[camera], s * l, (1.0 - s) * l).unwrap()
             };
@@ -696,6 +725,46 @@ mod tests {
         assert!(
             misses > 100,
             "the camera must not follow from two lengths: {misses} of 200 missed"
+        );
+    }
+
+    #[test]
+    fn a_road_driven_either_way_gives_the_same_zone() {
+        // A road running north, a camera 3 000 m along it; a direction tag
+        // edited from 10 to 170 degrees (an attack the reviews of
+        // 2026-10-06 found) reverses the route, never the zone.
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        let start = p(45.0, 1.0);
+        let north: Vec<Position> = (0..=60)
+            .map(|i| toward(start, 0.3, f64::from(i) * 100.0).unwrap())
+            .collect();
+        let camera = north[30];
+        let zone = |road: &[Position]| {
+            let heading = crate::routing::corridor::heading(road[29], road[31]);
+            let frame = ZoneFrame::new(2_000, heading);
+            let share = zone_fraction(b"secret", "fr/1", frame);
+            let (before, after) = zone_sides(2_000.0, share, heading);
+            zone_cut(road, &[camera], before, after).unwrap()
+        };
+        let northward = zone(&north);
+        let mut south = north.clone();
+        south.reverse();
+        let southward = zone(&south);
+        let (n0, n1) = (northward[0], northward[northward.len() - 1]);
+        let (s0, s1) = (southward[0], southward[southward.len() - 1]);
+        assert!(
+            n0.distance_m(s1) < 0.5 && n1.distance_m(s0) < 0.5,
+            "the same stretch either way: {n0:?} {n1:?} against {s1:?} {s0:?}"
+        );
+        assert_eq!(
+            ZoneFrame::new(2_000, 359.5),
+            ZoneFrame::new(2_000, 179.5),
+            "a road and its reverse share a frame"
+        );
+        assert_ne!(
+            ZoneFrame::new(2_000, 0.5),
+            ZoneFrame::new(2_000, 359.5),
+            "a heading wavering across due north takes another frame"
         );
     }
 

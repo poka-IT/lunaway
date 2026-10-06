@@ -3,11 +3,14 @@
 //! lists the items come from. No position is sent: a phone keeps the set
 //! of the countries it drives in and checks its route itself.
 //!
-//! Every item is checked again against the rules before it is served, of
-//! its country and of every country within a kilometre of its points:
-//! never a point where only zones are allowed, nothing where a country is
-//! off, whatever the table held when the item was built. An item that
-//! fails comes back as a removal.
+//! Every item is checked again against the rules before it is served: its
+//! country's, the rules of every country within a kilometre of a camera's
+//! point, and those of the countries a line runs through (read every
+//! kilometre or so; the build read every 200 m with the margin): never a
+//! point where only zones are allowed, nothing where a country is off,
+//! whatever the table held when the item was built. An item that fails
+//! comes back as a removal. The check and the conversion run off the async
+//! threads.
 //!
 //! A cursor is `n2.<identity>.<countries>.<revision>`: the copy of the
 //! database that issued it, a digest of the countries asked, and the last
@@ -28,7 +31,7 @@ use async_graphql::{Context, Result};
 use chrono::Utc;
 use lunaway_db::enforcement::ItemKind;
 use lunaway_db::enforcement::{self as db, FeedHead, FeedItem};
-use lunaway_domain::enforcement::{Mode, mode_at, mode_near, rule_of, served_form};
+use lunaway_domain::enforcement::{Mode, mode_near, rule_of, served_form};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -52,6 +55,8 @@ pub(crate) const POLL_INTERVAL_S: i32 = 6 * 3600;
 const HEAD_TTL: Duration = Duration::from_secs(5);
 /// How long a page of the whole set is kept, at most.
 const PAGE_TTL: Duration = Duration::from_secs(60);
+/// A line's points read by the serve-time check: one in so many.
+const LINE_CHECK_STEP: usize = 20;
 /// Most first pages kept: a page per set of countries asked.
 const MAX_PAGES_HELD: usize = 64;
 
@@ -161,12 +166,14 @@ fn countries(asked: Option<Vec<String>>) -> Result<Option<Vec<String>>> {
 /// such countries. A point of a line at sea does not count.
 pub(crate) fn allowed(item: &FeedItem) -> bool {
     let rule = rule_of(&item.country).mode;
+    // Every 20th point of a zone (one a kilometre) and the last: the build
+    // read them every 200 m, with the border margin.
     let line_through = |ok: fn(Mode) -> bool| {
-        item.line
-            .as_deref()
-            .unwrap_or_default()
-            .iter()
-            .all(|p| lunaway_domain::region::country_at(*p).is_none() || ok(mode_at(*p)))
+        let line = item.line.as_deref().unwrap_or_default();
+        line.iter()
+            .step_by(LINE_CHECK_STEP)
+            .chain(line.last())
+            .all(|p| lunaway_domain::region::country_at(*p).is_none_or(|c| ok(rule_of(c).mode)))
     };
     let points = |m: Mode| matches!(m, Mode::Exact | Mode::OffWhileDriving);
     match item.kind {
@@ -302,18 +309,25 @@ pub(crate) async fn enforcement(
     } else {
         head.revision
     };
-    let mut upserts = Vec::new();
-    let mut removals: Vec<Uuid> = Vec::new();
-    for r in &rows {
-        let served = (!r.deleted && allowed(r))
-            .then(|| EnforcementItem::of(r))
-            .flatten();
-        match served {
-            Some(item) => upserts.push(item),
-            None if !full => removals.push(r.id),
-            None => {}
+    // Border lookups and polyline encoding for up to 2 000 items: off the
+    // async threads.
+    let (upserts, removals) = tokio::task::spawn_blocking(move || {
+        let mut upserts = Vec::new();
+        let mut removals: Vec<Uuid> = Vec::new();
+        for r in &rows {
+            let served = (!r.deleted && allowed(r))
+                .then(|| EnforcementItem::of(r))
+                .flatten();
+            match served {
+                Some(item) => upserts.push(item),
+                None if !full => removals.push(r.id),
+                None => {}
+            }
         }
-    }
+        (upserts, removals)
+    })
+    .await
+    .map_err(|e| internal(&e))?;
     if cacheable {
         let mut pages = cache
             .pages

@@ -1,15 +1,17 @@
 //! Builds what the API serves about speed cameras from what the sources
-//! list (`docs/speed-cameras.md`), under each country's rule
-//! ([`lunaway_domain::enforcement::RULES`]):
+//! list (`docs/speed-cameras.md`), under the rule of each camera's country
+//! and of every country within a kilometre of it
+//! ([`lunaway_domain::enforcement::served_form`]):
 //!
-//! - a country that is off gets nothing;
-//! - a country of exact positions, or off while driving, gets its cameras'
-//!   points, a section with its road from start to end when the engine
-//!   finds it;
-//! - a country of danger zones gets stretches of road: the camera's road,
-//!   followed through the engine step by step before and after it, cut
-//!   with the camera at a secret, stable share of the zone, no vertex near
-//!   it.
+//! - where a country is off, nothing;
+//! - where points may be shown, the cameras' points, a section with its
+//!   road from start to end when the engine finds it;
+//! - where only zones may be shown (a camera of a country of points within
+//!   a kilometre of a zone country included), stretches of road: the
+//!   camera's road read through the engine before and after it, cut with
+//!   the camera at a secret share along the road's canonical direction
+//!   (the same zone whichever way the road is driven; another share when
+//!   the zone's length or frame changes), drawn with a point every 50 m.
 //!
 //! OpenStreetMap completes the official lists: a node within [`MERGE_M`] of
 //! an official camera of the same kind gives it its direction, its limit
@@ -22,8 +24,9 @@
 //! 2.2). Elsewhere OpenStreetMap's cameras stand on their own.
 //!
 //! An item is built again only when what it is built from changes, or
-//! with `full` (a new routing graph). A build that would retire more than a
-//! tenth of the live items retires none and says so.
+//! with `full` (a new routing graph), and written only when what it serves
+//! changes. A build that would retire more than a tenth of the live items
+//! retires none and says so, unless `allow_retire`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -34,8 +37,8 @@ use lunaway_db::{
 use lunaway_domain::{
     Position, SourceId,
     enforcement::{
-        Device, DeviceKind, FRENCH_ZONES, Mode, RULES_VERSION, ZoneFrame, mode_near, rule_of,
-        served_form, toward, zone_cut, zone_fraction, zone_length_m,
+        Device, DeviceKind, FRENCH_ZONES, Mode, RULES_VERSION, ZONE_SNAP_M, ZoneFrame, mode_near,
+        rule_of, served_form, toward, zone_cut, zone_fraction, zone_length_m, zone_sides,
     },
     routing::{corridor::heading, polyline},
 };
@@ -64,6 +67,9 @@ const REACH_EXTRA_M: f64 = 1_000.0;
 /// What a road's length is measured beyond what the zone needs, metres:
 /// the engine and the zone measure on slightly different spheres.
 const SLACK_M: f64 = 100.0;
+/// Farthest apart the camera's place may be on the road behind it and on
+/// the road ahead, metres.
+const JOIN_M: f64 = 10.0;
 /// Least distance, as the crow flies, from a zone's end to its camera, as
 /// a share of the road between them: below, the road turned back.
 const MIN_SPREAD: f64 = 0.2;
@@ -103,7 +109,7 @@ const MAX_RETIRED_SHARE: f64 = 0.1;
 const MIN_RETIRED_ALLOWED: usize = 20;
 /// Moves with every change of how items are built: an item of an older
 /// build is built again.
-const BUILD_VERSION: u32 = 1;
+const BUILD_VERSION: u32 = 2;
 
 /// A camera to build, its sources merged.
 #[derive(Debug, Clone, PartialEq)]
@@ -218,22 +224,52 @@ pub fn plan(devices: Vec<DeviceRow>) -> (Vec<Planned>, Merged) {
     (planned, merged)
 }
 
-/// A digest of what an item is built from.
+fn hex_digest(value: &Value) -> String {
+    Sha256::digest(value.to_string().as_bytes()).iter().fold(
+        String::with_capacity(64),
+        |mut s, b| {
+            use std::fmt::Write as _;
+            let _ = write!(s, "{b:02x}");
+            s
+        },
+    )
+}
+
+/// A digest of what an item is built from: an item whose digest has not
+/// moved is not built again.
 fn digest(p: &Planned, mode: Mode) -> String {
-    let input = json!({
+    hex_digest(&json!({
         "build": BUILD_VERSION,
         "rules": RULES_VERSION,
         "mode": mode.code(),
         "country": p.country,
         "device": p.device,
         "sources": p.sources,
-    });
-    let hash = Sha256::digest(input.to_string().as_bytes());
-    hash.iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write as _;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
+    }))
+}
+
+/// What an item's row holds as its content hash: the digest of what it is
+/// built from, and of what it serves. A full build that gives an item
+/// already served unchanged leaves its row alone, so phones do not fetch
+/// every item again after each new graph.
+fn content_hash(input: &str, item: &Item) -> String {
+    let line: Vec<(f64, f64)> = item
+        .line
+        .iter()
+        .flatten()
+        .map(|p| (p.lat(), p.lon()))
+        .collect();
+    let output = hex_digest(&json!({
+        "kind": format!("{:?}", item.kind),
+        "category": item.category,
+        "country": item.country,
+        "line": line,
+        "point": item.point.map(|p| (p.lat(), p.lon())),
+        "bearing": item.bearing_deg,
+        "limit": item.limit_kmh,
+        "sources": item.source_ids,
+    }));
+    format!("{input}:{output}")
 }
 
 /// A stable id that does not lead back to the camera without the secret.
@@ -545,16 +581,21 @@ async fn ask(
     }
 }
 
-/// Whether every point of `line` lies where the API may serve it, within
+/// Whether `line` lies where the API may serve it, within
 /// [`lunaway_domain::enforcement::BORDER_MARGIN_M`] of a border too: a
 /// zone never reaches near a country that is off, a camera's line
-/// (`points`) never near one where only zones may be shown.
+/// (`points`) never near one where only zones may be shown. Read every
+/// fourth point and the last (a zone's points are 50 m apart), each with
+/// its ring of 16.
 fn servable(line: &[Position], points: bool) -> bool {
-    line.iter().all(|p| match mode_near(*p) {
-        Mode::Off => false,
-        Mode::Zones => !points,
-        Mode::OffWhileDriving | Mode::Exact => true,
-    })
+    line.iter()
+        .step_by(4)
+        .chain(line.last())
+        .all(|p| match mode_near(*p) {
+            Mode::Off => false,
+            Mode::Zones => !points,
+            Mode::OffWhileDriving | Mode::Exact => true,
+        })
 }
 
 /// The road's heading at the end of `path`, over its last 30 m or so.
@@ -756,29 +797,19 @@ async fn zone(
         None if first.motorway_start => lengths.motorway_m,
         None => lengths.rural_m,
     };
-    let share = zone_fraction(secret, &p.key, ZoneFrame::new(length, b));
-    let length = f64::from(length);
-    let (before, after) = (share * length, (1.0 - share) * length);
-    let Some(behind) = reach(engine, calls, d.position, b, before + SLACK_M, false).await? else {
+    // The camera's share is known once its road is: read the road the
+    // whole length both ways.
+    let reach_m = f64::from(length) + SLACK_M;
+    let Some(behind) = reach(engine, calls, d.position, b, reach_m, false).await? else {
         return Ok(Asked::Unplaced);
     };
-    let Some(behind) = along(
-        engine,
-        calls,
-        behind,
-        d.position,
-        b,
-        before + SLACK_M,
-        false,
-    )
-    .await?
-    else {
+    let Some(behind) = along(engine, calls, behind, d.position, b, reach_m, false).await? else {
         return Ok(Asked::Unplaced);
     };
     // Ahead: from the camera, or from a section's end once the section is
     // driven.
     let ahead = match end {
-        None => match along(engine, calls, first, d.position, b, after + SLACK_M, true).await? {
+        None => match along(engine, calls, first, d.position, b, reach_m, true).await? {
             Some(a) => a,
             None => return Ok(Asked::Unplaced),
         },
@@ -790,21 +821,34 @@ async fn zone(
             let (Some(last), Some(h)) = (section.last().copied(), end_heading(&section)) else {
                 return Ok(Asked::Unplaced);
             };
-            let Some(more) = reach(engine, calls, last, h, after + SLACK_M, true).await? else {
+            let Some(more) = reach(engine, calls, last, h, reach_m, true).await? else {
                 return Ok(Asked::Unplaced);
             };
-            let Some(more) = along(engine, calls, more, last, h, after + SLACK_M, true).await?
-            else {
+            let Some(more) = along(engine, calls, more, last, h, reach_m, true).await? else {
                 return Ok(Asked::Unplaced);
             };
             section.extend(more.into_iter().skip(1));
             section
         }
     };
+    // The two routes each snap the camera to a road: on two carriageways,
+    // the road would step sideways at the camera.
+    match (behind.last(), ahead.first()) {
+        (Some(a), Some(b)) if a.distance_m(*b) <= JOIN_M => {}
+        _ => return Ok(Asked::Unplaced),
+    }
     let mut road = behind;
     road.extend(ahead.into_iter().skip(1));
     let mut cameras = vec![d.position];
     cameras.extend(end);
+    // The road's own heading at the camera sets the zone's frame and which
+    // side its share is measured from: the same road driven either way
+    // gives the same zone (`zone_sides`).
+    let Some(heading_at) = road_heading(&road, d.position) else {
+        return Ok(Asked::Unplaced);
+    };
+    let share = zone_fraction(secret, &p.key, ZoneFrame::new(length, heading_at));
+    let (before, after) = zone_sides(f64::from(length), share, heading_at);
     let Some(line) = zone_cut(&road, &cameras, before, after) else {
         return Ok(Asked::Unplaced);
     };
@@ -822,6 +866,15 @@ async fn zone(
     } else {
         Asked::Unplaced
     })
+}
+
+/// The heading of `road` where `camera` projects onto it, read between the
+/// points 50 m before and after.
+fn road_heading(road: &[Position], camera: Position) -> Option<f64> {
+    let line = lunaway_domain::routing::RouteLine::new(road.to_vec())?;
+    let at = line.project(camera, ZONE_SNAP_M)?.along_m;
+    let (a, b) = (line.point_at(at - 50.0), line.point_at(at + 50.0));
+    (a.distance_m(b) > 1.0).then(|| heading(a, b).rem_euclid(360.0))
 }
 
 /// A section's road from its start `from` to its end `to`, when the engine
@@ -927,7 +980,8 @@ pub async fn build(
             continue;
         }
         let hash = digest(p, mode);
-        if !full && known.get(&p.key) == Some(&hash) {
+        let built_from = |h: &String| h.split(':').next() == Some(hash.as_str());
+        if !full && known.get(&p.key).is_some_and(built_from) {
             report.unchanged += 1;
             kept.insert(p.key.clone());
             continue;
@@ -981,8 +1035,15 @@ pub async fn build(
             }
             Mode::Off => continue,
         };
+        let mut item = item;
+        item.content_hash = content_hash(&item.content_hash, &item);
         kept.insert(p.key.clone());
-        items.push(item);
+        if known.get(&p.key) == Some(&item.content_hash) {
+            // Built again (a full build), and the same as what is served.
+            report.unchanged += 1;
+        } else {
+            items.push(item);
+        }
     }
     report.engine_calls = calls.made;
     let gone: Vec<String> = known
