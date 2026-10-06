@@ -6,7 +6,9 @@
 #
 # lunaway.net layout:
 #   /          the landing site, static HTML and CSS (/srv/lunaway/site),
-#              with /privacy, /account/delete and /about as plain pages
+#              French at / and English under /en/, with /privacy, /about,
+#              /legal, /fdroid/ and /account/delete as plain pages; only
+#              /account/delete runs a script (its form calls the API)
 #   /app/      the Flutter web build (/srv/lunaway/web), every unknown path
 #              falling back to /app/index.html for the app's router
 # Photos are served by the API host (api.lunaway.net/media/, see the api
@@ -77,19 +79,44 @@ lunaway.net {
 		file_server
 	}
 
-	# The landing site: HTML and CSS only, so the CSP allows nothing else.
-	# /privacy serves privacy.html or privacy/index.html. Assets whose name
-	# carries a content hash (name.0123abcd.css) are cached for a year, HTML
-	# and the rest for five minutes.
+	# The landing site, in French at / and English under /en/: HTML and CSS,
+	# so the CSP of its pages allows no script. The account deletion page is
+	# the one exception: its form sends a GraphQL mutation to the API, so it
+	# may run the site's own script files and connect to api.lunaway.net,
+	# nothing else. The two matchers exclude each other because Caddy runs
+	# every matching header directive, and an unmatched one would come last
+	# and overwrite the other. /privacy serves privacy.html or
+	# privacy/index.html. Assets whose name carries a content hash
+	# (name.0123abcd.css) are cached for a year, HTML and the rest for five
+	# minutes.
 	handle {
 		root * /srv/lunaway/site
-		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		@delete_page path /account/delete /account/delete.html /en/account/delete /en/account/delete.html
+		@other_pages not path /account/delete /account/delete.html /en/account/delete /en/account/delete.html
+		header @delete_page Content-Security-Policy "default-src 'none'; script-src 'self'; connect-src https://api.lunaway.net; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header @other_pages Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		@hashed path_regexp \.[0-9a-f]{8,}\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif|ico)$
 		@not_hashed not path_regexp \.[0-9a-f]{8,}\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif|ico)$
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
 		header @not_hashed Cache-Control "public, max-age=300"
 		try_files {path} {path}.html {path}/index.html
 		file_server
+	}
+
+	# A missing page or file answers with the site's own 404 page (French and
+	# English in one), under the script-free CSP of the pages. Other errors
+	# keep Caddy's empty answer. The error routes do not run the site's
+	# header deletion, hence the second -Server.
+	handle_errors 404 {
+		root * /srv/lunaway/site
+		rewrite * /404.html
+		encode zstd gzip
+		header Content-Security-Policy "default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header Cache-Control "public, max-age=300"
+		header -Server
+		file_server {
+			status 404
+		}
 	}
 }
 

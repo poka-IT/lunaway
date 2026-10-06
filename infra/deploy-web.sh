@@ -3,7 +3,7 @@
 # (lunaway.net/app/) as a new release on the server. A previous release comes
 # back by deploying it again, or by pointing the symlink at it (docs/deploy.md).
 #
-#   infra/deploy-web.sh site DIR       a directory of HTML and CSS, index.html at its root
+#   infra/deploy-web.sh site DIR       the generated website (infra/web/site, built by tool/site/build.py)
 #   infra/deploy-web.sh app DIR        a Flutter web build built with --base-href /app/
 #   infra/deploy-web.sh app --build    builds app/ first (fvm flutter build web), then deploys it
 #

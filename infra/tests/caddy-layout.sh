@@ -21,7 +21,7 @@ BUILD=20261005
 . "$INFRA/tiles/version.sh"
 
 docker info >/dev/null 2>&1 || { echo "docker does not answer" >&2; exit 1; }
-mkdir -p "$SCRATCH/site/account" "$SCRATCH/site/about" "$SCRATCH/web/assets" "$SCRATCH/data/media/ab"
+mkdir -p "$SCRATCH/site" "$SCRATCH/web/assets" "$SCRATCH/data/media/ab"
 mkdir -p "$SCRATCH/bin" "$SCRATCH/tiles/builds" "$SCRATCH/tiles/serve" "$SCRATCH/tiles/tilejson" \
   "$SCRATCH/tiles/assets/fonts/Noto Sans Regular" "$SCRATCH/tiles/assets/sprites/protomaps-v4" \
   "$SCRATCH/tiles/assets/styles" "$SCRATCH/tiles/packs"
@@ -50,11 +50,13 @@ echo '{"poi":{"x":0,"y":0,"width":16,"height":16,"pixelRatio":1}}' > "$SCRATCH/t
 echo '{"version":8,"glyphs":"{{placeholder `http.vars.tiles_base`}}/fonts/{fontstack}/{range}.pbf"}' > "$SCRATCH/tiles/assets/styles/test.json"
 
 # Test content, overwritten on each run.
-cp "$INFRA/web/site/index.html" "$INFRA/web/site/style.css" "$SCRATCH/site/"
-echo '<!doctype html><title>privacy</title>' > "$SCRATCH/site/privacy.html"
-echo '<!doctype html><title>delete</title>' > "$SCRATCH/site/account/delete.html"
-echo '<!doctype html><title>about</title>' > "$SCRATCH/site/about/index.html"
-echo 'body{}' > "$SCRATCH/site/style.0123abcd.css"
+# The landing site as it is deployed (infra/web/site), copied whole so that a
+# page or an asset removed from it is gone here too. Its stylesheet and script
+# carry a content hash in their names.
+rsync -a --delete "$INFRA/web/site/" "$SCRATCH/site/"
+css="$(find "$SCRATCH/site" -maxdepth 1 -name 'style.*.css' -exec basename {} \; | head -n 1)"
+js="$(find "$SCRATCH/site/js" -maxdepth 1 -name 'delete-account.*.js' -exec basename {} \; | head -n 1)"
+font="$(find "$SCRATCH/site/fonts" -maxdepth 1 -name 'atkinson-next-lunaway-regular.*.woff2' -exec basename {} \; | head -n 1)"
 echo '<!doctype html><base href="/app/"><title>app</title>' > "$SCRATCH/web/index.html"
 echo 'console.log(1)' > "$SCRATCH/web/main.dart.js"
 echo '{}' > "$SCRATCH/web/assets/AssetManifest.json"
@@ -127,14 +129,48 @@ check() {
   fi
 }
 
-check "landing" http://lunaway.net:8080/ 200 "content-security-policy: default-src 'none'; style-src 'self'"
-check "landing html cache" http://lunaway.net:8080/ 200 "cache-control: public, max-age=300"
-check "landing css" http://lunaway.net:8080/style.css 200 "cache-control: public, max-age=300"
-check "hashed asset cache" http://lunaway.net:8080/style.0123abcd.css 200 "cache-control: public, max-age=31536000, immutable"
-check "/privacy" http://lunaway.net:8080/privacy 200
-check "/account/delete" http://lunaway.net:8080/account/delete 200
-check "/about" http://lunaway.net:8080/about 200
-check "unknown page" http://lunaway.net:8080/nope 404
+L=http://lunaway.net:8080
+NO_SCRIPT="content-security-policy: default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'"
+DELETE_CSP="content-security-policy: default-src 'none'; script-src 'self'; connect-src https://api.lunaway.net; style-src 'self'"
+check "landing" "$L/" 200 "$NO_SCRIPT"
+check "landing html cache" "$L/" 200 "cache-control: public, max-age=300"
+check "hashed stylesheet" "$L/$css" 200 "cache-control: public, max-age=31536000, immutable"
+check "stylesheet type" "$L/$css" 200 "content-type: text/css"
+check "font" "$L/fonts/$font" 200 "content-type: font/woff2"
+check "font cache" "$L/fonts/$font" 200 "immutable"
+check "screenshot" "$L/img/screens/fr-1-map.webp" 200 "content-type: image/webp"
+check "screenshot cache" "$L/img/screens/fr-1-map.webp" 200 "cache-control: public, max-age=300"
+check "/en/" "$L/en/" 200 "$NO_SCRIPT"
+check "/en" "$L/en" 200
+check "/privacy" "$L/privacy" 200 "$NO_SCRIPT"
+check "/en/privacy" "$L/en/privacy" 200 "$NO_SCRIPT"
+check "/about" "$L/about" 200 "$NO_SCRIPT"
+check "/en/about" "$L/en/about" 200
+check "/legal" "$L/legal" 200 "$NO_SCRIPT"
+check "/en/legal" "$L/en/legal" 200
+check "/fdroid/" "$L/fdroid/" 200 "$NO_SCRIPT"
+check "/fdroid" "$L/fdroid" 200
+check "/en/fdroid/" "$L/en/fdroid/" 200
+check "/account/delete" "$L/account/delete" 200 "$DELETE_CSP"
+check "/en/account/delete" "$L/en/account/delete" 200 "$DELETE_CSP"
+check "/account/delete.html" "$L/account/delete.html" 200 "$DELETE_CSP"
+check "deletion script" "$L/js/$js" 200 "content-type: text/javascript"
+check "deletion script cache" "$L/js/$js" 200 "immutable"
+check "robots.txt" "$L/robots.txt" 200 "content-type: text/plain"
+check "sitemap.xml" "$L/sitemap.xml" 200 "content-type: (text|application)/xml"
+check "favicon.ico" "$L/favicon.ico" 200
+check "unknown page" "$L/nope" 404 "$NO_SCRIPT"
+check "unknown page under /en/" "$L/en/nope" 404
+check "unknown page headers" "$L/nope" 404 "strict-transport-security: max-age=31536000; includeSubDomains"
+# Only the deletion page may run a script: no other page's CSP names one.
+for page in / /en/ /privacy /about /legal /fdroid/ /nope; do
+  if curl -sS -D - -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" "$L$page" | grep -qi '^content-security-policy:.*script-src'; then
+    echo "FAIL $page: its CSP allows a script"
+    failures=$((failures + 1))
+  else
+    echo "ok   $page: no script in its CSP"
+  fi
+done
 check "/app redirect" http://lunaway.net:8080/app 301 "location: /app/"
 check "/app/" http://lunaway.net:8080/app/ 200 "wasm-unsafe-eval"
 check "/app/ cache" http://lunaway.net:8080/app/ 200 "cache-control: no-cache"
@@ -249,6 +285,9 @@ fetch font-body "$T/fonts/Noto%20Sans%20Regular/0-255.pbf" -H 'Accept-Encoding: 
 if grep -qi '^content-encoding: gzip' "$SCRATCH/font-headers.out"; then echo "ok   glyphs are compressed"; else echo "FAIL glyphs are sent uncompressed"; failures=$((failures + 1)); fi
 fetch style-body "$T/styles/test.json"
 body style-body "json.loads(b)['glyphs'] == 'https://tiles.lunaway.net/fonts/{fontstack}/{range}.pbf'"
+# A missing page answers with the site's 404 page, in both languages.
+fetch page-404 "$L/nope"
+body page-404 "b'<title>Page introuvable' in b and b'This page does not exist' in b"
 fetch pack-range "$T/packs/test.pmtiles" -r 0-6 -D "$SCRATCH/pack-headers.out"
 body pack-range "b == b'PMTiles'"
 if grep -q '^HTTP/1.1 206' "$SCRATCH/pack-headers.out" && grep -qi '^content-range: bytes 0-6/' "$SCRATCH/pack-headers.out"; then
@@ -269,10 +308,12 @@ fi
 write="$(curl -sS -o /dev/null -w '%{http_code}' --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -X POST -d x "$T/planet.json")"
 if [ "$write" = 405 ]; then echo "ok   a POST to the tiles host: 405"; else echo "FAIL a POST to the tiles host: $write"; failures=$((failures + 1)); fi
 
-if curl -sS -D - -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" http://lunaway.net:8080/ | grep -qi '^server:'; then
-  echo "FAIL a Server header is sent"
-  failures=$((failures + 1))
-fi
+for page in / /nope; do
+  if curl -sS -D - -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" "http://lunaway.net:8080$page" | grep -qi '^server:'; then
+    echo "FAIL $page sends a Server header"
+    failures=$((failures + 1))
+  fi
+done
 if curl -sS -D - -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" http://api.lunaway.net:8080/media/ab/ffffffff.jpg | grep -qi '^cache-control:.*immutable'; then
   echo "FAIL a media miss carries the year-long cache"
   failures=$((failures + 1))

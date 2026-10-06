@@ -1,0 +1,171 @@
+title: Privacy policy, Lunaway
+description: What the Lunaway app and its servers store, where, for how long, and how to erase it. No trackers, no ads, accounts without email.
+---
+<div class="page-title">
+<h1>Privacy policy</h1>
+<p>What Lunaway stores, where, for how long, and how to erase it. In force since 6&nbsp;October&nbsp;2026.</p>
+</div>
+--- main
+<div class="page page--toc">
+<nav class="toc" aria-labelledby="toc-title">
+<h2 id="toc-title">On this page</h2>
+<ol>
+<li><a href="#summary">In short</a></li>
+<li><a href="#controller">Who is responsible</a></li>
+<li><a href="#device">On your device</a></li>
+<li><a href="#servers">What goes through our servers</a></li>
+<li><a href="#account">Your account, without email</a></li>
+<li><a href="#contributions">What you publish</a></li>
+<li><a href="#location">Your location</a></li>
+<li><a href="#logs">Logs and abuse limits</a></li>
+<li><a href="#backups">Backups</a></li>
+<li><a href="#hosting">Hosting and providers</a></li>
+<li><a href="#retention">Retention</a></li>
+<li><a href="#legal-bases">Legal bases</a></li>
+<li><a href="#rights">Your rights</a></li>
+<li><a href="#changes">Audience and changes</a></li>
+</ol>
+</nav>
+<article class="prose">
+<section class="summary" aria-labelledby="summary">
+<h2 id="summary">In short</h2>
+<ul>
+<li>Lunaway shows no advertising, uses no tracker or audience measurement, and sells no data.</li>
+<li>Browsing the map needs no account. Until you create one, your favourites, settings and vehicle stay on your device.</li>
+<li>The account is created when you first contribute or sync your favourites. It asks for no email, no phone number and no password.</li>
+<li>Your location is used on the device. When it goes to our servers, for directions, it is neither stored nor logged.</li>
+<li>Our servers are in Germany. The access logs truncate IP addresses and are erased after 14&nbsp;days.</li>
+<li>You can delete your account at any time, in the app or on the <a href="/en/account/delete">Delete my account</a> page.</li>
+</ul>
+</section>
+
+<h2 id="controller">Who is responsible</h2>
+<p>Lunaway is published by AxiomTeam, the controller of the processing described here. For a question, or to exercise your rights: <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. The publisher's postal address is in the <a href="/en/legal">legal notice</a>.</p>
+<p>This policy covers the Lunaway app (Android, and the web version at lunaway.net/app), this site, and our servers: api.lunaway.net for data and photos, tiles.lunaway.net for the basemap.</p>
+
+<h2 id="device">On your device</h2>
+<p>The app keeps its data in its own storage, which other apps cannot read:</p>
+<ul>
+<li><strong>The places</strong>, copied from our server for the whole of France, so that the map, the search and the place pages work without a network, with the photos and the first page of reviews of the places you opened.</li>
+<li><strong>Your own data</strong>: your favourite lists, your settings (language, filters, theme, preferred navigation app) and your vehicle profile (type, trailer, height, width, length, weight).</li>
+<li><strong>An approximate position</strong>, rounded to a tenth of a degree (about ten kilometres), so that the light or dark theme follows sunset from the next launch.</li>
+<li><strong>Your account's private key</strong>, if you have an account, in the protected storage the system provides (the Android Keystore, for instance). It never leaves the device.</li>
+</ul>
+<p>On Android, your device backup, which goes to your Google account, may contain your favourites, settings and vehicle, and nothing else from Lunaway. The app allows it only when that backup is end-to-end encrypted, which Android offers from version&nbsp;9 when the screen is locked; Android&nbsp;7 and&nbsp;8 do not know this condition and follow their own backup settings. A transfer to a new phone carries the same data. On a computer, your backups may also contain the app's data, depending on their settings.</p>
+<p>In the web app, this data sits in the storage your browser keeps for lunaway.net. Uninstalling the app, or clearing the site's data in the browser, erases all of it.</p>
+
+<h2 id="servers">What goes through our servers</h2>
+<p>The app connects only to our servers, always over HTTPS. It embeds no third-party service: no advertising, no audience measurement, no crash reporting service, no basemap or font loaded from elsewhere. Only the links you choose to open (OpenStreetMap, your navigation app, the source code) lead to other sites.</p>
+<p>With or without an account:</p>
+<ul>
+<li><strong>Syncing places</strong> asks for the changes of a whole region, France today. It says nothing about where you are.</li>
+<li><strong>Opening a place</strong> asks for its reviews and photos. The content of these requests is neither stored nor logged; the access log keeps the address of the photo files downloaded (see <a href="#logs">Logs</a>).</li>
+<li><strong>The basemap</strong> comes from tiles.lunaway.net. Each piece of map shown covers an area: the log keeps only its zoom level, never the area.</li>
+<li><strong>Directions</strong>, a feature in preparation: the start, the destination, the stops and the vehicle's dimensions travel in the body of the request. Our own engine computes the route on our server, and neither the request nor the route is stored or logged.</li>
+<li><strong>Search</strong> for places and towns runs on the device. When the web app asks our server instead, the text searched and the centre of the map, used to rank the results, travel in the body of the request, and are neither stored nor logged.</li>
+</ul>
+
+<h2 id="account">Your account, without email</h2>
+<p>Browsing the map needs no account. The app creates one the first time you contribute (a rating, a review, a photo, a confirmation, a report, a place) or choose to sync your favourites, which are then imported into it.</p>
+<p>The account rests on a key pair created on your device. Our server keeps:</p>
+<ul>
+<li>the <strong>public key</strong> of each device linked to the account, with the dates it was created and last used;</li>
+<li>a randomly drawn <strong>pseudonym</strong>, such as "Curious Hedgehog of the Vercors", which you can change and which is public;</li>
+<li>your <strong>sessions</strong>: a random token of which we keep only a fingerprint (SHA-256), valid for 60&nbsp;days after its last use, erased within the hour after it expires;</li>
+<li>the fingerprint of your <strong>recovery code</strong> (argon2id), if you created one. The code is shown only once, on your device, and we cannot recover it;</li>
+<li>your <strong>trust level</strong>, from 0 to 4, computed from the account's age, the number of days it was used, its published contributions and the removals decided by moderators, as well as the sponsorships given or received;</li>
+<li>your synced <strong>favourite lists</strong> and the authors you chose to mute.</li>
+</ul>
+<p>If an account is banned for abuse, the reason for the ban is recorded with it.</p>
+
+<h2 id="contributions">What you publish</h2>
+<section class="table-wrap" aria-label="Contributions, what is public, and their licence" tabindex="0">
+<table>
+<thead><tr><th scope="col">Contribution</th><th scope="col">What is public</th><th scope="col">Licence</th></tr></thead>
+<tbody>
+<tr><td>Rating alone (1 to 5 stars)</td><td>the place's average rating, without your name</td><td>the average: places database, ODbL&nbsp;1.0</td></tr>
+<tr><td>Review</td><td>the text and the rating, with your pseudonym, and the date of the visit and the type of vehicle if you give them</td><td>CC&nbsp;BY&nbsp;4.0</td></tr>
+<tr><td>Photo</td><td>the re-encoded image, with your pseudonym</td><td>CC&nbsp;BY&nbsp;4.0</td></tr>
+<tr><td>"Still there?" confirmation</td><td>the date the place was last confirmed, without your name; your note, if any, goes to moderators only</td><td>places database, ODbL&nbsp;1.0</td></tr>
+<tr><td>Problem report (night ban, broken service, no access, danger)</td><td>the number of recent reports of each kind, without your name; your note, if any, goes to moderators only</td><td>places database, ODbL&nbsp;1.0</td></tr>
+<tr><td>New place, place edit</td><td>the place's information, in the places database, credited to the "Lunaway contributors"</td><td>ODbL&nbsp;1.0</td></tr>
+<tr><td>Report of a review, a photo or a place</td><td>nothing: only moderators read it</td><td>none</td></tr>
+</tbody>
+</table>
+</section>
+<p>The places, with their additions and edits, form an open database under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, like OpenStreetMap, whose data it includes. Reviews and photos are published under <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>, credited to your pseudonym. For each new place or edit, our server also keeps a revision that links it to your account; it is not public.</p>
+<p><strong>Photos.</strong> A photo travels to our server as it is on your device, with its metadata, including the GPS position if the device recorded one. The server decodes it, then re-encodes it from the pixels alone into two WebP files (2048 and 512 pixels on the long side): no metadata survives, no position, no date, no camera model. The original is not kept.</p>
+<p><strong>What your contributions show.</strong> Your reviews and photos are public with your pseudonym, and a stable account identifier links them together. Put side by side, with their dates, they can show where you have been. The date of visit of a review is optional.</p>
+<p><strong>Moderation.</strong> Texts go through simple automatic rules (links, contact details, repetition, a word list). A text that trips them waits for a moderator before it is published. A review or a photo reported by three trusted accounts is hidden until a moderator decides. Moderators, the publisher and the contributors it appoints, read reported content and the notes attached to confirmations and reports.</p>
+<p>You can delete each of your contributions, or your whole account: the <a href="/en/account/delete">Delete my account</a> page details what goes and what stays.</p>
+
+<h2 id="location">Your location</h2>
+<p>If you allow it, the app reads the device's location to show where you are on the map, compute distances and follow sunset. These computations run on the device, which keeps only a position rounded to about ten kilometres. The app does not ask for background location access.</p>
+<p>Your location leaves the device only when you ask for directions from where you are, and only in that request, which is neither stored nor logged. "Still there?" confirmations contain no location. You can withdraw the permission at any time in the system settings.</p>
+
+<h2 id="logs">Logs and abuse limits</h2>
+<p>Like any web server, ours record the requests they receive, for security and troubleshooting:</p>
+<ul>
+<li>The <strong>access log</strong> records the date, the method, the path requested without its parameters, the response, and the headers sent by the app or the browser (its version, its language), with a truncated IP address: the first two numbers of an IPv4 address (203.0.113.7 becomes 203.0.0.0), the first 32 bits of an IPv6 address. It records no port, no cookie, no session token, no request content, and not the area of map pieces. It is erased after 14&nbsp;days.</li>
+<li>The servers' <strong>system journal</strong> (starts, errors) truncates addresses the same way and is emptied after one month at most. Our API writes to it, for each request, only the method and the path.</li>
+<li>The <strong>abuse limits</strong> (numbers of requests, connections, account creations, recovery code attempts) count per IP address, or per block of addresses for IPv6, in the server's memory only: they are never written down, and a restart resets them.</li>
+</ul>
+
+<h2 id="backups">Backups</h2>
+<p>So that the service can be brought back after a failure, the database is copied every night, and so is every new photo:</p>
+<ul>
+<li>on the main server for 7&nbsp;days, and in the daily backup images of that server at Hetzner, kept for 7&nbsp;days;</li>
+<li>encrypted with age, on a second server at Hetzner in Nuremberg for 14&nbsp;days, then on a computer of the publisher, the only holder of the decryption key, for 29&nbsp;days.</li>
+</ul>
+<p>Data deleted from the database, or a deleted photo, thus leaves every backup within 30&nbsp;days at most.</p>
+
+<h2 id="hosting">Hosting and providers</h2>
+<ul>
+<li><strong>Hetzner Online GmbH</strong> (Germany) hosts our servers in its data centres in Falkenstein and Nuremberg: the API, the database, the photos, the basemap and this site.</li>
+<li><strong>Infomaniak Network SA</strong> (Switzerland) receives the emails sent to contact@lunaway.net. Switzerland is covered by an adequacy decision of the European Commission.</li>
+<li><strong>Cloudflare</strong> runs the domain names of lunaway.net, as DNS only: it gives the address of our servers, then the traffic goes straight to us, without passing through it.</li>
+</ul>
+<p>The basemap is built by Protomaps from OpenStreetMap, then copied and served by our own server. Neither the app nor this site loads maps, fonts or scripts from another host. If you install Lunaway through Google Play or F-Droid, those services handle the download data under their own rules.</p>
+<p>We do not sell, rent or share any data, for advertising or any other commercial use.</p>
+
+<h2 id="retention">Retention</h2>
+<section class="table-wrap" aria-label="Retention periods" tabindex="0">
+<table>
+<thead><tr><th scope="col">Data</th><th scope="col">Kept</th></tr></thead>
+<tbody>
+<tr><td>Account: public keys, pseudonym, level, synced favourites, muted authors</td><td>until the account is deleted</td></tr>
+<tr><td>Sessions</td><td>60&nbsp;days after their last use</td></tr>
+<tr><td>Contributions</td><td>until you delete them or the account; some then stay without author (see <a href="/en/account/delete">Delete my account</a>)</td></tr>
+<tr><td>Access log</td><td>14&nbsp;days</td></tr>
+<tr><td>System journal</td><td>1&nbsp;month at most</td></tr>
+<tr><td>Abuse counters</td><td>in memory, from one minute to one day, cleared at every restart</td></tr>
+<tr><td>Backups</td><td>30&nbsp;days at most</td></tr>
+<tr><td>Emails received at contact@lunaway.net</td><td>as long as it takes to handle your request</td></tr>
+<tr><td>Data on your device</td><td>until you uninstall the app, or clear the site's data in the browser</td></tr>
+</tbody>
+</table>
+</section>
+
+<h2 id="legal-bases">Legal bases</h2>
+<ul>
+<li>Providing the service you ask for (article&nbsp;6(1)(b) of the GDPR): syncing places, the account, your contributions, your synced favourites, directions.</li>
+<li>Our legitimate interest in protecting the service and its users (article&nbsp;6(1)(f)): logs, abuse limits, moderation, backups.</li>
+<li>Your consent, given to the system, for reading the device's location (article&nbsp;6(1)(a)): you can withdraw it at any time.</li>
+</ul>
+
+<h2 id="rights">Your rights</h2>
+<p>The GDPR gives you the right to access your data, to have it corrected or erased, to restrict its use, to object to its processing and to receive it in a reusable format.</p>
+<ul>
+<li>In the app, your profile shows your pseudonym, which you can change, your level and your contributions, which you can delete one by one.</li>
+<li>You can delete your whole account <a href="/en/account/delete">in the app or with your recovery code</a>.</li>
+<li>For any other request, write to <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. We answer within one month.</li>
+</ul>
+<p>Your account is linked to no email address: before answering a request, we must check that the account is yours, for instance by asking you to change your pseudonym in the app to a word we give you.</p>
+<p>If you believe your rights are not respected, you can lodge a complaint with the French data protection authority, the CNIL, online at <a href="https://www.cnil.fr/fr/adresser-une-plainte">cnil.fr</a> or by post: CNIL, service des plaintes, 3 place de Fontenoy, 75007 Paris, France. You can also contact the authority of the EU country where you live.</p>
+
+<h2 id="changes">Audience and changes</h2>
+<p>Lunaway is meant for adults.</p>
+<p>When this policy changes, the new version appears on this page with its date. The page's history is public in the <a href="https://github.com/poka-IT/lunaway">code repository</a>, at <code>infra/web/site/en/privacy.html</code>.</p>
+<p class="meta">Version of 6&nbsp;October&nbsp;2026.</p>
+</article>
+</div>

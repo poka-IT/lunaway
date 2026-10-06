@@ -1,0 +1,109 @@
+title: Delete your Lunaway account
+description: Delete your Lunaway account and its data, in the app or with your recovery code. What is deleted, what stays without your name, and how soon.
+---
+<div class="page-title">
+<h1>Delete your Lunaway account</h1>
+<p>Lunaway, the map app for motorhomes and vans published by AxiomTeam, lets you delete your account and its data at any time, in two ways.</p>
+</div>
+--- main
+<div class="page page--single">
+<article class="prose">
+<h2 id="in-the-app">1. In the app</h2>
+<p>Open <strong>Profile</strong>, then <strong>Delete my account</strong>, and confirm. The app needs an internet connection. The deletion is immediate.</p>
+
+<h2 id="with-the-code">2. On this page, with your recovery code</h2>
+<p>If you no longer have the device, use the recovery code the app gave you when you created your recovery card.</p>
+
+<div class="form-card">
+<form id="delete-form" data-endpoint="https://api.lunaway.net/graphql" novalidate>
+<fieldset disabled>
+<legend class="visually-hidden">Delete the account with the recovery code</legend>
+<label for="recovery-code">Recovery code</label>
+<p class="hint" id="recovery-hint">27 letters and digits, in groups of four, as on your card (dashes and spaces are optional).</p>
+<input class="code-input" id="recovery-code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="100" aria-describedby="recovery-hint">
+<p class="field-error" id="error-empty" data-error="empty" hidden>Enter your recovery code.</p>
+<p class="field-error" id="error-length" data-error="length" hidden>A recovery code has 27 letters and digits, not counting the dashes; this one has <span data-slot="count">0</span>.</p>
+<p class="field-error" id="error-char" data-error="char" hidden>The character "<span data-slot="char"></span>" never appears in a recovery code.</p>
+<p class="field-error" id="error-typo" data-error="typo" hidden>This code contains a typo: compare it with your card, character by character.</p>
+<div class="form-actions">
+<button class="button button-primary" type="submit">Continue</button>
+</div>
+</fieldset>
+<p class="hint" id="delete-noscript">This form needs JavaScript. Without it, delete your account from the app, or write to us.</p>
+</form>
+
+<div id="delete-confirm" hidden>
+<h3>Confirm the deletion</h3>
+<p>You are about to delete the Lunaway account linked to this code:</p>
+<p class="code-echo" id="code-echo"></p>
+<p>The deletion is immediate and final: the account cannot be restored.</p>
+<div class="form-actions">
+<button class="button button-danger" type="button" id="delete-go">{icon:trash}Delete my account</button>
+<button class="button button-outline" type="button" id="delete-back">Go back</button>
+</div>
+<p class="status-line" id="delete-status" role="status" data-sending="Deleting…"></p>
+</div>
+
+<div class="result result--ok" data-result="deleted" hidden>
+<h3>Your account is deleted</h3>
+<p>The account linked to this code no longer exists, and the data listed below has been deleted. The encrypted backups keep a copy for 30&nbsp;days at most.</p>
+<p>A device that used this account no longer has access to it: if you contribute again from it, the app will create a new account.</p>
+</div>
+<div class="result result--error" data-result="not-found" hidden>
+<h3>No account matches this code</h3>
+<p>The account may already be deleted, or a newer code may have replaced this one: creating a new recovery code in the app cancels the previous one. Check the code on your card, or delete the account from the app.</p>
+</div>
+<div class="result result--error" data-result="limited" hidden>
+<h3>Too many attempts for now</h3>
+<p>To protect accounts, our server accepts 5 recovery code attempts an hour from one connection. Try again in <span data-slot="minutes">60</span>&nbsp;minutes.</p>
+</div>
+<div class="result result--error" data-result="invalid" hidden>
+<h3>This code is not recognised</h3>
+<p>The server does not accept it as a recovery code. Compare it with your card, character by character.</p>
+</div>
+<div class="result result--error" data-result="unknown" hidden>
+<h3>The request did not go through</h3>
+<p>The server did not answer, or answered with an error, and nothing says whether the account was deleted. Try again in a few minutes: if the account no longer exists, this page will tell you. If the problem persists, write to <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</div>
+</div>
+
+<h2 id="no-code">Without the device or the code</h2>
+<p>The account is linked to no email address and no phone number: without the device or the recovery code, nothing can prove that an account is yours. Write to us anyway at <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, and we will look for a solution with you.</p>
+
+<h2 id="deleted">What is deleted</h2>
+<p>At once, in a single operation:</p>
+<ul>
+<li>the account itself: pseudonym, trust level, activity dates;</li>
+<li>your devices' keys, all your sessions and your recovery code;</li>
+<li>your favourite lists stored on the server;</li>
+<li>the authors you had muted, and the mutes aimed at your account;</li>
+<li>the sponsorships given or received;</li>
+<li>all your photos, files included;</li>
+<li>your ratings without text, and those of your reviews that were not published;</li>
+<li>your problem reports about places, and your reports of reviews, photos or places;</li>
+<li>your new places or edits that were waiting for a moderator.</li>
+</ul>
+
+<h2 id="kept">What stays, without your name</h2>
+<p>Some contributions are public under an open licence and help other travellers. They stay, detached from your account:</p>
+<ul>
+<li>your published reviews with a text (text, rating, date of visit, vehicle), shown as coming from a "deleted account";</li>
+<li>your "still there?" confirmations, without the note you attached;</li>
+<li>your new places and edits already handled: applied ones are part of the open places database (ODbL); rejected or withdrawn ones stay in the revision history.</li>
+</ul>
+<p>For a review to go too, delete it in the app before deleting your account.</p>
+
+<h2 id="delay">How soon</h2>
+<p>The deletion is immediate in our database. The encrypted backups of the database and of the photos keep a copy for 30&nbsp;days at most, then erase it; they serve only to bring the service back after a failure.</p>
+
+<h2 id="one-contribution">Delete a single contribution</h2>
+<p>Without deleting your account, you can delete in the app each of your reviews and ratings, each of your photos, confirmations and problem reports, and each of your new places or edits.</p>
+<ul>
+<li>A review or a photo is erased for good. If it had been reported, or hidden by moderators, it leaves the display and its text or files are erased, but a trace stays for moderation.</li>
+<li>A new place or edit not yet applied is withdrawn, and never will be. One already applied stays in the places database, without your name.</li>
+</ul>
+
+<h2 id="contact">A question</h2>
+<p>Write to <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. The <a href="/en/privacy">privacy policy</a> describes all of Lunaway's data.</p>
+</article>
+</div>
