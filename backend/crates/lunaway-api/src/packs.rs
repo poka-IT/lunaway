@@ -448,6 +448,7 @@ pub async fn build(
     let query = format!("{{ places {{ {PLACE_SELECTION} }} }}");
     let cursor = crate::schema::changes_cursor(&head, head.last_seq);
     let fingerprint = fingerprint(&config);
+    let state = ApiState::new(pool.clone(), config);
     let mut built = Vec::with_capacity(regions.len());
     for extent in &regions {
         let up_to_date = !options.takedown
@@ -475,7 +476,7 @@ pub async fn build(
                 PlaceSourcesLoader::Read(sources),
                 tokio::spawn,
             ))
-            .data(ApiState::new(pool.clone(), config.clone()))
+            .data(state.clone())
             .finish();
         let raw_path = dir.join(format!("{}.sqlite.building", extent.region));
         let generated_at = Utc::now();

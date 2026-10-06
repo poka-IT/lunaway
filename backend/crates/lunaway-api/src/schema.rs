@@ -81,7 +81,8 @@ pub const MAX_CHANGES_AREA_DEG2: f64 = 400.0;
 /// Shortest and longest search text, in characters.
 const SEARCH_TEXT_CHARS: std::ops::RangeInclusive<usize> = 2..=100;
 
-/// What the resolvers share.
+/// What the resolvers share. A clone shares the same budgets and caches.
+#[derive(Clone)]
 pub struct ApiState {
     /// The database.
     pub pool: PgPool,
