@@ -1,0 +1,78 @@
+# Builds what the API serves about speed cameras (docs/speed-cameras.md):
+# the danger zones and the points each country allows, from the stored
+# cameras, through the routing engine on loopback. Daily at 05:30 UTC
+# (lunaway-enforcement.timer), after the official lists
+# (lunaway-cameras.service, pulled in by Wants=, so a list that failed does
+# not stop the build of the others). Only the items whose cameras changed
+# are built again; after a new routing graph, lunaway-enforcement-full.service
+# builds them all. A build that would retire more than a tenth of the items
+# retires none and fails. Installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway speed cameras: build the zones and points
+Wants=lunaway-cameras.service
+After=postgresql.service valhalla.service lunaway-cameras.service lunaway-enforcement-full.service
+Requires=postgresql.service
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+# LUNAWAY_ZONE_SECRET, the key of the zones' cut (docs/deploy.md, "Private
+# settings"): generated once by infra/server/pipeline.sh, never changed
+# once zones are served, an encrypted copy in the backups. Only the builds
+# read it.
+EnvironmentFile=/etc/lunaway/zone.env
+Environment=LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+# The time of the last build that succeeded, for the health probe
+# (lunaway-health): /var/lib/lunaway-enforcement/built, its date only.
+StateDirectory=lunaway-enforcement
+ExecStart=/opt/lunaway/current/lunaway enforcement build
+ExecStartPost=/usr/bin/touch /var/lib/lunaway-enforcement/built
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# PostgreSQL and the routing engine on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+# The cameras and their items are held in memory, a few thousand per
+# country: the daily build of 4 557 cameras peaked at 23.9 MB on the France
+# graph (2026-10-06, 12 min, 34 473 engine calls).
+MemoryHigh=256M
+MemoryMax=384M

@@ -5,9 +5,14 @@
 # outbound HTTPS for the imports and a cache on the data volume.
 #
 #   lunaway-ingest-osm              daily 03:00 UTC, the OpenStreetMap France extract
+#   lunaway-ingest-osm-europe@Day   weekly, Monday to Saturday 05:00 UTC, one
+#                                   group of the other European extracts each
+#                                   day (/usr/local/share/lunaway/osm-extracts.env)
 #   lunaway-ingest-atout-france     weekly, Sunday 04:00 UTC
 #   lunaway-ingest-pois             daily 03:45 UTC, the points of interest of
 #                                   the same extract (3 GB memory cap)
+#   lunaway-ingest-pois-europe@Day  weekly, 05:45 UTC, the points of interest of
+#                                   that day's group, after its places
 #   lunaway-ingest-fuel             every 15 minutes, the fuel price feed
 #   lunaway-ingest-laposte          daily 04:10 UTC, La Poste's calendar
 #   lunaway-ingest-finess           monthly, the 2nd at 04:20 UTC
@@ -21,6 +26,16 @@
 #                                   stored but not served while the routing
 #                                   graph covers France only
 #   lunaway-conflate                after each successful import of places
+#   lunaway-packs                   after each conflation that follows an import
+#                                   of places, and daily 06:30 UTC: the regional
+#                                   first-sync packs into /srv/data/packs
+#   lunaway-enforcement             daily 05:30 UTC: the official speed camera
+#                                   lists (lunaway-cameras), then the zones and
+#                                   points, on the engine at 127.0.0.1:8002
+#   lunaway-enforcement-full        after each new routing graph (started by
+#                                   lunaway-routing-refresh): OpenStreetMap's
+#                                   cameras (lunaway-cameras-osm), then every
+#                                   zone and point built again
 #   lunaway-conflate-worker         always: the community's submissions and
 #                                   summaries, woken by the API's NOTIFY, and
 #                                   at least every 5 minutes (which also slides
@@ -29,7 +44,12 @@
 #   lunaway-migrate                 started by install-release.sh, as lunaway_owner
 #
 #   lunaway-ingest     static user of the imports and the conflation; owns
-#                      /srv/data/ingest (raw payload cache, the extract)
+#                      /srv/data/ingest (raw payload cache, the extracts) and
+#                      /srv/data/packs (setgid caddy, which serves the packs)
+#   /etc/lunaway/zone.env   LUNAWAY_ZONE_SECRET, generated here once and never
+#                      again: a new secret moves every danger zone the phones
+#                      hold. An age-encrypted copy goes to the off-site
+#                      directory, pulled to the ops server and the Mac
 #
 # The timers stay off while the release carries no `lunaway` binary: a run
 # before the first migration would only fail. The worker starts only with a
@@ -45,6 +65,44 @@ if ! getent passwd lunaway-ingest >/dev/null; then
     --comment "Lunaway imports and conflation" --user-group lunaway-ingest
 fi
 install -d -m 0750 -o lunaway-ingest -g lunaway-ingest /srv/data/ingest
+# The regional packs: written by the imports' user, read by Caddy alone
+# (/packs/places/ of the Caddyfile). The directory is setgid to caddy, so
+# what the builder writes with its umask 0027 comes out readable by caddy
+# and nobody else. Nothing to back up: each build writes it again.
+getent group caddy >/dev/null || die "no caddy group; run the caddy step first"
+install -d -m 2750 -o lunaway-ingest -g caddy /srv/data/packs
+
+log "speed camera zones' secret"
+# The key of each zone's cut and id (docs/speed-cameras.md): generated once
+# (32 random bytes, hex), read by the builds only (lunaway-enforcement*,
+# lunaway-admin enforcement), never printed. A copy on the data volume
+# means a secret existed: a new one would move every zone the phones keep,
+# so it is restored from that copy instead (docs/deploy.md, "Backups and
+# restore").
+zone_env=/etc/lunaway/zone.env
+zone_copy=/srv/data/backups/offsite/zone-secret.env.age
+[ -f /etc/lunaway/backup-recipient ] || die "no /etc/lunaway/backup-recipient; run the backups step first"
+if ! grep -qE '^LUNAWAY_ZONE_SECRET=[^[:space:]]{32,}$' "$zone_env" 2>/dev/null; then
+  [ -e "$zone_copy" ] && die "$zone_env holds no LUNAWAY_ZONE_SECRET but $zone_copy exists: restore the secret from it (docs/deploy.md, \"Backups and restore\"), never generate another"
+  # On its own line, so that a failing openssl stops the step (set -e)
+  # instead of writing, and backing up, an empty secret.
+  secret="$(openssl rand -hex 32)"
+  [[ "$secret" =~ ^[0-9a-f]{64}$ ]] || die "openssl gave no secret of 64 hex digits"
+  ( umask 077
+    printf 'LUNAWAY_ZONE_SECRET=%s\n' "$secret" > "$zone_env.new"
+    mv "$zone_env.new" "$zone_env" )
+  unset secret
+  echo "    generated LUNAWAY_ZONE_SECRET in $zone_env"
+fi
+chown root:root "$zone_env"
+chmod 0600 "$zone_env"
+if [ ! -s "$zone_copy" ]; then
+  age --encrypt --recipients-file /etc/lunaway/backup-recipient --output "$zone_copy.partial" "$zone_env"
+  chown root:lunaway-pull "$zone_copy.partial"
+  chmod 0640 "$zone_copy.partial"
+  mv "$zone_copy.partial" "$zone_copy"
+  echo "    encrypted copy: $zone_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
+fi
 
 log "units"
 changed=0
@@ -57,7 +115,13 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-finess.service lunaway-ingest-finess.timer
   lunaway-road-events.service lunaway-road-events.timer
   lunaway-road-events-dialog.service lunaway-road-events-dialog.timer
-  lunaway-road-events-ndw.service lunaway-road-events-ndw.timer"
+  lunaway-road-events-ndw.service lunaway-road-events-ndw.timer
+  lunaway-ingest-osm-europe@.service lunaway-ingest-osm-europe@.timer
+  lunaway-ingest-pois-europe@.service lunaway-ingest-pois-europe@.timer
+  lunaway-packs.service lunaway-packs.timer
+  lunaway-cameras.service lunaway-enforcement.service lunaway-enforcement.timer
+  lunaway-cameras-osm.service lunaway-enforcement-full.service"
+install_file files/usr/local/share/lunaway/osm-extracts.env /usr/local/share/lunaway/osm-extracts.env 0644 || true
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
@@ -74,9 +138,22 @@ if [ -f /etc/systemd/system/lunaway-conflate.timer ]; then
 fi
 [ "$changed" = 1 ] && systemctl daemon-reload
 
+# One weekly timer per group of European extracts, named by the keys of
+# osm-extracts.env (LUNAWAY_EXTRACTS_Mon: lunaway-ingest-osm-europe@Mon.timer).
+days="$(sed -nE 's/^LUNAWAY_EXTRACTS_(Mon|Tue|Wed|Thu|Fri|Sat|Sun)=.*/\1/p' /usr/local/share/lunaway/osm-extracts.env)"
+[ -n "$days" ] || die "no group in /usr/local/share/lunaway/osm-extracts.env"
+weekly=""
+for day in $days; do
+  weekly="$weekly lunaway-ingest-osm-europe@$day.timer lunaway-ingest-pois-europe@$day.timer"
+done
+# A day dropped from the file stops importing.
+for unit in $(ls /etc/systemd/system/timers.target.wants/ | grep -E '^lunaway-ingest-(osm|pois)-europe@[A-Z][a-z]{2}\.timer$'); do
+  case " $weekly " in *" $unit "*) ;; *) systemctl disable --quiet --now "$unit" && echo "    disabled $unit" ;; esac
+done
 timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-ingest-pois.timer
   lunaway-ingest-fuel.timer lunaway-ingest-laposte.timer lunaway-ingest-finess.timer
-  lunaway-road-events.timer lunaway-road-events-dialog.timer lunaway-road-events-ndw.timer"
+  lunaway-road-events.timer lunaway-road-events-dialog.timer lunaway-road-events-ndw.timer
+  lunaway-packs.timer lunaway-enforcement.timer $weekly"
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
   systemctl enable --quiet --now $timers
@@ -111,4 +188,4 @@ else
   systemctl disable --quiet --now lunaway-conflate-worker 2>/dev/null || true
   log "the release's CLI has no conflate --watch: the worker stays off"
 fi
-log "disk: $(df -h --output=avail /srv/data | tail -n 1 | tr -d ' ') free on /srv/data, $(du -sh /srv/data/ingest | cut -f1) in /srv/data/ingest"
+log "disk: $(df -h --output=avail /srv/data | tail -n 1 | tr -d ' ') free on /srv/data, $(du -sh /srv/data/ingest | cut -f1) in /srv/data/ingest, $(du -sh /srv/data/packs | cut -f1) in /srv/data/packs"

@@ -8,6 +8,9 @@ Description=Lunaway conflation
 After=postgresql.service
 Requires=postgresql.service
 ConditionPathExists=/opt/lunaway/current/lunaway
+# The regional first-sync packs follow the places: a region whose places
+# changed gets a new pack (lunaway-packs.service, also daily at 06:30).
+OnSuccess=lunaway-packs.service
 
 [Service]
 Type=oneshot

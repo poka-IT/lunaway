@@ -17,8 +17,10 @@
 #       write access to the photos (a removal deletes their files) and to
 #       the account deletion journal (a deletion is written there first; the
 #       replay after a restore reads it), nothing else
-#   sudo lunaway-admin ingest osm-extract|atout-france|municipalities [--refresh]
-#   sudo lunaway-admin ingest pois|fuel|laposte|finess [--refresh]
+#   sudo lunaway-admin ingest osm-extract|pois [--europe | --extract NAME...] [--refresh]
+#   sudo lunaway-admin ingest atout-france|municipalities|fuel|laposte|finess [--refresh]
+#   sudo lunaway-admin ingest cameras [--list france,...] [--refresh]
+#   sudo lunaway-admin ingest cameras-osm [--europe | --extract NAME...]
 #   sudo lunaway-admin conflate [--full]
 #   sudo lunaway-admin stats
 #   sudo lunaway-admin pois stats|hours
@@ -26,6 +28,18 @@
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
 #       private ranges
+#   sudo lunaway-admin packs build [--region CODE [--takedown]] | list
+#       as the imports, writing /srv/data/packs only (served by Caddy under
+#       /packs/places/), with the API's public URLs (media.env); loopback only
+#   sudo lunaway-admin enforcement build [--full] [--allow-retire] | stats
+#       as the imports, with the zones' secret (/etc/lunaway/zone.env) and
+#       the routing engine on loopback; nothing else
+#   sudo lunaway-admin take-down <place> --reason TEXT [--with-nearby] [--yes]
+#       takes a place down for good (docs/deploy.md, "Taking a place down"):
+#       1. conflate --take-down, as the imports; 2. moderation take-down, as
+#       the API; 3. packs build --region <its region> --takedown, as the
+#       packs; stops at the first step that fails. Without --yes, step 1's
+#       preview only, and what would follow
 #   sudo lunaway-admin migrate
 #       starts lunaway-migrate.service (role lunaway_owner)
 #
@@ -52,28 +66,118 @@ sandbox=(
   -E NO_COLOR=1 -E RUST_LOG=info
 )
 
+# One function per identity: the user, the database role, the writable
+# paths and the network each command needs.
+as_api() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 -p MemoryMax=2G \
+    -p EnvironmentFile=/etc/lunaway/api.env -p EnvironmentFile=/etc/lunaway/media.env \
+    -p RequiresMountsFor=/srv/data \
+    -p ReadWritePaths=/srv/data/media -p ReadWritePaths=/srv/data/account-deletions \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+    -p IPAddressDeny=any -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
+as_ingest() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+    -p MemoryHigh=2560M -p MemoryMax=3G \
+    -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+    -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
+    -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
+    -p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
+    -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
+# The packs come out 0640 lunaway-ingest:caddy, like the unit's
+# (/srv/data/packs is setgid caddy).
+as_packs() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+    -p MemoryHigh=768M -p MemoryMax=1G \
+    -p EnvironmentFile=/etc/lunaway/ingest.env -p EnvironmentFile=/etc/lunaway/media.env \
+    -E LUNAWAY_PACKS_DIR=/srv/data/packs \
+    -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/packs \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+    -p IPAddressDeny=any -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
+as_enforcement() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+    -p MemoryHigh=768M -p MemoryMax=1G \
+    -p EnvironmentFile=/etc/lunaway/ingest.env -p EnvironmentFile=/etc/lunaway/zone.env \
+    -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+    -p IPAddressDeny=any -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
+
+# take-down: the three steps of "Taking a place down", each under its own
+# identity, in order, stopping at the first that fails. Step 1 names the
+# place it took down (an id merged into another names the other) and its
+# region: steps 2 and 3 use those, never the id given.
+take_down() {
+  local place="" reason="" yes=0 nearby=0 out final region
+  place="${1:-}"
+  shift || true
+  [[ "$place" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+    || { echo "take-down <place> --reason TEXT [--with-nearby] [--yes]: <place> is a place id" >&2; exit 2; }
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reason) [ $# -ge 2 ] || { echo "--reason takes a text" >&2; exit 2; }; reason="$2"; shift 2 ;;
+      --yes) yes=1; shift ;;
+      --with-nearby) nearby=1; shift ;;
+      *) echo "take-down: unknown argument $1" >&2; exit 2 ;;
+    esac
+  done
+  [ -n "$reason" ] || { echo "take-down needs --reason TEXT (the kind of request and its reference, never the requester's name)" >&2; exit 2; }
+  local step1=(conflate --take-down "$place" --reason "$reason")
+  [ "$nearby" = 1 ] && step1+=(--with-nearby)
+  if [ "$yes" = 0 ]; then
+    echo "== 1. the catalogue, preview (import role)"
+    as_ingest "${step1[@]}"
+    echo "== then, with --yes: 2. moderation take-down (API role), 3. packs build --region <its region> --takedown"
+    return 0
+  fi
+  echo "== 1. the catalogue (import role)"
+  if ! out="$(as_ingest "${step1[@]}" --yes)"; then
+    printf '%s\n' "$out"
+    echo "step 1 failed: nothing else done" >&2
+    exit 1
+  fi
+  printf '%s\n' "$out"
+  final="$(sed -nE 's/^next, at once .*lunaway moderation take-down ([0-9a-f-]{36}) --yes$/\1/p' <<<"$out" | head -n 1)"
+  region="$(sed -nE 's/^then: lunaway packs build --region ([A-Z0-9-]+) --takedown$/\1/p' <<<"$out" | head -n 1)"
+  [[ "$final" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
+    || { echo "step 1 named no place for step 2; run it by hand: lunaway-admin moderation take-down <place> --yes" >&2; exit 1; }
+  echo "== 2. the community's content (API role)"
+  as_api moderation take-down "$final" --yes || { echo "step 2 failed: run it again, then the packs" >&2; exit 1; }
+  if [ -z "$region" ]; then
+    echo "== 3. no region named by step 1: no pack to build again"
+    return 0
+  fi
+  echo "== 3. the packs of $region (packs)"
+  as_packs packs build --region "$region" --takedown || { echo "step 3 failed: run lunaway-admin packs build --region $region --takedown again" >&2; exit 1; }
+}
+
 case "${1:-}" in
   moderation|accounts)
-    exec systemd-run "${sandbox[@]}" \
-      -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 -p MemoryMax=2G \
-      -p EnvironmentFile=/etc/lunaway/api.env -p EnvironmentFile=/etc/lunaway/media.env \
-      -p RequiresMountsFor=/srv/data \
-      -p ReadWritePaths=/srv/data/media -p ReadWritePaths=/srv/data/account-deletions \
-      -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
-      -p IPAddressDeny=any -p IPAddressAllow=localhost \
-      "$cli" "$@"
+    as_api "$@"
     ;;
   ingest|conflate|stats|pois|road-events)
-    exec systemd-run "${sandbox[@]}" \
-      -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
-      -p MemoryHigh=2560M -p MemoryMax=3G \
-      -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
-      -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
-      -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
-      -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
-      -p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
-      -p IPAddressAllow=localhost \
-      "$cli" "$@"
+    as_ingest "$@"
+    ;;
+  packs)
+    as_packs "$@"
+    ;;
+  enforcement)
+    as_enforcement "$@"
+    ;;
+  take-down)
+    shift
+    take_down "$@"
     ;;
   migrate)
     systemctl reset-failed lunaway-migrate 2>/dev/null || true
@@ -81,7 +185,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,30p' "$0" >&2
+    sed -n '2,44p' "$0" >&2
     exit 2
     ;;
 esac

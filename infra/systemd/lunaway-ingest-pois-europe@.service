@@ -1,21 +1,17 @@
-# Imports the places of OpenStreetMap from the daily France extract (5.1 GB
-# on 2026-10-06, streamed to the data volume and resumed after an
-# interruption; the refresh keeps the previous file until the new one is
-# complete, so the peak is twice that). France every day, the other
-# European countries once a week (lunaway-ingest-osm-europe@.service): the
-# product owner's decision of 2026-10-06 on the download volume. A run
-# retires only in the countries it read, so the two plans do not undo each
-# other. Run by lunaway-ingest-osm.timer; installed by
-# infra/server/pipeline.sh.
+# Imports the points of interest of one weekly group of European extracts
+# (the instance is the day, as for lunaway-ingest-osm-europe@.service) from
+# the files that import keeps in the cache, then evaluates their opening
+# hours. Ordered after the places import of the same group: its timer fires
+# 45 minutes later and waits for a places import still running. Without
+# --refresh, a file the places import could not download is fetched here.
+# Installed by infra/server/pipeline.sh.
 [Unit]
-Description=Lunaway import: OpenStreetMap places, France extract
-After=postgresql.service network-online.target
+Description=Lunaway import: points of interest, European extracts of %i
+After=postgresql.service network-online.target lunaway-ingest-osm-europe@%i.service lunaway-conflate.service lunaway-ingest-pois.service
 Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
-# Places are rebuilt from the records as soon as an import succeeds.
-OnSuccess=lunaway-conflate.service
 
 [Service]
 Type=oneshot
@@ -23,17 +19,12 @@ User=lunaway-ingest
 Group=lunaway-ingest
 UMask=0027
 EnvironmentFile=/etc/lunaway/ingest.env
-# Downloads and raw payloads are cached on the data volume, so an
-# interrupted run resumes instead of fetching again.
+EnvironmentFile=/usr/local/share/lunaway/osm-extracts.env
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
-# Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
-# France and Monaco (osm_extract::CATALOGUE). The command exits with an
-# error when a country's truncation guard refuses (less than half of its
-# stored records seen): the unit fails, nothing is retired there.
-ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --extract france --refresh
-TimeoutStartSec=4h
+ExecStart=/opt/lunaway/current/lunaway ingest pois $LUNAWAY_EXTRACTS_%i
+TimeoutStartSec=2h
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
@@ -75,9 +66,8 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
-# The same extract reader as the points of interest, which took 1.53 GiB
-# of anonymous memory on 2026-10-06; this import peaked at 2.5 GiB with the
-# page cache under a 3 GiB cap the same day. 2 GiB with a 1.5 GiB soft
-# limit would leave it throttled.
+# The points of France took 1.53 GiB of anonymous memory and 2.1 GiB of
+# page cache at the peak (2026-10-06); Germany, the largest group, has the
+# same density of points per byte of file.
 MemoryHigh=2560M
 MemoryMax=3G

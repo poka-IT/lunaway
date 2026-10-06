@@ -41,6 +41,11 @@ postgis="geography_columns SELECT
 geometry_columns SELECT
 spatial_ref_sys SELECT"
 
+# The import role reads the sync epoch for the regional packs' cursors
+# (lunaway packs build). No migration of 38adf3d grants it: granted by hand
+# on the backend on 2026-10-06 (plan/research/13-basemap.md, "Déploiement
+# Europe, carburant et radars"), until a migration does.
+#
 # The account and contribution tables the API writes (migration
 # 20261006005548): every row privilege, and nothing on the catalogue but
 # SELECT.
@@ -81,6 +86,11 @@ road_event_report_facts SELECT
 idempotency_keys SELECT
 idempotency_keys INSERT
 idempotency_keys DELETE
+region_packs SELECT
+place_region_exits SELECT
+fuel_price_days SELECT
+enforcement_sources SELECT
+source_reads SELECT
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -150,6 +160,32 @@ source_records INSERT
 source_records SELECT
 source_records UPDATE
 sources SELECT
+sync_epoch SELECT
+region_packs SELECT
+region_packs INSERT
+region_packs UPDATE
+region_packs DELETE
+place_region_exits SELECT
+place_region_exits INSERT
+fuel_price_days SELECT
+fuel_price_days INSERT
+fuel_price_days UPDATE
+fuel_price_days DELETE
+enforcement_devices SELECT
+enforcement_devices INSERT
+enforcement_devices UPDATE
+enforcement_items SELECT
+enforcement_items INSERT
+enforcement_items UPDATE
+enforcement_sources SELECT
+enforcement_sources INSERT
+enforcement_sources UPDATE
+enforcement_revision_seq USAGE
+source_reads SELECT
+source_reads INSERT
+source_reads UPDATE
+place_takedowns SELECT
+place_takedowns INSERT
 EOF
 )"
 
@@ -215,6 +251,32 @@ refused "lunaway_app deletes a road report" /etc/lunaway/api.env "DELETE FROM ro
 refused "lunaway_app deletes a road event" /etc/lunaway/api.env "DELETE FROM road_events WHERE false"
 refused "lunaway_app moves a feed's cursor" /etc/lunaway/api.env "UPDATE road_event_sources SET id = id WHERE false"
 allowed "lunaway_app writes an account" /etc/lunaway/api.env "BEGIN; UPDATE accounts SET pseudonym = pseudonym WHERE false; ROLLBACK; SELECT 'accounts writable'"
+# Regional packs, fuel history and speed cameras (migrations 20261006140000
+# to 20261006181000): the API reads what it serves and writes none of it.
+allowed "lunaway_app reads the regional packs" /etc/lunaway/api.env "SELECT 'region packs: ' || count(*) FROM region_packs"
+refused "lunaway_app writes a regional pack" /etc/lunaway/api.env "UPDATE region_packs SET places = places WHERE false"
+refused "lunaway_app writes a region departure" /etc/lunaway/api.env "INSERT INTO place_region_exits SELECT * FROM place_region_exits WHERE false"
+refused "lunaway_app writes a fuel price day" /etc/lunaway/api.env "UPDATE fuel_price_days SET low_eur = low_eur WHERE false"
+refused "lunaway_app reads the speed camera devices" /etc/lunaway/api.env "SELECT count(*) FROM enforcement_devices"
+refused "lunaway_app writes a danger zone" /etc/lunaway/api.env "UPDATE enforcement_items SET kind = kind WHERE false"
+refused "lunaway_app reads which camera a zone comes from" /etc/lunaway/api.env "SELECT device_key FROM enforcement_items LIMIT 1"
+refused "lunaway_app moves the speed camera revision" /etc/lunaway/api.env "SELECT nextval('enforcement_revision_seq')"
+# Taking a place down (migration 20261006193913) is the import role's step:
+# a leak of the API's credentials must not empty the catalogue.
+refused "lunaway_app reads the takedowns" /etc/lunaway/api.env "SELECT count(*) FROM place_takedowns"
+refused "lunaway_app logs a takedown" /etc/lunaway/api.env "INSERT INTO place_takedowns SELECT * FROM place_takedowns WHERE false"
+refused "lunaway_app dates a read" /etc/lunaway/api.env "UPDATE source_reads SET read_at = read_at WHERE false"
+got="$(as_role /etc/lunaway/api.env "
+SELECT string_agg(attname, ' ' ORDER BY attname)
+FROM pg_attribute
+WHERE attrelid = 'enforcement_items'::regclass AND attnum > 0 AND NOT attisdropped
+  AND has_column_privilege('enforcement_items', attname, 'SELECT')")"
+want="bearing_deg category country deleted_at id kind limit_kmh line point revision source_ids updated_at"
+if [ "$got" = "$want" ]; then
+  echo "ok   lunaway_app reads these columns of enforcement_items only: $got"
+else
+  echo "FAIL lunaway_app reads these columns of enforcement_items: $got (want: $want)"
+fi
 
 # Only row security keeps the API to the community's road events: the
 # grants above cannot show it. Neither role may bypass it, it is on for
@@ -279,6 +341,19 @@ refused "lunaway_ingest reads the road reports' facts" /etc/lunaway/ingest.env "
 refused "lunaway_ingest reads the reporter keys' salt" /etc/lunaway/ingest.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_app reads the reporter keys' salt" /etc/lunaway/api.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_ingest reads the idempotency keys" /etc/lunaway/ingest.env "SELECT count(*) FROM idempotency_keys"
+refused "lunaway_ingest deletes a danger zone" /etc/lunaway/ingest.env "DELETE FROM enforcement_items WHERE false"
+refused "lunaway_ingest deletes a speed camera" /etc/lunaway/ingest.env "DELETE FROM enforcement_devices WHERE false"
+refused "lunaway_ingest rewrites a region departure" /etc/lunaway/ingest.env "UPDATE place_region_exits SET seq = seq WHERE false"
+refused "lunaway_ingest rewrites a takedown" /etc/lunaway/ingest.env "UPDATE place_takedowns SET reason = reason WHERE false"
+# The database refuses any data for a position in Switzerland
+# (docs/speed-cameras.md): no camera, no zone, whatever a source says.
+got="$(as_role /etc/lunaway/ingest.env "SELECT (SELECT count(*) FROM enforcement_devices WHERE country = 'CH' OR scope = 'CH') + (SELECT count(*) FROM enforcement_items WHERE country = 'CH')")"
+checks="$(as_role /etc/lunaway/ingest.env "SELECT count(*) FROM pg_constraint WHERE conrelid IN ('enforcement_devices'::regclass, 'enforcement_items'::regclass) AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%<> ''CH''%'")"
+if [ "$got" = 0 ] && [ "$checks" -ge 3 ]; then
+  echo "ok   no Swiss speed camera data stored, $checks constraints refuse it"
+else
+  echo "FAIL Swiss speed camera data: $got rows, $checks constraints (want 0 rows, 3 constraints)"
+fi
 # The importers read every road event and the reports' times: a community
 # event must hold no more than the feed publishes (four decimals of a
 # degree, about ten metres, and no heading), or a join by event_id would

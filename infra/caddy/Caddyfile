@@ -47,8 +47,11 @@
 			request>headers>If-Range delete
 			request>headers>If-Match delete
 			request>headers>If-None-Match delete
+			request>headers>If-Modified-Since delete
+			request>headers>If-Unmodified-Since delete
 			resp_headers>Set-Cookie delete
 			resp_headers>Etag delete
+			resp_headers>Last-Modified delete
 			resp_headers>Content-Length delete
 			resp_headers>Content-Range delete
 			size delete
@@ -56,6 +59,9 @@
 				regexp "^/media/[^?]*" "/media/[photo]"
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
 				regexp "/packs/[a-z0-9-]+\.pmtiles" "/packs/[pack].pmtiles"
+				regexp "/packs/places/[^?]*" "/packs/places/[pack]"
+				regexp "(?i:/packs/)[^?]*[A-Z%][^?]*" "/packs/[pack]"
+				regexp "^[^?]*%[^?]*" "/[encoded]"
 				regexp "\?.*$" "?"
 			}
 			remote ip_mask 16 32
@@ -65,8 +71,8 @@
 
 # Access log without client addresses in clear: IPv4 truncated to /16, IPv6
 # to /32, no port, no credentials, no cookies, no query strings, nothing that
-# names a tile (coordinates, ranges, ETags, sizes), a photo (its path) or an
-# offline pack (its region).
+# names a tile (coordinates, ranges, ETags, sizes), a photo (its path), an
+# offline pack or a regional pack of places (their region).
 # Kept 14 days.
 (access_log) {
 	log {
@@ -83,13 +89,18 @@
 			request>headers>Cookie delete
 			request>headers>X-Forwarded-For delete
 			# A byte range of an offline pack points at a place too, and so
-			# does anything that names one tile: its ETag, its exact size.
+			# does anything that names one tile, pack or photo: its ETag,
+			# its date (a pack's or a photo's to the second, which a HEAD
+			# of each public name matches), its exact size.
 			request>headers>Range delete
 			request>headers>If-Range delete
 			request>headers>If-Match delete
 			request>headers>If-None-Match delete
+			request>headers>If-Modified-Since delete
+			request>headers>If-Unmodified-Since delete
 			resp_headers>Set-Cookie delete
 			resp_headers>Etag delete
+			resp_headers>Last-Modified delete
 			resp_headers>Content-Length delete
 			resp_headers>Content-Range delete
 			size delete
@@ -103,6 +114,18 @@
 				# An offline pack names the region a traveller is heading
 				# for: every pack is logged as one constant.
 				regexp "/packs/[a-z0-9-]+\.pmtiles" "/packs/[pack].pmtiles"
+				# A regional pack of places names its region the same way.
+				# Not anchored, and any other spelling under /packs/ that
+				# could name a region (a capital letter, as in every region
+				# code) goes too, served or not: a client may write
+				# //packs/places/... Only the canonical name is served.
+				regexp "/packs/places/[^?]*" "/packs/places/[pack]"
+				regexp "(?i:/packs/)[^?]*[A-Z%][^?]*" "/packs/[pack]"
+				# A path with a percent-encoded character can spell any of
+				# the above past these masks (/%70acks/places/...,
+				# /packs%2Fplaces/...): it is logged as one constant. The
+				# fonts' names (Noto%20Sans) go with it.
+				regexp "^[^?]*%[^?]*" "/[encoded]"
 				# Query strings never reach a log: a GraphQL GET (refused by
 				# the API, but logged first) could carry a position in its
 				# variables.
@@ -291,8 +314,9 @@
 }
 
 # The API: /health, /graphql, /upload and /poi/ proxied to lunaway-api,
-# /media/ served from the data volume, everything else 404. The API serves
-# JSON and vector tiles only, so its CSP allows nothing at all.
+# /media/ and /packs/places/ served from the data volume, everything else
+# 404. The API serves JSON and vector tiles only, so its CSP allows nothing
+# at all.
 (api) {
 	import access_log
 	encode zstd gzip
@@ -356,6 +380,54 @@
 		header @other Allow "POST, OPTIONS"
 		respond @other 405
 		reverse_proxy @send 127.0.0.1:8484
+	}
+	# The regional first-sync packs (docs/region-packs.md): the files
+	# lunaway-packs writes under /srv/data/packs/places/, which Query.regions
+	# names. Only the names the builder gives a pack are served
+	# (<region>-<feed position>-<12 hex of its SHA-256>.sqlite.gz), written
+	# exactly so in the request (path_regexp sees the decoded, cleaned path;
+	# the expression reads the request as sent, so //, ./, a percent-encoded
+	# character or a query string are not served): never its work directory
+	# (/srv/data/packs/.work/), never a listing, no query string. A name never
+	# changes content, so a year of cache, immutable, whole or by byte range
+	# (file_server answers Range with 206 and honours If-Range), as stored:
+	# the gzip file is the pack, never re-encoded on the way. No shared cache
+	# may sit in front of this route without a purge: after a takedown
+	# (lunaway packs build --takedown) the file removed must be served by
+	# nobody. The web app reads it with CORS from https://lunaway.net, a
+	# range request after a preflight. GET, HEAD and OPTIONS; anything else
+	# 405. The access log names no pack (/packs/places/[pack]).
+	handle /packs/* {
+		header Access-Control-Allow-Origin "https://lunaway.net"
+		header Access-Control-Expose-Headers "ETag, Content-Length, Content-Range, Accept-Ranges"
+		@pack_preflight method OPTIONS
+		handle @pack_preflight {
+			header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+			header Access-Control-Allow-Headers "Range, If-Range"
+			header Access-Control-Max-Age "86400"
+			respond 204
+		}
+		@pack_write not method GET HEAD OPTIONS
+		handle @pack_write {
+			header Allow "GET, HEAD, OPTIONS"
+			respond 405
+		}
+		@places_pack {
+			path_regexp ^/packs/places/[A-Z0-9-]+-[0-9]+-[0-9a-f]{12}\.sqlite\.gz$
+			expression `{http.request.uri}.matches("^/packs/places/[A-Z0-9-]+-[0-9]+-[0-9a-f]+\\.sqlite\\.gz$")`
+		}
+		handle @places_pack {
+			root * /srv/data
+			header Cache-Control "public, max-age=31536000, immutable" {
+				match {
+					status 200 206
+				}
+			}
+			file_server
+		}
+		handle {
+			respond 404
+		}
 	}
 	# Photos: a file present under /srv/data/media is served as is, cached
 	# for a year (its name never changes content) and inert (the sandbox CSP

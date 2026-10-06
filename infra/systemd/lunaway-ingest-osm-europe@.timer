@@ -1,0 +1,15 @@
+# One group of European extracts a week, the day of the instance
+# (lunaway-ingest-osm-europe@Mon.timer on Mondays), at 05:00 UTC: after
+# France's places (03:00) and points (03:45), La Poste (04:10) and the
+# routing graph's refresh (04:30). Geofabrik rebuilds its extracts
+# overnight.
+[Unit]
+Description=Lunaway import: OpenStreetMap places, European extracts of %i, weekly
+
+[Timer]
+OnCalendar=%i *-*-* 05:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

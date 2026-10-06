@@ -1,0 +1,14 @@
+# Daily at 06:30 UTC, after the night's imports (France at 03:00, a group of
+# European countries at 05:00 from Monday to Saturday): a build that finds
+# no region changed writes nothing. Each places import also starts a build
+# after its conflation (lunaway-conflate.service).
+[Unit]
+Description=Lunaway regional first-sync packs, daily
+
+[Timer]
+OnCalendar=*-*-* 06:30
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
