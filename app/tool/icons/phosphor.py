@@ -39,7 +39,8 @@ ICONS = {
         images info leaf listBullets magnifyingGlass mapPin mapPinSimpleLine mapTrifold minus
         moon moonStars motorcycle mountains navigationArrow path pawPrint pencilSimple
         personSimpleHike personSimpleSwim phone plug plus ruler scales sealCheck shareNetwork
-        shieldCheck shower signpost slidersHorizontal snowflake squaresFour stack star sun
+        shieldCheck shower signpost slidersHorizontal snowflake speakerHigh speakerSlash
+        squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
         truckTrailer user van warningCircle washingMachine waves wifiHigh wind x
     """,

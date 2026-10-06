@@ -84,8 +84,16 @@ class PlaceActionBar extends ConsumerWidget {
     final saved = defaultId != null && lists.contains(defaultId);
 
     final directions = FilledButton.icon(
-      onPressed: () => openDirections(context, ref, place.position, label: title),
-      onLongPress: () => openDirections(context, ref, place.position, label: title, choose: true),
+      onPressed: () =>
+          openDirections(context, ref, place.position, label: title, placeId: place.id),
+      onLongPress: () => openDirections(
+        context,
+        ref,
+        place.position,
+        label: title,
+        placeId: place.id,
+        choose: true,
+      ),
       icon: const Icon(AppIcons.directions),
       label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
       style: FilledButton.styleFrom(

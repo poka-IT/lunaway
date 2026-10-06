@@ -7,6 +7,8 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/navigation/presentation/route_entry.dart';
+import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -53,7 +55,7 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
-    const left = [_Vehicle(), _OfflineData(), _Directions()];
+    const left = [_Vehicle(), _OfflineData(), _Directions(), RouteSettingsSection()];
     const right = [_Appearance(), _Language(), _About(), _Attributions()];
     final padding = EdgeInsets.fromLTRB(
       size == .compact ? Space.l : Space.xxl,
@@ -332,12 +334,20 @@ class _Directions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final app = NavigationApp.fromId(ref.watch(settingsProvider.select((s) => s.navigationApp)));
+    final id = ref.watch(settingsProvider.select((s) => s.navigationApp));
+    final app = NavigationApp.fromId(id);
+    final lunaway = id == lunawayDirectionsId;
     return _Section(
       title: t.directions.settingTitle,
       icon: AppIcons.navigationApps,
       child: ListTile(
-        title: Text(app == null ? t.directions.askEachTime : app.label(t)),
+        title: Text(
+          lunaway
+              ? t.navigation.entry.lunaway
+              : app == null
+              ? t.directions.askEachTime
+              : app.label(t),
+        ),
         subtitle: Text(t.directions.settingHint),
         trailing: const Icon(AppIcons.chevron),
         onTap: () async {
@@ -348,9 +358,16 @@ class _Directions extends ConsumerWidget {
             NavigationApp.offeredOn(Theme.of(context).platform, web: kIsWeb),
           );
           if (!context.mounted) return;
-          final picked = await showNavigationAppChooser(context, available, selected: app);
+          final picked = await showNavigationAppChooser(
+            context,
+            available,
+            selected: app,
+            lunawaySelected: lunaway,
+          );
           if (picked == null) return;
-          await settings.setNavigationApp(picked.remember ? picked.app.id : null);
+          await settings.setNavigationApp(
+            picked.remember ? picked.app?.id ?? lunawayDirectionsId : null,
+          );
         },
       ),
     );

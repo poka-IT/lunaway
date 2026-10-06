@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -38,6 +39,8 @@ GoRouter router(Ref ref) {
           ),
         ],
       ),
+      // The route preview and the guidance take the whole window.
+      ...navigationRoutes(),
     ],
   );
   ref.onDispose(router.dispose);
