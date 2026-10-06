@@ -154,14 +154,19 @@ on blocking threads, as pure functions of what was read.
 The device cannot evaluate the OSM `opening_hours` syntax, so each place
 carries its open intervals for the 14 days from local midnight of the day of
 computation, in UTC (`openingIntervals`), computed with the `opening-hours`
-crate: the timezone comes from the country (`FR` is `Europe/Paris`), public
-holidays from the national calendar embedded in the crate (regional ones, as
-in Alsace-Moselle, are not applied), sun events from the place's position.
-Only `open` periods count. `openingIntervalsUntil` is the end of the window
-the intervals cover: before it a time in no interval is closed, after it
-nothing is known (a device that has not synced for two weeks). `conflate`
-moves every window to the current day, and a place whose intervals or
-window end change takes a new position in the change feed.
+crate: the timezone comes from the place's country (`FR` is
+`Europe/Paris`), and from its island for the Canary Islands, the Azores and
+Madeira, which keep another time than their mainland; public holidays from
+the national calendar of that country, embedded in the crate (regional ones,
+as in Alsace-Moselle or a German Land, are not applied); sun events from the
+place's position. Only `open` periods count. `openingIntervalsUntil` is
+the end of the window the intervals cover: before it a time in no interval is
+closed, after it nothing is known (a device that has not synced for two
+weeks). Each window starts on the place's own local date and moves at its
+next local midnight (`opening_refresh_at`), so a place in Lisbon and one in
+Helsinki each begin their day at their own midnight; `conflate` moves the
+windows whose midnight has passed, and a place whose intervals or window end
+change takes a new position in the change feed.
 
 Two bounds keep a broken or hostile value cheap: an expression longer than
 the 255 characters OSM allows is not evaluated (`openingHoursParsed` false),

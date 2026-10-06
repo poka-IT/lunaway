@@ -28,7 +28,11 @@ to end.
   (async-graphql walks every spread without memoisation); keep those checks
   ahead of any new walk of the document.
 - The endpoint takes one operation per `POST`, as `application/json` only:
-  no batch, no GET, no multipart. Photos go to `POST /upload` (multipart,
+  no batch, no GET, no multipart. A body may name its document by its
+  SHA-256 instead (`extensions.persistedQuery`, Apollo's convention,
+  `persisted.rs`); a document is kept by its hash only once it ran
+  without error, and a document without a hash is served under the same
+  limits. Photos go to `POST /upload` (multipart,
   a session of level 1, 10 MB), a separate route that reads the image into
   memory within its limit and answers with the same error body. The map
   tiles of the points of interest are `GET /poi/...` (`tiles.rs`), outside
@@ -58,7 +62,8 @@ to end.
   `Retry-After` header, `INVALID_INPUT`, `RESYNC` for a sync cursor issued
   by another copy of the database: sync again from `since: null`,
   `UNAVAILABLE` when a service behind the API, the routing engine or its
-  data, is down: try again later); internal
+  data, is down: try again later, `PERSISTED_QUERY_NOT_FOUND` for a hash
+  the server does not know: send the document with it); internal
   errors are logged and returned as a generic message with `INTERNAL`. The
   codes and what the client does are listed in `lunaway-api/src/error.rs`;
   a new code goes there and here.

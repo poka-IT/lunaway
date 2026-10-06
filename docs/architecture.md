@@ -38,7 +38,8 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 
 The GraphQL schema is exported to `schema/lunaway.graphql` and is the contract
 the app is generated from. Every query is bounded in depth, complexity, page
-size and viewport area.
+size and viewport area. A client may name a document by its SHA-256 once
+the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 
 ## Data model
 
@@ -63,7 +64,11 @@ size and viewport area.
   so the change feed carries it.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
-- `changes`: a monotonic cursor the app syncs from.
+- `changes`: a monotonic cursor the app syncs from, by box or by sync
+  region (`places.region`: a French region, or a country elsewhere).
+- `region_packs`: the first-sync pack of each sync region, an SQLite file
+  the app downloads once before it follows the feed
+  (`docs/region-packs.md`).
 - `pois`: the points of interest around the places (shops, food vending
   machines, water and sanitation, fuel and energy, health, services), one
   source each, never conflated with the places; `poi_join_records`: what
@@ -78,8 +83,9 @@ The "around me" layer (`plan/research/05-poi-sources.md`): what a
 traveller looks for near a place to stop, in six categories (groceries,
 vending machines, water, fuel, health, services).
 
-- **Sources.** OpenStreetMap, read from the same daily France extract as
-  the places (`lunaway ingest pois`, about 323 000 points). Values of other
+- **Sources.** OpenStreetMap, read from the same daily extracts as the
+  places, France and the European countries one at a time
+  (`lunaway ingest pois`, about 314 000 points in France). Values of other
   open sources are joined only by an identifier the OpenStreetMap element
   carries, never by distance or name: fuel prices, LPG and shortages every
   15 minutes (`ref:FR:prix-carburants`), La Poste's day-by-day opening
@@ -93,9 +99,11 @@ vending machines, water, fuel, health, services).
   `GET /poi/{version}/{z}/{x}/{y}.mvt`, described by `GET /poi/tiles.json`:
   every point from zoom 13 (id, category, kind, name, hours in a compact
   form, LPG, "maybe closed"), clusters per category and grid cell from
-  zoom 6 to 12. The version in the URL moves with every change a tile
-  would show, so a tile is cached for good; the API keeps recent tiles in
-  memory and builds a few at a time.
+  zoom 6 to 12. A change a tile would show marks the layer, and the worker
+  publishes a new version at most every six hours: the version in the URL
+  lets a tile be cached for good, and devices fetch the tiles they look at
+  again at most that often; the API keeps recent tiles in memory and
+  builds a few at a time.
 - **Details and offline.** GraphQL: `poi(id)`, `nearbyPois` (the nearest
   per category around a place or a point), `searchPois`, and `pois(bbox)`
   pages for a device to keep a region offline.

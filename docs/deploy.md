@@ -343,6 +343,30 @@ The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
 
+### Europe and the regional packs (to install)
+
+Not installed on 2026-10-06; the measurements and the run procedure are in
+`plan/research/23-backend-europe-packs.md`.
+
+- **Imports.** `lunaway ingest osm-extract --europe --refresh`, then
+  `lunaway ingest pois --europe`, read France and 23 other extracts one at
+  a time (`osm_extract::EUROPE`, 27.8 GB of files on 2026-10-06): the
+  memory is the largest country's, France's, as today. A run that stops
+  resumes after the last extract it stored, and does not download again a
+  file younger than `--max-age-hours` (20). Each record is stored under its
+  country, and a run retires only in the countries it read.
+- **Worker.** `lunaway conflate --watch --poi-layer-every-mins 360`: the
+  tiles version of the points layer moves at most every six hours (the
+  default), whatever the fuel poller, the imports or the community change
+  meanwhile.
+- **Packs.** `lunaway packs build --dir /srv/data/packs` (or
+  `LUNAWAY_PACKS_DIR`) after the conflation that follows the daily import,
+  as the import role: it writes `places/<region>-<seq>-<hash>.sqlite.gz`
+  for every region whose places changed and records them in `region_packs`.
+  The API host serves `/srv/data/packs/` read-only under `/packs/`
+  (byte ranges, a year of cache: a file never changes under its name), and
+  `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`.
+
 ## Status page
 
 Gatus on the ops server checks the backend from another server in another

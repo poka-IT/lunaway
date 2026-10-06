@@ -52,10 +52,15 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   compile. The points of interest have their own writers' lock
   (`pois::begin_poi_writer`, `PoiWriterTx`): their importers, the fuel
   poller and the worker write them. A writer that changed what a tile
-  shows moves the tiles' version (`poi_layer`): the worker in the same
-  transaction, an import or the hours refresh once at its end
-  (`pois::bump_layer_now`), so a run of many batches makes devices fetch
-  their tiles once.
+  shows marks the layer (`pois::mark_layer`, `mark_layer_now` once at the
+  end of an import), and the worker publishes a new tiles version at most
+  every `--poi-layer-every-mins` (`pois::publish_layer`), so neither an
+  import's batches nor the fuel poller make devices fetch their tiles
+  again each time.
+- An import of several country extracts writes each record under the
+  scope of its country and retires only in the scopes of the countries it
+  read (`extract_run`); its progress is kept in the cache so a stopped run
+  resumes after the last extract it stored.
 - Timestamps are `TIMESTAMPTZ`; identifiers are UUID v7 generated in Rust.
 
 ## Tests
