@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE road_events SET description = 'x' WHERE source = 'dir'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "c9b2259cb50941e54b2fae6a5cf4d6e46f827fb5f9a6fee82927940a0d62cd9c"
+}

@@ -392,6 +392,66 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     $customConstraints: 'NOT NULL DEFAULT 0',
     defaultValue: const CustomExpression('0'),
   );
+  static const VerificationMeta _verificationMeta = const VerificationMeta(
+    'verification',
+  );
+  late final GeneratedColumn<String> verification = GeneratedColumn<String>(
+    'verification',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'VERIFIED\'',
+    defaultValue: const CustomExpression('\'VERIFIED\''),
+  );
+  static const VerificationMeta _reviewCountMeta = const VerificationMeta(
+    'reviewCount',
+  );
+  late final GeneratedColumn<int> reviewCount = GeneratedColumn<int>(
+    'review_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _photoCountMeta = const VerificationMeta(
+    'photoCount',
+  );
+  late final GeneratedColumn<int> photoCount = GeneratedColumn<int>(
+    'photo_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT 0',
+    defaultValue: const CustomExpression('0'),
+  );
+  static const VerificationMeta _coverPhotosJsonMeta = const VerificationMeta(
+    'coverPhotosJson',
+  );
+  late final GeneratedColumn<String> coverPhotosJson = GeneratedColumn<String>(
+    'cover_photos_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+    defaultValue: const CustomExpression('\'[]\''),
+  );
+  static const VerificationMeta _issuesJsonMeta = const VerificationMeta(
+    'issuesJson',
+  );
+  late final GeneratedColumn<String> issuesJson = GeneratedColumn<String>(
+    'issues_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+    defaultValue: const CustomExpression('\'[]\''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     rid,
@@ -430,6 +490,11 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     linksJson,
     ratingAvg,
     ratingCount,
+    verification,
+    reviewCount,
+    photoCount,
+    coverPhotosJson,
+    issuesJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -712,6 +777,45 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         ),
       );
     }
+    if (data.containsKey('verification')) {
+      context.handle(
+        _verificationMeta,
+        verification.isAcceptableOrUnknown(
+          data['verification']!,
+          _verificationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('review_count')) {
+      context.handle(
+        _reviewCountMeta,
+        reviewCount.isAcceptableOrUnknown(
+          data['review_count']!,
+          _reviewCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('photo_count')) {
+      context.handle(
+        _photoCountMeta,
+        photoCount.isAcceptableOrUnknown(data['photo_count']!, _photoCountMeta),
+      );
+    }
+    if (data.containsKey('cover_photos_json')) {
+      context.handle(
+        _coverPhotosJsonMeta,
+        coverPhotosJson.isAcceptableOrUnknown(
+          data['cover_photos_json']!,
+          _coverPhotosJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('issues_json')) {
+      context.handle(
+        _issuesJsonMeta,
+        issuesJson.isAcceptableOrUnknown(data['issues_json']!, _issuesJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -865,6 +969,26 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.int,
         data['${effectivePrefix}rating_count'],
       )!,
+      verification: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}verification'],
+      )!,
+      reviewCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}review_count'],
+      )!,
+      photoCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}photo_count'],
+      )!,
+      coverPhotosJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_photos_json'],
+      )!,
+      issuesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}issues_json'],
+      )!,
     );
   }
 
@@ -933,6 +1057,15 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   /// The ratings combined across sources, for the list rows without JSON.
   final double? ratingAvg;
   final int ratingCount;
+
+  /// What the community says of the place (added in version 2): whether it
+  /// waits for confirmations, its counts, its latest photos (with their
+  /// authors, for the mutes) and the issues reported over 30 days.
+  final String verification;
+  final int reviewCount;
+  final int photoCount;
+  final String coverPhotosJson;
+  final String issuesJson;
   const PlaceRow({
     required this.rid,
     required this.id,
@@ -970,6 +1103,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     required this.linksJson,
     this.ratingAvg,
     required this.ratingCount,
+    required this.verification,
+    required this.reviewCount,
+    required this.photoCount,
+    required this.coverPhotosJson,
+    required this.issuesJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1046,6 +1184,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       map['rating_avg'] = Variable<double>(ratingAvg);
     }
     map['rating_count'] = Variable<int>(ratingCount);
+    map['verification'] = Variable<String>(verification);
+    map['review_count'] = Variable<int>(reviewCount);
+    map['photo_count'] = Variable<int>(photoCount);
+    map['cover_photos_json'] = Variable<String>(coverPhotosJson);
+    map['issues_json'] = Variable<String>(issuesJson);
     return map;
   }
 
@@ -1119,6 +1262,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ? const Value.absent()
           : Value(ratingAvg),
       ratingCount: Value(ratingCount),
+      verification: Value(verification),
+      reviewCount: Value(reviewCount),
+      photoCount: Value(photoCount),
+      coverPhotosJson: Value(coverPhotosJson),
+      issuesJson: Value(issuesJson),
     );
   }
 
@@ -1168,6 +1316,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       linksJson: serializer.fromJson<String>(json['links_json']),
       ratingAvg: serializer.fromJson<double?>(json['rating_avg']),
       ratingCount: serializer.fromJson<int>(json['rating_count']),
+      verification: serializer.fromJson<String>(json['verification']),
+      reviewCount: serializer.fromJson<int>(json['review_count']),
+      photoCount: serializer.fromJson<int>(json['photo_count']),
+      coverPhotosJson: serializer.fromJson<String>(json['cover_photos_json']),
+      issuesJson: serializer.fromJson<String>(json['issues_json']),
     );
   }
   @override
@@ -1212,6 +1365,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'links_json': serializer.toJson<String>(linksJson),
       'rating_avg': serializer.toJson<double?>(ratingAvg),
       'rating_count': serializer.toJson<int>(ratingCount),
+      'verification': serializer.toJson<String>(verification),
+      'review_count': serializer.toJson<int>(reviewCount),
+      'photo_count': serializer.toJson<int>(photoCount),
+      'cover_photos_json': serializer.toJson<String>(coverPhotosJson),
+      'issues_json': serializer.toJson<String>(issuesJson),
     };
   }
 
@@ -1252,6 +1410,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     String? linksJson,
     Value<double?> ratingAvg = const Value.absent(),
     int? ratingCount,
+    String? verification,
+    int? reviewCount,
+    int? photoCount,
+    String? coverPhotosJson,
+    String? issuesJson,
   }) => PlaceRow(
     rid: rid ?? this.rid,
     id: id ?? this.id,
@@ -1297,6 +1460,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     linksJson: linksJson ?? this.linksJson,
     ratingAvg: ratingAvg.present ? ratingAvg.value : this.ratingAvg,
     ratingCount: ratingCount ?? this.ratingCount,
+    verification: verification ?? this.verification,
+    reviewCount: reviewCount ?? this.reviewCount,
+    photoCount: photoCount ?? this.photoCount,
+    coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
+    issuesJson: issuesJson ?? this.issuesJson,
   );
   PlaceRow copyWithCompanion(PlacesCompanion data) {
     return PlaceRow(
@@ -1366,6 +1534,21 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       ratingCount: data.ratingCount.present
           ? data.ratingCount.value
           : this.ratingCount,
+      verification: data.verification.present
+          ? data.verification.value
+          : this.verification,
+      reviewCount: data.reviewCount.present
+          ? data.reviewCount.value
+          : this.reviewCount,
+      photoCount: data.photoCount.present
+          ? data.photoCount.value
+          : this.photoCount,
+      coverPhotosJson: data.coverPhotosJson.present
+          ? data.coverPhotosJson.value
+          : this.coverPhotosJson,
+      issuesJson: data.issuesJson.present
+          ? data.issuesJson.value
+          : this.issuesJson,
     );
   }
 
@@ -1407,7 +1590,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ..write('ratingsJson: $ratingsJson, ')
           ..write('linksJson: $linksJson, ')
           ..write('ratingAvg: $ratingAvg, ')
-          ..write('ratingCount: $ratingCount')
+          ..write('ratingCount: $ratingCount, ')
+          ..write('verification: $verification, ')
+          ..write('reviewCount: $reviewCount, ')
+          ..write('photoCount: $photoCount, ')
+          ..write('coverPhotosJson: $coverPhotosJson, ')
+          ..write('issuesJson: $issuesJson')
           ..write(')'))
         .toString();
   }
@@ -1450,6 +1638,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     linksJson,
     ratingAvg,
     ratingCount,
+    verification,
+    reviewCount,
+    photoCount,
+    coverPhotosJson,
+    issuesJson,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1490,7 +1683,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           other.ratingsJson == this.ratingsJson &&
           other.linksJson == this.linksJson &&
           other.ratingAvg == this.ratingAvg &&
-          other.ratingCount == this.ratingCount);
+          other.ratingCount == this.ratingCount &&
+          other.verification == this.verification &&
+          other.reviewCount == this.reviewCount &&
+          other.photoCount == this.photoCount &&
+          other.coverPhotosJson == this.coverPhotosJson &&
+          other.issuesJson == this.issuesJson);
 }
 
 class PlacesCompanion extends UpdateCompanion<PlaceRow> {
@@ -1530,6 +1728,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   final Value<String> linksJson;
   final Value<double?> ratingAvg;
   final Value<int> ratingCount;
+  final Value<String> verification;
+  final Value<int> reviewCount;
+  final Value<int> photoCount;
+  final Value<String> coverPhotosJson;
+  final Value<String> issuesJson;
   const PlacesCompanion({
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
@@ -1567,6 +1770,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.linksJson = const Value.absent(),
     this.ratingAvg = const Value.absent(),
     this.ratingCount = const Value.absent(),
+    this.verification = const Value.absent(),
+    this.reviewCount = const Value.absent(),
+    this.photoCount = const Value.absent(),
+    this.coverPhotosJson = const Value.absent(),
+    this.issuesJson = const Value.absent(),
   });
   PlacesCompanion.insert({
     this.rid = const Value.absent(),
@@ -1605,6 +1813,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.linksJson = const Value.absent(),
     this.ratingAvg = const Value.absent(),
     this.ratingCount = const Value.absent(),
+    this.verification = const Value.absent(),
+    this.reviewCount = const Value.absent(),
+    this.photoCount = const Value.absent(),
+    this.coverPhotosJson = const Value.absent(),
+    this.issuesJson = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
        family = Value(family),
@@ -1649,6 +1862,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Expression<String>? linksJson,
     Expression<double>? ratingAvg,
     Expression<int>? ratingCount,
+    Expression<String>? verification,
+    Expression<int>? reviewCount,
+    Expression<int>? photoCount,
+    Expression<String>? coverPhotosJson,
+    Expression<String>? issuesJson,
   }) {
     return RawValuesInsertable({
       if (rid != null) 'rid': rid,
@@ -1689,6 +1907,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       if (linksJson != null) 'links_json': linksJson,
       if (ratingAvg != null) 'rating_avg': ratingAvg,
       if (ratingCount != null) 'rating_count': ratingCount,
+      if (verification != null) 'verification': verification,
+      if (reviewCount != null) 'review_count': reviewCount,
+      if (photoCount != null) 'photo_count': photoCount,
+      if (coverPhotosJson != null) 'cover_photos_json': coverPhotosJson,
+      if (issuesJson != null) 'issues_json': issuesJson,
     });
   }
 
@@ -1729,6 +1952,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Value<String>? linksJson,
     Value<double?>? ratingAvg,
     Value<int>? ratingCount,
+    Value<String>? verification,
+    Value<int>? reviewCount,
+    Value<int>? photoCount,
+    Value<String>? coverPhotosJson,
+    Value<String>? issuesJson,
   }) {
     return PlacesCompanion(
       rid: rid ?? this.rid,
@@ -1767,6 +1995,11 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       linksJson: linksJson ?? this.linksJson,
       ratingAvg: ratingAvg ?? this.ratingAvg,
       ratingCount: ratingCount ?? this.ratingCount,
+      verification: verification ?? this.verification,
+      reviewCount: reviewCount ?? this.reviewCount,
+      photoCount: photoCount ?? this.photoCount,
+      coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
+      issuesJson: issuesJson ?? this.issuesJson,
     );
   }
 
@@ -1883,6 +2116,21 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     if (ratingCount.present) {
       map['rating_count'] = Variable<int>(ratingCount.value);
     }
+    if (verification.present) {
+      map['verification'] = Variable<String>(verification.value);
+    }
+    if (reviewCount.present) {
+      map['review_count'] = Variable<int>(reviewCount.value);
+    }
+    if (photoCount.present) {
+      map['photo_count'] = Variable<int>(photoCount.value);
+    }
+    if (coverPhotosJson.present) {
+      map['cover_photos_json'] = Variable<String>(coverPhotosJson.value);
+    }
+    if (issuesJson.present) {
+      map['issues_json'] = Variable<String>(issuesJson.value);
+    }
     return map;
   }
 
@@ -1924,7 +2172,12 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
           ..write('ratingsJson: $ratingsJson, ')
           ..write('linksJson: $linksJson, ')
           ..write('ratingAvg: $ratingAvg, ')
-          ..write('ratingCount: $ratingCount')
+          ..write('ratingCount: $ratingCount, ')
+          ..write('verification: $verification, ')
+          ..write('reviewCount: $reviewCount, ')
+          ..write('photoCount: $photoCount, ')
+          ..write('coverPhotosJson: $coverPhotosJson, ')
+          ..write('issuesJson: $issuesJson')
           ..write(')'))
         .toString();
   }

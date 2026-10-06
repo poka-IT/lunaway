@@ -48,7 +48,8 @@ http.Client demoApiClient(
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     final data = switch (body['operationName']) {
       'Changes' => _changes(places, variables),
-      'PlaceExtras' || 'PlaceReviews' => _extras(byId[variables['id']], variables, apiBase),
+      'PlaceExtras' ||
+      'PlaceReviews' => _extras(byId[variables['id']], variables, apiBase),
       final other => throw StateError('the demo API does not serve $other'),
     };
     return http.Response(
@@ -59,14 +60,18 @@ http.Client demoApiClient(
   });
 }
 
-Map<String, Object?> _changes(List<Place> places, Map<String, dynamic> variables) {
+Map<String, Object?> _changes(
+  List<Place> places,
+  Map<String, dynamic> variables,
+) {
   final first = (variables['first'] as int?) ?? 1000;
   final start = int.tryParse((variables['since'] as String?) ?? '') ?? 0;
   final end = (start + first).clamp(0, places.length);
   return {
     'changes': {
       'places': [
-        for (final p in places.sublist(start.clamp(0, places.length), end)) placeToJson(p),
+        for (final p in places.sublist(start.clamp(0, places.length), end))
+          placeToJson(p),
       ],
       'deleted': <String>[],
       'cursor': '$end',
@@ -75,7 +80,11 @@ Map<String, Object?> _changes(List<Place> places, Map<String, dynamic> variables
   };
 }
 
-Map<String, Object?> _extras(Place? place, Map<String, dynamic> variables, Uri apiBase) {
+Map<String, Object?> _extras(
+  Place? place,
+  Map<String, dynamic> variables,
+  Uri apiBase,
+) {
   if (place == null) return {'place': null};
   final extras = demoExtras(place, apiBase: apiBase);
   final first = (variables['first'] as int?) ?? 20;
@@ -84,10 +93,14 @@ Map<String, Object?> _extras(Place? place, Map<String, dynamic> variables, Uri a
   return {
     'place': {
       'id': place.id,
+      'myReview': null,
       'photos': photosToJson(extras.photos),
       'reviews': reviewPageToJson(
         ReviewPage(
-          nodes: extras.reviews.sublist(start.clamp(0, extras.reviews.length), end),
+          nodes: extras.reviews.sublist(
+            start.clamp(0, extras.reviews.length),
+            end,
+          ),
           endCursor: '$end',
           hasNextPage: end < extras.reviews.length,
           totalCount: extras.reviews.length,
@@ -107,7 +120,10 @@ Future<http.Response> _photo(String path) async {
   final size = large ? const ui.Size(1200, 900) : const ui.Size(480, 360);
   final recorder = ui.PictureRecorder();
   _paintScene(ui.Canvas(recorder), size, _scenes[scene]);
-  final image = await recorder.endRecording().toImage(size.width.round(), size.height.round());
+  final image = await recorder.endRecording().toImage(
+    size.width.round(),
+    size.height.round(),
+  );
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
   return http.Response.bytes(
@@ -120,12 +136,48 @@ Future<http.Response> _photo(String path) async {
 typedef _Scene = ({int skyTop, int skyBottom, int far, int near, bool night});
 
 const List<_Scene> _scenes = [
-  (skyTop: 0xFF9CC9E8, skyBottom: 0xFFF5D9A8, far: 0xFF6E9A72, near: 0xFF3F6B4F, night: false),
-  (skyTop: 0xFFF2A65A, skyBottom: 0xFFF7D08A, far: 0xFF7A6A8F, near: 0xFF4B3F63, night: false),
-  (skyTop: 0xFF061F43, skyBottom: 0xFF15576D, far: 0xFF409FA7, near: 0xFF15576D, night: true),
-  (skyTop: 0xFFA8D5E2, skyBottom: 0xFFE8F1F2, far: 0xFF6C9A8B, near: 0xFF2F5D50, night: false),
-  (skyTop: 0xFFC9E4CA, skyBottom: 0xFF87BBA2, far: 0xFF55828B, near: 0xFF364958, night: false),
-  (skyTop: 0xFF0B2A52, skyBottom: 0xFF2C5F8A, far: 0xFF2E6E7A, near: 0xFF123A4E, night: true),
+  (
+    skyTop: 0xFF9CC9E8,
+    skyBottom: 0xFFF5D9A8,
+    far: 0xFF6E9A72,
+    near: 0xFF3F6B4F,
+    night: false,
+  ),
+  (
+    skyTop: 0xFFF2A65A,
+    skyBottom: 0xFFF7D08A,
+    far: 0xFF7A6A8F,
+    near: 0xFF4B3F63,
+    night: false,
+  ),
+  (
+    skyTop: 0xFF061F43,
+    skyBottom: 0xFF15576D,
+    far: 0xFF409FA7,
+    near: 0xFF15576D,
+    night: true,
+  ),
+  (
+    skyTop: 0xFFA8D5E2,
+    skyBottom: 0xFFE8F1F2,
+    far: 0xFF6C9A8B,
+    near: 0xFF2F5D50,
+    night: false,
+  ),
+  (
+    skyTop: 0xFFC9E4CA,
+    skyBottom: 0xFF87BBA2,
+    far: 0xFF55828B,
+    near: 0xFF364958,
+    night: false,
+  ),
+  (
+    skyTop: 0xFF0B2A52,
+    skyBottom: 0xFF2C5F8A,
+    far: 0xFF2E6E7A,
+    near: 0xFF123A4E,
+    night: true,
+  ),
 ];
 
 void _paintScene(ui.Canvas canvas, ui.Size size, _Scene s) {
@@ -148,7 +200,10 @@ void _paintScene(ui.Canvas canvas, ui.Size size, _Scene s) {
   ui.Path hills(double base, double amplitude, double phase) {
     final path = ui.Path()..moveTo(0, h);
     for (var x = 0.0; x <= w; x += w / 48) {
-      path.lineTo(x, h * base - math.sin(x / w * math.pi * 2 + phase) * h * amplitude);
+      path.lineTo(
+        x,
+        h * base - math.sin(x / w * math.pi * 2 + phase) * h * amplitude,
+      );
     }
     return path
       ..lineTo(w, h)

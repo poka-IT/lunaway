@@ -505,7 +505,7 @@ pub async fn fetch(
                     url: target.clone(),
                     source,
                 })?;
-            let Some(chunk) = next.map_err(|source| IngestError::Http {
+            let Some(chunk) = next.map_err(|source| IngestError::Body {
                 url: target.clone(),
                 source,
             })?

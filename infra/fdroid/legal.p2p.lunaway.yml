@@ -1,0 +1,16 @@
+AntiFeatures:
+  TetheredNet:
+    en-US: Places, reviews and routes come from the project's own server, api.lunaway.net (free software, AGPL); its address is set when the app is built and cannot be changed in the app.
+    fr-FR: Les lieux, les avis et les itinéraires viennent du serveur du projet, api.lunaway.net (logiciel libre, AGPL) ; son adresse est fixée à la construction de l'app et ne se change pas dans l'app.
+Categories:
+  - Navigation
+License: AGPL-3.0-or-later
+AuthorName: Lunaway
+AuthorEmail: contact@lunaway.net
+WebSite: https://lunaway.net
+SourceCode: https://github.com/poka-IT/lunaway
+IssueTracker: https://github.com/poka-IT/lunaway/issues
+
+AutoName: Lunaway
+
+AllowedAPKSigningKeys: 263ecb714e07eb251edf933331deda6682367eec2569ab042160c5073484969b

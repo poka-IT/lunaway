@@ -34,6 +34,15 @@ class GlLunaMap extends StatefulWidget {
 class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
+
+  /// The first view still has to be fitted to the region. Decided when the
+  /// map is made, not read from the props at style load: the map can
+  /// report its first camera (which ends `fitInitial`) before a slow first
+  /// setup reaches the fit. In the tours on the emulator and the iOS
+  /// simulator, whose setup a theme and language change slows, France
+  /// stayed at the default camera.
+  late bool _fitPending = widget.props.fitInitial;
+
   bool _locationOn = false;
 
   // What the style currently holds, to send only what changed.
@@ -59,7 +68,8 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final c = _controller;
     if (c == null || !mounted) return;
     final position = await c.toLatLng(math.Point(x, y));
-    if (mounted) _props.onLongPress(LatLng(position.latitude, position.longitude));
+    if (mounted)
+      _props.onLongPress(LatLng(position.latitude, position.longitude));
   }
 
   @override
@@ -87,17 +97,23 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
 
   double get _pinScale {
-    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    return (android ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
+    // Both native plugins read an image pixel as a physical one: Android
+    // directly, iOS through the UIImage it makes at the screen's scale.
+    final native =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
-  gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
-    iconImage: const ['get', 'icon'],
-    iconSize: size,
-    iconAnchor: 'bottom',
-    iconAllowOverlap: true,
-    iconIgnorePlacement: true,
-  );
+  gl.SymbolLayerProperties _selectionLayer(double size) =>
+      gl.SymbolLayerProperties(
+        iconImage: const ['get', 'icon'],
+        iconSize: size,
+        iconAnchor: 'bottom',
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      );
 
   /// Counts style loads: a theme or language switch loads a new style while
   /// the setup of the previous one may still be adding its layers.
@@ -120,7 +136,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       }
       // The one call an older setup had in flight may already have added a
       // layer or a source to this style: each is removed before it is added.
-      Future<void> fresh(Future<void> Function() add, {String? layer, String? source}) async {
+      Future<void> fresh(
+        Future<void> Function() add, {
+        String? layer,
+        String? source,
+      }) async {
         if (!current()) return;
         if (layer != null) await _quietly(() => c.removeLayer(layer));
         if (source != null) await _quietly(() => c.removeSource(source));
@@ -150,7 +170,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         source: MapStyle.placesSource,
       );
       await fresh(
-        () => c.addSource(MapStyle.selectionSource, const gl.GeojsonSourceProperties(data: empty)),
+        () => c.addSource(
+          MapStyle.selectionSource,
+          const gl.GeojsonSourceProperties(data: empty),
+        ),
         source: MapStyle.selectionSource,
       );
       await fresh(
@@ -173,7 +196,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           MapStyle.placesSource,
           MapStyle.clusterCountLayer,
           gl.SymbolLayerProperties(
-            textField: const ['get', 'point_count_abbreviated'],
+            // The iOS plugin crashes on any expression that writes a number
+            // as text (`to-string`, `concat`, `number-format`; measured on
+            // the simulator, 2026-10-06): there the count stays a number.
+            textField: defaultTargetPlatform == TargetPlatform.iOS && !kIsWeb
+                ? const ['get', 'point_count']
+                : MapLook.clusterLabel(_props.language),
             textFont: MapLook.clusterFont,
             textSize: MapLook.clusterTextSize,
             textColor: MapLook.clusterText(dark: dark),
@@ -208,6 +236,24 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
         layer: MapStyle.selectionPinLayer,
       );
+      if (!current()) return;
+      if (_fitPending) {
+        final size = mounted ? context.size : null;
+        if (size != null) {
+          _fitPending = false;
+          final camera = cameraForBounds(
+            GeoBounds.metropolitanFrance,
+            size,
+            _props.padding + const EdgeInsets.all(16),
+          );
+          await c.moveCamera(
+            gl.CameraUpdate.newLatLngZoom(
+              gl.LatLng(camera.center.lat, camera.center.lon),
+              camera.zoom,
+            ),
+          );
+        }
+      }
       if (!current()) return;
       _ready = true;
       _sentPlaces = null;
@@ -245,7 +291,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
       _sentSelected = props.selectedId;
       _sentPoint = props.markedPoint;
-      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
+      final selected = props.places
+          .where((p) => p.id == props.selectedId)
+          .firstOrNull;
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
@@ -262,7 +310,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const steps = [0.55, 0.8, 1.02, 1.08, 1.03, 1.0];
     for (final s in steps) {
       if (!mounted) return;
-      await c.setLayerProperties(MapStyle.selectionPinLayer, _selectionLayer(full * s));
+      await c.setLayerProperties(
+        MapStyle.selectionPinLayer,
+        _selectionLayer(full * s),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 34));
     }
   }
@@ -273,7 +324,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     // A finger is wider than a pin: look in a square around the tap.
     const slop = 14.0;
     final features = await c.queryRenderedFeaturesInRect(
-      Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
+      Rect.fromCenter(
+        center: Offset(point.x, point.y),
+        width: slop * 2,
+        height: slop * 2,
+      ),
       MapStyle.tappableLayers,
       null,
     );
@@ -289,7 +344,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     );
     switch (tap) {
       case TapCluster(:final clusterId, :final at):
-        final zoom = await c.getClusterExpansionZoom(MapStyle.placesSource, clusterId);
+        final zoom = await c.getClusterExpansionZoom(
+          MapStyle.placesSource,
+          clusterId,
+        );
         await moveTo(at, zoom: zoom + 0.3);
       case TapPlace(:final id):
         _props.onPlaceTap(id);
@@ -348,19 +406,20 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   Future<void> fitBounds(GeoBounds bounds) async {
     final c = _controller;
-    if (c == null) return;
-    final p = _props.padding;
+    if (c == null || !mounted) return;
+    final size = context.size;
+    if (size == null) return;
+    final camera = cameraForBounds(
+      bounds,
+      size,
+      _props.padding + const EdgeInsets.all(40),
+    );
     await c.animateCamera(
-      gl.CameraUpdate.newLatLngBounds(
-        gl.LatLngBounds(
-          southwest: gl.LatLng(bounds.south, bounds.west),
-          northeast: gl.LatLng(bounds.north, bounds.east),
-        ),
-        left: p.left + 40,
-        top: p.top + 40,
-        right: p.right + 40,
-        bottom: p.bottom + 40,
+      gl.CameraUpdate.newLatLngZoom(
+        gl.LatLng(camera.center.lat, camera.center.lon),
+        camera.zoom,
       ),
+      duration: Motion.of(context, Motion.camera),
     );
   }
 
@@ -370,8 +429,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (c == null) return null;
     if (!_locationOn && mounted) setState(() => _locationOn = true);
     try {
-      final position = await c.requestMyLocationLatLng().timeout(const Duration(seconds: 12));
-      return position == null ? null : LatLng(position.latitude, position.longitude);
+      final position = await c.requestMyLocationLatLng().timeout(
+        const Duration(seconds: 12),
+      );
+      return position == null
+          ? null
+          : LatLng(position.latitude, position.longitude);
     } on Object catch (e) {
       _log.info('no position: $e');
       return null;
@@ -416,7 +479,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       // the web long press comes from listenWebMapLongPress instead.
       onMapLongClick: kIsWeb
           ? null
-          : (_, position) => _props.onLongPress(LatLng(position.latitude, position.longitude)),
+          : (_, position) => _props.onLongPress(
+              LatLng(position.latitude, position.longitude),
+            ),
       onCameraIdle: _onCameraIdle,
     );
   }

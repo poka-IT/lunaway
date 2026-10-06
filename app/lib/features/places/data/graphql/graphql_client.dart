@@ -38,35 +38,44 @@ final class GraphQLClient {
   final http.Client _http;
   final Future<void> Function(Duration wait) _sleep;
 
+  /// Sends [operation]; [headers] add to the request's (a session's
+  /// `Authorization`).
   Future<T> execute<T>(
     GraphQLOperation<T> operation, [
     Map<String, Object?> variables = const {},
+    Map<String, String> headers = const {},
   ]) async {
     final body = jsonEncode({
       'operationName': operation.name,
       'query': operation.document,
       'variables': variables,
     });
-    final headers = {
+    final sent = {
+      ...headers,
       'content-type': 'application/json',
       'accept': 'application/graphql-response+json, application/json',
       // Browsers refuse a script-set User-Agent and log an error for it.
       if (!kIsWeb) 'user-agent': userAgent,
     };
     for (var attempt = 0; ; attempt++) {
-      final response = await _post(headers, body);
+      final response = await _post(sent, body);
       final decoded = _decode(response);
       final wait = _rateLimitWait(response, decoded);
       if (wait != null) {
         if (attempt >= rateLimitRetries || wait > maxRateLimitWait) {
           throw GraphQLRateLimitedException(wait);
         }
-        _log.info('${operation.name}: rate limited, trying again in ${wait.inSeconds} s');
+        _log.info(
+          '${operation.name}: rate limited, trying again in ${wait.inSeconds} s',
+        );
         await _sleep(wait);
         continue;
       }
       if (decoded == null) {
-        throw GraphQLNetworkException('HTTP ${response.statusCode}, body is not JSON', null);
+        throw GraphQLNetworkException(
+          'HTTP ${response.statusCode}, body is not JSON',
+          null,
+        );
       }
       final errors = decoded['errors'];
       if (errors is List && errors.isNotEmpty) {
@@ -76,7 +85,10 @@ final class GraphQLClient {
       }
       final data = decoded['data'];
       if (response.statusCode != 200 || data is! Map<String, dynamic>) {
-        throw GraphQLNetworkException('HTTP ${response.statusCode} without data', null);
+        throw GraphQLNetworkException(
+          'HTTP ${response.statusCode} without data',
+          null,
+        );
       }
       return operation.parse(data);
     }
@@ -84,7 +96,9 @@ final class GraphQLClient {
 
   Future<http.Response> _post(Map<String, String> headers, String body) async {
     try {
-      return await _http.post(endpoint, headers: headers, body: body).timeout(timeout);
+      return await _http
+          .post(endpoint, headers: headers, body: body)
+          .timeout(timeout);
     } on TimeoutException catch (e) {
       throw GraphQLNetworkException('timeout after ${timeout.inSeconds} s', e);
     } on http.ClientException catch (e) {
@@ -106,7 +120,10 @@ final class GraphQLClient {
   /// How long the server asks to wait, when it refused the request for its
   /// rate: `extensions.retryAfterSeconds` of a `RATE_LIMITED` error, else
   /// the `Retry-After` header of a 429 or 503.
-  static Duration? _rateLimitWait(http.Response response, Map<String, dynamic>? decoded) {
+  static Duration? _rateLimitWait(
+    http.Response response,
+    Map<String, dynamic>? decoded,
+  ) {
     final errors = decoded?['errors'];
     final limited = errors is List
         ? errors
@@ -116,7 +133,8 @@ final class GraphQLClient {
         : null;
     final header = int.tryParse(response.headers['retry-after'] ?? '');
     if (limited == null &&
-        !((response.statusCode == 429 || response.statusCode == 503) && header != null)) {
+        !((response.statusCode == 429 || response.statusCode == 503) &&
+            header != null)) {
       return null;
     }
     final seconds = limited?.retryAfterSeconds ?? header ?? 1;
@@ -128,16 +146,28 @@ final class GraphQLClient {
 /// `extensions.code` so the client can act on it.
 @immutable
 final class GraphQLError {
-  const new(this.message, {this.code, this.retryAfterSeconds});
+  const new(
+    this.message, {
+    this.code,
+    this.retryAfterSeconds,
+    this.reason,
+    this.requiredLevel,
+    this.level,
+  });
 
   factory fromJson(Object? json) {
     if (json is! Map<String, dynamic>) return GraphQLError('$json');
     final extensions = json['extensions'];
-    final ext = extensions is Map<String, dynamic> ? extensions : const <String, dynamic>{};
+    final ext = extensions is Map<String, dynamic>
+        ? extensions
+        : const <String, dynamic>{};
     return GraphQLError(
       '${json['message']}',
       code: ext['code'] as String?,
       retryAfterSeconds: (ext['retryAfterSeconds'] as num?)?.toInt(),
+      reason: ext['reason'] as String?,
+      requiredLevel: (ext['requiredLevel'] as num?)?.toInt(),
+      level: (ext['level'] as num?)?.toInt(),
     );
   }
 
@@ -158,9 +188,25 @@ final class GraphQLError {
   /// later.
   static const unavailable = 'UNAVAILABLE';
 
+  /// No session, or one the server no longer knows: sign in again. With
+  /// [reason] [freshSignIn], the action needs a session opened by a signed
+  /// sign-in in the last ten minutes.
+  static const unauthenticated = 'UNAUTHENTICATED';
+  static const freshSignIn = 'FRESH_SIGN_IN';
+
+  /// The account may not do this: its level is below [requiredLevel], or
+  /// it is banned.
+  static const forbidden = 'FORBIDDEN';
+
+  /// What was asked for does not exist, or is not the caller's.
+  static const notFound = 'NOT_FOUND';
+
   final String message;
   final String? code;
   final int? retryAfterSeconds;
+  final String? reason;
+  final int? requiredLevel;
+  final int? level;
 
   @override
   String toString() => code == null ? message : '$code: $message';
@@ -198,11 +244,19 @@ final class GraphQLResponseException implements Exception {
 
   bool hasCode(String code) => errors.any((e) => e.code == code);
 
+  /// The first error with [code], if any.
+  GraphQLError? withCode(String code) =>
+      errors.where((e) => e.code == code).firstOrNull;
+
   /// Every error says the server failed or a service behind it is down: the
   /// same request is worth sending again later.
   bool get transient =>
       errors.isNotEmpty &&
-      errors.every((e) => e.code == GraphQLError.internal || e.code == GraphQLError.unavailable);
+      errors.every(
+        (e) =>
+            e.code == GraphQLError.internal ||
+            e.code == GraphQLError.unavailable,
+      );
 
   @override
   String toString() => 'GraphQLResponseException: ${errors.join('; ')}';

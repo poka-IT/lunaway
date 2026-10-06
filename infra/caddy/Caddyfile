@@ -55,6 +55,7 @@
 			request>uri multi_regexp {
 				regexp "^/media/[^?]*" "/media/[photo]"
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
+				regexp "/packs/[a-z0-9-]+\.pmtiles" "/packs/[pack].pmtiles"
 				regexp "\?.*$" "?"
 			}
 			remote ip_mask 16 32
@@ -64,7 +65,8 @@
 
 # Access log without client addresses in clear: IPv4 truncated to /16, IPv6
 # to /32, no port, no credentials, no cookies, no query strings, nothing that
-# names a tile (coordinates, ranges, ETags, sizes) or a photo (its path).
+# names a tile (coordinates, ranges, ETags, sizes), a photo (its path) or an
+# offline pack (its region).
 # Kept 14 days.
 (access_log) {
 	log {
@@ -98,6 +100,9 @@
 				# A tile address is a place on the map, often where the user
 				# is: the zoom stays, x and y go.
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
+				# An offline pack names the region a traveller is heading
+				# for: every pack is logged as one constant.
+				regexp "/packs/[a-z0-9-]+\.pmtiles" "/packs/[pack].pmtiles"
 				# Query strings never reach a log: a GraphQL GET (refused by
 				# the API, but logged first) could carry a position in its
 				# variables.
@@ -119,7 +124,8 @@
 #   /fonts/{fontstack}/{range}.pbf     glyphs (Noto Sans, basemaps-assets)
 #   /sprites/<set>/<name>[@2x].json|png  protomaps-v4 now, ours beside it
 #   /styles/<name>.json                map styles, templates like the TileJSON
-#   /packs/<region>.pmtiles            offline packs, read with range requests
+#   /packs/manifest.json               the offline packs' manifest
+#   /packs/<region>-<build>-<digest>.pmtiles  offline packs, whole or by range
 (tiles) {
 	header Access-Control-Allow-Origin "*"
 	header Access-Control-Expose-Headers "ETag, Content-Length, Content-Range, Accept-Ranges"
@@ -224,19 +230,63 @@
 		}
 		file_server
 	}
-	# Offline packs: whole files or byte ranges (file_server answers Range
-	# with 206), revalidated by ETag after a day.
-	handle /packs/* {
+	# Offline packs (docs/deploy.md, "Offline packs"). The manifest names the
+	# current set and changes once a month: five minutes of cache. A pack's
+	# name carries its build and a digest of what made it, so it never
+	# changes content: a year, immutable, whole or by byte range
+	# (file_server answers Range with 206 and honours If-Range). Anything
+	# else under /packs/ is a 404, never a listing.
+	handle /packs/manifest.json {
 		root * /srv/tiles
-		header Cache-Control "public, max-age=86400" {
+		header Cache-Control "public, max-age=300" {
+			match {
+				status 200
+			}
+		}
+		file_server
+	}
+	@pack path_regexp ^/packs/[a-z0-9-]+\.pmtiles$
+	handle @pack {
+		root * /srv/tiles
+		header Cache-Control "public, max-age=31536000, immutable" {
 			match {
 				status 200 206
 			}
 		}
 		file_server
 	}
+	handle /packs/* {
+		respond 404
+	}
 	handle {
 		respond 404
+	}
+}
+
+# Lunaway's own F-Droid repository (docs/deploy.md, "F-Droid repository"):
+# the signed index, the APKs, icons and screenshots as `fdroid update`
+# writes them, published by infra/fdroid/publish.sh into
+# /srv/lunaway/fdroid (a symlink switched per release). Imported by
+# lunaway.net, where the repository's address is
+# https://lunaway.net/fdroid/repo, and by the sslip.io name, so a client can
+# be tested before DNS exists. GET and HEAD only; inert content (sandbox
+# CSP). The index files are revalidated on every read (ETag), so a client
+# sees a new release at once; an APK's name carries its version code and
+# is cached a day.
+(fdroid_repo) {
+	@fdroid path /fdroid/repo/* /fdroid/archive/*
+	handle @fdroid {
+		@fdroid_other not method GET HEAD
+		header @fdroid_other Allow "GET, HEAD"
+		respond @fdroid_other 405
+		root * /srv/lunaway/fdroid
+		uri strip_prefix /fdroid
+		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; sandbox"
+		@fdroid_apk path *.apk
+		@fdroid_not_apk not path *.apk
+		header @fdroid_apk Cache-Control "public, max-age=86400"
+		header @fdroid_not_apk Cache-Control "no-cache"
+		file_server
 	}
 }
 
@@ -335,6 +385,8 @@ __SSLIP_HOST__ {
 		vars tiles_base https://__SSLIP_HOST__/tiles
 		import tiles
 	}
+	# The F-Droid repository, for tests before DNS exists.
+	import fdroid_repo
 	import api
 }
 

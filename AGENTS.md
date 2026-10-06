@@ -162,6 +162,7 @@ gates; pre-push runs the analyses; the CI runs the whole list.
 | GraphQL schema and resolvers | `.claude/rules/graphql.md` |
 | data sources, ingestion, conflation | `.claude/rules/data-sources.md` |
 | architecture | `docs/architecture.md` |
+| releases, store listings, privacy declarations | `docs/release.md` |
 | the harness itself | `docs/harness.md` |
 
 Claude Code loads a `.claude/rules/` file by itself when a matching file is

@@ -12,7 +12,7 @@
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
 #             dump, the conflation worker, the photo backup, the basemap's
-#             build, the fuel prices, the routing graph. Gatus does not
+#             build and offline packs, the fuel prices, the routing graph. Gatus does not
 #             check SSH host keys. A host posing as the backend gets nothing
 #             it can reuse (the key's signature is bound to that one
 #             session); it could only answer a false green, and it would
@@ -100,6 +100,18 @@ endpoints:
       - "[STATUS] == 200"
       - "len([BODY]) > 1000"
       - "[RESPONSE_TIME] < 2000"
+
+  # The offline packs' manifest (docs/deploy.md, "Offline packs"), as the
+  # app reads it: version 1, at least one pack. Its age is checked on the
+  # backend (Offline packs).
+  - name: Offline packs manifest
+    group: public
+    url: "__TILES_URL__/packs/manifest.json"
+    interval: 15m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].version == 1"
+      - "len([BODY].packs) > 0"
 
   # The points of interest (docs/deploy.md, "Points of interest"): the
   # TileJSON names tiles on the API host, and a tile over Annecy comes back
@@ -262,6 +274,24 @@ __PROBE_KEY__
       - "[BODY].tiles.mounted == true"
       - "[BODY].tiles.age_days >= 0"
       - "[BODY].tiles.age_days < 35"
+
+  # The offline packs follow each planet refresh within minutes: the
+  # manifest names one pack per outline, built from the planet served (or a
+  # planet switched less than a day ago), less than 35 days old.
+  - name: Offline packs
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 1h
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].packs.ok == true"
+      - "[BODY].packs.age_days < 35"
 
   # The fuel prices (lunaway-ingest-fuel, every 15 minutes) were stored less
   # than 2 hours ago: the feed or its import has failed for 8 runs in a row

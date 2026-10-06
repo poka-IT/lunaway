@@ -46,6 +46,10 @@ pub(crate) enum Action {
     Endorsement,
     /// A route computed.
     Route,
+    /// A road event reported, or said over.
+    RoadReport,
+    /// A road event reported, or said over, counted per client.
+    RoadReportClient,
 }
 
 /// Who is counted.
@@ -106,6 +110,8 @@ impl QuotaLimiter {
             Action::Account => q.account,
             Action::Endorsement => q.endorsement,
             Action::Route => q.route,
+            Action::RoadReport => q.road_report,
+            Action::RoadReportClient => q.road_report_client,
         }
     }
 

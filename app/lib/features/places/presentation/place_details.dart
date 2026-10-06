@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
+import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
@@ -71,7 +73,14 @@ class PlaceDetails extends ConsumerWidget {
                 onClose: onClose,
                 bottomPadding: bottomPadding,
               ),
-      AsyncData() => _Gone(scrollController: scrollController, onClose: onClose),
+      // Not on the device yet while the first download runs (a shared link
+      // opened at first launch): it arrives with the download, and the page
+      // follows the stored place, so it opens by itself.
+      AsyncData() => _Gone(
+        scrollController: scrollController,
+        onClose: onClose,
+        arriving: ref.watch(syncStateProvider).value?.completedAt == null,
+      ),
       AsyncError() => ListView(
         controller: scrollController,
         children: [
@@ -90,10 +99,13 @@ class PlaceDetails extends ConsumerWidget {
 }
 
 class _Gone extends StatelessWidget {
-  const new({this.scrollController, this.onClose});
+  const new({this.scrollController, this.onClose, this.arriving = false});
 
   final ScrollController? scrollController;
   final VoidCallback? onClose;
+
+  /// The first download has not finished: the place may still come.
+  final bool arriving;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -107,7 +119,18 @@ class _Gone extends StatelessWidget {
             child: _CloseButton(onClose: onClose!),
           ),
         ),
-      MessageView(title: context.t.place.gone, hint: context.t.place.goneHint, compact: true),
+      if (arriving)
+        MessageView(
+          title: context.t.place.arriving,
+          hint: context.t.place.arrivingHint,
+          compact: true,
+        )
+      else
+        MessageView(
+          title: context.t.place.gone,
+          hint: context.t.place.goneHint,
+          compact: true,
+        ),
     ],
   );
 }
@@ -131,7 +154,8 @@ class PlaceDetailsBody extends ConsumerWidget {
     final t = context.t;
     // The minute clock: "open now" and "confirmed today" turn over by
     // themselves.
-    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now =
+        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     const gap = SizedBox(height: Space.l);
     return ListView(
       controller: scrollController,
@@ -140,10 +164,14 @@ class PlaceDetailsBody extends ConsumerWidget {
         _Header(place: place, onClose: onClose),
         const SizedBox(height: Space.l),
         _NightCard(place: place, now: now),
+        PlaceCommunityNotes(place: place),
         PlacePhotos(place: place),
         gap,
         _Facts(place: place),
-        if (place.openingHours != null) ...[gap, _OpeningHours(place: place, now: now)],
+        if (place.openingHours != null) ...[
+          gap,
+          _OpeningHours(place: place, now: now),
+        ],
         _Section(
           title: t.place.services,
           child: place.services.isEmpty
@@ -152,7 +180,9 @@ class PlaceDetailsBody extends ConsumerWidget {
                   spacing: Space.s,
                   runSpacing: Space.s,
                   children: [
-                    for (final s in Service.values.where(place.services.contains))
+                    for (final s in Service.values.where(
+                      place.services.contains,
+                    ))
                       _IconChip(icon: AppIcons.service(s), label: t.service(s)),
                   ],
                 ),
@@ -176,7 +206,9 @@ class PlaceDetailsBody extends ConsumerWidget {
               spacing: Space.s,
               runSpacing: Space.s,
               children: [
-                for (final a in Activity.values.where(place.activities.contains))
+                for (final a in Activity.values.where(
+                  place.activities.contains,
+                ))
                   _IconChip(icon: AppIcons.activity(a), label: t.activity(a)),
               ],
             ),
@@ -193,8 +225,13 @@ class PlaceDetailsBody extends ConsumerWidget {
                     _LinkRow(
                       icon: AppIcons.openExternal,
                       title: link.label,
-                      subtitle: sourceName(t, link.sourceId, sources: place.sources),
-                      onTap: () => ref.read(externalActionsProvider).openUrl(url),
+                      subtitle: sourceName(
+                        t,
+                        link.sourceId,
+                        sources: place.sources,
+                      ),
+                      onTap: () =>
+                          ref.read(externalActionsProvider).openUrl(url),
                     ),
               ],
             ),
@@ -224,7 +261,10 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(header: true, child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+        Semantics(
+          header: true,
+          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        ),
         const SizedBox(height: Space.m),
         child,
       ],
@@ -292,7 +332,9 @@ class _Header extends ConsumerWidget {
               const SizedBox(height: Space.xxs),
               Text(
                 [t.kind(place.kind), ?city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               if (rating != null || user != null) ...[
                 const SizedBox(height: Space.xs),
@@ -301,11 +343,18 @@ class _Header extends ConsumerWidget {
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (rating != null) RatingText(average: rating.average, count: rating.count),
+                    if (rating != null)
+                      RatingText(average: rating.average, count: rating.count),
                     if (user != null)
                       Text(
-                        t.place.away(distance: t.distance(place.position.distanceTo(user))),
-                        style: LunaType.number(15, weight: 420, color: scheme.onSurfaceVariant),
+                        t.place.away(
+                          distance: t.distance(place.position.distanceTo(user)),
+                        ),
+                        style: LunaType.number(
+                          15,
+                          weight: 420,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                   ],
                 ),
@@ -313,7 +362,12 @@ class _Header extends ConsumerWidget {
             ],
           ),
         ),
-        if (onClose != null) _CloseButton(onClose: onClose!),
+        const SizedBox(width: Space.xs),
+        PlaceMoreMenu(place: place),
+        if (onClose != null) ...[
+          const SizedBox(width: Space.xs),
+          _CloseButton(onClose: onClose!),
+        ],
       ],
     );
   }
@@ -354,10 +408,15 @@ class _NightCard extends StatelessWidget {
                   children: [
                     Text(
                       t.overnightShort(status),
-                      style: theme.textTheme.titleLarge?.copyWith(color: tone.label),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: tone.label,
+                      ),
                     ),
                     const SizedBox(height: Space.hair),
-                    Text(t.overnightHint(status), style: theme.textTheme.bodyMedium),
+                    Text(
+                      t.overnightHint(status),
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   ],
                 ),
               ),
@@ -377,12 +436,26 @@ class _NightCard extends StatelessWidget {
                   stale
                       ? t.freshness.stale
                       : place.lastConfirmedAt != null
-                      ? t.freshness.confirmed(when: t.ago(place.lastConfirmedAt!, now))
+                      ? t.freshness.confirmed(
+                          when: t.ago(place.lastConfirmedAt!, now),
+                        )
                       : t.freshness.updated(when: t.ago(place.updatedAt, now)),
-                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
+          ),
+          // Where a traveller judges how fresh the page is, the way to
+          // refresh it: two taps, no position sent.
+          Padding(
+            padding: const EdgeInsets.only(top: Space.xs),
+            child: OutlinedButton.icon(
+              onPressed: () => showConfirmSheet(context, placeId: place.id),
+              icon: const Icon(AppIcons.confirmed),
+              label: Text(t.contribute.stillThere),
+            ),
           ),
         ],
       ),
@@ -413,21 +486,31 @@ class _Facts extends StatelessWidget {
         (
           AppIcons.priceServices,
           t.place.priceServices,
-          place.priceServicesEur == 0 ? t.place.priceFree : t.euros(place.priceServicesEur!),
+          place.priceServicesEur == 0
+              ? t.place.priceFree
+              : t.euros(place.priceServicesEur!),
         ),
       if (place.maxHeightM != null)
         (AppIcons.height, t.place.maxHeight, t.metres(place.maxHeightM!)),
-      if (place.capacity != null) (AppIcons.capacity, t.place.capacity, t.number(place.capacity!)),
+      if (place.capacity != null)
+        (AppIcons.capacity, t.place.capacity, t.number(place.capacity!)),
       if (place.stars != null)
-        (AppIcons.classification, t.place.classification, t.place.classStars(n: place.stars!)),
+        (
+          AppIcons.classification,
+          t.place.classification,
+          t.place.classStars(n: place.stars!),
+        ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
         // As many columns as facts, up to what the width holds: one fact
         // spans the row rather than sitting alone in a corner.
-        final fit = constraints.maxWidth > 520 ? 4 : (constraints.maxWidth > 300 ? 3 : 2);
+        final fit = constraints.maxWidth > 520
+            ? 4
+            : (constraints.maxWidth > 300 ? 3 : 2);
         final columns = facts.length.clamp(1, fit);
-        final width = (constraints.maxWidth - Space.s * (columns - 1)) / columns;
+        final width =
+            (constraints.maxWidth - Space.s * (columns - 1)) / columns;
         return Wrap(
           spacing: Space.s,
           runSpacing: Space.s,
@@ -470,7 +553,9 @@ class _Fact extends StatelessWidget {
           const SizedBox(height: Space.hair),
           Text(
             label,
-            style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -492,7 +577,11 @@ class _OpeningHours extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final zone = PlaceZone.ofCountry(place.address?.countryCode);
-    final state = openingStateAt(place.openingIntervals, now, validUntil: place.openingValidUntil);
+    final state = openingStateAt(
+      place.openingIntervals,
+      now,
+      validUntil: place.openingValidUntil,
+    );
     final open = state is OpenUntil || state is OpenThroughWindow;
     return Container(
       padding: const EdgeInsets.all(Space.l),
@@ -511,7 +600,9 @@ class _OpeningHours extends StatelessWidget {
               children: [
                 Text(
                   t.place.hours,
-                  style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 if (state != null) ...[
                   const SizedBox(height: Space.xxs),
@@ -527,7 +618,9 @@ class _OpeningHours extends StatelessWidget {
                   const SizedBox(height: Space.xxs),
                   Text(
                     t.hours.stale,
-                    style: theme.textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
                 const SizedBox(height: Space.xxs),
@@ -535,7 +628,9 @@ class _OpeningHours extends StatelessWidget {
                 const SizedBox(height: Space.xxs),
                 Text(
                   t.hours.localTime,
-                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -558,7 +653,10 @@ class _IconChip extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Container(
       constraints: const BoxConstraints(minHeight: 40),
-      padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.s),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.m,
+        vertical: Space.s,
+      ),
       decoration: BoxDecoration(
         color: scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
@@ -571,7 +669,9 @@ class _IconChip extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSecondaryContainer),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.onSecondaryContainer,
+              ),
             ),
           ),
         ],
@@ -591,8 +691,12 @@ class _Description extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
-    final chosen = descriptionFor(place.descriptions, t.$meta.locale.languageCode);
-    if (chosen == null) return Text(place.description!, style: theme.textTheme.bodyLarge);
+    final chosen = descriptionFor(
+      place.descriptions,
+      t.$meta.locale.languageCode,
+    );
+    if (chosen == null)
+      return Text(place.description!, style: theme.textTheme.bodyLarge);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -603,10 +707,18 @@ class _Description extends StatelessWidget {
           runSpacing: Space.xxs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SourceBadge(label: sourceName(t, chosen.text.sourceId, sources: place.sources)),
+            SourceBadge(
+              label: sourceName(
+                t,
+                chosen.text.sourceId,
+                sources: place.sources,
+              ),
+            ),
             if (!chosen.inUserLanguage)
               Text(
-                t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
+                t.place.originalLanguage(
+                  language: t.languageName(chosen.text.lang),
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -619,7 +731,12 @@ class _Description extends StatelessWidget {
 }
 
 class _LinkRow extends StatelessWidget {
-  const new({required this.icon, required this.title, required this.onTap, this.subtitle});
+  const new({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
 
   final IconData icon;
   final String title;
@@ -641,7 +758,10 @@ class _LinkRow extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.l,
+                vertical: Space.s,
+              ),
               child: Row(
                 children: [
                   Icon(icon, color: scheme.onSurfaceVariant),
@@ -668,7 +788,11 @@ class _LinkRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(AppIcons.openExternal, size: 20, color: scheme.onSurfaceVariant),
+                  Icon(
+                    AppIcons.openExternal,
+                    size: 20,
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ],
               ),
             ),
@@ -750,7 +874,10 @@ class _Sources extends ConsumerWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       SourceBadge(label: s.source.name),
-                      Text(s.source.licence, style: theme.textTheme.labelMedium),
+                      Text(
+                        s.source.licence,
+                        style: theme.textTheme.labelMedium,
+                      ),
                     ],
                   ),
                   const SizedBox(height: Space.s),
@@ -760,7 +887,9 @@ class _Sources extends ConsumerWidget {
                     [
                       t.place.fetched(when: t.ago(s.fetchedAt, now)),
                       if (s.matchScore != null)
-                        t.place.matchScore(score: (s.matchScore! * 100).round()),
+                        t.place.matchScore(
+                          score: (s.matchScore! * 100).round(),
+                        ),
                     ].join(' · '),
                     style: _muted(context),
                   ),
@@ -768,7 +897,8 @@ class _Sources extends ConsumerWidget {
                     const SizedBox(height: Space.xxs),
                     TextButton.icon(
                       style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () => ref.read(externalActionsProvider).openUrl(url),
+                      onPressed: () =>
+                          ref.read(externalActionsProvider).openUrl(url),
                       icon: const Icon(AppIcons.openExternal, size: 18),
                       label: Text(t.place.viewSource),
                     ),

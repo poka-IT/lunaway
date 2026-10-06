@@ -30,18 +30,22 @@ FILES = {
 # Every icon the app shows, by style. Keep sorted.
 ICONS = {
     "regular": """
-        arrowClockwise arrowLeft arrowSquareOut arrowsClockwise arrowsHorizontal arrowsVertical
-        baby bank bicycle binoculars bookmarkSimple bookmarksSimple bread buildings carSimple
-        caretDown caretRight cellSignalHigh chatsCircle check checkCircle circleHalf clock
-        clockCounterClockwise cloudArrowDown cloudSlash code compass copy crosshair dotsThree
-        dotsThreeVertical downloadSimple drop dropHalfBottom fileText fish fishSimple gasCan
-        gasPump gear globe globeHemisphereEast gpsFix gpsSlash handHeart heart image imageBroken
-        images info leaf listBullets magnifyingGlass mapPin mapPinSimpleLine mapTrifold minus
-        moon moonStars motorcycle mountains navigationArrow path pawPrint pencilSimple
-        personSimpleHike personSimpleSwim phone plug plus ruler scales sealCheck shareNetwork
-        shieldCheck shower signpost slidersHorizontal snowflake squaresFour stack star sun
+        arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowSquareOut arrowsVertical
+        baby bank barricade bicycle binoculars bookmarkSimple bookmarksSimple bread buildings
+        calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
+        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
+        cloudArrowDown cloudArrowUp cloudSlash code compass copy crosshair deviceMobile
+        dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage
+        fileText fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
+        gpsSlash handHeart heart hourglass image imageBroken images info key leaf listBullets
+        listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold megaphone
+        minus moon moonStars motorcycle mountains navigationArrow notePencil path pawPrint
+        pencilSimple personSimpleHike personSimpleSwim phone plug plus printer prohibit qrCode
+        ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck shieldStar shower
+        signOut signpost slidersHorizontal smileyAngry snowflake squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
-        truckTrailer user van warningCircle washingMachine waves wifiHigh wind x
+        truckTrailer user userCircle van warning warningCircle washingMachine waves wifiHigh
+        wind wrench x
     """,
     "fill": """
         barn checkCircle coffee crosshair drop heart houseLine jeep letterCircleP mapPin

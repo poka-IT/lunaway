@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO moderation_queue (id, kind, target_type, target_id, account_id, reason)\n            VALUES ($1, 'road_report', 'road_event', $2, $3, 'said over while it blocked routes')\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2f0f7a351836829e23a3f09d7f24f3d0db4de38f61ff8dd16ceb7ad1c77851fc"
+}

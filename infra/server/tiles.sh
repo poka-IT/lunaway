@@ -2,8 +2,8 @@
 # The basemap of the backend, run as root by setup.sh: the tile volume at
 # /srv/tiles, the pinned go-pmtiles binary, the fonts and sprites, the tile
 # server on loopback (Caddy serves it, see the tiles snippet of the
-# Caddyfile) and its monthly refresh. Starts the first download when no
-# planet is on the volume yet.
+# Caddyfile), its monthly refresh and the offline packs built after it.
+# Starts the first download when no planet is on the volume yet.
 #
 #   LUNAWAY_TILES_VOLUME_ID   the Hetzner id of the tile volume (provision.sh)
 #
@@ -14,8 +14,10 @@
 #                              sprite sheets go beside it
 #   assets/styles/             map styles served with the site's address
 #                              filled in (empty until the app's design lands)
-#   packs/                     offline packs, <region>.pmtiles, served with
-#                              range requests (empty until the feature lands)
+#   packs/                     offline packs and their manifest.json,
+#                              written by lunaway-tiles-packs only, served
+#                              with range requests; packs/.work/ holds the
+#                              set being built, never served
 . "$(dirname "$0")/common.sh"
 need_root
 . "$INFRA/tiles/version.sh"
@@ -38,7 +40,8 @@ if ! getent passwd lunaway-tiles >/dev/null; then
     --comment "Lunaway basemap refresh" --user-group lunaway-tiles
 fi
 install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson
-install -d -m 0755 -o root -g root /srv/tiles/assets /srv/tiles/assets/sprites /srv/tiles/assets/styles /srv/tiles/packs
+install -d -m 0755 -o root -g root /srv/tiles/assets /srv/tiles/assets/sprites /srv/tiles/assets/styles
+install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/tiles/packs
 
 log "go-pmtiles $PMTILES_VERSION"
 case "$(uname -m)" in
@@ -110,16 +113,25 @@ if [ "$(systemctl show -p ActiveState --value lunaway-tiles-refresh)" = inactive
 elif ! cmp -s "$INFRA/files/usr/local/sbin/lunaway-tiles-refresh" /usr/local/sbin/lunaway-tiles-refresh; then
   echo "    a refresh is running: lunaway-tiles-refresh left as it is, run this step again after it"
 fi
+if [ "$(systemctl show -p ActiveState --value lunaway-tiles-packs)" = inactive ] \
+  || [ "$(systemctl show -p ActiveState --value lunaway-tiles-packs)" = failed ]; then
+  install_file files/usr/local/sbin/lunaway-tiles-packs /usr/local/sbin/lunaway-tiles-packs 0755 || true
+  # The outlines of the packs (infra/tiles/packs/regions.py builds them).
+  install_file tiles/packs/regions.geojson /usr/local/share/lunaway/pack-regions.geojson 0644 || true
+elif ! cmp -s "$INFRA/files/usr/local/sbin/lunaway-tiles-packs" /usr/local/sbin/lunaway-tiles-packs \
+  || ! cmp -s "$INFRA/tiles/packs/regions.geojson" /usr/local/share/lunaway/pack-regions.geojson; then
+  echo "    a pack build is running: lunaway-tiles-packs and the outlines left as they are, run this step again after it"
+fi
 install_file systemd/lunaway-tiles.service /etc/systemd/system/lunaway-tiles.service 0644 && changed=1 server_changed=1
-for unit in lunaway-tiles-refresh.service lunaway-tiles-refresh.timer; do
+for unit in lunaway-tiles-refresh.service lunaway-tiles-refresh.timer lunaway-tiles-packs.service lunaway-tiles-packs.timer; do
   install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && changed=1
 done
 [ "$changed" = 1 ] && systemctl daemon-reload
-systemctl enable --quiet lunaway-tiles lunaway-tiles-refresh.timer
+systemctl enable --quiet lunaway-tiles lunaway-tiles-refresh.timer lunaway-tiles-packs.timer
 if [ "$server_changed" = 1 ] || ! systemctl is-active --quiet lunaway-tiles; then
   systemctl restart lunaway-tiles
 fi
-systemctl start lunaway-tiles-refresh.timer
+systemctl start lunaway-tiles-refresh.timer lunaway-tiles-packs.timer
 for _ in $(seq 1 20); do
   curl -fs -m 2 -o /dev/null http://127.0.0.1:8485/ && break
   sleep 0.5
@@ -136,4 +148,8 @@ if [ -z "$current" ]; then
   fi
 else
   log "serving $current; $(df -h --output=used,avail /srv/tiles | tail -n 1 | tr -s ' ') used, free on /srv/tiles"
+  if [ ! -f /srv/tiles/packs/manifest.json ] && [ "$(systemctl show -p ActiveState --value lunaway-tiles-packs)" != activating ]; then
+    systemctl start --no-block lunaway-tiles-packs
+    log "no offline packs yet: started their build (journalctl -u lunaway-tiles-packs -f)"
+  fi
 fi

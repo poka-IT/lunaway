@@ -873,6 +873,29 @@ type Mutation {
 	"""
 	addVendingMachine(input: NewVendingMachineInput!): PlaceSubmission!
 	"""
+	Reports what is seen on the road: a closed road, works, a narrow
+	passage, a low clearance with its height. Level 0; 30 a day per
+	account, 100 per client address. One account's report warns the
+	others. Two reports of the same thing at the same spot (within
+	100 m, heading the same way, a measured figure within 0.2 m) from
+	two accounts of level 1 or more, within two hours, make it block
+	their routes, and a moderator is told. It lasts 12 hours (a closure)
+	or 7 days after the last confirming pair, or the last report while
+	unconfirmed. `UNAVAILABLE` when the feeds are being written: try
+	again.
+	"""
+	reportRoadEvent(input: RoadEventReportInput!): RoadEventReportResult!
+	"""
+	Says a community road event is over ("plus de travaux"). It ends
+	when its only reporter says so, or two accounts of level 1 or more
+	have since its last report; one such account makes a blocking event
+	a warning again; a level-0 account's is recorded for the moderators
+	when the event blocks. Level 0, counted with the road reports. An
+	official event (`source` other than `community`) ends with its
+	source: `INVALID_INPUT`.
+	"""
+	clearRoadEvent(eventId: UUID!): RoadEventCleared!
+	"""
 	Reports a problem met at a place (a night ban, a broken service, no
 	access, a danger); the note goes to moderators only. Level 0; 50
 	reports a day. The place's card counts the reports of accounts of
@@ -2212,6 +2235,25 @@ type Query {
 	"""
 	routing: RoutingInfo!
 	"""
+	The road events of France (closures, works, lane restrictions,
+	temporary vehicle limits, detours) changed since the cursor `since`
+	(null for the whole set), of `classes` (closures and vehicle limits
+	by default), with `blockingOnly` (the default) only those that can
+	block a route (placed on the graph, official or confirmed, for every
+	vehicle), at most `first` (1000 by default, 2000 at most); `hasMore`
+	asks for the next page at once. An event leaving the selection comes
+	back in `removals`. No position is sent: a phone in guidance polls
+	this every `pollIntervalSeconds` and checks its remaining route
+	itself. A cursor of another copy of the database, or too old, gets
+	the whole set again (`full`).
+	"""
+	roadEvents(since: String, classes: [RoadEventClass!], blockingOnly: Boolean! = true, first: Int = 1000): RoadEventDelta!
+	"""
+	The sources of road events, their licence and attribution, and how
+	fresh their data is.
+	"""
+	roadEventSources: [RoadEventSourceStatus!]!
+	"""
 	The families of points of interest and their kinds, in display
 	order: the map's chips.
 	"""
@@ -2508,6 +2550,11 @@ enum RestrictionSourceKind {
 	A Lunaway user's report.
 	"""
 	COMMUNITY
+	"""
+	A permanent traffic order of DiaLog (Licence Ouverte 2.0, "DiaLog
+	(DGITM), arrêtés de circulation").
+	"""
+	DIALOG
 }
 
 type Review {
@@ -2591,6 +2638,737 @@ type ReviewConnection {
 }
 
 """
+A road event: a closure, works, a lane restriction, a temporary vehicle
+limit or a detour, from an official source or the users.
+"""
+type RoadEvent {
+	"""
+	Its id.
+	"""
+	id: UUID!
+	"""
+	Its source (`roadEventSources`): `dir`, `dialog`, a city, `community`.
+	"""
+	source: String!
+	"""
+	The source's identifier.
+	"""
+	externalId: String!
+	"""
+	What it does.
+	"""
+	class: RoadEventClass!
+	"""
+	The source's own term (`roadClosed`, `doNotUseExit`, `noEntry`).
+	"""
+	detail: String!
+	"""
+	Which part of the road.
+	"""
+	carriageway: RoadEventCarriageway!
+	"""
+	The direction concerned.
+	"""
+	direction: RoadEventDirection!
+	"""
+	The course of the users who reported it, degrees from north.
+	"""
+	headingDeg: Int
+	"""
+	Road number (`N165`, `A75`, `D949`).
+	"""
+	roadNumber: String
+	"""
+	Road name.
+	"""
+	roadName: String
+	"""
+	The limits of a vehicle limit.
+	"""
+	limits: RoadEventLimits
+	"""
+	Validity start.
+	"""
+	validFrom: DateTime!
+	"""
+	Validity end, when the source gives one.
+	"""
+	validTo: DateTime
+	"""
+	When within the validity.
+	"""
+	schedule: RoadEventSchedule!
+	"""
+	The roads it covers on the routing graph, polyline6, each in
+	driving order: a route meets it when it drives along one of them in
+	its direction. Empty unless `match` is `MATCHED`.
+	"""
+	lines: [String!]!
+	"""
+	The lines as the source draws them, polyline6, for the map.
+	"""
+	sourceLines: [String!]!
+	"""
+	The areas as the source draws them (outer rings, polyline6).
+	"""
+	areas: [String!]!
+	"""
+	A point standing for it.
+	"""
+	position: RoadEventPosition!
+	"""
+	How it is placed on the graph.
+	"""
+	match: RoadEventMatch!
+	"""
+	How far to believe it.
+	"""
+	confidence: RoadEventConfidence!
+	"""
+	Whether it can block a route at all: a closure or a vehicle limit
+	for every vehicle, placed on the graph (`MATCHED`, `RAMP` or
+	`POINT`), official or confirmed, not an old open record. A client
+	still checks the time of arrival, the vehicle, its own route and the
+	source's freshness.
+	"""
+	mayBlock: Boolean!
+	"""
+	Description, in the source's language.
+	"""
+	description: String
+	"""
+	The detour the source describes (for cars; never follow it blindly).
+	"""
+	detour: String
+	"""
+	The source's page of it.
+	"""
+	url: String
+	"""
+	First read by Lunaway.
+	"""
+	firstSeenAt: DateTime!
+	"""
+	Last read.
+	"""
+	lastSeenAt: DateTime!
+	"""
+	The source's time of its last version.
+	"""
+	sourceUpdatedAt: DateTime
+}
+
+"""
+Whom a limit concerns.
+"""
+enum RoadEventAppliesTo {
+	"""
+	Every vehicle.
+	"""
+	ALL
+	"""
+	Heavy goods vehicles only: a motorhome is told, never stopped.
+	"""
+	GOODS_VEHICLES
+}
+
+"""
+Which part of the road.
+"""
+enum RoadEventCarriageway {
+	"""
+	The main carriageway.
+	"""
+	MAIN
+	"""
+	An entry slip road of the interchange at `position`.
+	"""
+	ENTRY
+	"""
+	An exit slip road of the interchange at `position`.
+	"""
+	EXIT
+	"""
+	Slip roads of the interchange at `position`, entry and exit.
+	"""
+	RAMPS
+	"""
+	Not stated.
+	"""
+	UNKNOWN
+}
+
+"""
+What an event does to traffic.
+"""
+enum RoadEventClass {
+	"""
+	The road, a carriageway or a slip road is closed to all.
+	"""
+	CLOSURE
+	"""
+	Works without a measure that stops a vehicle.
+	"""
+	WORKS
+	"""
+	Lanes closed, alternating traffic, narrow lanes, a contraflow.
+	"""
+	LANE_RESTRICTION
+	"""
+	A temporary height, width, length or weight limit.
+	"""
+	VEHICLE_LIMIT
+	"""
+	A diversion signposted or advised for others.
+	"""
+	DETOUR
+}
+
+"""
+What a "it is over" did.
+"""
+enum RoadEventCleared {
+	"""
+	The event ended: its only reporter took it back, or two accounts of
+	level 1 or more said it is over.
+	"""
+	ENDED
+	"""
+	The event no longer blocks routes; it warns until two accounts of
+	level 1 or more confirm it again.
+	"""
+	WARNING
+	"""
+	Recorded: the event still blocks until a second account of level 1
+	or more, or a moderator, says it is over.
+	"""
+	NOTED
+}
+
+"""
+How far an event is to be believed.
+"""
+enum RoadEventConfidence {
+	"""
+	An official source's record.
+	"""
+	OFFICIAL
+	"""
+	One user reported it: a warning.
+	"""
+	REPORTED
+	"""
+	Two users or more reported it.
+	"""
+	CONFIRMED
+}
+
+"""
+The changes of the road events since a cursor (`Query.roadEvents`).
+"""
+type RoadEventDelta {
+	"""
+	The cursor to send next time.
+	"""
+	cursor: String!
+	"""
+	Whether `upserts` is the whole set (no cursor, an expired one, or
+	one from another copy of the database): replace what is held.
+	"""
+	full: Boolean!
+	"""
+	When the answer was made.
+	"""
+	asOf: DateTime!
+	"""
+	Events new or changed, of the classes asked.
+	"""
+	upserts: [RoadEvent!]!
+	"""
+	Ids of events ended, or no longer of the classes asked: drop them.
+	"""
+	removals: [UUID!]!
+	"""
+	Every source and its freshness.
+	"""
+	sources: [RoadEventSourceStatus!]!
+	"""
+	How long to wait before asking again, seconds (180).
+	"""
+	pollIntervalSeconds: Int!
+	"""
+	Whether more changes wait: ask again at once with `cursor`.
+	"""
+	hasMore: Boolean!
+}
+
+"""
+The direction concerned.
+"""
+enum RoadEventDirection {
+	"""
+	Both directions.
+	"""
+	BOTH
+	"""
+	The direction of `sourceLines`' points.
+	"""
+	FORWARD
+	"""
+	Northbound (the road's general direction: within 100 degrees).
+	"""
+	NORTH
+	"""
+	Southbound.
+	"""
+	SOUTH
+	"""
+	Eastbound.
+	"""
+	EAST
+	"""
+	Westbound.
+	"""
+	WEST
+	"""
+	Not stated: both.
+	"""
+	UNKNOWN
+}
+
+"""
+Which figure of a limit.
+"""
+enum RoadEventLimitKind {
+	"""
+	Height, metres.
+	"""
+	HEIGHT
+	"""
+	Width, metres.
+	"""
+	WIDTH
+	"""
+	Length, metres.
+	"""
+	LENGTH
+	"""
+	Total authorised mass, tonnes.
+	"""
+	WEIGHT
+}
+
+"""
+The limits of a vehicle limit event.
+"""
+type RoadEventLimits {
+	"""
+	Height, metres.
+	"""
+	maxHeightM: Float
+	"""
+	Width, metres.
+	"""
+	maxWidthM: Float
+	"""
+	Length, metres.
+	"""
+	maxLengthM: Float
+	"""
+	Total authorised mass, tonnes.
+	"""
+	maxWeightT: Float
+	"""
+	Whom they concern.
+	"""
+	appliesTo: RoadEventAppliesTo!
+}
+
+"""
+How an event is placed on the routing graph.
+"""
+enum RoadEventMatch {
+	"""
+	Not placed yet: it warns.
+	"""
+	PENDING
+	"""
+	On the roads of `lines`, each in driving order.
+	"""
+	MATCHED
+	"""
+	The slip roads of the interchange at `position`: a route taking an
+	exit (or entry) slip road leaving (or joining) `roadNumber` within
+	1 km of it, in its direction, meets it. Never the main carriageway.
+	"""
+	RAMP
+	"""
+	The point `position` on `roadNumber`: a route passing within 15 m
+	of it on that road, in its direction (or `headingDeg` within 60
+	degrees), meets it.
+	"""
+	POINT
+	"""
+	Could not be placed: it warns at its own position.
+	"""
+	UNMATCHED
+}
+
+"""
+A period an event is lifted.
+"""
+type RoadEventPeriod {
+	"""
+	Start.
+	"""
+	from: DateTime!
+	"""
+	End.
+	"""
+	to: DateTime!
+}
+
+"""
+A point, in degrees.
+"""
+type RoadEventPosition {
+	"""
+	Latitude.
+	"""
+	lat: Float!
+	"""
+	Longitude.
+	"""
+	lon: Float!
+}
+
+"""
+Why an event weighs the way it does on a route.
+"""
+enum RoadEventReason {
+	"""
+	The road is closed.
+	"""
+	CLOSED
+	"""
+	A limit below the vehicle's figure.
+	"""
+	LIMIT_EXCEEDED
+	"""
+	A height or width limit passed with little margin.
+	"""
+	NEAR_LIMIT
+	"""
+	Lanes closed, alternating traffic.
+	"""
+	LANE_RESTRICTION
+	"""
+	Works.
+	"""
+	WORKS
+	"""
+	A detour is signposted for others.
+	"""
+	DETOUR
+	"""
+	Could not be placed on a road, or a slip road it closes could not
+	be told apart from the carriageway beside it: it may or may not be
+	on the route.
+	"""
+	UNMATCHED
+	"""
+	Its source has not been read for too long.
+	"""
+	STALE
+	"""
+	Outside the hours assumed for a period named without hours.
+	"""
+	OUTSIDE_ASSUMED_HOURS
+	"""
+	A limit for heavy goods vehicles.
+	"""
+	GOODS_VEHICLES_ONLY
+	"""
+	A single user's report.
+	"""
+	UNCONFIRMED
+	"""
+	An open record whose last version is old.
+	"""
+	AGED
+	"""
+	The route starts or ends inside it: no route avoids it.
+	"""
+	ALREADY_INSIDE
+}
+
+"""
+A report made on the road.
+"""
+input RoadEventReportInput {
+	"""
+	What is seen.
+	"""
+	kind: RoadEventReportKind!
+	"""
+	Where, latitude.
+	"""
+	lat: Float!
+	"""
+	Where, longitude.
+	"""
+	lon: Float!
+	"""
+	The vehicle's course, degrees from north (0 to 359), when moving:
+	a report concerns the direction it was made in.
+	"""
+	headingDeg: Int
+	"""
+	The height of a low clearance (1.5 to 6 m, required) or the width of
+	a narrow passage (1.5 to 5 m), as signed or measured.
+	"""
+	valueM: Float
+}
+
+"""
+What a user reports on the road.
+"""
+enum RoadEventReportKind {
+	"""
+	The road is closed.
+	"""
+	CLOSURE
+	"""
+	Works on the road.
+	"""
+	WORKS
+	"""
+	A narrow passage, with its width when measured.
+	"""
+	NARROW_PASSAGE
+	"""
+	A low clearance, with its height.
+	"""
+	LOW_CLEARANCE
+}
+
+"""
+What a report did.
+"""
+type RoadEventReportResult {
+	"""
+	The report.
+	"""
+	reportId: UUID!
+	"""
+	The community event it supports.
+	"""
+	eventId: UUID!
+	"""
+	The event's confidence: `REPORTED` warns others, `CONFIRMED` (two
+	accounts of level 1 or more within two hours) blocks their routes.
+	"""
+	confidence: RoadEventConfidence!
+	"""
+	When the event ends without a new report.
+	"""
+	expiresAt: DateTime!
+}
+
+"""
+When, within its validity, an event applies. A client applies it as the
+server does: every bound widened by `marginMinutes`, every window by
+`widenMinutes` more, a lifted period counted only well inside it.
+"""
+type RoadEventSchedule {
+	"""
+	Weekly windows; none means all the time.
+	"""
+	windows: [RoadEventWindow!]!
+	"""
+	Periods it is lifted.
+	"""
+	exceptions: [RoadEventPeriod!]!
+	"""
+	The windows' time zone: `Europe/Paris` or `UTC`.
+	"""
+	timeZone: String!
+	"""
+	Minutes added on each side of every bound (15).
+	"""
+	marginMinutes: Int!
+	"""
+	Minutes added on each side of every window, beyond the margin.
+	"""
+	widenMinutes: Int!
+	"""
+	The period as the source names it ("Uniquement de nuit").
+	"""
+	label: String
+	"""
+	Whether the windows were chosen by Lunaway for a period named
+	without hours: outside them, the event warns instead of blocking.
+	"""
+	assumed: Boolean!
+	"""
+	An incident (accident, obstacle) rather than planned works: open
+	(no `validTo`), it stops blocking 12 hours after `sourceUpdatedAt`
+	(or `firstSeenAt`); planned works after 30 days.
+	"""
+	unplanned: Boolean!
+}
+
+"""
+How an event weighs on a route.
+"""
+enum RoadEventSeverity {
+	"""
+	The vehicle may not pass: the route goes around it.
+	"""
+	BLOCKING
+	"""
+	The vehicle may pass; tell the driver.
+	"""
+	WARNING
+	"""
+	Worth knowing.
+	"""
+	INFO
+}
+
+"""
+A source of road events, and how fresh its data is.
+"""
+type RoadEventSourceStatus {
+	"""
+	Its id (`dir`, `dialog`, `paris-fermetures`, `community`...).
+	"""
+	id: String!
+	"""
+	Its name.
+	"""
+	name: String!
+	"""
+	Its licence.
+	"""
+	licence: String!
+	"""
+	The text to credit it with, on the map and with a route.
+	"""
+	attribution: String!
+	"""
+	Its page.
+	"""
+	url: String!
+	"""
+	When it was last read with success, news or not: the poller is
+	alive.
+	"""
+	lastReadAt: DateTime
+	"""
+	Seconds since then.
+	"""
+	ageSeconds: Int
+	"""
+	When its data was last known current: a complete snapshot read, or
+	for the DIR the newer of its aggregate's publication and the last
+	increment applied.
+	"""
+	dataAt: DateTime
+	"""
+	After this many seconds past `dataAt`, none of its events blocks.
+	"""
+	staleAfterSeconds: Int!
+	"""
+	Whether its events may block now.
+	"""
+	fresh: Boolean!
+}
+
+"""
+An event met along a route.
+"""
+type RoadEventWarning {
+	"""
+	The event.
+	"""
+	event: RoadEvent!
+	"""
+	How it weighs on this route.
+	"""
+	severity: RoadEventSeverity!
+	"""
+	Why.
+	"""
+	reason: RoadEventReason!
+	"""
+	Distance from the start of the route where it begins, metres.
+	"""
+	distanceFromStartM: Float!
+	"""
+	Length of the route inside it, metres (0 for a point).
+	"""
+	lengthM: Float!
+	"""
+	Index of the route's shape point at or before it.
+	"""
+	geometryIndex: Int!
+	"""
+	Where the route meets it, latitude.
+	"""
+	lat: Float!
+	"""
+	Where the route meets it, longitude.
+	"""
+	lon: Float!
+	"""
+	When the vehicle gets there, as the engine estimates.
+	"""
+	arrivalAt: DateTime!
+	"""
+	The figure compared, for a vehicle limit.
+	"""
+	limitKind: RoadEventLimitKind
+	"""
+	Its value, metres or tonnes.
+	"""
+	limit: Float
+	"""
+	The vehicle's figure.
+	"""
+	vehicleValue: Float
+	"""
+	When its source's data was last known current
+	(`RoadEventSourceStatus.dataAt`).
+	"""
+	dataReadAt: DateTime
+	"""
+	Seconds since then.
+	"""
+	dataAgeSeconds: Int
+}
+
+"""
+A weekly window of an event: on the `days` it starts (1 Monday to 7
+Sunday), from `startMinute` to `endMinute` after midnight in `timeZone`,
+the next day when the end is not after the start.
+"""
+type RoadEventWindow {
+	"""
+	Days it starts on, 1 Monday to 7 Sunday.
+	"""
+	days: [Int!]!
+	"""
+	Start, minutes after midnight.
+	"""
+	startMinute: Int!
+	"""
+	End, minutes after midnight.
+	"""
+	endMinute: Int!
+}
+
+"""
 A route request.
 """
 input RouteInput {
@@ -2623,6 +3401,11 @@ input RouteInput {
 	The language of the instructions.
 	"""
 	language: RouteLanguage! = FR
+	"""
+	When the trip starts, now when absent, up to 14 days ahead: road
+	events (closures, works) count at the time the vehicle reaches them.
+	"""
+	departAt: DateTime
 }
 
 """
@@ -2729,6 +3512,22 @@ type RouteResult {
 	"""
 	blockers: [RouteWarning!]!
 	"""
+	When `status` is `NO_SAFE_ROUTE`: the road events that stopped every
+	route (a closure, a temporary limit), in driving order of the last
+	route tried.
+	"""
+	roadEventBlockers: [RoadEventWarning!]!
+	"""
+	The road events an earlier computation met and the routes go
+	around: "2 closures avoided".
+	"""
+	avoidedRoadEvents: [RoadEvent!]!
+	"""
+	The sources of road events and the age of their data, to show with
+	the route ("travaux : données de 13 h 05").
+	"""
+	roadEventSources: [RoadEventSourceStatus!]!
+	"""
 	How many times the route was computed again around a limit the
 	vehicle exceeds.
 	"""
@@ -2804,6 +3603,13 @@ type RouteSummary {
 	order.
 	"""
 	warnings: [RouteWarning!]!
+	"""
+	Road events met on the way that do not block it (lanes closed,
+	works, a closure that could not be placed or whose source is stale,
+	a single user's report), each at the time the vehicle gets there, in
+	driving order.
+	"""
+	roadEvents: [RoadEventWarning!]!
 }
 
 """
@@ -2904,6 +3710,11 @@ enum RouteWarningKind {
 	No trailers, or no caravans and trailers over 250 kg.
 	"""
 	TRAILER_BAN
+	"""
+	A weight limit for heavy goods vehicles the vehicle exceeds (a
+	DiaLog order): it does not apply to a motorhome, check the signs.
+	"""
+	GOODS_VEHICLE_WEIGHT
 }
 
 """

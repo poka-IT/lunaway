@@ -6,6 +6,8 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
@@ -24,9 +26,9 @@ import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
-/// The user's vehicle, the data kept on the device, how the app looks and
-/// speaks, and where everything comes from. No account: everything here
-/// stays on this device.
+/// The account (when there is one), the user's vehicle, the data kept on
+/// the device, how the app looks and speaks, and where everything comes
+/// from.
 class ProfileScreen extends ConsumerWidget {
   const new({super.key});
 
@@ -47,13 +49,17 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: Space.xxs),
           Text(
-            t.profile.noAccountNeeded,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ref.watch(accountControllerProvider) is SignedIn
+                ? t.profile.noTracking
+                : t.profile.noAccountNeeded,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
     );
-    const left = [_Vehicle(), _OfflineData(), _Directions()];
+    const left = [AccountSection(), _Vehicle(), _OfflineData(), _Directions()];
     const right = [_Appearance(), _Language(), _About(), _Attributions()];
     final padding = EdgeInsets.fromLTRB(
       size == .compact ? Space.l : Space.xxl,
@@ -95,7 +101,10 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   static List<Widget> _spaced(List<Widget> sections) => [
-    for (final (i, c) in sections.indexed) ...[if (i > 0) const SizedBox(height: Space.xxl), c],
+    for (final (i, c) in sections.indexed) ...[
+      if (i > 0) const SizedBox(height: Space.xxl),
+      c,
+    ],
   ];
 }
 
@@ -237,10 +246,13 @@ class _OfflineData extends ConsumerWidget {
     final size = ref.watch(storageSizeProvider).value;
     final state = ref.watch(syncStateProvider).value;
     final status = ref.watch(syncControllerProvider);
-    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now =
+        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final running = status is SyncRunning;
     final complete = state?.completedAt != null;
-    final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
+    final muted = theme.textTheme.bodyMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
     final last = state?.completedAt;
     return _Section(
       title: t.profile.offline,
@@ -255,17 +267,24 @@ class _OfflineData extends ConsumerWidget {
                 children: [
                   TextSpan(
                     text: count == null ? ' ' : t.number(count),
-                    style: LunaType.number(30, weight: 420, color: scheme.onSurface),
+                    style: LunaType.number(
+                      30,
+                      weight: 420,
+                      color: scheme.onSurface,
+                    ),
                   ),
                   TextSpan(
-                    text: count == null ? '' : ' ${t.profile.placesOnDevice(n: count)}',
+                    text: count == null
+                        ? ''
+                        : ' ${t.profile.placesOnDevice(n: count)}',
                     style: theme.textTheme.titleMedium,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: Space.xs),
-            if (size != null) Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
+            if (size != null)
+              Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
             Text(
               !complete
                   ? (count ?? 0) > 0
@@ -289,7 +308,9 @@ class _OfflineData extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const ClipRRect(
-                        borderRadius: BorderRadius.all(Radius.circular(LunaTokens.radiusPill)),
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(LunaTokens.radiusPill),
+                        ),
                         child: LinearProgressIndicator(minHeight: 6),
                       ),
                       const SizedBox(height: Space.xs),
@@ -307,7 +328,9 @@ class _OfflineData extends ConsumerWidget {
                     retryIn == null
                         ? syncFailureText(t, failure)
                         : '${syncFailureText(t, failure)} ${t.sync.willRetry}',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.error,
+                    ),
                   ),
                 ),
                 _ => const SizedBox.shrink(key: ValueKey('idle')),
@@ -315,9 +338,15 @@ class _OfflineData extends ConsumerWidget {
             ),
             const SizedBox(height: Space.m),
             OutlinedButton.icon(
-              onPressed: running ? null : () => ref.read(syncControllerProvider.notifier).sync(),
+              onPressed: running
+                  ? null
+                  : () => ref.read(syncControllerProvider.notifier).sync(),
               icon: const Icon(AppIcons.sync),
-              label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
+              label: Text(
+                !complete && (count ?? 0) > 0
+                    ? t.sync.resume
+                    : t.profile.syncNow,
+              ),
             ),
           ],
         ),
@@ -332,7 +361,9 @@ class _Directions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final app = NavigationApp.fromId(ref.watch(settingsProvider.select((s) => s.navigationApp)));
+    final app = NavigationApp.fromId(
+      ref.watch(settingsProvider.select((s) => s.navigationApp)),
+    );
     return _Section(
       title: t.directions.settingTitle,
       icon: AppIcons.navigationApps,
@@ -348,9 +379,15 @@ class _Directions extends ConsumerWidget {
             NavigationApp.offeredOn(Theme.of(context).platform, web: kIsWeb),
           );
           if (!context.mounted) return;
-          final picked = await showNavigationAppChooser(context, available, selected: app);
+          final picked = await showNavigationAppChooser(
+            context,
+            available,
+            selected: app,
+          );
           if (picked == null) return;
-          await settings.setNavigationApp(picked.remember ? picked.app.id : null);
+          await settings.setNavigationApp(
+            picked.remember ? picked.app.id : null,
+          );
         },
       ),
     );
@@ -459,7 +496,12 @@ class _About extends ConsumerWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, Space.xs),
+            padding: const EdgeInsets.fromLTRB(
+              Space.l,
+              Space.l,
+              Space.l,
+              Space.xs,
+            ),
             child: Row(
               children: [
                 const BrandMark(height: 36),
@@ -468,11 +510,15 @@ class _About extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t.appTitle, style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        t.appTitle,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       Text(
                         t.profile.version(version: version),
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -518,16 +564,34 @@ class _Attributions extends ConsumerWidget {
       icon: AppIcons.attributions,
       child: Column(
         children: [
-          entry(t.profile.attributionOsm, 'https://www.openstreetmap.org/copyright'),
-          entry(t.profile.attributionOdbl, 'https://opendatacommons.org/licenses/odbl/'),
+          entry(
+            t.profile.attributionOsm,
+            'https://www.openstreetmap.org/copyright',
+          ),
+          entry(
+            t.profile.attributionOdbl,
+            'https://opendatacommons.org/licenses/odbl/',
+          ),
           entry(
             t.profile.attributionAtout,
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
-          entry(t.profile.attributionCommunes, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
-          entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
-          entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),
+          entry(
+            t.profile.attributionCommunes,
+            'https://opendatacommons.org/licenses/odbl/',
+          ),
+          entry(
+            t.profile.attributionTiles,
+            'https://github.com/protomaps/basemaps',
+          ),
+          entry(
+            t.profile.attributionFonts,
+            'https://github.com/undercasetype/Fraunces',
+          ),
+          entry(
+            t.profile.attributionIcons,
+            'https://github.com/phosphor-icons/flutter',
+          ),
         ],
       ),
     );

@@ -3,6 +3,10 @@
 #   docker compose -f backend/compose.yaml up -d
 #   DATABASE_URL=postgres://lunaway:lunaway@127.0.0.1:54329/lunaway
 #
+# A second checkout (a git worktree on another branch) runs its own copy, so
+# that its migrations never meet the main tree's template1:
+#   LUNAWAY_PG_PORT=54330 docker compose -p lunaway-wt -f backend/compose.yaml up -d
+#
 # The password is for this loopback-only dev database; never reuse it.
 #
 # Image: imresamu/postgis is published by a maintainer of the official
@@ -21,7 +25,7 @@ services:
     ports:
       # Loopback only, on a port that does not collide with another local
       # PostgreSQL (5432 and 5433 are commonly taken).
-      - "127.0.0.1:54329:5432"
+      - "127.0.0.1:${LUNAWAY_PG_PORT:-54329}:5432"
     volumes:
       # PostgreSQL 18 images keep PGDATA under /var/lib/postgresql/18/docker:
       # mounting the parent lets a future major version sit next to it.

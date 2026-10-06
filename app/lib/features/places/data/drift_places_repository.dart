@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:drift/drift.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
@@ -22,7 +23,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
-      'p.rating_avg, p.rating_count';
+      'p.rating_avg, p.rating_count, p.verification';
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) {
@@ -76,12 +77,17 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   }
 
   @override
-  Stream<Place?> watchPlace(String id) => (_db.select(_db.places)..where((p) => p.id.equals(id)))
-      .watchSingleOrNull()
-      .map((row) => row == null ? null : _place(row));
+  Stream<Place?> watchPlace(String id) =>
+      (_db.select(_db.places)..where((p) => p.id.equals(id)))
+          .watchSingleOrNull()
+          .map((row) => row == null ? null : _place(row));
 
   @override
-  Future<SearchResults> search(String text, {LatLng? near, int limit = 20}) async {
+  Future<SearchResults> search(
+    String text, {
+    LatLng? near,
+    int limit = 20,
+  }) async {
     final match = ftsPrefixQuery(text);
     if (match == null) return SearchResults.empty;
     final placeRows = await _db
@@ -95,7 +101,10 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     var places = placeRows.map(_summary).toList();
     if (near != null) {
       // Among matches, the nearest is the likeliest intent ("aire" near me).
-      places.sort((a, b) => a.position.distanceTo(near).compareTo(b.position.distanceTo(near)));
+      places.sort(
+        (a, b) =>
+            a.position.distanceTo(near).compareTo(b.position.distanceTo(near)),
+      );
     }
     places = places.take(limit).toList();
 
@@ -143,9 +152,9 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   @override
   Stream<SyncState> watchSync(String region) =>
-      (_db.select(_db.regionSyncs)..where((s) => s.region.equals(region))).watchSingleOrNull().map(
-        (row) => row == null ? SyncState.none : _syncState(row),
-      );
+      (_db.select(_db.regionSyncs)..where((s) => s.region.equals(region)))
+          .watchSingleOrNull()
+          .map((row) => row == null ? SyncState.none : _syncState(row));
 
   @override
   Future<SyncState> stateOf(String region) async {
@@ -183,26 +192,31 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   });
 
   @override
-  Future<void> beginDeltaSync(String region) => (_db.update(
-    _db.regionSyncs,
-  )..where((s) => s.region.equals(region))).write(const RegionSyncsCompanion(running: Value(true)));
+  Future<void> beginDeltaSync(String region) =>
+      (_db.update(_db.regionSyncs)..where((s) => s.region.equals(region)))
+          .write(const RegionSyncsCompanion(running: Value(true)));
 
   @override
-  Future<void> applyPage(String region, ChangeSet page) => _db.transaction(() async {
-    final generation = (await stateOf(region)).generation;
-    await _db.batch((batch) {
-      for (final p in page.places) {
-        final row = _companion(p, generation);
-        batch.insert(_db.places, row, onConflict: DoUpdate((_) => row, target: [_db.places.id]));
-      }
-      if (page.deleted.isNotEmpty) {
-        batch.deleteWhere(_db.places, (p) => p.id.isIn(page.deleted));
-      }
-    });
-    await (_db.update(_db.regionSyncs)..where((s) => s.region.equals(region))).write(
-      RegionSyncsCompanion(cursor: Value(page.cursor)),
-    );
-  });
+  Future<void> applyPage(String region, ChangeSet page) =>
+      _db.transaction(() async {
+        final generation = (await stateOf(region)).generation;
+        await _db.batch((batch) {
+          for (final p in page.places) {
+            final row = _companion(p, generation);
+            batch.insert(
+              _db.places,
+              row,
+              onConflict: DoUpdate((_) => row, target: [_db.places.id]),
+            );
+          }
+          if (page.deleted.isNotEmpty) {
+            batch.deleteWhere(_db.places, (p) => p.id.isIn(page.deleted));
+          }
+        });
+        await (_db.update(_db.regionSyncs)
+              ..where((s) => s.region.equals(region)))
+            .write(RegionSyncsCompanion(cursor: Value(page.cursor)));
+      });
 
   @override
   Future<int> completeRun(String region, GeoBounds bounds, DateTime at) =>
@@ -219,7 +233,9 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
                   ))
                   .go();
         }
-        await (_db.update(_db.regionSyncs)..where((s) => s.region.equals(region))).write(
+        await (_db.update(
+          _db.regionSyncs,
+        )..where((s) => s.region.equals(region))).write(
           RegionSyncsCompanion(
             fullSync: const Value(false),
             running: const Value(false),
@@ -230,15 +246,18 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
       });
 
   @override
-  Future<void> reset(String region, GeoBounds bounds) => _db.transaction(() async {
-    await (_db.delete(_db.regionSyncs)..where((s) => s.region.equals(region))).go();
-    await (_db.delete(_db.places)..where(
-          (p) =>
-              p.lat.isBetweenValues(bounds.south, bounds.north) &
-              p.lon.isBetweenValues(bounds.west, bounds.east),
-        ))
-        .go();
-  });
+  Future<void> reset(String region, GeoBounds bounds) =>
+      _db.transaction(() async {
+        await (_db.delete(
+          _db.regionSyncs,
+        )..where((s) => s.region.equals(region))).go();
+        await (_db.delete(_db.places)..where(
+              (p) =>
+                  p.lat.isBetweenValues(bounds.south, bounds.north) &
+                  p.lon.isBetweenValues(bounds.west, bounds.east),
+            ))
+            .go();
+      });
 
   PlacesCompanion _companion(Place p, int generation) => PlacesCompanion.insert(
     id: p.id,
@@ -269,7 +288,9 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     // The server says where its window ends; the window is meaningless
     // without that end, so intervals without one are dropped.
     openingValidUntil: Value(
-      p.openingIntervals == null ? null : p.openingValidUntil?.millisecondsSinceEpoch,
+      p.openingIntervals == null
+          ? null
+          : p.openingValidUntil?.millisecondsSinceEpoch,
     ),
     stars: Value(p.stars),
     syncGen: Value(generation),
@@ -277,13 +298,22 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     phone: Value(p.phone),
     lastConfirmedAt: Value(p.lastConfirmedAt?.millisecondsSinceEpoch),
     updatedAt: p.updatedAt.millisecondsSinceEpoch,
-    sourcesJson: Value(jsonEncode([for (final s in p.sources) placeSourceToJson(s)])),
-    provenanceJson: Value(jsonEncode([for (final f in p.provenance) fieldProvenanceToJson(f)])),
+    sourcesJson: Value(
+      jsonEncode([for (final s in p.sources) placeSourceToJson(s)]),
+    ),
+    provenanceJson: Value(
+      jsonEncode([for (final f in p.provenance) fieldProvenanceToJson(f)]),
+    ),
     descriptionsJson: Value(jsonEncode(localizedTextsToJson(p.descriptions))),
     ratingsJson: Value(jsonEncode(ratingsToJson(p.ratings))),
     linksJson: Value(jsonEncode(externalLinksToJson(p.externalLinks))),
     ratingAvg: Value(combinedRating(p.ratings)?.average),
     ratingCount: Value(combinedRating(p.ratings)?.count ?? 0),
+    verification: Value(p.verification.wire),
+    reviewCount: Value(p.reviewCount),
+    photoCount: Value(p.photoCount),
+    coverPhotosJson: Value(jsonEncode(photosToJson(p.coverPhotos))),
+    issuesJson: Value(jsonEncode(issuesToJson(p.reportedIssues))),
   );
 
   Place _place(PlaceRow r) => Place(
@@ -296,9 +326,18 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     services: Service.fromMask(r.services),
     activities: Activity.fromMask(r.activities),
     description: r.description,
-    address: (r.street == null && r.postcode == null && r.city == null && r.countryCode == null)
+    address:
+        (r.street == null &&
+            r.postcode == null &&
+            r.city == null &&
+            r.countryCode == null)
         ? null
-        : Address(street: r.street, postcode: r.postcode, city: r.city, countryCode: r.countryCode),
+        : Address(
+            street: r.street,
+            postcode: r.postcode,
+            city: r.city,
+            countryCode: r.countryCode,
+          ),
     priceParkingEur: r.priceParking,
     priceServicesEur: r.priceServices,
     maxHeightM: r.maxHeight,
@@ -311,7 +350,10 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         : openingIntervalsFromJson(jsonDecode(r.openingIntervalsJson!)),
     openingValidUntil: r.openingValidUntil == null
         ? null
-        : DateTime.fromMillisecondsSinceEpoch(r.openingValidUntil!, isUtc: true),
+        : DateTime.fromMillisecondsSinceEpoch(
+            r.openingValidUntil!,
+            isUtc: true,
+          ),
     website: r.website,
     phone: r.phone,
     lastConfirmedAt: r.lastConfirmedAt == null
@@ -329,6 +371,11 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     descriptions: localizedTextsFromJson(jsonDecode(r.descriptionsJson)),
     ratings: ratingsFromJson(jsonDecode(r.ratingsJson)),
     externalLinks: externalLinksFromJson(jsonDecode(r.linksJson)),
+    verification: Verification.fromWire(r.verification),
+    reviewCount: r.reviewCount,
+    photoCount: r.photoCount,
+    coverPhotos: photosFromJson(jsonDecode(r.coverPhotosJson)),
+    reportedIssues: issuesFromJson(jsonDecode(r.issuesJson)),
   );
 
   PlaceSummary _summary(QueryRow r) => PlaceSummary(
@@ -343,6 +390,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     priceParkingEur: r.readNullable<double>('price_parking'),
     ratingAverage: r.readNullable<double>('rating_avg'),
     ratingCount: r.read<int>('rating_count'),
+    verification: Verification.fromWire(r.read<String>('verification')),
   );
 }
 
@@ -353,11 +401,15 @@ _Where _filterSql(PlaceFilter filter) {
   final clauses = <String>['1 = 1'];
   final variables = <Variable<Object>>[];
   if (filter.families.isNotEmpty) {
-    clauses.add('p.family IN (${List.filled(filter.families.length, '?').join(', ')})');
+    clauses.add(
+      'p.family IN (${List.filled(filter.families.length, '?').join(', ')})',
+    );
     variables.addAll(filter.families.map((f) => Variable.withInt(f.index)));
   }
   if (filter.overnight.isNotEmpty) {
-    clauses.add('p.overnight IN (${List.filled(filter.overnight.length, '?').join(', ')})');
+    clauses.add(
+      'p.overnight IN (${List.filled(filter.overnight.length, '?').join(', ')})',
+    );
     variables.addAll(filter.overnight.map((o) => Variable.withString(o.wire)));
   }
   for (final amenity in filter.amenities) {

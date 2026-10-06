@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -37,6 +38,11 @@ final class Place {
     this.descriptions = const [],
     this.ratings = const [],
     this.externalLinks = const [],
+    this.verification = Verification.verified,
+    this.reviewCount = 0,
+    this.photoCount = 0,
+    this.coverPhotos = const [],
+    this.reportedIssues = const [],
   });
 
   final String id;
@@ -92,6 +98,21 @@ final class Place {
   /// The pages of the place on its sources' sites.
   final List<ExternalLink> externalLinks;
 
+  /// [Verification.toVerify] while a place only the community describes
+  /// waits for two confirmations.
+  final Verification verification;
+
+  /// Published reviews with text, and published photos.
+  final int reviewCount;
+  final int photoCount;
+
+  /// The latest published photos (three at most), kept offline; each names
+  /// its author so the device hides a muted author's.
+  final List<Photo> coverPhotos;
+
+  /// Issues visitors reported over the last 30 days, by kind.
+  final List<IssueSummary> reportedIssues;
+
   LatLng get position => LatLng(lat, lon);
 
   /// The freshest date that says the data still holds.
@@ -109,6 +130,7 @@ final class Place {
     priceParkingEur: priceParkingEur,
     ratingAverage: combinedRating(ratings)?.average,
     ratingCount: combinedRating(ratings)?.count ?? 0,
+    verification: verification,
   );
 
   @override
@@ -131,17 +153,37 @@ final class Place {
       other.stars == stars &&
       other.openingHours == openingHours &&
       other.openingHoursParsed == openingHoursParsed &&
-      const ListEquality<OpeningInterval>().equals(other.openingIntervals, openingIntervals) &&
+      const ListEquality<OpeningInterval>().equals(
+        other.openingIntervals,
+        openingIntervals,
+      ) &&
       other.openingValidUntil == openingValidUntil &&
       other.website == website &&
       other.phone == phone &&
       other.lastConfirmedAt == lastConfirmedAt &&
       other.updatedAt == updatedAt &&
       const ListEquality<PlaceSource>().equals(other.sources, sources) &&
-      const ListEquality<FieldProvenance>().equals(other.provenance, provenance) &&
-      const ListEquality<LocalizedText>().equals(other.descriptions, descriptions) &&
+      const ListEquality<FieldProvenance>().equals(
+        other.provenance,
+        provenance,
+      ) &&
+      const ListEquality<LocalizedText>().equals(
+        other.descriptions,
+        descriptions,
+      ) &&
       const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
-      const ListEquality<ExternalLink>().equals(other.externalLinks, externalLinks);
+      const ListEquality<ExternalLink>().equals(
+        other.externalLinks,
+        externalLinks,
+      ) &&
+      other.verification == verification &&
+      other.reviewCount == reviewCount &&
+      other.photoCount == photoCount &&
+      const ListEquality<Photo>().equals(other.coverPhotos, coverPhotos) &&
+      const ListEquality<IssueSummary>().equals(
+        other.reportedIssues,
+        reportedIssues,
+      );
 
   @override
   int get hashCode => Object.hash(id, updatedAt, lat, lon);
@@ -230,13 +272,18 @@ final class PlaceSource {
       other.matchScore == matchScore;
 
   @override
-  int get hashCode => Object.hash(source, externalId, externalUrl, fetchedAt, matchScore);
+  int get hashCode =>
+      Object.hash(source, externalId, externalUrl, fetchedAt, matchScore);
 }
 
 /// Which source supplied a field, and the values other sources proposed.
 @immutable
 final class FieldProvenance {
-  const new({required this.field, required this.sourceId, this.alternatives = const []});
+  const new({
+    required this.field,
+    required this.sourceId,
+    this.alternatives = const [],
+  });
 
   final String field;
   final String sourceId;
@@ -247,10 +294,14 @@ final class FieldProvenance {
       other is FieldProvenance &&
       other.field == field &&
       other.sourceId == sourceId &&
-      const ListEquality<AlternativeValue>().equals(other.alternatives, alternatives);
+      const ListEquality<AlternativeValue>().equals(
+        other.alternatives,
+        alternatives,
+      );
 
   @override
-  int get hashCode => Object.hash(field, sourceId, Object.hashAll(alternatives));
+  int get hashCode =>
+      Object.hash(field, sourceId, Object.hashAll(alternatives));
 }
 
 @immutable
@@ -262,7 +313,9 @@ final class AlternativeValue {
 
   @override
   bool operator ==(Object other) =>
-      other is AlternativeValue && other.sourceId == sourceId && other.value == value;
+      other is AlternativeValue &&
+      other.sourceId == sourceId &&
+      other.value == value;
 
   @override
   int get hashCode => Object.hash(sourceId, value);
@@ -284,6 +337,7 @@ final class PlaceSummary {
     this.priceParkingEur,
     this.ratingAverage,
     this.ratingCount = 0,
+    this.verification = Verification.verified,
   });
 
   final String id;
@@ -300,6 +354,9 @@ final class PlaceSummary {
   final double? ratingAverage;
   final int ratingCount;
 
+  /// Whether the place still waits for confirmations.
+  final Verification verification;
+
   LatLng get position => LatLng(lat, lon);
 
   @override
@@ -315,7 +372,8 @@ final class PlaceSummary {
       const SetEquality<Service>().equals(other.services, services) &&
       other.priceParkingEur == priceParkingEur &&
       other.ratingAverage == ratingAverage &&
-      other.ratingCount == ratingCount;
+      other.ratingCount == ratingCount &&
+      other.verification == verification;
 
   @override
   int get hashCode => Object.hash(id, lat, lon, kind, overnight);

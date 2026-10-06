@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -74,7 +76,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
     // is laid out) can land off centre.
-    bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
+    bool ready() =>
+        ref.read(mapControllerProvider) != null &&
+        ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
@@ -90,8 +94,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final selection = ref.watch(selectionProvider);
     void locate() => unawaited(locateUser(context, ref));
     final body = switch (size) {
-      .compact => _CompactLayout(selection: selection, onLocate: locate, onClose: _clearSelection),
-      .medium => _MediumLayout(selection: selection, onLocate: locate, onClose: _clearSelection),
+      .compact => _CompactLayout(
+        selection: selection,
+        onLocate: locate,
+        onClose: _clearSelection,
+      ),
+      .medium => _MediumLayout(
+        selection: selection,
+        onLocate: locate,
+        onClose: _clearSelection,
+      ),
       .expanded => _ExpandedLayout(
         selection: selection,
         onLocate: locate,
@@ -102,15 +114,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // The status bar floats over the map: transparent, its icons in the
       // contrast of the theme's scrim.
-      value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-      ),
+      value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+          .copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: Colors.transparent,
+          ),
       child: CallbackShortcuts(
-        bindings: {const SingleActivator(LogicalKeyboardKey.escape): _clearSelection},
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): _clearSelection,
+        },
         // The keyboard covers the map instead of squeezing it: the sheet and
         // the overlays keep their places, the search results end above it.
-        child: Focus(autofocus: true, child: Scaffold(resizeToAvoidBottomInset: false, body: body)),
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(resizeToAvoidBottomInset: false, body: body),
+        ),
       ),
     );
   }
@@ -125,7 +143,10 @@ bool get _pointerPlatform =>
 
 /// The map itself, fed from the providers.
 class _Map extends ConsumerWidget {
-  const new({this.padding = EdgeInsets.zero, this.attributionInset = EdgeInsets.zero});
+  const new({
+    this.padding = EdgeInsets.zero,
+    this.attributionInset = EdgeInsets.zero,
+  });
 
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
@@ -134,7 +155,10 @@ class _Map extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final style = ref.watch(
-      basemapStyleProvider(dark: dark, language: Localizations.localeOf(context).languageCode),
+      basemapStyleProvider(
+        dark: dark,
+        language: Localizations.localeOf(context).languageCode,
+      ),
     );
     final viewport = ref.read(viewportProvider);
     final places = ref.watch(mapPlacesProvider).value ?? const [];
@@ -162,6 +186,13 @@ class _Map extends ConsumerWidget {
         onMapReady: (c) => ref.read(mapControllerProvider.notifier).attach(c),
         padding: padding,
         attributionInset: attributionInset,
+        language: Localizations.localeOf(context).languageCode,
+        // The first view of a run shows the whole region below the search
+        // and the chips; later ones come back where the user left the map.
+        // A map made again before its fit (a theme or language change in
+        // the first seconds) still fits: the camera it reported is only the
+        // first one.
+        fitInitial: viewport == null || isFirstCamera(viewport),
       ),
     );
     return Stack(
@@ -252,16 +283,31 @@ class _SelectionActions extends ConsumerWidget {
       final place? => PlaceActionBar(place: place, floating: true),
       null => const SizedBox.shrink(),
     },
-    PointSelection(:final position) => PointActionBar(position: position, floating: true),
+    PointSelection(:final position) => PointActionBar(
+      position: position,
+      floating: true,
+    ),
   };
 }
 
-/// The map's own buttons: the position, and zoom where there is a mouse.
+/// The map's own buttons: a new place, the position, and zoom where there
+/// is a mouse.
 class _MapControls extends StatelessWidget {
   const new({required this.onLocate, this.zoom = false});
 
   final VoidCallback onLocate;
   final bool zoom;
+
+  /// Marks the middle of the map as the point of a new place: the second
+  /// gesture is "Add a place here" in the point's details, and a long press
+  /// moves the point.
+  static void _addPlace(WidgetRef ref) {
+    final viewport = ref.read(viewportProvider);
+    if (viewport == null) return;
+    ref
+        .read(selectionProvider.notifier)
+        .select(PointSelection(viewport.center));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +319,13 @@ class _MapControls extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            MapButton(
+              icon: AppIcons.addPlace,
+              tooltip: t.contribute.addPlace,
+              onPressed: () => _addPlace(ref),
+              size: 48,
+            ),
+            const SizedBox(height: Space.s),
             if (zoom) ...[
               FloatingSurface(
                 radius: LunaTokens.radiusL,
@@ -312,7 +365,11 @@ class _MapControls extends StatelessWidget {
 /// the details of a selection higher, with their actions where the dock
 /// was.
 class _CompactLayout extends ConsumerStatefulWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -351,7 +408,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
       // The map centres what follows on the part the sheet will leave free,
       // not on the part it leaves free now.
       _rest = target;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _sheet.animateTo(target));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _sheet.animateTo(target),
+      );
     }
   }
 
@@ -366,6 +425,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
         : [_detailsPeek(m), _detailsOpen(m), _full(m)];
     final rest = _rest ?? (selection == null ? _listPeek(m) : _detailsOpen(m));
     final top = m.padding.top + _overlayHeight;
+    final clearance = MessageClearanceScope.maybeOf(context);
     return Stack(
       children: [
         Positioned.fill(
@@ -422,16 +482,30 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     scrollController: scroll,
                     bottomPadding: m.padding.bottom + Space.l,
                     header: const Padding(
-                      padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.s),
+                      padding: EdgeInsets.fromLTRB(
+                        Space.xl,
+                        0,
+                        Space.xl,
+                        Space.s,
+                      ),
                       child: NearbyCount(),
                     ),
                   )
-                : _SelectionDetails(
+                : ListenableBuilder(
                     key: ValueKey(selection),
-                    selection: selection,
-                    scrollController: scroll,
-                    onClose: widget.onClose,
-                    bottomPadding: m.padding.bottom + Space.xl,
+                    // The bar of actions grows with large text or a narrow
+                    // screen: the details end above its measured top, so
+                    // their last line is never under it.
+                    listenable:
+                        clearance ?? const AlwaysStoppedAnimation<double>(0),
+                    builder: (context, _) => _SelectionDetails(
+                      selection: selection,
+                      scrollController: scroll,
+                      onClose: widget.onClose,
+                      bottomPadding:
+                          math.max(m.padding.bottom, clearance?.value ?? 0) +
+                          Space.xl,
+                    ),
                   ),
           ),
         ),
@@ -445,7 +519,10 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
             switchInCurve: Motion.enter,
             switchOutCurve: Motion.exit,
             transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
+              position: Tween(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(animation),
               child: child,
             ),
             child: selection == null
@@ -457,10 +534,27 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     child: MediaQuery(
                       data: m.copyWith(
                         padding: m.padding.copyWith(
-                          bottom: (m.padding.bottom - dockSpace).clamp(0, double.infinity),
+                          bottom: (m.padding.bottom - dockSpace).clamp(
+                            0,
+                            double.infinity,
+                          ),
                         ),
                       ),
-                      child: _SelectionActions(selection: selection),
+                      child: Stack(
+                        children: [
+                          // The sheet's text fades under the bar and never
+                          // shows between it and the edge.
+                          const Positioned.fill(
+                            child: IgnorePointer(child: BottomFade()),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: BottomFade.lead,
+                            ),
+                            child: _SelectionActions(selection: selection),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
           ),
@@ -494,7 +588,14 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                   padding: EdgeInsets.fromLTRB(Space.m, Space.s, Space.m, 0),
                   child: MapSearch(),
                 ),
-                const QuickFilters(padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0)),
+                const QuickFilters(
+                  padding: EdgeInsets.fromLTRB(
+                    Space.m,
+                    Space.xxs,
+                    Space.xxl,
+                    0,
+                  ),
+                ),
                 if (!searching) const Center(child: IncompleteSyncNotice()),
               ],
             ),
@@ -515,14 +616,21 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) => FloatingSurface(
     radius: LunaTokens.radiusSheet,
     color: Theme.of(context).colorScheme.surface,
-    child: AnimatedSwitcher(duration: Motion.of(context, Motion.medium), child: child),
+    child: AnimatedSwitcher(
+      duration: Motion.of(context, Motion.medium),
+      child: child,
+    ),
   );
 }
 
 /// Tablet: the map beside the rail; the list and the details open in a
 /// panel on the right.
 class _MediumLayout extends ConsumerStatefulWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -550,7 +658,10 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
         Positioned.fill(
           child: _Map(
             padding: EdgeInsets.only(right: reserved, top: top),
-            attributionInset: const EdgeInsets.only(left: Space.s, bottom: Space.s),
+            attributionInset: const EdgeInsets.only(
+              left: Space.s,
+              bottom: Space.s,
+            ),
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
@@ -564,7 +675,10 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
         Positioned(
           right: reserved + Space.l,
           bottom: Space.l,
-          child: _MapControls(onLocate: widget.onLocate, zoom: _pointerPlatform),
+          child: _MapControls(
+            onLocate: widget.onLocate,
+            zoom: _pointerPlatform,
+          ),
         ),
         // Above the buttons: the search results cover them.
         Positioned(
@@ -593,9 +707,13 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                           onPressed: () => setState(() => _listOpen = true),
                           icon: const Icon(AppIcons.list),
                           label: Text(
-                            count == null ? t.map.showList : t.map.showListCount(n: count),
+                            count == null
+                                ? t.map.showList
+                                : t.map.showListCount(n: count),
                           ),
-                          style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, 56),
+                          ),
                         ),
                       ),
                     ],
@@ -630,12 +748,18 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                       )
                     : NearbyList(
                         header: Padding(
-                          padding: const EdgeInsets.fromLTRB(Space.xl, Space.l, Space.s, Space.s),
+                          padding: const EdgeInsets.fromLTRB(
+                            Space.xl,
+                            Space.l,
+                            Space.s,
+                            Space.s,
+                          ),
                           child: NearbyCount(
                             trailing: IconButton(
                               tooltip: t.common.close,
                               icon: const Icon(AppIcons.close),
-                              onPressed: () => setState(() => _listOpen = false),
+                              onPressed: () =>
+                                  setState(() => _listOpen = false),
                             ),
                           ),
                         ),
@@ -651,7 +775,11 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
 
 /// Desktop: the list pane, the map, and the details pane side by side.
 class _ExpandedLayout extends ConsumerWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -683,7 +811,10 @@ class _ExpandedLayout extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, 0),
           child: MapSearch(floating: false),
         ),
-        QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
+        QuickFilters(
+          padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0),
+          floating: false,
+        ),
         Padding(
           padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
           child: NearbyCount(),
@@ -697,8 +828,12 @@ class _ExpandedLayout extends ConsumerWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border(
-          right: left ? BorderSide(color: scheme.outlineVariant) : BorderSide.none,
-          left: left ? BorderSide.none : BorderSide(color: scheme.outlineVariant),
+          right: left
+              ? BorderSide(color: scheme.outlineVariant)
+              : BorderSide.none,
+          left: left
+              ? BorderSide.none
+              : BorderSide(color: scheme.outlineVariant),
         ),
       ),
       child: SafeArea(child: child),
@@ -722,7 +857,10 @@ class _ExpandedLayout extends ConsumerWidget {
             children: [
               const Positioned.fill(
                 child: _Map(
-                  attributionInset: EdgeInsets.only(left: Space.s, bottom: Space.s),
+                  attributionInset: EdgeInsets.only(
+                    left: Space.s,
+                    bottom: Space.s,
+                  ),
                 ),
               ),
               const Positioned(

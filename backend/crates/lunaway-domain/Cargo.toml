@@ -11,6 +11,8 @@ publish.workspace = true
 
 [dependencies]
 chrono.workspace = true
+# The named periods of the road events (night, day) are hours in France.
+chrono-tz.workspace = true
 country-boundaries.workspace = true
 serde.workspace = true
 thiserror.workspace = true

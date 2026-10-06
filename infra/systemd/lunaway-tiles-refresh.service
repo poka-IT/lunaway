@@ -1,6 +1,7 @@
 # Installs the newest Protomaps planet build on the tile volume, checks it
 # (size, BLAKE3, pmtiles verify, a tile through the running server) and
-# switches the basemap to it (/usr/local/sbin/lunaway-tiles-refresh). Run by
+# switches the basemap to it (/usr/local/sbin/lunaway-tiles-refresh), then
+# starts the offline packs' build. Run by
 # lunaway-tiles-refresh.timer; installed by infra/server/tiles.sh. The
 # download is about 140 GB and takes about half an hour; it resumes after an
 # interruption.
@@ -12,6 +13,9 @@ After=network-online.target lunaway-tiles.service
 Wants=network-online.target lunaway-tiles.service
 RequiresMountsFor=/srv/tiles
 ConditionPathExists=/usr/local/bin/pmtiles
+# The offline packs follow the planet: rebuilt from the new build as soon as
+# it serves (a run that changed nothing finds the packs up to date).
+OnSuccess=lunaway-tiles-packs.service
 
 [Service]
 Type=oneshot

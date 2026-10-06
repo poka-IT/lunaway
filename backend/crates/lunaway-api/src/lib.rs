@@ -21,6 +21,8 @@ pub mod poi_types;
 mod quota;
 mod rate;
 pub mod region_types;
+pub mod road_event_types;
+mod road_events_query;
 mod routing;
 mod routing_query;
 pub mod routing_types;

@@ -280,6 +280,16 @@ pub struct Quotas {
     /// (`plan/research/07-navigation.md`, C.3), so the burst covers five
     /// minutes lost in a town.
     pub route: Quota,
+    /// Road events reported or said over, per account
+    /// (`LUNAWAY_QUOTA_ROAD_REPORT`, 30 a day): a driver meets a few a
+    /// day, and a burst of reports is what a vandal does.
+    pub road_report: Quota,
+    /// Road events reported or said over, per client
+    /// (`LUNAWAY_QUOTA_ROAD_REPORT_CLIENT`, 100 a day): accounts are cheap
+    /// to create, so one network must not report for a crowd. A campsite
+    /// or a mobile operator puts several drivers behind one address, hence
+    /// more than one account's quota.
+    pub road_report_client: Quota,
 }
 
 impl Default for Quotas {
@@ -299,6 +309,8 @@ impl Default for Quotas {
             account: Quota::per(100, DAY),
             endorsement: Quota::per(5, DAY),
             route: Quota::per(30, 10 * MINUTE),
+            road_report: Quota::per(30, DAY),
+            road_report_client: Quota::per(100, DAY),
         }
     }
 }
@@ -331,6 +343,8 @@ impl Quotas {
             account: read("ACCOUNT", d.account),
             endorsement: read("ENDORSEMENT", d.endorsement),
             route: read("ROUTE", d.route),
+            road_report: read("ROAD_REPORT", d.road_report),
+            road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
         }
     }
 }

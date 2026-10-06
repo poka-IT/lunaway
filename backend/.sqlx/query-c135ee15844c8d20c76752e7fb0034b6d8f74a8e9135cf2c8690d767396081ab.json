@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE road_event_purges SET purged_through = greatest(purged_through, $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c135ee15844c8d20c76752e7fb0034b6d8f74a8e9135cf2c8690d767396081ab"
+}

@@ -27,6 +27,7 @@ use crate::{
     },
     quota::QuotaLimiter,
     rate::RateLimiter,
+    road_event_types::{GqlRoadEventClass, RoadEventDelta, RoadEventSourceStatus},
     routing_types::{RouteInput, RouteResult, RoutingInfo},
     types::{
         AppConfig, BBoxInput, ChangeSet, GqlPlaceKind, LatLonInput, Place, PlaceConnection,
@@ -101,6 +102,8 @@ pub struct ApiState {
     pub(crate) media_workers: Arc<Semaphore>,
     /// The routing engine and its calls in flight.
     pub(crate) routing: Arc<crate::routing::Routing>,
+    /// The road events feed's head and first pages, in memory.
+    pub(crate) road_events: Arc<crate::road_events_query::RoadEventsCache>,
 }
 
 impl ApiState {
@@ -136,6 +139,7 @@ impl ApiState {
             media,
             media_workers,
             routing,
+            road_events: Arc::default(),
         }
     }
 }
@@ -541,6 +545,43 @@ impl QueryRoot {
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn routing(&self, ctx: &Context<'_>) -> Result<RoutingInfo> {
         crate::routing_query::routing_info(ctx).await
+    }
+
+    /// The road events of France (closures, works, lane restrictions,
+    /// temporary vehicle limits, detours) changed since the cursor `since`
+    /// (null for the whole set), of `classes` (closures and vehicle limits
+    /// by default), with `blockingOnly` (the default) only those that can
+    /// block a route (placed on the graph, official or confirmed, for every
+    /// vehicle), at most `first` (1000 by default, 2000 at most); `hasMore`
+    /// asks for the next page at once. An event leaving the selection comes
+    /// back in `removals`. No position is sent: a phone in guidance polls
+    /// this every `pollIntervalSeconds` and checks its remaining route
+    /// itself. A cursor of another copy of the database, or too old, gets
+    /// the whole set again (`full`).
+    #[graphql(complexity = "cost(first, crate::road_events_query::DEFAULT_PAGE, child_complexity)")]
+    async fn road_events(
+        &self,
+        ctx: &Context<'_>,
+        since: Option<String>,
+        classes: Option<Vec<GqlRoadEventClass>>,
+        #[graphql(default = true)] blocking_only: bool,
+        #[graphql(default = 1000)] first: Option<i32>,
+    ) -> Result<RoadEventDelta> {
+        crate::road_events_query::road_events(
+            ctx,
+            since,
+            classes,
+            blocking_only,
+            first.unwrap_or(crate::road_events_query::DEFAULT_PAGE),
+        )
+        .await
+    }
+
+    /// The sources of road events, their licence and attribution, and how
+    /// fresh their data is.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn road_event_sources(&self, ctx: &Context<'_>) -> Result<Vec<RoadEventSourceStatus>> {
+        crate::road_events_query::road_event_sources(ctx).await
     }
 
     /// The families of points of interest and their kinds, in display

@@ -44,6 +44,52 @@ for more than an hour stops the import.
 | `object.data.gouv.fr` | the communes file, when an operator runs `lunaway ingest municipalities` (once a year, when a new year's file is published), cached under `municipalities/` | the data.gouv.fr object storage of the "Contours administratifs" dataset above |
 | `data.geopf.fr` (WFS, `/wfs/ows`) | BD TOPO's restricted road sections, by the routing graph build once a week: about 27 pages of 5 000 sections (the server's cap), one at a time, a second apart, sorted by `cleabs` (the server's paging is not transaction-safe), cached gzip-compressed under `ign-bdtopo/` | Licence Ouverte 2.0 (the BD TOPO row above). The Géoplateforme's terms set a fair-use limit of "30 requêtes/s" per address for the WFS, answered with a 429 for 5 seconds beyond it (https://cartes.gouv.fr/cgu/, version of 2024-10-15, article 3.2, read 2026-10-06); a page takes 7 to 17 s to answer |
 
+## Road events
+
+Closures, works, lane restrictions, temporary vehicle limits and detours,
+each bounded in time, read by the server only (`lunaway road-events poll`,
+every three minutes, `docs/architecture.md`, "Road events"). Every event
+keeps its source, its identifier and version, its record as it came, and
+the time it was read; the app shows the source's attribution with it. Read
+2026-10-06; the research behind the choice of feeds is
+`plan/research/20-travaux-temps-reel.md`.
+
+| source | content | licence, as read | attribution | status |
+|---|---|---|---|---|
+| DIR, "Évènements routiers - Réseau routier non concédé" (transport.data.gouv.fr dataset `evenements-routiers-sur-le-reseau-routier-national-non-concede`, published by the Point d'Accès National) | the situations of the national roads the State runs (not the toll motorways): closures (slip roads included), lane closures, alternating traffic, contraflows, detours, works, weight limits for lorries; DATEX II 2.2 in a SOAP envelope, an hourly aggregate `content.xml` and numbered increments "mis à jour en temps réel" (2 645 in 24 hours, research M3); each record with its version and its end marker (`lifeCycleManagement/end`) | Licence Ouverte 2.0 (`lov2` in the access point's catalogue, read 2026-10-06). The licence asks the reuser to "mentionner la paternité de l’ « Information » : sa source (au moins le nom du « Concédant ») et la date de dernière mise à jour de l’ « Information » réutilisée" (ETALAB-Licence-Ouverte-v2.0.pdf, read 2026-10-06) | "DIR, Bison Futé (transport.data.gouv.fr)" with the time the feed was read | ingested (`road-events poll`): increments every run, the aggregate hourly |
+| DiaLog, "Base de données nationale de la réglementation de circulation" (DGITM; transport.data.gouv.fr and data.gouv.fr dataset `base-de-donnees-nationale-de-la-reglementation-de-circulation`) | traffic orders: temporary ones (no entry, alternating traffic, height, width, length and weight limits) as road events every 15 minutes; permanent ones with a height, width, length or weight limit as restrictions every route is checked against (`route_restrictions`, source `dialog`), weekly. DATEX II 3 with DiaLog's GeoJSON extension. Its maxima are written `lessThanOrEqualTo` and read as maxima, the evidence in `plan/research/21-backend-travaux.md`; its weights name heavy goods vehicles and only warn a motorhome | Licence Ouverte 2.0 (`lov2` on data.gouv.fr and on the access point, read 2026-10-06); the code of DiaLog is AGPL-3.0 | "DiaLog (DGITM), arrêtés de circulation" | ingested (`road-events poll`, `road-events dialog-permanent`) |
+| Ville de Paris, `fermetures-voirie` (opendata.paris.fr, Direction de la Voirie et des Déplacements) | closures of the ring road, its slip roads, tunnels and riverside roads, drawn as lines, with their period | "Open Database License (ODbL)" (dataset metadata, read 2026-10-06): the road events database that merges it is shared under the ODbL, as the places database is | "Ville de Paris (opendata.paris.fr)" | ingested hourly |
+| Ville de Paris, `chantiers-perturbants` | disruptive works drawn as areas: total closures (`BARRAGE_TOTAL`) and restrictions; an area cannot be placed on a road, so these only warn | "Open Database License (ODbL)" (dataset metadata, read 2026-10-06) | "Ville de Paris (opendata.paris.fr)" | ingested hourly |
+| Métropole de Lyon, "Chantiers perturbants" (data.gouv.fr dataset `chantiers-perturbants-de-la-metropole-de-lyon`, WFS of data.grandlyon.com) | works drawn as areas, "Circulation interdite", "réduite", "alternée", by day or by night; only warn. Every record reads "Chantier en cours", future ones included: the dates decide | Licence Ouverte 2.0 (`lov2` on data.gouv.fr, read 2026-10-06) | "Métropole de Lyon (data.grandlyon.com)" | ingested hourly |
+| Toulouse Métropole, `chantiers-en-cours` (data.toulouse-metropole.fr) | works in progress, lines and areas: "Rue barrée" as closures, alternating traffic and lanes taken as lane restrictions | "Licence Ouverte v2.0 (Etalab)" (dataset metadata, read 2026-10-06) | "Toulouse Métropole (data.toulouse-metropole.fr)" | ingested hourly |
+| Département de la Charente-Maritime, "Incidents et routes fermées" (data.gouv.fr dataset `incidents-et-routes-fermees`) | closed roads in the Waze CIFS format, polylines of "lat lon" pairs; the file is named by the dataset's description and changes name at each update | Licence Ouverte 2.0 (`lov2` on data.gouv.fr, read 2026-10-06) | "Département de la Charente-Maritime (data.gouv.fr)" | ingested hourly |
+| Lunaway community (`community` source) | closed roads, works, narrow passages and low clearances the users report on the road (`reportRoadEvent`) | ODbL 1.0, as the community's other contributions to the database | "Lunaway contributors" | written by the API |
+
+Not ingested: the toll motorways publish no open feed of their closures
+(none in the access point's catalogue on 2026-10-06); Waze's data is not
+open and its partner agreement forbids turn-by-turn navigation; TomTom,
+HERE and Google are paid or forbid use with another map and engine
+(research, part 4). The other city feeds the research listed carry no
+closure field (Lille) or no data (Strasbourg, Grenoble).
+
+### Hosts the road events poller calls
+
+HTTPS only, each feed on its own hosts (a redirect elsewhere is refused),
+asked gzip-compressed and inflated within a bound, conditional on the
+ETag where the feed gives one, retried on load shedding only and never
+sooner than a `Retry-After`, with the User-Agent
+`Lunaway/<version> (+https://lunaway.net)`. The latest payload of each
+feed is kept under `road-events/` of the cache.
+
+| host | for | pace |
+|---|---|---|
+| `tipi.bison-fute.gouv.fr` | the DIR's `content.xml` (4.3 MB, 200 kB compressed) once an hour, conditional on its ETag; the numbered increments (4 to 17 kB) from the next number on, a quarter of a second apart; when the next one has been missing for a quarter of an hour, up to three numbers past it | about 110 increments an hour, so a run every three minutes reads about five |
+| `dialog.beta.gouv.fr` | `/api/regulations/datex.xml` with `includeTemporary=true` (7.9 MB, 0.6 MB compressed) every 15 minutes; with `includePermanent=true` (70 MB) weekly | |
+| `opendata.paris.fr` | the GeoJSON exports of `fermetures-voirie` and `chantiers-perturbants`, hourly | |
+| `data.grandlyon.com` | the WFS GeoJSON of `pvo_patrimoine_voirie.pvochantierperturbant`, hourly | |
+| `data.toulouse-metropole.fr` | the GeoJSON export of `chantiers-en-cours`, hourly | |
+| `www.data.gouv.fr`, `static.data.gouv.fr` | the description of `incidents-et-routes-fermees`, then its CIFS file, hourly | |
+
 ## The basemap
 
 The map's background is not ingested into the database: the backend

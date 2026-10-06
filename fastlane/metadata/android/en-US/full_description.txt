@@ -1,29 +1,36 @@
-Lunaway is a map of places to stop with a motorhome or a van: service areas, car parks, campsites, water and dump points.
+Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in nature.
 
 The app is free, with no ads and no trackers. Its code is free software (AGPL licence) and the places database is open data (ODbL licence).
 
-FIND A SPOT
-• Map, list and a detailed page for every place
-• Filters: place type, rating, services, activities, maximum height and length, open all year, online booking
-• "Overnight allowed" filter: every place says whether you can spend the night there
-• Search by town or by name
-• Directions in the navigation app of your choice, share a place
+FIND A PLACE
+• Map and list of places, a detailed page for each place
+• The night on every page: allowed, tolerated, daytime only or not allowed
+• Filters: type of place, overnight possible, services (water, dump station, electricity, toilets, showers, bins, laundry, wi-fi, LPG)
+• "My vehicle fits": hides the places limited below your vehicle's height
+• Search by place name or by town
+• Opening hours, prices, services, contact and sources on the page
+• GPS coordinates copied in one tap, in five formats
+• Directions to the place in the navigation app of your choice, share a place
 
-UP TO DATE
-• Date of the last confirmation on every place
-• When you arrive, the app asks whether the place still matches its page
-• Service status: water cut off in winter, dump point out of order
-• Low emission zones on the map
+WITHOUT A NETWORK
+The places of metropolitan France are copied to the phone and update when the connection comes back. The list, the search, the place pages and your favourites work without a network. The basemap, photos and reviews need a connection.
 
-OFFLINE
-Download the map and the places of a region before you leave. Everything then works without a network.
+TAKE PART
+• Ratings, reviews and photos
+• "Still there?": say whether the place still matches its page; the date of the last confirmation shows for the next travellers
+• Report a problem (overnight now banned, broken service, no access, danger), suggest a change, add a place
+• Features open step by step: a new account can rate and confirm, then write reviews and add photos, then add places
+• Report content to the moderators, mute an author
 
-CONTRIBUTE
-• Reviews, ratings and photos
-• Add new places
-• Favourites in folders, history of your visits
-• Vehicle profile: height, length, weight
-Your account is created on first launch, without an email address.
+AN ACCOUNT WITHOUT E-MAIL
+Browsing the map needs no account. One is made at your first contribution, with no e-mail and no password: a key kept on your phone, and a pseudonym you can change. A recovery card brings the account back on another device. Each contribution, and the whole account, can be deleted from the app.
+
+FAVOURITES AND VEHICLE
+• Favourites in lists, kept on the phone, and with your account if you choose
+• Vehicle profile: type, trailer, height, width, length, weight
+
+DISPLAY
+Light theme by day and dark after sunset, or your choice. In English and French. Layouts for phones and tablets.
 
 SOURCES
-Places come from OpenStreetMap, DATAtourisme, Atout France and the Lunaway community. Every place shows its sources. LPG prices come from the French public fuel price feed. France is covered in detail, the rest of the world from OpenStreetMap.
+Places come from open data and from the contributions of the Lunaway community. Every page shows its sources and their licence. Coverage today is metropolitan France.

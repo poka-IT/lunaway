@@ -1,0 +1,915 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/community/data/photo_prepare.dart';
+import 'package:lunaway/features/community/data/picture_picker.dart';
+import 'package:lunaway/features/community/domain/community.dart';
+import 'package:lunaway/features/community/domain/contribution.dart';
+import 'package:lunaway/features/community/presentation/community_labels.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
+
+import '../helpers/fake_api.dart';
+import '../helpers/fakes.dart';
+import '../helpers/pump.dart';
+import '../helpers/samples.dart';
+
+final Translations t = AppLocale.fr.buildSync();
+
+/// Opens [place] in the details pane of a tall desktop window, where the
+/// whole sheet fits without scrolling, with [api] behind the app.
+Future<TestApp> openPlace(
+  WidgetTester tester,
+  Place place,
+  FakeApi api, {
+  bool signedIn = false,
+  FakeExtrasSource? extras,
+  List<Override> overrides = const [],
+}) async {
+  final app = await pumpLunaway(
+    tester,
+    size: const Size(1280, 2400),
+    api: api,
+    signedIn: signedIn,
+    extras: extras,
+    overrides: overrides,
+  );
+  app
+      .container(tester)
+      .read(selectionProvider.notifier)
+      .select(PlaceSelection(place.id));
+  await settleShort(tester);
+  return app;
+}
+
+Finder inDetails(Finder finder) =>
+    find.descendant(of: find.byType(PlaceDetailsBody), matching: finder);
+
+/// Taps [finder] and lets the request, its answer and the message pass;
+/// the community's follow-up sync waits three seconds.
+Future<void> tapAndSend(WidgetTester tester, Finder finder) async {
+  await tester.tap(finder);
+  await settleShort(tester, const Duration(seconds: 4));
+}
+
+void main() {
+  testWidgets(
+    'the first contribution makes the account with a signed sign-in, then welcomes it',
+    (tester) async {
+      final api = FakeApi();
+      await openPlace(tester, lakeArea, api);
+      expect(api.calls, isEmpty, reason: 'browsing makes no account');
+
+      await tester.tap(inDetails(find.text(t.contribute.stillThere)));
+      await settleShort(tester);
+      expect(find.text(t.confirmSheet.body), findsOneWidget);
+      await tapAndSend(tester, find.text(t.confirmSheet.stillOk));
+
+      // The fake API refuses a signature that does not verify against the
+      // key sent: reaching Confirm means the device signed its challenge.
+      expect(api.operations.take(3), ['AuthChallenge', 'SignIn', 'Confirm']);
+      expect(api.last('SignIn')!['locale'], 'fr');
+      expect(api.last('Confirm'), {
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+      });
+      expect(
+        api.calls.firstWhere((c) => c.operation == 'Confirm').token,
+        isNotNull,
+      );
+
+      expect(find.text(t.account.welcomeTitle), findsOneWidget);
+      expect(find.textContaining('Martre du Vercors'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'without a network the contribution waits, and leaves when the network is back',
+    (tester) async {
+      final api = FakeApi()..offline = true;
+      final app = await openPlace(tester, lakeArea, api, signedIn: true);
+
+      await tester.tap(inDetails(find.text(t.contribute.stillThere)));
+      await settleShort(tester);
+      await tapAndSend(tester, find.text(t.confirmSheet.stillOk));
+      expect(find.text(t.outbox.queued), findsOneWidget);
+      expect(api.operations, isNot(contains('Confirm')));
+
+      api.offline = false;
+      await app
+          .container(tester)
+          .read(outboxRunnerProvider.notifier)
+          .kick(now: true);
+      await settleShort(tester, const Duration(seconds: 4));
+      expect(api.operations, contains('Confirm'));
+      expect(
+        await app.container(tester).read(outboxStoreProvider).all(),
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets(
+    'a rating is one tap, and a rating alone is removed as a rating',
+    (tester) async {
+      final api = FakeApi();
+      await openPlace(tester, lakeArea, api, signedIn: true);
+
+      await tapAndSend(
+        tester,
+        inDetails(find.byTooltip(t.contribute.rateStar(n: 4))),
+      );
+      expect(api.last('Rate'), {'placeId': lakeArea.id, 'stars': 4});
+
+      await tester.tap(inDetails(find.text(t.contribute.deleteRating)));
+      await settleShort(tester);
+      expect(find.text(t.contribute.deleteRatingTitle), findsOneWidget);
+      await tapAndSend(tester, find.text(t.common.delete));
+      expect(api.operations, contains('DeleteReview'));
+      expect(api.reviews, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a rating removed while it is being sent is deleted once it lands',
+    (tester) async {
+      final api = FakeApi()
+        ..hold = Completer<void>()
+        ..held = {'Rate'};
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(),
+      );
+
+      await tester.tap(inDetails(find.byTooltip(t.contribute.rateStar(n: 3))));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.tap(inDetails(find.text(t.contribute.deleteRating)));
+      await settleShort(tester);
+      await tester.tap(find.text(t.common.delete));
+      await settleShort(tester);
+      expect(inDetails(find.text(t.contribute.deleteRating)), findsNothing);
+
+      api.hold!.complete();
+      await settleShort(tester, const Duration(seconds: 4));
+      expect(api.operations, containsAllInOrder(['Rate', 'DeleteReview']));
+      expect(api.reviews, isEmpty);
+      expect(api.last('Rate'), {
+        'placeId': lakeArea.id,
+        'stars': 3,
+      }, reason: 'no mark sent');
+    },
+  );
+
+  testWidgets(
+    'at level 0 a written review shows its gate first, never the form',
+    (tester) async {
+      final api = FakeApi();
+      await openPlace(tester, lakeArea, api, signedIn: true);
+
+      await tester.tap(inDetails(find.text(t.contribute.writeReview)));
+      await settleShort(tester);
+      expect(find.text(t.gate.review), findsOneWidget);
+      expect(find.text(t.gate.yourLevel(level: '0')), findsOneWidget);
+      expect(find.text(t.account.nextLevel(level: '1')), findsOneWidget);
+      expect(find.text(t.reviewSheet.publish), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'from level 1 a review is written, checked for length, and sent with its licence',
+    (tester) async {
+      final api = FakeApi(level: 1);
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(),
+      );
+      expect(inDetails(find.text(t.place.noReviews)), findsOneWidget);
+
+      await tester.tap(inDetails(find.text(t.contribute.writeReview)));
+      await settleShort(tester);
+      expect(find.text(t.reviewSheet.licence), findsOneWidget);
+      await tester.tap(find.byTooltip(t.contribute.rateStar(n: 5)).last);
+      await tester.enterText(find.byType(TextField).last, 'Calme');
+      await tester.tap(find.text(t.reviewSheet.publish));
+      await settleShort(tester);
+      expect(find.text(t.reviewSheet.tooShort(n: 5)), findsOneWidget);
+      expect(api.operations, isNot(contains('WriteReview')));
+
+      await tester.enterText(
+        find.byType(TextField).last,
+        'Calme et plat, bornes propres.',
+      );
+      await tapAndSend(tester, find.text(t.reviewSheet.publish));
+      final sent = api.last('WriteReview')!;
+      expect(sent['placeId'], lakeArea.id);
+      expect(sent['stars'], 5);
+      expect(sent['text'], 'Calme et plat, bornes propres.');
+      expect(sent['lang'], 'fr');
+      expect(
+        inDetails(find.text('Calme et plat, bornes propres.')),
+        findsOneWidget,
+      );
+      expect(inDetails(find.text(t.place.noOtherReviews)), findsOneWidget);
+    },
+  );
+
+  testWidgets('a problem is reported by its kind, with no position', (
+    tester,
+  ) async {
+    final api = FakeApi();
+    await openPlace(tester, lakeArea, api, signedIn: true);
+
+    await tester.tap(inDetails(find.byTooltip(t.contribute.more)).first);
+    await settleShort(tester);
+    await tester.tap(find.text(t.contribute.reportIssue).last);
+    await settleShort(tester);
+    await tester.tap(find.text(t.issueSheet.kind.serviceBroken));
+    await tester.pump();
+    await tapAndSend(tester, find.text(t.issueSheet.send));
+    expect(api.last('ReportIssue'), {
+      'placeId': lakeArea.id,
+      'kind': 'SERVICE_BROKEN',
+    });
+  });
+
+  group('the account in the profile', () {
+    Future<(TestApp, GoRouter)> openProfile(
+      WidgetTester tester,
+      FakeApi api,
+      String route,
+    ) async {
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      final router = app.container(tester).read(routerProvider)..go(route);
+      await settleShort(tester);
+      return (app, router);
+    }
+
+    Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+      // The pages are lazy lists: what is far below is not built yet.
+      await tester.scrollUntilVisible(
+        finder,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(finder);
+      await tester.pump();
+      await tester.tap(finder);
+      await settleShort(tester);
+    }
+
+    testWidgets(
+      'shows the pseudonym, the level and what the next level needs',
+      (tester) async {
+        final api = FakeApi()..confirmations.add({'id': 'x'});
+        await openProfile(tester, api, AppRoutes.profile);
+        expect(find.text('Martre du Vercors'), findsOneWidget);
+        expect(find.text(t.account.level(level: '0')), findsOneWidget);
+        expect(find.text(t.account.levelOpens.l0), findsOneWidget);
+        expect(find.text(t.account.nextLevel(level: '1')), findsOneWidget);
+        expect(
+          find.textContaining("Un compte d'au moins 3 jours"),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('a pseudonym is checked on the device, then sent', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      await openProfile(tester, api, AppRoutes.profile);
+      await tapVisible(tester, find.byTooltip(t.account.editPseudonym));
+      await tester.enterText(find.byType(TextField), 'X');
+      await tester.tap(find.text(t.common.save));
+      await tester.pump();
+      expect(find.text(t.account.pseudonymInvalid), findsOneWidget);
+      expect(api.operations, isNot(contains('UpdateProfile')));
+
+      await tester.enterText(find.byType(TextField), '  Loutre   du Morvan ');
+      await tester.tap(find.text(t.common.save));
+      await settleShort(tester);
+      expect(api.last('UpdateProfile'), {'pseudonym': 'Loutre du Morvan'});
+      expect(find.text('Loutre du Morvan'), findsOneWidget);
+    });
+
+    testWidgets(
+      'the recovery card asks a fresh sign-in, shows the code once, in groups',
+      (tester) async {
+        final api = FakeApi();
+        final (app, _) = await openProfile(tester, api, AppRoutes.recoveryCard);
+        await tapVisible(tester, find.text(t.recovery.make));
+        // The seeded session is an hour old: the server wants a younger one
+        // for this action, so the app signs in again first.
+        expect(
+          api.operations,
+          containsAllInOrder(['AuthChallenge', 'SignIn', 'CreateRecoveryCode']),
+        );
+        for (final group in FakeApi.recoveryCode.split('-')) {
+          expect(find.text(group), findsOneWidget);
+        }
+        expect(find.text(t.recovery.shownOnce), findsOneWidget);
+        expect(
+          await app.secrets.read('recovery_card'),
+          isNull,
+          reason: 'a card counts once the user says it is kept',
+        );
+
+        await tapVisible(
+          tester,
+          find.widgetWithText(OutlinedButton, t.recovery.done),
+        );
+        expect(find.text(t.recovery.doneBody), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, t.recovery.done));
+        await settleShort(tester);
+        final kept = await app.secrets.read('recovery_card');
+        expect(kept, isNotNull);
+        expect(
+          kept!.contains(FakeApi.recoveryCode.substring(0, 4)),
+          isFalse,
+          reason: 'the device keeps the date of the card, never its code',
+        );
+      },
+    );
+
+    testWidgets(
+      'a recovery code is checked as it is typed, then brings the account back',
+      (tester) async {
+        final api = FakeApi();
+        final app = await pumpLunaway(tester, api: api);
+        app.container(tester).read(routerProvider).go(AppRoutes.recover);
+        await settleShort(tester);
+        final field = find.byType(TextField).first;
+
+        await tester.enterText(field, '2w3y 9gfa');
+        await tester.pump();
+        expect(find.text(t.recover.remaining(n: 19)), findsOneWidget);
+
+        // One symbol wrong: the check symbol says so before anything is sent.
+        await tester.enterText(field, '2W3Y-9GFA-J1DR-1DGC-WVE0-7C88-CF2');
+        await tester.pump();
+        expect(find.text(t.recover.invalid), findsOneWidget);
+
+        // Lower case, spaces and an O for a zero are read as the card means.
+        await tester.enterText(field, '2w3y 9gfa j1dr 1dgc wveo 7c88 cf1');
+        await tester.pump();
+        expect(find.text(t.recover.valid), findsOneWidget);
+        final submit = find.widgetWithText(FilledButton, t.recover.submit);
+        await tester.ensureVisible(submit);
+        expect(tester.widget<FilledButton>(submit).onPressed, isNotNull);
+        // The keyboard's go key sends it, as the button would.
+        await tester.testTextInput.receiveAction(TextInputAction.go);
+        await settleShort(tester, const Duration(seconds: 2));
+        expect(api.last('RecoverAccount')!['code'], FakeApi.recoveryCode);
+        expect(api.last('RecoverAccount')!['revokeOtherDevices'], isFalse);
+        expect(
+          app.container(tester).read(accountControllerProvider),
+          isA<SignedIn>(),
+        );
+        expect(
+          find.text(t.recover.done(name: 'Martre du Vercors')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'deleting the account takes two deliberate steps, then forgets the key',
+      (tester) async {
+        final api = FakeApi();
+        final (app, _) = await openProfile(
+          tester,
+          api,
+          AppRoutes.deleteAccount,
+        );
+        expect(find.text(t.deletion.kept), findsOneWidget);
+        await tapVisible(tester, find.text(t.common.next));
+        expect(
+          find.text(t.deletion.confirmBody(name: 'Martre du Vercors')),
+          findsOneWidget,
+        );
+        final confirm = find.widgetWithText(FilledButton, t.deletion.confirm);
+        expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+
+        await tester.tap(find.byType(Checkbox));
+        await tester.pump();
+        await tester.tap(confirm);
+        await settleShort(tester, const Duration(seconds: 2));
+        expect(api.operations, contains('DeleteAccount'));
+        expect(api.hasAccount, isFalse);
+        expect(
+          app.container(tester).read(accountControllerProvider),
+          isA<NoAccount>(),
+        );
+        expect(await app.secrets.read('device_key'), isNull);
+        expect(await app.secrets.read('session'), isNull);
+        expect(find.text(t.deletion.done), findsOneWidget);
+      },
+    );
+
+    testWidgets('the devices list this one, and another can be removed', (
+      tester,
+    ) async {
+      final api = FakeApi()..addSession('other', 'other-key');
+      await openProfile(tester, api, AppRoutes.devices);
+      expect(find.text(t.devices.thisDevice), findsOneWidget);
+      expect(find.text(t.devices.other), findsOneWidget);
+      await tapVisible(tester, find.text(t.devices.revoke));
+      await tester.tap(find.widgetWithText(FilledButton, t.devices.revoke));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.operations, contains('RevokeDevice'));
+      expect(find.text(t.devices.other), findsNothing);
+      expect(find.text(t.devices.revoked), findsOneWidget);
+    });
+
+    testWidgets('a muted author comes back in one tap', (tester) async {
+      final api = FakeApi()
+        ..muted.add((
+          id: '00000000-0000-7000-8000-00000000abcd',
+          pseudonym: 'Grive',
+        ));
+      final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+      await app
+          .container(tester)
+          .read(accountControllerProvider.notifier)
+          .refresh();
+      app.container(tester).read(routerProvider).go(AppRoutes.muted);
+      await settleShort(tester);
+      expect(find.text('Grive'), findsOneWidget);
+      await tester.tap(find.text(t.muted.unmute));
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.last('UnmuteAuthor'), {
+        'id': '00000000-0000-7000-8000-00000000abcd',
+      });
+      expect(find.text('Grive'), findsNothing);
+      expect(find.text(t.muted.empty), findsOneWidget);
+    });
+
+    testWidgets(
+      'a device removed from another one forgets the account, and makes no other',
+      (tester) async {
+        final api = FakeApi();
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        expect(find.text('Martre du Vercors'), findsOneWidget);
+
+        // Removed from another device: its key and session stop working.
+        api.revokeAll();
+        await app
+            .container(tester)
+            .read(accountControllerProvider.notifier)
+            .refresh();
+        await settleShort(tester, const Duration(seconds: 2));
+        // The server made an account for the key it no longer knew; the app
+        // deleted it at once instead of adopting it.
+        expect(api.strangersDeleted, 1);
+        final state = app.container(tester).read(accountControllerProvider);
+        expect(state, isA<NoAccount>().having((s) => s.lost, 'lost', isTrue));
+        expect(await app.secrets.read('device_key'), isNull);
+        expect(find.text(t.account.lost), findsOneWidget);
+        expect(find.text(t.account.recover), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      'signing out says what waits, drops it, and creates no account after',
+      (tester) async {
+        final api = FakeApi()..offline = true;
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        final runner = app
+            .container(tester)
+            .read(outboxRunnerProvider.notifier);
+        await runner.enqueue(
+          ContributionKind.confirm,
+          payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+          placeId: lakeArea.id,
+        );
+        await settleShort(tester);
+        final signOut = find.text(t.account.signOut);
+        await tester.scrollUntilVisible(
+          signOut,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(signOut);
+        await tester.pump();
+        await tester.tap(signOut);
+        await settleShort(tester);
+        expect(find.text(t.account.signOutPending(n: 1)), findsOneWidget);
+        api.offline = false;
+        await tester.tap(find.widgetWithText(FilledButton, t.account.signOut));
+        await settleShort(tester, const Duration(seconds: 2));
+        await runner.kick(now: true);
+        await settleShort(tester, const Duration(seconds: 2));
+        expect(
+          await app.container(tester).read(outboxStoreProvider).all(),
+          isEmpty,
+        );
+        expect(api.operations, isNot(contains('AuthChallenge')));
+        expect(api.operations, isNot(contains('Confirm')));
+      },
+    );
+
+    testWidgets(
+      'a second contribution made while a send is under way is settled when told',
+      (tester) async {
+        final api = FakeApi()..hold = Completer<void>();
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        final runner = app
+            .container(tester)
+            .read(outboxRunnerProvider.notifier);
+        // The first one leaves and waits on a slow network.
+        await runner.enqueue(
+          ContributionKind.confirm,
+          payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+          placeId: lakeArea.id,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await runner.enqueue(
+          ContributionKind.confirm,
+          payload: {'placeId': campsite.id, 'status': 'STILL_OK'},
+          placeId: campsite.id,
+        );
+        int? sentWhenSettled;
+        unawaited(
+          runner.kick().then(
+            (_) => sentWhenSettled = api.operations
+                .where((o) => o == 'Confirm')
+                .length,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(sentWhenSettled, isNull);
+
+        api.hold!.complete();
+        await settleShort(tester, const Duration(seconds: 4));
+        // What `kick` waited for includes the second one: the message the user
+        // reads ("sent" or "waiting for the network") says what happened to it.
+        expect(sentWhenSettled, 2);
+        expect(api.last('Confirm'), {
+          'placeId': campsite.id,
+          'status': 'STILL_OK',
+        });
+        expect(
+          await app.container(tester).read(outboxStoreProvider).all(),
+          isEmpty,
+        );
+      },
+    );
+
+    testWidgets(
+      'a contribution waiting for the network is counted in the profile',
+      (tester) async {
+        final api = FakeApi()..offline = true;
+        final (app, router) = await openProfile(tester, api, AppRoutes.profile);
+        await app
+            .container(tester)
+            .read(outboxRunnerProvider.notifier)
+            .enqueue(
+              ContributionKind.confirm,
+              payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+              placeId: lakeArea.id,
+            );
+        await settleShort(tester);
+        expect(find.text(t.account.pending(n: 1)), findsOneWidget);
+        router.go(AppRoutes.contributions);
+        await settleShort(tester);
+        expect(find.textContaining(t.outbox.waiting), findsOneWidget);
+      },
+    );
+  });
+  group('photos', () {
+    late _FakePicker picker;
+    late List<Override> overrides;
+    setUp(() {
+      picker = _FakePicker();
+      overrides = [
+        picturePickerProvider.overrideWithValue(picker),
+        photoPreparerProvider.overrideWithValue(const _FakePreparer()),
+      ];
+    });
+
+    testWidgets('below level 1 the gate shows before any picker', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(),
+        overrides: overrides,
+      );
+      await tester.tap(inDetails(find.text(t.contribute.firstPhoto)));
+      await settleShort(tester);
+      expect(find.text(t.gate.photo), findsOneWidget);
+      expect(picker.picks, 0);
+    });
+
+    testWidgets(
+      'a photo is looked at, with its licence and what is removed, then uploaded',
+      (tester) async {
+        final api = FakeApi(level: 1);
+        await openPlace(
+          tester,
+          lakeArea,
+          api,
+          signedIn: true,
+          extras: FakeExtrasSource(),
+          overrides: overrides,
+        );
+        await tester.tap(inDetails(find.text(t.contribute.firstPhoto)));
+        await settleShort(tester);
+        expect(
+          picker.picks,
+          1,
+          reason: 'no camera offered: straight to the files',
+        );
+        expect(find.text(t.photoFlow.licence), findsOneWidget);
+        expect(find.text(t.photoFlow.stripped), findsOneWidget);
+        expect(
+          api.uploads,
+          isEmpty,
+          reason: 'nothing leaves before the user sends it',
+        );
+
+        await tapAndSend(tester, find.text(t.photoFlow.send));
+        expect(api.uploads, hasLength(1));
+        expect(api.uploads.single, _FakePreparer.jpeg);
+        expect(api.last('upload'), {'placeId': lakeArea.id});
+      },
+    );
+  });
+
+  group('adding a place', () {
+    const point = LatLng(45.91, 6.12);
+
+    Future<TestApp> openPoint(WidgetTester tester, FakeApi api) async {
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 2400),
+        api: api,
+        signedIn: true,
+      );
+      app
+          .container(tester)
+          .read(selectionProvider.notifier)
+          .select(const PointSelection(point));
+      await settleShort(tester);
+      await tester.tap(find.text(t.contribute.addPlaceHere));
+      await settleShort(tester);
+      return app;
+    }
+
+    testWidgets('below level 2 the gate says which level opens it', (
+      tester,
+    ) async {
+      await openPoint(tester, FakeApi(level: 1));
+      expect(find.text(t.gate.addPlace), findsOneWidget);
+      expect(find.text(t.placeForm.submitAdd), findsNothing);
+    });
+
+    testWidgets(
+      'from level 2 the form sends the kind, the point and the name',
+      (tester) async {
+        final api = FakeApi(level: 2);
+        await openPoint(tester, api);
+        expect(find.text(t.placeForm.toVerify), findsOneWidget);
+        await tester.tap(find.text(t.placeForm.submitAdd));
+        await tester.pump();
+        expect(find.text(t.placeForm.kindRequired), findsOneWidget);
+
+        await tester.tap(find.text(t.kind(PlaceKind.parking)));
+        final name = find.widgetWithText(TextFormField, t.placeForm.name);
+        await tester.ensureVisible(name);
+        await tester.pump();
+        await tester.tap(name);
+        await tester.pump();
+        await tester.enterText(name, 'Parking du belvédère');
+        await tapAndSend(tester, find.text(t.placeForm.submitAdd));
+        final input = api.last('AddPlace')!['input']! as Map<String, Object?>;
+        expect(input['kind'], 'PARKING');
+        expect(input['lat'], point.lat);
+        expect(input['lon'], point.lon);
+        expect(
+          (input['details']! as Map<String, Object?>)['name'],
+          'Parking du belvédère',
+        );
+        expect(find.text(t.placeForm.added), findsOneWidget);
+      },
+    );
+  });
+
+  group('reviews by others', () {
+    final byGrive = Review(
+      id: '00000000-0000-7000-8000-0000000000aa',
+      sourceId: communitySourceId,
+      rating: 2,
+      text: 'Bruyant la nuit, camions dès cinq heures.',
+      lang: 'fr',
+      authorName: 'Grive',
+      authorId: '00000000-0000-7000-8000-0000000000bb',
+      createdAt: DateTime.utc(2026, 9, 2),
+    );
+
+    testWidgets('a review is reported to the moderators with a reason', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(reviews: [byGrive]),
+      );
+      await tester.tap(inDetails(find.byTooltip(t.contribute.more)).last);
+      await settleShort(tester);
+      await tester.tap(find.text(t.reportSheet.review));
+      await settleShort(tester);
+      await tester.tap(find.text(t.reportReason(ReportReason.offensive)));
+      await tester.pump();
+      await tapAndSend(tester, find.text(t.common.send));
+      expect(api.last('ReportContent'), {
+        'target': 'REVIEW',
+        'id': byGrive.id,
+        'reason': 'OFFENSIVE',
+      });
+      expect(find.text(t.reportSheet.sent), findsOneWidget);
+    });
+
+    testWidgets('muting an author hides their review at once', (tester) async {
+      final api = FakeApi()..authors[byGrive.authorId!] = 'Grive';
+      await openPlace(
+        tester,
+        lakeArea,
+        api,
+        signedIn: true,
+        extras: FakeExtrasSource(reviews: [byGrive]),
+      );
+      expect(inDetails(find.text(byGrive.text!)), findsOneWidget);
+      await tester.tap(inDetails(find.byTooltip(t.contribute.more)).last);
+      await settleShort(tester);
+      await tester.tap(find.text(t.reportSheet.mute(name: 'Grive')));
+      await settleShort(tester);
+      await tester.tap(
+        find.widgetWithText(FilledButton, t.reportSheet.muteAuthor),
+      );
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(api.last('MuteAuthor'), {'id': byGrive.authorId});
+      expect(inDetails(find.text(byGrive.text!)), findsNothing);
+    });
+  });
+  group('more of the account', () {
+    testWidgets(
+      'my contributions list what the account sent, and one can be deleted',
+      (tester) async {
+        final api = FakeApi();
+        api.confirmations.add({
+          'id': '00000000-0000-7000-8000-0000000000c1',
+          'placeId': lakeArea.id,
+          'status': 'STILL_OK',
+          'createdAt': '2026-10-05T18:00:00Z',
+        });
+        final app = await pumpLunaway(tester, api: api, signedIn: true);
+        app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+        await settleShort(tester);
+        expect(find.text(t.mine.confirmations), findsOneWidget);
+        expect(find.text(lakeArea.name!), findsOneWidget);
+
+        await tester.tap(find.byTooltip(t.common.delete));
+        await settleShort(tester);
+        await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+        await settleShort(tester, const Duration(seconds: 2));
+        expect(api.last('DeleteConfirmation'), {
+          'id': '00000000-0000-7000-8000-0000000000c1',
+        });
+        expect(find.text(t.mine.empty), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'signing out without a recovery card warns that the account would be lost',
+      (tester) async {
+        final api = FakeApi();
+        final app = await pumpLunaway(tester, api: api, signedIn: true);
+        app.container(tester).read(routerProvider).go(AppRoutes.profile);
+        await settleShort(tester);
+        final signOut = find.text(t.account.signOut);
+        await tester.scrollUntilVisible(
+          signOut,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        // Brought to the top: at the foot of the list it would sit under the dock.
+        await tester.ensureVisible(signOut);
+        await tester.pump();
+        await tester.tap(signOut);
+        await settleShort(tester);
+        expect(find.text(t.account.signOutNoCard), findsOneWidget);
+        await tester.tap(find.widgetWithText(FilledButton, t.account.signOut));
+        await settleShort(tester, const Duration(seconds: 2));
+        expect(api.operations, contains('SignOut'));
+        expect(
+          app.container(tester).read(accountControllerProvider),
+          isA<NoAccount>(),
+        );
+        expect(await app.secrets.read('device_key'), isNull);
+      },
+    );
+
+    testWidgets(
+      'below level 3 an edit of a place is a proposal for a moderator',
+      (tester) async {
+        final api = FakeApi(level: 1);
+        await openPlace(tester, lakeArea, api, signedIn: true);
+        await tester.tap(inDetails(find.byTooltip(t.contribute.more)).first);
+        await settleShort(tester);
+        await tester.tap(find.text(t.contribute.proposeEdit).last);
+        await settleShort(tester);
+        expect(find.text(t.placeForm.proposal), findsOneWidget);
+        final name = find.widgetWithText(TextFormField, t.placeForm.name);
+        await tester.ensureVisible(name);
+        await tester.pump();
+        await tester.tap(name);
+        await tester.pump();
+        await tester.enterText(name, 'Aire du Lac Bleu, entrée nord');
+        await tester.ensureVisible(find.text(t.placeForm.submitPropose));
+        await tapAndSend(tester, find.text(t.placeForm.submitPropose));
+        final sent = api.last('EditPlace')!;
+        expect(sent['placeId'], lakeArea.id);
+        expect(
+          (sent['patch']! as Map<String, Object?>)['name'],
+          'Aire du Lac Bleu, entrée nord',
+        );
+        expect(find.text(t.placeForm.proposed), findsOneWidget);
+      },
+    );
+
+    testWidgets('favourites kept on the device are synced once the user asks', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final app = await pumpLunaway(tester, api: api);
+      app.container(tester).read(routerProvider).go(AppRoutes.favorites);
+      await settleShort(tester);
+      expect(find.text(t.favoritesSync.local), findsOneWidget);
+      await tester.tap(find.text(t.favoritesSync.action));
+      await settleShort(tester);
+      expect(find.text(t.favoritesSync.body), findsOneWidget);
+      await tester.tap(find.text(t.favoritesSync.confirm));
+      await settleShort(tester, const Duration(seconds: 4));
+      expect(api.operations, containsAllInOrder(['AuthChallenge', 'SignIn']));
+      expect(
+        app.container(tester).read(accountControllerProvider),
+        isA<SignedIn>(),
+      );
+      expect(find.textContaining('Gardés avec votre compte'), findsOneWidget);
+    });
+  });
+}
+
+/// A picker with no camera that hands over the same picture each time.
+final class _FakePicker implements PicturePicker {
+  int picks = 0;
+
+  @override
+  bool offers(PictureSource source) => source == PictureSource.gallery;
+
+  @override
+  Future<Uint8List?> pick(PictureSource source) async {
+    picks++;
+    return Uint8List.fromList(const [1, 2, 3]);
+  }
+}
+
+/// A preparer that returns a fixed small JPEG at once.
+final class _FakePreparer implements PhotoPreparer {
+  const new();
+
+  static final Uint8List jpeg = img.encodeJpg(img.Image(width: 8, height: 6));
+
+  @override
+  Future<PreparedPhoto> prepare(Uint8List original) async =>
+      PreparedPhoto(jpeg: jpeg, width: 8, height: 6);
+}

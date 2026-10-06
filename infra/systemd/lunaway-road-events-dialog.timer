@@ -1,0 +1,11 @@
+# Weekly, Mondays at 05:20: permanent orders change slowly.
+[Unit]
+Description=Lunaway road events: DiaLog permanent orders, weekly
+
+[Timer]
+OnCalendar=Mon *-*-* 05:20:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

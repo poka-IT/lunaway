@@ -351,3 +351,124 @@ abstract class _$SelectedFavoriteList extends $Notifier<int?> {
     return element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(favoritesSync)
+final favoritesSyncProvider = FavoritesSyncProvider._();
+
+final class FavoritesSyncProvider
+    extends $FunctionalProvider<FavoritesSync, FavoritesSync, FavoritesSync>
+    with $Provider<FavoritesSync> {
+  FavoritesSyncProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'favoritesSyncProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoritesSyncHash();
+
+  @$internal
+  @override
+  $ProviderElement<FavoritesSync> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  FavoritesSync create(Ref ref) {
+    return favoritesSync(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(FavoritesSync value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<FavoritesSync>(value),
+    );
+  }
+}
+
+String _$favoritesSyncHash() => r'8a236f19aa5cc3e63e9e28b9007159e4cef5277f';
+
+/// Keeps the favourites in step with the account: once it exists, after
+/// each change of the lists (a few seconds later, so a burst of taps makes
+/// one sync), at launch and when the app comes back. Without an account
+/// the lists stay on the device; [syncNow] makes the account when the user
+/// asks to sync them.
+// keepAlive: the sync outlives the favourites screen.
+
+@ProviderFor(FavoritesSyncController)
+final favoritesSyncControllerProvider = FavoritesSyncControllerProvider._();
+
+/// Keeps the favourites in step with the account: once it exists, after
+/// each change of the lists (a few seconds later, so a burst of taps makes
+/// one sync), at launch and when the app comes back. Without an account
+/// the lists stay on the device; [syncNow] makes the account when the user
+/// asks to sync them.
+// keepAlive: the sync outlives the favourites screen.
+final class FavoritesSyncControllerProvider
+    extends $NotifierProvider<FavoritesSyncController, FavoritesSyncStatus> {
+  /// Keeps the favourites in step with the account: once it exists, after
+  /// each change of the lists (a few seconds later, so a burst of taps makes
+  /// one sync), at launch and when the app comes back. Without an account
+  /// the lists stay on the device; [syncNow] makes the account when the user
+  /// asks to sync them.
+  // keepAlive: the sync outlives the favourites screen.
+  FavoritesSyncControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'favoritesSyncControllerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoritesSyncControllerHash();
+
+  @$internal
+  @override
+  FavoritesSyncController create() => FavoritesSyncController();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(FavoritesSyncStatus value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<FavoritesSyncStatus>(value),
+    );
+  }
+}
+
+String _$favoritesSyncControllerHash() =>
+    r'56fe8c3e840fce4f4ecdfa6dec12353f568c153a';
+
+/// Keeps the favourites in step with the account: once it exists, after
+/// each change of the lists (a few seconds later, so a burst of taps makes
+/// one sync), at launch and when the app comes back. Without an account
+/// the lists stay on the device; [syncNow] makes the account when the user
+/// asks to sync them.
+// keepAlive: the sync outlives the favourites screen.
+
+abstract class _$FavoritesSyncController
+    extends $Notifier<FavoritesSyncStatus> {
+  FavoritesSyncStatus build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<FavoritesSyncStatus, FavoritesSyncStatus>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<FavoritesSyncStatus, FavoritesSyncStatus>,
+              FavoritesSyncStatus,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}

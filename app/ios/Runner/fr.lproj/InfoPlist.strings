@@ -3,3 +3,6 @@
    en.lproj/InfoPlist.strings. */
 "NSLocationWhenInUseUsageDescription" = "Lunaway utilise votre position pour centrer la carte et trier les lieux par distance. Elle reste sur votre appareil.";
 "NSLocationUsageDescription" = "Lunaway utilise votre position pour centrer la carte et trier les lieux par distance. Elle reste sur votre appareil.";
+"NSCameraUsageDescription" = "Lunaway utilise l'appareil photo quand vous photographiez un lieu, ou votre carte de secours pour lire son code.";
+"NSPhotoLibraryUsageDescription" = "Lunaway ouvre vos photos quand vous en choisissez une pour un lieu, ou l'image de votre carte de secours.";
+"NSPhotoLibraryAddUsageDescription" = "Lunaway enregistre l'image de votre carte de secours dans vos photos quand vous choisissez Enregistrer l'image.";

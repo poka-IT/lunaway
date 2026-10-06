@@ -30,6 +30,11 @@
 //! lunaway routing activate <graph id>
 //! lunaway routing graphs
 //! lunaway routing disputes [--limit 50]
+//! lunaway road-events poll [--only dir,dialog,...] [--force]
+//! lunaway road-events dialog-permanent
+//! lunaway road-events match [--limit 400]
+//! lunaway road-events stats
+//! lunaway moderation remove-road-report|end-road-event <id>
 //! ```
 //!
 //! The imports and the conflation run with the import role
@@ -42,6 +47,11 @@
 //! (docs/deploy.md, "Routing"): `fetch-ign`, `prepare` and `test-routes`
 //! need no database, so a build machine runs them without one; `load`,
 //! `activate`, `graphs` and `disputes` run with the import role.
+//!
+//! The `road-events` commands read the feeds of closures and works
+//! (`docs/data-sources.md`, "Road events") with the import role; `poll`
+//! runs every three minutes on the server and matches the new events on
+//! the routing engine at `LUNAWAY_VALHALLA_URL` (loopback only).
 //!
 //! `DATABASE_URL` points at the database. Raw payloads are cached under
 //! `LUNAWAY_DATA_DIR/raw` (default: the repository's gitignored `data/`), so
@@ -140,6 +150,51 @@ enum Command {
         #[command(subcommand)]
         action: Routing,
     },
+    /// Road events: closures, works, temporary limits (with the import
+    /// role).
+    RoadEvents {
+        #[command(subcommand)]
+        action: RoadEvents,
+    },
+}
+
+#[derive(Subcommand)]
+enum RoadEvents {
+    /// Reads each feed when it is due (the DIR's increments at every run,
+    /// its aggregate hourly, DiaLog every 15 minutes, the cities hourly),
+    /// matches new events to the routing graph, ends and purges old ones.
+    /// Exits with an error when a feed failed, after the others ran.
+    Poll {
+        /// Only these sources (`dir`, `dialog`, `paris-fermetures`...),
+        /// comma separated.
+        #[arg(long, value_delimiter = ',')]
+        only: Vec<String>,
+        /// Reads every selected source now, due or not.
+        #[arg(long)]
+        force: bool,
+        /// An event without an end not seen for this many hours ends.
+        #[arg(long, default_value_t = 6)]
+        expire_after_hours: i64,
+        /// The routing engine for the matching (loopback only); none skips
+        /// it.
+        #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
+        valhalla_url: Option<String>,
+    },
+    /// Reads DiaLog's permanent orders and replaces their limits among the
+    /// restrictions every route is checked against. Weekly.
+    DialogPermanent,
+    /// Matches waiting events to the routing graph.
+    Match {
+        /// Events matched at most.
+        #[arg(long, default_value_t = 400)]
+        limit: i64,
+        /// The routing engine (loopback only).
+        #[arg(long, env = "LUNAWAY_VALHALLA_URL")]
+        valhalla_url: String,
+    },
+    /// Prints the live events by source, class and placement, and each
+    /// feed's freshness.
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -278,6 +333,17 @@ enum Moderation {
     ShowPoi {
         /// The point.
         poi: Uuid,
+    },
+    /// Removes a user's road report: the community event it supported is
+    /// weighed again without it, and ends when none is left.
+    RemoveRoadReport {
+        /// The report.
+        report: Uuid,
+    },
+    /// Ends a community road event and removes its reports.
+    EndRoadEvent {
+        /// The event.
+        event: Uuid,
     },
 }
 
@@ -853,7 +919,150 @@ async fn main() -> anyhow::Result<()> {
             moderation(&pool, &media, action).await?;
         }
         Command::Accounts { action } => accounts(&pool, action).await?,
+        Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Routing { .. } => unreachable!("handled before connecting"),
+    }
+    Ok(())
+}
+
+fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
+    println!(
+        "source             read  events  inserted  changed  unchanged  older  ended  increments  seconds"
+    );
+    for (id, r) in &report.sources {
+        println!(
+            "{:<18} {:<5} {:>6}  {:>8}  {:>7}  {:>9}  {:>5}  {:>5}  {:>10}  {:>7.2}{}{}",
+            id,
+            r.read,
+            r.events,
+            r.upsert.inserted,
+            r.upsert.changed,
+            r.upsert.unchanged,
+            r.upsert.older,
+            r.ended,
+            r.increments,
+            r.elapsed.as_secs_f64(),
+            r.refused
+                .map(|(live, seen)| format!(
+                    "  (snapshot of {seen} against {live} live: nothing ended)"
+                ))
+                .unwrap_or_default(),
+            r.error
+                .as_ref()
+                .map(|e| format!("  FAILED: {e}"))
+                .unwrap_or_default(),
+        );
+        if !r.skipped.is_empty() {
+            println!("  left out: {:?}", r.skipped);
+        }
+        if r.upsert.refused > 0 || r.upsert.duplicates > 0 {
+            println!(
+                "  refused by the store: {}, given twice: {}",
+                r.upsert.refused, r.upsert.duplicates
+            );
+        }
+    }
+    if let Some(m) = &report.matching {
+        println!(
+            "matched {}, could not place {}, changed meanwhile {}{}",
+            m.matched,
+            m.unmatched,
+            m.stale,
+            if m.more { ", more waiting" } else { "" }
+        );
+    }
+    if let Some(l) = &report.lifecycle {
+        println!(
+            "lifecycle: {} community events weighed again, {} past their end, {} expired, \
+             {} purged, {} reports purged",
+            l.reweighed, l.past_end, l.expired, l.purged, l.reports_purged
+        );
+    }
+}
+
+async fn road_events(
+    pool: &lunaway_db::PgPool,
+    cache: &Cache,
+    action: RoadEvents,
+) -> anyhow::Result<()> {
+    use lunaway_ingest::road_events::{
+        matching::{self, Valhalla},
+        poll::{self, PollConfig},
+    };
+    let engine_of = |url: &str| {
+        Valhalla::new(url, Duration::from_secs(10))
+            .context("the routing engine must be a loopback http URL")
+    };
+    match action {
+        RoadEvents::Poll {
+            only,
+            force,
+            expire_after_hours,
+            valhalla_url,
+        } => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            let config = PollConfig {
+                only,
+                force,
+                expire_after: chrono::Duration::hours(expire_after_hours.max(1)),
+                ..PollConfig::default()
+            };
+            let engine = valhalla_url.as_deref().map(engine_of).transpose()?;
+            let report = poll::poll(pool, &client, cache, &config, engine.as_ref())
+                .await
+                .context("road events poll failed")?;
+            print_poll(&report);
+            if report.failed() {
+                anyhow::bail!("a road events feed failed or looked truncated; the others ran");
+            }
+        }
+        RoadEvents::DialogPermanent => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            let r = poll::dialog_permanent(
+                pool,
+                &client,
+                cache,
+                poll::DIALOG_PERMANENT_URL,
+                &["dialog.beta.gouv.fr".to_owned()],
+                RetryPolicy::PATIENT,
+            )
+            .await
+            .context("DiaLog permanent orders failed")?;
+            println!(
+                "DiaLog permanent orders: {} read, {} restrictions stored; left out: {:?}",
+                r.orders, r.stored, r.skipped
+            );
+        }
+        RoadEvents::Match {
+            limit,
+            valhalla_url,
+        } => {
+            let engine = engine_of(&valhalla_url)?;
+            let r = matching::match_pending(pool, &engine, limit, Duration::from_secs(3_600))
+                .await
+                .context("matching failed")?;
+            println!(
+                "matched {}, could not place {}, changed meanwhile {}{}",
+                r.matched,
+                r.unmatched,
+                r.stale,
+                if r.more { ", more waiting" } else { "" }
+            );
+        }
+        RoadEvents::Stats => {
+            let now = chrono::Utc::now();
+            for s in lunaway_db::road_events::sources(pool).await? {
+                let age = s.last_success_at.map_or_else(
+                    || "never read".to_owned(),
+                    |t| format!("read {} s ago", (now - t).num_seconds()),
+                );
+                println!("{:<18} {age}, stale after {} s", s.id, s.stale_after_s);
+            }
+            println!("source             class             placement  live");
+            for (source, class, quality, n) in lunaway_db::road_events::live_counts(pool).await? {
+                println!("{source:<18} {class:<17} {quality:<10} {n:>5}");
+            }
+        }
     }
     Ok(())
 }
@@ -1155,6 +1364,20 @@ async fn moderation(
                 anyhow::bail!("no point of interest {poi}");
             }
             println!("point {poi} shown again; the worker applies it within seconds");
+            return Ok(());
+        }
+        Moderation::RemoveRoadReport { report } => {
+            if !lunaway_db::road_events::remove_report(pool, report).await? {
+                anyhow::bail!("no active road report {report}");
+            }
+            println!("road report {report} removed; its event weighed again");
+            return Ok(());
+        }
+        Moderation::EndRoadEvent { event } => {
+            if !lunaway_db::road_events::end_community_event(pool, event).await? {
+                anyhow::bail!("no live community road event {event}");
+            }
+            println!("community road event {event} ended, its reports removed");
             return Ok(());
         }
     };

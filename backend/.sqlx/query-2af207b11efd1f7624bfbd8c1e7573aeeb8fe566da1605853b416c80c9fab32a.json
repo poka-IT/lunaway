@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT class, max_height_m, valid_to FROM road_events WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "class",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "class"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "max_height_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_height_m"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "valid_to",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "valid_to"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "2af207b11efd1f7624bfbd8c1e7573aeeb8fe566da1605853b416c80c9fab32a"
+}

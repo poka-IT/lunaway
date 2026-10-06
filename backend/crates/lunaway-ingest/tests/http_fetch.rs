@@ -596,3 +596,101 @@ async fn a_redirect_to_another_host_is_not_followed() {
         "the other server is never contacted"
     );
 }
+
+/// A server that cuts its first answer short (a `Content-Length` it never
+/// reaches, then a closed connection) and sends the whole body after.
+async fn cutting_server(body: &'static [u8]) -> (SocketAddr, Arc<Mutex<usize>>) {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let served = Arc::new(Mutex::new(0_usize));
+    let count = Arc::clone(&served);
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                return;
+            };
+            let n = {
+                let mut c = count.lock().unwrap();
+                *c += 1;
+                *c
+            };
+            let mut request = [0_u8; 4096];
+            let _ = socket.read(&mut request).await;
+            let head = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = socket.write_all(head.as_bytes()).await;
+            let sent = if n == 1 {
+                &body[..body.len() / 2]
+            } else {
+                body
+            };
+            let _ = socket.write_all(sent).await;
+            let _ = socket.shutdown().await;
+        }
+    });
+    (addr, served)
+}
+
+#[tokio::test]
+async fn a_body_cut_off_is_asked_again() {
+    let body: &'static [u8] = br#"[{"id": 1, "latitude": "4365100", "longitude": "-269000"}]"#;
+    let (addr, served) = cutting_server(body).await;
+    let dir = tempfile::tempdir().unwrap();
+    let config = lunaway_ingest::fuel::FuelConfig {
+        url: format!("http://{addr}/export"),
+        retry: FAST,
+    };
+    let (got, _, cached) = lunaway_ingest::fuel::fetch(
+        &http::client_allowing_plain_http().unwrap(),
+        &Cache::new(dir.path()),
+        &config,
+        true,
+    )
+    .await
+    .unwrap();
+    assert!(!cached);
+    assert_eq!(got, body, "the second answer is whole");
+    assert_eq!(
+        *served.lock().unwrap(),
+        2,
+        "a body cut off mid-transfer is transient: reqwest calls it a decode error, \
+         and the import must not give up on it"
+    );
+}
+
+#[test]
+fn an_interrupted_body_is_transient() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let error = runtime.block_on(async {
+        let (addr, _) = cutting_server(b"0123456789").await;
+        let response = http::client_allowing_plain_http()
+            .unwrap()
+            .get(format!("http://{addr}/"))
+            .send()
+            .await
+            .unwrap();
+        let mut response = response;
+        loop {
+            match response.chunk().await {
+                Ok(Some(_)) => {}
+                Ok(None) => panic!("the body should be cut"),
+                Err(e) => break e,
+            }
+        }
+    });
+    assert!(
+        error.is_decode() && !error.is_body() && !error.is_timeout() && !error.is_connect(),
+        "reqwest reports a cut body as a decode error, which the old rule never retried: {error:?}"
+    );
+    let wrapped = IngestError::Body {
+        url: "u".into(),
+        source: error,
+    };
+    assert!(wrapped.is_transient());
+}

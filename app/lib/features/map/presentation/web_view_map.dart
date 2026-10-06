@@ -37,7 +37,8 @@ class WebViewLunaMap extends ConsumerStatefulWidget {
   ConsumerState<WebViewLunaMap> createState() => _WebViewLunaMapState();
 }
 
-class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements LunaMapController {
+class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap>
+    implements LunaMapController {
   PlatformInAppWebViewController? _web;
   Uri? _mapPage;
   late final PlatformInAppWebViewWidget _view = PlatformInAppWebViewWidget(
@@ -61,7 +62,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       },
       onLoadStop: (_, url) {
         final loaded = url == null ? null : Uri.tryParse(url.toString());
-        if (_mapPage == null && decideMapNavigation(loaded, mapPage: null) == .allow) {
+        if (_mapPage == null &&
+            decideMapNavigation(loaded, mapPage: null) == .allow) {
           _mapPage = loaded;
         }
         if (_onMapPage(loaded)) {
@@ -105,13 +107,20 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
 
   LunaMapProps get _props => widget.props;
 
-  Future<Object?> _call(String body, [Map<String, Object?> arguments = const {}]) async {
+  Future<Object?> _call(
+    String body, [
+    Map<String, Object?> arguments = const {},
+  ]) async {
     final web = _web;
     if (web == null) return null;
     // The bridge only ever talks to the map page.
     final current = await web.getUrl();
-    if (!_onMapPage(current == null ? null : Uri.tryParse(current.toString()))) return null;
-    final result = await web.callAsyncJavaScript(functionBody: body, arguments: arguments);
+    if (!_onMapPage(current == null ? null : Uri.tryParse(current.toString())))
+      return null;
+    final result = await web.callAsyncJavaScript(
+      functionBody: body,
+      arguments: arguments,
+    );
     if (result?.error != null) _log.warning('map js error: ${result!.error}');
     return result?.value;
   }
@@ -128,8 +137,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'lon': _props.initialCenter.lon,
         'zoom': _props.initialZoom,
         'pixelRatio': ratio,
-        'images': {for (final e in images.entries) e.key: base64Encode(e.value)},
-        'spec': _spec(dark: _props.dark),
+        'images': {
+          for (final e in images.entries) e.key: base64Encode(e.value),
+        },
+        'spec': _spec(dark: _props.dark, language: _props.language),
         'reducedMotion': reducedMotion,
       },
     });
@@ -142,7 +153,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       _isStyleJson(style) ? jsonDecode(style) as Object : style;
 
   /// The sources and layers of [MapStyle], in the GL JS style syntax.
-  static Map<String, Object?> _spec({required bool dark}) => {
+  static Map<String, Object?> _spec({
+    required bool dark,
+    required String language,
+  }) => {
     'clusterSource': MapStyle.placesSource,
     'selectionLayer': MapStyle.selectionPinLayer,
     'tappable': MapStyle.tappableLayers,
@@ -177,7 +191,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'source': MapStyle.placesSource,
         'filter': MapStyle.clusterFilter,
         'layout': {
-          'text-field': ['get', 'point_count_abbreviated'],
+          'text-field': MapLook.clusterLabel(language),
           'text-font': MapLook.clusterFont,
           'text-size': MapLook.clusterTextSize,
           'text-allow-overlap': true,
@@ -241,7 +255,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
               north: (event['north']! as num).toDouble(),
               east: (event['east']! as num).toDouble(),
             ),
-            center: LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
+            center: LatLng(
+              (event['lat']! as num).toDouble(),
+              (event['lon']! as num).toDouble(),
+            ),
             zoom: _zoom,
           ),
         );
@@ -251,7 +268,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         _props.onEmptyTap?.call();
       case 'longpress':
         _props.onLongPress(
-          LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
+          LatLng(
+            (event['lat']! as num).toDouble(),
+            (event['lon']! as num).toDouble(),
+          ),
         );
       case 'link':
         // A link clicked in the page (the attribution): the browser opens
@@ -265,7 +285,11 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   @override
   void didUpdateWidget(WebViewLunaMap old) {
     super.didUpdateWidget(old);
-    if (_ready && _style != null && (_props.style != _style || _props.dark != old.props.dark)) {
+    if (_ready &&
+        _style != null &&
+        (_props.style != _style ||
+            _props.dark != old.props.dark ||
+            _props.language != old.props.language)) {
       _setStyle();
       return;
     }
@@ -279,7 +303,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
-        'spec': _spec(dark: _props.dark),
+        'spec': _spec(dark: _props.dark, language: _props.language),
       }),
     );
   }
@@ -306,7 +330,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
       _sentSelected = props.selectedId;
       _sentPoint = props.markedPoint;
-      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
+      final selected = props.places
+          .where((p) => p.id == props.selectedId)
+          .firstOrNull;
       await _call('return window.lunaway.setSelection(data);', {
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });
@@ -352,11 +378,14 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   @override
   Future<LatLng?> locateUser() async {
     try {
-      final position = await GeolocatorPlatform.instance.getCurrentPosition().timeout(
-        const Duration(seconds: 15),
-      );
+      final position = await GeolocatorPlatform.instance
+          .getCurrentPosition()
+          .timeout(const Duration(seconds: 15));
       final at = LatLng(position.latitude, position.longitude);
-      await _call('return window.lunaway.showPosition(lat, lon);', {'lat': at.lat, 'lon': at.lon});
+      await _call('return window.lunaway.showPosition(lat, lon);', {
+        'lat': at.lat,
+        'lon': at.lon,
+      });
       return at;
     } on Object catch (e) {
       _log.info('no position: $e');

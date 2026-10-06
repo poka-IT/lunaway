@@ -1,0 +1,76 @@
+# The road events (closures, works, lane restrictions, temporary vehicle
+# limits, detours) of the open feeds of docs/data-sources.md ("Road events"):
+# the DIR's increments at every run and its aggregate hourly, DiaLog's
+# temporary orders every 15 minutes, the city datasets hourly, each resumed
+# from its cursor in road_event_sources; then the new events matched to the
+# routing graph on the engine at 127.0.0.1:8002, and the old ones ended and
+# purged. Run every three minutes by lunaway-road-events.timer; a run with
+# nothing due takes under a second, one with the hourly reads about ten.
+# A feed that fails is recorded and the others run; the unit then fails, so
+# the journal and the status page show it.
+[Unit]
+Description=Lunaway road events: poll the feeds
+After=postgresql.service network-online.target valhalla.service
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway road-events poll
+TimeoutStartSec=10min
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), PostgreSQL and the routing engine on
+# loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# DiaLog's 8 MB export read whole, one order at a time (measured on the
+# Mac: 118 MB resident for a forced read of every feed).
+MemoryHigh=384M
+MemoryMax=512M

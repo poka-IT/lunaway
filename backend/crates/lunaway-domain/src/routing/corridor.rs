@@ -168,6 +168,12 @@ impl RouteLine {
         &self.points
     }
 
+    /// Distance from the start of each shape point, metres.
+    #[must_use]
+    pub fn along(&self) -> &[f64] {
+        &self.along
+    }
+
     /// Length, metres.
     #[must_use]
     pub fn length_m(&self) -> f64 {
@@ -202,10 +208,49 @@ impl RouteLine {
         .unwrap_or(*a)
     }
 
-    /// The nearest point of the line to `p` within `max_m`: its distance
-    /// from the start, its distance to `p`, metres, and the heading of the
-    /// route's segment there, degrees.
-    fn nearest(&self, p: Position, max_m: f64) -> Option<(f64, f64, f64)> {
+    /// The nearest point of the line to `p` within `max_m`, if any: where
+    /// it lies along the route, how far `p` is from it, and the route's
+    /// heading there.
+    #[must_use]
+    pub fn project(&self, p: Position, max_m: f64) -> Option<Projection> {
+        self.project_within(p, max_m, f64::NEG_INFINITY, f64::INFINITY)
+    }
+
+    /// [`Self::project`] onto the part of the line from `from_m` to `to_m`
+    /// from the start: where a route passing near a point twice passes it
+    /// at a known stage.
+    #[must_use]
+    pub fn project_within(
+        &self,
+        p: Position,
+        max_m: f64,
+        from_m: f64,
+        to_m: f64,
+    ) -> Option<Projection> {
+        if from_m.is_nan() || to_m.is_nan() || from_m > to_m {
+            return None;
+        }
+        self.nearest(p, max_m, from_m, to_m)
+            .map(|(along_m, distance_m, heading_deg)| Projection {
+                along_m,
+                distance_m,
+                heading_deg: heading_deg.rem_euclid(360.0),
+            })
+    }
+
+    /// The route's heading `s` metres from the start, degrees from north
+    /// (0 to 360), along the segment there.
+    #[must_use]
+    pub fn heading_at(&self, s: f64) -> f64 {
+        let i = self.index_at(s).min(self.points.len().saturating_sub(2));
+        heading(self.points[i], self.points[i + 1]).rem_euclid(360.0)
+    }
+
+    /// The nearest point of the line to `p` within `max_m`, between `from_m`
+    /// and `to_m` from the start: its distance from the start, its distance
+    /// to `p`, metres, and the heading of the route's segment there,
+    /// degrees.
+    fn nearest(&self, p: Position, max_m: f64, from_m: f64, to_m: f64) -> Option<(f64, f64, f64)> {
         let (r, c) = cell(p);
         let mut best: Option<(f64, f64, f64)> = None;
         let mut seen: HashSet<u32> = HashSet::new();
@@ -219,20 +264,33 @@ impl RouteLine {
                         continue;
                     }
                     let i = seg as usize;
+                    if self.along[i + 1] < from_m || self.along[i] > to_m {
+                        continue;
+                    }
                     let (a, b) = (self.points[i], self.points[i + 1]);
                     let (ax, ay) = offset(p, a);
                     let (bx, by) = offset(p, b);
                     let (dx, dy) = (bx - ax, by - ay);
                     let len2 = dx * dx + dy * dy;
+                    // The part of the segment inside the range asked.
+                    let span = self.along[i + 1] - self.along[i];
+                    let (t0, t1) = if span > 0.0 {
+                        (
+                            ((from_m - self.along[i]) / span).clamp(0.0, 1.0),
+                            ((to_m - self.along[i]) / span).clamp(0.0, 1.0),
+                        )
+                    } else {
+                        (0.0, 1.0)
+                    };
                     let t = if len2 > 0.0 {
-                        (-(ax * dx + ay * dy) / len2).clamp(0.0, 1.0)
+                        (-(ax * dx + ay * dy) / len2).clamp(t0, t1)
                     } else {
                         0.0
                     };
                     let (qx, qy) = (ax + t * dx, ay + t * dy);
                     let d = (qx * qx + qy * qy).sqrt();
                     if d <= max_m && best.is_none_or(|(_, bd, _)| d < bd) {
-                        let s = self.along[i] + t * (self.along[i + 1] - self.along[i]);
+                        let s = self.along[i] + t * span;
                         best = Some((s, d, dx.atan2(dy).to_degrees()));
                     }
                 }
@@ -242,8 +300,20 @@ impl RouteLine {
     }
 }
 
+/// Where a point projects onto a route.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Projection {
+    /// Distance from the start of the route, metres.
+    pub along_m: f64,
+    /// Distance from the point to the route, metres.
+    pub distance_m: f64,
+    /// The route's heading there, degrees from north, 0 to 360.
+    pub heading_deg: f64,
+}
+
 /// Heading from `a` to `b`, degrees from north.
-fn heading(a: Position, b: Position) -> f64 {
+#[must_use]
+pub fn heading(a: Position, b: Position) -> f64 {
     let (x, y) = offset(a, b);
     x.atan2(y).to_degrees()
 }
@@ -252,6 +322,13 @@ fn heading(a: Position, b: Position) -> f64 {
 fn angle_between(a: f64, b: f64) -> f64 {
     let d = (a - b).rem_euclid(180.0);
     d.min(180.0 - d)
+}
+
+/// Angle between two headings in their direction of travel: 0 to 180.
+#[must_use]
+pub fn turn_between(a: f64, b: f64) -> f64 {
+    let d = (a - b).rem_euclid(360.0);
+    d.min(360.0 - d)
 }
 
 /// Where a route drives through a restriction.
@@ -288,14 +365,32 @@ pub fn match_route(route: &RouteLine, geometry: &[Position], tolerance_m: f64) -
     match geometry {
         [] => Vec::new(),
         [node] => route
-            .nearest(*node, tolerance_m.min(NODE_TOLERANCE_M))
+            .nearest(
+                *node,
+                tolerance_m.min(NODE_TOLERANCE_M),
+                f64::NEG_INFINITY,
+                f64::INFINITY,
+            )
             .map(|(s, _, _)| vec![hit(route, s, s)])
             .unwrap_or_default(),
-        line => match_line(route, line, tolerance_m),
+        line => match_line(route, line, tolerance_m, false),
     }
 }
 
-fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64) -> Vec<Hit> {
+/// The places where `route` drives along `line` in the line's own
+/// direction (its points in driving order), within `tolerance_m`: a road
+/// event on one carriageway of a dual carriageway, or on one direction of a
+/// road, concerns a route going that way only. A route driving the line
+/// the other way does not count, nor does a crossing.
+#[must_use]
+pub fn match_route_directed(route: &RouteLine, line: &[Position], tolerance_m: f64) -> Vec<Hit> {
+    if line.len() < 2 {
+        return Vec::new();
+    }
+    match_line(route, line, tolerance_m, true)
+}
+
+fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: bool) -> Vec<Hit> {
     // The line, cut every STEP_M: each point, its distance along the line
     // and the line's heading there.
     let mut samples: Vec<(Position, f64, f64)> = Vec::new();
@@ -363,13 +458,14 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64) -> Vec<Hit
         run.clear();
     };
     for (p, along_line, towards) in samples {
-        match route.nearest(p, tolerance_m) {
+        match route.nearest(p, tolerance_m, f64::NEG_INFINITY, f64::INFINITY) {
             Some((s, _, route_heading)) => {
-                run.push((
-                    s,
-                    along_line,
-                    angle_between(towards, route_heading) <= MAX_ANGLE_DEG,
-                ));
+                let aligned = if directed {
+                    turn_between(towards, route_heading) <= MAX_ANGLE_DEG
+                } else {
+                    angle_between(towards, route_heading) <= MAX_ANGLE_DEG
+                };
+                run.push((s, along_line, aligned));
             }
             None => flush(&mut run, &mut hits),
         }
@@ -569,6 +665,40 @@ mod tests {
         assert_eq!(route.index_at(75.0), 1);
         assert_eq!(route.index_at(5_000.0), 20);
         assert!(route.point_at(75.0).distance_m(at(limoges(), 75.0, 0.0)) < 0.5);
+    }
+
+    #[test]
+    fn a_directed_line_counts_only_for_a_route_going_its_way() {
+        let route = east_route();
+        let eastward = [at(limoges(), 300.0, 0.5), at(limoges(), 500.0, 0.5)];
+        let westward = [at(limoges(), 500.0, 0.5), at(limoges(), 300.0, 0.5)];
+        assert_eq!(
+            match_route_directed(&route, &eastward, 12.0).len(),
+            1,
+            "the closed carriageway is the one the route drives"
+        );
+        assert!(
+            match_route_directed(&route, &westward, 12.0).is_empty(),
+            "a closure of the other carriageway must not send the route around"
+        );
+        assert_eq!(
+            match_route(&route, &westward, 12.0).len(),
+            1,
+            "undirected matching keeps counting both ways"
+        );
+    }
+
+    #[test]
+    fn a_projection_gives_the_place_along_the_route_and_its_heading() {
+        let route = east_route();
+        let p = route.project(at(limoges(), 420.0, 4.0), 10.0).unwrap();
+        assert!((p.along_m - 420.0).abs() < 1.0, "{p:?}");
+        assert!((p.distance_m - 4.0).abs() < 0.5);
+        assert!((p.heading_deg - 90.0).abs() < 1.0, "the route heads east");
+        assert!(route.project(at(limoges(), 420.0, 40.0), 10.0).is_none());
+        assert!((route.heading_at(10.0) - 90.0).abs() < 1.0);
+        assert!((turn_between(10.0, 350.0) - 20.0).abs() < 1e-9);
+        assert!((turn_between(90.0, 270.0) - 180.0).abs() < 1e-9);
     }
 
     #[test]

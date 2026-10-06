@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/database/cache_database.dart';
@@ -10,6 +14,12 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/account/data/account_service.dart';
+import 'package:lunaway/features/account/data/device_keys.dart';
+import 'package:lunaway/features/account/data/secret_store.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
@@ -24,6 +34,7 @@ import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
+import 'fake_api.dart';
 import 'fakes.dart';
 import 'samples.dart';
 
@@ -59,7 +70,11 @@ final class FakeChangesSource implements ChangesSource {
   int requests = 0;
 
   @override
-  Future<ChangeSet> changes({required GeoBounds bbox, required int first, String? since}) async {
+  Future<ChangeSet> changes({
+    required GeoBounds bbox,
+    required int first,
+    String? since,
+  }) async {
     requests++;
     if (failing) throw GraphQLNetworkException('offline', null);
     final start = int.tryParse(since ?? '') ?? 0;
@@ -85,6 +100,9 @@ final class TestApp {
     required this.cache,
     required this.user,
     required this.location,
+    required this.secrets,
+    required this.files,
+    this.api,
   });
 
   final FakePlacesRepository places;
@@ -96,6 +114,11 @@ final class TestApp {
   final CacheDatabase cache;
   final UserDatabase user;
   final FakeLocationPermissions location;
+  final MemorySecretStore secrets;
+  final MemoryPendingFiles files;
+
+  /// The account and community API, when the test talks to one.
+  final FakeApi? api;
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
@@ -104,8 +127,10 @@ final class TestApp {
 /// An in-memory database whose query streams stop at once when their last
 /// listener goes: drift otherwise stops them on a timer, which outlives the
 /// widget tree of a test.
-DatabaseConnection memoryDatabase() =>
-    DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true);
+DatabaseConnection memoryDatabase() => DatabaseConnection(
+  NativeDatabase.memory(),
+  closeStreamsSynchronously: true,
+);
 
 /// Pumps the whole app at [size] with fakes around it: no network, no disk,
 /// a fixed clock ([testNow]) that does not tick, and a fake map. The theme
@@ -126,6 +151,9 @@ Future<TestApp> pumpLunaway(
   bool settle = true,
   BasemapTemplates basemap = BasemapTemplates.blank,
   AppConfig? config,
+  FakeApi? api,
+  bool signedIn = false,
+  List<Override> overrides = const [],
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -137,7 +165,9 @@ Future<TestApp> pumpLunaway(
   final initial =
       settings ??
       AppSettings(
-        theme: brightness == Brightness.dark ? ThemePreference.dark : ThemePreference.light,
+        theme: brightness == Brightness.dark
+            ? ThemePreference.dark
+            : ThemePreference.light,
       );
 
   final app = TestApp(
@@ -147,17 +177,31 @@ Future<TestApp> pumpLunaway(
           sync ??
           (neverSynced
               ? SyncState.none
-              : SyncState(cursor: 'c', completedAt: testNow.subtract(const Duration(hours: 1)))),
+              : SyncState(
+                  cursor: 'c',
+                  completedAt: testNow.subtract(const Duration(hours: 1)),
+                )),
     ),
     favorites: FakeFavoritesRepository(),
     external: FakeExternalActions(),
     map: map ?? FakeMap(),
     settings: MemorySettings(initial),
-    extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
+    extras:
+        extras ??
+        FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
     location: FakeLocationPermissions(),
+    secrets: MemorySecretStore(),
+    files: MemoryPendingFiles(),
+    api: api,
   );
+  if (api != null) {
+    addTearDown(
+      () => expect(api.violations, isEmpty, reason: 'the API schema'),
+    );
+    if (signedIn) await seedAccount(app.secrets, api);
+  }
   // The in-memory databases are left to the garbage collector: closing one
   // waits for its queries, and a query the failed test left pending under
   // the fake clock never ends, which would hang the whole run.
@@ -179,16 +223,26 @@ Future<TestApp> pumpLunaway(
         userDatabaseProvider.overrideWithValue(app.user),
         locationPermissionsProvider.overrideWithValue(app.location),
         syncRetryDelaysProvider.overrideWithValue(const []),
+        // The account's secrets in memory: no keychain in a widget test.
+        secretStoreProvider.overrideWithValue(app.secrets),
+        pendingFilesProvider.overrideWithValue(app.files),
         // Photos come from the demo server, drawn in process: no network.
-        httpClientProvider.overrideWithValue(
-          demoApiClient(const [], apiBase: Uri.parse(testApiBase), latency: Duration.zero),
-        ),
+        httpClientProvider.overrideWithValue(api?.client(_demo) ?? _demo),
         placeExtrasRepositoryProvider.overrideWithValue(
-          PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
+          PlaceExtrasRepository(
+            db: app.cache,
+            source: app.extras,
+            clock: () => testNow,
+          ),
         ),
         syncServiceProvider.overrideWithValue(
-          syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
+          syncService ??
+              SyncService(
+                source: FakeChangesSource(const []),
+                store: _NoStore(),
+              ),
         ),
+        ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
     ),
@@ -197,13 +251,42 @@ Future<TestApp> pumpLunaway(
   return app;
 }
 
+final http.Client _demo = demoApiClient(
+  const [],
+  apiBase: Uri.parse(testApiBase),
+  latency: Duration.zero,
+);
+
+/// A device that already holds an account of [api]: its key, the account
+/// and a session, as a sign-in would have left them.
+Future<void> seedAccount(MemorySecretStore secrets, FakeApi api) async {
+  final key = SoftwareDeviceKey(
+    BigInt.parse('1234567890abcdef1234567890abcdef', radix: 16),
+  );
+  api.addSession('seeded', key.publicJwk.thumbprint);
+  await secrets.write('device_key', key.toStored());
+  await secrets.write('account', jsonEncode(api.account()));
+  await secrets.write(
+    'session',
+    Session(
+      token: 'seeded',
+      expiresAt: testNow.add(const Duration(days: 30)),
+      openedAt: testNow.subtract(const Duration(hours: 1)),
+    ).toStored(),
+  );
+}
+
 /// Lets streams, futures and short animations finish; skeletons pulse for
 /// ever, so this pumps for a while rather than waiting to settle.
 Future<void> settleShort(
   WidgetTester tester, [
   Duration total = const Duration(milliseconds: 900),
 ]) async {
-  for (var waited = Duration.zero; waited < total; waited += const Duration(milliseconds: 100)) {
+  for (
+    var waited = Duration.zero;
+    waited < total;
+    waited += const Duration(milliseconds: 100)
+  ) {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
@@ -223,7 +306,8 @@ final class _NoStore implements SyncStore {
   Future<void> applyPage(String region, ChangeSet page) async {}
 
   @override
-  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async => 0;
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async =>
+      0;
 
   @override
   Future<void> reset(String region, GeoBounds bounds) async {}
@@ -237,8 +321,11 @@ final class MemorySyncStore implements SyncStore {
   Future<SyncState> stateOf(String region) async => state;
 
   @override
-  Future<void> beginFullSync(String region) async =>
-      state = SyncState(generation: state.generation + 1, fullSync: true, running: true);
+  Future<void> beginFullSync(String region) async => state = SyncState(
+    generation: state.generation + 1,
+    fullSync: true,
+    running: true,
+  );
 
   @override
   Future<void> beginDeltaSync(String region) async => state = SyncState(
@@ -249,20 +336,26 @@ final class MemorySyncStore implements SyncStore {
   );
 
   @override
-  Future<void> applyPage(String region, ChangeSet page) async => state = SyncState(
-    cursor: page.cursor,
-    generation: state.generation,
-    fullSync: state.fullSync,
-    running: true,
-    completedAt: state.completedAt,
-  );
+  Future<void> applyPage(String region, ChangeSet page) async =>
+      state = SyncState(
+        cursor: page.cursor,
+        generation: state.generation,
+        fullSync: state.fullSync,
+        running: true,
+        completedAt: state.completedAt,
+      );
 
   @override
   Future<int> completeRun(String region, GeoBounds bounds, DateTime at) async {
-    state = SyncState(cursor: state.cursor, generation: state.generation, completedAt: at);
+    state = SyncState(
+      cursor: state.cursor,
+      generation: state.generation,
+      completedAt: at,
+    );
     return 0;
   }
 
   @override
-  Future<void> reset(String region, GeoBounds bounds) async => state = SyncState.none;
+  Future<void> reset(String region, GeoBounds bounds) async =>
+      state = SyncState.none;
 }

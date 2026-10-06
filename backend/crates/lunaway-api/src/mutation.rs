@@ -11,7 +11,7 @@ use lunaway_db::{
     accounts::{self, Endorsement},
     community::{self as contributions, ReportOutcome, ReviewWrite},
     lists::{self, ListRefusal},
-    pois,
+    pois, road_events,
     submissions::{self, NewSubmission, Submitted, Withdrawal},
 };
 use lunaway_domain::{
@@ -24,6 +24,7 @@ use lunaway_domain::{
         trust::Action as Level,
     },
     is_language_tag, poi as poi_rules,
+    road_events::{Confidence, community as road_community},
 };
 use uuid::Uuid;
 
@@ -36,9 +37,12 @@ use crate::{
         IssueReport, NewPlaceInput, PlaceDetailsInput, PlaceSubmission, RecoveryCodeResult, Review,
         SignInResult,
     },
-    error::{forbidden, internal, invalid_input, not_found, quota_spent, unauthenticated},
+    error::{
+        forbidden, internal, invalid_input, not_found, quota_spent, unauthenticated, unavailable,
+    },
     poi_types::{NewVendingMachineInput, PoiConfirmation},
     quota::{Action, Subject},
+    road_event_types::{GqlRoadEventCleared, RoadEventReportInput, RoadEventReportResult},
     schema::{DB_FIELD_COST, db, state},
 };
 
@@ -68,6 +72,23 @@ fn quota(ctx: &Context<'_>, action: Action, subject: Subject, what: &str) -> Res
 
 fn account_quota(ctx: &Context<'_>, viewer: &Viewer, action: Action, what: &str) -> Result<()> {
     quota(ctx, action, Subject::Account(viewer.id()), what)
+}
+
+/// Takes one road report from the account and one from its client address:
+/// accounts are cheap, so one network must not report for a crowd.
+fn road_report_quota(ctx: &Context<'_>, viewer: &Viewer) -> Result<()> {
+    quota(ctx, Action::RoadReportClient, client(ctx), "road reports")?;
+    account_quota(ctx, viewer, Action::RoadReport, "road reports")
+}
+
+/// A road report that could not be stored: `UNAVAILABLE` while the feeds
+/// hold the writers' lock, an internal error otherwise.
+fn road_write_failed(e: &lunaway_db::DbError) -> async_graphql::Error {
+    if road_events::is_busy(e) {
+        unavailable("road reports")
+    } else {
+        internal(e)
+    }
 }
 
 /// The live place a contribution goes to, following merges.
@@ -748,6 +769,99 @@ impl MutationRoot {
         .await
         .map_err(|e| internal(&e))?;
         Ok(row.into())
+    }
+
+    /// Reports what is seen on the road: a closed road, works, a narrow
+    /// passage, a low clearance with its height. Level 0; 30 a day per
+    /// account, 100 per client address. One account's report warns the
+    /// others. Two reports of the same thing at the same spot (within
+    /// 100 m, heading the same way, a measured figure within 0.2 m) from
+    /// two accounts of level 1 or more, within two hours, make it block
+    /// their routes, and a moderator is told. It lasts 12 hours (a closure)
+    /// or 7 days after the last confirming pair, or the last report while
+    /// unconfirmed. `UNAVAILABLE` when the feeds are being written: try
+    /// again.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn report_road_event(
+        &self,
+        ctx: &Context<'_>,
+        input: RoadEventReportInput,
+    ) -> Result<RoadEventReportResult> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::Basic).await?;
+        let at = Position::new(input.lat, input.lon)
+            .map_err(|e| invalid_input(format!("position: {e}")))?;
+        if !lunaway_domain::routing::is_covered(at) {
+            return Err(invalid_input(
+                "the position is outside the area routes are computed in",
+            ));
+        }
+        let heading_deg = input
+            .heading_deg
+            .map(|h| u16::try_from(h).ok().filter(|h| *h < 360))
+            .map(|h| h.ok_or_else(|| invalid_input("headingDeg must be between 0 and 359")))
+            .transpose()?;
+        let kind = road_community::ReportKind::from(input.kind);
+        road_community::validate(kind, input.value_m).map_err(|e| invalid_input(e.to_string()))?;
+        road_report_quota(ctx, &viewer)?;
+        let done = {
+            let (pool, _permit) = db(ctx).await?;
+            road_events::report(
+                pool,
+                &road_events::NewReport {
+                    account: viewer.id(),
+                    kind,
+                    at,
+                    heading_deg,
+                    value_m: input.value_m,
+                },
+                chrono::Utc::now(),
+            )
+            .await
+            .map_err(|e| road_write_failed(&e))?
+        };
+        auth::after_contribution(ctx, &viewer).await;
+        Ok(RoadEventReportResult {
+            report_id: done.report_id,
+            event_id: done.event_id,
+            confidence: done.confidence.into(),
+            expires_at: done.expires_at,
+        })
+    }
+
+    /// Says a community road event is over ("plus de travaux"). It ends
+    /// when its only reporter says so, or two accounts of level 1 or more
+    /// have since its last report; one such account makes a blocking event
+    /// a warning again; a level-0 account's is recorded for the moderators
+    /// when the event blocks. Level 0, counted with the road reports. An
+    /// official event (`source` other than `community`) ends with its
+    /// source: `INVALID_INPUT`.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn clear_road_event(
+        &self,
+        ctx: &Context<'_>,
+        event_id: Uuid,
+    ) -> Result<GqlRoadEventCleared> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::Basic).await?;
+        road_report_quota(ctx, &viewer)?;
+        let outcome = {
+            let (pool, _permit) = db(ctx).await?;
+            road_events::clear(pool, viewer.id(), event_id, chrono::Utc::now())
+                .await
+                .map_err(|e| road_write_failed(&e))?
+        };
+        let done = match outcome {
+            road_events::Cleared::Ended => GqlRoadEventCleared::Ended,
+            road_events::Cleared::Noted(Confidence::Confirmed) => GqlRoadEventCleared::Noted,
+            road_events::Cleared::Noted(_) => GqlRoadEventCleared::Warning,
+            road_events::Cleared::Official => {
+                return Err(invalid_input("an official road event ends with its source"));
+            }
+            _ => return Err(not_found("road event")),
+        };
+        auth::after_contribution(ctx, &viewer).await;
+        Ok(done)
     }
 
     /// Reports a problem met at a place (a night ban, a broken service, no

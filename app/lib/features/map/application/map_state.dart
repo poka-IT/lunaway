@@ -38,7 +38,8 @@ final class PointSelection extends MapSelection {
   final LatLng position;
 
   @override
-  bool operator ==(Object other) => other is PointSelection && other.position == position;
+  bool operator ==(Object other) =>
+      other is PointSelection && other.position == position;
 
   @override
   int get hashCode => position.hashCode;
@@ -64,6 +65,13 @@ const initialViewport = MapViewport(
   zoom: initialMapZoom,
 );
 
+/// Whether [viewport] is still the map's first camera, before its fit to
+/// the region and before any move: the map reports it as soon as it is
+/// made.
+bool isFirstCamera(MapViewport viewport) =>
+    (viewport.zoom - initialMapZoom).abs() < 1e-6 &&
+    viewport.center.distanceTo(initialMapCenter) < 1;
+
 // keepAlive: the last camera position, restored when the map tab returns.
 @Riverpod(keepAlive: true)
 class Viewport extends _$Viewport {
@@ -88,7 +96,8 @@ class MapController extends _$MapController {
 /// The location permission of the platform; a fake in widget tests.
 // keepAlive: stateless, wired once.
 @Riverpod(keepAlive: true)
-LocationPermissions locationPermissions(Ref ref) => const PlatformLocationPermissions();
+LocationPermissions locationPermissions(Ref ref) =>
+    const PlatformLocationPermissions();
 
 /// Where the last known position is kept between runs.
 // keepAlive: a repository over the app-wide database.
@@ -111,11 +120,12 @@ BasemapTemplates basemapTemplates(Ref ref) => BasemapTemplates.blank;
 /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
 /// pointed at the configured tile host, labelled in [language].
 @riverpod
-String basemapStyle(Ref ref, {required bool dark, required String language}) => fillBasemapStyle(
-  ref.watch(basemapTemplatesProvider).of(dark: dark),
-  base: ref.watch(appConfigProvider).basemapBase,
-  language: language,
-);
+String basemapStyle(Ref ref, {required bool dark, required String language}) =>
+    fillBasemapStyle(
+      ref.watch(basemapTemplatesProvider).of(dark: dark),
+      base: ref.watch(appConfigProvider).basemapBase,
+      language: language,
+    );
 
 /// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
@@ -126,7 +136,8 @@ class UserLocation extends _$UserLocation {
 
   void update(LatLng? position) {
     state = position;
-    if (position != null) unawaited(ref.read(lastPositionStoreProvider).save(position));
+    if (position != null)
+      unawaited(ref.read(lastPositionStoreProvider).save(position));
   }
 }
 
@@ -145,8 +156,12 @@ Stream<List<PlaceSummary>> nearbyPlaces(Ref ref) {
   final viewport = ref.watch(viewportProvider) ?? initialViewport;
   final filter = ref.watch(effectiveFilterProvider);
   final user = ref.watch(userLocationProvider);
-  final center = user != null && viewport.bounds.contains(user) ? user : viewport.center;
-  return ref.watch(placesRepositoryProvider).watchInBounds(viewport.bounds, filter, center: center);
+  final center = user != null && viewport.bounds.contains(user)
+      ? user
+      : viewport.center;
+  return ref
+      .watch(placesRepositoryProvider)
+      .watchInBounds(viewport.bounds, filter, center: center);
 }
 
 /// The map widget, swapped for a fake in widget tests where platform views do

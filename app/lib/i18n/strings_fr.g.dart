@@ -64,6 +64,23 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$units$fr units = _Translations$units$fr._(_root);
 	@override late final _Translations$languages$fr languages = _Translations$languages$fr._(_root);
 	@override late final _Translations$locale$fr locale = _Translations$locale$fr._(_root);
+	@override late final _Translations$account$fr account = _Translations$account$fr._(_root);
+	@override late final _Translations$recovery$fr recovery = _Translations$recovery$fr._(_root);
+	@override late final _Translations$recover$fr recover = _Translations$recover$fr._(_root);
+	@override late final _Translations$deletion$fr deletion = _Translations$deletion$fr._(_root);
+	@override late final _Translations$devices$fr devices = _Translations$devices$fr._(_root);
+	@override late final _Translations$muted$fr muted = _Translations$muted$fr._(_root);
+	@override late final _Translations$mine$fr mine = _Translations$mine$fr._(_root);
+	@override late final _Translations$outbox$fr outbox = _Translations$outbox$fr._(_root);
+	@override late final _Translations$contribute$fr contribute = _Translations$contribute$fr._(_root);
+	@override late final _Translations$confirmSheet$fr confirmSheet = _Translations$confirmSheet$fr._(_root);
+	@override late final _Translations$issueSheet$fr issueSheet = _Translations$issueSheet$fr._(_root);
+	@override late final _Translations$reportSheet$fr reportSheet = _Translations$reportSheet$fr._(_root);
+	@override late final _Translations$reviewSheet$fr reviewSheet = _Translations$reviewSheet$fr._(_root);
+	@override late final _Translations$gate$fr gate = _Translations$gate$fr._(_root);
+	@override late final _Translations$photoFlow$fr photoFlow = _Translations$photoFlow$fr._(_root);
+	@override late final _Translations$placeForm$fr placeForm = _Translations$placeForm$fr._(_root);
+	@override late final _Translations$favoritesSync$fr favoritesSync = _Translations$favoritesSync$fr._(_root);
 }
 
 // Path: nav
@@ -93,6 +110,11 @@ class _Translations$common$fr extends Translations$common$en {
 	@override String get undo => 'Annuler';
 	@override String get ok => 'Compris';
 	@override String get saveFailed => 'La modification n\'a pas pu être enregistrée.';
+	@override String get send => 'Envoyer';
+	@override String get later => 'Plus tard';
+	@override String get next => 'Continuer';
+	@override String get failed => 'Ça n\'a pas abouti. Réessayez dans un moment.';
+	@override String get offline => 'Pas de réseau pour l\'instant. Réessayez quand la connexion revient.';
 }
 
 // Path: kinds
@@ -391,7 +413,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get chooseLists => 'Listes';
 	@override String get savedToast => 'Ajouté à Mes favoris';
 	@override String get removedToast => 'Retiré de Mes favoris';
-	@override String get pricePerNight => 'La nuit';
+	@override String get pricePerNight => 'Prix de la nuit';
 	@override String get priceFree => 'Gratuit';
 	@override String get priceUnknown => 'Inconnu';
 	@override String get priceServices => 'Services';
@@ -426,6 +448,8 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get viewSource => 'Voir à la source';
 	@override String get gone => 'Ce lieu n\'est plus dans les données';
 	@override String get goneHint => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.';
+	@override String get arriving => 'Ce lieu arrive avec le téléchargement des lieux';
+	@override String get arrivingHint => 'Les lieux de France se téléchargent pour que la carte marche sans réseau. La fiche s\'ouvre dès que celui-ci est arrivé.';
 	@override String get loadError => 'Ce lieu n\'a pas pu être lu.';
 	@override String get openFailed => 'Aucune application n\'a pu ouvrir ce lien.';
 	@override String get photos => 'Photos';
@@ -436,6 +460,7 @@ class _Translations$place$fr extends Translations$place$en {
 		other: '${n} avis',
 	);
 	@override String get noReviews => 'Aucun avis pour l\'instant.';
+	@override String get noOtherReviews => 'Aucun autre avis pour l\'instant.';
 	@override String get moreReviews => 'Plus d\'avis';
 	@override String get moreReviewsFailed => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.';
 	@override String stars({required Object rating}) => '${rating} sur 5';
@@ -616,6 +641,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionTiles => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.';
 	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
+	@override String get noTracking => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
 }
 
 // Path: units
@@ -653,6 +679,458 @@ class _Translations$locale$fr extends Translations$locale$en {
 	// Translations
 	@override String get en => 'English';
 	@override String get fr => 'Français';
+}
+
+// Path: account
+class _Translations$account$fr extends Translations$account$en {
+	_Translations$account$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Votre compte';
+	@override String get noneTitle => 'Pas encore de compte';
+	@override String get noneBody => 'La carte, la recherche et les favoris marchent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris le rejoignent alors.';
+	@override String get recover => 'Retrouver mon compte';
+	@override String memberSince({required Object date}) => 'Membre depuis ${date}';
+	@override String get editPseudonym => 'Modifier le pseudonyme';
+	@override String get pseudonymTitle => 'Votre pseudonyme';
+	@override String get pseudonymHint => 'Public : il accompagne vos avis et vos photos. De 3 à 32 caractères.';
+	@override String get pseudonymInvalid => 'De 3 à 32 caractères, dont au moins deux lettres.';
+	@override String get pseudonymRefused => 'Ce pseudonyme n\'est pas accepté : ni lien, ni coordonnées, ni mot injurieux, ni nom qui ferait passer le compte pour l\'équipe.';
+	@override String get pseudonymSaved => 'Pseudonyme enregistré';
+	@override String level({required Object level}) => 'Niveau de confiance ${level}';
+	@override late final _Translations$account$levelOpens$fr levelOpens = _Translations$account$levelOpens$fr._(_root);
+	@override String nextLevel({required Object level}) => 'Pour le niveau ${level}';
+	@override String get levelTop => 'Vous êtes au niveau le plus haut.';
+	@override late final _Translations$account$requirement$fr requirement = _Translations$account$requirement$fr._(_root);
+	@override String orInstead({required Object requirement}) => 'Ou bien : ${requirement}';
+	@override String get recoveryNone => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.';
+	@override String get recoveryCreate => 'Faire ma carte de secours';
+	@override String recoveryMade({required Object date}) => 'Carte de secours faite le ${date}';
+	@override String get recoveryRemake => 'Refaire la carte';
+	@override String get contributions => 'Mes contributions';
+	@override String pending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} contribution en attente d\'envoi',
+		other: '${n} contributions en attente d\'envoi',
+	);
+	@override String get mutedAuthors => 'Auteurs masqués';
+	@override String get devices => 'Appareils';
+	@override String get signOut => 'Se déconnecter';
+	@override String get delete => 'Supprimer mon compte';
+	@override String get signOutTitle => 'Se déconnecter de cet appareil ?';
+	@override String get signOutBody => 'La clé du compte quitte cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.';
+	@override String get signOutNoCard => 'Vous n\'avez pas fait de carte de secours sur cet appareil. Sans elle, ce compte sera perdu pour de bon.';
+	@override String signOutPending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Une contribution en attente d\'envoi ne partira pas.',
+		other: '${n} contributions en attente d\'envoi ne partiront pas.',
+	);
+	@override String get signedOut => 'Déconnecté. Vos favoris restent sur cet appareil.';
+	@override String get lost => 'Ce compte ne s\'ouvre plus sur cet appareil. Votre carte de secours le ramène.';
+	@override String get welcomeTitle => 'Merci pour votre première contribution';
+	@override String welcomeBody({required Object name}) => 'Elle a créé votre compte, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.';
+	@override String get welcomeCard => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.';
+	@override String get welcomeFavorites => 'Vos listes de favoris sont maintenant gardées avec votre compte.';
+}
+
+// Path: recovery
+class _Translations$recovery$fr extends Translations$recovery$en {
+	_Translations$recovery$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Carte de secours';
+	@override String get intro => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte : personne ne pourra vous le redonner.';
+	@override String get replaces => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.';
+	@override String get make => 'Faire la carte';
+	@override String get codeLabel => 'Votre code de secours';
+	@override String get shownOnce => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.';
+	@override String get saveImage => 'Enregistrer l\'image';
+	@override String get done => 'C\'est noté';
+	@override String get doneTitle => 'Vous avez bien gardé le code ?';
+	@override String get doneBody => 'Une fois cette page fermée, il ne s\'affichera plus.';
+	@override String get keep => 'Rester sur la page';
+	@override String get cardHeading => 'Carte de secours Lunaway';
+	@override String cardAccount({required Object name}) => 'Compte : ${name}';
+	@override String get cardHow => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis tapez ou lisez ce code.';
+	@override String cardMade({required Object date}) => 'Faite le ${date}';
+	@override String get cardWarning => 'Ce code ouvre le compte : ne le confiez à personne.';
+	@override String get failed => 'La carte n\'a pas pu être faite. Il faut une connexion.';
+	@override String get fileName => 'carte-de-secours-lunaway';
+	@override String get step1 => 'Faites la carte : le code ne s\'affiche qu\'une fois.';
+	@override String get step2 => 'Enregistrez l\'image, imprimez-la, ou recopiez le code à la main.';
+	@override String get step3 => 'Rangez-la dans la boîte à gants, avec les papiers du véhicule.';
+}
+
+// Path: recover
+class _Translations$recover$fr extends Translations$recover$en {
+	_Translations$recover$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Retrouver mon compte';
+	@override String get intro => 'Tapez le code de votre carte de secours, ou lisez-le sur une photo de la carte.';
+	@override String get field => 'Code de secours';
+	@override String get fieldHint => '27 caractères, par groupes de quatre';
+	@override String remaining({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Encore ${n} caractère',
+		other: 'Encore ${n} caractères',
+	);
+	@override String get invalid => 'Ce code ne correspond à aucune carte : vérifiez chaque caractère.';
+	@override String get valid => 'Code complet';
+	@override String get scan => 'Lire la carte sur une photo';
+	@override String get scanFile => 'Choisir l\'image de la carte';
+	@override String get reading => 'Lecture de la carte';
+	@override String get scanFailed => 'Aucun code lisible sur cette image. Essayez une photo plus nette, la carte bien à plat.';
+	@override String get revoke => 'Mon ancien appareil est perdu ou volé : le déconnecter';
+	@override String get revokeHint => 'Toutes les autres clés du compte seront retirées.';
+	@override String get submit => 'Retrouver le compte';
+	@override String get notFound => 'Aucun compte n\'a ce code. Vérifiez la carte, ou faites-en une nouvelle depuis un appareil connecté.';
+	@override String get tooMany => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.';
+	@override String done({required Object name}) => 'Compte retrouvé : ${name}';
+}
+
+// Path: deletion
+class _Translations$deletion$fr extends Translations$deletion$en {
+	_Translations$deletion$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Supprimer mon compte';
+	@override String get intro => 'La suppression est immédiate et définitive.';
+	@override String get goneTitle => 'Ce qui disparaît';
+	@override late final _Translations$deletion$gone$fr gone = _Translations$deletion$gone$fr._(_root);
+	@override String get keptTitle => 'Ce qui reste, sans votre nom';
+	@override String get kept => 'Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.';
+	@override String get backups => 'Les sauvegardes du serveur s\'effacent en 30 jours au plus.';
+	@override String get device => 'Sur cet appareil, vos favoris restent ; la clé du compte est effacée.';
+	@override String get web => 'La suppression est aussi possible sur lunaway.net avec votre code de secours.';
+	@override String get webLink => 'lunaway.net/account/delete';
+	@override String get confirmTitle => 'Supprimer définitivement ?';
+	@override String confirmBody({required Object name}) => 'Le compte « ${name} » et tout ce qui est listé disparaissent maintenant. Personne ne pourra le rétablir.';
+	@override String get confirmCheck => 'Je comprends que c\'est définitif';
+	@override String get confirm => 'Supprimer le compte';
+	@override String get done => 'Compte supprimé';
+	@override String get failed => 'Le compte n\'a pas pu être supprimé. Il faut une connexion.';
+}
+
+// Path: devices
+class _Translations$devices$fr extends Translations$devices$en {
+	_Translations$devices$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Appareils';
+	@override String get intro => 'Chaque appareil a sa propre clé. Retirez un appareil perdu, ou celui que vous n\'utilisez plus.';
+	@override String get thisDevice => 'Cet appareil';
+	@override String get other => 'Autre appareil';
+	@override String added({required Object date}) => 'Ajouté le ${date}';
+	@override String lastUsed({required Object when}) => 'Dernier usage ${when}';
+	@override String get revoke => 'Retirer';
+	@override String get revokeTitle => 'Retirer cet appareil ?';
+	@override String get revokeBody => 'Il sera déconnecté et ne pourra plus utiliser le compte.';
+	@override String get revoked => 'Appareil retiré';
+	@override String get signOutOthers => 'Déconnecter tous les autres appareils';
+	@override String signedOutOthers({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		zero: 'Aucune autre session ouverte',
+		one: '${n} session fermée',
+		other: '${n} sessions fermées',
+	);
+	@override String get error => 'Les appareils n\'ont pas pu être lus. Il faut une connexion.';
+}
+
+// Path: muted
+class _Translations$muted$fr extends Translations$muted$en {
+	_Translations$muted$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Auteurs masqués';
+	@override String get empty => 'Personne n\'est masqué';
+	@override String get emptyHint => 'Depuis un avis ou une photo, le menu masque tout ce que publie son auteur, pour vous seulement.';
+	@override String get unmute => 'Ne plus masquer';
+	@override String unmuted({required Object name}) => 'Les contributions de ${name} s\'afficheront de nouveau';
+}
+
+// Path: mine
+class _Translations$mine$fr extends Translations$mine$en {
+	_Translations$mine$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Mes contributions';
+	@override String get pending => 'En attente d\'envoi';
+	@override String get pendingHint => 'Elles partent dès que le réseau revient.';
+	@override String get sendNow => 'Envoyer maintenant';
+	@override String get retry => 'Réessayer';
+	@override String get discard => 'Abandonner';
+	@override String get discardTitle => 'Abandonner cette contribution ?';
+	@override String get discardBody => 'Elle ne sera pas envoyée.';
+	@override String get reviews => 'Avis et notes';
+	@override String get photos => 'Photos';
+	@override String get confirmations => 'Confirmations';
+	@override String get issues => 'Problèmes signalés';
+	@override String get places => 'Lieux ajoutés et modifications';
+	@override String get empty => 'Rien pour l\'instant';
+	@override String get emptyHint => 'Noter un lieu ou confirmer qu\'il est toujours là, c\'est déjà une contribution.';
+	@override String latest({required Object shown, required Object total}) => 'Les ${shown} contributions les plus récentes, sur ${total}';
+	@override String get error => 'Vos contributions n\'ont pas pu être lues. Il faut une connexion.';
+	@override String get deleteTitle => 'Supprimer cette contribution ?';
+	@override String get deleteBody => 'Elle disparaît de Lunaway.';
+	@override String get deleteApplied => 'Ce lieu fait déjà partie de la carte : il y reste, sans votre nom.';
+	@override String get deleted => 'Contribution supprimée';
+	@override String get ratingOnly => 'Note seule';
+	@override late final _Translations$mine$status$fr status = _Translations$mine$status$fr._(_root);
+	@override late final _Translations$mine$submission$fr submission = _Translations$mine$submission$fr._(_root);
+	@override String get newPlace => 'Nouveau lieu';
+	@override String get edit => 'Modification';
+	@override String get aPlace => 'Un lieu';
+}
+
+// Path: outbox
+class _Translations$outbox$fr extends Translations$outbox$en {
+	_Translations$outbox$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$outbox$kind$fr kind = _Translations$outbox$kind$fr._(_root);
+	@override String get waiting => 'En attente du réseau';
+	@override String get sending => 'Envoi en cours';
+	@override late final _Translations$outbox$error$fr error = _Translations$outbox$error$fr._(_root);
+	@override String get sent => 'Merci, c\'est envoyé';
+	@override String get queued => 'Pas de réseau : envoi dès qu\'il revient';
+	@override String refused({required Object reason}) => 'Pas envoyé. ${reason}';
+}
+
+// Path: contribute
+class _Translations$contribute$fr extends Translations$contribute$en {
+	_Translations$contribute$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get yourRating => 'Votre note';
+	@override String get rateHint => 'Touchez une étoile pour noter';
+	@override String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Noter ${n} étoile',
+		other: 'Noter ${n} étoiles',
+	);
+	@override String get writeReview => 'Écrire un avis';
+	@override String get editReview => 'Modifier votre avis';
+	@override String get deleteReview => 'Supprimer votre avis';
+	@override String get deleteReviewTitle => 'Supprimer votre avis ?';
+	@override String get deleteReviewBody => 'Le texte et la note disparaissent de la fiche.';
+	@override String get deleteRating => 'Retirer votre note';
+	@override String get deleteRatingTitle => 'Retirer votre note ?';
+	@override String get deleteRatingBody => 'Votre note disparaît de la fiche.';
+	@override String get pendingSend => 'En attente d\'envoi';
+	@override String get statusPending => 'En relecture : visible de vous seul pour l\'instant';
+	@override String get statusHidden => 'Masqué après des signalements, en attente d\'un modérateur';
+	@override String get statusRemoved => 'Retiré par la modération';
+	@override String get addPhoto => 'Ajouter une photo';
+	@override String get firstPhoto => 'Ajouter la première photo';
+	@override String get stillThere => 'Toujours là ?';
+	@override String get more => 'Plus d\'actions';
+	@override String get reportIssue => 'Signaler un problème';
+	@override String get proposeEdit => 'Proposer une modification';
+	@override String get editPlace => 'Modifier le lieu';
+	@override String get reportPlace => 'Signaler ce lieu à la modération';
+	@override String get toVerifyTitle => 'À vérifier';
+	@override String get toVerifyBody => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous y êtes passé ? Dites-le.';
+	@override String get issuesTitle => 'Signalé ces 30 derniers jours';
+	@override String issueCount({required Object kind, required Object count}) => '${kind} (${count})';
+	@override String get addPlace => 'Ajouter un lieu';
+	@override String get addPlaceHere => 'Ajouter un lieu ici';
+	@override String get addPlaceHint => 'Un appui long sur la carte déplace le point.';
+}
+
+// Path: confirmSheet
+class _Translations$confirmSheet$fr extends Translations$confirmSheet$en {
+	_Translations$confirmSheet$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Toujours là ?';
+	@override String get body => 'Vous y êtes passé récemment ? Votre réponse date la fiche pour les suivants. Aucune position n\'est envoyée.';
+	@override String get stillOk => 'Oui, comme décrit';
+	@override String get closed => 'Fermé';
+	@override String get changed => 'Changé';
+	@override String get closedHint => 'N\'accueille plus de voyageurs';
+	@override String get changedHint => 'Existe, mais quelque chose a changé';
+	@override String get note => 'Une précision pour les modérateurs (facultatif)';
+	@override String get noteHint => 'Par exemple : barrière de hauteur posée, borne déplacée';
+	@override late final _Translations$confirmSheet$status$fr status = _Translations$confirmSheet$status$fr._(_root);
+}
+
+// Path: issueSheet
+class _Translations$issueSheet$fr extends Translations$issueSheet$en {
+	_Translations$issueSheet$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Signaler un problème';
+	@override String get body => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.';
+	@override late final _Translations$issueSheet$kind$fr kind = _Translations$issueSheet$kind$fr._(_root);
+	@override late final _Translations$issueSheet$hint$fr hint = _Translations$issueSheet$hint$fr._(_root);
+	@override String get note => 'Une précision (facultatif)';
+	@override String get send => 'Signaler';
+}
+
+// Path: reportSheet
+class _Translations$reportSheet$fr extends Translations$reportSheet$en {
+	_Translations$reportSheet$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get review => 'Signaler cet avis';
+	@override String get photo => 'Signaler cette photo';
+	@override String get place => 'Signaler ce lieu';
+	@override String get body => 'Les modérateurs le liront. L\'auteur ne saura pas qui l\'a signalé.';
+	@override late final _Translations$reportSheet$reason$fr reason = _Translations$reportSheet$reason$fr._(_root);
+	@override String get note => 'Dites-en plus (facultatif)';
+	@override String get noteOther => 'Dites ce qui ne va pas';
+	@override String get sent => 'Merci, les modérateurs vont regarder';
+	@override String mute({required Object name}) => 'Masquer les avis et photos de ${name}';
+	@override String get muteAuthor => 'Masquer cet auteur';
+	@override String muteTitle({required Object name}) => 'Masquer ${name} ?';
+	@override String get muteBody => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.';
+	@override String muted({required Object name}) => '${name} est masqué';
+	@override String get deletePhoto => 'Supprimer ma photo';
+	@override String get deletePhotoTitle => 'Supprimer cette photo ?';
+	@override String get deletePhotoBody => 'Elle disparaît de la fiche et de nos serveurs.';
+}
+
+// Path: reviewSheet
+class _Translations$reviewSheet$fr extends Translations$reviewSheet$en {
+	_Translations$reviewSheet$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get titleNew => 'Votre avis';
+	@override String get titleEdit => 'Modifier votre avis';
+	@override String get starsRequired => 'Choisissez une note de 1 à 5';
+	@override String get text => 'Votre avis';
+	@override String get textHint => 'Le calme, l\'accueil, la place pour manœuvrer, ce qui vous a servi';
+	@override String tooShort({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Encore ${n} caractère au moins',
+		other: 'Encore ${n} caractères au moins',
+	);
+	@override String get visited => 'Date du séjour';
+	@override String get visitedNone => 'Non précisée';
+	@override String get vehicle => 'Votre véhicule';
+	@override String get vehicleNone => 'Ne pas préciser';
+	@override String get licence => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. Mis bout à bout, vos avis et leurs dates peuvent montrer par où vous êtes passé : la date du séjour est facultative.';
+	@override String get publish => 'Publier l\'avis';
+}
+
+// Path: gate
+class _Translations$gate$fr extends Translations$gate$en {
+	_Translations$gate$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get review => 'Les avis écrits s\'ouvrent au niveau 1';
+	@override String get photo => 'Les photos s\'ouvrent au niveau 1';
+	@override String get addPlace => 'L\'ajout de lieux s\'ouvre au niveau 2';
+	@override String get edit => 'Les propositions de modification s\'ouvrent au niveau 1';
+	@override String get why => 'Les niveaux tiennent les abus loin de la carte. Ils viennent avec le temps et les contributions, sans rien à acheter.';
+	@override String yourLevel({required Object level}) => 'Votre niveau : ${level}';
+	@override String get noAccount => 'Pas encore de compte : un compte commence au niveau 0.';
+	@override String later({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.';
+	@override String get meanwhile => 'En attendant, vous pouvez noter ce lieu, confirmer qu\'il est toujours là ou signaler un problème.';
+}
+
+// Path: photoFlow
+class _Translations$photoFlow$fr extends Translations$photoFlow$en {
+	_Translations$photoFlow$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Ajouter une photo';
+	@override String get camera => 'Prendre une photo';
+	@override String get gallery => 'Choisir dans la galerie';
+	@override String get preparing => 'Préparation de la photo';
+	@override String get licence => 'Publiée sous licence CC BY 4.0, avec votre pseudonyme. Évitez les visages et les plaques d\'immatriculation.';
+	@override String get stripped => 'La position et les données de l\'appareil sont retirées avant l\'envoi.';
+	@override String get send => 'Envoyer la photo';
+	@override String get unreadable => 'Cette image ne peut pas être lue sur cet appareil. Essayez une photo JPEG ou PNG.';
+	@override String sending({required Object percent}) => 'Envoi ${percent} %';
+	@override String get pending => 'Photo en attente d\'envoi';
+}
+
+// Path: placeForm
+class _Translations$placeForm$fr extends Translations$placeForm$en {
+	_Translations$placeForm$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get addTitle => 'Ajouter un lieu';
+	@override String get editTitle => 'Modifier le lieu';
+	@override String get proposeTitle => 'Proposer une modification';
+	@override String get position => 'Emplacement';
+	@override String get kind => 'Type de lieu';
+	@override String get kindRequired => 'Choisissez un type de lieu';
+	@override String get name => 'Nom';
+	@override String get nameHint => 'Le nom affiché sur place, ou une description courte';
+	@override String get nameInvalid => 'De 2 à 120 caractères';
+	@override String get night => 'La nuit';
+	@override String get services => 'Services sur place';
+	@override String get description => 'Description';
+	@override String get descriptionHint => 'Ce qui aide à trouver et à choisir le lieu';
+	@override String get details => 'Précisions';
+	@override String get priceNight => 'Prix de la nuit (€)';
+	@override String get priceServices => 'Prix des services (€)';
+	@override String get maxHeight => 'Hauteur maximale (m)';
+	@override String get capacity => 'Emplacements';
+	@override String get website => 'Site web';
+	@override String get phone => 'Téléphone';
+	@override String get photo => 'Photo (facultatif)';
+	@override String get photoReady => 'Photo prête';
+	@override String get removePhoto => 'Retirer la photo';
+	@override String get toVerify => 'Le lieu apparaîtra « à vérifier » jusqu\'à ce que deux autres voyageurs le confirment.';
+	@override String get licence => 'Les lieux sont publiés sous licence ODbL, crédités aux contributeurs de Lunaway.';
+	@override String get moderated => 'Un site web ou un téléphone passe par un modérateur avant d\'être publié.';
+	@override String get direct => 'Votre niveau applique la modification tout de suite.';
+	@override String get proposal => 'Un modérateur relira votre proposition avant qu\'elle s\'applique.';
+	@override String get submitAdd => 'Ajouter le lieu';
+	@override String get submitEdit => 'Enregistrer la modification';
+	@override String get submitPropose => 'Envoyer la proposition';
+	@override String get nothingChanged => 'Rien n\'a changé';
+	@override String get invalidNumber => 'Un nombre, s\'il vous plaît';
+	@override String get invalidWebsite => 'Une adresse qui commence par http:// ou https://';
+	@override String get added => 'Merci : le lieu arrive sur la carte dans un instant';
+	@override String get proposed => 'Merci : votre proposition part en relecture';
+}
+
+// Path: favoritesSync
+class _Translations$favoritesSync$fr extends Translations$favoritesSync$en {
+	_Translations$favoritesSync$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get local => 'Sur cet appareil seulement';
+	@override String get action => 'Synchroniser';
+	@override String get syncing => 'Synchronisation en cours';
+	@override String synced({required Object when}) => 'Gardés avec votre compte, synchronisés ${when}';
+	@override String get failed => 'Synchronisation impossible pour l\'instant';
+	@override String get title => 'Synchroniser vos favoris ?';
+	@override String get body => 'Vos listes seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.';
+	@override String get confirm => 'Créer le compte et synchroniser';
 }
 
 // Path: place.reviewVehicle
@@ -695,6 +1173,172 @@ class _Translations$vehicle$towing$fr extends Translations$vehicle$towing$en {
 	@override String get trailer => 'Une remorque';
 }
 
+// Path: account.levelOpens
+class _Translations$account$levelOpens$fr extends Translations$account$levelOpens$en {
+	_Translations$account$levelOpens$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get l0 => 'Vous pouvez noter les lieux, confirmer qu\'ils sont toujours là, signaler un problème et synchroniser vos favoris.';
+	@override String get l1 => 'Vous pouvez aussi écrire des avis, ajouter des photos et proposer des modifications de lieux.';
+	@override String get l2 => 'Vous pouvez aussi ajouter des lieux.';
+	@override String get l3 => 'Vos modifications de lieux s\'appliquent sans relecture.';
+	@override String get l4 => 'Vous participez à la modération.';
+}
+
+// Path: account.requirement
+class _Translations$account$requirement$fr extends Translations$account$requirement$en {
+	_Translations$account$requirement$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String age({required Object needed, required Object current}) => 'Un compte d\'au moins ${needed} jours (${current} pour l\'instant)';
+	@override String confirmations({required Object needed, required Object current}) => '${needed} confirmations de lieux différents (${current} pour l\'instant)';
+	@override String contributions({required Object needed, required Object current}) => '${needed} contributions publiées (${current} pour l\'instant)';
+	@override String activeDays({required Object needed, required Object current}) => '${needed} jours d\'activité (${current} pour l\'instant)';
+	@override String get noRemoval => 'Aucune contribution retirée par la modération';
+	@override String get sponsor => 'Le parrainage d\'un membre de niveau 2';
+	@override String get nomination => 'Une nomination par la modération';
+	@override String get administration => 'Une désignation par l\'équipe de Lunaway';
+}
+
+// Path: deletion.gone
+class _Translations$deletion$gone$fr extends Translations$deletion$gone$en {
+	_Translations$deletion$gone$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get identity => 'Votre pseudonyme et les clés de vos appareils';
+	@override String get sessions => 'Vos sessions et votre code de secours';
+	@override String get lists => 'Vos listes de favoris synchronisées et vos auteurs masqués';
+	@override String get photos => 'Vos photos, vos notes sans texte et vos signalements';
+	@override String get pending => 'Vos propositions en attente de relecture';
+}
+
+// Path: mine.status
+class _Translations$mine$status$fr extends Translations$mine$status$en {
+	_Translations$mine$status$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get published => 'Publié';
+	@override String get pending => 'En relecture';
+	@override String get hidden => 'Masqué après des signalements';
+	@override String get removed => 'Retiré par la modération';
+}
+
+// Path: mine.submission
+class _Translations$mine$submission$fr extends Translations$mine$submission$en {
+	_Translations$mine$submission$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get proposed => 'En attente de relecture';
+	@override String get accepted => 'Accepté';
+	@override String get applied => 'Sur la carte';
+	@override String get rejected => 'Refusé';
+	@override String get withdrawn => 'Retiré';
+}
+
+// Path: outbox.kind
+class _Translations$outbox$kind$fr extends Translations$outbox$kind$en {
+	_Translations$outbox$kind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String rate({required Object stars}) => 'Note de ${stars} sur 5';
+	@override String get review => 'Avis';
+	@override String get deleteReview => 'Suppression d\'un avis';
+	@override String confirm({required Object status}) => 'Toujours là ? ${status}';
+	@override String get deleteConfirmation => 'Suppression d\'une confirmation';
+	@override String reportIssue({required Object kind}) => 'Problème signalé : ${kind}';
+	@override String get deleteIssueReport => 'Suppression d\'un signalement';
+	@override String get reportContent => 'Signalement à la modération';
+	@override String addPlace({required Object name}) => 'Nouveau lieu : ${name}';
+	@override String get editPlace => 'Modification d\'un lieu';
+	@override String get deletePlaceSubmission => 'Retrait d\'un lieu proposé';
+	@override String get photo => 'Photo';
+	@override String get deletePhoto => 'Suppression d\'une photo';
+	@override String get mute => 'Masquer un auteur';
+	@override String get unmute => 'Ne plus masquer un auteur';
+}
+
+// Path: outbox.error
+class _Translations$outbox$error$fr extends Translations$outbox$error$en {
+	_Translations$outbox$error$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get forbidden => 'Refusé : votre niveau ne le permet pas encore.';
+	@override String get notFound => 'Refusé : le lieu ou le contenu n\'existe plus.';
+	@override String get invalid => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).';
+	@override String get unreadablePhoto => 'Photo refusée : illisible, ou déjà envoyée.';
+	@override String get photoTooLarge => 'Photo refusée : trop lourde.';
+	@override String get placeRefused => 'Le nouveau lieu de cette photo a été refusé.';
+	@override String get fileLost => 'La photo n\'est plus sur l\'appareil.';
+	@override String get otherAccount => 'Préparée pour un autre compte : elle ne sera pas envoyée.';
+	@override String get other => 'Refusé par le serveur.';
+}
+
+// Path: confirmSheet.status
+class _Translations$confirmSheet$status$fr extends Translations$confirmSheet$status$en {
+	_Translations$confirmSheet$status$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get stillOk => 'toujours là';
+	@override String get closed => 'fermé';
+	@override String get changed => 'changé';
+}
+
+// Path: issueSheet.kind
+class _Translations$issueSheet$kind$fr extends Translations$issueSheet$kind$en {
+	_Translations$issueSheet$kind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get nightBan => 'Nuit interdite désormais';
+	@override String get serviceBroken => 'Service en panne';
+	@override String get noAccess => 'Accès impossible';
+	@override String get danger => 'Danger';
+}
+
+// Path: issueSheet.hint
+class _Translations$issueSheet$hint$fr extends Translations$issueSheet$hint$en {
+	_Translations$issueSheet$hint$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get nightBan => 'Panneau, arrêté municipal, passage de la police';
+	@override String get serviceBroken => 'Borne, eau, vidange ou électricité hors service';
+	@override String get noAccess => 'Barrière, travaux, route fermée';
+	@override String get danger => 'Vol, agression, terrain instable';
+}
+
+// Path: reportSheet.reason
+class _Translations$reportSheet$reason$fr extends Translations$reportSheet$reason$en {
+	_Translations$reportSheet$reason$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get spam => 'Publicité ou répétition';
+	@override String get offensive => 'Insultant, haineux ou choquant';
+	@override String get wrong => 'Faux ou trompeur';
+	@override String get privacy => 'Montre ou nomme une personne, une plaque, une adresse privée';
+	@override String get other => 'Autre raison';
+}
+
 /// The flat map containing all translations for locale <fr>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -715,6 +1359,11 @@ extension on TranslationsFr {
 			'common.undo' => 'Annuler',
 			'common.ok' => 'Compris',
 			'common.saveFailed' => 'La modification n\'a pas pu être enregistrée.',
+			'common.send' => 'Envoyer',
+			'common.later' => 'Plus tard',
+			'common.next' => 'Continuer',
+			'common.failed' => 'Ça n\'a pas abouti. Réessayez dans un moment.',
+			'common.offline' => 'Pas de réseau pour l\'instant. Réessayez quand la connexion revient.',
 			'kinds.motorhomeArea' => 'Aire de camping-car',
 			'kinds.serviceArea' => 'Aire de services',
 			'kinds.campsite' => 'Camping',
@@ -865,7 +1514,7 @@ extension on TranslationsFr {
 			'place.chooseLists' => 'Listes',
 			'place.savedToast' => 'Ajouté à Mes favoris',
 			'place.removedToast' => 'Retiré de Mes favoris',
-			'place.pricePerNight' => 'La nuit',
+			'place.pricePerNight' => 'Prix de la nuit',
 			'place.priceFree' => 'Gratuit',
 			'place.priceUnknown' => 'Inconnu',
 			'place.priceServices' => 'Services',
@@ -897,6 +1546,8 @@ extension on TranslationsFr {
 			'place.viewSource' => 'Voir à la source',
 			'place.gone' => 'Ce lieu n\'est plus dans les données',
 			'place.goneHint' => 'Il a été retiré ou fusionné avec un autre depuis la dernière mise à jour.',
+			'place.arriving' => 'Ce lieu arrive avec le téléchargement des lieux',
+			'place.arrivingHint' => 'Les lieux de France se téléchargent pour que la carte marche sans réseau. La fiche s\'ouvre dès que celui-ci est arrivé.',
 			'place.loadError' => 'Ce lieu n\'a pas pu être lu.',
 			'place.openFailed' => 'Aucune application n\'a pu ouvrir ce lien.',
 			'place.photos' => 'Photos',
@@ -904,6 +1555,7 @@ extension on TranslationsFr {
 			'place.reviewsTitle' => 'Avis',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} avis', other: '${n} avis', ), 
 			'place.noReviews' => 'Aucun avis pour l\'instant.',
+			'place.noOtherReviews' => 'Aucun autre avis pour l\'instant.',
 			'place.moreReviews' => 'Plus d\'avis',
 			'place.moreReviewsFailed' => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.',
 			'place.stars' => ({required Object rating}) => '${rating} sur 5',
@@ -1027,6 +1679,7 @@ extension on TranslationsFr {
 			'profile.attributionTiles' => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.',
 			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
+			'profile.noTracking' => 'Sans publicité ni pisteur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',
@@ -1037,6 +1690,344 @@ extension on TranslationsFr {
 			'languages.nl' => 'néerlandais',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
+			'account.title' => 'Votre compte',
+			'account.noneTitle' => 'Pas encore de compte',
+			'account.noneBody' => 'La carte, la recherche et les favoris marchent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris le rejoignent alors.',
+			'account.recover' => 'Retrouver mon compte',
+			'account.memberSince' => ({required Object date}) => 'Membre depuis ${date}',
+			'account.editPseudonym' => 'Modifier le pseudonyme',
+			'account.pseudonymTitle' => 'Votre pseudonyme',
+			'account.pseudonymHint' => 'Public : il accompagne vos avis et vos photos. De 3 à 32 caractères.',
+			'account.pseudonymInvalid' => 'De 3 à 32 caractères, dont au moins deux lettres.',
+			'account.pseudonymRefused' => 'Ce pseudonyme n\'est pas accepté : ni lien, ni coordonnées, ni mot injurieux, ni nom qui ferait passer le compte pour l\'équipe.',
+			'account.pseudonymSaved' => 'Pseudonyme enregistré',
+			'account.level' => ({required Object level}) => 'Niveau de confiance ${level}',
+			'account.levelOpens.l0' => 'Vous pouvez noter les lieux, confirmer qu\'ils sont toujours là, signaler un problème et synchroniser vos favoris.',
+			'account.levelOpens.l1' => 'Vous pouvez aussi écrire des avis, ajouter des photos et proposer des modifications de lieux.',
+			'account.levelOpens.l2' => 'Vous pouvez aussi ajouter des lieux.',
+			'account.levelOpens.l3' => 'Vos modifications de lieux s\'appliquent sans relecture.',
+			'account.levelOpens.l4' => 'Vous participez à la modération.',
+			'account.nextLevel' => ({required Object level}) => 'Pour le niveau ${level}',
+			'account.levelTop' => 'Vous êtes au niveau le plus haut.',
+			'account.requirement.age' => ({required Object needed, required Object current}) => 'Un compte d\'au moins ${needed} jours (${current} pour l\'instant)',
+			'account.requirement.confirmations' => ({required Object needed, required Object current}) => '${needed} confirmations de lieux différents (${current} pour l\'instant)',
+			'account.requirement.contributions' => ({required Object needed, required Object current}) => '${needed} contributions publiées (${current} pour l\'instant)',
+			'account.requirement.activeDays' => ({required Object needed, required Object current}) => '${needed} jours d\'activité (${current} pour l\'instant)',
+			'account.requirement.noRemoval' => 'Aucune contribution retirée par la modération',
+			'account.requirement.sponsor' => 'Le parrainage d\'un membre de niveau 2',
+			'account.requirement.nomination' => 'Une nomination par la modération',
+			'account.requirement.administration' => 'Une désignation par l\'équipe de Lunaway',
+			'account.orInstead' => ({required Object requirement}) => 'Ou bien : ${requirement}',
+			'account.recoveryNone' => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.',
+			'account.recoveryCreate' => 'Faire ma carte de secours',
+			'account.recoveryMade' => ({required Object date}) => 'Carte de secours faite le ${date}',
+			'account.recoveryRemake' => 'Refaire la carte',
+			'account.contributions' => 'Mes contributions',
+			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
+			'account.mutedAuthors' => 'Auteurs masqués',
+			'account.devices' => 'Appareils',
+			'account.signOut' => 'Se déconnecter',
+			'account.delete' => 'Supprimer mon compte',
+			'account.signOutTitle' => 'Se déconnecter de cet appareil ?',
+			'account.signOutBody' => 'La clé du compte quitte cet appareil. Pour revenir, il faudra votre carte de secours. Vos favoris restent ici.',
+			'account.signOutNoCard' => 'Vous n\'avez pas fait de carte de secours sur cet appareil. Sans elle, ce compte sera perdu pour de bon.',
+			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Une contribution en attente d\'envoi ne partira pas.', other: '${n} contributions en attente d\'envoi ne partiront pas.', ), 
+			'account.signedOut' => 'Déconnecté. Vos favoris restent sur cet appareil.',
+			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Votre carte de secours le ramène.',
+			'account.welcomeTitle' => 'Merci pour votre première contribution',
+			'account.welcomeBody' => ({required Object name}) => 'Elle a créé votre compte, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
+			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
+			'account.welcomeFavorites' => 'Vos listes de favoris sont maintenant gardées avec votre compte.',
+			'recovery.title' => 'Carte de secours',
+			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte : personne ne pourra vous le redonner.',
+			'recovery.replaces' => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.',
+			'recovery.make' => 'Faire la carte',
+			'recovery.codeLabel' => 'Votre code de secours',
+			'recovery.shownOnce' => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.',
+			'recovery.saveImage' => 'Enregistrer l\'image',
+			'recovery.done' => 'C\'est noté',
+			'recovery.doneTitle' => 'Vous avez bien gardé le code ?',
+			'recovery.doneBody' => 'Une fois cette page fermée, il ne s\'affichera plus.',
+			'recovery.keep' => 'Rester sur la page',
+			'recovery.cardHeading' => 'Carte de secours Lunaway',
+			'recovery.cardAccount' => ({required Object name}) => 'Compte : ${name}',
+			'recovery.cardHow' => 'Pour retrouver le compte : Profil, Retrouver mon compte, puis tapez ou lisez ce code.',
+			'recovery.cardMade' => ({required Object date}) => 'Faite le ${date}',
+			'recovery.cardWarning' => 'Ce code ouvre le compte : ne le confiez à personne.',
+			'recovery.failed' => 'La carte n\'a pas pu être faite. Il faut une connexion.',
+			'recovery.fileName' => 'carte-de-secours-lunaway',
+			'recovery.step1' => 'Faites la carte : le code ne s\'affiche qu\'une fois.',
+			'recovery.step2' => 'Enregistrez l\'image, imprimez-la, ou recopiez le code à la main.',
+			'recovery.step3' => 'Rangez-la dans la boîte à gants, avec les papiers du véhicule.',
+			'recover.title' => 'Retrouver mon compte',
+			'recover.intro' => 'Tapez le code de votre carte de secours, ou lisez-le sur une photo de la carte.',
+			'recover.field' => 'Code de secours',
+			'recover.fieldHint' => '27 caractères, par groupes de quatre',
+			'recover.remaining' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Encore ${n} caractère', other: 'Encore ${n} caractères', ), 
+			'recover.invalid' => 'Ce code ne correspond à aucune carte : vérifiez chaque caractère.',
+			'recover.valid' => 'Code complet',
+			'recover.scan' => 'Lire la carte sur une photo',
+			'recover.scanFile' => 'Choisir l\'image de la carte',
+			'recover.reading' => 'Lecture de la carte',
+			'recover.scanFailed' => 'Aucun code lisible sur cette image. Essayez une photo plus nette, la carte bien à plat.',
+			'recover.revoke' => 'Mon ancien appareil est perdu ou volé : le déconnecter',
+			'recover.revokeHint' => 'Toutes les autres clés du compte seront retirées.',
+			'recover.submit' => 'Retrouver le compte',
+			'recover.notFound' => 'Aucun compte n\'a ce code. Vérifiez la carte, ou faites-en une nouvelle depuis un appareil connecté.',
+			'recover.tooMany' => 'Trop d\'essais pour l\'instant. Réessayez dans une heure.',
+			'recover.done' => ({required Object name}) => 'Compte retrouvé : ${name}',
+			'deletion.title' => 'Supprimer mon compte',
+			'deletion.intro' => 'La suppression est immédiate et définitive.',
+			'deletion.goneTitle' => 'Ce qui disparaît',
+			'deletion.gone.identity' => 'Votre pseudonyme et les clés de vos appareils',
+			'deletion.gone.sessions' => 'Vos sessions et votre code de secours',
+			'deletion.gone.lists' => 'Vos listes de favoris synchronisées et vos auteurs masqués',
+			'deletion.gone.photos' => 'Vos photos, vos notes sans texte et vos signalements',
+			'deletion.gone.pending' => 'Vos propositions en attente de relecture',
+			'deletion.keptTitle' => 'Ce qui reste, sans votre nom',
+			'deletion.kept' => 'Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.',
+			'deletion.backups' => 'Les sauvegardes du serveur s\'effacent en 30 jours au plus.',
+			'deletion.device' => 'Sur cet appareil, vos favoris restent ; la clé du compte est effacée.',
+			'deletion.web' => 'La suppression est aussi possible sur lunaway.net avec votre code de secours.',
+			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.confirmTitle' => 'Supprimer définitivement ?',
+			'deletion.confirmBody' => ({required Object name}) => 'Le compte « ${name} » et tout ce qui est listé disparaissent maintenant. Personne ne pourra le rétablir.',
+			'deletion.confirmCheck' => 'Je comprends que c\'est définitif',
+			'deletion.confirm' => 'Supprimer le compte',
+			'deletion.done' => 'Compte supprimé',
+			'deletion.failed' => 'Le compte n\'a pas pu être supprimé. Il faut une connexion.',
+			'devices.title' => 'Appareils',
+			'devices.intro' => 'Chaque appareil a sa propre clé. Retirez un appareil perdu, ou celui que vous n\'utilisez plus.',
+			'devices.thisDevice' => 'Cet appareil',
+			'devices.other' => 'Autre appareil',
+			'devices.added' => ({required Object date}) => 'Ajouté le ${date}',
+			'devices.lastUsed' => ({required Object when}) => 'Dernier usage ${when}',
+			'devices.revoke' => 'Retirer',
+			'devices.revokeTitle' => 'Retirer cet appareil ?',
+			'devices.revokeBody' => 'Il sera déconnecté et ne pourra plus utiliser le compte.',
+			'devices.revoked' => 'Appareil retiré',
+			'devices.signOutOthers' => 'Déconnecter tous les autres appareils',
+			'devices.signedOutOthers' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucune autre session ouverte', one: '${n} session fermée', other: '${n} sessions fermées', ), 
+			'devices.error' => 'Les appareils n\'ont pas pu être lus. Il faut une connexion.',
+			'muted.title' => 'Auteurs masqués',
+			'muted.empty' => 'Personne n\'est masqué',
+			'muted.emptyHint' => 'Depuis un avis ou une photo, le menu masque tout ce que publie son auteur, pour vous seulement.',
+			'muted.unmute' => 'Ne plus masquer',
+			'muted.unmuted' => ({required Object name}) => 'Les contributions de ${name} s\'afficheront de nouveau',
+			'mine.title' => 'Mes contributions',
+			'mine.pending' => 'En attente d\'envoi',
+			'mine.pendingHint' => 'Elles partent dès que le réseau revient.',
+			'mine.sendNow' => 'Envoyer maintenant',
+			'mine.retry' => 'Réessayer',
+			'mine.discard' => 'Abandonner',
+			'mine.discardTitle' => 'Abandonner cette contribution ?',
+			'mine.discardBody' => 'Elle ne sera pas envoyée.',
+			'mine.reviews' => 'Avis et notes',
+			'mine.photos' => 'Photos',
+			'mine.confirmations' => 'Confirmations',
+			'mine.issues' => 'Problèmes signalés',
+			'mine.places' => 'Lieux ajoutés et modifications',
+			'mine.empty' => 'Rien pour l\'instant',
+			'mine.emptyHint' => 'Noter un lieu ou confirmer qu\'il est toujours là, c\'est déjà une contribution.',
+			'mine.latest' => ({required Object shown, required Object total}) => 'Les ${shown} contributions les plus récentes, sur ${total}',
+			'mine.error' => 'Vos contributions n\'ont pas pu être lues. Il faut une connexion.',
+			'mine.deleteTitle' => 'Supprimer cette contribution ?',
+			'mine.deleteBody' => 'Elle disparaît de Lunaway.',
+			'mine.deleteApplied' => 'Ce lieu fait déjà partie de la carte : il y reste, sans votre nom.',
+			'mine.deleted' => 'Contribution supprimée',
+			'mine.ratingOnly' => 'Note seule',
+			'mine.status.published' => 'Publié',
+			'mine.status.pending' => 'En relecture',
+			'mine.status.hidden' => 'Masqué après des signalements',
+			'mine.status.removed' => 'Retiré par la modération',
+			'mine.submission.proposed' => 'En attente de relecture',
+			'mine.submission.accepted' => 'Accepté',
+			'mine.submission.applied' => 'Sur la carte',
+			'mine.submission.rejected' => 'Refusé',
+			'mine.submission.withdrawn' => 'Retiré',
+			'mine.newPlace' => 'Nouveau lieu',
+			'mine.edit' => 'Modification',
+			'mine.aPlace' => 'Un lieu',
+			'outbox.kind.rate' => ({required Object stars}) => 'Note de ${stars} sur 5',
+			'outbox.kind.review' => 'Avis',
+			'outbox.kind.deleteReview' => 'Suppression d\'un avis',
+			'outbox.kind.confirm' => ({required Object status}) => 'Toujours là ? ${status}',
+			'outbox.kind.deleteConfirmation' => 'Suppression d\'une confirmation',
+			'outbox.kind.reportIssue' => ({required Object kind}) => 'Problème signalé : ${kind}',
+			'outbox.kind.deleteIssueReport' => 'Suppression d\'un signalement',
+			'outbox.kind.reportContent' => 'Signalement à la modération',
+			'outbox.kind.addPlace' => ({required Object name}) => 'Nouveau lieu : ${name}',
+			'outbox.kind.editPlace' => 'Modification d\'un lieu',
+			'outbox.kind.deletePlaceSubmission' => 'Retrait d\'un lieu proposé',
+			_ => null,
+		} ?? switch (path) {
+			'outbox.kind.photo' => 'Photo',
+			'outbox.kind.deletePhoto' => 'Suppression d\'une photo',
+			'outbox.kind.mute' => 'Masquer un auteur',
+			'outbox.kind.unmute' => 'Ne plus masquer un auteur',
+			'outbox.waiting' => 'En attente du réseau',
+			'outbox.sending' => 'Envoi en cours',
+			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
+			'outbox.error.notFound' => 'Refusé : le lieu ou le contenu n\'existe plus.',
+			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
+			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
+			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
+			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
+			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
+			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
+			'outbox.error.other' => 'Refusé par le serveur.',
+			'outbox.sent' => 'Merci, c\'est envoyé',
+			'outbox.queued' => 'Pas de réseau : envoi dès qu\'il revient',
+			'outbox.refused' => ({required Object reason}) => 'Pas envoyé. ${reason}',
+			'contribute.yourRating' => 'Votre note',
+			'contribute.rateHint' => 'Touchez une étoile pour noter',
+			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Noter ${n} étoile', other: 'Noter ${n} étoiles', ), 
+			'contribute.writeReview' => 'Écrire un avis',
+			'contribute.editReview' => 'Modifier votre avis',
+			'contribute.deleteReview' => 'Supprimer votre avis',
+			'contribute.deleteReviewTitle' => 'Supprimer votre avis ?',
+			'contribute.deleteReviewBody' => 'Le texte et la note disparaissent de la fiche.',
+			'contribute.deleteRating' => 'Retirer votre note',
+			'contribute.deleteRatingTitle' => 'Retirer votre note ?',
+			'contribute.deleteRatingBody' => 'Votre note disparaît de la fiche.',
+			'contribute.pendingSend' => 'En attente d\'envoi',
+			'contribute.statusPending' => 'En relecture : visible de vous seul pour l\'instant',
+			'contribute.statusHidden' => 'Masqué après des signalements, en attente d\'un modérateur',
+			'contribute.statusRemoved' => 'Retiré par la modération',
+			'contribute.addPhoto' => 'Ajouter une photo',
+			'contribute.firstPhoto' => 'Ajouter la première photo',
+			'contribute.stillThere' => 'Toujours là ?',
+			'contribute.more' => 'Plus d\'actions',
+			'contribute.reportIssue' => 'Signaler un problème',
+			'contribute.proposeEdit' => 'Proposer une modification',
+			'contribute.editPlace' => 'Modifier le lieu',
+			'contribute.reportPlace' => 'Signaler ce lieu à la modération',
+			'contribute.toVerifyTitle' => 'À vérifier',
+			'contribute.toVerifyBody' => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous y êtes passé ? Dites-le.',
+			'contribute.issuesTitle' => 'Signalé ces 30 derniers jours',
+			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
+			'contribute.addPlace' => 'Ajouter un lieu',
+			'contribute.addPlaceHere' => 'Ajouter un lieu ici',
+			'contribute.addPlaceHint' => 'Un appui long sur la carte déplace le point.',
+			'confirmSheet.title' => 'Toujours là ?',
+			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse date la fiche pour les suivants. Aucune position n\'est envoyée.',
+			'confirmSheet.stillOk' => 'Oui, comme décrit',
+			'confirmSheet.closed' => 'Fermé',
+			'confirmSheet.changed' => 'Changé',
+			'confirmSheet.closedHint' => 'N\'accueille plus de voyageurs',
+			'confirmSheet.changedHint' => 'Existe, mais quelque chose a changé',
+			'confirmSheet.note' => 'Une précision pour les modérateurs (facultatif)',
+			'confirmSheet.noteHint' => 'Par exemple : barrière de hauteur posée, borne déplacée',
+			'confirmSheet.status.stillOk' => 'toujours là',
+			'confirmSheet.status.closed' => 'fermé',
+			'confirmSheet.status.changed' => 'changé',
+			'issueSheet.title' => 'Signaler un problème',
+			'issueSheet.body' => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.',
+			'issueSheet.kind.nightBan' => 'Nuit interdite désormais',
+			'issueSheet.kind.serviceBroken' => 'Service en panne',
+			'issueSheet.kind.noAccess' => 'Accès impossible',
+			'issueSheet.kind.danger' => 'Danger',
+			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
+			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
+			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
+			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
+			'issueSheet.note' => 'Une précision (facultatif)',
+			'issueSheet.send' => 'Signaler',
+			'reportSheet.review' => 'Signaler cet avis',
+			'reportSheet.photo' => 'Signaler cette photo',
+			'reportSheet.place' => 'Signaler ce lieu',
+			'reportSheet.body' => 'Les modérateurs le liront. L\'auteur ne saura pas qui l\'a signalé.',
+			'reportSheet.reason.spam' => 'Publicité ou répétition',
+			'reportSheet.reason.offensive' => 'Insultant, haineux ou choquant',
+			'reportSheet.reason.wrong' => 'Faux ou trompeur',
+			'reportSheet.reason.privacy' => 'Montre ou nomme une personne, une plaque, une adresse privée',
+			'reportSheet.reason.other' => 'Autre raison',
+			'reportSheet.note' => 'Dites-en plus (facultatif)',
+			'reportSheet.noteOther' => 'Dites ce qui ne va pas',
+			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
+			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
+			'reportSheet.muteAuthor' => 'Masquer cet auteur',
+			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
+			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',
+			'reportSheet.muted' => ({required Object name}) => '${name} est masqué',
+			'reportSheet.deletePhoto' => 'Supprimer ma photo',
+			'reportSheet.deletePhotoTitle' => 'Supprimer cette photo ?',
+			'reportSheet.deletePhotoBody' => 'Elle disparaît de la fiche et de nos serveurs.',
+			'reviewSheet.titleNew' => 'Votre avis',
+			'reviewSheet.titleEdit' => 'Modifier votre avis',
+			'reviewSheet.starsRequired' => 'Choisissez une note de 1 à 5',
+			'reviewSheet.text' => 'Votre avis',
+			'reviewSheet.textHint' => 'Le calme, l\'accueil, la place pour manœuvrer, ce qui vous a servi',
+			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Encore ${n} caractère au moins', other: 'Encore ${n} caractères au moins', ), 
+			'reviewSheet.visited' => 'Date du séjour',
+			'reviewSheet.visitedNone' => 'Non précisée',
+			'reviewSheet.vehicle' => 'Votre véhicule',
+			'reviewSheet.vehicleNone' => 'Ne pas préciser',
+			'reviewSheet.licence' => 'Publié sous licence CC BY 4.0, avec votre pseudonyme. Mis bout à bout, vos avis et leurs dates peuvent montrer par où vous êtes passé : la date du séjour est facultative.',
+			'reviewSheet.publish' => 'Publier l\'avis',
+			'gate.review' => 'Les avis écrits s\'ouvrent au niveau 1',
+			'gate.photo' => 'Les photos s\'ouvrent au niveau 1',
+			'gate.addPlace' => 'L\'ajout de lieux s\'ouvre au niveau 2',
+			'gate.edit' => 'Les propositions de modification s\'ouvrent au niveau 1',
+			'gate.why' => 'Les niveaux tiennent les abus loin de la carte. Ils viennent avec le temps et les contributions, sans rien à acheter.',
+			'gate.yourLevel' => ({required Object level}) => 'Votre niveau : ${level}',
+			'gate.noAccount' => 'Pas encore de compte : un compte commence au niveau 0.',
+			'gate.later' => ({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.',
+			'gate.meanwhile' => 'En attendant, vous pouvez noter ce lieu, confirmer qu\'il est toujours là ou signaler un problème.',
+			'photoFlow.title' => 'Ajouter une photo',
+			'photoFlow.camera' => 'Prendre une photo',
+			'photoFlow.gallery' => 'Choisir dans la galerie',
+			'photoFlow.preparing' => 'Préparation de la photo',
+			'photoFlow.licence' => 'Publiée sous licence CC BY 4.0, avec votre pseudonyme. Évitez les visages et les plaques d\'immatriculation.',
+			'photoFlow.stripped' => 'La position et les données de l\'appareil sont retirées avant l\'envoi.',
+			'photoFlow.send' => 'Envoyer la photo',
+			'photoFlow.unreadable' => 'Cette image ne peut pas être lue sur cet appareil. Essayez une photo JPEG ou PNG.',
+			'photoFlow.sending' => ({required Object percent}) => 'Envoi ${percent} %',
+			'photoFlow.pending' => 'Photo en attente d\'envoi',
+			'placeForm.addTitle' => 'Ajouter un lieu',
+			'placeForm.editTitle' => 'Modifier le lieu',
+			'placeForm.proposeTitle' => 'Proposer une modification',
+			'placeForm.position' => 'Emplacement',
+			'placeForm.kind' => 'Type de lieu',
+			'placeForm.kindRequired' => 'Choisissez un type de lieu',
+			'placeForm.name' => 'Nom',
+			'placeForm.nameHint' => 'Le nom affiché sur place, ou une description courte',
+			'placeForm.nameInvalid' => 'De 2 à 120 caractères',
+			'placeForm.night' => 'La nuit',
+			'placeForm.services' => 'Services sur place',
+			'placeForm.description' => 'Description',
+			'placeForm.descriptionHint' => 'Ce qui aide à trouver et à choisir le lieu',
+			'placeForm.details' => 'Précisions',
+			'placeForm.priceNight' => 'Prix de la nuit (€)',
+			'placeForm.priceServices' => 'Prix des services (€)',
+			'placeForm.maxHeight' => 'Hauteur maximale (m)',
+			'placeForm.capacity' => 'Emplacements',
+			'placeForm.website' => 'Site web',
+			'placeForm.phone' => 'Téléphone',
+			'placeForm.photo' => 'Photo (facultatif)',
+			'placeForm.photoReady' => 'Photo prête',
+			'placeForm.removePhoto' => 'Retirer la photo',
+			'placeForm.toVerify' => 'Le lieu apparaîtra « à vérifier » jusqu\'à ce que deux autres voyageurs le confirment.',
+			'placeForm.licence' => 'Les lieux sont publiés sous licence ODbL, crédités aux contributeurs de Lunaway.',
+			'placeForm.moderated' => 'Un site web ou un téléphone passe par un modérateur avant d\'être publié.',
+			'placeForm.direct' => 'Votre niveau applique la modification tout de suite.',
+			'placeForm.proposal' => 'Un modérateur relira votre proposition avant qu\'elle s\'applique.',
+			'placeForm.submitAdd' => 'Ajouter le lieu',
+			'placeForm.submitEdit' => 'Enregistrer la modification',
+			'placeForm.submitPropose' => 'Envoyer la proposition',
+			'placeForm.nothingChanged' => 'Rien n\'a changé',
+			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
+			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
+			'placeForm.added' => 'Merci : le lieu arrive sur la carte dans un instant',
+			'placeForm.proposed' => 'Merci : votre proposition part en relecture',
+			'favoritesSync.local' => 'Sur cet appareil seulement',
+			'favoritesSync.action' => 'Synchroniser',
+			'favoritesSync.syncing' => 'Synchronisation en cours',
+			'favoritesSync.synced' => ({required Object when}) => 'Gardés avec votre compte, synchronisés ${when}',
+			'favoritesSync.failed' => 'Synchronisation impossible pour l\'instant',
+			'favoritesSync.title' => 'Synchroniser vos favoris ?',
+			'favoritesSync.body' => 'Vos listes seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.',
+			'favoritesSync.confirm' => 'Créer le compte et synchroniser',
 			_ => null,
 		};
 	}
