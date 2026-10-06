@@ -4,9 +4,10 @@
 //! know the hash, and the client sends the document once more with the hash,
 //! which the server checks and keeps.
 //!
-//! The app's sync request is about 1.6 KB of document for 0.2 KB of
-//! variables (`plan/research/23-backend-europe-packs.md`): with a hash the
-//! request shrinks to a tenth, every page of every sync.
+//! The app's sync request carries 1 047 bytes of document in a body of
+//! 1 280; with the hash instead the body is 298 bytes, on every page of
+//! every sync (`plan/research/23-backend-europe-packs.md`). The answer, a
+//! page of up to a thousand places, stays the bulk of a sync.
 //!
 //! A document is kept only once it ran without any error, so a client cannot
 //! fill the registry with documents that do not even validate; the registry

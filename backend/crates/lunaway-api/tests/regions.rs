@@ -261,6 +261,26 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
         "the change after the pack reaches the device: {next}"
     );
 
+    // The next build makes a new pack of the region that changed only.
+    let options = PackOptions {
+        dir: dir.path().to_owned(),
+        only: Vec::new(),
+    };
+    let rebuilt = build(&pool, ApiConfig::default(), &options).await.unwrap();
+    let codes: Vec<&str> = rebuilt.iter().map(|b| b.pack.region.as_str()).collect();
+    assert_eq!(
+        codes,
+        ["FR-PDL"],
+        "a region nothing changed in keeps its pack and its version"
+    );
+    assert_eq!(
+        rebuilt[0].removed,
+        Vec::<String>::new(),
+        "the previous pack stays for the devices that read the manifest before"
+    );
+    let again = build(&pool, ApiConfig::default(), &options).await.unwrap();
+    assert!(again.is_empty(), "nothing changed since the last build");
+
     let both = gql(
         &app,
         &changes_query().replace(

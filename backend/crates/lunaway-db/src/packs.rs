@@ -74,8 +74,8 @@ impl Snapshot {
         })
     }
 
-    /// Every sync region that holds a live place, with how many and the box
-    /// around them.
+    /// Every sync region that holds a live place, with how many, the box
+    /// around them and the last change of the feed among its places.
     ///
     /// # Errors
     ///
@@ -83,12 +83,17 @@ impl Snapshot {
     pub async fn regions(&mut self) -> Result<Vec<RegionExtent>, DbError> {
         let rows = sqlx::query!(
             r#"
-            SELECT region AS "region!", count(*) AS "places!",
-                   min(ST_Y(geom::geometry)) AS "south!", min(ST_X(geom::geometry)) AS "west!",
-                   max(ST_Y(geom::geometry)) AS "north!", max(ST_X(geom::geometry)) AS "east!"
+            SELECT region AS "region!",
+                   count(*) FILTER (WHERE deleted_at IS NULL) AS "places!",
+                   max(updated_seq) AS "last_seq!",
+                   min(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "south!",
+                   min(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "west!",
+                   max(ST_Y(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "north!",
+                   max(ST_X(geom::geometry)) FILTER (WHERE deleted_at IS NULL) AS "east!"
             FROM places
-            WHERE deleted_at IS NULL AND region IS NOT NULL
+            WHERE region IS NOT NULL
             GROUP BY region
+            HAVING count(*) FILTER (WHERE deleted_at IS NULL) > 0
             ORDER BY region
             "#
         )
@@ -99,6 +104,7 @@ impl Snapshot {
             .map(|r| RegionExtent {
                 region: r.region,
                 places: r.places,
+                last_seq: r.last_seq,
                 south: r.south,
                 west: r.west,
                 north: r.north,
@@ -184,6 +190,9 @@ pub struct RegionExtent {
     pub region: String,
     /// Its live places.
     pub places: i64,
+    /// The last position of the feed that changed one of its places,
+    /// deletions included: a pack built at or after it is still current.
+    pub last_seq: i64,
     /// Southern edge of the box around them.
     pub south: f64,
     /// Western edge.

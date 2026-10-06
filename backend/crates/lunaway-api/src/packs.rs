@@ -373,10 +373,12 @@ fn column(place: &Value, field: Field) -> Result<rusqlite::types::Value, PackErr
     })
 }
 
-/// Builds the pack of every sync region with places (or of `only`), records
-/// each in `region_packs` and removes the files of the packs before the
-/// previous one: a device that read the manifest just before a build still
-/// finds the file it names.
+/// Builds the pack of every sync region with places (or of `only`) whose
+/// current pack predates a change of its places, records each in
+/// `region_packs` and removes the files of the packs before the previous
+/// one: a device that read the manifest just before a build still finds the
+/// file it names. A region nothing changed in keeps its pack, so a device
+/// that has it finds no new version.
 ///
 /// # Errors
 ///
@@ -394,8 +396,14 @@ pub async fn build(
             path: dir.clone(),
             source,
         })?;
+    let current: HashMap<String, RegionPack> = packs::all(pool)
+        .await?
+        .into_iter()
+        .map(|p| (p.region.clone(), p))
+        .collect();
     let mut snapshot = Snapshot::begin(pool).await?;
     let head = snapshot.feed_head().await?;
+    let identity = head.identity();
     let regions: Vec<_> = snapshot
         .regions()
         .await?
@@ -407,6 +415,14 @@ pub async fn build(
     let cursor = crate::schema::changes_cursor(&head, head.last_seq);
     let mut built = Vec::with_capacity(regions.len());
     for extent in &regions {
+        let up_to_date = current.get(&extent.region).is_some_and(|p| {
+            p.feed_identity == identity
+                && p.seq >= extent.last_seq
+                && options.dir.join(&p.file).is_file()
+        });
+        if up_to_date {
+            continue;
+        }
         let mut places = snapshot.places(&extent.region).await?;
         let ids: Vec<Uuid> = places.iter().map(|p| p.id).collect();
         let mut sources: HashMap<Uuid, Vec<PlaceSourceRow>> = HashMap::with_capacity(ids.len());
