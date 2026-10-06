@@ -19,6 +19,7 @@ import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
+import 'package:lunaway/features/navigation/data/notification_access.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
@@ -157,6 +158,15 @@ final class _PacedFeed implements LocationFeed {
 const _fast = Duration(milliseconds: 100);
 const _real = Duration(seconds: 1);
 
+/// The permission to notify, out of the drive: its system dialog would wait
+/// for a tap no test gives.
+final class _NoNotifications implements NotificationAccess {
+  const new();
+
+  @override
+  Future<void> ask() async {}
+}
+
 final class _Granted implements LocationPermissions {
   @override
   Future<LocationAccess> status() async => LocationAccess.granted;
@@ -245,6 +255,7 @@ void main() {
           initialSettingsProvider.overrideWithValue(settings),
           basemapTemplatesProvider.overrideWithValue(basemap),
           locationPermissionsProvider.overrideWithValue(_Granted()),
+          notificationAccessProvider.overrideWithValue(const _NoNotifications()),
           routeServiceProvider.overrideWithValue(routes),
           locationFeedProvider.overrideWithValue(feed),
           roadEventsSourceProvider.overrideWithValue(events),
