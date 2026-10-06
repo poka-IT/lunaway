@@ -77,6 +77,10 @@ road_event_reports UPDATE
 road_event_sources SELECT
 road_event_purges SELECT
 road_event_revision_seq USAGE
+road_event_report_facts SELECT
+idempotency_keys SELECT
+idempotency_keys INSERT
+idempotency_keys DELETE
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -262,15 +266,23 @@ SELECT string_agg(attname, ' ' ORDER BY attname)
 FROM pg_attribute
 WHERE attrelid = 'road_event_reports'::regclass AND attnum > 0 AND NOT attisdropped
   AND has_column_privilege('road_event_reports', attname, 'SELECT')")"
-if [ "$got" = "account_id created_at event_id id kind status value_m" ]; then
+if [ "$got" = "created_at event_id id kind status value_m" ]; then
   echo "ok   lunaway_ingest reads these columns of road_event_reports only: $got"
 else
-  echo "FAIL lunaway_ingest reads these columns of road_event_reports: $got (want: account_id created_at event_id id kind status value_m)"
+  echo "FAIL lunaway_ingest reads these columns of road_event_reports: $got (want: created_at event_id id kind status value_m)"
 fi
-# The importers read every road event and the reports' accounts and times:
-# a community event must hold no more than the feed publishes (four
-# decimals of a degree, about ten metres, and no heading), or a join by
-# event_id would give where an account was (migration 20261006144030).
+# The community's road events are weighed by the API, through a view that
+# names no account (migration 20261006145517): the importers read neither
+# the view nor the salt behind its reporter keys.
+refused "lunaway_ingest reads which account made a road report" /etc/lunaway/ingest.env "SELECT account_id FROM road_event_reports LIMIT 1"
+refused "lunaway_ingest reads the road reports' facts" /etc/lunaway/ingest.env "SELECT count(*) FROM road_event_report_facts"
+refused "lunaway_ingest reads the reporter keys' salt" /etc/lunaway/ingest.env "SELECT count(*) FROM road_event_report_salt"
+refused "lunaway_app reads the reporter keys' salt" /etc/lunaway/api.env "SELECT count(*) FROM road_event_report_salt"
+refused "lunaway_ingest reads the idempotency keys" /etc/lunaway/ingest.env "SELECT count(*) FROM idempotency_keys"
+# The importers read every road event and the reports' times: a community
+# event must hold no more than the feed publishes (four decimals of a
+# degree, about ten metres, and no heading), or a join by event_id would
+# give where and when someone stood (migration 20261006144030).
 got="$(as_role /etc/lunaway/ingest.env "SELECT count(*) || ' ' || count(*) FILTER (WHERE heading_deg IS NOT NULL
     OR ST_X(geom_source::geometry) <> round(ST_X(geom_source::geometry)::numeric, 4)::double precision
     OR ST_Y(geom_source::geometry) <> round(ST_Y(geom_source::geometry)::numeric, 4)::double precision)

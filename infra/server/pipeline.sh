@@ -16,6 +16,10 @@
 #                                   routing engine at 127.0.0.1:8002
 #   lunaway-road-events-dialog      weekly, Monday 05:20 UTC, DiaLog's
 #                                   permanent orders into route_restrictions
+#   lunaway-road-events-ndw         every 3 hours at :40, the Dutch planning
+#                                   feed (204 MB of XML, 1 GB memory cap),
+#                                   stored but not served while the routing
+#                                   graph covers France only
 #   lunaway-conflate                after each successful import of places
 #   lunaway-conflate-worker         always: the community's submissions and
 #                                   summaries, woken by the API's NOTIFY, and
@@ -52,7 +56,8 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-laposte.service lunaway-ingest-laposte.timer
   lunaway-ingest-finess.service lunaway-ingest-finess.timer
   lunaway-road-events.service lunaway-road-events.timer
-  lunaway-road-events-dialog.service lunaway-road-events-dialog.timer"
+  lunaway-road-events-dialog.service lunaway-road-events-dialog.timer
+  lunaway-road-events-ndw.service lunaway-road-events-ndw.timer"
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
@@ -71,7 +76,7 @@ fi
 
 timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-ingest-pois.timer
   lunaway-ingest-fuel.timer lunaway-ingest-laposte.timer lunaway-ingest-finess.timer
-  lunaway-road-events.timer lunaway-road-events-dialog.timer"
+  lunaway-road-events.timer lunaway-road-events-dialog.timer lunaway-road-events-ndw.timer"
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
   systemctl enable --quiet --now $timers

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM idempotency_keys\n        WHERE created_at < $1 OR (operation = 'report_road_event' AND created_at < $2)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "79f49cedfd22780da92bf0e2eb9374feaf2a995a3b7d4437dd52fe4fcb2d38aa"
+}

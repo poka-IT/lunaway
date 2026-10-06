@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $2::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n        )\n        SELECT r.id, r.place_id, r.account_id, a.pseudonym AS \"author?\", r.stars, r.body, r.lang,\n               r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at\n        FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id\n        WHERE r.account_id = $1 AND r.place_id IN (SELECT id FROM family)\n          AND r.withdrawn_at IS NULL\n        ORDER BY (r.place_id = $2) DESC, r.updated_at DESC\n        LIMIT 1\n        ",
+  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $2::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n        )\n        SELECT r.id, r.source_id, r.place_id, r.account_id, a.pseudonym AS \"author?\", r.stars,\n               r.body, r.lang, r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at\n        FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id\n        WHERE r.account_id = $1 AND r.place_id IN (SELECT id FROM family)\n          AND r.withdrawn_at IS NULL\n        ORDER BY (r.place_id = $2) DESC, r.updated_at DESC\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "place_id",
         "type_info": "Uuid",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "account_id",
         "type_info": "Uuid",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "author?",
         "type_info": "Text",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "stars",
         "type_info": "Int2",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "body",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "lang",
         "type_info": "Text",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "visited_on",
         "type_info": "Date",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "vehicle",
         "type_info": "Text",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -145,6 +156,7 @@
     "nullable": [
       false,
       false,
+      false,
       true,
       false,
       false,
@@ -157,5 +169,5 @@
       false
     ]
   },
-  "hash": "cc7a2ca32d1011850ed34185c8a8f0c31c961847736498d4e9261a5f2ca54bb6"
+  "hash": "5e4be9eb0a25188a13459d6bf14f28470883c82e7fc24dfdffa4a78dd4434cfe"
 }

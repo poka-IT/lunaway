@@ -52,6 +52,39 @@ pub enum GqlIssueKind {
     Danger,
 }
 
+/// A field of a place an edit can clear (`PlaceDetailsInput.clear`): the
+/// community stops stating it, and the value shown comes from the next
+/// source that does (OpenStreetMap, Atout France), if any.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+#[graphql(
+    remote = "lunaway_domain::community::submission::PlaceField",
+    name = "PlaceField"
+)]
+pub enum GqlPlaceField {
+    /// Every description of the community, in every language.
+    Description,
+    /// Whether a night may be spent there (back to unknown).
+    Overnight,
+    /// Services on site.
+    Services,
+    /// Activities around.
+    Activities,
+    /// Price of a night.
+    PriceParking,
+    /// Price of the services.
+    PriceServices,
+    /// Maximum vehicle height.
+    MaxHeight,
+    /// Pitches.
+    Capacity,
+    /// Opening hours.
+    OpeningHours,
+    /// Website.
+    Website,
+    /// Phone.
+    Phone,
+}
+
 /// The vehicle a reviewer travelled in.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(
@@ -159,9 +192,11 @@ impl Review {
         self.0.id
     }
 
-    /// The source: `community` for reviews written on Lunaway.
-    async fn source_id(&self) -> &'static str {
-        SourceId::COMMUNITY.as_str()
+    /// The source it is published under: `community-cc-by` for reviews
+    /// written on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+    /// attribution).
+    async fn source_id(&self) -> &str {
+        &self.0.source_id
     }
 
     /// The place it was written for (it may since have been merged into
@@ -276,7 +311,9 @@ impl From<Page<ReviewRow>> for ReviewConnection {
 pub struct Photo {
     /// Stable identifier.
     pub id: Uuid,
-    /// The source: `community`.
+    /// The source it is published under: `community-cc-by` for photos sent
+    /// on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+    /// attribution).
     pub source_id: String,
     /// The 512-pixel thumbnail.
     pub thumb_url: String,
@@ -303,7 +340,7 @@ impl Photo {
     pub(crate) fn from_row(r: PhotoRow, media: &crate::config::MediaConfig) -> Self {
         Self {
             id: r.id,
-            source_id: SourceId::COMMUNITY.to_string(),
+            source_id: r.source_id,
             thumb_url: media.url(&r.thumb_path),
             large_url: media.url(&r.path),
             width: r.width,
@@ -319,7 +356,9 @@ impl Photo {
     pub(crate) fn from_cover(c: &CoverPhoto, media: &crate::config::MediaConfig) -> Self {
         Self {
             id: c.id,
-            source_id: SourceId::COMMUNITY.to_string(),
+            // Every photo is a Lunaway user's: the place's summary keeps no
+            // source, the photos' rows do.
+            source_id: SourceId::COMMUNITY_CC_BY.to_string(),
             thumb_url: media.url(&c.thumb_path),
             large_url: media.url(&c.path),
             width: c.width,
@@ -349,7 +388,8 @@ pub struct PhotoConnection {
 /// The ratings of a place by one source.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct SourceRating {
-    /// The source: `community` for Lunaway users.
+    /// The source: `community-cc-by` for Lunaway users' ratings, published
+    /// with their reviews under CC BY 4.0.
     pub source_id: String,
     /// Mean stars, 1 to 5.
     pub average: f64,
@@ -978,6 +1018,10 @@ pub struct PlaceDetailsInput {
     pub website: Option<String>,
     /// Phone.
     pub phone: Option<String>,
+    /// Fields to clear, in an edit only: the community stops stating them
+    /// (a wrong phone, a closed website). A field cannot be given a value
+    /// and cleared at once (`INVALID_INPUT`).
+    pub clear: Option<Vec<GqlPlaceField>>,
 }
 
 /// A new place.

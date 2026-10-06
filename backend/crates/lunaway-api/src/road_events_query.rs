@@ -85,6 +85,20 @@ fn mask(classes: &[EventClass], blocking_only: bool) -> u8 {
     })
 }
 
+/// Whether an answer's page is kept: the first page of the whole set at
+/// the default size only, so a client cannot fill the memory with every
+/// page size.
+const fn cacheable(full: bool, first: i32) -> bool {
+    full && first == DEFAULT_PAGE
+}
+
+/// Keeps `page` for classes `key` at `revision`, dropping the pages of
+/// other revisions: at most one page per key, every one current.
+fn hold(pages: &mut HashMap<u8, HeldPage>, key: u8, revision: i64, page: Arc<Page>) {
+    pages.retain(|_, (_, held, _)| *held == revision);
+    pages.insert(key, (Instant::now(), revision, page));
+}
+
 /// A cursor read before the database is asked anything: its identity and
 /// revision.
 fn parse_cursor(s: &str) -> Result<(String, i64)> {
@@ -211,7 +225,7 @@ pub(crate) async fn road_events(
     }
     let key = mask(&classes, blocking_only);
     let cache = &state(ctx).road_events;
-    let cacheable = full && first == DEFAULT_PAGE;
+    let cacheable = cacheable(full, first);
     if cacheable {
         let held = cache
             .pages
@@ -277,22 +291,18 @@ pub(crate) async fn road_events(
         }
     }
     if cacheable {
-        let mut pages = cache
-            .pages
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        pages.retain(|_, (_, revision, _)| *revision == head.revision);
-        pages.insert(
+        hold(
+            &mut cache
+                .pages
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
             key,
-            (
-                Instant::now(),
-                head.revision,
-                Arc::new(Page {
-                    upserts: upserts.clone(),
-                    cursor: last,
-                    has_more,
-                }),
-            ),
+            head.revision,
+            Arc::new(Page {
+                upserts: upserts.clone(),
+                cursor: last,
+                has_more,
+            }),
         );
     }
     Ok(RoadEventDelta {
@@ -350,6 +360,59 @@ mod tests {
             "",
         ] {
             assert!(parse_cursor(forged).is_err(), "{forged}");
+        }
+    }
+
+    #[test]
+    fn the_pages_kept_are_bounded_whatever_a_client_asks() {
+        let all = [
+            EventClass::Closure,
+            EventClass::Works,
+            EventClass::LaneRestriction,
+            EventClass::VehicleLimit,
+            EventClass::Detour,
+        ];
+        let empty = || {
+            Arc::new(Page {
+                upserts: Vec::new(),
+                cursor: 0,
+                has_more: false,
+            })
+        };
+        let mut pages = HashMap::new();
+        let mut keys = std::collections::HashSet::new();
+        // Every selection of classes, with and without the blocking flag.
+        for bits in 0_u8..32 {
+            let classes: Vec<EventClass> = all
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| bits & (1 << i) != 0)
+                .map(|(_, c)| *c)
+                .collect();
+            for blocking in [false, true] {
+                let key = mask(&classes, blocking);
+                keys.insert(key);
+                hold(&mut pages, key, 7, empty());
+            }
+        }
+        assert_eq!(keys.len(), 64, "each selection has its own key");
+        assert_eq!(pages.len(), 64, "never more than one page per selection");
+        hold(&mut pages, mask(&[EventClass::Closure], true), 8, empty());
+        assert_eq!(
+            pages.len(),
+            1,
+            "a new revision drops every page of the previous one"
+        );
+        assert!(cacheable(true, DEFAULT_PAGE));
+        for (full, first) in [
+            (true, DEFAULT_PAGE - 1),
+            (true, MAX_PAGE),
+            (false, DEFAULT_PAGE),
+        ] {
+            assert!(
+                !cacheable(full, first),
+                "only the first page of the whole set at the default size is kept"
+            );
         }
     }
 

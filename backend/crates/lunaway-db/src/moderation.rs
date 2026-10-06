@@ -376,3 +376,94 @@ pub async fn dismiss_issues(pool: &PgPool, place: Uuid) -> Result<u64, DbError> 
     tx.commit().await?;
     Ok(done.rows_affected())
 }
+
+/// A "still there?" answer, as a moderator sees it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfirmationEntry {
+    /// Its id.
+    pub id: Uuid,
+    /// The place it answers for (the place asked, or one merged into it).
+    pub place_id: Uuid,
+    /// The answer code.
+    pub status: String,
+    /// Its author's pseudonym; `None` once the account is deleted.
+    pub author: Option<String>,
+    /// Its author; `None` once the account is deleted.
+    pub account_id: Option<Uuid>,
+    /// When.
+    pub created_at: DateTime<Utc>,
+}
+
+/// The confirmations of `place` and of the places merged into it, newest
+/// first, at most `limit`: what makes its "last confirmed" date, for a
+/// moderator to find a false one.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn confirmations_of_place(
+    pool: &PgPool,
+    place: Uuid,
+    limit: i64,
+) -> Result<Vec<ConfirmationEntry>, DbError> {
+    Ok(sqlx::query_as!(
+        ConfirmationEntry,
+        r#"
+        WITH RECURSIVE family(id) AS (
+            SELECT $1::uuid
+            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
+        )
+        SELECT c.id, c.place_id, c.status, a.pseudonym AS "author?", c.account_id, c.created_at
+        FROM confirmations c LEFT JOIN accounts a ON a.id = c.account_id
+        WHERE c.place_id IN (SELECT id FROM family)
+        ORDER BY c.created_at DESC, c.id DESC
+        LIMIT $2
+        "#,
+        place,
+        limit,
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
+/// Removes confirmation `id`, whoever wrote it (a false one, or a test left
+/// on a real place without author), and queues its place for the worker,
+/// which recomputes "last confirmed". Its place, or `None` when there is
+/// no such confirmation.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn remove_confirmation(pool: &PgPool, id: Uuid) -> Result<Option<Uuid>, DbError> {
+    let mut tx = pool.begin().await?;
+    let place = sqlx::query_scalar!(
+        "DELETE FROM confirmations WHERE id = $1 RETURNING place_id",
+        id
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if let Some(place) = place {
+        sqlx::query!(
+            "INSERT INTO place_refresh_queue (place_id) VALUES ($1) ON CONFLICT DO NOTHING",
+            place
+        )
+        .execute(&mut *tx)
+        .await?;
+        // An open check a "closed" or "changed" answer opened has nothing
+        // left to check once the answer is gone.
+        sqlx::query!(
+            r#"
+            DELETE FROM moderation_queue
+            WHERE kind = 'place_check' AND target_id = $1 AND status = 'open'
+              AND NOT EXISTS (SELECT 1 FROM confirmations
+                              WHERE place_id = $1 AND status <> 'still_ok')
+            "#,
+            place
+        )
+        .execute(&mut *tx)
+        .await?;
+        notify_worker(&mut tx).await?;
+    }
+    tx.commit().await?;
+    Ok(place)
+}

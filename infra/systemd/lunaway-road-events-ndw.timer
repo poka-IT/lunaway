@@ -1,0 +1,12 @@
+# Every three hours: the file is written every 15 minutes, and the Dutch
+# events are not yet on any route (the graph covers France only).
+[Unit]
+Description=Lunaway road events: NDW (Netherlands), every three hours
+
+[Timer]
+OnCalendar=*-*-* 00/3:40:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -16,7 +16,10 @@ use lunaway_domain::{
 use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
 
-use crate::{DbError, PgPool};
+use crate::{
+    DbError, PgPool,
+    idempotency::{self, Key, Once},
+};
 
 /// How many `merged_into` redirects a lookup follows.
 const MAX_REDIRECTS: usize = 8;
@@ -102,6 +105,9 @@ async fn begin(pool: &PgPool) -> Result<Transaction<'static, Postgres>, DbError>
 pub struct ReviewRow {
     /// Its id.
     pub id: Uuid,
+    /// The source it is published under (`community-cc-by`): its licence
+    /// is that source's.
+    pub source_id: String,
     /// The place it was written for.
     pub place_id: Uuid,
     /// Its author; `None` once the account is deleted.
@@ -417,8 +423,8 @@ async fn review_in(conn: &mut PgConnection, id: Uuid) -> Result<Option<ReviewRow
     Ok(sqlx::query_as!(
         ReviewRow,
         r#"
-        SELECT r.id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars, r.body, r.lang,
-               r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
+        SELECT r.id, r.source_id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars,
+               r.body, r.lang, r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
         FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id
         WHERE r.id = $1
         "#,
@@ -556,8 +562,8 @@ pub async fn reviews_of_place(
             SELECT $1::uuid
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
         )
-        SELECT r.id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars, r.body, r.lang,
-               r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
+        SELECT r.id, r.source_id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars,
+               r.body, r.lang, r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
         FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id
         WHERE r.place_id IN (SELECT id FROM family)
           AND r.status = 'published' AND r.body IS NOT NULL
@@ -622,8 +628,8 @@ pub async fn reviews_of_account(
     let rows = sqlx::query_as!(
         ReviewRow,
         r#"
-        SELECT r.id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars, r.body, r.lang,
-               r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
+        SELECT r.id, r.source_id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars,
+               r.body, r.lang, r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
         FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id
         WHERE r.account_id = $1 AND r.withdrawn_at IS NULL AND ($2::uuid IS NULL OR r.id < $2)
         ORDER BY r.id DESC
@@ -661,8 +667,8 @@ pub async fn review_by_account(
             SELECT $2::uuid
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
         )
-        SELECT r.id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars, r.body, r.lang,
-               r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
+        SELECT r.id, r.source_id, r.place_id, r.account_id, a.pseudonym AS "author?", r.stars,
+               r.body, r.lang, r.visited_on, r.vehicle, r.status, r.created_at, r.updated_at
         FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id
         WHERE r.account_id = $1 AND r.place_id IN (SELECT id FROM family)
           AND r.withdrawn_at IS NULL
@@ -705,6 +711,40 @@ pub async fn confirm(
     note: Option<&str>,
 ) -> Result<ConfirmationRow, DbError> {
     let mut tx = begin(pool).await?;
+    let row = confirm_in(&mut tx, account, place, status, note).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+/// [`confirm`] guarded by an idempotency key: a request sent again with the
+/// same key answers with the confirmation the first one stored.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn confirm_once(
+    pool: &PgPool,
+    key: &Key<'_>,
+    place: Uuid,
+    status: ConfirmationStatus,
+    note: Option<&str>,
+) -> Result<Once<ConfirmationRow>, DbError> {
+    let mut tx = match idempotency::begin(pool, key).await? {
+        Ok(tx) => tx,
+        Err(seen) => return Ok(seen.once()),
+    };
+    let row = confirm_in(&mut tx, key.account, place, status, note).await?;
+    let id = row.id;
+    idempotency::finish(pool, tx, key, id, row).await
+}
+
+async fn confirm_in(
+    tx: &mut PgConnection,
+    account: Uuid,
+    place: Uuid,
+    status: ConfirmationStatus,
+    note: Option<&str>,
+) -> Result<ConfirmationRow, DbError> {
     let row = sqlx::query_as!(
         ConfirmationRow,
         r#"
@@ -722,7 +762,7 @@ pub async fn confirm(
     .await?;
     if status != ConfirmationStatus::StillOk {
         enqueue(
-            &mut tx,
+            &mut *tx,
             "place_check",
             "place",
             place,
@@ -731,9 +771,31 @@ pub async fn confirm(
         )
         .await?;
     }
-    queue_refresh(&mut tx, place).await?;
-    tx.commit().await?;
+    queue_refresh(&mut *tx, place).await?;
     Ok(row)
+}
+
+/// `account`'s confirmation `id`, if it still exists.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn confirmation_of(
+    pool: &PgPool,
+    account: Uuid,
+    id: Uuid,
+) -> Result<Option<ConfirmationRow>, DbError> {
+    Ok(sqlx::query_as!(
+        ConfirmationRow,
+        r#"
+        SELECT id, place_id, status, created_at FROM confirmations
+        WHERE id = $1 AND account_id = $2
+        "#,
+        id,
+        account,
+    )
+    .fetch_optional(pool)
+    .await?)
 }
 
 /// Deletes `account`'s confirmation `id`; returns its place.
@@ -820,6 +882,39 @@ pub async fn report_issue(
     note: Option<&str>,
 ) -> Result<IssueRow, DbError> {
     let mut tx = begin(pool).await?;
+    let row = report_issue_in(&mut tx, account, place, kind, note).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+/// [`report_issue`] guarded by an idempotency key.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn report_issue_once(
+    pool: &PgPool,
+    key: &Key<'_>,
+    place: Uuid,
+    kind: IssueKind,
+    note: Option<&str>,
+) -> Result<Once<IssueRow>, DbError> {
+    let mut tx = match idempotency::begin(pool, key).await? {
+        Ok(tx) => tx,
+        Err(seen) => return Ok(seen.once()),
+    };
+    let row = report_issue_in(&mut tx, key.account, place, kind, note).await?;
+    let id = row.id;
+    idempotency::finish(pool, tx, key, id, row).await
+}
+
+async fn report_issue_in(
+    tx: &mut PgConnection,
+    account: Uuid,
+    place: Uuid,
+    kind: IssueKind,
+    note: Option<&str>,
+) -> Result<IssueRow, DbError> {
     let row = sqlx::query_as!(
         IssueRow,
         r#"
@@ -834,9 +929,27 @@ pub async fn report_issue(
     )
     .fetch_one(&mut *tx)
     .await?;
-    queue_refresh(&mut tx, place).await?;
-    tx.commit().await?;
+    queue_refresh(&mut *tx, place).await?;
     Ok(row)
+}
+
+/// `account`'s issue report `id`, if it still exists.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn issue_of(pool: &PgPool, account: Uuid, id: Uuid) -> Result<Option<IssueRow>, DbError> {
+    Ok(sqlx::query_as!(
+        IssueRow,
+        r#"
+        SELECT id, place_id, kind, created_at FROM issue_reports
+        WHERE id = $1 AND account_id = $2
+        "#,
+        id,
+        account,
+    )
+    .fetch_optional(pool)
+    .await?)
 }
 
 /// Deletes `account`'s issue report `id`; returns its place.
@@ -900,6 +1013,9 @@ pub async fn issues_of_account(
 pub struct PhotoRow {
     /// Its id.
     pub id: Uuid,
+    /// The source it is published under (`community-cc-by`): its licence
+    /// is that source's.
+    pub source_id: String,
     /// The place.
     pub place_id: Uuid,
     /// Its author; `None` once the account is deleted.
@@ -982,9 +1098,9 @@ async fn photo_in(conn: &mut PgConnection, id: Uuid) -> Result<Option<PhotoRow>,
     Ok(sqlx::query_as!(
         PhotoRow,
         r#"
-        SELECT p.id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status, p.path,
-               p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height, p.thumbhash,
-               p.created_at
+        SELECT p.id, p.source_id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status,
+               p.path, p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height,
+               p.thumbhash, p.created_at
         FROM photos p LEFT JOIN accounts a ON a.id = p.account_id
         WHERE p.id = $1
         "#,
@@ -1079,9 +1195,9 @@ pub async fn photos_of_place(
             SELECT $1::uuid
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
         )
-        SELECT p.id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status, p.path,
-               p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height, p.thumbhash,
-               p.created_at
+        SELECT p.id, p.source_id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status,
+               p.path, p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height,
+               p.thumbhash, p.created_at
         FROM photos p LEFT JOIN accounts a ON a.id = p.account_id
         WHERE p.place_id IN (SELECT id FROM family) AND p.status = 'published'
           AND p.withdrawn_at IS NULL AND a.banned_at IS NULL
@@ -1112,9 +1228,9 @@ pub async fn photos_of_account(
     let rows = sqlx::query_as!(
         PhotoRow,
         r#"
-        SELECT p.id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status, p.path,
-               p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height, p.thumbhash,
-               p.created_at
+        SELECT p.id, p.source_id, p.place_id, p.account_id, a.pseudonym AS "author?", p.status,
+               p.path, p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height,
+               p.thumbhash, p.created_at
         FROM photos p LEFT JOIN accounts a ON a.id = p.account_id
         WHERE p.account_id = $1 AND p.withdrawn_at IS NULL AND ($2::uuid IS NULL OR p.id < $2)
         ORDER BY p.id DESC LIMIT $3

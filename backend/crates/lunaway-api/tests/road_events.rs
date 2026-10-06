@@ -796,3 +796,29 @@ async fn a_phone_polls_the_changes_without_sending_where_it_is(pool: PgPool) {
         "{body}"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_report_while_a_feed_is_written_answers_unavailable_within_seconds(pool: PgPool) {
+    let (url, _) = engine(Vec::new()).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let token = sign_in(&app, &Device::new(1)).await;
+    let feed = lunaway_db::road_events::begin_writer(&pool).await.unwrap();
+    let started = std::time::Instant::now();
+    let body = gql(
+        &app,
+        Some(&token),
+        REPORT,
+        json!({"input": {"kind": "CLOSURE", "lat": 45.8, "lon": 1.25}}),
+    )
+    .await;
+    let waited = started.elapsed();
+    assert_eq!(
+        body["errors"][0]["extensions"]["code"], "UNAVAILABLE",
+        "{body}"
+    );
+    assert!(
+        waited < std::time::Duration::from_secs(10),
+        "the API's connection is not held while a feed is written: {waited:?}"
+    );
+    feed.commit().await.unwrap();
+}

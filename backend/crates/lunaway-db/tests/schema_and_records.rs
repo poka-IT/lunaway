@@ -49,6 +49,7 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
         [
             "atout-france",
             "community",
+            "community-cc-by",
             "finess",
             "laposte",
             "osm",
@@ -66,6 +67,15 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
         (community.licence.as_str(), community.attribution.as_str()),
         ("ODbL 1.0", "Lunaway contributors"),
         "places added by users join the ODbL database, credited to them"
+    );
+    let reviews = s
+        .iter()
+        .find(|s| s.id == SourceId::COMMUNITY_CC_BY)
+        .unwrap();
+    assert_eq!(
+        (reviews.licence.as_str(), reviews.attribution.as_str()),
+        ("CC BY 4.0", "Lunaway contributors"),
+        "reviews and photos are published under CC BY 4.0, outside the database"
     );
     let osm = s.iter().find(|s| s.id == SourceId::OSM).unwrap();
     assert_eq!(osm.licence, "ODbL 1.0");

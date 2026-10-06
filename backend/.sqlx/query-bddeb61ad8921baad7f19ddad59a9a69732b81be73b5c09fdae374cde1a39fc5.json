@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT e.heading_deg,\n                  ST_Y(e.geom_source::geometry) AS \"lat!\", ST_X(e.geom_source::geometry) AS \"lon!\"\n           FROM road_events e WHERE e.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "heading_deg",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "heading_deg"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "bddeb61ad8921baad7f19ddad59a9a69732b81be73b5c09fdae374cde1a39fc5"
+}

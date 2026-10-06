@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM moderation_queue\n            WHERE kind = 'place_check' AND target_id = $1 AND status = 'open'\n              AND NOT EXISTS (SELECT 1 FROM confirmations\n                              WHERE place_id = $1 AND status <> 'still_ok')\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b5a3b25adc30bc4589db68c21309d55dd103faf0c84b498f52133a041d7b4f7e"
+}

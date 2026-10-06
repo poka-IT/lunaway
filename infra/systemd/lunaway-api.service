@@ -5,7 +5,7 @@ Description=Lunaway API (GraphQL over HTTP)
 Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
 After=network-online.target postgresql.service
 Wants=network-online.target
-# Photos are written to the data volume.
+# Photos and the account deletion journal are written to the data volume.
 RequiresMountsFor=/srv/data
 StartLimitIntervalSec=60
 StartLimitBurst=5
@@ -18,8 +18,8 @@ Type=exec
 ExecStart=/opt/lunaway/current/lunaway-api
 # DATABASE_URL and other secrets, root-owned 0600, read by systemd before the
 # process drops to its user. media.env: LUNAWAY_MEDIA_DIR,
-# LUNAWAY_MEDIA_BASE_URL and LUNAWAY_PUBLIC_URL, rendered by
-# infra/server/api.sh.
+# LUNAWAY_MEDIA_BASE_URL, LUNAWAY_PUBLIC_URL and LUNAWAY_DELETION_JOURNAL,
+# rendered by infra/server/api.sh.
 EnvironmentFile=/etc/lunaway/api.env
 EnvironmentFile=/etc/lunaway/media.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484
@@ -31,19 +31,23 @@ RestartSec=2s
 TimeoutStopSec=20s
 
 # Identity: a static system user, because the photos it writes outlive any
-# run of the service. It owns /srv/data/media and nothing else; the files it
-# writes are world-readable (UMask 0022) so Caddy can serve them.
+# run of the service. It owns /srv/data/media and /srv/data/account-deletions
+# and nothing else; the photos it writes are world-readable (UMask 0022) so
+# Caddy can serve them, the journal's files are created 0640 by the API
+# itself and readable by group lunaway-deletions only (the directory is
+# setgid), for their encrypted copy (lunaway-deletions-offsite).
 User=lunaway-api
 Group=lunaway-api
 UMask=0022
 
 # Filesystem: the whole tree read-only, no home, private /tmp and /dev. Of
-# /srv it sees only the photos, and may write there only.
+# /srv it sees only the photos and the deletion journal, and may write there
+# only. The API refuses to start when it cannot write the journal.
 ProtectSystem=strict
 ProtectHome=yes
 TemporaryFileSystem=/srv:ro
-BindPaths=/srv/data/media
-ReadWritePaths=/srv/data/media
+BindPaths=/srv/data/media /srv/data/account-deletions
+ReadWritePaths=/srv/data/media /srv/data/account-deletions
 PrivateTmp=yes
 PrivateDevices=yes
 DevicePolicy=closed

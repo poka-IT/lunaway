@@ -10,6 +10,7 @@ use lunaway_auth::{DevicePublicKey, Locale, RecoveryCode, challenge_message};
 use lunaway_db::{
     accounts::{self, Endorsement},
     community::{self as contributions, ReportOutcome, ReviewWrite},
+    idempotency::{self, Key, Once, Operation, Seen},
     lists::{self, ListRefusal},
     pois, road_events,
     submissions::{self, NewSubmission, Submitted, Withdrawal},
@@ -113,6 +114,132 @@ fn note(text: Option<String>) -> Result<Option<String>> {
     Ok(text)
 }
 
+/// The idempotency key of a request, checked: `None` without one. The
+/// request's arguments, as JSON, tell a request sent again from another one
+/// that reuses its key.
+fn key_of<'a>(
+    viewer: &Viewer,
+    key: Option<&'a str>,
+    operation: Operation,
+    arguments: &serde_json::Value,
+) -> Result<Option<Key<'a>>> {
+    let Some(key) = key else {
+        return Ok(None);
+    };
+    if !idempotency::is_valid_key(key) {
+        return Err(invalid_input(
+            "idempotencyKey: 8 to 128 characters of A-Z a-z 0-9 . _ : -",
+        ));
+    }
+    Ok(Some(Key::of(viewer.id(), key, operation, arguments)))
+}
+
+fn key_reused() -> async_graphql::Error {
+    invalid_input("idempotencyKey: already used for another request")
+}
+
+/// What a key says before any quota is taken: the id of what the same
+/// request made before, or `None` to go on with the write.
+async fn seen_before(ctx: &Context<'_>, key: Option<&Key<'_>>) -> Result<Option<Uuid>> {
+    let Some(key) = key else {
+        return Ok(None);
+    };
+    let (pool, _permit) = db(ctx).await?;
+    match idempotency::lookup(pool, key)
+        .await
+        .map_err(|e| internal(&e))?
+    {
+        Seen::New => Ok(None),
+        Seen::Replay(id) => Ok(Some(id)),
+        Seen::Reused => Err(key_reused()),
+    }
+}
+
+/// The submission a request sent again made the first time.
+async fn submission_replayed(
+    ctx: &Context<'_>,
+    viewer: &Viewer,
+    id: Uuid,
+) -> Result<PlaceSubmission> {
+    let (pool, _permit) = db(ctx).await?;
+    submissions::submission_of(pool, viewer.id(), id)
+        .await
+        .map_err(|e| internal(&e))?
+        .map(Into::into)
+        .ok_or_else(|| not_found("submission"))
+}
+
+/// The confirmation a request sent again stored the first time.
+async fn confirmation_replayed(
+    ctx: &Context<'_>,
+    viewer: &Viewer,
+    id: Uuid,
+) -> Result<Confirmation> {
+    let (pool, _permit) = db(ctx).await?;
+    contributions::confirmation_of(pool, viewer.id(), id)
+        .await
+        .map_err(|e| internal(&e))?
+        .ok_or_else(|| not_found("confirmation"))
+        .and_then(Confirmation::try_from)
+}
+
+/// The issue report a request sent again stored the first time.
+async fn issue_replayed(ctx: &Context<'_>, viewer: &Viewer, id: Uuid) -> Result<IssueReport> {
+    let (pool, _permit) = db(ctx).await?;
+    contributions::issue_of(pool, viewer.id(), id)
+        .await
+        .map_err(|e| internal(&e))?
+        .ok_or_else(|| not_found("issue report"))
+        .and_then(IssueReport::try_from)
+}
+
+/// The road report a request sent again stored the first time, with its
+/// event as it stands now.
+async fn road_report_replayed(
+    ctx: &Context<'_>,
+    viewer: &Viewer,
+    id: Uuid,
+) -> Result<RoadEventReportResult> {
+    let (pool, _permit) = db(ctx).await?;
+    let done = road_events::report_of(pool, viewer.id(), id)
+        .await
+        .map_err(|e| internal(&e))?
+        .ok_or_else(|| not_found("road report"))?;
+    Ok(RoadEventReportResult {
+        report_id: done.report_id,
+        event_id: done.event_id,
+        confidence: done.confidence.into(),
+        expires_at: done.expires_at,
+    })
+}
+
+/// Stores a submission, once for `key` when there is one.
+async fn submit_keyed(
+    ctx: &Context<'_>,
+    viewer: &Viewer,
+    key: Option<&Key<'_>>,
+    s: NewSubmission<'_>,
+) -> Result<PlaceSubmission> {
+    let once = {
+        let (pool, _permit) = db(ctx).await?;
+        match key {
+            None => Once::Done(
+                submissions::submit(pool, s)
+                    .await
+                    .map_err(|e| internal(&e))?,
+            ),
+            Some(k) => submissions::submit_once(pool, k, s)
+                .await
+                .map_err(|e| internal(&e))?,
+        }
+    };
+    match once {
+        Once::Done(row) => Ok(row.into()),
+        Once::Replay(id) => submission_replayed(ctx, viewer, id).await,
+        Once::Reused => Err(key_reused()),
+    }
+}
+
 fn list_name(name: &str) -> Result<String> {
     let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
     if (1..=60).contains(&name.chars().count()) {
@@ -158,11 +285,36 @@ async fn remove_files(ctx: &Context<'_>, files: &[String]) {
     }
 }
 
-/// The session for `key`, creating its account when the key is new.
+/// Deletes `account` and its files, after writing the deletion to the
+/// journal a restore replays. A deletion that cannot be journaled is
+/// refused (`UNAVAILABLE`): it would come back with the next restore.
+async fn delete_account_of(ctx: &Context<'_>, account: Uuid) -> Result<bool> {
+    // The line is written and synced before a database connection is
+    // taken: the disk's wait holds none of the API's connections.
+    if let Some(journal) = state(ctx).config.keeping.journal() {
+        journal.record(account, Utc::now()).await.map_err(|error| {
+            tracing::error!(%error, "an account deletion could not be journaled; refused");
+            unavailable("account deletion")
+        })?;
+    }
+    let (pool, permit) = db(ctx).await?;
+    let deleted = accounts::delete_account(pool, account)
+        .await
+        .map_err(|e| internal(&e))?;
+    drop(permit);
+    if let Some(d) = &deleted {
+        remove_files(ctx, &d.orphan_files).await;
+    }
+    Ok(deleted.is_some())
+}
+
+/// The session for `key`, creating its account when the key is new and
+/// `create` allows it; `NOT_FOUND` for a new key otherwise.
 async fn open_session_for(
     ctx: &Context<'_>,
     key: &DevicePublicKey,
     locale: Option<&str>,
+    create: bool,
 ) -> Result<SignInResult> {
     let st = state(ctx);
     let ttl = st.config.auth.session_ttl.as_secs_f64();
@@ -197,6 +349,9 @@ async fn open_session_for(
                 created: false,
                 account: Account::load(ctx, viewer).await?,
             });
+        }
+        if !create {
+            return Err(not_found("account for this device key"));
         }
         quota(
             ctx,
@@ -302,6 +457,12 @@ fn patch_of(d: PlaceDetailsInput) -> Result<PlacePatch> {
         opening_hours: d.opening_hours,
         website: d.website,
         phone: d.phone,
+        clear: d
+            .clear
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
     })
 }
 
@@ -328,8 +489,10 @@ impl MutationRoot {
     /// Signs in with a device key: `signature` is the ES256 signature of
     /// the challenge's `message` (raw r||s or DER, base64url). An unknown
     /// key creates an account at level 0 with a generated pseudonym in
-    /// `locale` (`fr` or `en`). 10 sign-ins a minute and 5 new accounts an
-    /// hour per client.
+    /// `locale` (`fr` or `en`); with `createIfUnknown: false` it creates
+    /// nothing and answers `NOT_FOUND` (a device signing in again to an
+    /// account that may have been deleted or detached elsewhere). 10
+    /// sign-ins a minute and 5 new accounts an hour per client.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn sign_in(
         &self,
@@ -338,10 +501,11 @@ impl MutationRoot {
         nonce: String,
         signature: String,
         locale: Option<String>,
+        #[graphql(default = true)] create_if_unknown: bool,
     ) -> Result<SignInResult> {
         quota(ctx, Action::SignIn, client(ctx), "sign-ins")?;
         let key = check_signed_challenge(ctx, &public_key_jwk, &nonce, &signature)?;
-        open_session_for(ctx, &key, locale.as_deref()).await
+        open_session_for(ctx, &key, locale.as_deref(), create_if_unknown).await
     }
 
     /// Ends every session of the account but the current one, on this
@@ -451,26 +615,22 @@ impl MutationRoot {
     /// Deletes the account: keys, sessions, recovery code, lists, mutes and
     /// photos go; published reviews, confirmations and place edits stay
     /// without author. `confirm` must be `DELETE`. Needs a session opened
-    /// in the last ten minutes.
+    /// in the last ten minutes. The deletion is also written to a journal
+    /// kept outside the backups, so a restored backup never brings the
+    /// account back; `UNAVAILABLE` when that journal cannot be written
+    /// (nothing is deleted): try again later.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn delete_account(&self, ctx: &Context<'_>, confirm: String) -> Result<bool> {
         if confirm != "DELETE" {
             return Err(invalid_input("confirm must be DELETE"));
         }
         let viewer = auth::require_fresh(ctx).await?;
-        let (pool, permit) = db(ctx).await?;
-        let deleted = accounts::delete_account(pool, viewer.id())
-            .await
-            .map_err(|e| internal(&e))?;
-        drop(permit);
-        if let Some(d) = &deleted {
-            remove_files(ctx, &d.orphan_files).await;
-        }
-        Ok(deleted.is_some())
+        delete_account_of(ctx, viewer.id()).await
     }
 
     /// Deletes the account of a recovery code, as `deleteAccount` does (the
-    /// lunaway.net/account/delete page). 5 attempts an hour per client.
+    /// lunaway.net/account/delete page), journal included. 5 attempts an
+    /// hour per client.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn delete_account_with_recovery_code(
         &self,
@@ -486,14 +646,8 @@ impl MutationRoot {
             .await
             .map_err(|e| internal(&e))?
             .ok_or_else(|| not_found("account with this recovery code"))?;
-        let deleted = accounts::delete_account(pool, account)
-            .await
-            .map_err(|e| internal(&e))?;
         drop(permit);
-        if let Some(d) = &deleted {
-            remove_files(ctx, &d.orphan_files).await;
-        }
-        Ok(deleted.is_some())
+        delete_account_of(ctx, account).await
     }
 
     /// Changes the public pseudonym: 3 to 32 characters, letters required,
@@ -625,7 +779,13 @@ impl MutationRoot {
     }
 
     /// Answers "is it still there?"; no position is sent or kept.
-    /// `CLOSED` and `CHANGED` open a check for moderators. Level 0.
+    /// `CLOSED` and `CHANGED` open a check for moderators. Level 0. With
+    /// `idempotencyKey` (8 to 128 characters of `A-Z a-z 0-9 . _ : -`, the
+    /// outbox entry's id), the same request sent again while the key lives
+    /// (30 days by default, 14 for a road report) returns the confirmation
+    /// the first one stored instead of a second one; the same key with
+    /// other arguments is `INVALID_INPUT`. A key goes with what it made:
+    /// once that is deleted or withdrawn, the same request makes a new one.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn confirm(
         &self,
@@ -633,17 +793,40 @@ impl MutationRoot {
         place_id: Uuid,
         status: GqlConfirmationStatus,
         note: Option<String>,
+        idempotency_key: Option<String>,
     ) -> Result<Confirmation> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Basic).await?;
         let note = self::note(note)?;
+        let status: lunaway_domain::community::ConfirmationStatus = status.into();
+        let key = key_of(
+            &viewer,
+            idempotency_key.as_deref(),
+            Operation::Confirm,
+            &serde_json::json!({"placeId": place_id, "status": status.code(), "note": note}),
+        )?;
+        if let Some(id) = seen_before(ctx, key.as_ref()).await? {
+            return confirmation_replayed(ctx, &viewer, id).await;
+        }
         account_quota(ctx, &viewer, Action::Confirmation, "confirmations")?;
         let place = live_place(ctx, place_id).await?;
-        let row = {
+        let once = {
             let (pool, _permit) = db(ctx).await?;
-            contributions::confirm(pool, viewer.id(), place.id, status.into(), note.as_deref())
-                .await
-                .map_err(|e| internal(&e))?
+            match &key {
+                None => Once::Done(
+                    contributions::confirm(pool, viewer.id(), place.id, status, note.as_deref())
+                        .await
+                        .map_err(|e| internal(&e))?,
+                ),
+                Some(k) => contributions::confirm_once(pool, k, place.id, status, note.as_deref())
+                    .await
+                    .map_err(|e| internal(&e))?,
+            }
+        };
+        let row = match once {
+            Once::Done(row) => row,
+            Once::Replay(id) => return confirmation_replayed(ctx, &viewer, id).await,
+            Once::Reused => return Err(key_reused()),
         };
         auth::after_contribution(ctx, &viewer).await;
         Confirmation::try_from(row)
@@ -780,12 +963,14 @@ impl MutationRoot {
     /// their routes, and a moderator is told. It lasts 12 hours (a closure)
     /// or 7 days after the last confirming pair, or the last report while
     /// unconfirmed. `UNAVAILABLE` when the feeds are being written: try
-    /// again.
+    /// again. `idempotencyKey` as for `confirm`: a report sent again
+    /// returns the first one, with its event as it stands now.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn report_road_event(
         &self,
         ctx: &Context<'_>,
         input: RoadEventReportInput,
+        idempotency_key: Option<String>,
     ) -> Result<RoadEventReportResult> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Basic).await?;
@@ -803,22 +988,43 @@ impl MutationRoot {
             .transpose()?;
         let kind = road_community::ReportKind::from(input.kind);
         road_community::validate(kind, input.value_m).map_err(|e| invalid_input(e.to_string()))?;
+        // The position and course stay out of the key's digest: kept with
+        // the account and the time, a digest of them would let a guess of
+        // where someone was be checked.
+        let key = key_of(
+            &viewer,
+            idempotency_key.as_deref(),
+            Operation::ReportRoadEvent,
+            &serde_json::json!({"kind": kind.code(), "valueM": input.value_m}),
+        )?;
+        if let Some(id) = seen_before(ctx, key.as_ref()).await? {
+            return road_report_replayed(ctx, &viewer, id).await;
+        }
         road_report_quota(ctx, &viewer)?;
-        let done = {
+        let report = road_events::NewReport {
+            account: viewer.id(),
+            kind,
+            at,
+            heading_deg,
+            value_m: input.value_m,
+        };
+        let once = {
             let (pool, _permit) = db(ctx).await?;
-            road_events::report(
-                pool,
-                &road_events::NewReport {
-                    account: viewer.id(),
-                    kind,
-                    at,
-                    heading_deg,
-                    value_m: input.value_m,
-                },
-                chrono::Utc::now(),
-            )
-            .await
-            .map_err(|e| road_write_failed(&e))?
+            match &key {
+                None => Once::Done(
+                    road_events::report(pool, &report, chrono::Utc::now())
+                        .await
+                        .map_err(|e| road_write_failed(&e))?,
+                ),
+                Some(k) => road_events::report_once(pool, k, &report, chrono::Utc::now())
+                    .await
+                    .map_err(|e| road_write_failed(&e))?,
+            }
+        };
+        let done = match once {
+            Once::Done(done) => done,
+            Once::Replay(id) => return road_report_replayed(ctx, &viewer, id).await,
+            Once::Reused => return Err(key_reused()),
         };
         auth::after_contribution(ctx, &viewer).await;
         Ok(RoadEventReportResult {
@@ -867,7 +1073,8 @@ impl MutationRoot {
     /// Reports a problem met at a place (a night ban, a broken service, no
     /// access, a danger); the note goes to moderators only. Level 0; 50
     /// reports a day. The place's card counts the reports of accounts of
-    /// level 1 and up, each once per kind.
+    /// level 1 and up, each once per kind. `idempotencyKey` as for
+    /// `confirm`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn report_issue(
         &self,
@@ -875,17 +1082,42 @@ impl MutationRoot {
         place_id: Uuid,
         kind: GqlIssueKind,
         note: Option<String>,
+        idempotency_key: Option<String>,
     ) -> Result<IssueReport> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Basic).await?;
         let note = self::note(note)?;
+        let kind: lunaway_domain::community::IssueKind = kind.into();
+        let key = key_of(
+            &viewer,
+            idempotency_key.as_deref(),
+            Operation::ReportIssue,
+            &serde_json::json!({"placeId": place_id, "kind": kind.code(), "note": note}),
+        )?;
+        if let Some(id) = seen_before(ctx, key.as_ref()).await? {
+            return issue_replayed(ctx, &viewer, id).await;
+        }
         account_quota(ctx, &viewer, Action::Report, "reports")?;
         let place = live_place(ctx, place_id).await?;
-        let row = {
+        let once = {
             let (pool, _permit) = db(ctx).await?;
-            contributions::report_issue(pool, viewer.id(), place.id, kind.into(), note.as_deref())
-                .await
-                .map_err(|e| internal(&e))?
+            match &key {
+                None => Once::Done(
+                    contributions::report_issue(pool, viewer.id(), place.id, kind, note.as_deref())
+                        .await
+                        .map_err(|e| internal(&e))?,
+                ),
+                Some(k) => {
+                    contributions::report_issue_once(pool, k, place.id, kind, note.as_deref())
+                        .await
+                        .map_err(|e| internal(&e))?
+                }
+            }
+        };
+        let row = match once {
+            Once::Done(row) => row,
+            Once::Replay(id) => return issue_replayed(ctx, &viewer, id).await,
+            Once::Reused => return Err(key_reused()),
         };
         // The summary counts the reports of accounts past level 0: the
         // stored level must be current.
@@ -910,8 +1142,14 @@ impl MutationRoot {
     /// within seconds; a place only the community describes is `TO_VERIFY`
     /// until two other accounts confirm it. A name or description that
     /// trips the automatic rules waits for a moderator. Level 2.
+    /// `idempotencyKey` as for `confirm`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
-    async fn add_place(&self, ctx: &Context<'_>, input: NewPlaceInput) -> Result<PlaceSubmission> {
+    async fn add_place(
+        &self,
+        ctx: &Context<'_>,
+        input: NewPlaceInput,
+        idempotency_key: Option<String>,
+    ) -> Result<PlaceSubmission> {
         let viewer = auth::require(ctx).await?;
         let level = auth::require_level(ctx, &viewer, Level::AddPlace).await?;
         let position = Position::new(input.lat, input.lon)
@@ -922,12 +1160,22 @@ impl MutationRoot {
             details: patch_of(input.details)?,
         })
         .map_err(|e| invalid_input(e.to_string()))?;
+        let key = key_of(
+            &viewer,
+            idempotency_key.as_deref(),
+            Operation::AddPlace,
+            &serde_json::to_value(&new).map_err(|e| internal(&e))?,
+        )?;
+        if let Some(id) = seen_before(ctx, key.as_ref()).await? {
+            return submission_replayed(ctx, &viewer, id).await;
+        }
         account_quota(ctx, &viewer, Action::Submission, "new places and edits")?;
         let flags = flags_of(&new.details, level);
         let held = held_for(&flags);
-        let (pool, _permit) = db(ctx).await?;
-        let row = submissions::submit(
-            pool,
+        submit_keyed(
+            ctx,
+            &viewer,
+            key.as_ref(),
             NewSubmission {
                 account: viewer.id(),
                 device_key: viewer.device_key_id,
@@ -937,25 +1185,38 @@ impl MutationRoot {
             },
         )
         .await
-        .map_err(|e| internal(&e))?;
-        Ok(row.into())
     }
 
-    /// Edits a place: what `patch` states replaces the community's value
-    /// (the value shown still follows each field's most trusted source).
-    /// From level 3 the edit applies within seconds; below, from level 1,
-    /// it waits for a moderator. Every edit is kept as a revision.
+    /// Edits a place: what `patch` states replaces the community's value,
+    /// and the fields in `patch.clear` lose it (the value shown still
+    /// follows each field's most trusted source). From level 3 the edit
+    /// applies within seconds; below, from level 1, it waits for a
+    /// moderator. Every edit is kept as a revision. `idempotencyKey` as for
+    /// `confirm`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn edit_place(
         &self,
         ctx: &Context<'_>,
         place_id: Uuid,
         patch: PlaceDetailsInput,
+        idempotency_key: Option<String>,
     ) -> Result<PlaceSubmission> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Review).await?;
         let patch =
             rules::validate_edit(&patch_of(patch)?).map_err(|e| invalid_input(e.to_string()))?;
+        let key = key_of(
+            &viewer,
+            idempotency_key.as_deref(),
+            Operation::EditPlace,
+            &serde_json::json!({
+                "placeId": place_id,
+                "patch": serde_json::to_value(&patch).map_err(|e| internal(&e))?,
+            }),
+        )?;
+        if let Some(id) = seen_before(ctx, key.as_ref()).await? {
+            return submission_replayed(ctx, &viewer, id).await;
+        }
         account_quota(ctx, &viewer, Action::Submission, "new places and edits")?;
         let place = live_place(ctx, place_id).await?;
         let level = {
@@ -968,9 +1229,10 @@ impl MutationRoot {
         let direct = level >= Level::EditPlaceDirectly.required_level();
         let flags = flags_of(&patch, level);
         let held = held_for(&flags);
-        let (pool, _permit) = db(ctx).await?;
-        let row = submissions::submit(
-            pool,
+        submit_keyed(
+            ctx,
+            &viewer,
+            key.as_ref(),
             NewSubmission {
                 account: viewer.id(),
                 device_key: viewer.device_key_id,
@@ -983,8 +1245,6 @@ impl MutationRoot {
             },
         )
         .await
-        .map_err(|e| internal(&e))?;
-        Ok(row.into())
     }
 
     /// Deletes one of the caller's new places or edits: one not yet

@@ -121,6 +121,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <li>chiffrées avec age, sur un second serveur chez Hetzner à Nuremberg pendant 14&nbsp;jours, puis sur un ordinateur de l'éditeur, seul à détenir la clé de déchiffrement, pendant 29&nbsp;jours.</li>
 </ul>
 <p>Une donnée supprimée de la base, ou une photo supprimée, disparaît ainsi de toutes les sauvegardes en 30&nbsp;jours au plus.</p>
+<p>La suppression d'un compte est aussi notée, avec l'identifiant du compte et l'heure, dans un journal tenu hors des copies de la base et gardé 45&nbsp;jours au plus&nbsp;; une copie chiffrée en est faite chaque heure et part chaque nuit avec les sauvegardes, où elle remplace la précédente (46&nbsp;jours au plus). Si une panne nous oblige à remettre en service une sauvegarde, les suppressions de comptes faites depuis sa date sont appliquées de nouveau avant la remise en service. Une seule panne y échappe&nbsp;: la perte du disque de données du serveur lui-même. Les suppressions faites après la dernière copie recueillie hors de ce serveur (jusqu'à 25&nbsp;heures environ) reviendraient alors avec la sauvegarde.</p>
 
 <h2 id="hebergement">Hébergement et prestataires</h2>
 <ul>
@@ -145,6 +146,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <tr><td>Journal système</td><td>1&nbsp;mois au plus</td></tr>
 <tr><td>Compteurs anti-abus</td><td>en mémoire, de une minute à une journée, effacés à chaque redémarrage</td></tr>
 <tr><td>Sauvegardes</td><td>30&nbsp;jours au plus</td></tr>
+<tr><td>Journal des suppressions de comptes&nbsp;: identifiant du compte supprimé et heure</td><td>45&nbsp;jours au plus (46 dans ses copies)</td></tr>
 <tr><td>E-mails reçus à contact@lunaway.net</td><td>le temps de traiter votre demande</td></tr>
 <tr><td>Données sur votre appareil</td><td>jusqu'à la désinstallation de l'app, ou l'effacement des données du site dans le navigateur</td></tr>
 </tbody>

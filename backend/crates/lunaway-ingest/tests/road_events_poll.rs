@@ -40,6 +40,33 @@ use serde_json::{Value, json};
 
 const DIR_CONTENT: &str = include_str!("fixtures/road_events/dir_content_excerpt.xml");
 const DIALOG: &str = include_str!("fixtures/road_events/dialog_temporary_excerpt.xml");
+const DGT: &str = include_str!("fixtures/road_events/dgt_excerpt.xml");
+const NDW: &[u8] = include_bytes!("fixtures/road_events/ndw_planning_excerpt.xml");
+const COTES_D_ARMOR: &str = include_str!("fixtures/road_events/cotes_d_armor_excerpt.geojson");
+
+/// The Côtes-d'Armor's orders repeated, under new ids, until they fill the
+/// page the export is asked with.
+fn cotes_d_armor_full_page() -> String {
+    let mut collection: Value = serde_json::from_str(COTES_D_ARMOR).unwrap();
+    let features = collection["features"].as_array().unwrap().clone();
+    let page: Vec<Value> = (0..lunaway_ingest::road_events::local::COTES_D_ARMOR_PAGE)
+        .map(|i| {
+            let mut f = features[i % features.len()].clone();
+            f["id"] = json!(format!("page-{i}"));
+            f
+        })
+        .collect();
+    collection["features"] = Value::Array(page);
+    collection.to_string()
+}
+
+/// NDW's file as it is served: gzip, without `Content-Encoding`.
+fn ndw_gz() -> Vec<u8> {
+    use std::io::Write as _;
+    let mut z = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+    z.write_all(NDW).unwrap();
+    z.finish().unwrap()
+}
 
 /// The night closure of the N20 (record 260122-001799-2) ended by a new
 /// version of its situation, as an increment.
@@ -99,6 +126,9 @@ async fn serve(State(f): State<Feeds>, uri: Uri, headers: HeaderMap) -> Response
         "/dir/3572540.xml" | "/dir/3572543.xml" => increment_ending_the_n20().into_response(),
         "/dir/3572541.xml" if *f.broken.lock().unwrap() => "<not-datex".into_response(),
         "/dialog" => f.dialog.lock().unwrap().clone().into_response(),
+        "/dgt" => DGT.to_owned().into_response(),
+        "/ndw.xml.gz" => ([("content-type", "application/xml")], ndw_gz()).into_response(),
+        "/cotes-d-armor" => cotes_d_armor_full_page().into_response(),
         _ => StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -123,6 +153,10 @@ fn config(addr: SocketAddr) -> PollConfig {
         dir_pace: Duration::ZERO,
         dialog_url: format!("http://{addr}/dialog"),
         dialog_hosts: vec!["127.0.0.1".into()],
+        dgt_url: format!("http://{addr}/dgt"),
+        dgt_hosts: vec!["127.0.0.1".into()],
+        ndw_url: format!("http://{addr}/ndw.xml.gz"),
+        ndw_hosts: vec!["127.0.0.1".into()],
         local: Vec::new(),
         retry: RetryPolicy {
             min_delay: Duration::from_millis(5),
@@ -341,6 +375,25 @@ impl Engine for Picky {
             return Err(MatchError::Refused(
                 "HTTP 400 error 154: Insufficient number of locations provided".into(),
             ));
+        }
+        Straight.route(body).await
+    }
+}
+
+/// [`Straight`], counting the requests with a point outside France.
+#[derive(Default)]
+struct Abroad {
+    asked: std::sync::atomic::AtomicUsize,
+}
+
+impl Engine for Abroad {
+    async fn route(&self, body: &Value) -> Result<Option<Value>, MatchError> {
+        let abroad = body["locations"].as_array().unwrap().iter().any(|l| {
+            let p = Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap();
+            !lunaway_domain::routing::is_covered(p)
+        });
+        if abroad {
+            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
         Straight.route(body).await
     }
@@ -571,4 +624,149 @@ async fn sections_are_placed_on_their_road_in_their_direction(pool: PgPool) {
         "slip road events are never matched as lines"
     );
     assert_eq!(ramp.lines, None);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_dutch_and_spanish_feeds_are_read_and_kept_off_the_french_graph(pool: PgPool) {
+    let (f, addr) = feeds().await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let engine: Option<&matching::Valhalla> = None;
+    let report = poll::poll(&pool, &client, &cache, &config(addr), engine)
+        .await
+        .unwrap();
+    assert!(
+        report.sources["dgt"].error.is_none(),
+        "{:?}",
+        report.sources["dgt"].error
+    );
+    assert!(
+        !report.sources.contains_key("ndw"),
+        "NDW's 200 MB file is read by its own unit only"
+    );
+    assert!(!f.seen.lock().unwrap().contains(&"/ndw.xml.gz".to_owned()));
+    let mut ndw_only = config(addr);
+    ndw_only.only = vec!["ndw".into()];
+    let report = poll::poll(&pool, &client, &cache, &ndw_only, engine)
+        .await
+        .unwrap();
+    let r = &report.sources["ndw"];
+    assert!(r.error.is_none(), "{:?}", r.error);
+    assert!(r.full, "a complete snapshot");
+    assert!(db::live_count(&pool, "ndw").await.unwrap() > 0);
+    assert!(db::live_count(&pool, "dgt").await.unwrap() > 0);
+    let feed = db::feed(&pool, "ndw").await.unwrap().unwrap();
+    assert_eq!(
+        feed.data_at,
+        Some(
+            Utc.with_ymd_and_hms(2026, 10, 6, 10, 45, 0).unwrap()
+                + chrono::Duration::microseconds(636)
+        ),
+        "current as of the file's publication"
+    );
+    assert!(
+        cache
+            .read("road-events/ndw/planning.xml.gz")
+            .await
+            .unwrap()
+            .is_some_and(|c| c.bytes.starts_with(&[0x1f, 0x8b])),
+        "the file is kept compressed"
+    );
+
+    graph(&pool, "20261006T0300Z-fr").await;
+    let watch = Abroad::default();
+    matching::match_pending(&pool, &watch, 1_000, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert_eq!(
+        watch.asked.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "the graph covers France only: no Dutch or Spanish line is asked of it"
+    );
+    let waiting: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM road_events
+           WHERE source IN ('ndw', 'dgt') AND match_quality = 'pending'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(waiting > 0, "they wait for a graph that covers them");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failing_feed_waits_its_pace_before_it_is_asked_again(pool: PgPool) {
+    let (f, addr) = feeds().await;
+    *f.dialog.lock().unwrap() = "<not-datex".to_owned();
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let engine: Option<&matching::Valhalla> = None;
+    let mut only_dialog = config(addr);
+    only_dialog.only = vec!["dialog".into()];
+    let report = poll::poll(&pool, &client, &cache, &only_dialog, engine)
+        .await
+        .unwrap();
+    assert!(
+        report.sources["dialog"].error.is_some(),
+        "a broken export fails"
+    );
+    f.seen.lock().unwrap().clear();
+    let report = poll::poll(&pool, &client, &cache, &only_dialog, engine)
+        .await
+        .unwrap();
+    assert!(
+        !report.sources.contains_key("dialog") && f.seen.lock().unwrap().is_empty(),
+        "three minutes later, a feed that failed is not asked again before its 15 minutes"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_export_that_fills_its_page_is_not_applied(pool: PgPool) {
+    let (_f, addr) = feeds().await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let engine: Option<&matching::Valhalla> = None;
+    let mut only = config(addr);
+    only.local = vec![poll::LocalConfig {
+        id: "cotes-d-armor".into(),
+        url: format!("http://{addr}/cotes-d-armor"),
+        hosts: vec!["127.0.0.1".into()],
+        format: lunaway_ingest::road_events::local::Format::CotesDArmorOrders,
+    }];
+    only.only = vec!["cotes-d-armor".into()];
+    let report = poll::poll(&pool, &client, &cache, &only, engine)
+        .await
+        .unwrap();
+    let error = report.sources["cotes-d-armor"]
+        .error
+        .as_deref()
+        .unwrap_or_default();
+    assert!(
+        error.contains("filled its page"),
+        "a full page may have more orders after it: {error:?}"
+    );
+    let stored: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM road_events WHERE source = 'cotes-d-armor'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        stored, 0,
+        "read as a complete snapshot, a truncated page would end the orders past it"
+    );
+    let asked = lunaway_ingest::road_events::local::FEEDS
+        .iter()
+        .find(|f| f.id == "cotes-d-armor")
+        .unwrap()
+        .url;
+    assert!(
+        asked.contains(&format!(
+            "size={}&",
+            lunaway_ingest::road_events::local::COTES_D_ARMOR_PAGE
+        )),
+        "the page checked is the page asked: {asked}"
+    );
 }

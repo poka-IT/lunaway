@@ -10,6 +10,8 @@
 //! | DIR increments | every pass, from the next number | no: a situation's new version settles its records |
 //! | DiaLog temporary orders | every 15 minutes | yes |
 //! | city and département datasets | hourly | yes |
+//! | DGT (Spain) | every pass | yes |
+//! | NDW planning (Netherlands) | every three hours, only when named (`--only ndw`, its own unit) | yes |
 
 use std::{collections::BTreeMap, time::Duration};
 
@@ -21,7 +23,7 @@ use lunaway_db::{
 use serde::{Deserialize, Serialize};
 
 use super::{
-    dialog, dir,
+    dialog, dir, europe,
     fetch::{self, Answer, Ask},
     local::{self, Format, LocalFeed},
     matching::{self, Engine, MatchReport},
@@ -45,6 +47,23 @@ const DIR_INCREMENT_MAX: usize = 4 * 1024 * 1024;
 const DIALOG_MAX: usize = 256 * 1024 * 1024;
 /// Largest city dataset accepted: under 1 MB measured.
 const LOCAL_MAX: usize = 64 * 1024 * 1024;
+/// NDW's planning feed: the gzip file as served (16.5 MB on 2026-10-06),
+/// and the XML it holds (204 MB).
+const NDW_WIRE_MAX: usize = 96 * 1024 * 1024;
+/// 1.6 times the file of 2026-10-06. Its 204 MB of XML took 443 MB at the
+/// peak with the events kept (about 2.2 bytes per byte of XML): 320 MiB
+/// would take about 730 MB, under the 896 MB where the unit is throttled
+/// and the 1 GB where it is stopped
+/// (`infra/systemd/lunaway-road-events-ndw.service`). A bigger file is
+/// refused as too large rather than killed half-way.
+const NDW_XML_MAX: usize = 320 * 1024 * 1024;
+/// The DGT's incidents: 6.8 MB of XML on 2026-10-06.
+const DGT_MAX: usize = 128 * 1024 * 1024;
+/// NDW's planning feed, a gzip file served without `Content-Encoding`.
+pub const NDW_URL: &str =
+    "https://opendata.ndw.nu/planningsfeed_wegwerkzaamheden_en_evenementen.xml.gz";
+/// The DGT's incidents, DATEX II 3.7.
+pub const DGT_URL: &str = "https://nap.dgt.es/datex2/v3/dgt/SituationPublication/datex2_v37.xml";
 /// How far past a missing DIR increment the poller looks for the next one:
 /// the numbers ran without a gap over 24 hours (2 645 files, 3569914 to
 /// 3572558), but one file may still be missing.
@@ -108,6 +127,19 @@ pub struct PollConfig {
     pub local: Vec<LocalConfig>,
     /// How often each is read.
     pub local_every: chrono::Duration,
+    /// NDW's planning feed ([`NDW_URL`]): read only when named in `only`,
+    /// its size asks for a unit of its own.
+    pub ndw_url: String,
+    /// NDW's hosts.
+    pub ndw_hosts: Vec<String>,
+    /// How often NDW is read.
+    pub ndw_every: chrono::Duration,
+    /// The DGT's incidents ([`DGT_URL`]).
+    pub dgt_url: String,
+    /// The DGT's hosts.
+    pub dgt_hosts: Vec<String>,
+    /// How often the DGT is read.
+    pub dgt_every: chrono::Duration,
     /// Retries on load shedding: few and short, the next pass comes soon.
     pub retry: RetryPolicy,
     /// An event without an end not seen for this long ends.
@@ -140,6 +172,14 @@ impl Default for PollConfig {
             dialog_every: chrono::Duration::minutes(14),
             local: local::FEEDS.iter().map(LocalConfig::from).collect(),
             local_every: chrono::Duration::minutes(58),
+            ndw_url: NDW_URL.to_owned(),
+            ndw_hosts: vec!["opendata.ndw.nu".to_owned()],
+            ndw_every: chrono::Duration::minutes(175),
+            dgt_url: DGT_URL.to_owned(),
+            dgt_hosts: vec!["nap.dgt.es".to_owned()],
+            // The feed is written every minute; every pass of three
+            // minutes reads it.
+            dgt_every: chrono::Duration::seconds(150),
             retry: RetryPolicy {
                 min_delay: Duration::from_secs(5),
                 max_delay: Duration::from_secs(60),
@@ -147,7 +187,7 @@ impl Default for PollConfig {
             },
             expire_after: chrono::Duration::hours(6),
             keep_ended: chrono::Duration::days(7),
-            keep_reports: chrono::Duration::days(14),
+            keep_reports: chrono::Duration::days(db::REPORT_KEEP_DAYS),
             match_tasks: 400,
             match_budget: Duration::from_secs(90),
             only: Vec::new(),
@@ -239,7 +279,11 @@ fn chain(error: &(dyn std::error::Error + 'static)) -> String {
 }
 
 fn selected(config: &PollConfig, id: &str) -> bool {
-    config.only.is_empty() || config.only.iter().any(|o| o == id)
+    config.only.is_empty() || named(config, id)
+}
+
+fn named(config: &PollConfig, id: &str) -> bool {
+    config.only.iter().any(|o| o == id)
 }
 
 /// Whether a feed last attempted at `last` is due: attempts, failed or
@@ -339,13 +383,147 @@ async fn apply_feed(
     ordered: bool,
     report: &mut SourceReport,
 ) -> Result<(), IngestError> {
+    apply_publication(pool, source, events, now, now, ordered, report).await
+}
+
+/// Stores a complete snapshot of a feed published at `published`, read at
+/// `seen_at`, in one transaction; the feed is current as of `published`.
+async fn apply_publication(
+    pool: &PgPool,
+    source: &str,
+    events: &[NewEvent],
+    published: DateTime<Utc>,
+    seen_at: DateTime<Utc>,
+    ordered: bool,
+    report: &mut SourceReport,
+) -> Result<(), IngestError> {
     let mut w = db::begin_writer(pool).await?;
-    apply_snapshot(&mut w, source, events, now, now, ordered, report).await?;
+    apply_snapshot(&mut w, source, events, published, seen_at, ordered, report).await?;
     w.commit().await?;
     if report.full {
-        report.data_at = Some(now);
+        report.data_at = Some(published);
     }
     Ok(())
+}
+
+/// Where NDW's reader resumes: the ETag of the last file applied.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NdwState {
+    /// The validator of the last file applied.
+    #[serde(default)]
+    pub etag: Option<String>,
+}
+
+/// Reads NDW's planning feed, unless unchanged since its last read.
+async fn poll_ndw(
+    pass: Pass<'_>,
+    state: &mut NdwState,
+    report: &mut SourceReport,
+) -> Result<(), IngestError> {
+    let Pass {
+        pool,
+        http,
+        cache,
+        config,
+        now,
+    } = pass;
+    let ask = Ask {
+        hosts: &config.ndw_hosts,
+        retry: config.retry,
+        max_wire: NDW_WIRE_MAX,
+        max_inflated: NDW_WIRE_MAX,
+        etag: state.etag.as_deref().filter(|_| !config.force),
+    };
+    let (bytes, etag) = match fetch::get(http, &config.ndw_url, ask).await? {
+        Answer::Body { bytes, etag } => (bytes, etag),
+        // Unchanged: the events stand as they were.
+        Answer::NotModified => {
+            report.full = true;
+            return Ok(());
+        }
+        Answer::NotFound => {
+            return Err(IngestError::Implausible {
+                what: "NDW's planning feed is missing (404)".into(),
+            });
+        }
+    };
+    // The file is kept as served, compressed.
+    cache
+        .write("road-events/ndw/planning.xml.gz", &bytes)
+        .await?;
+    let url = config.ndw_url.clone();
+    let p = tokio::task::spawn_blocking(move || {
+        // Served as a .gz file without `Content-Encoding`.
+        let xml = if bytes.starts_with(&[0x1f, 0x8b]) {
+            let xml = fetch::inflate(&url, &bytes, NDW_XML_MAX)?;
+            // The compressed file is no longer needed while the XML is read.
+            drop(bytes);
+            xml
+        } else {
+            bytes
+        };
+        europe::parse_ndw(&xml, now).map_err(|source| IngestError::RoadEvents {
+            what: "NDW's planning feed".into(),
+            source,
+        })
+    })
+    .await
+    .map_err(IngestError::Blocking)??;
+    if p.records == 0 {
+        return Err(IngestError::Implausible {
+            what: "NDW's planning feed holds no record".into(),
+        });
+    }
+    report.events = p.events.len();
+    merge(&mut report.skipped, &p.skipped);
+    let published = p.published_at.unwrap_or(now);
+    apply_publication(pool, "ndw", &p.events, published, now, true, report).await?;
+    // A snapshot refused (too many events gone at once) keeps the old
+    // validator: a later 304 must not stand for a read applied in full.
+    if report.full {
+        state.etag = etag;
+    }
+    Ok(())
+}
+
+/// Reads the DGT's incidents.
+async fn poll_dgt(pass: Pass<'_>, report: &mut SourceReport) -> Result<(), IngestError> {
+    let Pass {
+        pool,
+        http,
+        cache,
+        config,
+        now,
+    } = pass;
+    let ask = Ask {
+        hosts: &config.dgt_hosts,
+        retry: config.retry,
+        max_wire: DGT_MAX,
+        max_inflated: DGT_MAX,
+        etag: None,
+    };
+    let Answer::Body { bytes, .. } = fetch::get(http, &config.dgt_url, ask).await? else {
+        return Err(IngestError::Implausible {
+            what: "the DGT answered without its feed".into(),
+        });
+    };
+    cache.write("road-events/dgt/incidents.xml", &bytes).await?;
+    let p = tokio::task::spawn_blocking(move || europe::parse_dgt(&bytes, now))
+        .await
+        .map_err(IngestError::Blocking)?
+        .map_err(|source| IngestError::RoadEvents {
+            what: "the DGT's feed".into(),
+            source,
+        })?;
+    if p.records == 0 {
+        return Err(IngestError::Implausible {
+            what: "the DGT's feed holds no record".into(),
+        });
+    }
+    report.events = p.events.len();
+    merge(&mut report.skipped, &p.skipped);
+    let published = p.published_at.unwrap_or(now);
+    apply_publication(pool, "dgt", &p.events, published, now, true, report).await
 }
 
 /// Applies a DIR publication, the aggregate as a snapshot or an increment
@@ -653,7 +831,7 @@ async fn poll_local(
             source,
         })?
     } else {
-        feed.url.clone()
+        local::url_for(&feed.url, now)
     };
     let bytes = body(fetch::get(http, &url, ask(None)).await?)?;
     cache
@@ -667,6 +845,15 @@ async fn poll_local(
         what: feed.id.clone(),
         source,
     })?;
+    if feed.format == Format::CotesDArmorOrders && p.features >= local::COTES_D_ARMOR_PAGE {
+        return Err(IngestError::Implausible {
+            what: format!(
+                "{} filled its page of {} orders: more may follow, nothing applied",
+                feed.id,
+                local::COTES_D_ARMOR_PAGE
+            ),
+        });
+    }
     report.events = p.events.len();
     merge(&mut report.skipped, &p.skipped);
     apply_feed(pool, &feed.id, &p.events, now, false, report).await
@@ -743,6 +930,45 @@ pub async fn poll(
         r.elapsed = started.elapsed();
         record(pool, &feed.id, outcome, &serde_json::json!({}), &mut r).await?;
         out.sources.insert(feed.id.clone(), r);
+    }
+    let pass = Pass {
+        pool,
+        http,
+        cache,
+        config,
+        now,
+    };
+    let dgt_tried = db::feed(pool, "dgt").await?.and_then(|f| f.last_attempt_at);
+    if selected(config, "dgt") && (config.force || due(dgt_tried, config.dgt_every, now)) {
+        let started = std::time::Instant::now();
+        let mut r = SourceReport {
+            read: true,
+            ..SourceReport::default()
+        };
+        let outcome = poll_dgt(pass, &mut r).await;
+        r.elapsed = started.elapsed();
+        record(pool, "dgt", outcome, &serde_json::json!({}), &mut r).await?;
+        out.sources.insert("dgt".into(), r);
+    }
+    // NDW's file is read by its own unit, which names it (`--only ndw`):
+    // 200 MB of XML would not fit the memory of the three-minute pass.
+    let ndw = db::feed(pool, "ndw").await?;
+    let ndw_tried = ndw.as_ref().and_then(|f| f.last_attempt_at);
+    if named(config, "ndw") && (config.force || due(ndw_tried, config.ndw_every, now)) {
+        let started = std::time::Instant::now();
+        let mut r = SourceReport {
+            read: true,
+            ..SourceReport::default()
+        };
+        let mut state: NdwState = ndw
+            .as_ref()
+            .and_then(|f| serde_json::from_value(f.state.clone()).ok())
+            .unwrap_or_default();
+        let outcome = poll_ndw(pass, &mut state, &mut r).await;
+        r.elapsed = started.elapsed();
+        let state = serde_json::to_value(&state).unwrap_or_default();
+        record(pool, "ndw", outcome, &state, &mut r).await?;
+        out.sources.insert("ndw".into(), r);
     }
     if let Some(engine) = engine {
         out.matching = Some(

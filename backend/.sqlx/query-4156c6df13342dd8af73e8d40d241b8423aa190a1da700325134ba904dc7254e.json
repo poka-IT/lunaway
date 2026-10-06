@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.id, p.place_id, p.account_id, a.pseudonym AS \"author?\", p.status, p.path,\n               p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height, p.thumbhash,\n               p.created_at\n        FROM photos p LEFT JOIN accounts a ON a.id = p.account_id\n        WHERE p.account_id = $1 AND p.withdrawn_at IS NULL AND ($2::uuid IS NULL OR p.id < $2)\n        ORDER BY p.id DESC LIMIT $3\n        ",
+  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n        )\n        SELECT p.id, p.source_id, p.place_id, p.account_id, a.pseudonym AS \"author?\", p.status,\n               p.path, p.thumb_path, p.width, p.height, p.thumb_width, p.thumb_height,\n               p.thumbhash, p.created_at\n        FROM photos p LEFT JOIN accounts a ON a.id = p.account_id\n        WHERE p.place_id IN (SELECT id FROM family) AND p.status = 'published'\n          AND p.withdrawn_at IS NULL AND a.banned_at IS NULL\n          AND ($2::uuid IS NULL OR p.account_id IS NULL OR NOT EXISTS (\n                SELECT 1 FROM muted_authors m WHERE m.account_id = $2 AND m.muted_id = p.account_id))\n        ORDER BY p.id DESC\n        LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "photos",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "place_id",
         "type_info": "Uuid",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "account_id",
         "type_info": "Uuid",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "author?",
         "type_info": "Text",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "status",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "path",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "thumb_path",
         "type_info": "Text",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "width",
         "type_info": "Int4",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "height",
         "type_info": "Int4",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "thumb_width",
         "type_info": "Int4",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "thumb_height",
         "type_info": "Int4",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "thumbhash",
         "type_info": "Bytea",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -157,6 +168,7 @@
     "nullable": [
       false,
       false,
+      false,
       true,
       false,
       false,
@@ -170,5 +182,5 @@
       false
     ]
   },
-  "hash": "19dc4c4f1e3379100e93e49802672c39ccaa64924b96a4e233488ac479ecea90"
+  "hash": "4156c6df13342dd8af73e8d40d241b8423aa190a1da700325134ba904dc7254e"
 }

@@ -304,6 +304,23 @@ __PROBE_KEY__
       - "[CONNECTED] == true"
       - "[BODY].media_backup.ok == true"
 
+  # The encrypted copy of the account deletion journal was written in the
+  # last 3 hours (lunaway-deletions-offsite, hourly). Without it, a restore
+  # after the loss of the data volume brings deleted accounts back.
+  - name: Account deletion journal backup
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].deletions_backup.ok == true"
+
   # The monthly refresh installs a build dated a day or two earlier; a build
   # older than 35 days means the last refresh failed.
   - name: Basemap build

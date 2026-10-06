@@ -916,6 +916,10 @@ pub struct MatchTask {
     pub graph_id: Option<String>,
 }
 
+/// How many days a road report is kept, as the privacy page says; its
+/// idempotency key goes with it.
+pub const REPORT_KEEP_DAYS: i64 = 14;
+
 /// How many times the engine may refuse an event's lines on one graph
 /// before the event waits for the next graph: a refusal can come from a
 /// moment of the engine, rarely, so a line is asked again twice.
@@ -988,7 +992,9 @@ fn matched_lines(text: Option<&str>) -> Vec<Vec<Position>> {
 
 /// The live events made of lines that wait for a match, were matched on
 /// another graph than `graph_id`, or were refused by the engine and are
-/// due to be asked again: the waiting ones first, closures first.
+/// due to be asked again: the waiting ones first, closures first. Only the
+/// feeds whose area the graph covers (`road_event_sources.routed`): a
+/// Dutch line asked of a French graph would only fail.
 ///
 /// # Errors
 ///
@@ -1007,6 +1013,7 @@ pub async fn match_tasks(
         FROM road_events
         WHERE ended_at IS NULL
           AND GeometryType(geom_source::geometry) IN ('LINESTRING', 'MULTILINESTRING')
+          AND source IN (SELECT id FROM road_event_sources WHERE routed)
           AND (match_quality = 'pending'
                OR (match_quality IN ('matched', 'unmatched')
                    AND matched_graph_id IS DISTINCT FROM $1)
@@ -1140,17 +1147,14 @@ pub struct Lifecycle {
     pub purged: u64,
     /// Reports purged after their time.
     pub reports_purged: u64,
-    /// Community events whose state changed when weighed again (an
-    /// account banned or deleted, a level gained).
-    pub reweighed: u64,
 }
 
-/// Weighs every live community event again ([`community::summarize`]): a
-/// banned or deleted account's reports no longer count, so two accounts
-/// that confirmed a closure and then left do not keep it blocking. Then
-/// ends the events past their end (a margin of an hour), expires those
+/// Ends the events past their end (a margin of an hour), expires those
 /// without an end not seen for `expire_after`, purges the events ended
 /// more than `keep_ended` ago and the reports older than `keep_reports`.
+/// The community's events are weighed again by the API
+/// ([`reweigh_community`]), never here: the importers' role does not read
+/// who reported what.
 ///
 /// # Errors
 ///
@@ -1163,7 +1167,6 @@ pub async fn lifecycle(
     keep_reports: Duration,
 ) -> Result<Lifecycle, DbError> {
     let mut w = begin_writer(pool).await?;
-    let reweighed = reweigh(&mut w).await?;
     let past_end = sqlx::query!(
         r#"
         UPDATE road_events SET ended_at = $1, end_reason = 'past_end'
@@ -1212,7 +1215,6 @@ pub async fn lifecycle(
         expired,
         purged: purged.len() as u64,
         reports_purged,
-        reweighed,
     })
 }
 
@@ -1522,7 +1524,10 @@ pub async fn feed_head(pool: &PgPool) -> Result<FeedHead, DbError> {
 /// route: a closure, or a vehicle limit for every vehicle, placed on the
 /// graph, official or confirmed (the API's `can_block`, kept in step).
 /// Lines are simplified to about 4 m: a phone checks its route against them
-/// within 12 m, and their points are most of the feed's weight.
+/// within 12 m, and their points are most of the feed's weight. Only the
+/// feeds the routing graph covers (`road_event_sources.routed`): a phone
+/// in guidance has nothing to do with 17 000 Dutch events, and the changes
+/// of [`changed_since`] leave them out too.
 ///
 /// # Errors
 ///
@@ -1550,6 +1555,7 @@ pub async fn live_events(
         FROM road_events e
         WHERE e.ended_at IS NULL AND e.class = ANY($1)
           AND e.revision > $3 AND e.revision <= $4
+          AND e.source IN (SELECT id FROM road_event_sources WHERE routed)
           AND (NOT $2 OR (
               e.match_quality IN ('matched', 'ramp', 'point')
               AND e.confidence <> 'reported'
@@ -1607,6 +1613,7 @@ pub async fn changed_since(
             e.source_updated_at, e.first_seen_at, e.last_seen_at, e.revision, e.ended_at
         FROM road_events e
         WHERE e.revision > $1 AND e.revision <= $2
+          AND e.source IN (SELECT id FROM road_event_sources WHERE routed)
         ORDER BY e.revision
         LIMIT $3
         "#,
@@ -1681,6 +1688,84 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
     // migration's trigger takes it too): no row lock is needed to read the
     // community's events and update one.
     let mut w = begin_writer_now(pool).await?;
+    let done = report_in(&mut w, r, now).await?;
+    w.commit().await?;
+    Ok(done)
+}
+
+/// [`report`] guarded by an idempotency key: a request sent again with the
+/// same key answers with the report the first one stored. The key's
+/// account is the reporter.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails or the writers' lock is not free in
+/// time ([`is_busy`]).
+pub async fn report_once(
+    pool: &PgPool,
+    key: &crate::idempotency::Key<'_>,
+    r: &NewReport,
+    now: DateTime<Utc>,
+) -> Result<crate::idempotency::Once<Reported>, DbError> {
+    use crate::idempotency::{self, Once, Seen};
+    let mut w = begin_writer_now(pool).await?;
+    // The writers' lock orders two requests with the same key: the second
+    // sees the first's key here.
+    match idempotency::seen(&mut w.0, key).await? {
+        Seen::New => {}
+        Seen::Replay(id) => return Ok(Once::Replay(id)),
+        Seen::Reused => return Ok(Once::Reused),
+    }
+    let done = report_in(&mut w, r, now).await?;
+    if idempotency::store(&mut w.0, key, done.report_id).await? {
+        w.commit().await?;
+        Ok(Once::Done(done))
+    } else {
+        w.0.rollback().await?;
+        idempotency::after_lost_race(pool, key).await
+    }
+}
+
+/// What report `id` of `account` stands for now, for a request sent again:
+/// its event, the event's confidence and when it ends (or ended).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn report_of(
+    pool: &PgPool,
+    account: Uuid,
+    id: Uuid,
+) -> Result<Option<Reported>, DbError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT r.id, r.event_id AS "event_id!", e.confidence,
+            coalesce(e.ended_at, e.valid_to, e.last_seen_at) AS "until!"
+        FROM road_event_reports r JOIN road_events e ON e.id = r.event_id
+        WHERE r.id = $1 AND r.account_id = $2
+        "#,
+        id,
+        account,
+    )
+    .fetch_optional(pool)
+    .await?;
+    row.map(|r| {
+        Ok(Reported {
+            report_id: r.id,
+            event_id: r.event_id,
+            confidence: decode("road event confidence", &r.confidence)?,
+            confirmed_now: false,
+            expires_at: r.until,
+        })
+    })
+    .transpose()
+}
+
+async fn report_in(
+    w: &mut EventWriter,
+    r: &NewReport,
+    now: DateTime<Utc>,
+) -> Result<Reported, DbError> {
     let candidates = sqlx::query!(
         r#"
         SELECT id, heading_deg, confidence, max_height_m, max_width_m,
@@ -1763,10 +1848,9 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
     )
     .execute(&mut *w.0)
     .await?;
-    let summary = summarize_event(&mut w, event_id, r.kind, "moderated").await?;
+    let summary = summarize_event(w, event_id, r.kind, "moderated").await?;
     let Some(summary) = summary else {
         // Cannot happen: the report just stored supports the event.
-        w.commit().await?;
         return Err(DbError::decode(
             "community event",
             std::io::Error::new(std::io::ErrorKind::InvalidData, event_id.to_string()),
@@ -1788,7 +1872,6 @@ pub async fn report(pool: &PgPool, r: &NewReport, now: DateTime<Utc>) -> Result<
         .execute(&mut *w.0)
         .await?;
     }
-    w.commit().await?;
     Ok(Reported {
         report_id,
         event_id,
@@ -1809,26 +1892,28 @@ async fn summarize_event(
     kind: ReportKind,
     end_reason: &str,
 ) -> Result<Option<community::CommunityEvent>, DbError> {
+    // Through the view without accounts: the rule needs one key per account
+    // and event, never an account id, so nothing that weighs the reports
+    // handles who made them.
     let reports = sqlx::query!(
         r#"
-        SELECT r.account_id, r.kind, r.value_m, r.created_at,
-            a.trust_level >= 1 AS "trusted!"
-        FROM road_event_reports r
-        JOIN accounts a ON a.id = r.account_id
-        WHERE r.event_id = $1 AND r.status = 'active' AND (r.kind = $2 OR r.kind = 'cleared')
-          AND a.banned_at IS NULL
-        ORDER BY r.created_at
+        SELECT reporter AS "reporter!", kind AS "kind!", value_m, created_at AS "created_at!",
+            trusted AS "trusted!"
+        FROM road_event_report_facts
+        WHERE event_id = $1 AND status = 'active' AND (kind = $2 OR kind = 'cleared')
+          AND NOT banned
+        ORDER BY created_at
         "#,
         event_id,
         kind.code(),
     )
     .fetch_all(&mut *w.0)
     .await?;
-    let facts: Vec<ReportFacts<Uuid>> = reports
+    let facts: Vec<ReportFacts<String>> = reports
         .into_iter()
         .filter_map(|r| {
             Some(ReportFacts {
-                account: r.account_id,
+                account: r.reporter,
                 kind: r.kind.parse().ok()?,
                 value_m: r.value_m,
                 created_at: r.created_at,
@@ -1972,6 +2057,23 @@ pub async fn clear(
     }
     w.commit().await?;
     Ok(summary.map_or(Cleared::Ended, |s| Cleared::Noted(s.confidence)))
+}
+
+/// Weighs every live community event again ([`community::summarize`]): a
+/// banned or deleted account's reports no longer count, so two accounts
+/// that confirmed a closure and then left do not keep it blocking; a level
+/// gained counts. How many changed or ended. Run by the API every few
+/// minutes, with the writers' lock waited for three seconds at most
+/// ([`is_busy`] tells that wait's failure apart: the next round does it).
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails or the lock is not free in time.
+pub async fn reweigh_community(pool: &PgPool) -> Result<u64, DbError> {
+    let mut w = begin_writer_now(pool).await?;
+    let changed = reweigh(&mut w).await?;
+    w.commit().await?;
+    Ok(changed)
 }
 
 /// Weighs every live community event again. How many changed or ended.

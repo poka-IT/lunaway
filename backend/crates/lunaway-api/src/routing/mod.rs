@@ -335,8 +335,14 @@ impl Routing {
                     }
                 }
             }
+            // Shared with the checks off the async threads rather than copied
+            // for each route: 1.3 ms for a 650 km route (measured, test
+            // `copying_a_long_route_costs_little`).
+            let osrm = Arc::new(osrm);
             let checked =
                 check_routes(pool, graph_id, &osrm, &dims, request.depart_at, fresh).await?;
+            // The checks are over and dropped their shares: no copy.
+            let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
                 .into_iter()
                 .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
@@ -440,7 +446,7 @@ type Checked = (CheckedRoute, Vec<Met>, Vec<EventHit>);
 async fn check_routes(
     pool: &PgPool,
     graph_id: &str,
-    osrm: &Value,
+    osrm: &Arc<Value>,
     dims: &RoutingDimensions,
     depart_at: DateTime<Utc>,
     fresh: &Freshness,
@@ -481,19 +487,20 @@ async fn check_routes(
             })
             .unwrap_or_default();
         let dims = *dims;
-        let route_value = route.clone();
+        let shared = Arc::clone(osrm);
         let fresh = fresh.clone();
         // Indexing a long shape and matching hundreds of restrictions and
         // events takes milliseconds to tens of milliseconds of CPU: off the
         // async threads.
         let ((warnings, blocking), (events, event_blocking)) =
             tokio::task::spawn_blocking(move || {
+                let route_value = &shared["routes"][index];
                 let line = RouteLine::new(points)
                     .ok_or(RouteError::Malformed("a route of one point"))?
                     .with_legs(&legs);
                 let restrictions = match_restrictions(&line, near, &dims);
-                let steps = events::steps_of(&route_value, &line);
-                let timing = Timing::of(&route_value, &line, depart_at);
+                let steps = events::steps_of(route_value, &line);
+                let timing = Timing::of(route_value, &line, depart_at);
                 let met = events::check(
                     &line,
                     &steps,
@@ -602,14 +609,15 @@ fn keep_routes(
     mut routes: Vec<CheckedRoute>,
     language: &str,
 ) -> Result<(Value, Vec<CheckedRoute>), RouteError> {
-    let all = osrm
+    let mut all = osrm
         .get_mut("routes")
         .and_then(Value::as_array_mut)
         .map(std::mem::take)
         .unwrap_or_default();
+    // Taken, not copied: the routes not kept are dropped with `all`.
     let mut kept: Vec<Value> = routes
         .iter()
-        .filter_map(|r| all.get(r.index).cloned())
+        .filter_map(|r| all.get_mut(r.index).map(Value::take))
         .collect();
     for (i, r) in routes.iter_mut().enumerate() {
         r.index = i;
@@ -707,6 +715,53 @@ fn fix_instructions(route: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Measures what copying a long route's answer costs before its check
+    /// leaves the async threads (`check_routes`), against the steps and
+    /// timing read from it: run with `--run-ignored only --no-capture`.
+    #[test]
+    #[ignore = "a measurement, printed"]
+    fn copying_a_long_route_costs_little() {
+        // A 650 km route as the engine answers it: one point every 40 m,
+        // a duration and a distance per segment, 400 steps.
+        let points: Vec<Position> = (0..16_000)
+            .map(|i| Position::new(43.0 + f64::from(i) * 0.000_36, 1.0).unwrap())
+            .collect();
+        let segments = points.len() - 1;
+        let steps: Vec<Value> = (0..400)
+            .map(|i| {
+                serde_json::json!({
+                    "distance": 1_600.0, "duration": 60.0, "ref": "A 20; E 09",
+                    "name": format!("Route {i}"),
+                    "maneuver": {"type": "turn", "modifier": "right", "location": [1.0, 43.0],
+                                 "bearing_before": 0, "bearing_after": 90,
+                                 "instruction": "Tournez à droite sur la route"},
+                    "intersections": [{"location": [1.0, 43.0], "bearings": [0, 90, 180],
+                                       "entry": [true, true, false]}],
+                })
+            })
+            .collect();
+        let route = serde_json::json!({
+            "distance": 650_000.0, "duration": 25_000.0,
+            "geometry": polyline::encode(&points),
+            "legs": [{"steps": steps, "annotation": {
+                "duration": vec![1.5; segments], "distance": vec![40.0; segments]}}],
+        });
+        let line = RouteLine::new(points).unwrap();
+        let rounds: u32 = 50;
+        let t = std::time::Instant::now();
+        for _ in 0..rounds {
+            std::hint::black_box(route.clone());
+        }
+        let clone = t.elapsed() / rounds;
+        let t = std::time::Instant::now();
+        for _ in 0..rounds {
+            std::hint::black_box(events::steps_of(&route, &line));
+            std::hint::black_box(Timing::of(&route, &line, Utc::now()));
+        }
+        let read = t.elapsed() / rounds;
+        println!("route of {segments} segments: clone {clone:?}, steps and timing {read:?}");
+    }
 
     #[test]
     fn french_instructions_lose_their_two_defects() {

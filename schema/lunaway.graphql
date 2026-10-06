@@ -770,10 +770,12 @@ type Mutation {
 	Signs in with a device key: `signature` is the ES256 signature of
 	the challenge's `message` (raw r||s or DER, base64url). An unknown
 	key creates an account at level 0 with a generated pseudonym in
-	`locale` (`fr` or `en`). 10 sign-ins a minute and 5 new accounts an
-	hour per client.
+	`locale` (`fr` or `en`); with `createIfUnknown: false` it creates
+	nothing and answers `NOT_FOUND` (a device signing in again to an
+	account that may have been deleted or detached elsewhere). 10
+	sign-ins a minute and 5 new accounts an hour per client.
 	"""
-	signIn(publicKeyJwk: String!, nonce: String!, signature: String!, locale: String): SignInResult!
+	signIn(publicKeyJwk: String!, nonce: String!, signature: String!, locale: String, createIfUnknown: Boolean! = true): SignInResult!
 	"""
 	Ends every session of the account but the current one, on this
 	device too (a token copied from it). Needs a session opened in the
@@ -803,12 +805,16 @@ type Mutation {
 	Deletes the account: keys, sessions, recovery code, lists, mutes and
 	photos go; published reviews, confirmations and place edits stay
 	without author. `confirm` must be `DELETE`. Needs a session opened
-	in the last ten minutes.
+	in the last ten minutes. The deletion is also written to a journal
+	kept outside the backups, so a restored backup never brings the
+	account back; `UNAVAILABLE` when that journal cannot be written
+	(nothing is deleted): try again later.
 	"""
 	deleteAccount(confirm: String!): Boolean!
 	"""
 	Deletes the account of a recovery code, as `deleteAccount` does (the
-	lunaway.net/account/delete page). 5 attempts an hour per client.
+	lunaway.net/account/delete page), journal included. 5 attempts an
+	hour per client.
 	"""
 	deleteAccountWithRecoveryCode(code: String!): Boolean!
 	"""
@@ -835,9 +841,15 @@ type Mutation {
 	deleteReview(id: UUID!): Boolean!
 	"""
 	Answers "is it still there?"; no position is sent or kept.
-	`CLOSED` and `CHANGED` open a check for moderators. Level 0.
+	`CLOSED` and `CHANGED` open a check for moderators. Level 0. With
+	`idempotencyKey` (8 to 128 characters of `A-Z a-z 0-9 . _ : -`, the
+	outbox entry's id), the same request sent again while the key lives
+	(30 days by default, 14 for a road report) returns the confirmation
+	the first one stored instead of a second one; the same key with
+	other arguments is `INVALID_INPUT`. A key goes with what it made:
+	once that is deleted or withdrawn, the same request makes a new one.
 	"""
-	confirm(placeId: UUID!, status: ConfirmationStatus!, note: String): Confirmation!
+	confirm(placeId: UUID!, status: ConfirmationStatus!, note: String, idempotencyKey: String): Confirmation!
 	"""
 	Deletes one of the caller's confirmations.
 	"""
@@ -875,9 +887,10 @@ type Mutation {
 	their routes, and a moderator is told. It lasts 12 hours (a closure)
 	or 7 days after the last confirming pair, or the last report while
 	unconfirmed. `UNAVAILABLE` when the feeds are being written: try
-	again.
+	again. `idempotencyKey` as for `confirm`: a report sent again
+	returns the first one, with its event as it stands now.
 	"""
-	reportRoadEvent(input: RoadEventReportInput!): RoadEventReportResult!
+	reportRoadEvent(input: RoadEventReportInput!, idempotencyKey: String): RoadEventReportResult!
 	"""
 	Says a community road event is over ("plus de travaux"). It ends
 	when its only reporter says so, or two accounts of level 1 or more
@@ -892,9 +905,10 @@ type Mutation {
 	Reports a problem met at a place (a night ban, a broken service, no
 	access, a danger); the note goes to moderators only. Level 0; 50
 	reports a day. The place's card counts the reports of accounts of
-	level 1 and up, each once per kind.
+	level 1 and up, each once per kind. `idempotencyKey` as for
+	`confirm`.
 	"""
-	reportIssue(placeId: UUID!, kind: IssueKind!, note: String): IssueReport!
+	reportIssue(placeId: UUID!, kind: IssueKind!, note: String, idempotencyKey: String): IssueReport!
 	"""
 	Deletes one of the caller's issue reports.
 	"""
@@ -905,15 +919,18 @@ type Mutation {
 	within seconds; a place only the community describes is `TO_VERIFY`
 	until two other accounts confirm it. A name or description that
 	trips the automatic rules waits for a moderator. Level 2.
+	`idempotencyKey` as for `confirm`.
 	"""
-	addPlace(input: NewPlaceInput!): PlaceSubmission!
+	addPlace(input: NewPlaceInput!, idempotencyKey: String): PlaceSubmission!
 	"""
-	Edits a place: what `patch` states replaces the community's value
-	(the value shown still follows each field's most trusted source).
-	From level 3 the edit applies within seconds; below, from level 1,
-	it waits for a moderator. Every edit is kept as a revision.
+	Edits a place: what `patch` states replaces the community's value,
+	and the fields in `patch.clear` lose it (the value shown still
+	follows each field's most trusted source). From level 3 the edit
+	applies within seconds; below, from level 1, it waits for a
+	moderator. Every edit is kept as a revision. `idempotencyKey` as for
+	`confirm`.
 	"""
-	editPlace(placeId: UUID!, patch: PlaceDetailsInput!): PlaceSubmission!
+	editPlace(placeId: UUID!, patch: PlaceDetailsInput!, idempotencyKey: String): PlaceSubmission!
 	"""
 	Deletes one of the caller's new places or edits: one not yet
 	applied is withdrawn; one already in the places database stays
@@ -1185,7 +1202,9 @@ type Photo {
 	"""
 	id: UUID!
 	"""
-	The source: `community`.
+	The source it is published under: `community-cc-by` for photos sent
+	on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+	attribution).
 	"""
 	sourceId: String!
 	"""
@@ -1383,8 +1402,8 @@ type Place {
 	"""
 	descriptions: [LocalizedText!]!
 	"""
-	Ratings by source: Lunaway users' under `community`; empty while
-	nobody rated the place.
+	Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+	4.0, with their reviews); empty while nobody rated the place.
 	"""
 	ratings: [SourceRating!]!
 	"""
@@ -1510,6 +1529,64 @@ input PlaceDetailsInput {
 	Phone.
 	"""
 	phone: String
+	"""
+	Fields to clear, in an edit only: the community stops stating them
+	(a wrong phone, a closed website). A field cannot be given a value
+	and cleared at once (`INVALID_INPUT`).
+	"""
+	clear: [PlaceField!]
+}
+
+"""
+A field of a place an edit can clear (`PlaceDetailsInput.clear`): the
+community stops stating it, and the value shown comes from the next
+source that does (OpenStreetMap, Atout France), if any.
+"""
+enum PlaceField {
+	"""
+	Every description of the community, in every language.
+	"""
+	DESCRIPTION
+	"""
+	Whether a night may be spent there (back to unknown).
+	"""
+	OVERNIGHT
+	"""
+	Services on site.
+	"""
+	SERVICES
+	"""
+	Activities around.
+	"""
+	ACTIVITIES
+	"""
+	Price of a night.
+	"""
+	PRICE_PARKING
+	"""
+	Price of the services.
+	"""
+	PRICE_SERVICES
+	"""
+	Maximum vehicle height.
+	"""
+	MAX_HEIGHT
+	"""
+	Pitches.
+	"""
+	CAPACITY
+	"""
+	Opening hours.
+	"""
+	OPENING_HOURS
+	"""
+	Website.
+	"""
+	WEBSITE
+	"""
+	Phone.
+	"""
+	PHONE
 }
 
 """
@@ -2468,7 +2545,9 @@ type Review {
 	"""
 	id: UUID!
 	"""
-	The source: `community` for reviews written on Lunaway.
+	The source it is published under: `community-cc-by` for reviews
+	written on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+	attribution).
 	"""
 	sourceId: String!
 	"""
@@ -3822,7 +3901,8 @@ The ratings of a place by one source.
 """
 type SourceRating {
 	"""
-	The source: `community` for Lunaway users.
+	The source: `community-cc-by` for Lunaway users' ratings, published
+	with their reviews under CC BY 4.0.
 	"""
 	sourceId: String!
 	"""

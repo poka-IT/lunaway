@@ -5,14 +5,45 @@
 //! the community record of the place, so its serialised form is part of the
 //! database: fields are only added, with a serde default, never renamed.
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service,
-    record::is_language_tag,
+    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, UnknownCode,
+    record::is_language_tag, taxonomy::coded_enum,
 };
+
+coded_enum! {
+    /// A field of a place an edit can clear: the community stops stating
+    /// it, and the value shown comes from the next source that does. The
+    /// name and the kind cannot be cleared: a place only the community
+    /// describes would be left without them.
+    PlaceField {
+        /// Every description of the community, in every language.
+        Description => "description",
+        /// Whether a night may be spent there (back to "nobody said").
+        Overnight => "overnight",
+        /// Services on site.
+        Services => "services",
+        /// Activities around.
+        Activities => "activities",
+        /// Price of a night.
+        PriceParking => "price_parking",
+        /// Price of the services.
+        PriceServices => "price_services",
+        /// Maximum vehicle height.
+        MaxHeight => "max_height",
+        /// Pitches.
+        Capacity => "capacity",
+        /// Opening hours.
+        OpeningHours => "opening_hours",
+        /// Website.
+        Website => "website",
+        /// Phone.
+        Phone => "phone",
+    }
+}
 
 /// A description in one language.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +97,30 @@ pub struct PlacePatch {
     /// Phone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phone: Option<String>,
+    /// Fields the community stops stating (an edit only): a wrong phone
+    /// removed, a closed website. Never with a value for the same field.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub clear: BTreeSet<PlaceField>,
+}
+
+impl PlacePatch {
+    /// Whether the patch gives `field` a value.
+    #[must_use]
+    pub fn states(&self, field: PlaceField) -> bool {
+        match field {
+            PlaceField::Description => self.description.is_some(),
+            PlaceField::Overnight => self.overnight.is_some(),
+            PlaceField::Services => self.services.is_some(),
+            PlaceField::Activities => self.activities.is_some(),
+            PlaceField::PriceParking => self.price_parking_eur.is_some(),
+            PlaceField::PriceServices => self.price_services_eur.is_some(),
+            PlaceField::MaxHeight => self.max_height_m.is_some(),
+            PlaceField::Capacity => self.capacity.is_some(),
+            PlaceField::OpeningHours => self.opening_hours.is_some(),
+            PlaceField::Website => self.website.is_some(),
+            PlaceField::Phone => self.phone.is_some(),
+        }
+    }
 }
 
 /// A new place: where and what it is, and what else the contributor knows.
@@ -118,6 +173,9 @@ fn trimmed(v: Option<&String>) -> Option<&str> {
 ///
 /// [`SubmissionError`] naming the first field out of bounds.
 pub fn validate_patch(patch: &PlacePatch) -> Result<PlacePatch, SubmissionError> {
+    if patch.clear.iter().any(|f| patch.states(*f)) {
+        return Err(bad("clear", "a field is either given a value or cleared"));
+    }
     let mut p = patch.clone();
     if let Some(name) = trimmed(patch.name.as_ref()) {
         let n = name.chars().count();
@@ -217,6 +275,9 @@ pub fn validate_new_place(place: &NewPlace) -> Result<NewPlace, SubmissionError>
     {
         return Err(bad("name", "a new place needs a name"));
     }
+    if !place.details.clear.is_empty() {
+        return Err(bad("clear", "only an edit clears a field"));
+    }
     Ok(NewPlace {
         kind: place.kind,
         position: place.position,
@@ -278,6 +339,24 @@ pub fn apply(record: &mut NormalizedRecord, patch: &PlacePatch) {
     }
     if let Some(v) = &patch.phone {
         record.phone = Some(v.clone());
+    }
+    for field in &patch.clear {
+        match field {
+            PlaceField::Description => {
+                record.descriptions.clear();
+                record.description = None;
+            }
+            PlaceField::Overnight => record.overnight = OvernightStatus::Unknown,
+            PlaceField::Services => record.services.clear(),
+            PlaceField::Activities => record.activities.clear(),
+            PlaceField::PriceParking => record.price_parking_eur = None,
+            PlaceField::PriceServices => record.price_services_eur = None,
+            PlaceField::MaxHeight => record.max_height_m = None,
+            PlaceField::Capacity => record.capacity = None,
+            PlaceField::OpeningHours => record.opening_hours = None,
+            PlaceField::Website => record.website = None,
+            PlaceField::Phone => record.phone = None,
+        }
     }
 }
 
@@ -396,6 +475,65 @@ mod tests {
         let r = record_of(&named);
         assert_eq!((r.kind, r.position), (PlaceKind::Nature, at));
         assert_eq!(r.max_height_m, Some(3.1));
+    }
+
+    #[test]
+    fn an_edit_clears_what_the_community_stated_and_nothing_else() {
+        let mut r = NormalizedRecord::new(PlaceKind::Parking, Position::new(45.9, 6.1).unwrap());
+        apply(&mut r, &validate_edit(&patch()).unwrap());
+        let clearing = validate_edit(&PlacePatch {
+            clear: [PlaceField::Phone, PlaceField::Description].into(),
+            ..PlacePatch::default()
+        })
+        .expect("an edit that only clears changes something");
+        apply(&mut r, &clearing);
+        assert_eq!(r.phone, None, "a wrong phone is removed");
+        assert!(r.descriptions.is_empty() && r.description.is_none());
+        assert_eq!(
+            (r.name.as_deref(), r.max_height_m),
+            (Some("Aire du Lac"), Some(3.1)),
+            "the fields not named stay"
+        );
+    }
+
+    #[test]
+    fn a_field_is_cleared_in_an_edit_only_and_never_with_a_value() {
+        let both = PlacePatch {
+            clear: [PlaceField::Phone].into(),
+            ..patch()
+        };
+        assert!(
+            validate_edit(&both)
+                .unwrap_err()
+                .to_string()
+                .starts_with("clear")
+        );
+        let new = NewPlace {
+            kind: PlaceKind::Nature,
+            position: Position::new(45.9, 6.1).unwrap(),
+            details: PlacePatch {
+                name: Some("Bord du lac".into()),
+                clear: [PlaceField::Website].into(),
+                ..PlacePatch::default()
+            },
+        };
+        assert!(validate_new_place(&new).is_err());
+    }
+
+    #[test]
+    fn a_patch_without_clear_is_stored_as_before() {
+        let json = serde_json::to_value(validate_edit(&patch()).unwrap()).unwrap();
+        assert!(
+            json.get("clear").is_none(),
+            "stored revisions of earlier edits must read back unchanged"
+        );
+        let cleared = PlacePatch {
+            clear: [PlaceField::OpeningHours].into(),
+            ..PlacePatch::default()
+        };
+        let json = serde_json::to_value(&cleared).unwrap();
+        assert_eq!(json["clear"], serde_json::json!(["opening_hours"]));
+        assert_eq!(serde_json::from_value::<PlacePatch>(json).unwrap(), cleared);
     }
 
     #[test]

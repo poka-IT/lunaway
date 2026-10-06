@@ -173,6 +173,7 @@
 <li>encrypted with age, on a second server at Hetzner in Nuremberg for 14&nbsp;days, then on a computer of the publisher, the only holder of the decryption key, for 29&nbsp;days.</li>
 </ul>
 <p>Data deleted from the database, or a deleted photo, thus leaves every backup within 30&nbsp;days at most.</p>
+<p>The deletion of an account is also noted, with the account's identifier and the time, in a journal kept outside the copies of the database for 45&nbsp;days at most; an encrypted copy of it is made every hour and leaves every night with the backups, where it replaces the previous one (46&nbsp;days at most). If a failure makes us bring a backup back into service, the account deletions made since its date are applied again before the service resumes. One failure escapes this: the loss of the server's data disk itself. The deletions made after the last copy collected away from that server (up to about 25&nbsp;hours) would then come back with the backup.</p>
 
 <h2 id="hosting">Hosting and providers</h2>
 <ul>
@@ -197,6 +198,7 @@
 <tr><td>System journal</td><td>1&nbsp;month at most</td></tr>
 <tr><td>Abuse counters</td><td>in memory, from one minute to one day, cleared at every restart</td></tr>
 <tr><td>Backups</td><td>30&nbsp;days at most</td></tr>
+<tr><td>Journal of account deletions: the deleted account's identifier and the time</td><td>45&nbsp;days at most (46 in its copies)</td></tr>
 <tr><td>Emails received at contact@lunaway.net</td><td>as long as it takes to handle your request</td></tr>
 <tr><td>Data on your device</td><td>until you uninstall the app, or clear the site's data in the browser</td></tr>
 </tbody>

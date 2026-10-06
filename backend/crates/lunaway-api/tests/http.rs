@@ -156,19 +156,25 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
         [
             "atout-france",
             "community",
+            "community-cc-by",
             "finess",
             "laposte",
             "osm",
             "prix-carburants"
         ]
     );
-    assert_eq!(sources[4]["attribution"], "© OpenStreetMap contributors");
+    assert_eq!(sources[5]["attribution"], "© OpenStreetMap contributors");
     assert_eq!(
         sources[1]["licence"], "ODbL 1.0",
         "places added by users join the ODbL database"
     );
     assert_eq!(
-        sources[3]["licence"], "ODbL 1.0",
+        (&sources[2]["licence"], &sources[2]["attribution"]),
+        (&json!("CC BY 4.0"), &json!("Lunaway contributors")),
+        "reviews and photos are published under CC BY 4.0, outside the database"
+    );
+    assert_eq!(
+        sources[4]["licence"], "ODbL 1.0",
         "La Poste's calendar is under the same licence as the database"
     );
 }
@@ -1073,8 +1079,9 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        6,
-        "OpenStreetMap, Atout France, the community, and the three joined to the points"
+        7,
+        "OpenStreetMap, Atout France, the community under its two licences, and the three \
+         joined to the points"
     );
 }
 

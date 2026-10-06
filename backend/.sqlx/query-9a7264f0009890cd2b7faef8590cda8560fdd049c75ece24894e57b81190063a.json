@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT count(*) FROM confirmations) AS \"confirmations!\",\n                      (SELECT count(*) FROM issue_reports) AS \"issues!\",\n                      (SELECT count(*) FROM place_submissions) AS \"submissions!\",\n                      (SELECT count(*) FROM road_event_reports) AS \"road_reports!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "confirmations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "issues!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "submissions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "road_reports!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9a7264f0009890cd2b7faef8590cda8560fdd049c75ece24894e57b81190063a"
+}
