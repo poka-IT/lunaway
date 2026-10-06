@@ -1,9 +1,13 @@
 //! City and département datasets of closures and works, the ones the
-//! research found usable (`plan/research/20-travaux-temps-reel.md`, 1.4):
-//! Paris (road closures, disruptive works), Lyon (disruptive works),
-//! Toulouse (works in progress), Charente-Maritime (closed roads, in the
-//! Waze CIFS format). None carries a vehicle limit: they give closures and
-//! lane restrictions. A closure drawn as a line is matched to the graph and
+//! research found usable (`plan/research/20-travaux-temps-reel.md`, 1.4,
+//! and `plan/research/27-backend-communaute-travaux2.md`): Paris (road
+//! closures, disruptive works), Lyon (disruptive works), Toulouse (works in
+//! progress), Charente-Maritime (closed roads, in the Waze CIFS format),
+//! Rennes (works of the next 30 days), Aix-Marseille-Provence (tunnel
+//! closures), Mayenne (closed roads in Waze's fields), the Côtes-d'Armor
+//! (works orders on departmental roads), the Sarthe (works on departmental
+//! roads), Bordeaux (works orders). None carries a vehicle limit: they give
+//! closures and lane restrictions. A closure drawn as a line is matched to the graph and
 //! may block; one drawn as an area cannot be placed on a road and warns.
 //!
 //! Each dataset is read whole, once an hour, and is the truth for its
@@ -59,10 +63,23 @@ pub enum Format {
     /// Waze CIFS JSON (`incidents[].incident`), its file named by the
     /// data.gouv.fr dataset at `url`.
     CifsDataGouv,
+    /// GeoJSON features with Rennes's works fields, one per measure.
+    RennesWorks,
+    /// GeoJSON features of Aix-Marseille-Provence's tunnel closures.
+    AixMarseilleTunnels,
+    /// GeoJSON features with Waze's fields, as the Mayenne writes them.
+    MayenneClosures,
+    /// Data Fair GeoJSON of the Côtes-d'Armor's works orders; `{today}` in
+    /// the URL is replaced by the day of the read.
+    CotesDArmorOrders,
+    /// GeoJSON features of the Sarthe's road works.
+    SartheWorks,
+    /// GeoJSON features of Bordeaux's works orders.
+    BordeauxWorks,
 }
 
 /// The datasets read, with their terms in `docs/data-sources.md`.
-pub const FEEDS: [LocalFeed; 5] = [
+pub const FEEDS: [LocalFeed; 11] = [
     LocalFeed {
         id: "paris-fermetures",
         url: "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/fermetures-voirie/exports/geojson",
@@ -93,7 +110,60 @@ pub const FEEDS: [LocalFeed; 5] = [
         hosts: &["www.data.gouv.fr", "static.data.gouv.fr"],
         format: Format::CifsDataGouv,
     },
+    LocalFeed {
+        id: "rennes",
+        url: "https://data.rennesmetropole.fr/api/explore/v2.1/catalog/datasets/travaux_30_jours/exports/geojson",
+        hosts: &["data.rennesmetropole.fr"],
+        format: Format::RennesWorks,
+    },
+    LocalFeed {
+        id: "aix-marseille-tunnels",
+        url: "https://data.ampmetropole.fr/api/explore/v2.1/catalog/datasets/fr-fermeture-des-tunnels-exploites-par-la-metropole/exports/geojson",
+        hosts: &["data.ampmetropole.fr"],
+        format: Format::AixMarseilleTunnels,
+    },
+    LocalFeed {
+        id: "mayenne",
+        url: "https://data.lamayenne.fr/api/explore/v2.1/catalog/datasets/225300011_waze_road-closures/exports/geojson",
+        hosts: &["data.lamayenne.fr"],
+        format: Format::MayenneClosures,
+    },
+    LocalFeed {
+        id: "cotes-d-armor",
+        url: "https://datarmor.cotesdarmor.fr/data-fair/api/v1/datasets/cd22arreteschantiers/lines?size=1000&format=geojson&DATEFIN_gte={today}",
+        hosts: &["datarmor.cotesdarmor.fr"],
+        format: Format::CotesDArmorOrders,
+    },
+    LocalFeed {
+        id: "sarthe",
+        url: "https://data.sarthe.fr/api/explore/v2.1/catalog/datasets/227200029_chantiers_routiers/exports/geojson",
+        hosts: &["data.sarthe.fr"],
+        format: Format::SartheWorks,
+    },
+    LocalFeed {
+        id: "bordeaux",
+        url: "https://opendata.bordeaux-metropole.fr/api/explore/v2.1/catalog/datasets/ci_chantier/exports/geojson",
+        hosts: &["opendata.bordeaux-metropole.fr"],
+        format: Format::BordeauxWorks,
+    },
 ];
+
+/// The page size the Côtes-d'Armor's export is asked with (`size=1000`):
+/// an answer that fills it may have more, and read as complete it would end
+/// the orders past the page.
+pub const COTES_D_ARMOR_PAGE: usize = 1_000;
+
+/// The URL of `feed` for a read on `now`: a dataset filtered by date names
+/// the day in Paris.
+#[must_use]
+pub fn url_for(url: &str, now: DateTime<Utc>) -> String {
+    url.replace(
+        "{today}",
+        &now.with_timezone(&chrono_tz::Europe::Paris)
+            .format("%Y-%m-%d")
+            .to_string(),
+    )
+}
 
 /// What a dataset gave.
 #[derive(Debug, Clone, Default)]
@@ -325,6 +395,323 @@ fn toulouse_works(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static
     })
 }
 
+/// The start of a day the source names (`2026-10-05`, or a date-time whose
+/// date counts), midnight in Paris, and the end of another, the last second
+/// of it in Paris: a source that gives days closes a road for the whole of
+/// its last day.
+fn days(start: &str, end: Option<&str>) -> Option<(DateTime<Utc>, Option<DateTime<Utc>>)> {
+    Some((
+        paris_day(start, 0, 0, 0)?,
+        end.and_then(|e| paris_day(e, 23, 59, 59)),
+    ))
+}
+
+/// The day in Paris of an instant (`2026-11-27T01:00:00+00:00`), as text:
+/// a source that writes local midnights as UTC instants.
+fn paris_date_of(text: &str) -> Option<String> {
+    instant(text).map(|t| {
+        t.with_timezone(&chrono_tz::Europe::Paris)
+            .format("%Y-%m-%d")
+            .to_string()
+    })
+}
+
+/// A schedule from a period text, when it names day or night works only.
+fn day_or_night(text: &str) -> Schedule {
+    let lower = text.to_lowercase();
+    if lower.contains("de jour") || lower.contains("de nuit") {
+        Schedule::from_label(text)
+    } else {
+        Schedule::default()
+    }
+}
+
+fn rennes_works(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    // `id` looks like a row number of a view (`v_geotravaux_evenement_30j.6`)
+    // and may be renumbered; `id_evt` is the measure's own.
+    let external_id = id_of(p, "id_evt").ok_or("no id")?;
+    let kind = text(p, "type").ok_or("no traffic impact")?;
+    let lower = kind.to_lowercase();
+    let class = if lower.contains("circulation interdite") || lower.starts_with("fermeture") {
+        EventClass::Closure
+    } else if ["rétrécissement", "alternée", "impasse", "neutralisation"]
+        .iter()
+        .any(|w| lower.contains(w))
+    {
+        EventClass::LaneRestriction
+    } else {
+        return Err("no traffic impact");
+    };
+    let (valid_from, valid_to) =
+        days(text(p, "date_deb").ok_or("no dates")?, text(p, "date_fin")).ok_or("no dates")?;
+    let said = joined(&[text(p, "libelle"), text(p, "commentaire")]).unwrap_or_default();
+    Ok(Mapped {
+        external_id,
+        class,
+        detail: kind.chars().take(100).collect(),
+        carriageway: Carriageway::Main,
+        // "Fermeture sens est-ouest": the direction is named by cardinal
+        // points only, not by the line's order; both are closed.
+        direction: EventDirection::Both,
+        road_number: None,
+        road_name: text(p, "localisation").map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        schedule: day_or_night(&said),
+        description: joined(&[
+            text(p, "localisation"),
+            text(p, "libelle"),
+            text(p, "commentaire"),
+        ]),
+    })
+}
+
+fn aix_marseille_tunnel(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    let tunnel = text(p, "tunnel").ok_or("no id")?;
+    let sens = text(p, "sens").unwrap_or("");
+    let start = text(p, "date_de_debut").ok_or("no dates")?;
+    let valid_from = instant(start).ok_or("no dates")?;
+    let valid_to = text(p, "date_de_fin").and_then(instant);
+    if valid_to.is_some_and(|end| end < valid_from) {
+        // 9 past records of 2026-10-06 end before they start.
+        return Err("ends before it starts");
+    }
+    let kind = text(p, "type").unwrap_or("Fermeture");
+    Ok(Mapped {
+        // No id field: a tunnel, a direction and a start make one closure
+        // (unique over the 325 records of 2026-10-06).
+        external_id: digest(&[tunnel, sens, start]),
+        class: EventClass::Closure,
+        detail: format!("Fermeture {kind}").chars().take(100).collect(),
+        carriageway: Carriageway::Main,
+        // One line per tunnel and direction, drawn in its direction of
+        // travel (each checked on the sample of 2026-10-06).
+        direction: EventDirection::Forward,
+        road_number: None,
+        road_name: text(p, "nom").map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        schedule: Schedule {
+            unplanned: kind.starts_with("Inopin"),
+            ..Schedule::default()
+        },
+        description: joined(&[text(p, "titrecalendrier"), text(p, "nature")]),
+    })
+}
+
+/// Minutes after midnight of an hour as the Mayenne writes it (`7h`,
+/// `19h`, `7h30`, `07h00`).
+fn hour_minutes(text: &str) -> Option<u16> {
+    let (h, m) = text.trim().to_lowercase().split_once('h').map(|(h, m)| {
+        (
+            h.trim().parse::<u16>().ok(),
+            if m.trim().is_empty() {
+                Some(0)
+            } else {
+                m.trim().parse::<u16>().ok()
+            },
+        )
+    })?;
+    let (h, m) = (h?, m?);
+    (h < 24 && m < 60).then_some(h * 60 + m)
+}
+
+fn mayenne_closure(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    let external_id = id_of(p, "objectid").ok_or("no id")?;
+    let kind = text(p, "type").ok_or("no traffic impact")?;
+    let class = match kind {
+        "ROAD_CLOSED" => EventClass::Closure,
+        "CONSTRUCTION" => EventClass::LaneRestriction,
+        _ => return Err("no traffic impact"),
+    };
+    // The clock part of `starttime` and `endtime` means nothing (a closure
+    // "from 08:15:03 to 08:15:07"): the dates count, the daily hours come
+    // from `timestart` and `timeend`.
+    let (valid_from, valid_to) =
+        days(text(p, "starttime").ok_or("no dates")?, text(p, "endtime")).ok_or("no dates")?;
+    let windows = match (
+        text(p, "timestart").and_then(hour_minutes),
+        text(p, "timeend").and_then(hour_minutes),
+    ) {
+        (Some(a), Some(b)) if a != b => {
+            vec![lunaway_domain::road_events::schedule::Window::daily(a, b)]
+        }
+        _ => Vec::new(),
+    };
+    let hours = joined(&[text(p, "timestart"), text(p, "timeend")]);
+    let street = text(p, "street");
+    Ok(Mapped {
+        external_id,
+        class,
+        detail: kind.to_owned(),
+        carriageway: Carriageway::Main,
+        // Which side a "ONE_DIRECTION" closure takes is in free text only.
+        direction: EventDirection::Both,
+        road_number: street.and_then(|s| road::numbers(s).into_iter().next()),
+        road_name: street.map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        schedule: Schedule {
+            windows,
+            label: hours,
+            ..Schedule::default()
+        },
+        description: joined(&[
+            text(p, "descriptio"),
+            text(p, "locdesc"),
+            text(p, "obs"),
+            street,
+        ]),
+    })
+}
+
+fn cotes_d_armor_order(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    // `NUMDOSSIER` repeats across orders; `_id` is the line's own.
+    let external_id = id_of(p, "_id").ok_or("no id")?;
+    let traffic = text(p, "CIRCULATION").ok_or("no traffic impact")?;
+    let lower = traffic.to_lowercase();
+    let class = if lower.contains("interdiction") || lower.contains("interdite") {
+        EventClass::Closure
+    } else if lower.contains("altern") {
+        EventClass::LaneRestriction
+    } else {
+        return Err("no traffic impact");
+    };
+    let (valid_from, valid_to) =
+        days(text(p, "DATEDEBUT").ok_or("no dates")?, text(p, "DATEFIN")).ok_or("no dates")?;
+    let road = text(p, "ROUTE");
+    Ok(Mapped {
+        external_id,
+        class,
+        detail: traffic.chars().take(100).collect(),
+        carriageway: Carriageway::Main,
+        direction: EventDirection::Both,
+        road_number: road.and_then(road::normalize),
+        road_name: joined(&[road, text(p, "COMMUNE")]).map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        // The hours are free text (93 phrasings in 300 lines): the order
+        // counts whole days, its text says when.
+        schedule: Schedule {
+            label: text(p, "JOURSETHORAIRES1").map(|s| s.chars().take(200).collect()),
+            ..Schedule::default()
+        },
+        description: joined(&[
+            text(p, "TRAVAUX"),
+            text(p, "COMMUNE"),
+            text(p, "JOURSETHORAIRES1"),
+        ]),
+    })
+}
+
+fn sarthe_works(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    let external_id = id_of(p, "objectid").ok_or("no id")?;
+    let mode = text(p, "mode_exp").ok_or("no traffic impact")?;
+    let lower = mode.to_lowercase();
+    // "Déviation 2 sens": traffic sent round both ways, the road closed.
+    let class = if lower.contains("barrée") || lower.starts_with("déviation") {
+        EventClass::Closure
+    } else if lower.contains("alternat") || lower.contains("neutralisation") {
+        EventClass::LaneRestriction
+    } else {
+        return Err("no traffic impact");
+    };
+    // Local midnights written as UTC instants (02:00Z in summer).
+    let start = text(p, "date_debut")
+        .and_then(paris_date_of)
+        .ok_or("no dates")?;
+    let end = text(p, "date_fin").and_then(paris_date_of);
+    let (valid_from, valid_to) = days(&start, end.as_deref()).ok_or("no dates")?;
+    let place = text(p, "loc_txt");
+    Ok(Mapped {
+        external_id,
+        class,
+        detail: mode.chars().take(100).collect(),
+        carriageway: Carriageway::Main,
+        direction: EventDirection::Both,
+        road_number: place
+            .and_then(|l| l.split(':').next())
+            .and_then(road::normalize),
+        road_name: place.map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        schedule: Schedule::default(),
+        // `maitre_ouvrage` sometimes names a person: never shown.
+        description: joined(&[text(p, "nature_trvx"), place, text(p, "commentaires")]),
+    })
+}
+
+fn bordeaux_works(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static str> {
+    let external_id = id_of(p, "ident").ok_or("no id")?;
+    let label = text(p, "libelle").ok_or("no traffic impact")?;
+    // One part per right of way ("/") and per order ("#"), measures within
+    // it (";").
+    let parts: Vec<String> = label
+        .split(['/', '#'])
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    let closed = |s: &str| s.contains("circulation interdite");
+    let restricted = |s: &str| {
+        [
+            "rétrécissement",
+            "alternée",
+            "neutralisation",
+            "impasse",
+            "interruption de circulation",
+        ]
+        .iter()
+        .any(|w| s.contains(w))
+    };
+    // A closure of one right of way would close the whole works line: only
+    // a line closed everywhere is a closure.
+    let class = if parts.iter().all(|s| closed(s)) {
+        EventClass::Closure
+    } else if parts.iter().any(|s| closed(s) || restricted(s)) {
+        EventClass::LaneRestriction
+    } else {
+        return Err("no traffic impact");
+    };
+    // Several orders give several dates, one per order, after '#'.
+    let starts: Vec<&str> = text(p, "date_debut")
+        .ok_or("no dates")?
+        .split('#')
+        .map(str::trim)
+        .collect();
+    let ends: Vec<&str> = text(p, "date_fin")
+        .unwrap_or("")
+        .split('#')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    let valid_from = starts
+        .iter()
+        .filter_map(|d| paris_day(d, 0, 0, 0))
+        .min()
+        .ok_or("no dates")?;
+    let valid_to = ends.iter().filter_map(|d| paris_day(d, 23, 59, 59)).max();
+    Ok(Mapped {
+        external_id,
+        class,
+        detail: label.chars().take(100).collect(),
+        carriageway: Carriageway::Main,
+        direction: EventDirection::Both,
+        road_number: None,
+        road_name: text(p, "localisation_emprise")
+            .or_else(|| text(p, "localisation"))
+            .map(|s| s.chars().take(200).collect()),
+        valid_from,
+        valid_to,
+        schedule: Schedule::default(),
+        description: joined(&[
+            text(p, "localisation"),
+            Some(label),
+            text(p, "alias_nature_n1"),
+        ]),
+    })
+}
+
 /// A position, read lon-lat, or lat-lon when only that order falls in
 /// France: some feeds write their pairs the other way round
 /// (`plan/research/20-travaux-temps-reel.md`, 4.2).
@@ -343,8 +730,38 @@ fn line_of(c: &Value) -> Vec<Position> {
         .unwrap_or_default()
 }
 
+/// The geometry of a GeometryCollection: its lines when it has some (the
+/// Côtes-d'Armor draws some orders as lines and points), its first part
+/// otherwise.
+fn collection_of(g: &Value) -> Option<SourceGeometry> {
+    let parts: Vec<SourceGeometry> = g
+        .get("geometries")?
+        .as_array()?
+        .iter()
+        .take(64)
+        .filter(|p| p.get("type").and_then(Value::as_str) != Some("GeometryCollection"))
+        .filter_map(geometry_of)
+        .collect();
+    let lines: Vec<Vec<Position>> = parts
+        .iter()
+        .filter_map(|p| match p {
+            SourceGeometry::Lines(l) => Some(l.clone()),
+            _ => None,
+        })
+        .flatten()
+        .collect();
+    if lines.is_empty() {
+        parts.into_iter().next()
+    } else {
+        Some(SourceGeometry::Lines(lines))
+    }
+}
+
 /// The geometry of a GeoJSON feature: lines, or areas.
 fn geometry_of(g: &Value) -> Option<SourceGeometry> {
+    if g.get("type")?.as_str()? == "GeometryCollection" {
+        return collection_of(g);
+    }
     let c = g.get("coordinates")?;
     let (lines, areas): (Vec<Vec<Position>>, Vec<Vec<Position>>) = match g.get("type")?.as_str()? {
         "LineString" => (vec![line_of(c)], Vec::new()),
@@ -359,6 +776,13 @@ fn geometry_of(g: &Value) -> Option<SourceGeometry> {
         ),
         "Point" => {
             let p = france(c.get(0)?.as_f64()?, c.get(1)?.as_f64()?)?;
+            return Some(SourceGeometry::Point(p));
+        }
+        // Bordeaux marks some rights of way with several points: the first
+        // places the warning.
+        "MultiPoint" => {
+            let first = c.get(0)?;
+            let p = france(first.get(0)?.as_f64()?, first.get(1)?.as_f64()?)?;
             return Some(SourceGeometry::Point(p));
         }
         _ => return None,
@@ -433,6 +857,12 @@ pub fn parse_geojson(
         Format::ParisWorks => paris_works,
         Format::LyonWorks => lyon_works,
         Format::ToulouseWorks => toulouse_works,
+        Format::RennesWorks => rennes_works,
+        Format::AixMarseilleTunnels => aix_marseille_tunnel,
+        Format::MayenneClosures => mayenne_closure,
+        Format::CotesDArmorOrders => cotes_d_armor_order,
+        Format::SartheWorks => sarthe_works,
+        Format::BordeauxWorks => bordeaux_works,
         Format::CifsDataGouv => return Err(ParseError::Shape("a CIFS feed is not GeoJSON")),
     };
     let mut out = Publication {

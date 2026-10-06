@@ -6,8 +6,10 @@
 pub mod accounts;
 pub mod community;
 pub mod conflation;
+pub mod deletions;
 pub mod enforcement;
 pub mod fuel;
+pub mod idempotency;
 pub mod lists;
 pub mod moderation;
 pub mod municipalities;

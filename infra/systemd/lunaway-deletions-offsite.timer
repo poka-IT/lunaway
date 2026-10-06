@@ -1,0 +1,12 @@
+# Hourly at :55, so the copy the ops server pulls at 01:15 UTC holds the
+# deletions up to 00:55, after the dump of 00:15.
+[Unit]
+Description=Lunaway account deletion journal, encrypted off-site copy, hourly
+
+[Timer]
+OnCalendar=*-*-* *:55
+RandomizedDelaySec=2m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

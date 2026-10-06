@@ -561,7 +561,8 @@ async fn each_role_holds_what_it_needs_of_the_road_events(pool: PgPool) {
         );
     }
     for (column, want) in [
-        ("account_id", true),
+        ("account_id", false),
+        ("created_at", true),
         ("geom", false),
         ("heading_deg", false),
     ] {
@@ -684,32 +685,22 @@ async fn a_banned_or_deleted_account_stops_counting(pool: PgPool) {
         .unwrap();
     assert_eq!(two.confidence, Confidence::Confirmed);
     accounts::ban(&pool, b, "vandal").await.unwrap();
-    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
-    let l = db::lifecycle(
-        &ingest,
-        now,
-        Duration::hours(6),
-        Duration::days(7),
-        Duration::days(14),
-    )
-    .await
-    .unwrap();
-    assert_eq!(l.reweighed, 1);
+    // The API weighs the events again, with its own role; the importers'
+    // role cannot (it does not read who reported what).
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    assert_eq!(db::reweigh_community(&app).await.unwrap(), 1);
     assert_eq!(
         confidence_of(&pool, first.event_id).await.0,
         "reported",
         "a banned account's report no longer confirms a closure"
     );
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let denied = db::reweigh_community(&ingest)
+        .await
+        .expect_err("the importers' role does not read the reports' facts");
+    assert!(format!("{denied:?}").contains("42501"), "{denied:?}");
     accounts::delete_account(&pool, a).await.unwrap();
-    db::lifecycle(
-        &ingest,
-        now,
-        Duration::hours(6),
-        Duration::days(7),
-        Duration::days(14),
-    )
-    .await
-    .unwrap();
+    db::reweigh_community(&app).await.unwrap();
     assert_eq!(
         confidence_of(&pool, first.event_id).await.1.as_deref(),
         Some("moderated"),
@@ -925,25 +916,38 @@ async fn a_community_event_keeps_the_published_position_and_no_heading(pool: PgP
     )
     .await
     .unwrap();
-    // What the importers' role can put together: the event's position with
-    // the report's account and time.
+    // What the importers' role reads: the event's position, published
+    // already, and nothing that ties a report to an account.
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     let joined = sqlx::query!(
-        r#"SELECT r.account_id, r.created_at, e.heading_deg,
+        r#"SELECT e.heading_deg,
                   ST_Y(e.geom_source::geometry) AS "lat!", ST_X(e.geom_source::geometry) AS "lon!"
-           FROM road_events e JOIN road_event_reports r ON r.event_id = e.id
-           WHERE e.id = $1"#,
+           FROM road_events e WHERE e.id = $1"#,
         done.event_id
     )
     .fetch_one(&ingest)
     .await
     .unwrap();
-    assert_eq!(joined.account_id, reporter);
     assert_eq!(
         (joined.lat, joined.lon, joined.heading_deg),
         (45.8123, 1.2568, None),
-        "joined with an account and a time, the event gives the published position only"
+        "the event gives the published position only"
     );
+    for closed in [
+        "SELECT account_id::text AS a FROM road_event_reports LIMIT 1",
+        "SELECT salt AS a FROM road_event_report_salt",
+        "SELECT reporter AS a FROM road_event_report_facts LIMIT 1",
+    ] {
+        let denied = sqlx::query_scalar::<_, String>(sqlx::AssertSqlSafe(closed))
+            .fetch_one(&ingest)
+            .await
+            .expect_err("the importers never link a report to an account");
+        assert_eq!(
+            denied.as_database_error().and_then(|e| e.code()).as_deref(),
+            Some("42501"),
+            "{closed}"
+        );
+    }
     let at = p(joined.lat, joined.lon);
     assert!(at.distance_m(exact) > 1.0 && at.distance_m(exact) < 10.0);
     let exact_column = sqlx::query!(
@@ -979,4 +983,207 @@ async fn a_community_event_keeps_the_published_position_and_no_heading(pool: PgP
     .await
     .unwrap();
     assert_eq!(second.event_id, done.event_id);
+    // The view's key tells two accounts apart on one event, and one account
+    // on two events cannot be followed from one to the other.
+    let elsewhere = db::report(
+        &pool,
+        &NewReport {
+            account: reporter,
+            kind: ReportKind::Closure,
+            at: p(45.9, 1.3),
+            heading_deg: None,
+            value_m: None,
+        },
+        t0() + Duration::minutes(10),
+    )
+    .await
+    .unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let keys = sqlx::query!(
+        r#"SELECT event_id AS "event_id!", reporter AS "reporter!"
+           FROM road_event_report_facts ORDER BY created_at"#
+    )
+    .fetch_all(&app)
+    .await
+    .unwrap();
+    assert_eq!(keys.len(), 3);
+    assert_ne!(keys[0].reporter, keys[1].reporter, "two accounts, two keys");
+    assert_eq!(keys[2].event_id, elsewhere.event_id);
+    assert_ne!(
+        keys[0].reporter, keys[2].reporter,
+        "the same account on another event has another key"
+    );
+    let second_salt =
+        sqlx::query!("INSERT INTO road_event_report_salt (salt) VALUES (repeat('a', 64))")
+            .execute(&pool)
+            .await
+            .expect_err("one salt: two would show every report twice, one account as two");
+    assert_eq!(
+        second_salt
+            .as_database_error()
+            .and_then(|e| e.code())
+            .as_deref(),
+        Some("23505")
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_purge_after_the_head_was_read_sends_the_client_back_to_the_whole_set(pool: PgPool) {
+    store(&pool, "dir", &[event("kept", "0000000001")], t0(), true).await;
+    // The client holds every change up to here.
+    let held = db::feed_head(&pool).await.unwrap().revision;
+    let mut ended = event("gone", "0000000001");
+    ended.ended = Some(EndReason::SourceEnd);
+    store(&pool, "dir", &[ended], t0(), true).await;
+    // The API reads the head (it keeps it five seconds), then a purge runs
+    // before the page is read: the end of "gone" leaves the table.
+    let head = db::feed_head(&pool).await.unwrap();
+    assert_eq!(
+        db::changed_since(&pool, held, head.revision, 100)
+            .await
+            .unwrap()
+            .map(|rows| rows.len()),
+        Some(1),
+        "before the purge, the client receives the end"
+    );
+    db::lifecycle(
+        &pool,
+        t0() + Duration::days(9),
+        Duration::days(30),
+        Duration::days(7),
+        Duration::days(14),
+    )
+    .await
+    .unwrap();
+    assert!(
+        head.purged_through <= held,
+        "the head read before the purge still honours the cursor"
+    );
+    assert_eq!(
+        db::changed_since(&pool, held, head.revision, 100)
+            .await
+            .unwrap(),
+        None,
+        "the page re-reads the purge horizon with its rows: the client starts over instead of \
+         missing an end"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_report_waits_three_seconds_for_the_feeds_then_gives_up(pool: PgPool) {
+    let reporter = account(&pool, "Loutre du Morvan").await;
+    // A feed is being written: it holds the writers' lock.
+    let feed = db::begin_writer(&pool).await.unwrap();
+    let started = std::time::Instant::now();
+    let report = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        db::report(
+            &pool,
+            &NewReport {
+                account: reporter,
+                kind: ReportKind::Closure,
+                at: p(45.8, 1.25),
+                heading_deg: None,
+                value_m: None,
+            },
+            t0(),
+        ),
+    )
+    .await
+    .expect("a report never holds the API's connection for long");
+    let waited = started.elapsed();
+    let error = report.expect_err("the lock is held throughout");
+    assert!(db::is_busy(&error), "{error}");
+    assert!(
+        (2.5..10.0).contains(&waited.as_secs_f64()),
+        "about three seconds: {waited:?}"
+    );
+    feed.commit().await.unwrap();
+    assert!(
+        db::report(
+            &pool,
+            &NewReport {
+                account: reporter,
+                kind: ReportKind::Closure,
+                at: p(45.8, 1.25),
+                heading_deg: None,
+                value_m: None,
+            },
+            t0(),
+        )
+        .await
+        .is_ok(),
+        "once the feed is written, the report goes through"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_phones_feed_leaves_out_the_feeds_the_graph_does_not_cover(pool: PgPool) {
+    store(&pool, "dir", &[event("fr-1", "0000000001")], t0(), true).await;
+    store(&pool, "dgt", &[event("es-1", "0000000001")], t0(), true).await;
+    let head = db::feed_head(&pool).await.unwrap();
+    let ids = |rows: Vec<db::EventRow>| rows.into_iter().map(|r| r.source).collect::<Vec<_>>();
+    assert_eq!(
+        ids(
+            db::live_events(&pool, &[EventClass::Closure], false, 0, head.revision, 100)
+                .await
+                .unwrap()
+        ),
+        ["dir"],
+        "a Spanish closure cannot be on a route the French graph computes"
+    );
+    assert_eq!(
+        ids(db::changed_since(&pool, 0, head.revision, 100)
+            .await
+            .unwrap()
+            .unwrap()),
+        ["dir"],
+        "nor in the changes a phone polls every three minutes"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_purged_report_takes_its_key_with_it(pool: PgPool) {
+    let a = account_of_level(&pool, "Loutre du Morvan", 1).await;
+    let now = Utc::now();
+    let key = lunaway_db::idempotency::Key::of(
+        a,
+        "road-key-purged",
+        lunaway_db::idempotency::Operation::ReportRoadEvent,
+        &serde_json::json!({"kind": "closure"}),
+    );
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let report = NewReport {
+        account: a,
+        kind: ReportKind::Closure,
+        at: p(45.8, 1.25),
+        heading_deg: None,
+        value_m: None,
+    };
+    db::report_once(&app, &key, &report, now).await.unwrap();
+    let keys = || async {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM idempotency_keys")
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    };
+    assert_eq!(keys().await, 1);
+    // The importers' role purges the reports and holds no right on the
+    // keys: the trigger drops them with its owner's rights.
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let done = db::lifecycle(
+        &ingest,
+        now + Duration::days(15),
+        Duration::hours(6),
+        Duration::days(7),
+        Duration::days(14),
+    )
+    .await
+    .unwrap();
+    assert_eq!(done.reports_purged, 1);
+    assert_eq!(
+        keys().await,
+        0,
+        "a key names the account, the time and the request of a report the privacy page says is erased"
+    );
 }

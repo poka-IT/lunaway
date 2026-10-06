@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO road_event_report_salt (salt) VALUES (repeat('a', 64))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "47dea2894770f7c5f39b536d298f1e28195a48743522a187b816d8e2b0219f91"
+}

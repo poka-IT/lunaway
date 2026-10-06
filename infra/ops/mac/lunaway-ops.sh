@@ -128,6 +128,19 @@ media_at=$(stamp_seconds "$media_success")
 if [ -z "$media_at" ] || [ $(( (now - media_at) / 3600 )) -ge 36 ]; then
 	fail "la copie chiffrée des photos n'a pas été mise à jour depuis 36 heures (${media_success:-jamais})"
 fi
+# The account deletion journal's copy (lunaway-deletions-offsite, hourly on
+# the server; none until a first account is deleted): it must decrypt, and
+# the server must have run its copy in the last 36 hours. A restore replays
+# it, or deleted accounts come back.
+deletions_copy="$dest/account-deletions/account-deletions.jsonl.age"
+if [ -f "$deletions_copy" ] && ! age --decrypt --identity "$conf/backup-age.key" "$deletions_copy" > /dev/null 2>&1; then
+	fail "la copie du journal des suppressions de comptes ne se déchiffre pas"
+fi
+deletions_success=$(read_stamp "$dest/account-deletions/last-success")
+deletions_at=$(stamp_seconds "$deletions_success")
+if [ -z "$deletions_at" ] || [ $(( (now - deletions_at) / 3600 )) -ge 36 ]; then
+	fail "la copie du journal des suppressions de comptes n'a pas été faite depuis 36 heures (${deletions_success:-jamais})"
+fi
 # Photos deleted on the server. macOS's rsync (openrsync) sends --delete to
 # the server even on a pull, and the ops server's read-only rrsync refuses
 # it: a copy the server's list (media/manifest) no longer names is filed

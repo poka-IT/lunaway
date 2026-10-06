@@ -157,6 +157,7 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
             "atout-france",
             "cat-sct-radars",
             "community",
+            "community-cc-by",
             "finess",
             "laposte",
             "lu-pch-radars",
@@ -173,6 +174,14 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
         of("community")["licence"],
         "ODbL 1.0",
         "places added by users join the ODbL database"
+    );
+    assert_eq!(
+        (
+            &of("community-cc-by")["licence"],
+            &of("community-cc-by")["attribution"]
+        ),
+        (&json!("CC BY 4.0"), &json!("Lunaway contributors")),
+        "reviews and photos are published under CC BY 4.0, outside the database"
     );
     assert_eq!(
         of("laposte")["licence"],
@@ -1086,9 +1095,9 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        11,
-        "OpenStreetMap, Atout France, the community, the three joined to the points and the \
-         five camera lists"
+        12,
+        "OpenStreetMap, Atout France, the community under its two licences, the three joined \
+         to the points and the five camera lists"
     );
 }
 

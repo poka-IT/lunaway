@@ -271,7 +271,7 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        11,
+        12,
         "the API reads the sources"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();

@@ -50,6 +50,12 @@ install -d -m 0750 -o lunaway-backup -g lunaway-backup /srv/data/backups/media-d
 # The replica directory (2750) still keeps everyone but lunaway-pull out.
 install -d -m 0755 -o lunaway-backup -g lunaway-pull /srv/data/backups/postgresql/media
 find /srv/data/backups/postgresql/media -type d -perm -2000 -exec chmod g-s {} +
+# The account deletion journal's copy (one file, replaced at each pull),
+# made here with the setgid bit rather than by the pull: the files rsync
+# writes into it then take group lunaway-pull, so the Mac's pull reads
+# them, and rsync, finding the directory, never has to chmod a setgid bit
+# that RestrictSUIDSGID would refuse.
+install -d -m 2750 -o lunaway-backup -g lunaway-pull /srv/data/backups/postgresql/account-deletions
 
 log "replica key and the backend's host key"
 install -d -m 0755 -o root -g root /etc/lunaway-ops

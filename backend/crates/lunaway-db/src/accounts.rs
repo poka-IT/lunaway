@@ -917,3 +917,105 @@ pub async fn end_other_sessions(
     .await?;
     Ok(done.rows_affected())
 }
+
+/// An account as an operator sees it before deleting it: who, and what it
+/// holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountSummary {
+    /// The account.
+    pub account: AccountRow,
+    /// Its device keys.
+    pub devices: i64,
+    /// Its ratings and reviews.
+    pub reviews: i64,
+    /// Its photos.
+    pub photos: i64,
+    /// Its "still there?" answers.
+    pub confirmations: i64,
+    /// Its issue reports.
+    pub issues: i64,
+    /// Its new places and edits.
+    pub submissions: i64,
+    /// Its road reports.
+    pub road_reports: i64,
+}
+
+/// What [`summary`] and [`find_by_pseudonym`] read: one account with its
+/// counts.
+async fn summaries(pool: &PgPool, filter: Summarized<'_>) -> Result<Vec<AccountSummary>, DbError> {
+    let (id, pseudonym) = match filter {
+        Summarized::Id(id) => (Some(id), None),
+        Summarized::Pseudonym(p) => (None, Some(p)),
+    };
+    let rows = sqlx::query!(
+        r#"
+        SELECT a.id, a.pseudonym, a.trust_level, a.granted_level, a.created_at, a.banned_at,
+            (SELECT count(*) FROM device_keys WHERE account_id = a.id) AS "devices!",
+            (SELECT count(*) FROM reviews WHERE account_id = a.id) AS "reviews!",
+            (SELECT count(*) FROM photos WHERE account_id = a.id) AS "photos!",
+            (SELECT count(*) FROM confirmations WHERE account_id = a.id) AS "confirmations!",
+            (SELECT count(*) FROM issue_reports WHERE account_id = a.id) AS "issues!",
+            (SELECT count(*) FROM place_submissions WHERE account_id = a.id) AS "submissions!",
+            (SELECT count(*) FROM road_event_reports WHERE account_id = a.id) AS "road_reports!"
+        FROM accounts a
+        WHERE ($1::uuid IS NULL OR a.id = $1)
+          AND ($2::text IS NULL OR lower(a.pseudonym) = lower($2))
+        ORDER BY a.created_at
+        LIMIT 20
+        "#,
+        id,
+        pseudonym,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| AccountSummary {
+            account: AccountRow {
+                id: r.id,
+                pseudonym: r.pseudonym,
+                trust_level: r.trust_level,
+                granted_level: r.granted_level,
+                created_at: r.created_at,
+                banned_at: r.banned_at,
+            },
+            devices: r.devices,
+            reviews: r.reviews,
+            photos: r.photos,
+            confirmations: r.confirmations,
+            issues: r.issues,
+            submissions: r.submissions,
+            road_reports: r.road_reports,
+        })
+        .collect())
+}
+
+enum Summarized<'a> {
+    Id(Uuid),
+    Pseudonym(&'a str),
+}
+
+/// Account `id` with what it holds.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn summary(pool: &PgPool, id: Uuid) -> Result<Option<AccountSummary>, DbError> {
+    Ok(summaries(pool, Summarized::Id(id))
+        .await?
+        .into_iter()
+        .next())
+}
+
+/// The accounts named `pseudonym` (case aside; pseudonyms are not unique),
+/// oldest first, 20 at most.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn find_by_pseudonym(
+    pool: &PgPool,
+    pseudonym: &str,
+) -> Result<Vec<AccountSummary>, DbError> {
+    summaries(pool, Summarized::Pseudonym(pseudonym.trim())).await
+}

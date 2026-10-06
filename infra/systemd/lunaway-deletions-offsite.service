@@ -1,0 +1,53 @@
+# Encrypts the account deletion journal into the off-site copy
+# (/usr/local/sbin/lunaway-deletions-offsite). Runs as root without
+# capabilities, so file permissions bind it like any user: it reads the
+# journal as a member of lunaway-deletions (/srv/data/account-deletions,
+# lunaway-api:lunaway-deletions 2750, files 0640), the age recipient (root
+# 0600), writes only its own /srv/data/backups/offsite/account-deletions
+# (root:lunaway-pull 2750) and the days of the last copy in its state
+# directory on the root disk, which outlives a lost data volume.
+# Installed by infra/server/backups.sh.
+[Unit]
+Description=Lunaway account deletion journal, encrypted off-site copy
+RequiresMountsFor=/srv/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lunaway-deletions-offsite
+TimeoutStartSec=10min
+Nice=10
+IOSchedulingClass=idle
+UMask=0027
+
+SupplementaryGroups=lunaway-deletions
+StateDirectory=lunaway-deletions-offsite
+StateDirectoryMode=0700
+
+ProtectSystem=strict
+ReadWritePaths=/srv/data/backups/offsite/account-deletions
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+MemoryMax=256M

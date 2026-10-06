@@ -5,10 +5,18 @@
 #   sudo lunaway-admin moderation list
 #   sudo lunaway-admin moderation approve|reject <entry> [--note TEXT]
 #   sudo lunaway-admin moderation ban <account> --reason TEXT
+#   sudo lunaway-admin moderation confirmations <place>
+#   sudo lunaway-admin moderation remove-confirmation <confirmation>
 #   sudo lunaway-admin accounts create-demo --level 2
 #   sudo lunaway-admin accounts set-level <account> <level>
+#   sudo lunaway-admin accounts find <pseudonym>
+#   sudo lunaway-admin accounts delete <account> [--yes]
+#   sudo lunaway-admin accounts import-deletions < FILE
+#   sudo lunaway-admin accounts replay-deletions [--dry-run] [--allow-empty]
 #       as the API: user lunaway-api, role lunaway_app (/etc/lunaway/api.env),
-#       write access to the photos only (a removal deletes their files)
+#       write access to the photos (a removal deletes their files) and to
+#       the account deletion journal (a deletion is written there first; the
+#       replay after a restore reads it), nothing else
 #   sudo lunaway-admin ingest osm-extract|atout-france|municipalities [--refresh]
 #   sudo lunaway-admin ingest pois|fuel|laposte|finess [--refresh]
 #   sudo lunaway-admin conflate [--full]
@@ -49,7 +57,8 @@ case "${1:-}" in
     exec systemd-run "${sandbox[@]}" \
       -p User=lunaway-api -p Group=lunaway-api -p UMask=0022 -p MemoryMax=2G \
       -p EnvironmentFile=/etc/lunaway/api.env -p EnvironmentFile=/etc/lunaway/media.env \
-      -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/media \
+      -p RequiresMountsFor=/srv/data \
+      -p ReadWritePaths=/srv/data/media -p ReadWritePaths=/srv/data/account-deletions \
       -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
       -p IPAddressDeny=any -p IPAddressAllow=localhost \
       "$cli" "$@"
@@ -72,7 +81,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,22p' "$0" >&2
+    sed -n '2,30p' "$0" >&2
     exit 2
     ;;
 esac

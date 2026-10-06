@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT reporter AS \"reporter!\", kind AS \"kind!\", value_m, created_at AS \"created_at!\",\n            trusted AS \"trusted!\"\n        FROM road_event_report_facts\n        WHERE event_id = $1 AND status = 'active' AND (kind = $2 OR kind = 'cleared')\n          AND NOT banned\n        ORDER BY created_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reporter!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_event_report_facts",
+            "name": "reporter"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_event_report_facts",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "value_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_event_report_facts",
+            "name": "value_m"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_event_report_facts",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "trusted!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "road_event_report_facts",
+            "name": "trusted"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "34d4f8695c65423ee1a4062d22c23e27fef1c767bba0fd895884ad3f964f11ea"
+}

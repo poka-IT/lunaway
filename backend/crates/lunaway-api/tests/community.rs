@@ -529,7 +529,10 @@ async fn reviews_are_listed_held_muted_reported_and_deleted(pool: PgPool) {
     let page = &ok(&list)["place"]["reviews"];
     assert_eq!(page["totalCount"], 1);
     let node = &page["nodes"][0];
-    assert_eq!(node["sourceId"], "community");
+    assert_eq!(
+        node["sourceId"], "community-cc-by",
+        "a review is credited to the source whose licence it is published under"
+    );
     assert_eq!(node["text"], text);
     assert_eq!(node["rating"], 4);
     assert_eq!(node["lang"], "fr");
@@ -921,7 +924,7 @@ async fn the_change_feed_carries_the_community_summary_once_the_worker_ran(pool:
     assert_eq!(p["id"], place.to_string());
     assert_eq!(
         p["ratings"],
-        json!([{"sourceId": "community", "average": 3.0, "count": 2}])
+        json!([{"sourceId": "community-cc-by", "average": 3.0, "count": 2}])
     );
     assert_eq!(p["reviewCount"], 1);
     assert_eq!(
@@ -1461,7 +1464,10 @@ async fn a_photo_is_stripped_stored_published_and_deleted_with_its_files(pool: P
     .await;
     let p = &ok(&listed)["place"];
     assert_eq!(p["photos"][0]["largeUrl"], large);
-    assert_eq!(p["photos"][0]["sourceId"], "community");
+    assert_eq!(
+        p["photos"][0]["sourceId"], "community-cc-by",
+        "a photo is published under CC BY 4.0, not the places' ODbL"
+    );
     assert_eq!(
         p["coverPhotos"],
         json!([]),
@@ -2112,4 +2118,597 @@ async fn a_vending_machine_added_in_two_gestures_is_confirmed_or_hidden(pool: Pg
     assert_eq!(code(&unknown), "NOT_FOUND");
     let anonymous = gql(&app, None, CONFIRM_POI, json!({"id": poi, "there": true})).await;
     assert_eq!(code(&anonymous), "UNAUTHENTICATED");
+}
+
+/// `config` with the account deletion journal in `journal`.
+fn journaled(media: &std::path::Path, journal: &std::path::Path) -> ApiConfig {
+    let mut c = config(media);
+    c.keeping.deletion_journal = Some(journal.to_path_buf());
+    c
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_deletion_is_journaled_and_replayed_after_a_restore(pool: PgPool) {
+    use lunaway_db::deletions::{self, DeletionJournal};
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let journal_dir = dir.path().join("account-deletions");
+    let app = app(&pool, journaled(media.path(), &journal_dir));
+    let place = place_named(&pool, "Camping municipal du Port").await;
+    let other = place_named(&pool, "Aire Val-du-Layon").await;
+
+    let journal = DeletionJournal::new(&journal_dir);
+    // The API's start on a new data volume leaves an empty file for the
+    // day: still a journal that was not put back.
+    journal.check_writable(Utc::now()).unwrap();
+    assert!(
+        matches!(
+            deletions::replay(&pool, &journal, false, false).await,
+            Err(deletions::DeleteError::Journal(
+                deletions::JournalError::Empty(_)
+            ))
+        ),
+        "a journal not put back after a restore is refused, not read as no deletion"
+    );
+    let empty = deletions::replay(&pool, &journal, false, true)
+        .await
+        .expect("an operator who knows the journal is empty says so");
+    assert_eq!((empty.accounts, empty.deleted), (0, 0));
+    let (alice, alice_id) = sign_in(&app, &Device::new(1)).await;
+    let deleted = gql(
+        &app,
+        Some(&alice),
+        r#"mutation { deleteAccount(confirm: "DELETE") }"#,
+        json!({}),
+    )
+    .await;
+    assert_eq!(ok(&deleted)["deleteAccount"], true);
+    let read = journal.read().unwrap();
+    assert_eq!(
+        read.entries.iter().map(|e| e.account).collect::<Vec<_>>(),
+        [alice_id],
+        "the deletion is in the journal, outside the database"
+    );
+
+    // Bob writes a review and a rating, then a backup taken before his
+    // deletion is restored: the database holds him again, the journal
+    // says he is gone.
+    let (bob, bob_id) = sign_in(&app, &Device::new(2)).await;
+    gql(
+        &app,
+        Some(&bob),
+        REVIEW,
+        json!({"id": place, "text": "Calme la nuit, quai propre."}),
+    )
+    .await;
+    gql(
+        &app,
+        Some(&bob),
+        "mutation($id: UUID!) { rate(placeId: $id, stars: 3) { id } }",
+        json!({"id": other}),
+    )
+    .await;
+    journal.record(bob_id, Utc::now()).await.unwrap();
+    let dry = deletions::replay(&pool, &journal, true, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        (dry.accounts, dry.deleted),
+        (2, 1),
+        "a dry run counts the accounts to delete again"
+    );
+    assert!(
+        lunaway_db::accounts::account(&pool, bob_id)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let replayed = deletions::replay(&pool, &journal, false, false)
+        .await
+        .unwrap();
+    assert_eq!(
+        (replayed.accounts, replayed.deleted, replayed.unreadable),
+        (2, 1, 0)
+    );
+    assert!(
+        lunaway_db::accounts::account(&pool, bob_id)
+            .await
+            .unwrap()
+            .is_none(),
+        "a restored backup never brings a deleted account back"
+    );
+    let list = gql(&app, None, REVIEWS, json!({"id": place})).await;
+    let node = &ok(&list)["place"]["reviews"]["nodes"][0];
+    assert_eq!(
+        (&node["text"], &node["authorId"]),
+        (&json!("Calme la nuit, quai propre."), &Value::Null),
+        "the replay deletes as deleteAccount does: a published review stays without author"
+    );
+    let ratings: i64 =
+        sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM reviews WHERE body IS NULL"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(ratings, 0, "a rating alone goes with the account");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_deletion_that_cannot_be_journaled_is_refused(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    // A file where the journal's directory should be: nothing can be
+    // written under it.
+    let blocked = dir.path().join("not-a-directory");
+    std::fs::write(&blocked, "x").unwrap();
+    let app = app(&pool, journaled(media.path(), &blocked));
+    let (token, id) = sign_in(&app, &Device::new(1)).await;
+    let refused = gql(
+        &app,
+        Some(&token),
+        r#"mutation { deleteAccount(confirm: "DELETE") }"#,
+        json!({}),
+    )
+    .await;
+    assert_eq!(code(&refused), "UNAVAILABLE");
+    assert!(
+        lunaway_db::accounts::account(&pool, id)
+            .await
+            .unwrap()
+            .is_some(),
+        "a deletion missing from the journal would come back with a restore: none is made"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn sign_in_can_refuse_a_key_without_account(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let strict = r#"
+    mutation($jwk: String!, $nonce: String!, $sig: String!) {
+      signIn(publicKeyJwk: $jwk, nonce: $nonce, signature: $sig, createIfUnknown: false) {
+        created account { id }
+      }
+    }"#;
+    let phone = Device::new(7);
+    let (nonce, message) = challenge(&app).await;
+    let refused = gql(
+        &app,
+        None,
+        strict,
+        json!({"jwk": phone.jwk(), "nonce": nonce, "sig": phone.sign(&message)}),
+    )
+    .await;
+    assert_eq!(code(&refused), "NOT_FOUND");
+    let accounts: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM accounts"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(accounts, 0, "no account is created, not even for a moment");
+
+    let (_, id) = sign_in(&app, &phone).await;
+    let (nonce, message) = challenge(&app).await;
+    let again = gql(
+        &app,
+        None,
+        strict,
+        json!({"jwk": phone.jwk(), "nonce": nonce, "sig": phone.sign(&message)}),
+    )
+    .await;
+    let s = &ok(&again)["signIn"];
+    assert_eq!(
+        (&s["created"], &s["account"]["id"]),
+        (&json!(false), &json!(id.to_string())),
+        "a known key signs in as before"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_contribution_sent_again_with_its_key_is_stored_once(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let mut c = config(media.path());
+    c.quotas.confirmation.count = 2;
+    let app = app(&pool, c);
+    let place = place_named(&pool, "Camping municipal du Port").await;
+    let (token, account) = sign_in(&app, &Device::new(1)).await;
+    let confirm = r"
+    mutation($id: UUID!, $key: String) {
+      confirm(placeId: $id, status: STILL_OK, idempotencyKey: $key) { id }
+    }";
+    let key = "01a11084-bd6e-7207-a61e-51d1c09f66dd";
+    let first = gql(
+        &app,
+        Some(&token),
+        confirm,
+        json!({"id": place, "key": key}),
+    )
+    .await;
+    let again = gql(
+        &app,
+        Some(&token),
+        confirm,
+        json!({"id": place, "key": key}),
+    )
+    .await;
+    assert_eq!(
+        ok(&again)["confirm"]["id"],
+        ok(&first)["confirm"]["id"],
+        "the answer a weak network lost is given again"
+    );
+    let rows = || async {
+        sqlx::query!(
+            r#"SELECT (SELECT count(*) FROM confirmations) AS "confirmations!",
+                      (SELECT count(*) FROM issue_reports) AS "issues!",
+                      (SELECT count(*) FROM place_submissions) AS "submissions!",
+                      (SELECT count(*) FROM road_event_reports) AS "road_reports!""#
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    assert_eq!(rows().await.confirmations, 1, "stored once");
+    let other = gql(
+        &app,
+        Some(&token),
+        r"mutation($id: UUID!, $key: String) {
+            confirm(placeId: $id, status: CLOSED, idempotencyKey: $key) { id } }",
+        json!({"id": place, "key": key}),
+    )
+    .await;
+    assert_eq!(
+        code(&other),
+        "INVALID_INPUT",
+        "a key reused for another request is a client error"
+    );
+    // A replay took no quota: the second of two confirmations a day still
+    // goes through, the third is refused.
+    let second = gql(
+        &app,
+        Some(&token),
+        confirm,
+        json!({"id": place, "key": "outbox-entry-2"}),
+    )
+    .await;
+    ok(&second);
+    let third = gql(
+        &app,
+        Some(&token),
+        confirm,
+        json!({"id": place, "key": "outbox-entry-3"}),
+    )
+    .await;
+    assert_eq!(code(&third), "RATE_LIMITED");
+
+    // The same key from another account is that account's own.
+    let (bob, _) = sign_in(&app, &Device::new(2)).await;
+    let bobs = gql(&app, Some(&bob), confirm, json!({"id": place, "key": key})).await;
+    assert_ne!(ok(&bobs)["confirm"]["id"], ok(&first)["confirm"]["id"]);
+
+    // Two copies sent at once: one is stored, both answer with it.
+    let issue = r"
+    mutation($id: UUID!, $key: String) {
+      reportIssue(placeId: $id, kind: NIGHT_BAN, idempotencyKey: $key) { id }
+    }";
+    let vars = json!({"id": place, "key": "issue-twins-1"});
+    let (a, b) = tokio::join!(
+        gql(&app, Some(&token), issue, vars.clone()),
+        gql(&app, Some(&token), issue, vars.clone())
+    );
+    assert_eq!(ok(&a)["reportIssue"]["id"], ok(&b)["reportIssue"]["id"]);
+    assert_eq!(rows().await.issues, 1, "twins race to one row");
+
+    // A place edit and a road report, sent twice.
+    lunaway_db::accounts::set_granted_level(&pool, account, 3)
+        .await
+        .unwrap();
+    let edit = r#"
+    mutation($id: UUID!, $key: String) {
+      editPlace(placeId: $id, patch: {priceParkingEur: 8}, idempotencyKey: $key) { id status }
+    }"#;
+    let vars = json!({"id": place, "key": "edit-key-0001"});
+    let e1 = gql(&app, Some(&token), edit, vars.clone()).await;
+    let e2 = gql(&app, Some(&token), edit, vars).await;
+    assert_eq!(ok(&e1)["editPlace"]["id"], ok(&e2)["editPlace"]["id"]);
+    assert_eq!(rows().await.submissions, 1);
+    let road = r"
+    mutation($key: String) {
+      reportRoadEvent(input: {kind: CLOSURE, lat: 47.3, lon: -0.6, headingDeg: 90},
+                      idempotencyKey: $key) { reportId eventId confidence }
+    }";
+    let r1 = gql(&app, Some(&token), road, json!({"key": "road-key-0001"})).await;
+    let r2 = gql(&app, Some(&token), road, json!({"key": "road-key-0001"})).await;
+    assert_eq!(
+        ok(&r1)["reportRoadEvent"]["reportId"],
+        ok(&r2)["reportRoadEvent"]["reportId"]
+    );
+    assert_eq!(rows().await.road_reports, 1);
+    let bad = gql(&app, Some(&token), road, json!({"key": "short"})).await;
+    assert_eq!(code(&bad), "INVALID_INPUT");
+
+    let keys: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM idempotency_keys"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(keys, 6);
+    let soon = Utc::now() + chrono::Duration::seconds(1);
+    let road_only =
+        lunaway_db::idempotency::purge(&pool, Utc::now() - chrono::Duration::days(1), soon)
+            .await
+            .unwrap();
+    assert_eq!(
+        road_only, 1,
+        "a road report's key goes with the report, sooner"
+    );
+    let purged = lunaway_db::idempotency::purge(&pool, soon, soon)
+        .await
+        .unwrap();
+    assert_eq!(purged, 5, "keys answer for a bounded time");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_key_goes_with_what_it_made(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let place = place_named(&pool, "Camping municipal du Port").await;
+    let (token, account) = sign_in(&app, &Device::new(1)).await;
+    lunaway_db::accounts::set_granted_level(&pool, account, 3)
+        .await
+        .unwrap();
+    let confirm = r"
+    mutation($id: UUID!, $key: String) {
+      confirm(placeId: $id, status: STILL_OK, idempotencyKey: $key) { id }
+    }";
+    let vars = json!({"id": place, "key": "confirm-key-0001"});
+    let confirmed = gql(&app, Some(&token), confirm, vars.clone()).await;
+    let confirmed = ok(&confirmed)["confirm"]["id"].clone();
+    let issue = gql(
+        &app,
+        Some(&token),
+        r"mutation($id: UUID!, $key: String) {
+            reportIssue(placeId: $id, kind: NIGHT_BAN, idempotencyKey: $key) { id } }",
+        json!({"id": place, "key": "issue-key-0001"}),
+    )
+    .await;
+    let issue = ok(&issue)["reportIssue"]["id"].clone();
+    let edit = gql(
+        &app,
+        Some(&token),
+        r"mutation($id: UUID!, $key: String) {
+            editPlace(placeId: $id, patch: {priceParkingEur: 8}, idempotencyKey: $key) { id } }",
+        json!({"id": place, "key": "edit-key-0001"}),
+    )
+    .await;
+    let edit = ok(&edit)["editPlace"]["id"].clone();
+    let keys = || async {
+        sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM idempotency_keys"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    };
+    assert_eq!(keys().await, 3);
+
+    // Kept, a key would tell which place the account confirmed, reported
+    // or edited after the author deleted it (the request's hash).
+    for (mutation, id) in [
+        ("deleteConfirmation", &confirmed),
+        ("deleteIssueReport", &issue),
+        ("deletePlaceSubmission", &edit),
+    ] {
+        let deleted = gql(
+            &app,
+            Some(&token),
+            &format!("mutation($id: UUID!) {{ {mutation}(id: $id) }}"),
+            json!({"id": id}),
+        )
+        .await;
+        assert_eq!(ok(&deleted)[mutation], true, "{mutation}");
+    }
+    assert_eq!(keys().await, 0, "no key outlives the contribution it names");
+    let again = gql(&app, Some(&token), confirm, vars).await;
+    assert_ne!(
+        ok(&again)["confirm"]["id"],
+        confirmed,
+        "the same request after a deletion is a new contribution"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_new_place_sent_again_with_its_key_is_added_once(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (token, account) = sign_in(&app, &Device::new(1)).await;
+    lunaway_db::accounts::set_granted_level(&pool, account, 2)
+        .await
+        .unwrap();
+    let add = r#"
+    mutation($key: String) {
+      addPlace(input: {kind: NATURE, lat: 47.1, lon: -1.0, details: {name: "Clairière"}},
+               idempotencyKey: $key) { id status }
+    }"#;
+    let a = gql(&app, Some(&token), add, json!({"key": "new-place-0001"})).await;
+    let b = gql(&app, Some(&token), add, json!({"key": "new-place-0001"})).await;
+    assert_eq!(ok(&a)["addPlace"]["id"], ok(&b)["addPlace"]["id"]);
+    let without = gql(&app, Some(&token), add, json!({"key": null})).await;
+    assert_ne!(
+        ok(&without)["addPlace"]["id"],
+        ok(&a)["addPlace"]["id"],
+        "without a key, each request is a new one, as before"
+    );
+    let stored: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM place_submissions"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(stored, 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_edit_clears_what_the_community_stated(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let place = place_named(&pool, "Aire Val-du-Layon").await;
+    let (token, account) = sign_in(&app, &Device::new(1)).await;
+    lunaway_db::accounts::set_granted_level(&pool, account, 3)
+        .await
+        .unwrap();
+    // The community leads on prices and descriptions: what it states is
+    // what the place shows.
+    let stated = gql(
+        &app,
+        Some(&token),
+        r#"mutation($id: UUID!) { editPlace(placeId: $id, patch: {
+            priceParkingEur: 12, description: {lang: "fr", text: "Calme."}
+        }) { status } }"#,
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(ok(&stated)["editPlace"]["status"], "ACCEPTED");
+    work(&pool).await;
+    let read = r"query($id: UUID!) { place(id: $id) {
+        priceParkingEur descriptions { sourceId } provenance { field sourceId } } }";
+    let community_fields = |body: &Value| -> Vec<String> {
+        ok(body)["place"]["provenance"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|p| p["sourceId"] == "community")
+            .map(|p| p["field"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let before = gql(&app, None, read, json!({"id": place})).await;
+    assert_eq!(ok(&before)["place"]["priceParkingEur"], 12.0);
+    assert!(community_fields(&before).contains(&"priceParkingEur".to_owned()));
+
+    let both = gql(
+        &app,
+        Some(&token),
+        r"mutation($id: UUID!) { editPlace(placeId: $id,
+            patch: {priceParkingEur: 10, clear: [PRICE_PARKING]}) { status } }",
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(code(&both), "INVALID_INPUT", "a value and a clear at once");
+    let in_new_place = gql(
+        &app,
+        Some(&token),
+        r#"mutation { addPlace(input: {kind: NATURE, lat: 47.1, lon: -1.0,
+            details: {name: "Clairière", clear: [WEBSITE]}}) { status } }"#,
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        code(&in_new_place),
+        "INVALID_INPUT",
+        "a new place clears nothing"
+    );
+
+    let cleared = gql(
+        &app,
+        Some(&token),
+        r"mutation($id: UUID!) { editPlace(placeId: $id,
+            patch: {clear: [PRICE_PARKING, DESCRIPTION]}) { status } }",
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(ok(&cleared)["editPlace"]["status"], "ACCEPTED");
+    work(&pool).await;
+    let after = gql(&app, None, read, json!({"id": place})).await;
+    let fields = community_fields(&after);
+    assert!(
+        !fields.contains(&"priceParkingEur".to_owned())
+            && !fields.contains(&"description".to_owned()),
+        "the community no longer states what it cleared: {fields:?}"
+    );
+    assert_ne!(
+        ok(&after)["place"]["priceParkingEur"],
+        12.0,
+        "the wrong price is gone"
+    );
+    assert!(
+        ok(&after)["place"]["descriptions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["sourceId"] != "community")
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_operator_finds_deletes_and_cleans_up_after_an_account(pool: PgPool) {
+    use lunaway_db::{accounts, deletions, moderation};
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let place = place_named(&pool, "Camping municipal du Port").await;
+    let (token, id) = sign_in(&app, &Device::new(1)).await;
+    let confirmed = gql(
+        &app,
+        Some(&token),
+        "mutation($id: UUID!) { confirm(placeId: $id, status: STILL_OK) { id } }",
+        json!({"id": place}),
+    )
+    .await;
+    let confirmation: Uuid = ok(&confirmed)["confirm"]["id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let name = accounts::account(&pool, id)
+        .await
+        .unwrap()
+        .unwrap()
+        .pseudonym;
+
+    let found = accounts::find_by_pseudonym(&pool, &name.to_uppercase())
+        .await
+        .unwrap();
+    assert_eq!(found.len(), 1, "found by its pseudonym, case aside");
+    assert_eq!((found[0].account.id, found[0].confirmations), (id, 1));
+
+    let journal = deletions::DeletionJournal::new(dir.path());
+    let deleted = deletions::delete_recorded(&pool, Some(&journal), id)
+        .await
+        .unwrap();
+    assert!(deleted.is_some());
+    assert_eq!(journal.read().unwrap().entries.len(), 1);
+    // Exactly as deleteAccount: the confirmation stays, without author.
+    let listed = moderation::confirmations_of_place(&pool, place, 10)
+        .await
+        .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(
+        (listed[0].id, listed[0].author.clone()),
+        (confirmation, None)
+    );
+
+    // A test left on a real place: the operator removes it by id.
+    assert_eq!(
+        moderation::remove_confirmation(&pool, confirmation)
+            .await
+            .unwrap(),
+        Some(place)
+    );
+    assert!(
+        moderation::confirmations_of_place(&pool, place, 10)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let queued: i64 = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM place_refresh_queue WHERE place_id = $1"#,
+        place
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(queued, 1, "the worker computes \"last confirmed\" again");
+    assert_eq!(
+        moderation::remove_confirmation(&pool, confirmation)
+            .await
+            .unwrap(),
+        None
+    );
 }

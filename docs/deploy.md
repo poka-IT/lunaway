@@ -191,6 +191,16 @@ migrations stay after such a rollback: they are additive
 (`.claude/rules/sqlx.md`), so the previous API runs on the newer schema. Old
 releases stay until removed by name.
 
+The API refuses to start when it cannot write the account deletion journal
+(`LUNAWAY_DELETION_JOURNAL=/srv/data/account-deletions`, in
+`/etc/lunaway/media.env`; see "Backups and restore"). Servers configured
+before the journal existed take, before the first deploy of a release that
+has it, `infra/configure.sh ops ops-replica` (the replica's directory for
+the journal's copy, setgid so the Mac's pull can read it), then
+`infra/configure.sh backend backups api` (the directory, the unit's access
+to it, the variable and the hourly encrypted copy). Without the backend
+step the new release fails its `/health` check and `current` goes back.
+
 Without a working local Docker, `LUNAWAY_BUILDER=hetzner infra/deploy-api.sh`
 runs the same container on a throwaway server
 (`infra/build/remote-build.sh`): a cx33 in fsn1 (x86_64 like the backend, so
@@ -292,10 +302,16 @@ needs, and passes its output back:
 
 ```bash
 sudo lunaway-admin moderation list                       # as the API: user lunaway-api, role lunaway_app,
-sudo lunaway-admin moderation approve <entry> --note TEXT  # write access to /srv/data/media only (a
-sudo lunaway-admin moderation ban <account> --reason TEXT # removal deletes the photo files)
+sudo lunaway-admin moderation approve <entry> --note TEXT  # write access to /srv/data/media (a removal
+sudo lunaway-admin moderation ban <account> --reason TEXT # deletes the photo files) and the deletion journal
 sudo lunaway-admin accounts create-demo --level 2        # the store reviewers' account: prints its recovery code
 sudo lunaway-admin accounts set-level <account> 4        # a moderator
+sudo lunaway-admin accounts find "<pseudonym>"            # the accounts of a pseudonym, with what each holds
+sudo lunaway-admin accounts delete <account> [--yes]     # as deleteAccount, journaled first; without --yes, shows only
+sudo lunaway-admin accounts import-deletions < FILE     # the journal's copy back into its days (see "Backups and restore")
+sudo lunaway-admin accounts replay-deletions [--dry-run] [--allow-empty]  # after a restore (see "Backups and restore")
+sudo lunaway-admin moderation confirmations <place>      # its "still there?" answers, author or "a deleted account"
+sudo lunaway-admin moderation remove-confirmation <id>   # a false one, or a test left on a real place
 sudo lunaway-admin ingest osm-extract                    # as the imports: user lunaway-ingest, role lunaway_ingest,
 sudo lunaway-admin ingest municipalities                 # the import cache, HTTPS out (no private ranges)
 sudo lunaway-admin ingest pois                           # 3 GiB cap for the imports (the extract reader)
@@ -439,6 +455,7 @@ Mac's nightly job reads.
 | public | Road events feed | `roadEvents(first: 1)` answers a cursor within 3 s |
 | backend | Conflation worker | the probe: `lunaway-conflate-worker` active, its queues measured less than 5 minutes ago, nothing waiting there for 15 minutes |
 | backend | Photo backup | the probe: the encrypted copy of the photos brought up to date less than 26 hours ago |
+| backend | Account deletion journal backup | the probe: the encrypted copy of the account deletion journal written less than 3 hours ago (hourly) |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
 | backend | Data volume | mounted, under 80% full; root disk under 85% |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
@@ -629,6 +646,7 @@ encrypted:
 | plaintext, on the root disk | backend, `/var/backups/lunaway/postgresql/`, captured by Hetzner's daily server backup (7 images, taken between 06:00 and 10:00 UTC) | 3 |
 | age-encrypted | backend `/srv/data/backups/offsite/` (7), pulled at 01:15 UTC into the ops server's volume in nbg1 (14 days), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (29 days) | |
 | photos, age-encrypted | backend `/srv/data/backups/offsite/media/`, the ops server's `/srv/data/backups/postgresql/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date |
+| account deletion journal | backend `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps at 01:15 UTC into the ops server's and then the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the ops server and the Mac, until their next pull |
 | the F-Droid keys, age-encrypted | backend `/srv/data/backups/offsite/fdroid-keys-<stamp>.tar.age`, the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned (see "F-Droid repository") |
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
@@ -665,9 +683,20 @@ encrypted:
   inside the 30 days the privacy page announces, and a mistaken deletion
   can be restored meanwhile. The status page checks the copy (Photo
   backup).
-- A dump restored brings back the accounts deleted after it was taken: the
-  backend has no record of those deletions to apply again yet (an open
-  point for the backend).
+- A dump restored would bring back the accounts deleted after it was
+  taken. Every deletion (`deleteAccount`, the recovery-code page,
+  `lunaway accounts delete`) is first written and synced to the deletion
+  journal, outside the database (`LUNAWAY_DELETION_JOURNAL`, the API and
+  `lunaway-admin accounts` both write there); the API refuses a deletion
+  it cannot journal (`UNAVAILABLE`), and refuses to start when it cannot
+  write the journal's directory. After a restore, `lunaway accounts
+  replay-deletions` deletes again, exactly as `deleteAccount` did, every
+  account the journal names that the restored database holds. The journal
+  on the data volume covers every restore that keeps the volume (a bad
+  migration, a corrupted database); when the volume itself is lost, the
+  off-site copy holds the deletions up to its last pull by the ops server
+  (01:15 UTC): a deletion made after it comes back with the dump, as
+  everything written after the dump is lost.
 - The ops server has no Hetzner backup: everything on it but its volume is
   rebuilt by `provision.sh` and `configure.sh ops`, and its volume holds
   ciphertext only.
@@ -700,6 +729,57 @@ Before the API serves restored data, give it a new sync epoch:
 
 ```bash
 sudo -u postgres psql -d lunaway_restore -c 'UPDATE sync_epoch SET epoch = gen_random_uuid(), created_at = now()'
+```
+
+Then apply again the account deletions made since the dump. Once the
+restored database is the one the API's `DATABASE_URL` names, with the API
+and the conflation worker stopped (the worker would otherwise publish a
+pending submission of an account deleted after the dump) and the photos
+restored (below), so that the replay also removes the photo files of the
+accounts it deletes:
+
+```bash
+sudo systemctl stop lunaway-api lunaway-conflate-worker
+sudo lunaway-admin accounts replay-deletions --dry-run   # the accounts the journal names, still in this database
+sudo lunaway-admin accounts replay-deletions
+sudo systemctl start lunaway-api lunaway-conflate-worker
+```
+
+The replay refuses a journal that names no deletion (`JournalError::Empty`):
+on a new data volume the API's first start leaves only an empty file for
+the day, and replaying that would bring back every deletion since the dump.
+`--allow-empty` accepts it when the journal really is empty (no deletion in
+45 days).
+
+When the data volume was lost too, put the journal back from the off-site
+copy before the API's first start on the new volume (a deletion the API
+journals meanwhile would let a partial journal pass the replay's check):
+after `infra/configure.sh backend api` has created
+`/srv/data/account-deletions/` again, with the API still stopped, decrypt
+the copy on the Mac like the dumps and import it. Each deletion goes back
+into the day it was made, so it leaves at its own time:
+
+```bash
+age --decrypt --identity ~/.config/lunaway/backup-age.key \
+  ~/Backups/lunaway/account-deletions/account-deletions.jsonl.age \
+  | ssh -F ~/.config/lunaway/ssh_config lunaway 'umask 077; cat > restore-deletions.jsonl'
+# on the backend
+sudo systemctl stop lunaway-api
+sudo lunaway-admin accounts import-deletions < restore-deletions.jsonl
+rm restore-deletions.jsonl
+```
+
+Until the journal is back, the hourly copy writes nothing: a journal that
+names no deletion never makes a first copy, and one that lost a day younger
+than 30 days stops the run (the days of the last copy are kept on the root
+disk, `/var/lib/lunaway-deletions-offsite/days`), so the copies on the ops
+server and the Mac are not replaced by an empty or partial one. When the
+copy put back is older than the journal that was lost (deletions made
+between the last pull and the loss), the run keeps stopping on those days;
+once the journal is back, let it through once, deliberately:
+
+```bash
+sudo env LUNAWAY_DELETIONS_ALLOW_LOSS=1 /usr/local/sbin/lunaway-deletions-offsite
 ```
 
 A dump puts the change feed back at the dump's position, while devices hold
@@ -1419,7 +1499,7 @@ built on F-Droid's build server. For the maintainer:
 Closures, works and temporary limits from the feeds of
 `docs/data-sources.md` ("Road events"), checked with every route
 (`docs/architecture.md`, "Road events"). Installed on 2026-10-06 by the
-backend step `pipeline` (the two units and timers below) and the step
+backend step `pipeline` (the units and timers below) and the step
 `routing` (the engine's limits).
 
 - `lunaway-road-events.service` and `.timer` (`infra/systemd/`): `lunaway
@@ -1437,6 +1517,13 @@ backend step `pipeline` (the two units and timers below) and the step
   Toulouse 790, Lyon 354, Charente-Maritime 120, Paris 93 and 115.
 - Quotas: `LUNAWAY_QUOTA_ROAD_REPORT` (per account, 30 a day) and
   `LUNAWAY_QUOTA_ROAD_REPORT_CLIENT` (per client address, 100 a day).
+- `lunaway-road-events-ndw.service` and `.timer`: NDW's Dutch planning
+  feed every three hours at :40 (`poll --only ndw`; the three-minute poll
+  leaves it out), with a memory cap of 1 GB: 204 MB of XML read whole,
+  17 202 events in 11.4 s and 443 MB at the peak (2026-10-06, Mac, debug
+  build). The Dutch and Spanish events (DGT, in the three-minute poll) are
+  stored but neither matched nor sent to the phones while the routing
+  graph covers France only (`road_event_sources.routed`).
 - `lunaway-road-events-dialog.service` and `.timer`: DiaLog's permanent
   orders weekly into `route_restrictions` (source `dialog`, outside any
   graph): 6 008 orders, 17 594 restriction lines in 15 s (2026-10-06,
@@ -1450,12 +1537,18 @@ backend step `pipeline` (the two units and timers below) and the step
   apart. Each graph serves the copy of the file put next to it at its
   install; `infra/configure.sh backend routing` brings a changed file to
   the graphs on disk and restarts the engine.
-- Matching on the engine: each pass matches the events waiting until the
-  engine refuses one, then stops for that pass. On 2026-10-06 every pass
-  stopped on such a refusal (`400::Insufficient number of locations
-  provided`, `500::leg_shape_index not set for intermediate location`)
-  after 6 to 179 matches; `infra/verify.sh backend` counts the refusals of
-  the last hour.
+- Matching on the engine: an event the engine refuses
+  (`400::Insufficient number of locations provided`, `500::leg_shape_index
+  not set for intermediate location`, seen on 2026-10-06) stays unplaced
+  with the engine's reason (`road_events.match_error`), a warning at its
+  raw position, and the pass goes on with the others. It is asked again
+  30 minutes after the first refusal and 2 hours after the second, never on
+  that graph after the third; five refusals in a row end the pass (the
+  engine itself is failing). `infra/verify.sh backend` counts the refusals
+  of the last hour.
+- The community's reports are weighed by the API every three minutes (a
+  vote, its expiry, a ban), not by the poller: the importers' role reads no
+  report's account (migration `20261006145517`).
 - Freshness: `{ roadEventSources { id ageSeconds dataAt fresh } }` is
   public; the DIR is listed first, DiaLog second. `ageSeconds` counts from the last read
   that succeeded, news or not: the poller is alive. `fresh` counts from

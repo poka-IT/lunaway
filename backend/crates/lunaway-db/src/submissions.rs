@@ -28,6 +28,7 @@ use crate::{
     DbError, PgPool,
     community::{enqueue, notify_worker},
     conflation::WriterTx,
+    idempotency::{self, Key, Once},
 };
 
 /// A submission as stored.
@@ -90,6 +91,59 @@ pub enum Submitted<'a> {
 ///
 /// [`DbError`] when a statement fails.
 pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow, DbError> {
+    let mut tx = pool.begin().await?;
+    let row = submit_in(&mut tx, s).await?;
+    tx.commit().await?;
+    Ok(row)
+}
+
+/// [`submit`] guarded by an idempotency key: a request sent again with the
+/// same key answers with the submission the first one stored.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails.
+pub async fn submit_once(
+    pool: &PgPool,
+    key: &Key<'_>,
+    s: NewSubmission<'_>,
+) -> Result<Once<SubmissionRow>, DbError> {
+    let mut tx = match idempotency::begin(pool, key).await? {
+        Ok(tx) => tx,
+        Err(seen) => return Ok(seen.once()),
+    };
+    let row = submit_in(&mut tx, s).await?;
+    let id = row.id;
+    idempotency::finish(pool, tx, key, id, row).await
+}
+
+/// `account`'s submission `id`, whatever became of it.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn submission_of(
+    pool: &PgPool,
+    account: Uuid,
+    id: Uuid,
+) -> Result<Option<SubmissionRow>, DbError> {
+    Ok(sqlx::query_as!(
+        SubmissionRow,
+        r#"
+        SELECT id, kind, place_id, poi_id, status, payload, created_at, applied_at
+        FROM place_submissions WHERE id = $1 AND account_id = $2
+        "#,
+        id,
+        account,
+    )
+    .fetch_optional(pool)
+    .await?)
+}
+
+async fn submit_in(
+    tx: &mut sqlx::PgConnection,
+    s: NewSubmission<'_>,
+) -> Result<SubmissionRow, DbError> {
     let (kind, place, payload) = match s.what {
         Submitted::Create(p) => (
             "create",
@@ -108,7 +162,6 @@ pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow
         ),
     };
     let status = if s.accepted { "accepted" } else { "proposed" };
-    let mut tx = pool.begin().await?;
     let row = sqlx::query_as!(
         SubmissionRow,
         r#"
@@ -127,11 +180,11 @@ pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow
     .fetch_one(&mut *tx)
     .await?;
     if s.accepted {
-        notify_worker(&mut tx).await?;
+        notify_worker(&mut *tx).await?;
     } else {
         let reason = s.held_for.unwrap_or("below level 3");
         enqueue(
-            &mut tx,
+            &mut *tx,
             "place_proposal",
             "submission",
             row.id,
@@ -140,7 +193,6 @@ pub async fn submit(pool: &PgPool, s: NewSubmission<'_>) -> Result<SubmissionRow
         )
         .await?;
     }
-    tx.commit().await?;
     Ok(row)
 }
 
@@ -197,6 +249,12 @@ pub async fn withdraw(pool: &PgPool, account: Uuid, id: Uuid) -> Result<Withdraw
             Withdrawal::Detached
         }
     };
+    // Its key would still tie the account to what it sent (the request's
+    // hash): the author took it out of their contributions, the key goes.
+    // A row deleted outright takes its key by the table's trigger.
+    sqlx::query!("DELETE FROM idempotency_keys WHERE result_id = $1", id)
+        .execute(&mut *tx)
+        .await?;
     tx.commit().await?;
     Ok(outcome)
 }

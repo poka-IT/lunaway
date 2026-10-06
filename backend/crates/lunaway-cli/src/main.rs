@@ -21,8 +21,13 @@
 //! lunaway moderation ban <account-id> --reason TEXT
 //! lunaway moderation dismiss-issues <place-id>
 //! lunaway moderation hide-poi|show-poi <poi-id> [--note TEXT]
+//! lunaway moderation confirmations <place-id> [--limit 50]
+//! lunaway moderation remove-confirmation <confirmation-id>
 //! lunaway accounts create-demo [--level 2] [--pseudonym NAME]
 //! lunaway accounts set-level <account-id> <level>
+//! lunaway accounts find <pseudonym>
+//! lunaway accounts delete <account-id> [--yes]
+//! lunaway accounts replay-deletions [--dry-run]
 //! lunaway routing fetch-ign [--refresh]
 //! lunaway routing prepare --pbf FILE --out DIR --graph-id ID --engine TEXT [--no-ign]
 //! lunaway routing test-routes --url http://127.0.0.1:8002 --cases FILE
@@ -42,6 +47,10 @@
 //! contributions, so they run with the API's role (`lunaway_app`), whose
 //! `DATABASE_URL` the API uses, and remove photo files under
 //! `LUNAWAY_MEDIA_DIR` like the API, so they run as the API's user.
+//! `accounts delete` writes the deletion to the journal under
+//! `LUNAWAY_DELETION_JOURNAL` first, as the API does, and `accounts
+//! replay-deletions` reads it after a restore (docs/deploy.md, "Backups
+//! and restore").
 //!
 //! The `routing` commands build and publish the motorhome routing graph
 //! (docs/deploy.md, "Routing"): `fetch-ign`, `prepare` and `test-routes`
@@ -91,6 +100,12 @@ struct Cli {
     /// moderation removes the files of removed photos.
     #[arg(long, env = "LUNAWAY_MEDIA_DIR", default_value_os_t = default_data_dir().join("media"))]
     media_dir: PathBuf,
+    /// Directory of the account deletion journal (the API's
+    /// `LUNAWAY_DELETION_JOURNAL`, with the same default): `accounts
+    /// delete` writes to it, `accounts replay-deletions` reads it after a
+    /// restore.
+    #[arg(long, env = "LUNAWAY_DELETION_JOURNAL", default_value_os_t = default_data_dir().join("account-deletions"))]
+    deletion_journal: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -370,6 +385,22 @@ enum Moderation {
         /// The event.
         event: Uuid,
     },
+    /// Prints the "still there?" answers of a place, newest first, with
+    /// their author (none once the account is deleted).
+    Confirmations {
+        /// The place.
+        place: Uuid,
+        /// Answers printed at most.
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Removes a "still there?" answer, whoever wrote it (a false one, a
+    /// test left without author); the place's "last confirmed" date is
+    /// computed again.
+    RemoveConfirmation {
+        /// The answer.
+        confirmation: Uuid,
+    },
 }
 
 #[derive(Subcommand)]
@@ -392,6 +423,41 @@ enum Accounts {
         /// The level.
         #[arg(value_parser = clap::value_parser!(i16).range(0..=4))]
         level: i16,
+    },
+    /// Prints the accounts of a pseudonym (case aside), with what each
+    /// holds.
+    Find {
+        /// The pseudonym.
+        pseudonym: String,
+    },
+    /// Deletes an account exactly as `deleteAccount` does (published
+    /// reviews, confirmations and applied edits stay without author, the
+    /// rest goes, photo files included), written first to the deletion
+    /// journal. Without `--yes`, prints what it would delete.
+    Delete {
+        /// The account.
+        account: Uuid,
+        /// Deletes for real.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Writes into the deletion journal, each in the day it was made, the
+    /// deletions read from standard input: the lines of the journal's
+    /// off-site copy, decrypted. After the loss of the data volume, before
+    /// `replay-deletions`.
+    ImportDeletions,
+    /// After a restore, deletes again every account the deletion journal
+    /// names that the restored database still holds. Run it before the API
+    /// serves the restored database.
+    ReplayDeletions {
+        /// Counts them without deleting.
+        #[arg(long)]
+        dry_run: bool,
+        /// Accepts a journal that names no deletion (none in the days it
+        /// keeps); otherwise refused, since a journal not put back after
+        /// the loss of the data volume would bring deletions back.
+        #[arg(long)]
+        allow_empty: bool,
     },
 }
 
@@ -522,6 +588,17 @@ fn check_retirement(refused: &[&str]) -> anyhow::Result<()> {
 
 /// The repository's `data/` directory, known at build time: a development
 /// default. A deployment sets `LUNAWAY_DATA_DIR`.
+/// The journal's directory as the API reads `LUNAWAY_DELETION_JOURNAL`:
+/// trimmed, and `off` (how the API runs without a journal) or empty names
+/// none, so a deletion is refused rather than journaled into `./off`.
+fn journal_dir(raw: PathBuf) -> Option<PathBuf> {
+    match raw.to_str().map(str::trim) {
+        Some("off" | "") => None,
+        Some(trimmed) => Some(PathBuf::from(trimmed)),
+        None => Some(raw),
+    }
+}
+
 fn default_data_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data"))
 }
@@ -1037,7 +1114,12 @@ async fn main() -> anyhow::Result<()> {
             let media = lunaway_media::MediaStore::new(cli.media_dir);
             moderation(&pool, &media, action).await?;
         }
-        Command::Accounts { action } => accounts(&pool, action).await?,
+        Command::Accounts { action } => {
+            let media = lunaway_media::MediaStore::new(cli.media_dir);
+            let journal =
+                journal_dir(cli.deletion_journal).map(lunaway_db::deletions::DeletionJournal::new);
+            accounts(&pool, &media, journal.as_ref(), action).await?;
+        }
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Enforcement { action } => enforcement(&pool, action).await?,
         Command::Routing { .. } => unreachable!("handled before connecting"),
@@ -1094,9 +1176,8 @@ fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
     }
     if let Some(l) = &report.lifecycle {
         println!(
-            "lifecycle: {} community events weighed again, {} past their end, {} expired, \
-             {} purged, {} reports purged",
-            l.reweighed, l.past_end, l.expired, l.purged, l.reports_purged
+            "lifecycle: {} past their end, {} expired, {} purged, {} reports purged",
+            l.past_end, l.expired, l.purged, l.reports_purged
         );
     }
 }
@@ -1559,6 +1640,37 @@ async fn moderation(
             println!("community road event {event} ended, its reports removed");
             return Ok(());
         }
+        Moderation::Confirmations { place, limit } => {
+            let rows =
+                lunaway_db::moderation::confirmations_of_place(pool, place, limit.clamp(1, 1_000))
+                    .await?;
+            if rows.is_empty() {
+                println!("no confirmation of {place}");
+            }
+            for c in rows {
+                println!(
+                    "{}  {}  {:<8}  {}  by {}",
+                    c.id,
+                    c.created_at.format("%Y-%m-%d %H:%M:%S UTC"),
+                    c.status,
+                    c.place_id,
+                    match (&c.author, c.account_id) {
+                        (Some(name), Some(id)) => format!("{name} ({id})"),
+                        _ => "a deleted account".to_owned(),
+                    }
+                );
+            }
+            return Ok(());
+        }
+        Moderation::RemoveConfirmation { confirmation } => {
+            let Some(place) =
+                lunaway_db::moderation::remove_confirmation(pool, confirmation).await?
+            else {
+                anyhow::bail!("no confirmation {confirmation}");
+            };
+            println!("confirmation {confirmation} removed; place {place} queued for the worker");
+            return Ok(());
+        }
     };
     match decide(pool, id, decision, note.as_deref()).await? {
         Decided::NotFound => anyhow::bail!("no open entry {id}"),
@@ -1575,7 +1687,32 @@ async fn moderation(
     Ok(())
 }
 
-async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result<()> {
+fn print_summary(s: &lunaway_db::accounts::AccountSummary) {
+    let a = &s.account;
+    println!(
+        "{}  {}  created {}  level {} (granted {}){}",
+        a.id,
+        a.pseudonym,
+        a.created_at.format("%Y-%m-%d %H:%M UTC"),
+        a.trust_level,
+        a.granted_level,
+        a.banned_at
+            .map(|b| format!("  banned {}", b.format("%Y-%m-%d")))
+            .unwrap_or_default()
+    );
+    println!(
+        "    devices {}  reviews {}  photos {}  confirmations {}  issues {}  \
+         submissions {}  road reports {}",
+        s.devices, s.reviews, s.photos, s.confirmations, s.issues, s.submissions, s.road_reports
+    );
+}
+
+async fn accounts(
+    pool: &lunaway_db::PgPool,
+    media: &lunaway_media::MediaStore,
+    journal: Option<&lunaway_db::deletions::DeletionJournal>,
+    action: Accounts,
+) -> anyhow::Result<()> {
     match action {
         Accounts::CreateDemo { level, pseudonym } => {
             let pseudonym = match pseudonym {
@@ -1603,6 +1740,93 @@ async fn accounts(pool: &lunaway_db::PgPool, action: Accounts) -> anyhow::Result
                 "no account {account}"
             );
             println!("account {account}: level {level} granted");
+        }
+        Accounts::Find { pseudonym } => {
+            let found = lunaway_db::accounts::find_by_pseudonym(pool, &pseudonym).await?;
+            if found.is_empty() {
+                println!("no account named {pseudonym:?}");
+            }
+            for s in &found {
+                print_summary(s);
+            }
+        }
+        Accounts::Delete { account, yes } => {
+            let Some(summary) = lunaway_db::accounts::summary(pool, account).await? else {
+                anyhow::bail!("no account {account}");
+            };
+            print_summary(&summary);
+            if !yes {
+                println!(
+                    "not deleted: run again with --yes to delete it as deleteAccount does \
+                     (published reviews, confirmations and applied edits stay without author)"
+                );
+                return Ok(());
+            }
+            // A deletion missing from the journal would come back with the
+            // next restore: on the server the journal is required.
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: a deletion must be journaled \
+                 (--deletion-journal DIR)",
+            )?;
+            let deleted =
+                lunaway_db::deletions::delete_recorded(pool, Some(journal), account).await?;
+            let Some(d) = deleted else {
+                anyhow::bail!("account {account} disappeared meanwhile");
+            };
+            println!(
+                "account {account} deleted: {} published reviews kept without author, \
+                 {} photos deleted",
+                d.anonymised_reviews, d.deleted_photos
+            );
+            remove_files(media, &d.orphan_files).await?;
+        }
+        Accounts::ImportDeletions => {
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: name the journal's directory \
+                 (--deletion-journal DIR)",
+            )?;
+            let lines = tokio::task::spawn_blocking(|| {
+                let mut lines = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut lines).map(|_| lines)
+            })
+            .await?
+            .context("reading the deletions from standard input")?;
+            let imported = journal.import(lines).await?;
+            println!(
+                "journal {}: {} deletions written into their days, {} unreadable lines",
+                journal.dir().display(),
+                imported.written,
+                imported.unreadable
+            );
+        }
+        Accounts::ReplayDeletions {
+            dry_run,
+            allow_empty,
+        } => {
+            let journal = journal.context(
+                "LUNAWAY_DELETION_JOURNAL is off: name the journal's directory \
+                 (--deletion-journal DIR)",
+            )?;
+            let r = lunaway_db::deletions::replay(pool, journal, dry_run, allow_empty).await?;
+            if dry_run {
+                println!(
+                    "journal {}: {} accounts, {} of them still in this database \
+                     (nothing deleted: dry run), {} unreadable lines",
+                    journal.dir().display(),
+                    r.accounts,
+                    r.deleted,
+                    r.unreadable
+                );
+            } else {
+                println!(
+                    "journal {}: {} accounts, {} deleted again, {} unreadable lines",
+                    journal.dir().display(),
+                    r.accounts,
+                    r.deleted,
+                    r.unreadable
+                );
+                remove_files(media, &r.orphan_files).await?;
+            }
         }
     }
     Ok(())

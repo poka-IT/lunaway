@@ -1,0 +1,60 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT r.id, r.event_id AS \"event_id!\", e.confidence,\n            coalesce(e.ended_at, e.valid_to, e.last_seen_at) AS \"until!\"\n        FROM road_event_reports r JOIN road_events e ON e.id = r.event_id\n        WHERE r.id = $1 AND r.account_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "event_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_event_reports",
+            "name": "event_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "confidence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "confidence"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "until!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "629c8f03bd59dbeac0ccdd5aa8946de6ce7d4172a79f527839ca680e653a9c8e"
+}

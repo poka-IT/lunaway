@@ -150,7 +150,10 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
   limit the vehicle exceeds is a blocker, computed around with 3 m rings
   on the road the route used; the rest warns with the age of its data.
 - **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
-  of the events that can block, France-wide, without the phone's position;
+  of the events that can block, France-wide, without the phone's position
+  (only the sources on the routing graph, `road_event_sources.routed`: the
+  Dutch and Spanish events are stored but not handed out while the graph
+  covers France only);
   the phone checks its remaining route itself and asks for a new route
   when a blocker appears ahead (the contract is in
   `plan/research/21-backend-travaux.md`, part 5).
@@ -160,10 +163,20 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
   confirmed event lives from its last confirming pair, so one account
   cannot keep it blocking or lower its figure. `clearRoadEvent`: the only
   reporter ends its event; one trusted account makes a blocker a warning,
-  two end it. Every poller pass weighs the community's events again, so a
-  banned or deleted account stops counting within minutes. The feed
-  publishes a community event's position to about ten metres and its
-  times to the hour.
+  two end it. The API weighs the community's events again every three
+  minutes (`road_events::reweigh_community`), so a banned or deleted
+  account stops counting within minutes. It reads the reports through a
+  view that gives a key per account and event instead of the account
+  (`road_event_report_facts`); the importers' role, which parses untrusted
+  payloads, reads neither that view nor any report's account, so it never
+  links an account to a time and a place. What it still reads, each
+  account's level and ban (the merge rules use them) and each event's
+  confidence, ties an account to an event only coarsely: a change of the
+  account followed by a confidence crossing a threshold at the next
+  weighing, at the published position. A community event keeps, and
+  the feed publishes, its position to about ten metres and no heading;
+  the exact report stays with the report, for the API only. The feed
+  publishes its times to the hour.
 
 ## Conflation
 
@@ -243,6 +256,17 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 5. Fediverse and Bluesky accounts can be linked later.
 
 Trust levels (from 0 to 4) unlock reviews, new places, edits and moderation.
+
+Deleting an account (`deleteAccount`, the recovery-code page, or `lunaway
+accounts delete`) writes the account's id to a journal outside the
+database first (`lunaway_db::deletions`, one file per day on the data
+volume, copied off-site every hour, encrypted, with the backups); after a
+restore, `lunaway accounts replay-deletions` deletes again every account
+the journal names, so a restored dump never brings a deleted account back
+(`docs/deploy.md`, "Backups and restore"). A contribution the app may send
+twice (a new place, an edit, a confirmation, an issue, a road report)
+carries the outbox entry's id as an idempotency key: the same request
+again returns what the first made (`lunaway_db::idempotency`, 30 days).
 Anti-abuse measures:
 
 - rate limits per account, device and network;
@@ -268,6 +292,8 @@ Anti-abuse measures:
 
 - Code: AGPL-3.0-or-later.
 - The places database: ODbL 1.0 (it merges OpenStreetMap).
-- Reviews and photos: CC BY 4.0.
+- Reviews and photos: CC BY 4.0, under a source of their own
+  (`community-cc-by`); the community's places, edits and reports stay
+  under the ODbL (`community`).
 
 The sources and their terms are listed in `docs/data-sources.md`.

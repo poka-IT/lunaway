@@ -7,12 +7,14 @@
 //! - [`dir`]: the DIR's DATEX II 2.x feed of the national roads;
 //! - [`dialog`]: DiaLog's traffic orders (DATEX II 3);
 //! - [`local`]: the city and département datasets;
+//! - [`europe`]: the Dutch (NDW) and Spanish (DGT) national feeds;
 //! - [`fetch`]: the HTTP side, HTTPS only, on each feed's hosts;
 //! - [`matching`]: lines placed on the graph by the routing engine;
 //! - [`poll`]: one pass of the poller (`lunaway road-events poll`).
 
 pub mod dialog;
 pub mod dir;
+pub mod europe;
 pub mod fetch;
 pub mod local;
 pub mod matching;
