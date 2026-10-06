@@ -55,6 +55,7 @@
     "actions": [
       "route",
       "trace_attributes",
+      "sources_to_targets",
       "status"
     ],
     "use_connectivity": true,
@@ -216,7 +217,7 @@
     "auto": {
       "max_distance": 2500000.0,
       "max_locations": 7,
-      "max_matrix_distance": 400000.0,
+      "max_matrix_distance": 60000.0,
       "max_matrix_location_pairs": 2500
     },
     "bus": {

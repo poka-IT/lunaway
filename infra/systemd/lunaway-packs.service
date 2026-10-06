@@ -1,0 +1,73 @@
+# Builds the regional first-sync packs (docs/region-packs.md): one SQLite
+# file per sync region whose places changed since its pack, gzip-compressed,
+# under /srv/data/packs/places/, recorded in region_packs, which
+# Query.regions serves; Caddy serves the files under /packs/places/
+# (infra/caddy/Caddyfile). Started after each conflation that follows a
+# places import (OnSuccess= of lunaway-conflate.service) and daily at 06:30
+# UTC (lunaway-packs.timer), which finds nothing to do when no region
+# changed. One build at a time (an advisory lock in the database). Runs as
+# the imports, with the photos' public URL of the API (media.env), which
+# the packs' thumbnails name. Installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway regional first-sync packs
+After=postgresql.service lunaway-conflate.service
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+# /srv/data/packs is setgid to the group caddy (2750): the packs come out
+# 0640 lunaway-ingest:caddy, readable by Caddy and by nobody else.
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+EnvironmentFile=/etc/lunaway/media.env
+Environment=LUNAWAY_PACKS_DIR=/srv/data/packs
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway packs build
+TimeoutStartSec=1h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/packs
+# PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+# The 13 French regions took 163 MB resident on the Mac (M11 of
+# plan/research/23-backend-europe-packs.md); one region is built at a time.
+MemoryHigh=768M
+MemoryMax=1G

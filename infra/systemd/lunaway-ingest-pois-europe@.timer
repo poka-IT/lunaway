@@ -1,0 +1,13 @@
+# The points of interest of one group of European extracts, the day of the
+# instance at 05:45 UTC, 45 minutes after its places import, which it waits
+# for when still running (After= of the service).
+[Unit]
+Description=Lunaway import: points of interest, European extracts of %i, weekly
+
+[Timer]
+OnCalendar=%i *-*-* 05:45
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

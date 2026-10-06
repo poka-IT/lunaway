@@ -1,0 +1,13 @@
+# Every day at 05:30 UTC: the official camera lists, then the build of the
+# zones and points (lunaway-enforcement.service). The routing graph's
+# refresh (04:30) is over by then; a full build it started is waited for.
+[Unit]
+Description=Lunaway speed cameras: lists and build, daily
+
+[Timer]
+OnCalendar=*-*-* 05:30
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

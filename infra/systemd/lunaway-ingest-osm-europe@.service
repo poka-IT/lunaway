@@ -1,0 +1,83 @@
+# Imports the places of OpenStreetMap from one weekly group of European
+# extracts: the instance is the day (Mon to Sat), whose extracts are
+# LUNAWAY_EXTRACTS_<Day> in /usr/local/share/lunaway/osm-extracts.env
+# (Germany alone on Monday, 4.9 GB; 2 to 4.2 GB the other days). One
+# extract at a time, so the memory is the largest country's, as for France
+# (lunaway-ingest-osm.service, daily); a run retires only in the countries
+# it read, and in a country where it saw less than half of what is stored
+# it retires nothing and exits with an error after storing the rest (the
+# unit fails, the status page shows it). A run that stops resumes after the
+# last extract it stored, unless another run, France's daily one included,
+# ran in between (osm-extract/runs/places.json holds one run). Run by
+# lunaway-ingest-osm-europe@<Day>.timer; installed by
+# infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway import: OpenStreetMap places, European extracts of %i
+After=postgresql.service network-online.target lunaway-ingest-osm.service
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+# Places are rebuilt from the records as soon as an import succeeds.
+OnSuccess=lunaway-conflate.service
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+EnvironmentFile=/usr/local/share/lunaway/osm-extracts.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+# $LUNAWAY_EXTRACTS_%i stays unbraced: systemd splits it into one argument
+# per word (--extract germany ...).
+ExecStart=/opt/lunaway/current/lunaway ingest osm-extract $LUNAWAY_EXTRACTS_%i --refresh
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), and PostgreSQL on loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# The places import of France on the same reader peaked at 2.5 GiB with its
+# page cache under this cap (2026-10-06); no country of the groups is
+# larger than France (M19 of plan/research/23-backend-europe-packs.md).
+MemoryHigh=2560M
+MemoryMax=3G

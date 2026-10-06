@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-ingest-osm-europe@Mon lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-packs lunaway-cameras lunaway-enforcement lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
@@ -145,6 +145,34 @@ echo "matching: $(runuser -u postgres -- psql -X -At -d lunaway -c "select strin
 echo "engine in the last hour: $(journalctl -u lunaway-road-events --since -1h --no-pager -o cat | grep -c 'the routing engine refused a road event') events refused, $(journalctl -u lunaway-road-events --since -1h --no-pager -o cat | grep -c 'the routing engine failed') passes stopped by a failure"
 echo "refused and unplaced: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' events, ' || count(*) filter (where match_attempts >= 3) || ' given up on this graph' from road_events where ended_at is null and match_error is not null" 2>&1 | head -n 1)"
 echo "cache: $(du -sh /srv/data/ingest/raw/road-events 2>/dev/null | cut -f1)"
+echo "--- OpenStreetMap, France daily and Europe weekly"
+for t in lunaway-ingest-osm lunaway-ingest-pois; do
+  echo "$t: timer $(systemctl is-enabled "$t.timer" 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend "$t.timer" | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value "$t")"
+done
+for d in $(sed -nE 's/^LUNAWAY_EXTRACTS_([A-Z][a-z]{2})=.*/\1/p' /usr/local/share/lunaway/osm-extracts.env 2>/dev/null); do
+  echo "$d: $(sed -nE "s/^LUNAWAY_EXTRACTS_$d=//p" /usr/local/share/lunaway/osm-extracts.env | sed 's/--extract //g'); places timer $(systemctl is-enabled "lunaway-ingest-osm-europe@$d.timer" 2>&1 | head -n 1), last run $(systemctl show -p Result --value "lunaway-ingest-osm-europe@$d"); points timer $(systemctl is-enabled "lunaway-ingest-pois-europe@$d.timer" 2>&1 | head -n 1), last run $(systemctl show -p Result --value "lunaway-ingest-pois-europe@$d")"
+done
+echo "records by country: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(coalesce(scope, '-') || ' ' || n, ', ' order by n desc) from (select scope, count(*) n from source_records where source_id = 'osm' and deleted_at is null group by 1) s" 2>&1 | head -n 1)"
+echo "points by country: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(coalesce(scope, '-') || ' ' || n, ', ' order by n desc) from (select scope, count(*) n from pois where deleted_at is null group by 1) s" 2>&1 | head -n 1)"
+echo "import ages: $(cat /var/lib/lunaway-status/imports.json 2>/dev/null || echo none)"
+echo "extract cache: $(du -sh /srv/data/ingest/raw/osm-extract 2>/dev/null | cut -f1), $(find /srv/data/ingest/raw/osm-extract -maxdepth 1 -name '*.osm.pbf' 2>/dev/null | wc -l) files; a run in progress: $(ls /srv/data/ingest/raw/osm-extract/runs/ 2>/dev/null | grep -c '\.json$')"
+echo "database: $(runuser -u postgres -- psql -X -At -d lunaway -c "select pg_size_pretty(pg_database_size('lunaway')) || ', pois ' || pg_size_pretty(pg_total_relation_size('pois')) || ', source_records ' || pg_size_pretty(pg_total_relation_size('source_records')) || ', places ' || pg_size_pretty(pg_total_relation_size('places'))" 2>&1 | head -n 1)"
+echo "--- regional packs of places"
+echo "lunaway-packs: timer $(systemctl is-enabled lunaway-packs.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-packs.timer | awk '{ print $1, $2, $3 }'), last run $(systemctl show -p Result --value lunaway-packs), $(journalctl -u lunaway-packs --no-pager -n 1 -o cat 2>/dev/null | cut -c1-100)"
+stat -c '%a %U:%G %n' /srv/data/packs /srv/data/packs/places /srv/data/packs/.work 2>&1
+echo "files: $(find /srv/data/packs/places -maxdepth 1 -type f -name '*.sqlite.gz' 2>/dev/null | wc -l), $(du -sh /srv/data/packs 2>/dev/null | cut -f1); work files: $(find /srv/data/packs/.work -type f 2>/dev/null | wc -l)"
+echo "recorded: $(runuser -u postgres -- psql -X -At -d lunaway -c "select count(*) || ' regions, ' || coalesce(sum(places), 0) || ' places, ' || coalesce(pg_size_pretty(sum(bytes)), '0') || ' gzip, newest ' || coalesce(max(generated_at)::text, 'none') from region_packs" 2>&1 | head -n 1)"
+echo "status: $(sed -nE 's/.*"packs" *: *(\{[^}]*\}).*/\1/p' /var/lib/lunaway-status/worker.json 2>/dev/null)"
+echo "--- speed cameras"
+for t in lunaway-cameras lunaway-enforcement lunaway-cameras-osm lunaway-enforcement-full; do
+  echo "$t: last run $(systemctl show -p Result --value "$t"), $(journalctl -u "$t" --no-pager -n 1 -o cat 2>/dev/null | cut -c1-100)"
+done
+echo "daily timer: $(systemctl is-enabled lunaway-enforcement.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-enforcement.timer | awk '{ print $1, $2, $3 }')"
+stat -c '%a %U:%G %n' /etc/lunaway/zone.env /srv/data/backups/offsite/zone-secret.env.age 2>&1
+echo "zone secret: $(grep -cE '^LUNAWAY_ZONE_SECRET=[0-9a-f]{64}$' /etc/lunaway/zone.env 2>/dev/null) line of 64 hex digits (the value is not printed); loaded by: $(grep -l '^EnvironmentFile=/etc/lunaway/zone.env' /etc/systemd/system/lunaway-*.service 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+echo "lists: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(source_id || ' ' || devices || ' read ' || to_char(fetched_at at time zone 'UTC', 'MM-DD HH24:MI'), ', ' order by source_id) from enforcement_sources" 2>&1 | head -n 1)"
+echo "items: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(country || ' ' || kind || ' ' || n, ', ' order by country, kind) from (select country, kind, count(*) n from enforcement_items where deleted_at is null group by 1, 2) s" 2>&1 | head -n 1)"
+echo "last build: $(stat -c '%y' /var/lib/lunaway-enforcement/built 2>/dev/null || echo never)"
 echo "--- routing"
 echo "valhalla: $(systemctl is-active valhalla), candidate: $(systemctl is-active valhalla-candidate), podman $(podman --version 2>/dev/null | awk '{ print $3 }')"
 echo "image: $(podman image inspect --format '{{.Digest}}' "$(sed -n 's/^Image=//p' /etc/containers/systemd/valhalla.container)" 2>&1 | head -n 1)"

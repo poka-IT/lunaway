@@ -43,8 +43,8 @@ pub use vehicle::{
 use crate::{BBox, Position};
 
 /// The area the routing graph covers: metropolitan France and Corsica with
-/// a margin, the same box the OpenStreetMap import keeps
-/// (`lunaway-ingest`, `osm_extract::AREA`). A point outside is refused
+/// a margin, the reach of Geofabrik's France extract the graph is built
+/// from (`.github/workflows/routing-graph.yml`). A point outside is refused
 /// before the engine is asked.
 ///
 /// # Panics

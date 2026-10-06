@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE source_records SET last_place_id = $2 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3d24d84c0d56a1e60bf0b1d5f6a4da0d7b8fa9dbfe8e2ac14599d827a0e3dc20"
+}

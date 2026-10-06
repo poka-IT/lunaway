@@ -47,6 +47,7 @@ else
 fi
 echo "mode: $MODE"
 mkdir -p "$SCRATCH/site" "$SCRATCH/web/assets" "$SCRATCH/data/media/ab"
+mkdir -p "$SCRATCH/data/packs/places" "$SCRATCH/data/packs/.work"
 mkdir -p "$SCRATCH/bin" "$SCRATCH/tiles/builds" "$SCRATCH/tiles/serve" "$SCRATCH/tiles/tilejson" \
   "$SCRATCH/tiles/assets/fonts/Noto Sans Regular" "$SCRATCH/tiles/assets/sprites/protomaps-v4" \
   "$SCRATCH/tiles/assets/styles" "$SCRATCH/tiles/packs" "$SCRATCH/fdroid/repo/diff"
@@ -115,6 +116,13 @@ printf 'JPEG' > "$SCRATCH/data/media/ab/0123abcd.jpg"
 # A photo as the API writes it: content-addressed WebP.
 mkdir -p "$SCRATCH/data/media/photos/ab/cd"
 printf 'RIFF\x0c\x00\x00\x00WEBPVP8 ' > "$SCRATCH/data/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp"
+# A regional pack of places as lunaway-packs names it, a file of a build in
+# progress in its work directory, and a file of another name beside the
+# packs: only the first may be served.
+PLACES_PACK="FR-BRE-4242-0123456789ab.sqlite.gz"
+head -c 3000 /dev/urandom | gzip -c > "$SCRATCH/data/packs/places/$PLACES_PACK"
+cp "$SCRATCH/data/packs/places/$PLACES_PACK" "$SCRATCH/data/packs/.work/$PLACES_PACK.partial"
+echo note > "$SCRATCH/data/packs/places/notes.txt"
 # Bodies for the size limits: /graphql takes 64 KiB, /upload 10304 KiB.
 head -c 2000000 /dev/zero > "$SCRATCH/body-2mb"
 head -c 60000 /dev/zero > "$SCRATCH/body-60kb"
@@ -338,6 +346,30 @@ check "tiles host other path" "$T/admin" 404
 check "sslip tiles other path" "$S/admin" 404
 check "sslip health still proxied" http://sslip.test:8080/health 200 "x-test-upstream: api"
 
+# The regional packs of places (docs/region-packs.md), on the API hosts.
+A=http://api.lunaway.net:8080
+check "places pack" "$A/packs/places/$PLACES_PACK" 200 "accept-ranges: bytes"
+check "places pack cache" "$A/packs/places/$PLACES_PACK" 200 "cache-control: public, max-age=31536000, immutable"
+check "places pack cors" "$A/packs/places/$PLACES_PACK" 200 "access-control-allow-origin: https://lunaway.net"
+check "places pack exposes its range headers" "$A/packs/places/$PLACES_PACK" 200 "access-control-expose-headers: .*Content-Range"
+check "places pack on sslip" "http://sslip.test:8080/packs/places/$PLACES_PACK" 200 "immutable"
+check "places pack miss" "$A/packs/places/FR-BRE-4242-ffffffffffff.sqlite.gz" 404
+check "places pack work file" "$A/packs/.work/$PLACES_PACK.partial" 404
+check "places pack work directory" "$A/packs/.work/" 404
+check "places packs not listed" "$A/packs/places/" 404
+check "packs root not listed" "$A/packs/" 404
+check "another file beside the packs" "$A/packs/places/notes.txt" 404
+check "a pack name in lower case" "$A/packs/places/fr-bre-4242-0123456789ab.sqlite.gz" 404
+check "a pack name with a shorter hash" "$A/packs/places/FR-BRE-4242-0123456789a.sqlite.gz" 404
+check "places pack on the site host" "$L/packs/places/$PLACES_PACK" 404
+if curl -sS -D - -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/packs/places/FR-BRE-4242-ffffffffffff.sqlite.gz" \
+  | grep -qi '^cache-control:.*immutable'; then
+  echo "FAIL a places pack miss carries the year-long cache"
+  failures=$((failures + 1))
+else
+  echo "ok   a places pack miss is not cached"
+fi
+
 # The F-Droid repository: on lunaway.net under /fdroid/repo/, and on the
 # sslip.io name for tests before DNS exists.
 check "fdroid index" "$L/fdroid/repo/index-v1.jar" 200 "cache-control: no-cache"
@@ -386,6 +418,15 @@ sent "poi preflight routed" OPTIONS "$A/poi/3/13/4149/2815.mvt" 200 -H 'Origin: 
 sent "poi on the sslip host" GET http://sslip.test:8080/poi/tiles.json 200
 sent "poi by POST" POST "$A/poi/tiles.json" 405 --data-binary '{}'
 sent "poi with a body over 1 KiB" GET "$A/poi/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
+sent "places pack by POST" POST "$A/packs/places/$PLACES_PACK" 405 --data-binary '{}'
+sent "places pack by HEAD" HEAD "$A/packs/places/$PLACES_PACK" 200 -I
+if curl -sS -D - -o /dev/null -X PUT --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/packs/places/$PLACES_PACK" \
+  | grep -qi '^allow: GET, HEAD, OPTIONS'; then
+  echo "ok   places pack by PUT says what it allows: GET, HEAD, OPTIONS"
+else
+  echo "FAIL places pack by PUT: no Allow: GET, HEAD, OPTIONS"
+  failures=$((failures + 1))
+fi
 if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/poi/tiles.json" \
   | grep -qi '^allow: GET, HEAD, OPTIONS'; then
   echo "ok   poi by DELETE says what it allows: GET, HEAD, OPTIONS"
@@ -455,6 +496,34 @@ else
   echo "FAIL preflight for a range request: $(head -n 1 <<<"$preflight")"
   failures=$((failures + 1))
 fi
+# A places pack comes as stored, never re-encoded on the way, even to a
+# client that accepts gzip and zstd: its SHA-256 is the manifest's.
+fetch places-pack "$A/packs/places/$PLACES_PACK" -H 'Accept-Encoding: gzip, zstd' -D "$SCRATCH/places-pack-headers.out"
+if cmp -s "$SCRATCH/places-pack.out" "$SCRATCH/data/packs/places/$PLACES_PACK" && ! grep -qi '^content-encoding' "$SCRATCH/places-pack-headers.out"; then
+  echo "ok   places pack: the stored bytes, no content-encoding"
+else
+  echo "FAIL places pack: not the stored bytes ($(grep -i '^content-encoding' "$SCRATCH/places-pack-headers.out" | tr -d '\r'))"
+  failures=$((failures + 1))
+fi
+fetch places-pack-range "$A/packs/places/$PLACES_PACK" -r 100-199 -D "$SCRATCH/places-pack-range-headers.out"
+if grep -q '^HTTP/1.1 206' "$SCRATCH/places-pack-range-headers.out" \
+  && grep -qi '^content-range: bytes 100-199/' "$SCRATCH/places-pack-range-headers.out" \
+  && [ "$(wc -c < "$SCRATCH/places-pack-range.out" | tr -d ' ')" = 100 ]; then
+  echo "ok   places pack range: 206, content-range, 100 bytes"
+else
+  echo "FAIL places pack range: $(head -n 1 "$SCRATCH/places-pack-range-headers.out")"
+  failures=$((failures + 1))
+fi
+preflight="$(curl -sS -D - -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" -X OPTIONS \
+  -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET' -H 'Access-Control-Request-Headers: range' \
+  "$A/packs/places/$PLACES_PACK")"
+if grep -q '^HTTP/1.1 204' <<<"$preflight" && grep -qi '^access-control-allow-headers:.*Range' <<<"$preflight" \
+  && grep -qi '^access-control-allow-origin: https://lunaway.net' <<<"$preflight"; then
+  echo "ok   preflight for a places pack range: 204, Range allowed for https://lunaway.net"
+else
+  echo "FAIL preflight for a places pack range: $(head -n 1 <<<"$preflight")"
+  failures=$((failures + 1))
+fi
 write="$(curl -sS -o /dev/null -w '%{http_code}' --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -X POST -d x "$T/planet.json")"
 if [ "$write" = 405 ]; then echo "ok   a POST to the tiles host: 405"; else echo "FAIL a POST to the tiles host: $write"; failures=$((failures + 1)); fi
 
@@ -502,6 +571,22 @@ curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" "$T/
 curl -sS -o /dev/null --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" \
   http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -r 123-234 "$T/packs/$PACK"
+# A places pack as the app asks for it is served; other spellings of the
+# same path, which Caddy's path matching would decode or clean into it, are
+# not. None may name its region in the log, served or not.
+for spelling in "200 /packs/places/$PLACES_PACK" "404 //packs/places/$PLACES_PACK" "404 /packs/%70laces/$PLACES_PACK" \
+  "404 /packs/places/$PLACES_PACK?x=1" "404 /PACKS/places/$PLACES_PACK" "404 /packs/places/./$PLACES_PACK" \
+  "404 /%70acks/places/$PLACES_PACK" "404 /packs%2Fplaces/$PLACES_PACK"; do
+  want="${spelling%% *}"
+  path="${spelling#* }"
+  got="$(curl -sS -o /dev/null -w '%{http_code}' --path-as-is --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "http://api.lunaway.net:8080$path")"
+  if [ "$got" = "$want" ]; then
+    echo "ok   places pack spelled $(echo "$path" | sed "s|$PLACES_PACK|<pack>|"): $got"
+  else
+    echo "FAIL places pack spelled $(echo "$path" | sed "s|$PLACES_PACK|<pack>|"): $got (want $want)"
+    failures=$((failures + 1))
+  fi
+done
 etag="$(grep -i '^etag:' "$SCRATCH/tile-headers.out" | sed -E 's/^[Ee][Tt][Aa][Gg]: *"?([^"]*)"?.*/\1/' | tr -d '\r')"
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -H "If-None-Match: \"$etag\"" "$T/planet-$BUILD/0/0/0.mvt"
 sleep 1
@@ -521,7 +606,11 @@ grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-p
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
 grep -q 'fr-bre' <<<"$access_log" && leaks="$leaks pack-region"
 grep -q '"uri":"/packs/\[pack\].pmtiles"' <<<"$access_log" || leaks="$leaks no-masked-pack-line"
+grep -qE 'FR-BRE|0123456789ab' <<<"$access_log" && leaks="$leaks places-pack-region"
+grep -q '"uri":"/packs/places/\[pack\]"' <<<"$access_log" || leaks="$leaks no-masked-places-pack-line"
 [ -n "$etag" ] && grep -qF "$etag" <<<"$access_log" && leaks="$leaks etag"
+# A file's date names it as well as its ETag (a HEAD of each pack matches it).
+grep -qE '"(Last-Modified|If-Modified-Since|If-Unmodified-Since)":' <<<"$access_log" && leaks="$leaks dates"
 python3 -c '
 import json, sys
 for line in sys.stdin:
@@ -532,7 +621,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo] and /packs/[pack].pmtiles: no range, ETag, size, photo name or pack region"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

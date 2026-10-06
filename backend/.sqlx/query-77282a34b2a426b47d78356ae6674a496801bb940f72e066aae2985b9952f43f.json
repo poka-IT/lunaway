@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO source_records AS sr\n            (id, source_id, external_id, kind, name, geom, accuracy_m, data, raw, fetched_at)\n        VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($7, $6), 4326)::geography, 0, $8,\n                $9, $10)\n        ON CONFLICT (source_id, external_id) DO UPDATE SET\n            kind = EXCLUDED.kind, name = EXCLUDED.name, geom = EXCLUDED.geom,\n            data = EXCLUDED.data, raw = EXCLUDED.raw, fetched_at = EXCLUDED.fetched_at,\n            changed_at = now(), needs_conflation = true, deleted_at = NULL\n        WHERE sr.taken_down_at IS NULL\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Jsonb",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "77282a34b2a426b47d78356ae6674a496801bb940f72e066aae2985b9952f43f"
+}

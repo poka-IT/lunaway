@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT source_id FROM source_records WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "source_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "065fdd7343cfd16f4dfdbb3e12254c0897cef921ce19a873113eec1c768b2cb1"
+}

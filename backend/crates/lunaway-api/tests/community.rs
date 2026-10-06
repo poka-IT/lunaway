@@ -1970,6 +1970,97 @@ mutation($id: UUID!, $there: Boolean!) {
 }";
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_account_lists_its_answers_about_points(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (alice, _) = sign_in(&app, &Device::new(1)).await;
+    let at = json!({"lat": 47.2678, "lon": -0.0696, "name": "Pizza Suzon"});
+    ok(&gql(&app, Some(&alice), ADD_VENDING, at).await);
+    work(&pool).await;
+    let poi: Uuid = sqlx::query_scalar!("SELECT poi_id AS \"id!\" FROM place_submissions")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let (bob, _) = sign_in(&app, &Device::new(2)).await;
+    let mut answers = Vec::new();
+    for there in [true, false] {
+        let answer = gql(
+            &app,
+            Some(&bob),
+            CONFIRM_POI,
+            json!({"id": poi, "there": there}),
+        )
+        .await;
+        answers.push(ok(&answer)["confirmPoi"]["id"].clone());
+    }
+    ok(&gql(
+        &app,
+        Some(&alice),
+        CONFIRM_POI,
+        json!({"id": poi, "there": true}),
+    )
+    .await);
+
+    let mine = r"{ myAccount { poiConfirmations(first: 10) {
+        nodes { id poiId stillThere createdAt poi { id name kind } } totalCount hasNextPage } } }";
+    let listed = gql(&app, Some(&bob), mine, json!({})).await;
+    let list = &ok(&listed)["myAccount"]["poiConfirmations"];
+    assert_eq!(
+        list["totalCount"], 2,
+        "the account's own answers, not another's"
+    );
+    assert_eq!(list["hasNextPage"], false);
+    let nodes = list["nodes"].as_array().unwrap();
+    assert_eq!(
+        nodes.iter().map(|n| n["id"].clone()).collect::<Vec<_>>(),
+        [answers[1].clone(), answers[0].clone()],
+        "newest first"
+    );
+    assert_eq!(nodes[0]["stillThere"], false);
+    assert_eq!(
+        nodes[0]["poi"],
+        json!({"id": poi.to_string(), "name": "Pizza Suzon", "kind": "VENDING_PIZZA"}),
+        "the answer names its point, so the app lists it as it is"
+    );
+
+    let first_page = gql(
+        &app,
+        Some(&bob),
+        "{ myAccount { poiConfirmations(first: 1) { nodes { id } endCursor hasNextPage } } }",
+        json!({}),
+    )
+    .await;
+    let page = &ok(&first_page)["myAccount"]["poiConfirmations"];
+    assert_eq!(page["hasNextPage"], true);
+    let next = gql(
+        &app,
+        Some(&bob),
+        "query($after: String) { myAccount { poiConfirmations(first: 1, after: $after) { nodes { id } } } }",
+        json!({"after": page["endCursor"]}),
+    )
+    .await;
+    assert_eq!(
+        ok(&next)["myAccount"]["poiConfirmations"]["nodes"][0]["id"],
+        answers[0],
+        "the cursor continues after the first page"
+    );
+
+    ok(&gql(
+        &app,
+        Some(&bob),
+        "mutation($id: UUID!) { deletePoiConfirmation(id: $id) }",
+        json!({"id": answers[1]}),
+    )
+    .await);
+    let after = gql(&app, Some(&bob), mine, json!({})).await;
+    assert_eq!(
+        ok(&after)["myAccount"]["poiConfirmations"]["totalCount"],
+        1,
+        "a deleted answer leaves the list"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_vending_machine_added_in_two_gestures_is_confirmed_or_hidden(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();
     let mut strict = config(media.path());
@@ -2280,6 +2371,11 @@ async fn sign_in_can_refuse_a_key_without_account(pool: PgPool) {
     )
     .await;
     assert_eq!(code(&refused), "NOT_FOUND");
+    assert_eq!(
+        refused["errors"][0]["extensions"]["reason"], "UNKNOWN_KEY",
+        "the app tells an unknown key (its account was deleted or detached elsewhere) from \
+         any other missing target"
+    );
     let accounts: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM accounts"#)
         .fetch_one(&pool)
         .await

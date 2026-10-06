@@ -52,7 +52,7 @@ SystemCallArchitectures=native
 ReadWritePaths=/srv/routing
 # The import role's settings are read by systemd above; nothing else of
 # /etc/lunaway is this run's business.
-InaccessiblePaths=-/srv/data -/srv/tiles -/etc/lunaway/api.env -/etc/lunaway/owner.env -/etc/lunaway-ops
+InaccessiblePaths=-/srv/data -/srv/tiles -/etc/lunaway/api.env -/etc/lunaway/owner.env -/etc/lunaway/zone.env -/etc/lunaway-ops
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # Outbound: GitHub's release downloads over HTTPS, loopback for the engine
 # and PostgreSQL; never the private network or the cloud metadata service.

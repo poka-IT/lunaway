@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM place_sources WHERE record_id = ANY($1) OR place_id = ANY($2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "93b74e75977a5caf327485e54e818ef5cbf8b59781cde8d67896173f8b564b32"
+}

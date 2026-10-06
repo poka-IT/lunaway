@@ -40,6 +40,7 @@ use crate::{
     },
     error::{
         forbidden, internal, invalid_input, not_found, quota_spent, unauthenticated, unavailable,
+        unknown_key,
     },
     poi_types::{NewVendingMachineInput, PoiConfirmation},
     quota::{Action, Subject},
@@ -351,7 +352,7 @@ async fn open_session_for(
             });
         }
         if !create {
-            return Err(not_found("account for this device key"));
+            return Err(unknown_key());
         }
         quota(
             ctx,
@@ -490,8 +491,9 @@ impl MutationRoot {
     /// the challenge's `message` (raw r||s or DER, base64url). An unknown
     /// key creates an account at level 0 with a generated pseudonym in
     /// `locale` (`fr` or `en`); with `createIfUnknown: false` it creates
-    /// nothing and answers `NOT_FOUND` (a device signing in again to an
-    /// account that may have been deleted or detached elsewhere). 10
+    /// nothing and answers `NOT_FOUND` with `reason` `UNKNOWN_KEY` (a
+    /// device signing in again to an account that may have been deleted or
+    /// detached elsewhere). 10
     /// sign-ins a minute and 5 new accounts an hour per client.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn sign_in(

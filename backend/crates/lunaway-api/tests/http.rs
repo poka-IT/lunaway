@@ -1084,7 +1084,18 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
         let app = app.clone();
         tokio::spawn(async move { send(&app, as_client(aliases, None)).await })
     };
-    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    // The first alias reaches the lock whenever the machine gets to it;
+    // from then on, a request that ran its fields at once would show the
+    // other two waiting beside it within a few milliseconds.
+    let reached = std::time::Instant::now();
+    while waiting_on_locks(&pool).await == 0 {
+        assert!(
+            reached.elapsed() < std::time::Duration::from_secs(30),
+            "the request reaches the database"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     assert_eq!(
         waiting_on_locks(&pool).await,
         1,

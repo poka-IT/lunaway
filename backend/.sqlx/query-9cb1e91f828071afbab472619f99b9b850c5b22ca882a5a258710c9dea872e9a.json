@@ -1,0 +1,99 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT name, ST_X(geom::geometry) AS \"lon!\", ST_Y(geom::geometry) AS \"lat!\",\n                   street, city, municipality_code, provenance::text AS \"provenance!\",\n                   deleted_at IS NOT NULL AS \"deleted!\", taken_down_at IS NOT NULL AS \"taken!\"\n            FROM places WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "street",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "street"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "municipality_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "municipality_code"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "provenance!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "deleted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      null,
+      true,
+      true,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9cb1e91f828071afbab472619f99b9b850c5b22ca882a5a258710c9dea872e9a"
+}

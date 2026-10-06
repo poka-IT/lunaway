@@ -411,13 +411,15 @@ async fn store_pois(
     let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
     let france = Coverage::Countries(["FR".to_owned()].into_iter().collect());
     let by_scope = store::count_scopes(points.iter().map(store::poi_scope));
+    let now = chrono::Utc::now();
     store::retire_pois_in_coverage(
         pool,
         &SourceId::OSM,
         &france,
         &seen,
         &by_scope,
-        chrono::Utc::now(),
+        &[("FR".to_owned(), now)].into(),
+        now,
     )
     .await
     .unwrap()
@@ -618,4 +620,66 @@ async fn an_import_moves_the_tiles_once_and_only_when_a_tile_changes(pool: PgPoo
     );
     store_pois(&pool, &make(2_400, "Boulangerie")).await;
     assert_eq!(layer_version(&pool).await, v0 + 2, "a hundred points gone");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_unchanged_import_writes_no_point_and_still_dates_its_read(pool: PgPool) {
+    use chrono::TimeZone;
+    use lunaway_ingest::{osm_extract::Coverage, poi_osm, store};
+    let sample = include_bytes!("fixtures/osm_poi_sample.json");
+    let day = |d| chrono::Utc.with_ymd_and_hms(2026, 10, d, 22, 0, 0).unwrap();
+    let import = |d: u32| {
+        let pool = pool.clone();
+        async move {
+            let points = poi_osm::parse(sample, day(d)).unwrap().points;
+            let upsert = store::upsert_pois_by_country(&pool, &SourceId::OSM, &points)
+                .await
+                .unwrap();
+            let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
+            let by_scope = store::count_scopes(points.iter().map(store::poi_scope));
+            let france = Coverage::Countries(["FR".to_owned()].into_iter().collect());
+            store::retire_pois_in_coverage(
+                &pool,
+                &SourceId::OSM,
+                &france,
+                &seen,
+                &by_scope,
+                &[("FR".to_owned(), day(d))].into(),
+                day(d),
+            )
+            .await
+            .unwrap();
+            upsert
+        }
+    };
+    let versions = || async {
+        sqlx::query_scalar!(r#"SELECT xmin::text AS "v!" FROM pois ORDER BY id"#)
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+    };
+    let first = import(1).await;
+    assert_eq!(first.inserted, 28);
+    let written = versions().await;
+    let second = import(2).await;
+    assert_eq!(
+        (second.inserted, second.changed, second.unchanged),
+        (0, 0, 28)
+    );
+    assert_eq!(
+        versions().await,
+        written,
+        "the same points read again write no row: every point rewritten at each import \
+         doubled the table until the next vacuum"
+    );
+    let id: uuid::Uuid = sqlx::query_scalar!("SELECT id FROM pois LIMIT 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let shown = lunaway_db::pois::by_id(&pool, id).await.unwrap().unwrap();
+    assert_eq!(
+        shown.fetched_at,
+        day(2),
+        "the point was in the second read, and a client sees that date"
+    );
 }

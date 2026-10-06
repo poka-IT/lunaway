@@ -2,8 +2,10 @@
 # health, services) from the France extract that lunaway-ingest-osm keeps in
 # the cache, then evaluates their opening hours (docs/data-sources.md). Run
 # by lunaway-ingest-pois.timer after the places import; installed by
-# infra/server/pipeline.sh. Reads the whole extract: 2.09 GB resident at
-# the peak, about 3 minutes (plan/research/18-backend-poi.md, M10).
+# infra/server/pipeline.sh. The other European countries:
+# lunaway-ingest-pois-europe@.service. Reads the whole extract: 2.09 GB
+# resident at the peak, about 3 minutes (plan/research/18-backend-poi.md,
+# M10).
 [Unit]
 Description=Lunaway import: points of interest, France extract
 After=postgresql.service network-online.target lunaway-ingest-osm.service lunaway-conflate.service
@@ -21,7 +23,7 @@ EnvironmentFile=/etc/lunaway/ingest.env
 Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
 Environment=NO_COLOR=1
-ExecStart=/opt/lunaway/current/lunaway ingest pois
+ExecStart=/opt/lunaway/current/lunaway ingest pois --extract france
 TimeoutStartSec=1h
 Nice=10
 IOSchedulingClass=best-effort

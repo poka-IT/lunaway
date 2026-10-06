@@ -1,9 +1,14 @@
-# Imports OpenStreetMap from the daily France extract (about 6 GB, streamed
-# to the data volume and resumed after an interruption; the refresh keeps the
-# previous file until the new one is complete, so the peak is twice that).
-# Run by lunaway-ingest-osm.timer; installed by infra/server/pipeline.sh.
+# Imports the places of OpenStreetMap from the daily France extract (5.1 GB
+# on 2026-10-06, streamed to the data volume and resumed after an
+# interruption; the refresh keeps the previous file until the new one is
+# complete, so the peak is twice that). France every day, the other
+# European countries once a week (lunaway-ingest-osm-europe@.service): the
+# product owner's decision of 2026-10-06 on the download volume. A run
+# retires only in the countries it read, so the two plans do not undo each
+# other. Run by lunaway-ingest-osm.timer; installed by
+# infra/server/pipeline.sh.
 [Unit]
-Description=Lunaway import: OpenStreetMap, France extract
+Description=Lunaway import: OpenStreetMap places, France extract
 After=postgresql.service network-online.target
 Wants=network-online.target
 Requires=postgresql.service
@@ -24,7 +29,10 @@ Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
-ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --refresh
+# France and Monaco (osm_extract::CATALOGUE). The command exits with an
+# error when a country's truncation guard refuses (less than half of its
+# stored records seen): the unit fails, nothing is retired there.
+ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --extract france --refresh
 TimeoutStartSec=4h
 Nice=10
 IOSchedulingClass=best-effort

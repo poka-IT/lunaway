@@ -61,6 +61,10 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   scope of its country and retires only in the scopes of the countries it
   read (`extract_run`); its progress is kept in the cache so a stopped run
   resumes after the last extract it stored.
+- An import writes only the rows whose content changed, so a row's own date
+  no longer says when Lunaway last read it: a query that serves a record's
+  or a point's date reads it through `lunaway_read_at`, and an import calls
+  `records::mark_read` after a complete read of its slice.
 - Timestamps are `TIMESTAMPTZ`; identifiers are UUID v7 generated in Rust.
 
 ## Tests

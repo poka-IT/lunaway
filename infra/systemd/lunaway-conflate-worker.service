@@ -31,7 +31,12 @@ Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
 Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
-ExecStart=/opt/lunaway/current/lunaway conflate --watch
+# The points layer's tiles get a new version at most every 6 hours (the
+# default, written out so it shows): devices fetch their tiles again at most
+# four times a day, whatever the fuel poller and the imports change
+# meanwhile; a moderator's hiding publishes at once
+# (plan/research/23-backend-europe-packs.md, 1.2).
+ExecStart=/opt/lunaway/current/lunaway conflate --watch --poi-layer-every-mins 360
 Restart=always
 RestartSec=15s
 TimeoutStopSec=30s

@@ -603,7 +603,7 @@ pub async fn reviews_of_place(
     Ok(page(rows, first, total_count))
 }
 
-fn page<T>(mut rows: Vec<T>, first: i64, total_count: i64) -> Page<T> {
+pub(crate) fn page<T>(mut rows: Vec<T>, first: i64, total_count: i64) -> Page<T> {
     let keep = usize::try_from(first).unwrap_or(0);
     let has_next_page = rows.len() > keep;
     rows.truncate(keep);
@@ -1551,25 +1551,132 @@ impl WorkListener {
         timeout: std::time::Duration,
         settle: std::time::Duration,
     ) -> Result<bool, DbError> {
-        match tokio::time::timeout(timeout, self.0.recv()).await {
-            Err(_) => return Ok(false),
-            Ok(n) => {
-                n?;
+        gather(&mut self.0, timeout, settle).await
+    }
+}
+
+/// Where the worker's wake-ups come from: the database's notifications in
+/// production, a channel on a paused clock in the tests of [`gather`].
+trait Signals {
+    /// The next wake-up.
+    async fn next(&mut self) -> Result<(), DbError>;
+}
+
+impl Signals for sqlx::postgres::PgListener {
+    async fn next(&mut self) -> Result<(), DbError> {
+        self.recv().await?;
+        Ok(())
+    }
+}
+
+/// [`WorkListener::wait`] over any source of wake-ups.
+async fn gather(
+    signals: &mut impl Signals,
+    timeout: std::time::Duration,
+    settle: std::time::Duration,
+) -> Result<bool, DbError> {
+    match tokio::time::timeout(timeout, signals.next()).await {
+        Err(_) => return Ok(false),
+        Ok(n) => n?,
+    }
+    let deadline = tokio::time::Instant::now() + MAX_SETTLE;
+    loop {
+        let until = (tokio::time::Instant::now() + settle).min(deadline);
+        match tokio::time::timeout_at(until, signals.next()).await {
+            Ok(n) => n?,
+            Err(_) => break,
+        }
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
+    }
+    Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::{sync::mpsc, time::Instant};
+
+    use super::*;
+
+    impl Signals for mpsc::Receiver<()> {
+        async fn next(&mut self) -> Result<(), DbError> {
+            match self.recv().await {
+                Some(()) => Ok(()),
+                // Every sender gone: no wake-up will ever come, as on a
+                // listener nobody notifies.
+                None => std::future::pending().await,
             }
         }
-        let deadline = tokio::time::Instant::now() + MAX_SETTLE;
-        loop {
-            let until = (tokio::time::Instant::now() + settle).min(deadline);
-            match tokio::time::timeout_at(until, self.0.recv()).await {
-                Ok(n) => {
-                    n?;
+    }
+
+    /// Sends a wake-up every `every`, `count` times (forever when `None`).
+    fn writes(every: Duration, count: Option<u32>) -> mpsc::Receiver<()> {
+        let (tx, rx) = mpsc::channel(1_024);
+        tokio::spawn(async move {
+            let mut sent = 0;
+            while count.is_none_or(|c| sent < c) {
+                if tx.send(()).await.is_err() {
+                    return;
                 }
-                Err(_) => break,
+                sent += 1;
+                tokio::time::sleep(every).await;
             }
-            if tokio::time::Instant::now() >= deadline {
-                break;
-            }
-        }
-        Ok(true)
+            // Keeps the channel open: a closed one is not silence.
+            std::future::pending::<()>().await;
+        });
+        rx
+    }
+
+    // The clock is tokio's, paused: it moves only when every task waits,
+    // so these bounds hold to the millisecond on a loaded machine too.
+
+    #[tokio::test(start_paused = true)]
+    async fn a_steady_stream_of_writes_wakes_the_worker_at_the_settle_bound() {
+        let mut rx = writes(Duration::from_millis(100), None);
+        let started = Instant::now();
+        let gathered = gather(&mut rx, Duration::from_secs(60), Duration::from_millis(300));
+        // Without the bound the stream would hold it for good: a minute of
+        // the paused clock fails the test instead.
+        let woken = tokio::time::timeout(Duration::from_secs(60), gathered)
+            .await
+            .expect("the worker wakes while the writes go on")
+            .unwrap();
+        let took = started.elapsed();
+        assert!(woken);
+        assert!(
+            took >= MAX_SETTLE && took < MAX_SETTLE + Duration::from_millis(100),
+            "writes every 100 ms never leave a 300 ms gap, so the worker runs at MAX_SETTLE \
+             after the first: {took:?}"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_burst_of_writes_wakes_the_worker_once_after_it() {
+        let mut rx = writes(Duration::from_millis(50), Some(5));
+        let started = Instant::now();
+        let woken = gather(&mut rx, Duration::from_secs(60), Duration::from_millis(300))
+            .await
+            .unwrap();
+        assert!(woken);
+        assert_eq!(
+            started.elapsed(),
+            Duration::from_millis(200 + 300),
+            "the last of five writes 50 ms apart, then one settle period of silence"
+        );
+        assert!(rx.try_recv().is_err(), "the burst was taken whole");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn without_a_write_the_worker_waits_its_period() {
+        let mut rx = writes(Duration::from_millis(100), Some(0));
+        let started = Instant::now();
+        let woken = gather(&mut rx, Duration::from_secs(5), Duration::from_millis(300))
+            .await
+            .unwrap();
+        assert!(!woken);
+        assert_eq!(started.elapsed(), Duration::from_secs(5));
     }
 }

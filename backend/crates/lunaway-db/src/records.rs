@@ -6,6 +6,12 @@
 //! normalised content changes, when it disappears from the source, or when a
 //! person adds a constraint on it.
 //!
+//! An import writes a record only when it changed; the date of each
+//! complete read goes to `source_reads` ([`mark_read`]), and every query
+//! that serves a record's date reads it through `lunaway_read_at`, which
+//! gives a live record the later of the two. A record retired keeps the
+//! date of the last read that held it.
+//!
 //! Every write holds the writers' lock for its transaction, like the
 //! conflation: the conflation locks the flagged records in id order, a
 //! statement here in its own order, and two such transactions running at
@@ -58,7 +64,11 @@ impl std::ops::AddAssign for UpsertStats {
 /// enough to keep each statement's parameter arrays in the low megabytes.
 const BATCH: usize = 1_000;
 
-/// Inserts or updates `records` of `source`, each tagged with its scope.
+/// Inserts or updates `records` of `source`, each tagged with its scope;
+/// a record whose content did not change is left as it is, its date too.
+/// A run that read a slice of the source whole calls [`mark_read`] once it
+/// retired what it did not see (`lunaway_ingest::store` does), or clients
+/// see the date of the last change instead of the last read.
 ///
 /// # Errors
 ///
@@ -108,6 +118,10 @@ async fn upsert_batch(
         fetched.push(r.fetched_at);
     }
     let mut tx = crate::begin_locked(pool).await?;
+    // A row is written only when the source says something new of it: a
+    // rewrite of every row at each import doubled the table until the next
+    // vacuum. The date of the read itself goes to `source_reads` once per
+    // slice ([`mark_read`]). A taken-down record is never written again.
     // `now()` is the transaction start: a row whose `changed_at` equals it
     // was inserted or changed by this statement.
     let rows = sqlx::query!(
@@ -140,6 +154,12 @@ async fn upsert_batch(
                 OR sr.data IS DISTINCT FROM EXCLUDED.data
                 OR sr.deleted_at IS NOT NULL,
             deleted_at = NULL
+        WHERE sr.taken_down_at IS NULL
+          AND (sr.deleted_at IS NOT NULL
+               OR sr.data IS DISTINCT FROM EXCLUDED.data
+               OR sr.raw IS DISTINCT FROM EXCLUDED.raw
+               OR sr.external_url IS DISTINCT FROM EXCLUDED.external_url
+               OR sr.scope IS DISTINCT FROM EXCLUDED.scope)
         RETURNING (xmax = 0) AS "inserted!", (changed_at = now()) AS "touched!"
         "#,
         source.as_str(),
@@ -159,17 +179,89 @@ async fn upsert_batch(
     .fetch_all(&mut *tx)
     .await?;
     tx.commit().await?;
-    let mut stats = UpsertStats::default();
-    for r in rows {
-        if r.inserted {
-            stats.inserted += 1;
-        } else if r.touched {
-            stats.changed += 1;
-        } else {
-            stats.unchanged += 1;
+    Ok(UpsertStats::of(
+        n,
+        rows.iter().map(|r| (r.inserted, r.touched)),
+    ))
+}
+
+impl UpsertStats {
+    /// The stats of an upsert of `n` rows from the rows it returned
+    /// (inserted, content changed): a row it left alone returns nothing,
+    /// and one rewritten for its raw payload or scope alone is unchanged.
+    pub(crate) fn of(n: usize, returned: impl IntoIterator<Item = (bool, bool)>) -> Self {
+        let mut stats = Self::default();
+        for (inserted, touched) in returned {
+            if inserted {
+                stats.inserted += 1;
+            } else if touched {
+                stats.changed += 1;
+            }
+        }
+        let n = u64::try_from(n).unwrap_or(u64::MAX);
+        stats.unchanged = n.saturating_sub(stats.inserted + stats.changed);
+        stats
+    }
+}
+
+/// Which table a read of a source fed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadTarget {
+    /// `source_records`, the places' records.
+    Records,
+    /// `pois`, the points of interest.
+    Pois,
+}
+
+impl ReadTarget {
+    fn code(self) -> &'static str {
+        match self {
+            Self::Records => "records",
+            Self::Pois => "pois",
         }
     }
-    Ok(stats)
+}
+
+/// The `source_reads` scope of a read of the whole source.
+pub const WHOLE_SOURCE: &str = "*";
+
+/// Records that `source` was read whole, for `target`, in each of `reads`
+/// (a scope as its rows carry it, `""` for the rows without one,
+/// [`WHOLE_SOURCE`] for all, and the date of that read): every live row of
+/// such a scope was in the read, so its clients see that date
+/// (`lunaway_read_at` in SQL). Call it once the run retired what it did not
+/// see, never for a scope whose retirement was refused. A date never goes
+/// back: a run that read an older file changes nothing.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn mark_read(
+    pool: &PgPool,
+    target: ReadTarget,
+    source: &SourceId,
+    reads: &[(String, DateTime<Utc>)],
+) -> Result<(), DbError> {
+    if reads.is_empty() {
+        return Ok(());
+    }
+    let (scopes, dates): (Vec<String>, Vec<DateTime<Utc>>) = reads.iter().cloned().unzip();
+    sqlx::query!(
+        r#"
+        INSERT INTO source_reads AS r (target, source_id, scope, read_at)
+        SELECT $1, $2, u.scope, u.read_at
+        FROM UNNEST($3::text[], $4::timestamptz[]) AS u(scope, read_at)
+        ON CONFLICT (target, source_id, scope) DO UPDATE
+        SET read_at = greatest(r.read_at, EXCLUDED.read_at)
+        "#,
+        target.code(),
+        source.as_str(),
+        &scopes,
+        &dates,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// Live records of `source` in `scope` (all scopes when `None`).
@@ -213,7 +305,8 @@ pub async fn retire_missing(
     let done = sqlx::query!(
         r#"
         UPDATE source_records
-        SET deleted_at = $4, needs_conflation = true, changed_at = now()
+        SET deleted_at = $4, needs_conflation = true, changed_at = now(),
+            fetched_at = lunaway_read_at('records', source_id, scope, fetched_at, NULL)
         WHERE source_id = $1
           AND deleted_at IS NULL
           AND (($2::text IS NULL AND scope IS NULL) OR scope = $2)
@@ -247,7 +340,8 @@ pub async fn retire_missing_in_source(
     let done = sqlx::query!(
         r#"
         UPDATE source_records
-        SET deleted_at = $3, needs_conflation = true, changed_at = now()
+        SET deleted_at = $3, needs_conflation = true, changed_at = now(),
+            fetched_at = lunaway_read_at('records', source_id, scope, fetched_at, NULL)
         WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))
         "#,
         source.as_str(),
@@ -304,7 +398,8 @@ pub async fn retire_missing_in_scopes(
     let done = sqlx::query!(
         r#"
         UPDATE source_records
-        SET deleted_at = $4, needs_conflation = true, changed_at = now()
+        SET deleted_at = $4, needs_conflation = true, changed_at = now(),
+            fetched_at = lunaway_read_at('records', source_id, scope, fetched_at, NULL)
         WHERE source_id = $1 AND deleted_at IS NULL AND coalesce(scope, 'FR') = ANY($2)
           AND NOT (external_id = ANY($3))
         "#,
@@ -326,8 +421,11 @@ pub async fn retire_missing_in_scopes(
 /// [`DbError`] when the update fails.
 pub async fn mark_all_dirty(pool: &PgPool) -> Result<u64, DbError> {
     let mut tx = crate::begin_locked(pool).await?;
+    // A taken-down record is empty and unlinked for good: nothing to
+    // conflate.
     let done = sqlx::query!(
-        "UPDATE source_records SET needs_conflation = true WHERE NOT needs_conflation"
+        "UPDATE source_records SET needs_conflation = true \
+         WHERE NOT needs_conflation AND taken_down_at IS NULL"
     )
     .execute(&mut *tx)
     .await?;
@@ -385,7 +483,8 @@ pub async fn set_constraint(
     .execute(&mut *tx)
     .await?;
     sqlx::query!(
-        "UPDATE source_records SET needs_conflation = true WHERE id = ANY($1)",
+        "UPDATE source_records SET needs_conflation = true \
+         WHERE id = ANY($1) AND taken_down_at IS NULL",
         &[lo, hi][..],
     )
     .execute(&mut *tx)

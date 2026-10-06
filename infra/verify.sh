@@ -33,6 +33,20 @@ refused() {
   else echo "FAIL $label was accepted: $(echo "$out" | tail -n 1 | cut -c1-120)"; fi
 }
 
+SCRATCH_VERIFY="${LUNAWAY_SCRATCH_DIR:-$LUNAWAY_REPO_DIR/data/tmp/infra}/verify"
+mkdir -p "$SCRATCH_VERIFY"
+
+# The weekly groups of European extracts hold every extract of the
+# European import but France (daily), once each.
+groups="$(sed -nE 's/^LUNAWAY_EXTRACTS_[A-Z][a-z]{2}=//p' "$LUNAWAY_INFRA_DIR/files/usr/local/share/lunaway/osm-extracts.env" | tr ' ' '\n' | grep -v '^--extract$' | grep . | sort)"
+europe="$(sed -n '/^pub const EUROPE: &\[&str\] = &\[/,/^\];/p' "$LUNAWAY_REPO_DIR/backend/crates/lunaway-ingest/src/osm_extract.rs" | sed -nE 's/^ *"([a-z-]+)",$/\1/p' | grep -vx france | sort)"
+if [ -n "$europe" ] && [ "$groups" = "$europe" ]; then
+  echo "ok   the weekly groups hold the $(echo "$europe" | wc -l | tr -d ' ') European extracts but France, once each"
+else
+  echo "FAIL the weekly groups differ from osm_extract::EUROPE (without france):"
+  diff <(echo "$europe") <(echo "$groups") | sed 's/^/       /'
+fi
+
 for role in $roles; do
   require_host "$role"
   ip4="$(role_var "$role" IPV4)"
@@ -72,7 +86,9 @@ for r in json.load(sys.stdin)["rules"]:
   fi
 
   if [ "$role" = backend ]; then
-    host="$LUNAWAY_HOSTNAME"
+    # The public names once DNS exists (LUNAWAY_API_HOST, LUNAWAY_TILES_URL),
+    # the sslip.io name before.
+    host="${LUNAWAY_API_HOST:-$LUNAWAY_HOSTNAME}"
     section "$server, outside: HTTPS"
     curl -sS -o /dev/null -D - -m 10 "https://$host/health" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
     echo "http redirect: $(curl -sS -o /dev/null -w '%{http_code} -> %{redirect_url}' -m 10 "http://$host/health")"
@@ -107,7 +123,7 @@ for r in json.load(sys.stdin)["rules"]:
     # The basemap under /tiles/ (tiles.lunaway.net serves the same once DNS
     # exists): TileJSON, tiles at z0, z8 and z14 over Paris and over Tokyo,
     # with their status, size as sent (gzip), encoding, cache and time.
-    tiles="https://$host/tiles"
+    tiles="${LUNAWAY_TILES_URL:-https://$LUNAWAY_HOSTNAME/tiles}"
     echo "basemap TileJSON: $(curl -fsS -m 10 "$tiles/planet.json" | python3 -c '
 import json, sys
 t = json.load(sys.stdin)
@@ -154,13 +170,68 @@ print(" ".join("%s %s%s" % (s["id"], "never read" if s["ageSeconds"] is None els
     echo "witness route: $(curl -sS -m 20 -H 'Content-Type: application/json' \
       -d '{"query":"{ route(input: {origin: {lat: 45.84719, lon: 1.28476}, destination: {lat: 45.8451, lon: 1.28637}, vehicle: {kind: OVERCAB, heightM: 3.3, widthM: 2.3, lengthM: 7.4, weightT: 3.5}}) { status recalculations routes { distanceM } } }"}' \
       "https://$host/graphql")"
+    # Europe and the regional packs (docs/region-packs.md): the manifest,
+    # one pack fetched whole and checked against it, the work directory
+    # and the listing refused. The danger zones of France carry no point,
+    # Switzerland gets nothing (docs/speed-cameras.md).
+    echo "regional packs: $(curl -sS -m 20 -H 'Content-Type: application/json' \
+      -d '{"query":"{ regions { code pack { url bytes sha256 places } } }"}' "https://$host/graphql" > "$SCRATCH_VERIFY/regions.json"; python3 -c '
+import json, sys
+r = json.load(open(sys.argv[1]))["data"]["regions"]
+built = [x for x in r if x["pack"]]
+print("%d regions, %d with a pack, %d places, %d bytes" % (len(r), len(built), sum(x["pack"]["places"] for x in built), sum(x["pack"]["bytes"] for x in built)))' "$SCRATCH_VERIFY/regions.json" 2>&1)"
+    pack_url="$(python3 -c '
+import json, sys
+r = [x for x in json.load(open(sys.argv[1]))["data"]["regions"] if x["pack"]]
+r.sort(key=lambda x: x["pack"]["bytes"])
+print(r[0]["pack"]["url"], int(r[0]["pack"]["bytes"]), r[0]["pack"]["sha256"]) if r else print("")' "$SCRATCH_VERIFY/regions.json" 2>/dev/null)"
+    if [ -n "$pack_url" ]; then
+      read -r pack_href pack_bytes pack_sum <<<"$pack_url"
+      curl -sS -m 60 -o "$SCRATCH_VERIFY/pack.sqlite.gz" -D "$SCRATCH_VERIFY/pack.headers" -H 'Accept-Encoding: gzip, zstd' "$pack_href"
+      got_sum="$(shasum -a 256 "$SCRATCH_VERIFY/pack.sqlite.gz" | awk '{ print $1 }')"
+      got_bytes="$(wc -c < "$SCRATCH_VERIFY/pack.sqlite.gz" | tr -d ' ')"
+      if [ "$got_sum" = "$pack_sum" ] && [ "$got_bytes" = "$pack_bytes" ]; then
+        echo "ok   smallest pack $(basename "$pack_href" | sed -E 's/-[0-9]+-[0-9a-f]{12}\.sqlite\.gz$//'): $got_bytes bytes, SHA-256 of the manifest, $(tr -d '\r' < "$SCRATCH_VERIFY/pack.headers" | grep -iE '^cache-control' | head -n 1)"
+      else
+        echo "FAIL smallest pack: $got_bytes bytes, SHA-256 $got_sum (manifest: $pack_bytes, $pack_sum)"
+      fi
+      echo "pack range: $(curl -sS -o /dev/null -m 20 -r 0-99 -w '%{http_code} %{size_download} bytes' "$pack_href")"
+      echo "pack work directory: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$host/packs/.work/")"
+      echo "packs listing: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "https://$host/packs/places/")"
+    else
+      echo "FAIL no regional pack in the manifest"
+    fi
+    echo "danger zones, France: $(python3 - "https://$host/graphql" <<'PY' 2>&1
+import json, sys, urllib.request
+url, since, items, pages = sys.argv[1], None, [], 0
+while True:
+    body = {"query": "query($s: String) { enforcement(since: $s, countries: [\"FR\"], first: 2000) { cursor hasMore upserts { kind lat lon bearingDeg } } }", "variables": {"s": since}}
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    d = json.load(urllib.request.urlopen(req, timeout=30))["data"]["enforcement"]
+    items += d["upserts"]
+    pages += 1
+    since = d["cursor"]
+    if not d["hasMore"]:
+        break
+kinds = sorted({x["kind"] for x in items})
+points = sum(1 for x in items if x["lat"] is not None or x["lon"] is not None or x["bearingDeg"] is not None)
+print("%d items in %d pages, kinds %s, %d with a point or a heading" % (len(items), pages, ",".join(kinds), points))
+if points or kinds != ["ZONE"]:
+    print("FAIL a French item is not a zone or carries a point")
+PY
+)"
+    echo "Switzerland: $(curl -sS -m 30 -H 'Content-Type: application/json' \
+      -d '{"query":"{ enforcement(countries: [\"CH\"]) { upserts { id } } }"}' "https://$host/graphql" | python3 -c '
+import json, sys
+u = json.load(sys.stdin)["data"]["enforcement"]["upserts"]
+print("%d items%s" % (len(u), "" if not u else ": FAIL"))' 2>&1)"
     refused "lunaway-pull over the public address (it is the ops server's, private network only)" \
       ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       -o IdentitiesOnly=yes -i "$LUNAWAY_SSH_IDENTITY" -o ConnectTimeout=10 "lunaway-pull@$ip4" true
   fi
 
   if [ "$role" = ops ]; then
-    host="$(echo "$ip4" | tr . -).sslip.io"
+    host="${LUNAWAY_STATUS_DOMAIN:-$(echo "$ip4" | tr . -).sslip.io}"
     section "$server, outside: status page and the Mac's pull"
     curl -sS -o /dev/null -D - -m 10 "https://$host/" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
     echo "status API: $(curl -fsS -m 10 "https://$host/api/v1/endpoints/statuses" | python3 -c '

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(DISTINCT r.id) AS \"n!\"\n        FROM places p\n        JOIN source_records r ON ST_DWithin(r.geom, p.geom, $2)\n        WHERE p.id = ANY($1) AND p.taken_down_at IS NULL\n          AND r.needs_conflation AND r.taken_down_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "eca73ce83a911021d66f1b4d98adebebb272d28126cda6e242b22bac96e69477"
+}

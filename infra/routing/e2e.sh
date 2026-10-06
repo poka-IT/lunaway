@@ -54,6 +54,9 @@ for _ in $(seq 1 60); do
 done
 
 cd backend
+# The end-to-end tests are their own binary today and a module of the
+# crate's integration binary once the backend folds them in: the filter
+# takes both, so neither form selects nothing (nextest fails on no test).
 LUNAWAY_E2E_VALHALLA_URL="http://127.0.0.1:$port" \
 LUNAWAY_E2E_RESTRICTIONS="$build/restrictions.ndjson.gz" \
-  cargo nextest run -p lunaway-api -E 'binary(route_e2e)' --run-ignored only --no-capture
+  cargo nextest run -p lunaway-api -E 'binary(route_e2e) | test(/^route_e2e::/)' --run-ignored only --no-capture

@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM places p\n        WHERE p.taken_down_at IS NOT NULL\n          AND (EXISTS (SELECT 1 FROM reviews WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM photos WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM confirmations WHERE place_id = p.id)\n               OR EXISTS (SELECT 1 FROM issue_reports WHERE place_id = p.id))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e46e29253656a730801d42f9dc52de5a2372e03f40d7a6268f2ee51beae819d6"
+}

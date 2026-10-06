@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.name, p.deleted_at IS NULL AS \"live!\", p.taken_down_at IS NOT NULL AS \"taken!\",\n               p.region,\n            (SELECT count(*) FROM reviews WHERE place_id = ANY($2)) AS \"reviews!\",\n            (SELECT count(*) FROM photos WHERE place_id = ANY($2)) AS \"photos!\",\n            (SELECT count(*) FROM confirmations WHERE place_id = ANY($2)) AS \"confirmations!\",\n            (SELECT count(*) FROM issue_reports WHERE place_id = ANY($2)) AS \"issues!\",\n            (SELECT count(*) FROM place_submissions WHERE place_id = ANY($2))\n                AS \"submissions!\"\n        FROM places p WHERE p.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "live!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "taken!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "region",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "region"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reviews!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "photos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "confirmations!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "issues!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "submissions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      null,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4933cb7a3c1ef4a2f9e11365317fbbe92dba392a284a153aa1f580b569fa7feb"
+}

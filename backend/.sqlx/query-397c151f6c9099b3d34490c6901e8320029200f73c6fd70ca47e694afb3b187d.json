@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT r.id AS \"id!\", r.source_id AS \"source_id!\", r.external_id AS \"external_id!\",\n               r.name, r.kind AS \"kind!\", min(ST_Distance(r.geom, p.geom)) AS \"distance_m!\"\n        FROM places p\n        JOIN source_records r ON ST_DWithin(r.geom, p.geom, $4)\n        JOIN UNNEST($2::text[], $3::float8[]) AS k(kind, reach) ON k.kind = r.kind\n        WHERE p.id = ANY($1) AND p.taken_down_at IS NULL\n          AND r.taken_down_at IS NULL AND r.deleted_at IS NOT NULL AND r.last_place_id IS NULL\n          AND (r.data->>'position_approximate')::boolean IS NOT TRUE\n          AND NOT EXISTS (SELECT 1 FROM place_sources ps WHERE ps.record_id = r.id)\n          AND ST_DWithin(r.geom, p.geom, k.reach)\n        GROUP BY r.id\n        ORDER BY 6, r.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "distance_m!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "Float8Array",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "397c151f6c9099b3d34490c6901e8320029200f73c6fd70ca47e694afb3b187d"
+}

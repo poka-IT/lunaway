@@ -21,7 +21,8 @@
 # valhalla.json is the repository's infra/routing/valhalla.json, copied next
 # to each graph by lunaway-routing-refresh: it reads
 # /srv/routing/current/valhalla_tiles.tar, listens on 127.0.0.1:8002 and
-# answers route, trace_attributes and status only. Its log lines name
+# answers route, trace_attributes, sources_to_targets (the detours of the
+# fuel search, points 60 km apart at most) and status only. Its log lines name
 # the method, path and status of each request, never a position (the body
 # is not logged; checked on 2026-10-06).
 #

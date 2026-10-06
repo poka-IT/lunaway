@@ -35,6 +35,22 @@
 #   routing.ok         true when valhalla.service is active and the graph it
 #                      serves (/srv/routing/current) was built less than 10
 #                      days ago: built weekly, installed by a daily refresh
+#   imports.ok         true when the OpenStreetMap places of France were read
+#                      less than 30 hours ago (daily) and every other country
+#                      less than 8 days ago (weekly groups), as measured by
+#                      lunaway-worker-status in the last 30 minutes, and no
+#                      unit of the places and points imports, the regional
+#                      packs or the speed cameras is failed (a truncation
+#                      guard refusing a country fails its import)
+#   region_packs.ok    true when no sync region has waited more than two days
+#                      for a pack with its changes (lunaway-packs, after each
+#                      import and daily), and at least one pack exists
+#   poi_layer.ok       true when no change of the points layer has waited
+#                      more than 8 hours for its publication (every 6 hours)
+#   cameras.ok         true when the five official speed camera lists were
+#                      all read less than 30 hours ago (daily)
+#   enforcement.ok     true when the zones and points were built less than 30
+#                      hours ago (lunaway-enforcement, daily)
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -130,6 +146,79 @@ if [ "$status_age" -ge 0 ] && [ "$status_age" -lt 300 ] && [ "$fuel_age" -ge 0 ]
 	fuel_ok=true
 fi
 
+# The measures of lunaway-worker-status that may be negative (-1: none).
+signed() {
+	v="$(sed -nE "s/.*\"$1\" *: *(-?[0-9]+).*/\1/p" "$2" 2>/dev/null | head -n 1)"
+	echo "${v:--1}"
+}
+fresh_status=false
+[ "$status_age" -ge 0 ] && [ "$status_age" -lt 300 ] && fresh_status=true
+
+# The points layer's publication (lunaway-conflate-worker, every 6 hours).
+layer_pending=-1
+[ -r "$worker_status" ] && layer_pending="$(signed poi_layer_pending_s "$worker_status")"
+layer_ok=false
+[ "$fresh_status" = true ] && [ "$layer_pending" -lt 28800 ] && layer_ok=true
+
+# The official speed camera lists (lunaway-cameras, daily): five of them.
+camera_lists=0
+camera_oldest=-1
+if [ -r "$worker_status" ]; then
+	camera_lists="$(signed camera_lists "$worker_status")"
+	camera_oldest="$(signed camera_lists_oldest_s "$worker_status")"
+fi
+cameras_ok=false
+[ "$fresh_status" = true ] && [ "$camera_lists" -ge 5 ] && [ "$camera_oldest" -ge 0 ] && [ "$camera_oldest" -lt 108000 ] && cameras_ok=true
+
+# The zones and points (lunaway-enforcement, daily): the unit touches this
+# file after each build that succeeds.
+enforcement_age=-1
+if [ -e /var/lib/lunaway-enforcement/built ]; then
+	enforcement_age=$(( $(date -u +%s) - $(stat -c %Y /var/lib/lunaway-enforcement/built) ))
+fi
+enforcement_ok=false
+[ "$enforcement_age" -ge 0 ] && [ "$enforcement_age" -lt 108000 ] && enforcement_ok=true
+
+# The regional first-sync packs (lunaway-packs).
+packs_regions=0
+packs_built=0
+packs_behind=0
+packs_stale=-1
+packs_newest=-1
+if [ -r "$worker_status" ]; then
+	packs_regions="$(signed regions "$worker_status")"
+	packs_built="$(signed built "$worker_status")"
+	packs_behind="$(signed behind "$worker_status")"
+	packs_stale="$(signed stale "$worker_status")"
+	packs_newest="$(signed newest_age_s "$worker_status")"
+fi
+region_packs_ok=false
+[ "$fresh_status" = true ] && [ "$packs_stale" -eq 0 ] && [ "$packs_built" -gt 0 ] && region_packs_ok=true
+
+# The OpenStreetMap imports: the age of each country's places, measured
+# every 15 minutes (lunaway-worker-status), and the units that fail.
+imports_status=/var/lib/lunaway-status/imports.json
+imports_status_age=-1
+fr_age=-1
+oldest_age=-1
+scopes=0
+oldest_scope=""
+if [ -r "$imports_status" ]; then
+	imports_status_age=$(( $(date -u +%s) - $(stat -c %Y "$imports_status") ))
+	fr_age="$(signed fr_age_s "$imports_status")"
+	oldest_age="$(signed oldest_age_s "$imports_status")"
+	scopes="$(signed scopes "$imports_status")"
+	oldest_scope="$(sed -nE 's/.*"oldest_scope" *: *"([A-Z]{2})".*/\1/p' "$imports_status" | head -n 1)"
+fi
+failed_units="$(systemctl list-units --state=failed --no-legend --plain 'lunaway-ingest-osm*' 'lunaway-ingest-pois*' \
+	'lunaway-packs*' 'lunaway-cameras*' 'lunaway-enforcement*' 2>/dev/null | awk '{ print $1 }' | grep -E '^[a-z@A-Z.-]+$' | tr '\n' ' ' | sed 's/ $//')"
+failed_count="$(echo "$failed_units" | wc -w)"
+imports_ok=false
+if [ "$imports_status_age" -ge 0 ] && [ "$imports_status_age" -lt 1800 ] && [ "$fr_age" -ge 0 ] && [ "$fr_age" -lt 108000 ] \
+	&& [ "$oldest_age" -ge 0 ] && [ "$oldest_age" -lt 691200 ] && [ "$failed_count" -eq 0 ]; then
+	imports_ok=true
+fi
+
 # The encrypted copy of the photos (lunaway-media-offsite, nightly).
 media_success="$(read_stamp "$offsite/media/last-success")"
 media_ok=false
@@ -169,7 +258,7 @@ if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" 
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age" \
 	"$packs_ok" "$packs_build" "$packs_age" "${packs_count:-0}" "${packs_expected:-0}" \
@@ -177,4 +266,9 @@ printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_
 	"$media_ok" "$media_success" "$media_age" \
 	"$deletions_ok" "$deletions_success" "$deletions_age" \
 	"$fuel_ok" "$fuel_age" \
-	"$routing_ok" "${routing_state:-unknown}" "$routing_graph" "$routing_age"
+	"$routing_ok" "${routing_state:-unknown}" "$routing_graph" "$routing_age" \
+	"$imports_ok" "$scopes" "$fr_age" "$oldest_scope" "$oldest_age" "$imports_status_age" "$failed_count" "$failed_units" \
+	"$region_packs_ok" "$packs_regions" "$packs_built" "$packs_behind" "$packs_stale" "$packs_newest" \
+	"$layer_ok" "$layer_pending" \
+	"$cameras_ok" "$camera_lists" "$camera_oldest" \
+	"$enforcement_ok" "$enforcement_age"

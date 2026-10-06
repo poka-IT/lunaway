@@ -14,11 +14,36 @@
 #                                             import stored the feed (each run
 #                                             writes every station's fetch
 #                                             time), -1 before the first
+#   poi_layer_pending_s                       how long a change of the points
+#                                             layer has waited for its
+#                                             publication (at most every 6
+#                                             hours), -1 when none waits
+#   camera_lists, camera_lists_oldest_s       the official speed camera lists
+#                                             stored, and the oldest one's last
+#                                             read (daily), -1 before the first
+#   packs.regions, .built, .behind, .stale    sync regions with live places,
+#                                             those with a pack, those with a
+#                                             change their pack lacks, and those
+#                                             where that change has waited more
+#                                             than two days
+#   packs.newest_age_s                        the last pack built, -1 before
 #   at                                        when it was measured (UTC)
 # A healthy worker empties both queues within seconds of the API's NOTIFY,
 # and at least every 5 minutes.
+#
+# Every 15 minutes it also writes /var/lib/lunaway-status/imports.json, the
+# age of the OpenStreetMap places of each country: the later of the last
+# change of one of its records (`fetched_at`, which an import writes only
+# on a row that changed) and the last whole read of the country
+# (`source_reads`, written once per country by each run, scope '*' for a
+# read of the whole source). It reads the whole record table and need not
+# run every minute:
+#   scopes                    countries (scopes) with live records
+#   fr_age_s                  France's records (daily import)
+#   oldest_scope, oldest_age_s  the country read longest ago (weekly groups)
 set -eu
 out=/var/lib/lunaway-status/worker.json
+imports=/var/lib/lunaway-status/imports.json
 psql -X -At -v ON_ERROR_STOP=1 -d lunaway -c "
 SELECT json_build_object(
   'refresh_queue', (SELECT count(*) FROM place_refresh_queue),
@@ -30,5 +55,59 @@ SELECT json_build_object(
   'records_flagged', (SELECT count(*) FROM source_records WHERE needs_conflation),
   'fuel_age_s', (SELECT coalesce(floor(extract(epoch FROM now() - max(fetched_at))), -1)::bigint
                  FROM poi_join_records WHERE source_id = 'prix-carburants'),
+  'poi_layer_pending_s', (SELECT coalesce(floor(extract(epoch FROM now() - pending_since)), -1)::bigint
+                          FROM poi_layer),
+  'camera_lists', (SELECT count(*) FROM enforcement_sources WHERE source_id <> 'osm'),
+  'camera_lists_oldest_s', (SELECT coalesce(floor(extract(epoch FROM now() - min(fetched_at))), -1)::bigint
+                            FROM enforcement_sources WHERE source_id <> 'osm'),
+  'packs', (
+    -- The sync regions with places, walked on places_region_seq_idx, then
+    -- what each region's pack lacks: a place changed after the pack's feed
+    -- position (the builder's own rule, lunaway_db::packs), or a place
+    -- that left the region since.
+    WITH RECURSIVE r(region) AS (
+      (SELECT region FROM places WHERE region IS NOT NULL ORDER BY region LIMIT 1)
+      UNION ALL
+      SELECT (SELECT p.region FROM places p WHERE p.region > r.region ORDER BY p.region LIMIT 1)
+      FROM r WHERE r.region IS NOT NULL
+    ), regions AS (
+      SELECT r.region, k.seq, k.generated_at
+      FROM r LEFT JOIN region_packs k ON k.region = r.region
+      WHERE r.region IS NOT NULL
+        AND EXISTS (SELECT 1 FROM places p WHERE p.region = r.region AND p.deleted_at IS NULL)
+    ), waiting AS (
+      SELECT g.generated_at,
+             (SELECT min(p.updated_at) FROM places p
+              WHERE p.region = g.region AND p.updated_seq > coalesce(g.seq, -1)) AS changed_since,
+             (SELECT count(*) FROM place_region_exits e
+              WHERE e.region = g.region AND e.seq > coalesce(g.seq, -1)) AS departures
+      FROM regions g
+    )
+    SELECT json_build_object(
+      'regions', count(*),
+      'built', count(generated_at),
+      'behind', count(*) FILTER (WHERE changed_since IS NOT NULL OR departures > 0),
+      'stale', count(*) FILTER (WHERE changed_since < now() - interval '2 days'
+                                   OR (departures > 0 AND coalesce(generated_at, '-infinity') < now() - interval '2 days')),
+      'newest_age_s', coalesce(floor(extract(epoch FROM now() - max(generated_at))), -1)::bigint)
+    FROM waiting),
   'at', to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD\"T\"HH24MISS\"Z\"'))" > "$out.new"
 mv -f "$out.new" "$out"
+
+if [ ! -f "$imports" ] || [ $(( $(date +%s) - $(stat -c %Y "$imports") )) -ge 840 ]; then
+  psql -X -At -v ON_ERROR_STOP=1 -d lunaway -c "
+SELECT json_build_object(
+  'scopes', count(*),
+  'fr_age_s', coalesce(floor(extract(epoch FROM now() - max(at) FILTER (WHERE scope = 'FR'))), -1)::bigint,
+  'oldest_scope', coalesce((array_agg(scope ORDER BY at))[1], ''),
+  'oldest_age_s', coalesce(floor(extract(epoch FROM now() - min(at))), -1)::bigint,
+  'at', to_char(now() AT TIME ZONE 'UTC', 'YYYYMMDD\"T\"HH24MISS\"Z\"'))
+FROM (SELECT s.scope,
+             greatest(s.at, (SELECT max(r.read_at) FROM source_reads r
+                             WHERE r.target = 'records' AND r.source_id = 'osm'
+                               AND r.scope IN (s.scope, '*'))) AS at
+      FROM (SELECT scope, max(fetched_at) AS at FROM source_records
+            WHERE source_id = 'osm' AND deleted_at IS NULL AND scope IS NOT NULL
+            GROUP BY scope) s) s" > "$imports.new"
+  mv -f "$imports.new" "$imports"
+fi

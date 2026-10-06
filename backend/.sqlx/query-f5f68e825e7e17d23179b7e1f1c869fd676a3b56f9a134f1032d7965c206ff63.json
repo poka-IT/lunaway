@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO moderation_queue (id, kind, target_type, target_id, reason)\n        VALUES ($1, 'reported_content', 'review', $2, 'privacy')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f5f68e825e7e17d23179b7e1f1c869fd676a3b56f9a134f1032d7965c206ff63"
+}

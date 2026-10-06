@@ -12,7 +12,10 @@
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
 #             dump, the conflation worker, the photo backup, the basemap's
-#             build and offline packs, the fuel prices, the routing graph. Gatus does not
+#             build and offline packs, the fuel prices, the routing graph,
+#             the OpenStreetMap imports of France and Europe, the regional
+#             packs of places, the points layer's publication, the speed
+#             camera lists and the build of their zones. Gatus does not
 #             check SSH host keys. A host posing as the backend gets nothing
 #             it can reuse (the key's signature is bound to that one
 #             session); it could only answer a false green, and it would
@@ -135,6 +138,27 @@ endpoints:
       - "[STATUS] == 200"
       - "len([BODY]) > 1000"
       - "[RESPONSE_TIME] < 3000"
+
+  # The regional packs of places (docs/region-packs.md) as the app reads
+  # them: the sync regions in their fixed order, the first one (Auvergne-
+  # Rhone-Alpes, with places every day) naming a pack under the API host.
+  # How long a region waits for its pack is checked on the backend
+  # (Regional packs of places).
+  - name: Regional packs manifest
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ regions { code pack { url bytes } } }"
+    interval: 15m
+    conditions:
+      - "[STATUS] == 200"
+      - "len([BODY].data.regions) > 30"
+      - "[BODY].data.regions[0].code == FR-ARA"
+      - "[BODY].data.regions[0].pack.url == pat(https://__API_HOST__/packs/places/FR-ARA-*.sqlite.gz)"
+      - "[BODY].data.regions[0].pack.bytes > 10000"
 
   # Motorhome routing (docs/deploy.md, "Routing"): the API has an active
   # graph and reaches the engine.
@@ -373,6 +397,95 @@ __PROBE_KEY__
     conditions:
       - "[CONNECTED] == true"
       - "[BODY].fuel.ok == true"
+
+  # The OpenStreetMap places: France read less than 30 hours ago (daily,
+  # 03:00 UTC), every other country less than 8 days ago (one group of
+  # countries a day, Monday to Saturday), and no import, packs or speed
+  # camera unit failed: an import whose truncation guard refuses a country
+  # stores the rest and fails, so the country keeps its places and this
+  # check turns red.
+  - name: Places imports (France and Europe)
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].imports.ok == true"
+      - "[BODY].imports.failed_units == 0"
+
+  # The regional first-sync packs of places (docs/region-packs.md): no sync
+  # region waited more than two days for a pack holding its changes
+  # (lunaway-packs runs after each import of places and daily at 06:30).
+  - name: Regional packs of places
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 1h
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].region_packs.ok == true"
+      - "[BODY].region_packs.stale == 0"
+
+  # The tiles of the points of interest get a new version at most every 6
+  # hours; a change that has waited 8 hours means the worker's publication
+  # is stuck, and the devices keep tiles without it.
+  - name: Points layer publication
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].poi_layer.ok == true"
+
+  # The five official speed camera lists (docs/data-sources.md, "Speed
+  # cameras") were each read less than 30 hours ago (daily, 05:30 UTC): the
+  # date the app cites with the French list comes from that read.
+  - name: Speed camera lists
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 1h
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].cameras.ok == true"
+
+  # The danger zones and camera points were built less than 30 hours ago
+  # (lunaway-enforcement, daily after the lists).
+  - name: Danger zones build
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 1h
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].enforcement.ok == true"
 
   # The engine's unit runs and serves a graph built less than 10 days ago:
   # the build is weekly and the refresh daily, so an older graph means a

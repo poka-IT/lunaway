@@ -201,9 +201,11 @@ fn always_open(hours: Option<&str>) -> bool {
 }
 
 /// Inserts or updates `points` of `source`, a batch per transaction; a
-/// point whose hours changed is left for the worker to evaluate again. The
-/// caller marks the layer once it is done ([`mark_layer_now`])
-/// when a point was inserted or changed.
+/// point whose hours changed is left for the worker to evaluate again, and
+/// one that did not change is left as it is. The caller marks the layer
+/// once it is done ([`mark_layer_now`]) when a point was inserted or
+/// changed, and records its read as for the records
+/// ([`crate::records::mark_read`]).
 ///
 /// # Errors
 ///
@@ -273,8 +275,11 @@ pub async fn upsert_batch(
         raws.push(p.raw.clone());
         fetched.push(p.fetched_at);
     }
-    // `now()` is the transaction start: a row whose `changed_at` equals it
-    // was inserted or changed by this statement.
+    // A point is written only when its source says something new of it,
+    // as for the records (`records::upsert`): the date of the read goes to
+    // `source_reads` once per slice. `now()` is the transaction start: a
+    // row whose `changed_at` equals it was inserted or changed by this
+    // statement.
     let rows = sqlx::query!(
         r#"
         INSERT INTO pois AS p
@@ -335,6 +340,13 @@ pub async fn upsert_batch(
                 WHEN p.data IS DISTINCT FROM EXCLUDED.data OR p.deleted_at IS NOT NULL
                 THEN now() ELSE p.changed_at END,
             deleted_at = NULL
+        WHERE p.deleted_at IS NOT NULL
+           OR p.data IS DISTINCT FROM EXCLUDED.data
+           OR p.category IS DISTINCT FROM EXCLUDED.category
+           OR p.always_open IS DISTINCT FROM EXCLUDED.always_open
+           OR p.raw IS DISTINCT FROM EXCLUDED.raw
+           OR p.external_url IS DISTINCT FROM EXCLUDED.external_url
+           OR p.scope IS DISTINCT FROM EXCLUDED.scope
         RETURNING (xmax = 0) AS "inserted!", (changed_at = now()) AS "touched!"
         "#,
         source.as_str(),
@@ -359,17 +371,10 @@ pub async fn upsert_batch(
     )
     .fetch_all(tx.conn())
     .await?;
-    let mut stats = UpsertStats::default();
-    for r in rows {
-        if r.inserted {
-            stats.inserted += 1;
-        } else if r.touched {
-            stats.changed += 1;
-        } else {
-            stats.unchanged += 1;
-        }
-    }
-    Ok(stats)
+    Ok(UpsertStats::of(
+        n,
+        rows.iter().map(|r| (r.inserted, r.touched)),
+    ))
 }
 
 /// Live points of `source` in any of `scopes`, or in every scope when
@@ -438,7 +443,8 @@ pub async fn retire_missing(
     let mut tx = begin_poi_writer(pool).await?;
     let done = sqlx::query!(
         r#"
-        UPDATE pois SET deleted_at = $3, changed_at = now()
+        UPDATE pois SET deleted_at = $3, changed_at = now(),
+            fetched_at = lunaway_read_at('pois', source_id, scope, fetched_at, NULL)
         WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))
           AND ($4::text[] IS NULL OR coalesce(scope, 'FR') = ANY($4))
         "#,
@@ -957,7 +963,8 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PoiRow>, DbError> {
         r#"
         SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
                opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
-               fetched_at, changed_at, NULL::float8 AS distance_m
+               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
+               changed_at, NULL::float8 AS distance_m
         FROM pois WHERE id = $1 AND deleted_at IS NULL AND NOT hidden
         "#,
         id,
@@ -968,6 +975,34 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PoiRow>, DbError> {
     let mut out = vec![PoiRow::try_from(row)?];
     attach_joins(pool, &mut out).await?;
     Ok(out.pop())
+}
+
+/// The live points among `ids` the map shows (not hidden), with their
+/// joined rows, in no particular order: one query for a page of answers.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails or a row does not decode.
+pub async fn by_ids(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiRow>, DbError> {
+    let rows = sqlx::query_as!(
+        PoiDb,
+        r#"
+        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
+               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
+               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
+               changed_at, NULL::float8 AS distance_m
+        FROM pois WHERE id = ANY($1) AND deleted_at IS NULL AND NOT hidden
+        "#,
+        ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut out = rows
+        .into_iter()
+        .map(PoiRow::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+    attach_joins(pool, &mut out).await?;
+    Ok(out)
 }
 
 /// The points nearest `at` in each of `categories`, at most `per_category`
@@ -993,7 +1028,9 @@ pub async fn nearby(
         SELECT p.id AS "id!", p.source_id AS "source_id!", p.external_id AS "external_id!",
                p.external_url, p.data AS "data!", p.opening_hours_parsed AS "opening_hours_parsed!",
                p.always_open AS "always_open!", p.opening_intervals, p.opening_intervals_until,
-               p.opening_source, p.last_confirmed_at, p.fetched_at AS "fetched_at!",
+               p.opening_source, p.last_confirmed_at,
+               lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)
+                   AS "fetched_at!",
                p.changed_at AS "changed_at!", p.distance_m
         FROM UNNEST($3::text[], $4::float8[]) AS c(category, radius)
         CROSS JOIN LATERAL (
@@ -1044,7 +1081,9 @@ pub async fn search(
         WITH q AS (SELECT lunaway_fold($1) AS t)
         SELECT p.id, p.source_id, p.external_id, p.external_url, p.data,
                p.opening_hours_parsed, p.always_open, p.opening_intervals,
-               p.opening_intervals_until, p.opening_source, p.last_confirmed_at, p.fetched_at,
+               p.opening_intervals_until, p.opening_source, p.last_confirmed_at,
+               lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)
+                   AS "fetched_at!",
                p.changed_at,
                CASE WHEN $2::float8 IS NULL THEN NULL ELSE
                     ST_Distance(p.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END
@@ -1103,7 +1142,8 @@ pub async fn in_bbox(
         r#"
         SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
                opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
-               fetched_at, changed_at, NULL::float8 AS distance_m
+               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
+               changed_at, NULL::float8 AS distance_m
         FROM pois
         WHERE deleted_at IS NULL AND NOT hidden
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -1456,6 +1496,41 @@ pub struct PoiConfirmationRow {
     pub still_there: bool,
     /// When.
     pub created_at: DateTime<Utc>,
+}
+
+/// `account`'s "still there?" answers, newest first, after the answer
+/// `after`, at most `first`: what the account's list of contributions
+/// shows beside its places' confirmations.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails.
+pub async fn confirmations_of_account(
+    pool: &PgPool,
+    account: Uuid,
+    first: i64,
+    after: Option<Uuid>,
+) -> Result<crate::community::Page<PoiConfirmationRow>, DbError> {
+    let rows = sqlx::query_as!(
+        PoiConfirmationRow,
+        r#"
+        SELECT id, poi_id, still_there, created_at FROM poi_confirmations
+        WHERE account_id = $1 AND ($2::uuid IS NULL OR id < $2)
+        ORDER BY id DESC LIMIT $3
+        "#,
+        account,
+        after,
+        first + 1,
+    )
+    .fetch_all(pool)
+    .await?;
+    let total = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "n!" FROM poi_confirmations WHERE account_id = $1"#,
+        account
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(crate::community::page(rows, first, total))
 }
 
 /// Deletes one of `account`'s answers and queues its point; `false` when

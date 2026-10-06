@@ -92,7 +92,7 @@ Secrets live where they are used and nowhere else:
 | secret | where |
 |---|---|
 | database passwords | backend, `/etc/lunaway/{api,ingest,owner}.env` (root, 0600) |
-| the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/ingest.env` (root, 0600), and in the backup chain: a new secret moves every zone |
+| the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
 | the age identity that decrypts every dump | the Mac only, `~/.config/lunaway/backup-age.key` (0600); keep an offline copy (a password manager): without it no backup can be read |
 | the Mac's pull key | the Mac, `~/.config/lunaway/ops-pull_ed25519` (0600) |
@@ -267,15 +267,20 @@ volume, so an interrupted download resumes.
 
 | unit | when | runs |
 |---|---|---|
-| `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --refresh`: the Geofabrik France extract, streamed to disk and resumed after an interruption |
+| `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --extract france --refresh`: the places of the Geofabrik France extract (Monaco included), streamed to disk and resumed after an interruption |
+| `lunaway-ingest-osm-europe@<Day>.timer` | weekly, Monday to Saturday, 05:00 UTC | `lunaway ingest osm-extract $LUNAWAY_EXTRACTS_<Day> --refresh`: the places of one group of the other 23 European extracts, listed in `/usr/local/share/lunaway/osm-extracts.env` (from `infra/files/`); Germany alone on Monday (see "Europe and the regional packs") |
 | `lunaway-ingest-atout-france.timer` | Sundays, 04:00 UTC | `lunaway ingest atout-france --refresh`: the classified campsites, geocoded |
-| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois`: the points of interest of the same cached extract, then their opening hours (3 GiB cap) |
+| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois --extract france`: the points of interest of the same cached extract, then their opening hours (3 GiB cap) |
+| `lunaway-ingest-pois-europe@<Day>.timer` | weekly, Monday to Saturday, 05:45 UTC | `lunaway ingest pois $LUNAWAY_EXTRACTS_<Day>`: the points of interest of that day's group, from the files its places import cached; waits for that import when it still runs |
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
+| `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
+| `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
+| `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
 | `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day. The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
-| `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, and the age of the last stored fuel feed, into `/var/lib/lunaway-status/worker.json` for the health probe |
+| `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
 The nightly conflation timer of earlier versions is gone: the worker runs at
@@ -312,15 +317,115 @@ sudo lunaway-admin accounts import-deletions < FILE     # the journal's copy bac
 sudo lunaway-admin accounts replay-deletions [--dry-run] [--allow-empty]  # after a restore (see "Backups and restore")
 sudo lunaway-admin moderation confirmations <place>      # its "still there?" answers, author or "a deleted account"
 sudo lunaway-admin moderation remove-confirmation <id>   # a false one, or a test left on a real place
-sudo lunaway-admin ingest osm-extract                    # as the imports: user lunaway-ingest, role lunaway_ingest,
+sudo lunaway-admin moderation take-down <place> [--yes]  # step 2 of "Taking a place down"
+sudo lunaway-admin ingest osm-extract --extract france   # as the imports: user lunaway-ingest, role lunaway_ingest,
 sudo lunaway-admin ingest municipalities                 # the import cache, HTTPS out (no private ranges)
-sudo lunaway-admin ingest pois                           # 3 GiB cap for the imports (the extract reader)
+sudo lunaway-admin ingest pois --extract spain           # 3 GiB cap for the imports (the extract reader)
+sudo lunaway-admin ingest osm-extract --europe --refresh # every European extract in one run (see "Europe and the regional packs")
+sudo lunaway-admin ingest cameras --refresh              # the official speed camera lists
+sudo lunaway-admin ingest cameras-osm --europe           # OpenStreetMap's cameras, from the cached extracts
 sudo lunaway-admin conflate --full
+sudo lunaway-admin conflate --take-down <place> --reason TEXT [--yes]  # step 1 of "Taking a place down"
 sudo lunaway-admin stats
 sudo lunaway-admin pois stats                            # the layer of points of interest and its joins
 sudo lunaway-admin road-events stats                     # the road events by source, class and placement
+sudo lunaway-admin packs build                           # the regional packs now; writes /srv/data/packs only
+sudo lunaway-admin packs build --region FR-BRE --takedown  # after a place is taken down (docs/region-packs.md)
+sudo lunaway-admin packs list
+sudo lunaway-admin enforcement build [--full]            # the zones and points, with the zones' secret and the engine
+sudo lunaway-admin enforcement stats                     # each list's last read, the items by kind and country
+sudo lunaway-admin take-down <place> --reason TEXT [--yes]  # the three steps of "Taking a place down", in order
 sudo lunaway-admin migrate                               # starts lunaway-migrate.service
 ```
+
+### Taking a place down
+
+For a place that must leave the map for good: a private home listed as a
+spot, a request under the GDPR (erasure, objection), a court order. Hiding
+or editing does not answer such a request: the name, the position and the
+address stay in the database, the records come back with the next import,
+and the devices keep their copy. The takedown removes all of it, in three
+steps. The normal path runs them in order, each under its own identity,
+and stops at the first that fails:
+
+```bash
+sudo lunaway-admin take-down <place> --reason "GDPR erasure, ticket 42"        # step 1's preview, changes nothing
+sudo lunaway-admin take-down <place> --reason "GDPR erasure, ticket 42" --yes  # steps 1, 2 and 3
+```
+
+It takes `--with-nearby` like step 1, and gives steps 2 and 3 the place
+and the region step 1 prints (an id merged into another names the other).
+When it stops, the step that failed and what to run next are printed. The
+manual path, the same three commands one by one:
+
+```bash
+sudo lunaway-admin conflate --take-down <place> --reason "GDPR erasure, ticket 42"        # prints, changes nothing
+sudo lunaway-admin conflate --take-down <place> --reason "GDPR erasure, ticket 42" --yes  # 1. the catalogue
+sudo lunaway-admin moderation take-down <place> --yes                                     # 2. the community's content
+sudo lunaway-admin packs build --region <code> --takedown                                 # 3. the pack (printed by 1)
+```
+
+- **Which place.** The id the app shows (`Place.id`). An id merged into
+  another place takes down the place that absorbed it, and every place
+  merged into that one: they are one spot to the conflation. Without
+  `--yes`, both commands print the place, its region and what they touch
+  (merged places, records, reviews, photos, confirmations, issue reports,
+  submissions) and change nothing.
+- **1. The catalogue**, as the import role: it first conflates what
+  waits (a record not read yet could become the place again; if one
+  arrives meanwhile, it stops and asks to run again), then, under the
+  writers' lock, the place and the places merged into it keep their id,
+  kind and country and lose everything else (name, position, address,
+  hours, links, descriptions, provenance, community summary). Every record
+  that described them is emptied the same way and kept, marked, so that
+  the next import of its source writes nothing into it and no conflation
+  makes a place of it again: the records linked now, and those the
+  conflation unlinked from them (`last_place_id`: a record its source
+  retired, a group held back). Retired records unlinked before that column
+  existed name no place: the preview lists those within their kind's reach
+  of the place (source, external id, kind, name, distance), and
+  `--with-nearby` empties them too, once the list shows they are the
+  place's and not a neighbour's. The submissions about the place lose
+  their content, and those waiting are refused. The takedown is logged in `place_takedowns` with its reason:
+  write the kind of request and its reference, never the requester's name
+  or address (the command line also lands in the `sudo` log). The API's
+  role cannot take this step: a leak of its credentials must not empty the
+  catalogue.
+- **2. The community's content**, as the API's role, which writes it and
+  owns the photo files: the reviews, photos (files included, unless
+  another photo shows them), "still there?" answers and issue reports of
+  the place and of the places merged into it are deleted, with the
+  content reports and queue entries about them. It refuses to run before
+  step 1; after step 1 the place accepts no contribution, so nothing
+  arrives after it. Run it right after step 1: until then the photos stay
+  served at the addresses devices and older packs hold. `lunaway stats`
+  counts the places taken down whose community content is still there.
+- **The devices.** The tombstone takes a new position in the change feed.
+  Having no position, it goes to every device that syncs by box, whatever
+  its box; a device that syncs a region gets it as gone from that region.
+- **3. The packs.** The current pack of the place's region still holds it
+  until `lunaway packs build --region <code> --takedown` (as the import
+  role, which owns the packs) builds the region again and removes every
+  file the manifest does not name.
+- **Again.** Running step 1 again empties what was missed and keeps the
+  first reason and date; step 2 again deletes what is left. A takedown is
+  not undone: a spot that should come back is added again as a new place.
+- **What stays.** The emptied records keep their source and external id
+  (an OpenStreetMap element id, for instance): it is the key that keeps
+  the next import out of them. OpenStreetMap's own history of that element
+  is public and outside Lunaway. Nothing stops a new listing of the same
+  spot: an account whose level allows it adds a new place that goes live
+  at once when no automatic rule flags it, and a new element id or another
+  source makes a new place. Watch the spot after a takedown.
+- **Backups.** The copies taken before the takedown still hold the place
+  until they age out (see "Backups and restore"): the encrypted dumps (7 on
+  the backend, 14 days on the ops server, 29 days on the Mac), the photos
+  of deleted entries (26 days in `media-deleted/` on the backend and on
+  the Mac), and the daily images of the backend's root disk. A restore of
+  an older dump brings the place back: take it down again after the
+  restore. The takedowns are logged in the database only
+  (`place_takedowns`); unlike the account deletions, no journal outside it
+  replays them yet.
 
 ### Points of interest
 
@@ -365,69 +470,129 @@ The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
 
-### Europe and the regional packs (to install)
+### Europe, the regional packs, fuel and speed cameras
 
-Not installed on 2026-10-06; the measurements and the run procedure are in
-`plan/research/23-backend-europe-packs.md`.
+Installed on 2026-10-06 with the release of `main` at 38adf3d; the backend's
+report is `plan/research/23-backend-europe-packs.md`, the deployment's
+`plan/research/13-basemap.md` ("Déploiement Europe, carburant et radars").
 
-- **Imports.** `lunaway ingest osm-extract --europe --refresh`, then
-  `lunaway ingest pois --europe`, read France and 23 other extracts one at
-  a time (`osm_extract::EUROPE`, 27.8 GB of files on 2026-10-06): the
-  memory is the largest country's, France's, as today. A run that stops
-  resumes after the last extract it stored, and does not download again a
-  file younger than `--max-age-hours` (20). Each record is stored under its
-  country, and a run retires only in the countries it read; in a country
-  where it saw less than half of what is stored (10 records or more), it
-  retires nothing and exits with an error after storing the rest.
-- **Worker.** `lunaway conflate --watch --poi-layer-every-mins 360`: the
-  tiles version of the points layer moves at most every six hours (the
-  default), whatever the fuel poller, the imports or the community change
-  meanwhile.
-- **Packs.** `lunaway packs build --dir /srv/data/packs` (or
-  `LUNAWAY_PACKS_DIR`) after the conflation that follows the daily import,
-  as the import role: it writes `places/<region>-<seq>-<hash>.sqlite.gz`
-  for every region whose places changed and records them in `region_packs`.
-  The API host serves `/srv/data/packs/` read-only under `/packs/`
-  (byte ranges, a year of cache: a file never changes under its name), and
-  `Query.regions` names them under `LUNAWAY_PUBLIC_URL/packs/`. The route
-  serves only names of the form
-  `^/packs/places/[A-Z0-9-]+-[0-9]+-[0-9a-f]{12}\.sqlite\.gz$` (the
-  build writes its work files in `/srv/data/packs/.work/`, never served),
-  and the access log masks them as `/packs/places/[pack]`, since a pack
-  names the region a traveller is heading for. After a place is taken down
-  (its tombstone in the feed), `lunaway packs build --region <code>
-  --takedown` rebuilds its region and every region whose pack is behind,
-  and removes every pack file the manifest does not name (a region left
-  without a live place loses its pack and its files). Builds take an
-  advisory lock: a takedown run during the daily build waits for it, up to
-  half an hour.
-- **Once, at the deployment:** `lunaway conflate --full`, so a place only
-  the community describes gets the country of its position, hence a sync
-  region.
-- **Fuel along a route.** `Query.fuelAlongRoute` measures detours with the
-  engine's matrix (`POST /sources_to_targets`): a call per run of stations
-  within 20 km of each other along the route, at most 40 sources by 40
-  targets, its points less than 60 km apart. Add `sources_to_targets` to
-  `loki.actions` of `infra/routing/valhalla.json`, and lower
-  `max_matrix_distance` to 60 000 m in the same change (only this search
-  uses the matrix; a test of the API fails when the action is served with a
-  larger distance). Until then every detour is estimated from the straight
-  line (`detour.measured` false) and the API logs one warning per search.
-  Its quota is `LUNAWAY_QUOTA_FUEL_ROUTE` (10 every ten minutes); the fuel
-  poller fills `fuel_price_days`: the 31 046 prices of the feed on
-  2026-10-06 over 30 days make 931 380 rows, 114 MB with their indexes
-  (measured on PostgreSQL 18 with PostGIS 3.6).
-- **Speed cameras** (`docs/speed-cameras.md`). A daily timer, with the
-  import role: `lunaway ingest cameras --refresh` (five lists, about 2.5 MB
-  together), then `lunaway enforcement build`; after each new routing graph,
-  `lunaway ingest cameras-osm --europe --refresh` and
-  `lunaway enforcement build --full`. The build reads
-  `LUNAWAY_ZONE_SECRET` (32 characters at least, generated once with
-  `openssl rand -hex 32` into `/etc/lunaway/ingest.env`, never changed
-  once zones are served, never in the repository) and calls the engine on
-  loopback (`LUNAWAY_VALHALLA_URL`); `trace_attributes`, which the speed
-  limits of every route also use, is already among `loki.actions`. The
-  French build of 2026-10-06 took 25 s against a regional graph.
+**Imports.** France and 23 other extracts (`osm_extract::EUROPE`, 27.8 GB of
+Geofabrik files on 2026-10-06), each read one at a time, each record stored
+under the country of its position; a run retires only in the countries it
+read, and in a country where it saw less than half of what is stored (10
+records or more) it retires nothing and fails after storing the rest. The
+product owner's decision on the download volume (2026-10-06): France every
+day, the others once a week, which makes about 58 GB a week instead of 195
+for a daily European run.
+
+| when (UTC) | units | extracts | files, 2026-10-06 |
+|---|---|---|---|
+| daily 03:00, 03:45 | `lunaway-ingest-osm`, `lunaway-ingest-pois` | France (Monaco) | 5.1 GB |
+| Monday 05:00, 05:45 | `lunaway-ingest-osm-europe@Mon`, `lunaway-ingest-pois-europe@Mon` | Germany | 4.9 GB |
+| Tuesday | `...@Tue` | Netherlands, Belgium, Luxembourg, Austria, Switzerland, Liechtenstein | 3.5 GB |
+| Wednesday | `...@Wed` | Spain, Canary Islands, Portugal, Andorra, Italy | 4.2 GB |
+| Thursday | `...@Thu` | United Kingdom, Ireland, Denmark | 3.2 GB |
+| Friday | `...@Fri` | Norway, Sweden, Finland | 3.0 GB |
+| Saturday | `...@Sat` | Poland, Czechia, Slovenia, Croatia, Greece | 3.9 GB |
+
+The groups are `infra/files/usr/local/share/lunaway/osm-extracts.env`
+(`LUNAWAY_EXTRACTS_<Day>`, installed in `/usr/local/share/lunaway/`); the
+`pipeline` step enables one timer pair per key and disables a day removed,
+and `infra/verify.sh` checks that the groups hold every European extract
+but France once. Sunday is left to the routing graph and the speed cameras.
+A run downloads a file older than 20 hours (`--max-age-hours`), so a group
+run the day after a European run by hand reads the cache. A run that stops
+resumes after the last extract it stored, unless another run (France's
+daily one included) ran in between: `osm-extract/runs/places.json` holds
+one run.
+
+**Germany.** On 2026-10-06 Geofabrik answered `germany-latest.osm.pbf` with
+`307 Temporary Redirect` to `https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/germany-latest.osm.pbf`
+(from the backend and from the Mac), and every other extract with a
+redirect to a dated file on its own host. The importers follow a redirect
+only to the host first asked or to `REDIRECT_HOSTS`
+(`lunaway-ingest/src/http.rs`), which does not name that mirror, so the
+European run stopped on Germany. Germany's first import came from
+OpenStreetMap France's copy instead (`--mirror
+https://download.openstreetmap.fr/extracts --extract germany`, a host the
+code and `docs/data-sources.md` already allow; 5.9 GB, its cut wider than
+Geofabrik's, the elements outside Germany left out by position). Until the
+backend follows Geofabrik's mirror, Monday's group and the reading of
+OpenStreetMap's cameras after a new graph (`--europe`, Germany sixth in the
+list) fail on Germany; the status page shows it (Places imports).
+
+**First run** (2026-10-06, 19:23 to 21:21 UTC, the release's binary on the
+backend; `lunaway-admin`, memory sampled every 2 s in the unit's cgroup):
+
+| step | records or points | duration | memory, peak |
+|---|---|---|---|
+| places, France (cache) | 17 100 records | 4 min 31 s | 269 MiB anonymous; the cgroup at its 2.5 GiB soft cap with page cache |
+| places, Spain, Canary Islands, Portugal, Italy | 16 559 | 4 min 41 s | |
+| places, the 18 others (Geofabrik) | 38 673 | 55 min 30 s, 38 min of it Poland's download (2.1 GB at about 1 MB/s; the others at about 50 MB/s) | 170 MiB anonymous |
+| places, Germany (OpenStreetMap France) | 12 488, 198 pitches folded | 5 min 28 s (download 45 s, 120 MB/s) | |
+| places, France again (its retirement after its neighbours) | 17 100 unchanged, 0 retired | 4 min 35 s | |
+| points, 19 extracts | 1 040 675 points | 16 min 40 s | 1.07 GiB anonymous, 2.5 GiB with page cache |
+| points, Germany (OpenStreetMap France) | 365 392 points (9 856 outside Germany left out) | 8 min 3 s | 2.01 GiB anonymous |
+| points, France, Poland, Czechia, Andorra | 501 913 points, 1 retired | 10 min 10 s (France 6 min 11 s) | 1.55 GiB anonymous |
+| speed cameras of OpenStreetMap, 23 extracts and Germany | 40 604 cameras (5 341 in France, none in Switzerland) | 10 min 28 s and 2 min 41 s | 137 MiB anonymous |
+| full build of the zones and points | 37 685 cameras: 2 643 French zones, 26 092 points, 8 456 unplaced, 217 items retired | 7 min 38 s, 59 231 engine calls | 98.6 MB |
+
+After it: 84 820 live OpenStreetMap records (17 100 in France and Monaco,
+none without a country), 86 262 live places in 32 sync regions with places,
+1 907 980 points of interest (none without a country); the database grew
+from 1.0 GB to about 3.4 GB (`pois` 2.7 GB with 83 394 dead rows, `source_records` 144 MB,
+`places` 109 MB). The worker
+conflated the records as they came (`conflate` afterwards found nothing),
+and evaluated the opening hours of the new points over its next runs.
+
+**Packs.** `lunaway-packs.service` (`lunaway packs build`, the import role
+and user, loopback only, `/srv/data/packs` writable, 768 MB soft cap, 1 GB)
+after each conflation that follows a places import, and daily at 06:30 UTC.
+`/srv/data/packs` is `lunaway-ingest:caddy` 2750: the packs come out 0640,
+readable by Caddy and nobody else. The builder reads the sync epoch for the
+packs' cursors, which no migration of 38adf3d grants the import role:
+`GRANT SELECT ON sync_epoch TO lunaway_ingest` was applied by hand on
+2026-10-06 (the first build failed with `permission denied for table
+sync_epoch`), and `test-grants.sh` expects it until a migration carries it.
+First full set: 34 regions, 86 111 places, 9.15 MB gzip (Germany 1.41 MB the largest), 105 MB decompressed, 198.9 MB memory peak.
+Caddy serves `/packs/places/` on the API hosts (see "The domain"); the
+previous pack of a region stays until the next build. A takedown is
+`lunaway-admin packs build --region <code> --takedown`
+(`docs/region-packs.md`). Nothing to back up: each build writes the packs
+again. No shared cache may sit in front of `/packs/` without a purge.
+
+**Fuel along a route.** `Query.fuelAlongRoute` measures detours with the
+engine's matrix (`POST /sources_to_targets`): `infra/routing/valhalla.json`
+serves the action with `max_matrix_distance` 60 000 m for `auto` (a test of
+the API fails when the action is served with more; on 2026-10-06 the engine
+refused a pair from Lyon to Marseille with error 154, "Path distance
+exceeds the max distance limit: 60000 meters"). Its quota is
+`LUNAWAY_QUOTA_FUEL_ROUTE` (10 every ten minutes, the default). The fuel
+poller fills `fuel_price_days` at each run, 30 days kept.
+
+**Speed cameras** (`docs/speed-cameras.md`). `lunaway-enforcement.timer`
+(05:30 UTC) starts `lunaway-enforcement.service` (`lunaway enforcement
+build`), which pulls in `lunaway-cameras.service` (`lunaway ingest cameras
+--refresh`, the five official lists) first and runs whether a list failed
+or not. After each new routing graph, `lunaway-routing-refresh` queues
+`lunaway-enforcement-full.service` (`enforcement build --full`), which pulls
+in `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`,
+without `--refresh`: the cached extracts, at most a week old, so the
+download plan holds). The builds load `LUNAWAY_ZONE_SECRET` from
+`/etc/lunaway/zone.env` (see "Private settings") and call the engine on
+loopback; `/var/lib/lunaway-enforcement/built` dates the last build that
+succeeded. First runs: the lists in 6 s (France 3 664 rows, 3 204 cameras,
+458 routes of the radar cars left out, 2 within 1 km of Switzerland not
+stored; Poland 623, Luxembourg 39, Catalonia 230, Norway 461), 49.6 MB; the
+daily build in 12 min 4 s, 34 473 engine calls on the France graph, 2 809
+French zones, 891 camera points (Poland, Catalonia, Luxembourg), 751
+cameras unplaced (Norway's zones need a graph of Norway), 23.9 MB;
+the full build after OpenStreetMap's cameras in 7 min 38 s, 98.6 MB.
+
+**Disk.** On 2026-10-06 after the first run, the data volume held 34.1 GB of
+157 GB (115 GB free): 28.8 GB of extracts (Germany from OpenStreetMap
+France; Geofabrik's Germany will add 4.9 GB once followed), 5.1 GB of
+PostgreSQL, 16 MB of packs. No resize: the status page turns red at 80%.
 
 ## Status page
 
@@ -448,6 +613,7 @@ Mac's nightly job reads.
 | public | Offline packs manifest | `<tiles>/packs/manifest.json` answers 200, version 1, at least one pack |
 | public | POI TileJSON | `/poi/tiles.json` answers TileJSON 3.0.0 whose tiles are on the API host |
 | public | POI tile | a z13 tile over Annecy at the old version 1 (the current data, whatever the version) answers 200, more than 1000 bytes, within 3 s |
+| public | Regional packs manifest | `{ regions { code pack { url bytes } } }`: more than 30 regions, the first (FR-ARA) naming a pack under `https://<api host>/packs/places/` of more than 10 000 bytes |
 | public | Routing | `{ routing { available graph { builtAt } } }` answers `available: true`: an active graph, and the engine answers |
 | public | Witness route | every 15 minutes, a 3.3 m motorhome on Rue Maurice Utrillo in Limoges: `status OK` and more than 1000 m, round the 2.7 m bridge (four routes an hour, against a quota of 30 every ten minutes) |
 | public | Road events (DIR feed read) | `roadEventSources`: the DIR, first in the list, read less than 15 minutes ago |
@@ -463,6 +629,11 @@ Mac's nightly job reads.
 | backend | Offline packs | the probe: the packs' manifest names one pack per outline, its build is less than 35 days old and is the planet served (or the planet switched less than a day ago) |
 | backend | Fuel prices | the probe: the fuel price feed was stored less than 2 hours ago (eight runs of `lunaway-ingest-fuel` in a row failed otherwise) |
 | backend | Routing graph | the probe: `valhalla.service` active, serving a graph built less than 10 days ago (weekly build, daily refresh) |
+| backend | Places imports (France and Europe) | the probe: France's OpenStreetMap places read less than 30 hours ago, every other country's less than 8 days ago (`imports.json`), and no failed unit among the places and points imports, `lunaway-packs`, `lunaway-cameras*` and `lunaway-enforcement*` (a truncation guard that refuses a country fails its import) |
+| backend | Regional packs of places | the probe: no sync region has waited more than two days for a pack with its changes, and at least one pack exists |
+| backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
+| backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
+| backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
 
 The backend checks run the probe over SSH on the private network: Gatus
 logs in as `lunaway-pull` with its probe key, which the backend forces to
@@ -583,13 +754,16 @@ password, so the web console alone cannot log in.
 
 ### The domain
 
-The `lunaway.net` sites are in `infra/caddy/lunaway.net.caddy`, installed but
-not loaded:
+The `lunaway.net` sites are in `infra/caddy/lunaway.net.caddy`, enabled on
+2026-10-06 at about 20:08 UTC (`infra/enable-domain.sh`; A and AAAA records
+DNS only at Cloudflare, `status.lunaway.net` on the ops server; Let's
+Encrypt certificates for the five names, valid until 2027-01-04):
 
 | address | served from | notes |
 |---|---|---|
 | `api.lunaway.net` | lunaway-api | `/health` and `/graphql`; `/media/` below; anything else 404 |
 | `api.lunaway.net/media/` | `/srv/data/media` | a present file is served with a one-year immutable cache and a sandboxing CSP; a missing file or a directory is a plain 404, never listed |
+| `api.lunaway.net/packs/places/` | `/srv/data/packs/places` | the regional packs of places (`docs/region-packs.md`): only a name of the form `<region>-<seq>-<12 hex>.sqlite.gz`, written exactly so in the request (no `//`, `./`, percent-encoding or query string), a year of immutable cache, byte ranges, CORS for `https://lunaway.net`; GET, HEAD, OPTIONS; the work directory, a listing or any other name is a 404; logged as `/packs/places/[pack]` |
 | `lunaway.net/` | `/srv/lunaway/site` | website, script-free except `/account/delete` (its own CSP); `/privacy`, `/account/delete`, `/about` map to `privacy.html` or `privacy/index.html`; hashed assets cached a year, the rest five minutes |
 | `lunaway.net/app/` | `/srv/lunaway/web` | Flutter web build; the app's routes (`/app/place/42`) fall back to `/app/index.html`, a missing file (under `assets/`, `fonts/`, `canvaskit/`, `icons/`, or any name with an extension) is an empty 404, so a fallback font Flutter asks for never gets HTML; revalidated on every load; its CSP allows `tiles.lunaway.net` as the only tile host |
 | `www.lunaway.net` | | permanent redirect to `https://lunaway.net` |
@@ -618,7 +792,21 @@ CORS requests from `https://lunaway.net` only (the web app's origin);
 `LUNAWAY_API_HOST=api.lunaway.net`, `LUNAWAY_TILES_URL=https://tiles.lunaway.net`
 and `LUNAWAY_WEB_URL`, and rerun `infra/configure.sh ops ops-status`; set
 `LUNAWAY_MEDIA_BASE_URL=https://api.lunaway.net/media/` and rerun
-`infra/configure.sh backend api`.
+`infra/configure.sh backend api`. Done on 2026-10-06 with
+`LUNAWAY_WEB_URL=https://lunaway.net` and
+`LUNAWAY_STATUS_DOMAIN=status.lunaway.net`: the status page, its checks and
+`infra/verify.sh` use the public names, and the API names
+`https://api.lunaway.net` in the points' TileJSON and the packs' URLs. The
+photos' rows hold paths relative to the media root, so no row changed.
+
+The sslip.io names stay served: `infra/deploy-api.sh` and
+`infra/fdroid/publish.sh` check the backend through `LUNAWAY_HOSTNAME`,
+`infra/configure.sh` and `infra/server/caddy.sh` render the backend's site
+from it, the ops server's status page answers its own sslip.io name, and the
+Mac's nightly job installed before the domain reads
+`https://<ops sslip.io name>` (`infra/ops/mac/install.sh` writes
+`https://status.lunaway.net` into its plist once rerun with
+`LUNAWAY_STATUS_DOMAIN` set).
 
 ### Deploying the landing site and the web app
 
@@ -648,6 +836,7 @@ encrypted:
 | photos, age-encrypted | backend `/srv/data/backups/offsite/media/`, the ops server's `/srv/data/backups/postgresql/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date |
 | account deletion journal | backend `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps at 01:15 UTC into the ops server's and then the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the ops server and the Mac, until their next pull |
 | the F-Droid keys, age-encrypted | backend `/srv/data/backups/offsite/fdroid-keys-<stamp>.tar.age`, the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned (see "F-Droid repository") |
+| the danger zones' secret, age-encrypted | backend `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | never pruned (the pulls prune dumps by name) |
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
   (`pg_dump --format=custom`, zstd) and the roles (without password hashes),
@@ -794,6 +983,24 @@ skip every change made between the backup and its last sync.
 
 `globals-<stamp>.sql.age` holds the roles and their settings, without
 passwords; `infra/server/postgres.sh` sets the passwords again.
+
+The danger zones' secret (`LUNAWAY_ZONE_SECRET`, `docs/speed-cameras.md`)
+never changes once zones are served: every zone's cut and id come from it,
+so a new secret moves every zone, and two versions of a zone give away
+where its camera stands. A dump does not hold it. When `/etc/lunaway/zone.env`
+is lost (a new server, a rebuilt disk), the `pipeline` step refuses to
+generate another while `zone-secret.env.age` is on the data volume; put
+the old one back from the Mac before that step, without the plaintext
+touching a disk:
+
+```bash
+age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/zone-secret.env.age \
+  | ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/zone.env'
+```
+
+When the data volume is lost too, do the same before the first
+`infra/configure.sh backend`: a step that finds neither the secret nor its
+copy generates a new secret, and every zone moves at the next build.
 
 Photos come back from the Mac's copy: decrypt each file to its name without
 `.age` (its SHA-256 must equal its name), then copy the tree into
@@ -1261,7 +1468,9 @@ serving meanwhile.
   listener on 127.0.0.1:8002 only, read-only, no capability, a 3 GB memory
   cap, and an IP filter to loopback: the engine receives every route's
   positions and reaches nothing. Its configuration is the repository's
-  `infra/routing/valhalla.json` (route, trace_attributes and status only),
+  `infra/routing/valhalla.json` (route, trace_attributes, sources_to_targets
+  and status only; a matrix's points 60 km apart at most, for the fuel
+  search's detours),
   never the downloaded bundle's. Serving France measured 593 MiB after long
   routes; Lille to Nice with two alternatives takes 0.25 to 0.36 s and
   answers 4.5 MB (836 KB gzip). On the backend, after Lille to Nice and
@@ -1280,8 +1489,11 @@ serving meanwhile.
   (`lunaway routing load`), serves the new graph on 127.0.0.1:8003
   (`valhalla-candidate.service`) for the route tests, switches `current`
   by an atomic rename, restarts the engine, runs the tests again, then
-  activates the restrictions (`lunaway routing activate`). A failure before
-  the switch serves nothing new; after it, the previous graph comes back.
+  activates the restrictions (`lunaway routing activate`), then queues
+  `lunaway-enforcement-full.service`: the danger zones follow the roads of
+  the graph served, so they are all built again (also after `--rollback`).
+  A failure before the switch serves nothing new; after it, the previous
+  graph comes back.
   Two graphs stay: the current and the previous. A graph from the future,
   or not newer than the one a rollback refused, is not installed; a run
   that stopped between the switch and the activation is finished by the
@@ -1596,12 +1808,12 @@ sudo lunaway-admin road-events poll --force --only dir
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, kept 14 days |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
 | API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
-| imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 2 GB |
+| imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |
 | status page | Gatus under its own user with the same sandbox, listening on loopback; Caddy in front refuses anything but GET and HEAD |
-| routing | Valhalla under Podman, loopback only (8002, 8003 for a graph under test), read-only, no capability, an IP filter to loopback, only the route, trace_attributes and status actions, its configuration from the repository; the API refuses an engine URL that is not loopback, and calls it with no proxy and no redirect, bounded in time, answer size, calls in flight and routes per client; the graph is built off the server, pulled over HTTPS, accepted only with a signature of the build key, newer than the one served and less than 30 days old, unpacked by fixed names, and tested before and after the switch |
+| routing | Valhalla under Podman, loopback only (8002, 8003 for a graph under test), read-only, no capability, an IP filter to loopback, only the route, trace_attributes, sources_to_targets (60 km at most between a matrix's points) and status actions, its configuration from the repository; the API refuses an engine URL that is not loopback, and calls it with no proxy and no redirect, bounded in time, answer size, calls in flight and routes per client; the graph is built off the server, pulled over HTTPS, accepted only with a signature of the build key, newer than the one served and less than 30 days old, unpacked by fixed names, and tested before and after the switch |
 | basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), the tile volume read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges; the offline packs built as `lunaway-tiles` with no network at all, writing only `/srv/tiles/packs`; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates, byte ranges and pack names never logged |
 | F-Droid repository | the index signed by a key, and the APK by another, that exist only on the Mac (age-encrypted copies in the backup chain); fdroidserver pinned with hashes; served as static files, GET and HEAD only, sandbox CSP; fdroidserver's run reports never published |

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT region FROM places WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "region",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "region"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c0f16106b524ab67a4d5bd830d81e7c7f8bb6c29eaa196220032e498b5e4c6a8"
+}

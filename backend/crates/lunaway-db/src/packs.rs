@@ -153,7 +153,9 @@ impl Snapshot {
     pub async fn sources_of(&mut self, ids: &[Uuid]) -> Result<Vec<PlaceSourceRow>, DbError> {
         let rows = sqlx::query!(
             r#"
-            SELECT ps.place_id, ps.match_score, r.external_id, r.external_url, r.fetched_at,
+            SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,
+                   lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
+                       AS "fetched_at!",
                    s.id AS source_id, s.name, s.licence, s.attribution, s.url
             FROM place_sources ps
             JOIN source_records r ON r.id = ps.record_id

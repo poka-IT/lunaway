@@ -1,0 +1,73 @@
+# Imports the points of interest of one weekly group of European extracts
+# (the instance is the day, as for lunaway-ingest-osm-europe@.service) from
+# the files that import keeps in the cache, then evaluates their opening
+# hours. Ordered after the places import of the same group: its timer fires
+# 45 minutes later and waits for a places import still running. Without
+# --refresh, a file the places import could not download is fetched here.
+# Installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway import: points of interest, European extracts of %i
+After=postgresql.service network-online.target lunaway-ingest-osm-europe@%i.service lunaway-conflate.service lunaway-ingest-pois.service
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+EnvironmentFile=/usr/local/share/lunaway/osm-extracts.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway ingest pois $LUNAWAY_EXTRACTS_%i
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), and PostgreSQL on loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# The points of France took 1.53 GiB of anonymous memory and 2.1 GiB of
+# page cache at the peak (2026-10-06); Germany, the largest group, has the
+# same density of points per byte of file.
+MemoryHigh=2560M
+MemoryMax=3G

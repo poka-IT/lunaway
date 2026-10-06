@@ -286,6 +286,18 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ["INSERT"],
         "the API queues a place for the worker and reads nothing back"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "source_reads").await,
+        ["SELECT"],
+        "the API dates what it serves by the last read and records none"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_takedowns")
+            .await
+            .is_empty(),
+        "the API's role cannot take a place down: a leak of its credentials must not empty \
+         the catalogue"
+    );
     insert(&pool, "way/1").await;
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
@@ -438,6 +450,16 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         privileges(&pool, "lunaway_ingest", "sources").await,
         ["SELECT"],
         "lunaway_ingest on sources: written by migrations only"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "source_reads").await,
+        ["SELECT", "INSERT", "UPDATE"],
+        "the importers date their reads, the pack builder reads the dates"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_takedowns").await,
+        ["SELECT", "INSERT"],
+        "the catalogue's writer logs a takedown and never rewrites one"
     );
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "conflation_constraints").await,

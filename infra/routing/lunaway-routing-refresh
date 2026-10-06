@@ -126,6 +126,19 @@ switch_to() {
   wait_for "$LIVE"
 }
 
+# The speed camera zones follow the roads of the graph served: once another
+# graph serves, every zone is built again (lunaway-enforcement-full.service,
+# which reads OpenStreetMap's cameras first; docs/speed-cameras.md). Queued
+# without waiting: the build takes minutes and this run is done. A server
+# without the unit (before the pipeline step installs it) only logs it.
+rebuild_zones() {
+  if systemctl start --no-block lunaway-enforcement-full.service 2>/dev/null; then
+    log "zones: lunaway-enforcement-full.service queued for graph $1"
+  else
+    log "zones: lunaway-enforcement-full.service could not be queued; build them with: lunaway-admin enforcement build --full"
+  fi
+}
+
 if [ "${1:-}" = --rollback ]; then
   now=$(current_id)
   previous=$(cat "$ROUTING/previous" 2>/dev/null || true)
@@ -136,6 +149,7 @@ if [ "${1:-}" = --rollback ]; then
     printf '%s\n' "$now" >"$ROUTING/previous"
     # The next daily run must not bring the refused graph back.
     printf '%s\n' "$now" >"$ROUTING/refused"
+    rebuild_zones "$previous"
     exit 0
   fi
   switch_to "$now" || true
@@ -264,3 +278,4 @@ for old in $(ls -1 "$BUILDS" | grep -E "$ID_RE" | grep -vx "$id" | grep -vx "$pr
 done
 clear_incoming
 log "graph $id serves"
+rebuild_zones "$id"

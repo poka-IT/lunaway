@@ -379,7 +379,9 @@ impl Change {
 
 /// Places inside `bbox` changed after `since`, in feed order, at most
 /// `first`; plus whether more follow. Deletions are left out when
-/// `with_deletions` is false (a first sync has nothing to delete).
+/// `with_deletions` is false (a first sync has nothing to delete). A place
+/// taken down keeps no position: its tombstone goes to every box, a
+/// deletion of a place a device never held being a no-op for it.
 ///
 /// # Errors
 ///
@@ -405,7 +407,8 @@ pub async fn changes(
                reported_issues, verification, region
         FROM places
         WHERE updated_seq > $5
-          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+          AND (geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+               OR taken_down_at IS NOT NULL)
           AND ($6 OR deleted_at IS NULL)
         ORDER BY updated_seq
         LIMIT $7
@@ -626,7 +629,9 @@ pub struct PlaceSourceRow {
 pub async fn sources_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PlaceSourceRow>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT ps.place_id, ps.match_score, r.external_id, r.external_url, r.fetched_at,
+        SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,
+               lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
+                   AS "fetched_at!",
                s.id AS source_id, s.name, s.licence, s.attribution, s.url
         FROM place_sources ps
         JOIN source_records r ON r.id = ps.record_id

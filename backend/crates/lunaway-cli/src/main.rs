@@ -137,6 +137,28 @@ enum Command {
         /// tiles again at most this often (`pois::publish_layer`).
         #[arg(long, default_value_t = 360)]
         poi_layer_every_mins: u64,
+        /// Takes this place down for good instead of conflating: a private
+        /// home listed as a spot, a request under the GDPR, a court order.
+        /// It, the places merged into it and the records that describe them
+        /// are emptied, no later import writes those records again, and the
+        /// change feed tells every device. Then `moderation take-down`
+        /// deletes its community content, and the region's pack is built
+        /// again (both printed). Without `--yes`, prints what it touches.
+        #[arg(long, value_name = "PLACE", conflicts_with_all = ["full", "watch"], requires = "reason")]
+        take_down: Option<Uuid>,
+        /// Why, logged with the takedown: the kind of request and its
+        /// reference, never the requester's personal data.
+        #[arg(long, requires = "take_down")]
+        reason: Option<String>,
+        /// Takes it down for real.
+        #[arg(long, requires = "take_down")]
+        yes: bool,
+        /// Also empties the retired records near the place that name no
+        /// place (listed by the preview): they may be its own, unlinked
+        /// before Lunaway kept the place a record leaves, or another
+        /// spot's. Check the list first.
+        #[arg(long, requires = "take_down")]
+        with_nearby: bool,
     },
     /// Prints the counts of records, places, merges and the review queue.
     Stats,
@@ -405,6 +427,17 @@ enum Moderation {
     RemoveConfirmation {
         /// The answer.
         confirmation: Uuid,
+    },
+    /// The second step of a takedown, after `conflate --take-down` emptied
+    /// the place: deletes its reviews, photos (files included), "still
+    /// there?" answers and issue reports, and those of the places merged
+    /// into it. Without `--yes`, prints what it would delete.
+    TakeDown {
+        /// The place; a place merged into another names the other.
+        place: Uuid,
+        /// Deletes for real.
+        #[arg(long)]
+        yes: bool,
     },
 }
 
@@ -961,10 +994,27 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Command::Conflate {
+            take_down: Some(place),
+            reason,
+            yes,
+            with_nearby,
+            ..
+        } => {
+            take_down(
+                &pool,
+                place,
+                reason.as_deref().unwrap_or_default(),
+                yes,
+                with_nearby,
+            )
+            .await?;
+        }
+        Command::Conflate {
             full,
             watch,
             every_secs,
             poi_layer_every_mins,
+            ..
         } => {
             let poi_layer_every = Duration::from_secs(poi_layer_every_mins.saturating_mul(60));
             if full {
@@ -1063,6 +1113,13 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
             println!("human constraints: {}", s.constraints);
+            if s.takedowns_unpurged > 0 {
+                println!(
+                    "places taken down whose community content is still there: {} \
+                     (`moderation take-down <place> --yes`)",
+                    s.takedowns_unpurged
+                );
+            }
             println!(
                 "opening hours: {} places, {} parsed",
                 s.opening_hours.0, s.opening_hours.1
@@ -1677,6 +1734,9 @@ async fn moderation(
             }
             return Ok(());
         }
+        Moderation::TakeDown { place, yes } => {
+            return purge_taken_down(pool, media, place, yes).await;
+        }
         Moderation::RemoveConfirmation { confirmation } => {
             let Some(place) =
                 lunaway_db::moderation::remove_confirmation(pool, confirmation).await?
@@ -1700,6 +1760,149 @@ async fn moderation(
         }
     }
     Ok(())
+}
+
+fn print_preview(asked: Uuid, p: &lunaway_db::takedowns::Preview) {
+    println!(
+        "{}{}  {}  {}  region {}",
+        p.place,
+        if p.place == asked {
+            String::new()
+        } else {
+            format!(" (which absorbed {asked})")
+        },
+        p.name.as_deref().unwrap_or("(no name)"),
+        match (p.taken_down, p.live) {
+            (true, _) => "taken down",
+            (false, true) => "live",
+            (false, false) => "a tombstone",
+        },
+        p.region.as_deref().unwrap_or("none"),
+    );
+    println!(
+        "    merged places {}  records {}  reviews {}  photos {}  confirmations {}  \
+         issues {}  submissions {}",
+        p.merged, p.records, p.reviews, p.photos, p.confirmations, p.issue_reports, p.submissions
+    );
+    if p.unconflated > 0 {
+        println!(
+            "    {} records near it wait for the conflation (conflated first with --yes)",
+            p.unconflated
+        );
+    }
+    if !p.nearby.is_empty() {
+        println!(
+            "    retired records near it that name no place (emptied with --with-nearby only):"
+        );
+        for n in &p.nearby {
+            println!(
+                "      {} {}  {}  {}  {:.0} m",
+                n.source_id,
+                n.external_id,
+                n.kind,
+                n.name.as_deref().unwrap_or("(no name)"),
+                n.distance_m
+            );
+        }
+    }
+}
+
+/// `conflate --take-down`: the catalogue's step of a takedown, under the
+/// writers' lock with the importers' role, after a conflation of what
+/// waits (a record not read yet could become the place again).
+async fn take_down(
+    pool: &lunaway_db::PgPool,
+    place: Uuid,
+    reason: &str,
+    yes: bool,
+    with_nearby: bool,
+) -> anyhow::Result<()> {
+    use lunaway_db::{
+        conflation::begin_writer,
+        takedowns::{self, TakeDown},
+    };
+    let reason = reason.trim();
+    anyhow::ensure!(
+        !reason.is_empty() && reason.chars().count() <= 500,
+        "--reason takes 1 to 500 characters"
+    );
+    let Some(p) = takedowns::preview(pool, place).await? else {
+        anyhow::bail!("no place {place}");
+    };
+    print_preview(place, &p);
+    if !yes {
+        println!("not taken down: run again with --yes to empty it for good");
+        return Ok(());
+    }
+    lunaway_conflate::run(pool, chrono::Utc::now())
+        .await
+        .context("the conflation before the takedown failed")?;
+    let mut tx = begin_writer(pool).await?;
+    let done = match takedowns::take_down(&mut tx, place, reason, with_nearby).await? {
+        TakeDown::Done(done) => done,
+        TakeDown::NoPlace => anyhow::bail!("place {place} disappeared meanwhile"),
+        TakeDown::Unconflated(n) => anyhow::bail!(
+            "{n} records near the place arrived since the conflation; nothing done, run again"
+        ),
+    };
+    tx.commit().await?;
+    println!(
+        "{} taken down: {} places and {} records emptied; the change feed tells every device",
+        done.place, done.places, done.records
+    );
+    println!(
+        "next, at once (its photos stay served until then): \
+         lunaway moderation take-down {} --yes",
+        done.place
+    );
+    if let Some(region) = done.region {
+        println!("then: lunaway packs build --region {region} --takedown");
+    }
+    Ok(())
+}
+
+/// `moderation take-down`: the community's step of a takedown, with the
+/// API's role, once the place is emptied.
+async fn purge_taken_down(
+    pool: &lunaway_db::PgPool,
+    media: &lunaway_media::MediaStore,
+    place: Uuid,
+    yes: bool,
+) -> anyhow::Result<()> {
+    use lunaway_db::takedowns::{self, Purge};
+    let Some(p) = takedowns::preview(pool, place).await? else {
+        anyhow::bail!("no place {place}");
+    };
+    print_preview(place, &p);
+    anyhow::ensure!(
+        p.taken_down,
+        "{} is not taken down: run `lunaway conflate --take-down {} --reason TEXT --yes` \
+         first (the importers' role), so that nothing arrives after this step",
+        p.place,
+        p.place
+    );
+    if !yes {
+        println!("nothing deleted: run again with --yes");
+        return Ok(());
+    }
+    match takedowns::purge_community(pool, place).await? {
+        Purge::NoPlace => anyhow::bail!("no place {place}"),
+        Purge::NotTakenDown => anyhow::bail!("{place} is not taken down"),
+        Purge::Done {
+            place,
+            reviews,
+            photos,
+            confirmations,
+            issue_reports,
+            orphan_files,
+        } => {
+            println!(
+                "{place}: {reviews} reviews, {photos} photos, {confirmations} confirmations and \
+                 {issue_reports} issue reports deleted"
+            );
+            remove_files(media, &orphan_files).await
+        }
+    }
 }
 
 fn print_summary(s: &lunaway_db::accounts::AccountSummary) {
