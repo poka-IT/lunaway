@@ -41,7 +41,7 @@ use crate::{
     rate::RateLimiter,
 };
 
-/// Lowest zoom served: France fits in a few tiles of clusters.
+/// Lowest zoom served: a country fits in a few tiles of clusters.
 pub const MIN_ZOOM: i32 = 6;
 /// Highest zoom served; maps draw the tiles of this zoom beyond it.
 pub const MAX_ZOOM: i32 = 14;
@@ -54,8 +54,10 @@ pub const TILE_JSON_PATH: &str = "/poi/tiles.json";
 pub const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, La Poste, \
      Ministère de l'Économie (prix des carburants), FINESS";
 /// The area the layer covers (west, south, east, north), the extent of the
-/// imports: a tile outside it is empty without asking the database.
-pub const BOUNDS: [f64; 4] = [-5.8, 41.0, 10.0, 51.6];
+/// European import (`osm_extract::EUROPE`), from the Azores and the Canary
+/// Islands to Svalbard and Finland: a tile outside it is empty without
+/// asking the database.
+pub const BOUNDS: [f64; 4] = [-32.0, 27.0, 35.0, 81.0];
 /// What building a tile costs a client, on top of the request's own cost:
 /// a dense tile takes the database tens of milliseconds.
 const BUILD_COST: usize = 2_000;
@@ -460,12 +462,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tiles_far_from_france_are_known_empty() {
+    fn tiles_far_from_europe_are_known_empty() {
         let (x, y) = (4149, 2815);
         assert!(within_bounds(13, x, y), "Paris");
         assert!(within_bounds(6, 32, 22), "the tile of France at zoom 6");
+        assert!(within_bounds(6, 29, 26), "the Canary Islands at zoom 6");
+        assert!(within_bounds(6, 36, 18), "Helsinki at zoom 6");
         assert!(!within_bounds(14, 1, 1), "the Arctic Ocean");
         assert!(!within_bounds(13, 0, 4095), "the Pacific");
+        assert!(!within_bounds(6, 40, 24), "the Caspian Sea");
     }
 
     #[test]

@@ -59,6 +59,7 @@ impl ExtractArgs {
         Ok(ExtractPlan {
             extracts,
             mirror: self.mirror.clone(),
+            retry: lunaway_ingest::http::RetryPolicy::PATIENT,
             refresh: if self.refresh {
                 Refresh::OlderThan(Duration::from_secs(self.max_age_hours.saturating_mul(3600)))
             } else {

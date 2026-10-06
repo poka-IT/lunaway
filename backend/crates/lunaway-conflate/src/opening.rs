@@ -403,6 +403,91 @@ mod tests {
         );
     }
 
+    fn at(lat: f64, lon: f64) -> Position {
+        Position::new(lat, lon).unwrap()
+    }
+
+    #[test]
+    fn each_place_starts_its_window_at_its_own_midnight() {
+        // 23:30 UTC on Monday 2 November: already Tuesday in Paris and
+        // Helsinki, still Monday in Lisbon.
+        let now = Utc.with_ymd_and_hms(2026, 11, 2, 23, 30, 0).unwrap();
+        let lisbon = evaluate_at(Some("24/7"), Some("PT"), at(38.72, -9.14), now);
+        assert_eq!(
+            lisbon.window_start,
+            NaiveDate::from_ymd_opt(2026, 11, 2),
+            "a Lisbon place keeps its Monday: its open hour before midnight is known"
+        );
+        assert_eq!(
+            lisbon.refresh_at,
+            Some(utc(2026, 11, 3, 0)),
+            "and moves at Lisbon's midnight, UTC in winter"
+        );
+        let paris_place = evaluate_at(Some("24/7"), Some("FR"), paris(), now);
+        assert_eq!(
+            paris_place.window_start,
+            NaiveDate::from_ymd_opt(2026, 11, 3)
+        );
+        assert_eq!(paris_place.refresh_at, Some(utc(2026, 11, 3, 23)));
+        let helsinki = evaluate_at(Some("24/7"), Some("FI"), at(60.17, 24.94), now);
+        assert_eq!(helsinki.refresh_at, Some(utc(2026, 11, 3, 22)));
+        assert_eq!(
+            helsinki.intervals.unwrap()[0].start,
+            utc(2026, 11, 2, 22),
+            "Helsinki's day began at 22:00 UTC"
+        );
+    }
+
+    #[test]
+    fn islands_keep_their_own_time() {
+        let canary = at(28.1, -15.43);
+        assert_eq!(timezone_at("ES", canary), Some(Tz::Atlantic__Canary));
+        assert_eq!(
+            timezone_at("ES", at(40.42, -3.70)),
+            Some(Tz::Europe__Madrid)
+        );
+        assert_eq!(
+            timezone_at("PT", at(37.74, -25.67)),
+            Some(Tz::Atlantic__Azores)
+        );
+        assert_eq!(
+            timezone_at("PT", at(32.65, -16.91)),
+            Some(Tz::Atlantic__Madeira)
+        );
+        let e = evaluate(Some("24/7"), Some("ES"), canary, monday());
+        assert_eq!(
+            e.intervals.unwrap()[0].start,
+            utc(2026, 11, 2, 0),
+            "Canarian midnight is UTC midnight in winter, an hour after Madrid's"
+        );
+    }
+
+    #[test]
+    fn public_holidays_follow_each_country() {
+        // Saturday 3 October 2026, German Unity Day: a holiday in Germany,
+        // an ordinary Saturday in France.
+        let week = NaiveDate::from_ymd_opt(2026, 9, 28).unwrap();
+        let oh = "Mo-Su 09:00-18:00; PH off";
+        let open_on_the_3rd = |e: OpeningEval| {
+            e.intervals
+                .unwrap()
+                .iter()
+                .any(|i| i.start.date_naive() == NaiveDate::from_ymd_opt(2026, 10, 3).unwrap())
+        };
+        assert!(!open_on_the_3rd(evaluate(
+            Some(oh),
+            Some("DE"),
+            at(52.52, 13.40),
+            week
+        )));
+        assert!(open_on_the_3rd(evaluate(
+            Some(oh),
+            Some("FR"),
+            paris(),
+            week
+        )));
+    }
+
     #[test]
     fn a_daylight_saving_change_inside_the_window_is_handled() {
         // Monday 19 October 2026: clocks go back on Sunday 25 October.

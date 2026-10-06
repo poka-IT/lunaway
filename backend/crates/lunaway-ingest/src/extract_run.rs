@@ -59,6 +59,8 @@ pub struct ExtractPlan {
     pub mirror: String,
     /// When a cached file is downloaded again.
     pub refresh: Refresh,
+    /// Retries of a download (`RetryPolicy::PATIENT` in production).
+    pub retry: RetryPolicy,
 }
 
 /// What one extract of a run gave.
@@ -206,7 +208,7 @@ pub async fn run(
             cache,
             &spec.url(&plan.mirror),
             &spec.cache_key(&plan.mirror),
-            RetryPolicy::PATIENT,
+            plan.retry,
             plan.refresh,
         )
         .await?;

@@ -683,3 +683,211 @@ async fn a_partial_file_already_complete_is_downloaded_again_not_stuck() {
     assert_eq!(seen.len(), 2, "the 416, then the whole file: {seen:?}");
     assert_eq!(seen[1].0, "", "the second request asks for no range");
 }
+
+/// An extract of campsites, each `(id, lat, lon, name)`.
+fn campsites(sites: &[(i64, f64, f64, &str)]) -> Vec<u8> {
+    let mut s = Strings(vec![String::new()]);
+    let nodes: Vec<Vec<u8>> = sites
+        .iter()
+        .map(|(id, lat, lon, name)| {
+            node(
+                &mut s,
+                *id,
+                *lat,
+                *lon,
+                &[("tourism", "camp_site"), ("name", name)],
+            )
+        })
+        .collect();
+    file_of(&s, &nodes, &[])
+}
+
+/// Camping A near Angers; a German campsite a kilometre past the Rhine,
+/// which Geofabrik's French extract does not hold but OpenStreetMap
+/// France's does (Campingplatz Lug Ins Land, way/22888826, 2026-10-06).
+const ANGERS: (i64, f64, f64, &str) = (1, 47.40, -0.60, "Camping A");
+const PAST_THE_RHINE: (i64, f64, f64, &str) = (2, 47.711_934, 7.548_061, "Lug Ins Land");
+const BLACK_FOREST: (i64, f64, f64, &str) = (3, 48.0, 8.0, "Camping Schwarzwald");
+
+#[test]
+fn an_element_belongs_to_the_country_it_stands_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("france.osm.pbf");
+    std::fs::write(&path, campsites(&[ANGERS, PAST_THE_RHINE])).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 4, 20, 0, 0).unwrap();
+
+    let alone = osm_extract::read(&path, at, france()).unwrap();
+    let ids: Vec<&str> = alone
+        .records
+        .iter()
+        .map(|r| r.external_id.as_str())
+        .collect();
+    assert_eq!(ids, ["node/1"], "France alone keeps no German campsite");
+    assert_eq!(
+        alone.skipped,
+        vec![("node/2".to_owned(), Skip::OutsideArea)]
+    );
+    assert_eq!(
+        alone.records[0].record.address.country_code.as_deref(),
+        Some("FR")
+    );
+
+    let both = osm_extract::Coverage::of(&[
+        osm_extract::extract("france").unwrap(),
+        osm_extract::extract("germany").unwrap(),
+    ]);
+    let read = osm_extract::read(
+        &path,
+        at,
+        osm_extract::Area::of(&osm_extract::extract("france").unwrap(), &both),
+    )
+    .unwrap();
+    let german = read
+        .records
+        .iter()
+        .find(|r| r.external_id == "node/2")
+        .expect("a run of France and Germany keeps it");
+    assert_eq!(
+        german.record.address.country_code.as_deref(),
+        Some("DE"),
+        "its country, hence its scope, time zone and sync region, is Germany's"
+    );
+}
+
+/// A mirror serving `europe/<name>-latest.osm.pbf` from a table the test
+/// changes between runs; a name without a body answers 500.
+#[derive(Clone, Default)]
+struct Mirror {
+    files: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>>,
+}
+
+async fn serve_mirror(mirror: Mirror) -> std::net::SocketAddr {
+    use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get};
+    let app = axum::Router::new().route(
+        "/europe/{file}",
+        get(move |Path(file): Path<String>| {
+            let state = mirror.clone();
+            async move {
+                let name = file.trim_end_matches("-latest.osm.pbf").to_owned();
+                let body = state.files.lock().unwrap().get(&name).cloned();
+                match body {
+                    Some(body) => (StatusCode::OK, body).into_response(),
+                    None => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                }
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    addr
+}
+
+async fn scopes(pool: &sqlx::PgPool) -> Vec<(String, Option<String>, bool)> {
+    sqlx::query_as(
+        "SELECT external_id, scope, deleted_at IS NOT NULL FROM source_records \
+         WHERE source_id = 'osm' ORDER BY external_id",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_run_of_two_countries_stores_each_once_resumes_and_retires_by_country(
+    pool: sqlx::PgPool,
+) {
+    use lunaway_ingest::extract_run::{self, ExtractPlan, Layer};
+    let mirror = Mirror::default();
+    mirror
+        .files
+        .lock()
+        .unwrap()
+        .insert("france".into(), campsites(&[ANGERS, PAST_THE_RHINE]));
+    let addr = serve_mirror(mirror.clone()).await;
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let plan = |names: &[&str], refresh: Refresh| ExtractPlan {
+        extracts: names
+            .iter()
+            .map(|n| osm_extract::extract(n).unwrap())
+            .collect(),
+        mirror: format!("http://{addr}"),
+        refresh,
+        retry: fast(),
+    };
+    let fresh = Refresh::OlderThan(std::time::Duration::from_secs(3_600));
+
+    // Germany's file fails: France is stored, the run stops.
+    let failed = extract_run::run(
+        &pool,
+        &client,
+        &cache,
+        &plan(&["france", "germany"], fresh),
+        Layer::Places,
+    )
+    .await;
+    assert!(failed.is_err());
+    assert_eq!(
+        scopes(&pool).await,
+        [
+            ("node/1".to_owned(), Some("FR".to_owned()), false),
+            ("node/2".to_owned(), Some("DE".to_owned()), false),
+        ],
+        "each record under its country, the German one too since Germany is in the run"
+    );
+
+    // Germany answers: France, downloaded within the hour, is neither
+    // downloaded nor read again, and the campsite both files hold is stored
+    // once.
+    mirror
+        .files
+        .lock()
+        .unwrap()
+        .insert("germany".into(), campsites(&[PAST_THE_RHINE, BLACK_FOREST]));
+    let done = extract_run::run(
+        &pool,
+        &client,
+        &cache,
+        &plan(&["france", "germany"], fresh),
+        Layer::Places,
+    )
+    .await
+    .unwrap();
+    assert!(
+        done.extracts[0].resumed && done.extracts[0].cached,
+        "the stopped run had downloaded and stored France"
+    );
+    assert_eq!(
+        (done.extracts[1].records, done.extracts[1].duplicates),
+        (1, 1)
+    );
+    assert_eq!(done.retirement.retired, 0);
+
+    // Germany alone, without its campsite past the Rhine: retired, and the
+    // French campsite, outside the run, stays.
+    mirror
+        .files
+        .lock()
+        .unwrap()
+        .insert("germany".into(), campsites(&[BLACK_FOREST]));
+    let germany = extract_run::run(
+        &pool,
+        &client,
+        &cache,
+        &plan(&["germany"], Refresh::OlderThan(std::time::Duration::ZERO)),
+        Layer::Places,
+    )
+    .await
+    .unwrap();
+    assert_eq!(germany.retirement.retired, 1);
+    assert_eq!(
+        scopes(&pool).await,
+        [
+            ("node/1".to_owned(), Some("FR".to_owned()), false),
+            ("node/2".to_owned(), Some("DE".to_owned()), true),
+            ("node/3".to_owned(), Some("DE".to_owned()), false),
+        ]
+    );
+}
