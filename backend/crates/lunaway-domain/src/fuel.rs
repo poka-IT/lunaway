@@ -53,11 +53,16 @@ fn offset(a: Position, b: Position) -> (f64, f64) {
 
 /// Most degrees a corridor's line may cover, summed over its segments, each
 /// counted by its larger span (latitude or longitude): the grid indexes a
-/// segment cell by cell, so a line jumping across the globe and back would
-/// cost more than any route (a security audit of 2026-10-06 sent one across
-/// the antimeridian). A 2 500 km route due east at 71° N covers 2 500 /
-/// 36.2 = 69° of longitude.
+/// segment cell by cell, so a line jumping across the antimeridian and back
+/// would cost gigabytes while measuring a few kilometres. A 2 500 km route
+/// due east at 71° N covers 2 500 / 36.2 = 69° of longitude.
 pub const MAX_LINE_SPAN_DEG: f64 = 100.0;
+
+/// Most segments of the line one cell of the grid may list: a station
+/// checks every segment of its cell, and a line folding back and forth over
+/// one place would make each check scan the whole line. A real route
+/// crosses a 15 km cell once or twice, a few hundred segments.
+pub const MAX_SEGMENTS_PER_CELL: usize = 5_000;
 
 /// The degrees `points` cover, summed over its segments ([`MAX_LINE_SPAN_DEG`]).
 #[must_use]
@@ -107,7 +112,8 @@ pub struct Anchor {
 impl Corridor {
     /// The band of `half_width_m` metres around the route `points` (in
     /// driving order); none for fewer than two points, a width that is not
-    /// a positive number, or a line over [`MAX_LINE_SPAN_DEG`].
+    /// a positive number, a line over [`MAX_LINE_SPAN_DEG`], or one folding
+    /// over a cell more than [`MAX_SEGMENTS_PER_CELL`] times.
     #[must_use]
     pub fn new(points: Vec<Position>, half_width_m: f64) -> Option<Self> {
         if points.len() < 2
@@ -159,6 +165,12 @@ impl Corridor {
                     }
                 }
             }
+        }
+        if cells
+            .values()
+            .any(|list| list.len() > MAX_SEGMENTS_PER_CELL)
+        {
+            return None;
         }
         Some(Self {
             points,
@@ -375,8 +387,8 @@ impl Refuel {
 
 /// Splits stations sorted by their distance along the route into runs no
 /// longer than `max_span_m` from first to last: one engine call measures a
-/// run, and the engine refuses a matrix whose points lie too far apart
-/// (`max_matrix_distance`, 400 km in `infra/routing/valhalla.json`).
+/// run, and keeping it short keeps the engine's work local (it computes
+/// every pair of a matrix).
 #[must_use]
 pub fn runs(alongs_m: &[f64], max_span_m: f64) -> Vec<std::ops::Range<usize>> {
     let mut out = Vec::new();
@@ -510,6 +522,17 @@ mod tests {
             Corridor::new(zigzag, 250.0).is_none(),
             "the grid of such a line would take gigabytes"
         );
+    }
+
+    #[test]
+    fn a_line_folding_over_one_place_is_refused() {
+        // 6 000 segments back and forth over 125 m: 750 m of span, a
+        // grid of one cell listing every segment.
+        let folded: Vec<Position> = (0..6_001)
+            .map(|i| p(45.0, if i % 2 == 0 { 1.0 } else { 1.0016 }))
+            .collect();
+        assert!(line_span_deg(&folded) < MAX_LINE_SPAN_DEG);
+        assert!(Corridor::new(folded, 15_000.0).is_none());
     }
 
     #[test]

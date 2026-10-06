@@ -289,7 +289,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
 
 /// Logs an engine failure with its causes (a timeout, a refused
 /// connection), never a position.
-pub(crate) fn log_chain(error: &(dyn std::error::Error + 'static)) {
+fn log_chain(error: &(dyn std::error::Error + 'static)) {
     let mut chain = Vec::new();
     let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(error);
     while let Some(c) = cause {

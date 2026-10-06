@@ -770,6 +770,27 @@ mod tests {
     }
 
     #[test]
+    fn the_matrix_is_bounded_whenever_the_engine_serves_it() {
+        // Only the fuel search asks for matrices, its points less than 60 km
+        // apart: an engine that serves them takes no farther pairs.
+        let config: Value =
+            serde_json::from_str(include_str!("../../../../../infra/routing/valhalla.json"))
+                .unwrap();
+        let served = config["loki"]["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a == "sources_to_targets");
+        let distance = config["service_limits"]["auto"]["max_matrix_distance"]
+            .as_f64()
+            .unwrap();
+        assert!(
+            !served || distance <= 60_000.0,
+            "sources_to_targets is served with max_matrix_distance {distance}"
+        );
+    }
+
+    #[test]
     fn tolls_ferries_and_motorways_are_read_from_the_steps() {
         let route = serde_json::json!({"legs": [{"steps": [
             {"mode": "driving", "intersections": [{"classes": ["toll", "motorway"]}]},

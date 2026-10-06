@@ -27,9 +27,8 @@ use crate::{
     quota::{Action, Subject},
     routing::{
         RouteError,
-        valhalla::{Avoid, MatrixPoint, costing_options},
+        valhalla::{Avoid, EngineError, MatrixPoint, costing_options},
     },
-    routing_query::log_chain,
     schema::{DB_FIELD_COST, ROUTE_FIELD_COST, RouteOnce, db, state},
     types::LatLonInput,
 };
@@ -409,9 +408,17 @@ async fn measure(ctx: &Context<'_>, corridor: &Corridor, s: &Search, shortlist: 
             {
                 Ok(Ok(cells)) => cells,
                 Ok(Err(RouteError::NotSetUp)) => break,
+                // A station far from any road makes the engine refuse its
+                // whole run (Valhalla's 170 and 171): the other runs are
+                // still worth measuring.
+                Ok(Err(RouteError::Engine(EngineError::Refused { status: 400, code })))
+                    if code.starts_with("170:") || code.starts_with("171:") =>
+                {
+                    tracing::warn!(%code, "a run of fuel detours estimated");
+                    continue;
+                }
                 Ok(Err(error)) => {
-                    log_chain(&error);
-                    tracing::warn!("fuel detours estimated");
+                    warn_chain(&error);
                     break;
                 }
                 Err(_) => {
@@ -436,9 +443,20 @@ async fn measure(ctx: &Context<'_>, corridor: &Corridor, s: &Search, shortlist: 
     }
 }
 
-/// The corridor of `points` and the candidates among `stations`, on a
-/// blocking thread: a long route's grid and thousands of stations to place
-/// take milliseconds.
+/// Logs why the engine did not measure, with its causes, at warning level:
+/// the search answers anyway, with estimates. Never a position.
+fn warn_chain(error: &(dyn std::error::Error + 'static)) {
+    let mut chain = Vec::new();
+    let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(error);
+    while let Some(c) = cause {
+        chain.push(c.to_string());
+        cause = c.source();
+    }
+    tracing::warn!(error = %chain.join(": "), "fuel detours estimated");
+}
+
+/// The candidates among `stations`, located in `corridor` on a blocking
+/// thread: thousands of stations to place take milliseconds.
 async fn place(corridor: Arc<Corridor>, stations: Vec<StationPoint>) -> Result<Vec<Candidate>> {
     tokio::task::spawn_blocking(move || {
         stations
@@ -487,7 +505,9 @@ pub(crate) async fn along_route(
         tokio::task::spawn_blocking(move || Corridor::new(points, half_width_m))
             .await
             .map_err(|e| internal(&e))?
-            .ok_or_else(|| invalid_input("the route must hold two distinct points"))?,
+            .ok_or_else(|| {
+                invalid_input("the line folds over itself too often to search along it")
+            })?,
     );
     let now = Utc::now();
     let area = corridor_box(&corridor)?;
@@ -619,7 +639,7 @@ mod tests {
         ]));
         assert!(message(line_of(&across)).contains("km long"));
         // Back and forth across the antimeridian: 2.2 km a segment, but
-        // 360 degrees of grid each (security audit of 2026-10-06).
+        // 360 degrees of grid each.
         let mut zigzag = input();
         zigzag.polyline = None;
         zigzag.points = Some(

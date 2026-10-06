@@ -393,8 +393,8 @@ Not installed on 2026-10-06; the measurements and the run procedure are in
   targets, its points less than 60 km apart. Add `sources_to_targets` to
   `loki.actions` of `infra/routing/valhalla.json`, and lower
   `max_matrix_distance` to 60 000 m in the same change (only this search
-  uses the matrix; the security audit of 2026-10-06 asks for it before the
-  action is enabled). Until then every detour is estimated from the straight
+  uses the matrix; a test of the API fails when the action is served with a
+  larger distance). Until then every detour is estimated from the straight
   line (`detour.measured` false) and the API logs one warning per search.
   Its quota is `LUNAWAY_QUOTA_FUEL_ROUTE` (10 every ten minutes); the fuel
   poller fills `fuel_price_days`: the 31 046 prices of the feed on
