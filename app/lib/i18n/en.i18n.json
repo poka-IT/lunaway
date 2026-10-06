@@ -162,7 +162,7 @@
   },
   "location": {
     "rationaleTitle": "Show your position?",
-    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway's server, which keeps nothing of it.",
+    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway's server, which keeps nothing of it.",
     "allow": "Continue",
     "notNow": "Not now",
     "deniedTitle": "Position turned off for Lunaway",

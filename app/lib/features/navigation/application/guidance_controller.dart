@@ -540,9 +540,10 @@ class GuidanceController extends _$GuidanceController {
       _say(_words!.arrived);
       return;
     }
-    // A stop is behind once the vehicle has been there.
-    if (next.stops.isNotEmpty &&
-        fix.position.distanceTo(next.stops.first.position) < _stopReachedM) {
+    // A stop is behind once the vehicle has been there, or has driven past
+    // where the route comes nearest to it: a point off the road is reached
+    // where the router put it on the road.
+    if (next.stops.isNotEmpty && _passed(next.stops.first, fix, snap, next.route)) {
       next = next.copyWith(stops: next.stops.sublist(1));
     }
     final instruction = snap.instruction;
@@ -580,6 +581,12 @@ class GuidanceController extends _$GuidanceController {
       // distances, and whether one now lies ahead, follow it.
       _checkEvents();
     }
+  }
+
+  static bool _passed(RouteStop stop, Fix fix, GuidanceSnapshot snap, RouteOption route) {
+    if (fix.position.distanceTo(stop.position) < _stopReachedM) return true;
+    final near = nearestOnLine(stop.position, route.line);
+    return near != null && snap.distanceAlongM >= near.alongM;
   }
 
   /// The restrictions of the route within [warningReachM] ahead.

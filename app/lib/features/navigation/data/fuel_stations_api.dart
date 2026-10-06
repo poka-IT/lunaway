@@ -50,7 +50,11 @@ final class NearbyFuelStations implements FuelStationsSource {
   /// ahead.
   static const _spacingM = 8000.0;
   static const _samples = 5;
-  static const _radiusM = 5000.0;
+
+  /// The points leave the device rounded to the hundredth of a degree
+  /// (about a kilometre, 660 m off at most): the stations within 5 km of the
+  /// true point are still within this radius of the rounded one.
+  static const _radiusM = 5700.0;
   static const _roadFactor = 1.3;
   static const double _detourSpeedMps = 50 / 3.6;
 
@@ -65,7 +69,7 @@ final class NearbyFuelStations implements FuelStationsSource {
     final answers = await Future.wait([
       for (final p in points)
         _client.execute(fuelNearOperation, {
-          'at': {'lat': p.lat, 'lon': p.lon},
+          'at': {'lat': _rounded(p.lat), 'lon': _rounded(p.lon)},
           'radiusM': _radiusM,
         }),
     ]);
@@ -123,6 +127,8 @@ final class NearbyFuelStations implements FuelStationsSource {
       detourEstimated: true,
     );
   }
+
+  static double _rounded(double degrees) => (degrees * 100).round() / 100;
 
   /// The point [metres] along [line], null past its end.
   static LatLng? _pointAt(List<LatLng> line, double metres) {

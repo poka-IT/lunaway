@@ -554,8 +554,8 @@ class Translations$location$en {
 	/// en: 'Show your position?'
 	String get rationaleTitle => 'Show your position?';
 
-	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway's server, which keeps nothing of it.'
-	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway\'s server, which keeps nothing of it.';
+	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway's server, which keeps nothing of it.'
+	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway\'s server, which keeps nothing of it.';
 
 	/// en: 'Continue'
 	String get allow => 'Continue';
@@ -2256,7 +2256,7 @@ extension on Translations {
 			'sync.resuming' => ({required Object count}) => 'Downloading: ${count} places',
 			'sync.resume' => 'Resume',
 			'location.rationaleTitle' => 'Show your position?',
-			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position goes to Lunaway\'s server, which keeps nothing of it.',
+			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, and roughly for the fuel along it, your position goes to Lunaway\'s server, which keeps nothing of it.',
 			'location.allow' => 'Continue',
 			'location.notNow' => 'Not now',
 			'location.deniedTitle' => 'Position turned off for Lunaway',

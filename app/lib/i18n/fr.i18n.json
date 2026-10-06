@@ -162,7 +162,7 @@
   },
   "location": {
     "rationaleTitle": "Afficher votre position ?",
-    "rationale": "Lunaway s'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position part vers le serveur de Lunaway, qui n'en garde rien.",
+    "rationale": "Lunaway s'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, et de façon approchée pour le carburant le long du trajet, votre position part vers le serveur de Lunaway, qui n'en garde rien.",
     "allow": "Continuer",
     "notNow": "Pas maintenant",
     "deniedTitle": "Position désactivée pour Lunaway",

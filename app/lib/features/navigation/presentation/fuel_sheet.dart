@@ -124,7 +124,9 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
                 style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             Text(
-              t.navigation.fuel.attribution,
+              // The prices from the national feed; the stations, their names
+              // and places, from OpenStreetMap.
+              '${t.navigation.fuel.attribution}\n${t.navigation.preview.attributionOsm}',
               style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],

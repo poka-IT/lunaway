@@ -128,7 +128,10 @@ void main() {
       final offers = await NearbyFuelStations(client)
           .along(route: road, fromM: 1000, fuel: VehicleFuel.diesel);
       expect(asked, isNotEmpty);
-      expect(asked.first['at'], {'lat': closeTo(45, 1e-6), 'lon': closeTo(1.0127, 1e-3)});
+      // 1 km along the road, rounded to the hundredth of a degree before it
+      // leaves the device.
+      expect(asked.first['at'], {'lat': 45.0, 'lon': 1.01});
+      expect(asked.first['radiusM'], 5700);
       expect([for (final o in offers) o.id], ['by-the-road'], reason: 'diesel, ahead');
       final o = offers.single;
       expect(o.priceEur, 1.789);

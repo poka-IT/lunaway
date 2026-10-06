@@ -312,7 +312,7 @@ class _Translations$location$fr extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Afficher votre position ?';
-	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position part vers le serveur de Lunaway, qui n\'en garde rien.';
+	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, et de façon approchée pour le carburant le long du trajet, votre position part vers le serveur de Lunaway, qui n\'en garde rien.';
 	@override String get allow => 'Continuer';
 	@override String get notNow => 'Pas maintenant';
 	@override String get deniedTitle => 'Position désactivée pour Lunaway';
@@ -1176,7 +1176,7 @@ extension on TranslationsFr {
 			'sync.resuming' => ({required Object count}) => 'Téléchargement en cours : ${count} lieux',
 			'sync.resume' => 'Reprendre',
 			'location.rationaleTitle' => 'Afficher votre position ?',
-			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position part vers le serveur de Lunaway, qui n\'en garde rien.',
+			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, et de façon approchée pour le carburant le long du trajet, votre position part vers le serveur de Lunaway, qui n\'en garde rien.',
 			'location.allow' => 'Continuer',
 			'location.notNow' => 'Pas maintenant',
 			'location.deniedTitle' => 'Position désactivée pour Lunaway',

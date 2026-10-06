@@ -278,7 +278,9 @@ final class VehicleProfile {
       other.lengthM == lengthM &&
       other.weightT == weightT &&
       other.trailer?.lengthM == trailer?.lengthM &&
-      other.trailer?.weightT == trailer?.weightT;
+      other.trailer?.weightT == trailer?.weightT &&
+      other.trailer?.heightM == trailer?.heightM &&
+      other.trailer?.widthM == trailer?.widthM;
 
   @override
   int get hashCode =>

@@ -1,5 +1,5 @@
 /* The reason macOS shows when Lunaway first asks for the position. Each key
    of Info.plist ending in UsageDescription has a line here and in
    fr.lproj/InfoPlist.strings. */
-"NSLocationWhenInUseUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it. It also goes there when you add a place where you stand.";
-"NSLocationUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it. It also goes there when you add a place where you stand.";
+"NSLocationWhenInUseUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.";
+"NSLocationUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.";

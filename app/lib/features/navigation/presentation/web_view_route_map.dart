@@ -197,8 +197,11 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       case 'place':
         if (event['id'] case final String id) _props.onMarkTap?.call(id);
       case 'longpress':
-        if ((event['lat'], event['lon']) case (final num lat, final num lon)) {
-          _props.onLongPress?.call(LatLng(lat.toDouble(), lon.toDouble()));
+        // GL JS gives longitudes past 180 on the world's repeated copies.
+        if ((event['lat'], event['lon']) case (final num lat, final num lon)
+            when lat.abs() <= 90 && lon.isFinite) {
+          final wrapped = (lon + 180) % 360 - 180;
+          _props.onLongPress?.call(LatLng(lat.toDouble(), wrapped.toDouble()));
         }
       case 'link':
         if (Uri.tryParse('${event['url']}') case final url?) {

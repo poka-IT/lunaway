@@ -263,6 +263,22 @@ void main() {
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
     });
 
+    testWidgets('a stop off the road is behind once the route has passed it', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final road = LineTrack(plan.routes.first).at(800);
+      // 200 m north of the road: the router reaches it from the road.
+      final off = LatLng(road.lat + 0.0018, road.lon);
+      final app = await guide(
+        tester,
+        plan,
+        stops: [RouteStop(position: off, label: 'Fontaine')],
+      );
+      await drive(tester, plan, toM: 700);
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, hasLength(1));
+      await drive(tester, plan, toM: 1000);
+      expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
+    });
+
     testWidgets('a danger zone ahead shows in its banner, where the law allows one', (
       tester,
     ) async {
