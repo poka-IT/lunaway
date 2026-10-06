@@ -163,12 +163,7 @@ pub fn schema_builder() -> SchemaBuilder<QueryRoot, MutationRoot, EmptySubscript
 /// Builds the schema served over `state`.
 #[must_use]
 pub fn build_schema(state: ApiState) -> LunawaySchema {
-    let loader = DataLoader::new(
-        PlaceSourcesLoader {
-            pool: state.pool.clone(),
-        },
-        tokio::spawn,
-    );
+    let loader = DataLoader::new(PlaceSourcesLoader::Pool(state.pool.clone()), tokio::spawn);
     schema_builder().data(state).data(loader).finish()
 }
 
@@ -219,8 +214,14 @@ const CHANGES_CURSOR: &str = "c2.";
 const CHANGES_CURSOR_V1: &str = "c1.";
 const PLACES_CURSOR: &str = "p1.";
 
-fn changes_cursor(head: &places::FeedHead, seq: i64) -> String {
+pub(crate) fn changes_cursor(head: &places::FeedHead, seq: i64) -> String {
     format!("{CHANGES_CURSOR}{}.{seq}", head.identity())
+}
+
+/// What a sync page covers.
+enum FeedArea {
+    BBox(lunaway_domain::BBox),
+    Region(&'static str),
 }
 
 /// A `since` cursor, read before the database is asked anything.
@@ -335,29 +336,47 @@ impl QueryRoot {
             .collect())
     }
 
-    /// Syncs a region: the places inside `bbox` created or changed since the
-    /// cursor `since` (null for everything), oldest change first, at most
-    /// `first` (1000 at most), and the places deleted since. A cursor issued
-    /// by another copy of the database (after a restore) is refused with the
-    /// code `RESYNC`: sync again with `since: null`.
+    /// Syncs a region: the places inside `bbox`, or of the sync region
+    /// `region` (`Query.regions`, one of the two), created or changed since
+    /// the cursor `since` (null for everything), oldest change first, at
+    /// most `first` (1000 at most), and the places deleted since. A device
+    /// that imported a region's pack continues with `region` and the pack's
+    /// cursor. A cursor issued by another copy of the database (after a
+    /// restore) is refused with the code `RESYNC`: sync again with `since:
+    /// null`, or from the region's current pack.
     #[graphql(complexity = "cost(first, MAX_CHANGES_PAGE, child_complexity)")]
     async fn changes(
         &self,
         ctx: &Context<'_>,
-        bbox: BBoxInput,
+        bbox: Option<BBoxInput>,
+        region: Option<String>,
         since: Option<String>,
         #[graphql(default = 1000)] first: Option<i32>,
     ) -> Result<ChangeSet> {
-        let area = self::bbox(bbox, MAX_CHANGES_AREA_DEG2)?;
+        let area = match (bbox, region.as_deref()) {
+            (Some(b), None) => FeedArea::BBox(self::bbox(b, MAX_CHANGES_AREA_DEG2)?),
+            (None, Some(r)) => FeedArea::Region(
+                lunaway_domain::region::sync_region(r)
+                    .ok_or_else(|| invalid_input(format!("region {r:?} is not a sync region")))?
+                    .code,
+            ),
+            _ => return Err(invalid_input("give either bbox or region")),
+        };
         let first = page(first.unwrap_or(MAX_CHANGES_PAGE), MAX_CHANGES_PAGE)?;
         let since = parse_since(since.as_deref())?;
         let (pool, _permit) = db(ctx).await?;
         let head = places::feed_head(pool).await.map_err(|e| internal(&e))?;
         let since_seq = since_seq(&since, &head)?;
-        let (changes, has_more) =
-            places::changes(pool, area, since_seq, first, since != Since::Start)
-                .await
-                .map_err(|e| internal(&e))?;
+        let with_deletions = since != Since::Start;
+        let (changes, has_more) = match area {
+            FeedArea::BBox(area) => {
+                places::changes(pool, area, since_seq, first, with_deletions).await
+            }
+            FeedArea::Region(code) => {
+                places::changes_in_region(pool, code, since_seq, first, with_deletions).await
+            }
+        }
+        .map_err(|e| internal(&e))?;
         let cursor_seq = changes.last().map_or(since_seq, places::Change::seq);
         let mut out = Vec::new();
         let mut deleted = Vec::new();
@@ -373,6 +392,31 @@ impl QueryRoot {
             cursor: changes_cursor(&head, cursor_seq),
             has_more,
         })
+    }
+
+    /// The regions a device can keep offline, with the pack to download
+    /// first for each (`docs/region-packs.md`).
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn regions(&self, ctx: &Context<'_>) -> Result<Vec<crate::region_types::SyncRegion>> {
+        let (pool, _permit) = db(ctx).await?;
+        let head = places::feed_head(pool).await.map_err(|e| internal(&e))?;
+        let packs = lunaway_db::packs::all(pool)
+            .await
+            .map_err(|e| internal(&e))?;
+        let public_url = &state(ctx).config.tiles.public_url;
+        Ok(lunaway_domain::region::SYNC_REGIONS
+            .iter()
+            .map(|r| crate::region_types::SyncRegion {
+                code: r.code.to_owned(),
+                country: r.country.to_owned(),
+                name: r.name_en.to_owned(),
+                name_fr: r.name_fr.to_owned(),
+                pack: packs
+                    .iter()
+                    .find(|p| p.region == r.code)
+                    .and_then(|p| crate::region_types::pack_of(p, &head, public_url)),
+            })
+            .collect())
     }
 
     /// The places of a viewport (500 per page at most, viewport area

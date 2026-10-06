@@ -13,8 +13,7 @@ use crate::{
     http::RetryPolicy,
     municipalities,
     osm::{self, OverpassConfig, Region},
-    osm_extract,
-    store::{StoreReport, store_complete, store_whole_source},
+    store::{StoreReport, store_complete},
 };
 
 /// What the import of one OSM region did.
@@ -82,106 +81,6 @@ pub async fn osm_regions(
         }
     }
     Ok(out)
-}
-
-/// What the import of an OSM extract did.
-#[derive(Debug, Clone)]
-pub struct OsmExtractReport {
-    /// Whether the extract was already downloaded.
-    pub cached: bool,
-    /// Records mapped.
-    pub records: usize,
-    /// Elements outside the imported area or without coordinates.
-    pub skipped: usize,
-    /// Dump stations folded into their site.
-    pub attached_dump_stations: usize,
-    /// Pitches folded into their site.
-    pub folded_pitches: usize,
-    /// What the store did.
-    pub store: StoreReport,
-}
-
-/// Imports OpenStreetMap from a country extract: download (or the cached
-/// file), read on a blocking thread, store as the whole OSM source.
-///
-/// # Errors
-///
-/// [`IngestError`] when the download, the read or a write fails.
-pub async fn osm_extract(
-    pool: &PgPool,
-    http: &reqwest::Client,
-    cache: &Cache,
-    url: &str,
-    refresh: bool,
-) -> Result<OsmExtractReport, IngestError> {
-    let extract = osm_extract::fetch(http, cache, url, RetryPolicy::PATIENT, refresh).await?;
-    let path = extract.path.clone();
-    let fetched_at = extract.fetched_at;
-    tracing::info!(path = %path.display(), "reading the extract");
-    let parsed = tokio::task::spawn_blocking(move || osm_extract::read(&path, fetched_at))
-        .await
-        .map_err(IngestError::Blocking)??;
-    let store =
-        store_whole_source(pool, &SourceId::OSM, osm_extract::SCOPE, &parsed.records).await?;
-    Ok(OsmExtractReport {
-        cached: extract.cached,
-        records: parsed.records.len(),
-        skipped: parsed.skipped.len(),
-        attached_dump_stations: parsed.attached_dump_stations,
-        folded_pitches: parsed.folded_pitches,
-        store,
-    })
-}
-
-/// What the import of the points of interest did.
-#[derive(Debug, Clone)]
-pub struct PoiExtractReport {
-    /// Whether the extract was already downloaded.
-    pub cached: bool,
-    /// Points mapped.
-    pub points: usize,
-    /// Points by kind.
-    pub by_kind: std::collections::BTreeMap<lunaway_domain::poi::PoiKind, usize>,
-    /// Elements outside the imported area or left out by the mapping.
-    pub skipped: usize,
-    /// What the store did.
-    pub store: crate::store::StoreReport,
-}
-
-/// Imports the points of interest from a country extract (the one the
-/// places import downloads, read from the cache unless `refresh`), as the
-/// whole OpenStreetMap part of the layer. Their hours are evaluated by the
-/// worker afterwards.
-///
-/// # Errors
-///
-/// [`IngestError`] when the download, the read or a write fails.
-pub async fn pois_extract(
-    pool: &PgPool,
-    http: &reqwest::Client,
-    cache: &Cache,
-    url: &str,
-    refresh: bool,
-) -> Result<PoiExtractReport, IngestError> {
-    let extract = osm_extract::fetch(http, cache, url, RetryPolicy::PATIENT, refresh).await?;
-    let path = extract.path.clone();
-    let fetched_at = extract.fetched_at;
-    tracing::info!(path = %path.display(), "reading the extract for points of interest");
-    let parsed = tokio::task::spawn_blocking(move || crate::poi_osm::read(&path, fetched_at))
-        .await
-        .map_err(IngestError::Blocking)??;
-    let mut by_kind = std::collections::BTreeMap::new();
-    for p in &parsed.points {
-        *by_kind.entry(p.record.kind).or_insert(0) += 1;
-    }
-    let store = crate::store::store_pois(pool, &SourceId::OSM, &parsed.points).await?;
-    Ok(PoiExtractReport {
-        cached: extract.cached,
-        points: parsed.points.len(),
-        by_kind,
-        skipped: parsed.skipped.len(),
-        store,
-    })
 }
 
 /// What the Atout France import did.

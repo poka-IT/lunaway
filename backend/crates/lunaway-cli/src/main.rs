@@ -3,17 +3,19 @@
 //! ```text
 //! lunaway migrate
 //! lunaway ingest osm [--region FR-BRE]... [--refresh]
-//! lunaway ingest osm-extract [--url URL] [--refresh]
+//! lunaway ingest osm-extract [--extract NAME]... [--europe] [--refresh] [--max-age-hours 20]
 //! lunaway ingest atout-france [--refresh]
 //! lunaway ingest municipalities [--url URL] [--refresh]
-//! lunaway ingest pois [--url URL] [--refresh]
+//! lunaway ingest pois [--extract NAME]... [--europe] [--refresh] [--max-age-hours 20]
 //! lunaway ingest fuel [--refresh]
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
 //! lunaway pois hours
 //! lunaway pois stats
-//! lunaway conflate [--full] [--watch [--every-secs 300]]
+//! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
 //! lunaway stats
+//! lunaway packs build --dir DIR [--region FR-BRE]...
+//! lunaway packs list
 //! lunaway moderation list [--limit 50]
 //! lunaway moderation approve|reject <entry-id> [--note TEXT]
 //! lunaway moderation ban <account-id> --reason TEXT
@@ -49,6 +51,9 @@
 //! (the fetch looked truncated) exits with an error after its report, so a
 //! timer or a script sees it.
 
+mod extracts;
+mod packs;
+
 use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
@@ -57,7 +62,7 @@ use lunaway_ingest::{
     cache::Cache,
     http::{self, RetryPolicy},
     osm::{self, OverpassConfig},
-    osm_extract, run,
+    run,
 };
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
@@ -102,9 +107,19 @@ enum Command {
         /// Longest pause between two runs of `--watch`, seconds.
         #[arg(long, default_value_t = 300)]
         every_secs: u64,
+        /// Shortest time between two versions of the points layer's tiles,
+        /// minutes: changes wait for the next one, so devices fetch their
+        /// tiles again at most this often (`pois::publish_layer`).
+        #[arg(long, default_value_t = 360)]
+        poi_layer_every_mins: u64,
     },
     /// Prints the counts of records, places, merges and the review queue.
     Stats,
+    /// The regional first-sync packs.
+    Packs {
+        #[command(subcommand)]
+        action: packs::Packs,
+    },
     /// The layer of points of interest around the places.
     Pois {
         #[command(subcommand)]
@@ -309,15 +324,12 @@ enum Source {
         #[arg(long, default_value_t = 20)]
         pace_secs: u64,
     },
-    /// OpenStreetMap from Geofabrik's France extract: the whole country in
-    /// one download, without load on a shared Overpass instance.
+    /// OpenStreetMap from Geofabrik's extracts: France, or France and its
+    /// neighbours country by country, without load on a shared Overpass
+    /// instance.
     OsmExtract {
-        /// Extract to download.
-        #[arg(long, default_value = osm_extract::FRANCE_EXTRACT_URL)]
-        url: String,
-        /// Downloads the extract again instead of reading the cache.
-        #[arg(long)]
-        refresh: bool,
+        #[command(flatten)]
+        extracts: extracts::ExtractArgs,
     },
     /// Atout France's classified campsites, geocoded with the BAN.
     AtoutFrance {
@@ -326,15 +338,11 @@ enum Source {
         refresh: bool,
     },
     /// The points of interest (shops, vending machines, water, fuel,
-    /// health, services) from the France extract the places import
-    /// downloads, then their opening hours.
+    /// health, services) from the extracts the places import downloads,
+    /// then their opening hours.
     Pois {
-        /// Extract to download when it is not cached.
-        #[arg(long, default_value = osm_extract::FRANCE_EXTRACT_URL)]
-        url: String,
-        /// Downloads the extract again instead of reading the cache.
-        #[arg(long)]
-        refresh: bool,
+        #[command(flatten)]
+        extracts: extracts::ExtractArgs,
     },
     /// The French fuel price feed (prices, LPG, shortages, services),
     /// joined to the fuel stations by their id in the feed. Meant to run
@@ -500,92 +508,38 @@ async fn main() -> anyhow::Result<()> {
                         .collect();
                     check_retirement(&refused)?;
                 }
-                Source::OsmExtract { url, refresh } => {
-                    let r = run::osm_extract(&pool, &client, &cache, &url, refresh)
-                        .await
-                        .context("osm extract import failed")?;
-                    println!("records mapped: {}", r.records);
-                    println!(
-                        "dump stations folded into their site: {}",
-                        r.attached_dump_stations
-                    );
-                    println!("pitches folded into their site: {}", r.folded_pitches);
-                    println!(
-                        "elements skipped (outside the area, no coordinates): {}",
-                        r.skipped
-                    );
-                    println!(
-                        "stored: {} inserted, {} changed, {} unchanged, {} retired{}{}",
-                        r.store.upsert.inserted,
-                        r.store.upsert.changed,
-                        r.store.upsert.unchanged,
-                        r.store.retired,
-                        if r.store.retire_refused {
-                            " (retiring refused: truncated?)"
-                        } else {
-                            ""
-                        },
-                        if r.cached {
-                            ", extract from the cache"
-                        } else {
-                            ""
-                        }
-                    );
-                    check_retirement(if r.store.retire_refused {
-                        &["osm extract"]
-                    } else {
-                        &[]
-                    })?;
-                }
-                Source::Pois { url, refresh } => {
-                    let r = run::pois_extract(&pool, &client, &cache, &url, refresh)
-                        .await
-                        .context("points of interest import failed")?;
-                    println!("points mapped: {}", r.points);
-                    for (kind, n) in &r.by_kind {
-                        println!(
-                            "  {:<12} {:<22} {:>7}",
-                            kind.category().code(),
-                            kind.code(),
-                            n
-                        );
-                    }
-                    println!(
-                        "elements skipped (outside the area, left out): {}",
-                        r.skipped
-                    );
-                    println!(
-                        "stored: {} inserted, {} changed, {} unchanged, {} retired{}{}",
-                        r.store.upsert.inserted,
-                        r.store.upsert.changed,
-                        r.store.upsert.unchanged,
-                        r.store.retired,
-                        if r.store.retire_refused {
-                            " (retiring refused: truncated?)"
-                        } else {
-                            ""
-                        },
-                        if r.cached {
-                            ", extract from the cache"
-                        } else {
-                            ""
-                        }
-                    );
-                    let h = lunaway_conflate::pois::refresh_hours(
+                Source::OsmExtract { extracts } => {
+                    let plan = extracts.plan()?;
+                    let r = lunaway_ingest::extract_run::run(
                         &pool,
-                        lunaway_conflate::opening::today_in_france(),
+                        &client,
+                        &cache,
+                        &plan,
+                        lunaway_ingest::extract_run::Layer::Places,
                     )
                     .await
-                    .context("opening hours of the points failed")?;
+                    .context("osm extract import failed")?;
+                    extracts::print_run(&r, "records")?;
+                }
+                Source::Pois { extracts } => {
+                    let plan = extracts.plan()?;
+                    let r = lunaway_ingest::extract_run::run(
+                        &pool,
+                        &client,
+                        &cache,
+                        &plan,
+                        lunaway_ingest::extract_run::Layer::Pois,
+                    )
+                    .await
+                    .context("points of interest import failed")?;
+                    let h = lunaway_conflate::pois::refresh_hours(&pool, chrono::Utc::now())
+                        .await
+                        .context("opening hours of the points failed")?;
                     println!(
                         "opening hours evaluated: {} ({} from La Poste), {} changed on the map",
                         h.evaluated, h.from_laposte, h.changed
                     );
-                    check_retirement(if r.store.retire_refused {
-                        &["points of interest"]
-                    } else {
-                        &[]
-                    })?;
+                    extracts::print_run(&r, "points")?;
                 }
                 Source::Fuel { refresh } => {
                     let r = lunaway_ingest::fuel::import(
@@ -634,7 +588,7 @@ async fn main() -> anyhow::Result<()> {
                         if r.cached { ", from the cache" } else { "" }
                     );
                     print_join_store(&r.store);
-                    let h = lunaway_conflate::pois::refresh_hours(&pool, today)
+                    let h = lunaway_conflate::pois::refresh_hours(&pool, chrono::Utc::now())
                         .await
                         .context("opening hours of the points failed")?;
                     println!(
@@ -743,7 +697,9 @@ async fn main() -> anyhow::Result<()> {
             full,
             watch,
             every_secs,
+            poi_layer_every_mins,
         } => {
+            let poi_layer_every = Duration::from_secs(poi_layer_every_mins.saturating_mul(60));
             if full {
                 let n = lunaway_db::records::mark_all_dirty(&pool).await?;
                 println!("{n} records flagged for a full rebuild");
@@ -753,16 +709,22 @@ async fn main() -> anyhow::Result<()> {
                 lunaway_conflate::watch(
                     &pool,
                     Duration::from_secs(every_secs.max(1)),
-                    lunaway_conflate::opening::today_in_france,
+                    poi_layer_every,
+                    chrono::Utc::now,
                 )
                 .await
                 .context("the conflation worker cannot listen")?;
                 return Ok(());
             }
-            let today = lunaway_conflate::opening::today_in_france();
-            let s = lunaway_conflate::run(&pool, today)
+            let s = lunaway_conflate::run(&pool, chrono::Utc::now())
                 .await
                 .context("conflation failed")?;
+            if let Some(v) = lunaway_conflate::pois::publish_layer(&pool, poi_layer_every)
+                .await
+                .context("publishing the points layer failed")?
+            {
+                println!("points layer: tiles version {v}");
+            }
             println!("records flagged: {}", s.dirty);
             println!(
                 "pairs scored: {} ({} merge, {} review)",
@@ -802,6 +764,7 @@ async fn main() -> anyhow::Result<()> {
                 );
             }
         }
+        Command::Packs { action } => packs::run(&pool, action).await?,
         Command::Stats => {
             let s = lunaway_db::stats::read(&pool).await?;
             println!("source         live  deleted  waiting");
@@ -840,12 +803,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Pois { action } => match action {
             Pois::Hours => {
-                let h = lunaway_conflate::pois::refresh_hours(
-                    &pool,
-                    lunaway_conflate::opening::today_in_france(),
-                )
-                .await
-                .context("opening hours of the points failed")?;
+                let h = lunaway_conflate::pois::refresh_hours(&pool, chrono::Utc::now())
+                    .await
+                    .context("opening hours of the points failed")?;
                 println!(
                     "opening hours evaluated: {} ({} from La Poste), {} changed on the map",
                     h.evaluated, h.from_laposte, h.changed
@@ -854,7 +814,14 @@ async fn main() -> anyhow::Result<()> {
             Pois::Stats => {
                 let s = lunaway_db::pois::layer_stats(&pool).await?;
                 let v = lunaway_db::pois::layer_version(&pool).await?;
-                println!("tiles version {} (moved {})", v.version, v.changed_at);
+                println!(
+                    "tiles version {} (moved {}){}",
+                    v.version,
+                    v.changed_at,
+                    v.pending_since
+                        .map(|t| format!(", changes waiting since {t}"))
+                        .unwrap_or_default()
+                );
                 println!("source        category   kind                    points");
                 let mut total = 0;
                 for (source, category, kind, n) in &s.by_kind {

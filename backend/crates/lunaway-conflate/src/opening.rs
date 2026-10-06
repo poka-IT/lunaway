@@ -4,16 +4,20 @@
 //! server ships two weeks of open intervals with each place and refreshes
 //! them daily.
 //!
-//! The window runs from local midnight of `today` for
-//! [`OPENING_WINDOW_DAYS`] days, in the timezone of the place's country:
-//! [`timezone_of`] maps a country code to its zone; a country it does not
-//! know yields no intervals rather than intervals in the wrong zone. Public
-//! holidays (`PH`) follow the national calendar embedded in the
+//! The window runs from local midnight of the place's own today for
+//! [`OPENING_WINDOW_DAYS`] days, in the time zone of where it is:
+//! [`timezone_at`] maps a country to its zone, and the Canary Islands, the
+//! Azores and Madeira to theirs; a country it does not know yields no
+//! intervals rather than intervals in the wrong zone. The window moves at
+//! the next local midnight (`refresh_at`), so a place in Lisbon and one in
+//! Helsinki each start their day at their own midnight. Public holidays
+//! (`PH`) follow the national calendar of the country, embedded in the
 //! `opening-hours` crate (Nager.Date data); regional holidays are not
 //! applied, so in Alsace-Moselle Good Friday and 26 December count as
-//! ordinary days. Sun events (`sunrise`, `sunset`) are computed at the
-//! place's position. Only `open` periods become intervals: `unknown` ones
-//! ("on appointment", a comment without a time) are not claimed as open.
+//! ordinary days, and so do the holidays of a German Land or a Spanish
+//! community. Sun events (`sunrise`, `sunset`) are computed at the place's
+//! position. Only `open` periods become intervals: `unknown` ones ("on
+//! appointment", a comment without a time) are not claimed as open.
 //!
 //! Two bounds keep a hostile or broken value cheap: an expression longer
 //! than OSM allows ([`MAX_EXPRESSION_CHARS`]) is not evaluated, and at most
@@ -38,10 +42,9 @@ pub const MAX_EXPRESSION_CHARS: usize = 255;
 /// cost thousands of rows in every sync page.
 pub const MAX_INTERVALS: usize = 256;
 
-/// The zone of a country, for the countries the data covers so far and
-/// their neighbours, each a single-zone country in Europe. Metropolitan
-/// France is `Europe/Paris`; its overseas departments share the code `FR`
-/// in addresses but are not imported, so the mapping holds for the data.
+/// The zone of a country, for the countries the data covers and their
+/// neighbours. A country with islands in another zone (Spain, Portugal)
+/// maps to its mainland zone here; [`timezone_at`] tells the islands apart.
 #[must_use]
 pub fn timezone_of(country_code: &str) -> Option<Tz> {
     Some(match country_code.to_ascii_uppercase().as_str() {
@@ -49,18 +52,92 @@ pub fn timezone_of(country_code: &str) -> Option<Tz> {
         "BE" => Tz::Europe__Brussels,
         "LU" => Tz::Europe__Luxembourg,
         "CH" => Tz::Europe__Zurich,
+        "LI" => Tz::Europe__Vaduz,
         "DE" => Tz::Europe__Berlin,
+        "AT" => Tz::Europe__Vienna,
         "IT" => Tz::Europe__Rome,
+        "SM" => Tz::Europe__San_Marino,
+        "VA" => Tz::Europe__Vatican,
         "AD" => Tz::Europe__Andorra,
+        "ES" => Tz::Europe__Madrid,
+        "GI" => Tz::Europe__Gibraltar,
+        "PT" => Tz::Europe__Lisbon,
         "NL" => Tz::Europe__Amsterdam,
         "GB" => Tz::Europe__London,
+        "IE" => Tz::Europe__Dublin,
+        "DK" => Tz::Europe__Copenhagen,
+        "NO" => Tz::Europe__Oslo,
+        "SJ" => Tz::Arctic__Longyearbyen,
+        "SE" => Tz::Europe__Stockholm,
+        "FI" => Tz::Europe__Helsinki,
+        "AX" => Tz::Europe__Mariehamn,
+        "HR" => Tz::Europe__Zagreb,
+        "SI" => Tz::Europe__Ljubljana,
+        "GR" => Tz::Europe__Athens,
+        "PL" => Tz::Europe__Warsaw,
+        "CZ" => Tz::Europe__Prague,
+        "SK" => Tz::Europe__Bratislava,
+        "HU" => Tz::Europe__Budapest,
         _ => return None,
     })
 }
 
-/// Today in metropolitan France, the day a run's opening window starts on.
-/// Every place of the MVP is there; a run covering other zones will anchor
-/// each place on its own date.
+/// The zone of a place: its country's, or its island's where the island
+/// keeps another time (the Canary Islands, the Azores, Madeira).
+#[must_use]
+pub fn timezone_at(country_code: &str, position: Position) -> Option<Tz> {
+    let country = country_code.to_ascii_uppercase();
+    if matches!(country.as_str(), "ES" | "PT") {
+        let areas = lunaway_domain::region::areas_at(position);
+        if areas.contains(&"IC") {
+            return Some(Tz::Atlantic__Canary);
+        }
+        if areas.contains(&"PT-20") {
+            return Some(Tz::Atlantic__Azores);
+        }
+        if areas.contains(&"PT-30") {
+            return Some(Tz::Atlantic__Madeira);
+        }
+    }
+    timezone_of(&country)
+}
+
+/// The local date at `now` in the zone of a place, the first day of its
+/// window; the UTC date when its zone is unknown.
+#[must_use]
+pub fn local_today(
+    country_code: Option<&str>,
+    position: Position,
+    now: DateTime<Utc>,
+) -> NaiveDate {
+    country_code
+        .and_then(|cc| timezone_at(cc, position))
+        .map_or_else(
+            || now.date_naive(),
+            |tz| now.with_timezone(&tz).date_naive(),
+        )
+}
+
+/// When a window starting on `start` must move: the next local midnight,
+/// in the zone of the place (UTC midnight when it is unknown).
+#[must_use]
+pub fn refresh_at(
+    country_code: Option<&str>,
+    position: Position,
+    start: NaiveDate,
+) -> DateTime<Utc> {
+    let next = start.succ_opt().unwrap_or(start);
+    country_code
+        .and_then(|cc| timezone_at(cc, position))
+        .and_then(|tz| local_midnight(tz, next))
+        .map_or_else(
+            || Utc.from_utc_datetime(&NaiveDateTime::from(next)),
+            |m| m.with_timezone(&Utc),
+        )
+}
+
+/// Today in metropolitan France: the first day La Poste's calendar is asked
+/// for (a French source).
 #[must_use]
 pub fn today_in_france() -> NaiveDate {
     Utc::now().with_timezone(&Tz::Europe__Paris).date_naive()
@@ -68,6 +145,23 @@ pub fn today_in_france() -> NaiveDate {
 
 fn local_midnight(tz: Tz, day: NaiveDate) -> Option<chrono::DateTime<Tz>> {
     tz.from_local_datetime(&NaiveDateTime::from(day)).earliest()
+}
+
+/// Evaluates `opening_hours` for the window starting on the place's own
+/// today at `now`.
+#[must_use]
+pub fn evaluate_at(
+    opening_hours: Option<&str>,
+    country_code: Option<&str>,
+    position: Position,
+    now: DateTime<Utc>,
+) -> OpeningEval {
+    evaluate(
+        opening_hours,
+        country_code,
+        position,
+        local_today(country_code, position, now),
+    )
 }
 
 /// Evaluates `opening_hours` for the window starting on `today`.
@@ -84,13 +178,16 @@ pub fn evaluate(
             intervals: None,
             until: None,
             window_start: None,
+            refresh_at: None,
         };
     };
+    let refresh = Some(refresh_at(country_code, position, today));
     let not_evaluated = OpeningEval {
         parsed: false,
         intervals: None,
         until: None,
         window_start: Some(today),
+        refresh_at: refresh,
     };
     if raw.chars().count() > MAX_EXPRESSION_CHARS {
         return not_evaluated;
@@ -100,7 +197,7 @@ pub fn evaluate(
         return not_evaluated;
     };
     let window = country_code
-        .and_then(|cc| Some((timezone_of(cc)?, cc)))
+        .and_then(|cc| Some((timezone_at(cc, position)?, cc)))
         .and_then(|(tz, cc)| intervals(&oh, tz, cc, position, today));
     let (intervals, until) = window.map_or((None, None), |(i, u)| (Some(i), Some(u)));
     OpeningEval {
@@ -108,6 +205,7 @@ pub fn evaluate(
         intervals,
         until,
         window_start: Some(today),
+        refresh_at: refresh,
     }
 }
 

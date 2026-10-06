@@ -30,6 +30,9 @@ pub struct NewRecord<'a> {
     pub raw: &'a serde_json::Value,
     /// When it was read.
     pub fetched_at: DateTime<Utc>,
+    /// The slice of the source it belongs to (an Overpass region, a
+    /// country of an extract), which a later run of that slice may retire.
+    pub scope: Option<&'a str>,
 }
 
 /// What an upsert did.
@@ -55,7 +58,7 @@ impl std::ops::AddAssign for UpsertStats {
 /// enough to keep each statement's parameter arrays in the low megabytes.
 const BATCH: usize = 1_000;
 
-/// Inserts or updates `records` of `source`, each tagged with `scope`.
+/// Inserts or updates `records` of `source`, each tagged with its scope.
 ///
 /// # Errors
 ///
@@ -63,12 +66,11 @@ const BATCH: usize = 1_000;
 pub async fn upsert(
     pool: &PgPool,
     source: &SourceId,
-    scope: Option<&str>,
     records: &[NewRecord<'_>],
 ) -> Result<UpsertStats, DbError> {
     let mut stats = UpsertStats::default();
     for batch in records.chunks(BATCH) {
-        stats += upsert_batch(pool, source, scope, batch).await?;
+        stats += upsert_batch(pool, source, batch).await?;
     }
     Ok(stats)
 }
@@ -76,7 +78,6 @@ pub async fn upsert(
 async fn upsert_batch(
     pool: &PgPool,
     source: &SourceId,
-    scope: Option<&str>,
     batch: &[NewRecord<'_>],
 ) -> Result<UpsertStats, DbError> {
     let n = batch.len();
@@ -91,7 +92,9 @@ async fn upsert_batch(
     let mut data = Vec::with_capacity(n);
     let mut raws = Vec::with_capacity(n);
     let mut fetched = Vec::with_capacity(n);
+    let mut scopes: Vec<Option<String>> = Vec::with_capacity(n);
     for r in batch {
+        scopes.push(r.scope.map(str::to_owned));
         ids.push(Uuid::now_v7());
         external_ids.push(r.external_id.to_owned());
         urls.push(r.external_url.map(str::to_owned));
@@ -114,11 +117,12 @@ async fn upsert_batch(
              scope, fetched_at)
         SELECT u.id, $1, u.external_id, u.external_url, u.kind, u.name,
                ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.accuracy_m, u.data,
-               u.raw, $2, u.fetched_at
-        FROM UNNEST($3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[], $8::float8[],
-                    $9::float8[], $10::float8[], $11::jsonb[], $12::jsonb[], $13::timestamptz[])
-             AS u(id, external_id, external_url, kind, name, lat, lon, accuracy_m, data, raw,
-                  fetched_at)
+               u.raw, u.scope, u.fetched_at
+        FROM UNNEST($2::text[], $3::uuid[], $4::text[], $5::text[], $6::text[], $7::text[],
+                    $8::float8[], $9::float8[], $10::float8[], $11::jsonb[], $12::jsonb[],
+                    $13::timestamptz[])
+             AS u(scope, id, external_id, external_url, kind, name, lat, lon, accuracy_m, data,
+                  raw, fetched_at)
         ON CONFLICT (source_id, external_id) DO UPDATE SET
             external_url = EXCLUDED.external_url,
             kind = EXCLUDED.kind,
@@ -139,7 +143,7 @@ async fn upsert_batch(
         RETURNING (xmax = 0) AS "inserted!", (changed_at = now()) AS "touched!"
         "#,
         source.as_str(),
-        scope,
+        &scopes as &[Option<String>],
         &ids,
         &external_ids,
         &urls as &[Option<String>],
@@ -247,6 +251,62 @@ pub async fn retire_missing_in_source(
         WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))
         "#,
         source.as_str(),
+        seen,
+        at,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(done.rows_affected())
+}
+
+/// Live records of `source` in any of `scopes`.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn live_count_in_scopes(
+    pool: &PgPool,
+    source: &SourceId,
+    scopes: &[String],
+) -> Result<i64, DbError> {
+    let n = sqlx::query_scalar!(
+        r#"
+        SELECT count(*) AS "n!" FROM source_records
+        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)
+        "#,
+        source.as_str(),
+        scopes,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(n)
+}
+
+/// Marks as deleted the live records of `source` in any of `scopes` whose
+/// external id is not in `seen`: for a run of several country extracts,
+/// which speaks for those countries and no other. Returns how many.
+///
+/// # Errors
+///
+/// [`DbError`] when the update fails.
+pub async fn retire_missing_in_scopes(
+    pool: &PgPool,
+    source: &SourceId,
+    scopes: &[String],
+    seen: &[String],
+    at: DateTime<Utc>,
+) -> Result<u64, DbError> {
+    let mut tx = crate::begin_locked(pool).await?;
+    let done = sqlx::query!(
+        r#"
+        UPDATE source_records
+        SET deleted_at = $4, needs_conflation = true, changed_at = now()
+        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)
+          AND NOT (external_id = ANY($3))
+        "#,
+        source.as_str(),
+        scopes,
         seen,
         at,
     )

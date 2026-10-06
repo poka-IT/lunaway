@@ -63,7 +63,7 @@ pub async fn search(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification
+               reported_issues, verification, region
         FROM places
         WHERE deleted_at IS NULL
           AND (lunaway_fold($1) <% search_text OR search_text ~ lunaway_search_phrase($1))

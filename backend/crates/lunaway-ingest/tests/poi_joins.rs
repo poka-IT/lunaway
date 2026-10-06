@@ -389,8 +389,30 @@ fn fuel_body(edit: impl Fn(&mut serde_json::Value), id: i64) -> Vec<u8> {
     serde_json::to_vec(&rows).unwrap()
 }
 
+/// The tiles' version once what waits is published: the worker publishes
+/// at most every few hours, the tests at once.
 async fn layer_version(pool: &PgPool) -> i64 {
+    lunaway_db::pois::publish_layer(pool, std::time::Duration::ZERO)
+        .await
+        .unwrap();
     lunaway_db::pois::layer_version(pool).await.unwrap().version
+}
+
+/// An import of `points` as the whole of France: stored, then the French
+/// points it did not see retired.
+async fn store_pois(
+    pool: &PgPool,
+    points: &[lunaway_ingest::poi_osm::FetchedPoi],
+) -> lunaway_ingest::store::Retirement {
+    use lunaway_ingest::{osm_extract::Coverage, store};
+    store::upsert_pois_by_country(pool, &SourceId::OSM, points)
+        .await
+        .unwrap();
+    let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
+    let france = Coverage::Countries(["FR".to_owned()].into_iter().collect());
+    store::retire_pois_in_coverage(pool, &SourceId::OSM, &france, &seen, chrono::Utc::now())
+        .await
+        .unwrap()
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -507,24 +529,18 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
             fetched_at: at,
         })
         .collect();
-    store::store_pois(&pool, &SourceId::OSM, &points)
-        .await
-        .unwrap();
-    let r = store::store_pois(&pool, &SourceId::OSM, &points[..3])
-        .await
-        .unwrap();
-    assert!(r.retire_refused, "3 of 10 looks truncated");
+    store_pois(&pool, &points).await;
+    let r = store_pois(&pool, &points[..3]).await;
+    assert!(r.refused, "3 of 10 looks truncated");
     assert_eq!(r.retired, 0);
     assert_eq!(
-        lunaway_db::pois::live_count(&pool, &SourceId::OSM)
+        lunaway_db::pois::live_count(&pool, &SourceId::OSM, None)
             .await
             .unwrap(),
         10
     );
-    let r = store::store_pois(&pool, &SourceId::OSM, &points[..8])
-        .await
-        .unwrap();
-    assert_eq!((r.retire_refused, r.retired), (false, 2));
+    let r = store_pois(&pool, &points[..8]).await;
+    assert_eq!((r.refused, r.retired), (false, 2));
 
     let data = serde_json::json!({"days": []});
     let keys: Vec<String> = (0..10).map(|i| format!("{i:06}")).collect();
@@ -555,10 +571,10 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_import_moves_the_tiles_once_and_only_when_a_tile_changes(pool: PgPool) {
     use lunaway_domain::{
-        Position, SourceId,
+        Position,
         poi::{PoiKind, PoiRecord},
     };
-    use lunaway_ingest::{poi_osm::FetchedPoi, store};
+    use lunaway_ingest::poi_osm::FetchedPoi;
     let at = chrono::Utc::now();
     let make = |n: usize, name: &str| -> Vec<FetchedPoi> {
         (0..n)
@@ -580,24 +596,18 @@ async fn an_import_moves_the_tiles_once_and_only_when_a_tile_changes(pool: PgPoo
     };
     let v0 = layer_version(&pool).await;
     // 2 500 points: three batches of the upsert, one move of the version.
-    store::store_pois(&pool, &SourceId::OSM, &make(2_500, "Boulangerie"))
-        .await
-        .unwrap();
+    store_pois(&pool, &make(2_500, "Boulangerie")).await;
     assert_eq!(
         layer_version(&pool).await,
         v0 + 1,
         "once for the whole import"
     );
-    store::store_pois(&pool, &SourceId::OSM, &make(2_500, "Boulangerie"))
-        .await
-        .unwrap();
+    store_pois(&pool, &make(2_500, "Boulangerie")).await;
     assert_eq!(
         layer_version(&pool).await,
         v0 + 1,
         "the same import changes no tile"
     );
-    store::store_pois(&pool, &SourceId::OSM, &make(2_400, "Boulangerie"))
-        .await
-        .unwrap();
+    store_pois(&pool, &make(2_400, "Boulangerie")).await;
     assert_eq!(layer_version(&pool).await, v0 + 2, "a hundred points gone");
 }

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT e.epoch,\n                   d.oid::int8 AS \"database!\",\n                   (SELECT coalesce(max(updated_seq), 0) FROM places) AS \"last_seq!\"\n            FROM sync_epoch e, pg_database d\n            WHERE d.datname = current_database()\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "epoch",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sync_epoch",
+            "name": "epoch"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "database!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_seq!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "de5e3f10102662444377d3a9ad473470c86c23fc58716c84ae01864d9ce4bffc"
+}

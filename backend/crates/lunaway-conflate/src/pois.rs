@@ -38,19 +38,19 @@ pub struct HoursStats {
     pub changed: u64,
 }
 
-/// Evaluates the opening intervals of every point whose window does not
-/// start on `today` (new points, new hours, new La Poste days, and every
-/// point once a day), in batches.
+/// Evaluates the opening intervals of every point whose window must move at
+/// `now` (new points, new hours, new La Poste days, and every point once a
+/// day at its local midnight), in batches.
 ///
 /// # Errors
 ///
 /// [`ConflateError`] when the database fails; the batches already written
 /// stay.
-pub async fn refresh_hours(pool: &PgPool, today: NaiveDate) -> Result<HoursStats, ConflateError> {
+pub async fn refresh_hours(pool: &PgPool, now: DateTime<Utc>) -> Result<HoursStats, ConflateError> {
     let mut stats = HoursStats::default();
     loop {
         let mut tx = pois::begin_poi_writer(pool).await?;
-        let stale = pois::stale_hours(&mut tx, today, HOURS_BATCH).await?;
+        let stale = pois::stale_hours(&mut tx, now, HOURS_BATCH).await?;
         if stale.is_empty() {
             tx.commit().await?;
             break;
@@ -59,7 +59,7 @@ pub async fn refresh_hours(pool: &PgPool, today: NaiveDate) -> Result<HoursStats
         let writes = blocking(move || {
             stale
                 .into_iter()
-                .map(|s| evaluate(&s, today))
+                .map(|s| evaluate(&s, now))
                 .collect::<Vec<_>>()
         })
         .await?;
@@ -77,9 +77,10 @@ pub async fn refresh_hours(pool: &PgPool, today: NaiveDate) -> Result<HoursStats
             break;
         }
     }
-    // Once for the whole refresh: every device fetches its tiles again.
+    // Once for the whole refresh; the worker publishes the change with the
+    // others of the next hours.
     if stats.changed > 0 {
-        pois::bump_layer_now(pool).await?;
+        pois::mark_layer_now(pool).await?;
     }
     if stats.evaluated > 0 {
         tracing::info!(?stats, "points of interest: opening hours refreshed");
@@ -88,12 +89,16 @@ pub async fn refresh_hours(pool: &PgPool, today: NaiveDate) -> Result<HoursStats
 }
 
 /// The hours of one point: La Poste's calendar when it covers the start of
-/// the window, its `opening_hours` otherwise.
-fn evaluate(s: &StaleHours, today: NaiveDate) -> HoursWrite {
-    let tz = s
-        .country_code
-        .as_deref()
-        .and_then(opening::timezone_of)
+/// the window, its `opening_hours` otherwise. The window starts on the
+/// point's own local date at `now`.
+fn evaluate(s: &StaleHours, now: DateTime<Utc>) -> HoursWrite {
+    let country = s.country_code.as_deref().or(Some("FR"));
+    let today = opening::local_today(country, s.position, now);
+    let refresh_at = opening::refresh_at(country, s.position, today);
+    // La Poste's calendar is French: a point without a known zone that has
+    // one is in France.
+    let tz = country
+        .and_then(|cc| opening::timezone_at(cc, s.position))
         .unwrap_or(Tz::Europe__Paris);
     if let Some((intervals, until)) = s
         .laposte
@@ -108,15 +113,11 @@ fn evaluate(s: &StaleHours, today: NaiveDate) -> HoursWrite {
             intervals: Some(intervals),
             until: Some(until),
             window_start: today,
+            refresh_at,
             source: Some(SourceId::LAPOSTE),
         };
     }
-    let eval = opening::evaluate(
-        s.opening_hours.as_deref(),
-        s.country_code.as_deref().or(Some("FR")),
-        s.position,
-        today,
-    );
+    let eval = opening::evaluate(s.opening_hours.as_deref(), country, s.position, today);
     HoursWrite {
         id: s.id,
         parsed: eval.parsed,
@@ -125,7 +126,26 @@ fn evaluate(s: &StaleHours, today: NaiveDate) -> HoursWrite {
         intervals: eval.intervals,
         until: eval.until,
         window_start: today,
+        refresh_at,
     }
+}
+
+/// Publishes the changes of the points layer as a new tiles version, when
+/// one waits and the last version is older than `every`. Returns the new
+/// version.
+///
+/// # Errors
+///
+/// [`ConflateError`] when the database fails.
+pub async fn publish_layer(
+    pool: &PgPool,
+    every: std::time::Duration,
+) -> Result<Option<i64>, ConflateError> {
+    let v = pois::publish_layer(pool, every).await?;
+    if let Some(version) = v {
+        tracing::info!(version, "points layer: new tiles version");
+    }
+    Ok(v)
 }
 
 /// UTC intervals from La Poste's day-by-day calendar, from local midnight

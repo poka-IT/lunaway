@@ -14,7 +14,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use base64::Engine;
-use chrono::{NaiveDate, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState};
 use lunaway_db::PgPool;
@@ -180,10 +180,16 @@ async fn seeded(pool: &PgPool) {
 }
 
 /// One run of the conflation worker.
+/// A run of the worker, then the points layer's publication, which the
+/// worker makes at most every few hours and the tests at once.
 async fn work(pool: &PgPool) -> lunaway_conflate::RunStats {
-    lunaway_conflate::run(pool, NaiveDate::from_ymd_opt(2026, 11, 2).unwrap())
+    let stats = lunaway_conflate::run(pool, Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap())
         .await
-        .unwrap()
+        .unwrap();
+    lunaway_conflate::pois::publish_layer(pool, std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    stats
 }
 
 /// Two live places of the fixture, by name.

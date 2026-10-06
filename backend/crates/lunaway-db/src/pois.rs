@@ -5,11 +5,12 @@
 //!
 //! Every write holds the POI writers' advisory lock for its transaction
 //! ([`PoiWriterTx`]): the importers, the fuel poller and the worker write
-//! the same rows. Each moves the tiles' version once it changed what a tile
-//! shows: an import of many batches once at its end ([`bump_layer_now`]),
-//! so a run does not make every device fetch its tiles again per batch. The
-//! lock is not the places' one, so a POI import never waits for a
-//! conflation.
+//! the same rows. Each marks the layer once it changed what a tile shows
+//! (an import of many batches once at its end, [`mark_layer_now`]), and the
+//! worker moves the tiles' version at most every few hours
+//! ([`publish_layer`]), so neither an import's batches nor the fuel poller
+//! make every device fetch its tiles again each time. The lock is not the
+//! places' one, so a POI import never waits for a conflation.
 
 use chrono::{DateTime, NaiveDate, Utc};
 use lunaway_domain::{
@@ -70,29 +71,59 @@ pub async fn begin_poi_writer(pool: &PgPool) -> Result<PoiWriterTx, DbError> {
     Ok(PoiWriterTx(tx))
 }
 
-/// Moves the tiles' version: every tile URL changes, so no cache serves
-/// what a writer just changed.
+/// Marks the layer as changed: a writer changed what a tile shows. The
+/// version itself moves later, once for every change of a few hours
+/// ([`publish_layer`]): a new version makes every device fetch again each
+/// tile it looks at, and the fuel poller alone changed a few tiles every 15
+/// minutes (`plan/research/13-basemap.md`, deployment of the points of
+/// interest). Tiles are built from the current data whatever the version,
+/// so a change shows in any tile built after it.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the update fails.
-pub async fn bump_layer(tx: &mut PoiWriterTx) -> Result<i64, DbError> {
-    Ok(sqlx::query_scalar!(
-        "UPDATE poi_layer SET version = version + 1, changed_at = now() RETURNING version"
-    )
-    .fetch_one(tx.conn())
-    .await?)
+pub async fn mark_layer(tx: &mut PoiWriterTx) -> Result<(), DbError> {
+    sqlx::query!("UPDATE poi_layer SET pending_since = coalesce(pending_since, now())")
+        .execute(tx.conn())
+        .await?;
+    Ok(())
 }
 
-/// Moves the tiles' version in a transaction of its own: what an import
+/// Marks the layer as changed in a transaction of its own: what an import
 /// does once at its end, when one of its batches changed what a tile shows.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the update fails.
-pub async fn bump_layer_now(pool: &PgPool) -> Result<i64, DbError> {
+pub async fn mark_layer_now(pool: &PgPool) -> Result<(), DbError> {
     let mut tx = begin_poi_writer(pool).await?;
-    let v = bump_layer(&mut tx).await?;
+    mark_layer(&mut tx).await?;
+    tx.commit().await
+}
+
+/// Moves the tiles' version when a change waits and the version has not
+/// moved for `every`: every tile URL changes, so no cache serves the data
+/// of before. Returns the new version, `None` when it did not move.
+///
+/// # Errors
+///
+/// [`DbError`] when the update fails.
+pub async fn publish_layer(
+    pool: &PgPool,
+    every: std::time::Duration,
+) -> Result<Option<i64>, DbError> {
+    let mut tx = begin_poi_writer(pool).await?;
+    let v = sqlx::query_scalar!(
+        r#"
+        UPDATE poi_layer
+        SET version = version + 1, changed_at = now(), pending_since = NULL
+        WHERE pending_since IS NOT NULL AND changed_at <= now() - make_interval(secs => $1)
+        RETURNING version
+        "#,
+        every.as_secs_f64(),
+    )
+    .fetch_optional(tx.conn())
+    .await?;
     tx.commit().await?;
     Ok(v)
 }
@@ -100,10 +131,12 @@ pub async fn bump_layer_now(pool: &PgPool) -> Result<i64, DbError> {
 /// The tiles' version and when it last moved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayerVersion {
-    /// Increases with every change of what a tile shows.
+    /// Increases when changes of what a tile shows are published.
     pub version: i64,
     /// When it last moved.
     pub changed_at: DateTime<Utc>,
+    /// Since when a change waits for the next version, if one does.
+    pub pending_since: Option<DateTime<Utc>>,
 }
 
 /// The tiles' current version.
@@ -112,12 +145,13 @@ pub struct LayerVersion {
 ///
 /// [`DbError`] when the query fails.
 pub async fn layer_version(pool: &PgPool) -> Result<LayerVersion, DbError> {
-    let r = sqlx::query!("SELECT version, changed_at FROM poi_layer")
+    let r = sqlx::query!("SELECT version, changed_at, pending_since FROM poi_layer")
         .fetch_one(pool)
         .await?;
     Ok(LayerVersion {
         version: r.version,
         changed_at: r.changed_at,
+        pending_since: r.pending_since,
     })
 }
 
@@ -136,6 +170,9 @@ pub struct NewPoi<'a> {
     pub raw: &'a serde_json::Value,
     /// When it was read.
     pub fetched_at: DateTime<Utc>,
+    /// The country an extract run imported it under, which a later run of
+    /// that country may retire it from; `None` for a community point.
+    pub scope: Option<&'a str>,
 }
 
 /// Rows per statement, as for the records.
@@ -148,7 +185,7 @@ fn always_open(hours: Option<&str>) -> bool {
 
 /// Inserts or updates `points` of `source`, a batch per transaction; a
 /// point whose hours changed is left for the worker to evaluate again. The
-/// caller moves the tiles' version once it is done ([`bump_layer_now`])
+/// caller marks the layer once it is done ([`mark_layer_now`])
 /// when a point was inserted or changed.
 ///
 /// # Errors
@@ -197,7 +234,9 @@ pub async fn upsert_batch(
     let mut data = Vec::with_capacity(n);
     let mut raws = Vec::with_capacity(n);
     let mut fetched = Vec::with_capacity(n);
+    let mut scopes: Vec<Option<String>> = Vec::with_capacity(n);
     for p in points {
+        scopes.push(p.scope.map(str::to_owned));
         let r = p.record;
         ids.push(Uuid::now_v7());
         external_ids.push(p.external_id.to_owned());
@@ -223,16 +262,17 @@ pub async fn upsert_batch(
         r#"
         INSERT INTO pois AS p
             (id, source_id, external_id, external_url, category, kind, name, brand, geom,
-             fuel_ref, laposte_ref, finess_ref, opening_hours, always_open, data, raw, fetched_at)
+             fuel_ref, laposte_ref, finess_ref, opening_hours, always_open, data, raw, fetched_at,
+             scope)
         SELECT u.id, $1, u.external_id, u.external_url, u.category, u.kind, u.name, u.brand,
                ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.fuel, u.laposte,
-               u.finess, u.hours, u.always, u.data, u.raw, u.fetched_at
+               u.finess, u.hours, u.always, u.data, u.raw, u.fetched_at, u.scope
         FROM UNNEST($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[],
                     $8::text[], $9::float8[], $10::float8[], $11::text[], $12::text[],
                     $13::text[], $14::text[], $15::bool[], $16::jsonb[], $17::jsonb[],
-                    $18::timestamptz[])
+                    $18::timestamptz[], $19::text[])
              AS u(id, external_id, external_url, category, kind, name, brand, lat, lon, fuel,
-                  laposte, finess, hours, always, data, raw, fetched_at)
+                  laposte, finess, hours, always, data, raw, fetched_at, scope)
         ON CONFLICT (source_id, external_id) DO UPDATE SET
             external_url = EXCLUDED.external_url,
             category = EXCLUDED.category,
@@ -248,6 +288,7 @@ pub async fn upsert_batch(
             data = EXCLUDED.data,
             raw = EXCLUDED.raw,
             fetched_at = EXCLUDED.fetched_at,
+            scope = EXCLUDED.scope,
             -- New hours, or a new La Poste id, are evaluated again by the
             -- worker; hours gone from both leave nothing behind, since the
             -- worker no longer looks at such a point.
@@ -255,6 +296,10 @@ pub async fn upsert_batch(
                 WHEN p.opening_hours IS DISTINCT FROM EXCLUDED.opening_hours
                   OR p.laposte_ref IS DISTINCT FROM EXCLUDED.laposte_ref
                 THEN NULL ELSE p.opening_window_start END,
+            opening_refresh_at = CASE
+                WHEN p.opening_hours IS DISTINCT FROM EXCLUDED.opening_hours
+                  OR p.laposte_ref IS DISTINCT FROM EXCLUDED.laposte_ref
+                THEN NULL ELSE p.opening_refresh_at END,
             opening_hours_parsed = p.opening_hours_parsed
                 AND (EXCLUDED.opening_hours IS NOT NULL OR EXCLUDED.laposte_ref IS NOT NULL),
             opening_intervals = CASE
@@ -293,6 +338,7 @@ pub async fn upsert_batch(
         &data,
         &raws,
         &fetched,
+        &scopes as &[Option<String>],
     )
     .fetch_all(tx.conn())
     .await?;
@@ -309,23 +355,35 @@ pub async fn upsert_batch(
     Ok(stats)
 }
 
-/// Live points of `source`.
+/// Live points of `source` in any of `scopes`, or in every scope when
+/// `None`. A point imported before scopes existed counts as French.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn live_count(pool: &PgPool, source: &SourceId) -> Result<i64, DbError> {
+pub async fn live_count(
+    pool: &PgPool,
+    source: &SourceId,
+    scopes: Option<&[String]>,
+) -> Result<i64, DbError> {
     Ok(sqlx::query_scalar!(
-        r#"SELECT count(*) AS "n!" FROM pois WHERE source_id = $1 AND deleted_at IS NULL"#,
+        r#"
+        SELECT count(*) AS "n!" FROM pois
+        WHERE source_id = $1 AND deleted_at IS NULL
+          AND ($2::text[] IS NULL OR coalesce(scope, 'FR') = ANY($2))
+        "#,
         source.as_str(),
+        scopes,
     )
     .fetch_one(pool)
     .await?)
 }
 
 /// Marks as deleted the live points of `source` whose external id is not in
-/// `seen`. Returns how many; the caller moves the tiles' version when there
-/// are any.
+/// `seen`, in any of `scopes` (every scope when `None`): a run of country
+/// extracts speaks for those countries only. A point imported before
+/// scopes existed counts as French. Returns how many; the caller marks the
+/// layer when there are any.
 ///
 /// # Errors
 ///
@@ -333,6 +391,7 @@ pub async fn live_count(pool: &PgPool, source: &SourceId) -> Result<i64, DbError
 pub async fn retire_missing(
     pool: &PgPool,
     source: &SourceId,
+    scopes: Option<&[String]>,
     seen: &[String],
     at: DateTime<Utc>,
 ) -> Result<u64, DbError> {
@@ -341,10 +400,12 @@ pub async fn retire_missing(
         r#"
         UPDATE pois SET deleted_at = $3, changed_at = now()
         WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))
+          AND ($4::text[] IS NULL OR coalesce(scope, 'FR') = ANY($4))
         "#,
         source.as_str(),
         seen,
         at,
+        scopes,
     )
     .execute(tx.conn())
     .await?;
@@ -360,7 +421,7 @@ pub struct NewJoin<'a> {
     /// The identifier (a feed id, a La Poste id, a FINESS number).
     pub key: &'a str,
     /// The adapter's typed reading, as JSON. What a map tile shows of it
-    /// sits under `tile`, so a change there moves the tiles' version.
+    /// sits under `tile`, so a change there marks the layer.
     pub data: &'a serde_json::Value,
     /// The row as the source sent it.
     pub raw: &'a serde_json::Value,
@@ -381,7 +442,7 @@ pub struct JoinStats {
 
 /// Inserts or updates the joined rows of `source`, a batch per POI writer
 /// transaction. Points whose La Poste days changed are left for the worker
-/// to evaluate; the caller moves the tiles' version when a row's tile part
+/// to evaluate; the caller marks the layer when a row's tile part
 /// changed ([`JoinStats::tile_changes`]).
 ///
 /// # Errors
@@ -454,7 +515,7 @@ pub async fn upsert_joins(
         if *source == SourceId::LAPOSTE && !changed.is_empty() {
             sqlx::query!(
                 r#"
-                UPDATE pois SET opening_window_start = NULL
+                UPDATE pois SET opening_window_start = NULL, opening_refresh_at = NULL
                 WHERE laposte_ref = ANY($1) AND deleted_at IS NULL
                 "#,
                 &changed,
@@ -486,7 +547,7 @@ pub async fn live_join_count(pool: &PgPool, source: &SourceId) -> Result<i64, Db
 /// Marks as deleted the live joined rows of `source` whose key is not in
 /// `seen`, and has the points of a retired La Poste id evaluated again.
 /// Returns how many, and whether one of them showed on a tile (the caller
-/// then moves the tiles' version).
+/// then marks the layer).
 ///
 /// # Errors
 ///
@@ -513,7 +574,8 @@ pub async fn retire_missing_joins(
     let keys: Vec<String> = gone.iter().map(|g| g.key.clone()).collect();
     if *source == SourceId::LAPOSTE && !keys.is_empty() {
         sqlx::query!(
-            "UPDATE pois SET opening_window_start = NULL WHERE laposte_ref = ANY($1)",
+            "UPDATE pois SET opening_window_start = NULL, opening_refresh_at = NULL \
+             WHERE laposte_ref = ANY($1)",
             &keys,
         )
         .execute(tx.conn())
@@ -545,15 +607,16 @@ pub struct StaleHours {
     pub laposte: Option<serde_json::Value>,
 }
 
-/// Points with hours (theirs or La Poste's) whose window does not start on
-/// `today`, at most `limit`, by id.
+/// Points with hours (theirs or La Poste's) whose window must move at `now`
+/// (its local midnight has passed, or it was never set), at most `limit`,
+/// by id.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails or a row does not decode.
 pub async fn stale_hours(
     tx: &mut PoiWriterTx,
-    today: NaiveDate,
+    now: DateTime<Utc>,
     limit: i64,
 ) -> Result<Vec<StaleHours>, DbError> {
     let rows = sqlx::query!(
@@ -567,11 +630,11 @@ pub async fn stale_hours(
           ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL
         WHERE p.deleted_at IS NULL
           AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)
-          AND p.opening_window_start IS DISTINCT FROM $1
+          AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)
         ORDER BY p.id
         LIMIT $2
         "#,
-        today,
+        now,
         limit,
     )
     .fetch_all(tx.conn())
@@ -605,6 +668,9 @@ pub struct HoursWrite {
     pub until: Option<DateTime<Utc>>,
     /// First local day of the window.
     pub window_start: NaiveDate,
+    /// When the window must move: the next local midnight after its first
+    /// day, in the zone of the point.
+    pub refresh_at: DateTime<Utc>,
     /// The source of the intervals, when they exist: La Poste's calendar,
     /// or the point's own source.
     pub source: Option<SourceId>,
@@ -613,7 +679,7 @@ pub struct HoursWrite {
 }
 
 /// Writes evaluated hours in one statement. Returns how many points' tile
-/// hours changed; the caller moves the tiles' version when there are any.
+/// hours changed; the caller marks the layer when there are any.
 ///
 /// # Errors
 ///
@@ -636,12 +702,13 @@ pub async fn set_hours(tx: &mut PoiWriterTx, writes: &[HoursWrite]) -> Result<u6
         .map(|w| w.source.as_ref().map(ToString::to_string))
         .collect();
     let tile: Vec<Option<String>> = writes.iter().map(|w| w.tile.clone()).collect();
+    let refresh: Vec<DateTime<Utc>> = writes.iter().map(|w| w.refresh_at).collect();
     let changed = sqlx::query_scalar!(
         r#"
         WITH u AS (
             SELECT * FROM UNNEST($1::uuid[], $2::bool[], $3::jsonb[], $4::timestamptz[],
-                                 $5::date[], $6::text[], $7::text[])
-                AS u(id, parsed, intervals, until, start, source, tile)
+                                 $5::date[], $6::text[], $7::text[], $8::timestamptz[])
+                AS u(id, parsed, intervals, until, start, source, tile, refresh)
         ),
         old AS (
             SELECT p.id, p.opening_tile, p.opening_intervals_until
@@ -650,7 +717,7 @@ pub async fn set_hours(tx: &mut PoiWriterTx, writes: &[HoursWrite]) -> Result<u6
         UPDATE pois p SET
             opening_hours_parsed = u.parsed, opening_intervals = u.intervals,
             opening_intervals_until = u.until, opening_window_start = u.start,
-            opening_source = u.source, opening_tile = u.tile
+            opening_source = u.source, opening_tile = u.tile, opening_refresh_at = u.refresh
         FROM u JOIN old ON old.id = u.id
         WHERE p.id = u.id
         RETURNING (old.opening_tile IS DISTINCT FROM u.tile
@@ -663,6 +730,7 @@ pub async fn set_hours(tx: &mut PoiWriterTx, writes: &[HoursWrite]) -> Result<u6
         &start,
         &source as &[Option<String>],
         &tile as &[Option<String>],
+        &refresh,
     )
     .fetch_all(tx.conn())
     .await?;
@@ -1190,7 +1258,7 @@ pub async fn take_refresh_queue(tx: &mut PoiWriterTx) -> Result<Vec<Uuid>, DbErr
 }
 
 /// Recomputes the community state of `points`, and opens a moderation
-/// check for each point the answers hide; the tiles' version moves when a
+/// check for each point the answers hide; the layer is marked when a
 /// point appears or disappears. Returns how many points changed.
 ///
 /// A point is hidden while three accounts of level 1 and up, not banned,
@@ -1287,7 +1355,7 @@ pub async fn refresh_community(tx: &mut PoiWriterTx, points: &[Uuid]) -> Result<
         .await?;
     }
     if changed.iter().any(|c| c.flipped) {
-        bump_layer(tx).await?;
+        mark_layer(tx).await?;
     }
     Ok(u64::try_from(changed.len()).unwrap_or(u64::MAX))
 }
@@ -1441,6 +1509,7 @@ pub async fn apply_submissions(tx: &mut PoiWriterTx) -> Result<PoiSubmissionStat
                         record: &record,
                         raw: &s.payload,
                         fetched_at: s.created_at,
+                        scope: None,
                     }],
                 )
                 .await?;
@@ -1476,7 +1545,7 @@ pub async fn apply_submissions(tx: &mut PoiWriterTx) -> Result<PoiSubmissionStat
         .await?;
     }
     if stats.applied > 0 {
-        bump_layer(tx).await?;
+        mark_layer(tx).await?;
     }
     Ok(stats)
 }

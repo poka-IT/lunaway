@@ -17,7 +17,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode, header},
 };
-use chrono::{NaiveDate, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState};
 use lunaway_db::{PgPool, pois::NewJoin};
@@ -36,9 +36,10 @@ const LAPOSTE: &[u8] =
 const FINESS: &[u8] =
     include_bytes!("../../lunaway-ingest/tests/fixtures/finess_structures_sample.json");
 
-/// The day of La Poste's sample (its calendar runs from 6 to 20 October).
-fn today() -> NaiveDate {
-    NaiveDate::from_ymd_opt(2026, 10, 6).unwrap()
+/// Noon of the day of La Poste's sample (its calendar runs from 6 to 20
+/// October), the same date in France.
+fn now() -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 10, 6, 12, 0, 0).unwrap()
 }
 
 /// The post office of Ambérieu-en-Bugey (La Poste `00001A`).
@@ -127,7 +128,7 @@ async fn seeded(pool: &PgPool) {
         .collect();
     store_joins(pool, &SourceId::FINESS, &rows).await.unwrap();
 
-    lunaway_conflate::pois::refresh_hours(pool, today())
+    lunaway_conflate::pois::refresh_hours(pool, now())
         .await
         .unwrap();
 }

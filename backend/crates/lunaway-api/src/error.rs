@@ -10,6 +10,7 @@
 //! | `FORBIDDEN` | does not offer the action: the account's level is below `extensions.requiredLevel` (its level is `extensions.level`), or the account is banned |
 //! | `NOT_FOUND` | drops what it held: the place, list, review, photo or submission does not exist, or is not the caller's |
 //! | `UNAVAILABLE` | tries again later: a service behind the API (the routing engine, or its data) is down or not installed; the request itself was fine |
+//! | `PERSISTED_QUERY_NOT_FOUND` | sends the request again with the document beside its hash (`crate::persisted`): the server does not know that hash, or forgot it |
 //! | `INTERNAL` | tries again later; the server logged the cause |
 
 use std::time::Duration;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, opening_hours AS \"opening_hours!\", country_code, opening_intervals,\n               opening_intervals_until,\n               ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places\n        WHERE deleted_at IS NULL AND opening_hours IS NOT NULL\n          AND (opening_window_start IS DISTINCT FROM $1\n               OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))\n        ORDER BY id\n        ",
+  "query": "\n        SELECT id, opening_hours AS \"opening_hours!\", country_code, opening_intervals,\n               opening_intervals_until,\n               ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places\n        WHERE deleted_at IS NULL AND opening_hours IS NOT NULL\n          AND (opening_window_start IS NULL OR opening_refresh_at IS NULL\n               OR opening_refresh_at <= $1\n               OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))\n        ORDER BY id\n        ",
   "describe": {
     "columns": [
       {
@@ -73,7 +73,7 @@
     ],
     "parameters": {
       "Left": [
-        "Date"
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -86,5 +86,5 @@
       null
     ]
   },
-  "hash": "b307ddcebf8418191f7c3a9ad8efee5a2b5d7a2077742bdf67d3852d9e891bfb"
+  "hash": "8a9cc0fe35dc484a7b3ff85f29a8541e12b09162b2856cd9efbc41932dc8e284"
 }

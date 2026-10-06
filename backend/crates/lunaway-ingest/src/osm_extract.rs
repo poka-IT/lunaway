@@ -1,5 +1,5 @@
-//! OpenStreetMap from a Geofabrik extract (ODbL 1.0, © OpenStreetMap
-//! contributors), the import path for a whole country.
+//! OpenStreetMap from Geofabrik extracts (ODbL 1.0, © OpenStreetMap
+//! contributors), the import path for whole countries.
 //!
 //! Overpass serves region queries well when an instance has free slots, but
 //! every public instance can shed load for hours, and a country-wide import
@@ -8,13 +8,22 @@
 //! the ones the Overpass query selects and go through the same mapping
 //! ([`crate::osm`]), so both paths produce identical records.
 //!
+//! Europe is read country by country ([`EUROPE`]): the reader holds one
+//! country's elements at a time, which the import's memory cap allows,
+//! where the single Europe file (35 GB) would hold them all at once.
+//! Geofabrik cuts each country with a margin, so a country's file also
+//! holds spots a few kilometres across its borders: each element is kept
+//! only when the country its position lies in is one the run covers
+//! ([`Coverage`]), and tagged with that country, which becomes the scope
+//! the run retires records in.
+//!
 //! The file is read in three parallel passes: tagged nodes, ways and
 //! relations; the ways that outline a selected relation; the coordinates of
 //! every node those ways reference. A way or relation becomes the centre of
 //! its bounding box, as with Overpass's `out bb`.
 
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -30,18 +39,203 @@ use crate::{
     osm::{self, Bounds, Element, Parsed, Skip},
 };
 
-/// Geofabrik's daily extract of France (mainland and Corsica).
-pub const FRANCE_EXTRACT_URL: &str = "https://download.geofabrik.de/europe/france-latest.osm.pbf";
+/// Where the extracts come from by default.
+pub const GEOFABRIK: &str = "https://download.geofabrik.de";
 
-/// The scope of the records an extract import writes: one scope for the
-/// whole country, so a run retires what the extract no longer holds.
-pub const SCOPE: &str = "FR";
+/// One extract the importers know: its name, its path on Geofabrik, and
+/// the countries (ISO 3166-1) whose records it holds in full.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtractSpec {
+    /// Geofabrik's name (`france`).
+    pub name: &'static str,
+    /// Path under the mirror, without `-latest.osm.pbf` (`europe/france`).
+    pub path: &'static str,
+    /// The countries it covers, by their code; empty for an extract that
+    /// covers every country it holds (a continent).
+    pub covers: &'static [&'static str],
+}
 
-/// Metropolitan France and Corsica with a margin: elements outside are not
-/// imported, whatever the extract holds.
-const AREA: (f64, f64, f64, f64) = (41.0, -5.8, 51.6, 10.0);
+const fn spec(
+    name: &'static str,
+    path: &'static str,
+    covers: &'static [&'static str],
+) -> ExtractSpec {
+    ExtractSpec { name, path, covers }
+}
 
-const CACHE_KEY: &str = "osm-extract/france-latest.osm.pbf";
+/// The extracts the importers know. A microstate or a territory inside an
+/// extract's cut is covered by it (Monaco by France, San Marino and the
+/// Vatican by Italy, Gibraltar by Spain, Svalbard by Norway, Åland by
+/// Finland: Geofabrik's `.poly` files, read 2026-10-06); the Canary
+/// Islands are Geofabrik's `africa/canary-islands`, outside `spain`.
+pub const CATALOGUE: &[ExtractSpec] = &[
+    spec("france", "europe/france", &["FR", "MC"]),
+    spec("spain", "europe/spain", &["ES", "GI"]),
+    spec("canary-islands", "africa/canary-islands", &["ES"]),
+    spec("portugal", "europe/portugal", &["PT"]),
+    spec("italy", "europe/italy", &["IT", "SM", "VA"]),
+    spec("germany", "europe/germany", &["DE"]),
+    spec("austria", "europe/austria", &["AT"]),
+    spec("switzerland", "europe/switzerland", &["CH"]),
+    spec("liechtenstein", "europe/liechtenstein", &["LI"]),
+    spec("belgium", "europe/belgium", &["BE"]),
+    spec("netherlands", "europe/netherlands", &["NL"]),
+    spec("luxembourg", "europe/luxembourg", &["LU"]),
+    spec("united-kingdom", "europe/united-kingdom", &["GB"]),
+    spec(
+        "ireland-and-northern-ireland",
+        "europe/ireland-and-northern-ireland",
+        &["IE", "GB"],
+    ),
+    spec("denmark", "europe/denmark", &["DK"]),
+    spec("norway", "europe/norway", &["NO", "SJ"]),
+    spec("sweden", "europe/sweden", &["SE"]),
+    spec("finland", "europe/finland", &["FI", "AX"]),
+    spec("croatia", "europe/croatia", &["HR"]),
+    spec("slovenia", "europe/slovenia", &["SI"]),
+    spec("greece", "europe/greece", &["GR"]),
+    spec("poland", "europe/poland", &["PL"]),
+    spec("czech-republic", "europe/czech-republic", &["CZ"]),
+    spec("andorra", "europe/andorra", &["AD"]),
+    spec("europe", "europe", &[]),
+];
+
+/// The European import: France and the countries motorhomes visit most,
+/// with the microstates between them. Every extract but `europe`.
+pub const EUROPE: &[&str] = &[
+    "france",
+    "spain",
+    "canary-islands",
+    "portugal",
+    "italy",
+    "germany",
+    "austria",
+    "switzerland",
+    "liechtenstein",
+    "belgium",
+    "netherlands",
+    "luxembourg",
+    "united-kingdom",
+    "ireland-and-northern-ireland",
+    "denmark",
+    "norway",
+    "sweden",
+    "finland",
+    "croatia",
+    "slovenia",
+    "greece",
+    "poland",
+    "czech-republic",
+    "andorra",
+];
+
+/// The extract named `name`.
+#[must_use]
+pub fn extract(name: &str) -> Option<ExtractSpec> {
+    CATALOGUE.iter().copied().find(|e| e.name == name)
+}
+
+impl ExtractSpec {
+    /// Its URL on `mirror` (Geofabrik's layout).
+    #[must_use]
+    pub fn url(&self, mirror: &str) -> String {
+        format!(
+            "{}/{}-latest.osm.pbf",
+            mirror.trim_end_matches('/'),
+            self.path
+        )
+    }
+
+    /// Where its copy is kept in the cache: one file per extract and per
+    /// mirror, so a file from another mirror, cut differently, is never
+    /// read as this one. The France file OpenStreetMap France publishes
+    /// reaches further into the neighbours than Geofabrik's: read from the
+    /// same cache key, it made a development import fold 207 pitches where
+    /// production folded 27, 180 of them in one German campsite.
+    #[must_use]
+    pub fn cache_key(&self, mirror: &str) -> String {
+        let mirror = mirror.trim_end_matches('/');
+        if mirror == GEOFABRIK {
+            format!("osm-extract/{}-latest.osm.pbf", self.name)
+        } else {
+            let host: String = mirror
+                .trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || c == '.' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            format!("osm-extract/{host}/{}-latest.osm.pbf", self.name)
+        }
+    }
+
+    /// The country of an element of this extract that lies in none (at
+    /// sea, on a pier past the coastline the boundaries draw).
+    #[must_use]
+    pub fn fallback_country(&self) -> Option<&'static str> {
+        self.covers.first().copied()
+    }
+}
+
+/// The countries a run reads in full, so it may retire the records of
+/// those countries it did not see, and only those.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Coverage {
+    /// Every country: a run of a continent's extract.
+    Everywhere,
+    /// These countries.
+    Countries(BTreeSet<String>),
+}
+
+impl Coverage {
+    /// What the extracts `specs` cover together.
+    #[must_use]
+    pub fn of(specs: &[ExtractSpec]) -> Self {
+        if specs.iter().any(|s| s.covers.is_empty()) {
+            return Self::Everywhere;
+        }
+        Self::Countries(
+            specs
+                .iter()
+                .flat_map(|s| s.covers.iter().map(|c| (*c).to_owned()))
+                .collect(),
+        )
+    }
+
+    /// Whether an element of `country` belongs to the run.
+    #[must_use]
+    pub fn admits(&self, country: &str) -> bool {
+        match self {
+            Self::Everywhere => true,
+            Self::Countries(set) => set.contains(country),
+        }
+    }
+
+    /// The scopes a run retires records in; `None` for every scope.
+    #[must_use]
+    pub fn scopes(&self) -> Option<Vec<String>> {
+        match self {
+            Self::Everywhere => None,
+            Self::Countries(set) => Some(set.iter().cloned().collect()),
+        }
+    }
+}
+
+/// When a cached extract is downloaded again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refresh {
+    /// Never: the cached copy is read when there is one.
+    Never,
+    /// When the cached copy is older than this, so a run that stopped half
+    /// way through Europe and starts again does not download again what it
+    /// fetched an hour earlier.
+    OlderThan(Duration),
+}
 
 /// A downloaded extract.
 #[derive(Debug, Clone)]
@@ -122,13 +316,13 @@ fn range_start(headers: &reqwest::header::HeaderMap) -> Option<u64> {
         .ok()
 }
 
-/// The extract at `url`: the cached copy unless `refresh`, otherwise a
-/// download streamed to disk (the France file weighs about 5 GB). An
-/// interrupted or stalled download resumes where it stopped, with an HTTP
-/// range request on the file that answered, conditional on its validator
-/// ([`Pin`]), so a resume never splices two days of data: Geofabrik
-/// redirects `-latest` to a dated file, OpenStreetMap France serves the
-/// changing file itself under one URL.
+/// The extract at `url`, kept under `key` in the cache: the cached copy
+/// when `refresh` allows it, otherwise a download streamed to disk (the
+/// France file weighs about 5 GB). An interrupted or stalled download
+/// resumes where it stopped, with an HTTP range request on the file that
+/// answered, conditional on its validator ([`Pin`]), so a resume never
+/// splices two days of data: Geofabrik redirects `-latest` to a dated file,
+/// OpenStreetMap France serves the changing file itself under one URL.
 ///
 /// # Errors
 ///
@@ -138,11 +332,24 @@ pub async fn fetch(
     http: &reqwest::Client,
     cache: &Cache,
     url: &str,
+    key: &str,
     retry: RetryPolicy,
-    refresh: bool,
+    refresh: Refresh,
 ) -> Result<Extract, IngestError> {
-    let path = cache.root().join(CACHE_KEY);
-    if !refresh && let Some(fetched_at) = modified(&path).await? {
+    let path = cache.root().join(key);
+    let fresh = |at: DateTime<Utc>| match refresh {
+        Refresh::Never => true,
+        Refresh::OlderThan(age) => {
+            Utc::now()
+                .signed_duration_since(at)
+                .to_std()
+                .unwrap_or_default()
+                < age
+        }
+    };
+    if let Some(fetched_at) = modified(&path).await?
+        && fresh(fetched_at)
+    {
         tracing::info!(path = %path.display(), "extract read from the cache");
         return Ok(Extract {
             path,
@@ -397,14 +604,49 @@ fn pbf_err(path: &Path) -> impl Fn(osmpbf::Error) -> IngestError + '_ {
     }
 }
 
-/// Reads the extract at `path` into place records. CPU-bound and blocking:
-/// run it on a blocking thread.
+/// Which elements of an extract a read keeps: those in a country of the
+/// run, each tagged with it; an element in no country (at sea) takes the
+/// extract's own.
+#[derive(Debug, Clone, Copy)]
+pub struct Area<'a> {
+    /// The countries of the run.
+    pub coverage: &'a Coverage,
+    /// The country of an element that lies in none.
+    pub fallback: Option<&'static str>,
+}
+
+impl<'a> Area<'a> {
+    /// The area of `spec` within `coverage`.
+    #[must_use]
+    pub fn of(spec: &ExtractSpec, coverage: &'a Coverage) -> Self {
+        Self {
+            coverage,
+            fallback: spec.fallback_country(),
+        }
+    }
+
+    /// The country of a point of the extract, when the run keeps it.
+    fn country(&self, lat: f64, lon: f64) -> Result<Option<&'static str>, ()> {
+        let found = lunaway_domain::Position::new(lat, lon)
+            .ok()
+            .and_then(lunaway_domain::region::country_at)
+            .or(self.fallback);
+        match found {
+            Some(c) if self.coverage.admits(c) => Ok(Some(c)),
+            Some(_) => Err(()),
+            None => Ok(None),
+        }
+    }
+}
+
+/// Reads the extract at `path` into place records, those of `area` only.
+/// CPU-bound and blocking: run it on a blocking thread.
 ///
 /// # Errors
 ///
 /// [`IngestError::Pbf`] when the file is not a readable PBF.
-pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestError> {
-    let (elements, outside) = read_selected(path, &Places)?;
+pub fn read(path: &Path, fetched_at: DateTime<Utc>, area: Area<'_>) -> Result<Parsed, IngestError> {
+    let (elements, outside) = read_selected(path, &Places, area)?;
     let mut parsed = osm::build(elements, fetched_at);
     parsed
         .skipped
@@ -416,10 +658,10 @@ pub fn read(path: &Path, fetched_at: DateTime<Utc>) -> Result<Parsed, IngestErro
 /// those outside the imported area.
 pub(crate) type Selection = (Vec<(Element, serde_json::Value)>, Vec<String>);
 
-/// The elements of the extract at `path` that `selector` keeps, inside the
-/// imported area, each with its raw JSON (as Overpass would write it), and
-/// the ids of those outside the area. Ways and relations are placed at the
-/// centre of their bounding box. CPU-bound and blocking.
+/// The elements of the extract at `path` that `selector` keeps, inside
+/// `area`, each with its raw JSON (as Overpass would write it) and its
+/// country, and the ids of those outside the area. Ways and relations are
+/// placed at the centre of their bounding box. CPU-bound and blocking.
 ///
 /// # Errors
 ///
@@ -427,6 +669,7 @@ pub(crate) type Selection = (Vec<(Element, serde_json::Value)>, Vec<String>);
 pub(crate) fn read_selected<S: Selector>(
     path: &Path,
     selector: &S,
+    area: Area<'_>,
 ) -> Result<Selection, IngestError> {
     // Pass 1: the tagged elements.
     let found = reader(path)?
@@ -542,6 +785,7 @@ pub(crate) fn read_selected<S: Selector>(
             lon: Some(lon),
             bounds: None,
             tags,
+            country: None,
         });
     }
     for (id, refs, tags) in found.ways {
@@ -552,6 +796,7 @@ pub(crate) fn read_selected<S: Selector>(
             lon: None,
             bounds: bounds(refs.iter(), &coords),
             tags,
+            country: None,
         });
     }
     for (id, ways, tags) in found.relations {
@@ -563,24 +808,28 @@ pub(crate) fn read_selected<S: Selector>(
             lon: None,
             bounds: bounds(refs, &coords),
             tags,
+            country: None,
         });
     }
     // The order of a parallel read is not stable; the records' is.
     elements.sort_by(|a, b| a.kind.cmp(&b.kind).then(a.id.cmp(&b.id)));
 
     let mut outside = Vec::new();
-    let kept = elements.into_iter().filter_map(|e| {
+    let kept = elements.into_iter().filter_map(|mut e| {
         let (lat, lon) = match (e.lat, e.lon, e.bounds) {
             (Some(lat), Some(lon), _) => (lat, lon),
             (_, _, Some(b)) => ((b.minlat + b.maxlat) / 2.0, (b.minlon + b.maxlon) / 2.0),
             _ => return Some(e),
         };
-        let (s, w, n, east) = AREA;
-        if (s..=n).contains(&lat) && (w..=east).contains(&lon) {
-            Some(e)
-        } else {
-            outside.push(format!("{}/{}", e.kind, e.id));
-            None
+        match area.country(lat, lon) {
+            Ok(country) => {
+                e.country = country;
+                Some(e)
+            }
+            Err(()) => {
+                outside.push(format!("{}/{}", e.kind, e.id));
+                None
+            }
         }
     });
     let with_raw: Vec<(Element, serde_json::Value)> = kept

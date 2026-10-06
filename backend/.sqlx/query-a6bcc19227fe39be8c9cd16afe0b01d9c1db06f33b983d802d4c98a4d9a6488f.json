@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE poi_layer SET pending_since = coalesce(pending_since, now())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "a6bcc19227fe39be8c9cd16afe0b01d9c1db06f33b983d802d4c98a4d9a6488f"
+}

@@ -43,7 +43,7 @@ pub mod pois;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use chrono::NaiveDate;
+use chrono::{DateTime, Utc};
 use lunaway_db::{
     DbError, PgPool,
     community::WorkListener,
@@ -125,14 +125,14 @@ async fn blocking<T: Send + 'static>(
         .map_err(ConflateError::Blocking)
 }
 
-/// Runs the conflation for the records flagged in `pool`. `today` anchors the
-/// opening-hours window (the local date of the run).
+/// Runs the conflation for the records flagged in `pool`. `now` anchors the
+/// opening-hours windows: each place's starts on its own local date.
 ///
 /// # Errors
 ///
 /// [`ConflateError`] when the database fails; the transaction is rolled back
 /// and the flags stay, so the next run retries.
-pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateError> {
+pub async fn run(pool: &PgPool, now: DateTime<Utc>) -> Result<RunStats, ConflateError> {
     let mut stats = RunStats::default();
     // Three short writer transactions rather than one: the API writes
     // `place_submissions` (a withdrawal, a deletion) and the refresh queue,
@@ -146,14 +146,14 @@ pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateEr
     let dirty = store::dirty(&mut tx).await?;
     stats.dirty = dirty.len();
     if !dirty.is_empty() {
-        let changed = conflate(&mut tx, &dirty, today, &mut stats).await?;
+        let changed = conflate(&mut tx, &dirty, now, &mut stats).await?;
         store::clear_dirty(&mut tx, &dirty).await?;
         submissions::link_created_places(&mut tx).await?;
         let mut queued = changed.heirs;
         queued.extend(submissions::places_to_verify(&mut tx, &changed.written).await?);
         summary::queue(&mut tx, &queued).await?;
     }
-    stats.opening_refreshed = refresh_opening(&mut tx, today).await?;
+    stats.opening_refreshed = refresh_opening(&mut tx, now).await?;
     tx.commit().await?;
 
     let mut tx = store::begin_writer(pool).await?;
@@ -166,16 +166,18 @@ pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateEr
     // The points of interest, under their own lock: what the community
     // added or answered, then the hours whose window is not today's.
     stats.poi_community = pois::community(pool).await?;
-    stats.poi_hours = pois::refresh_hours(pool, today).await?;
+    stats.poi_hours = pois::refresh_hours(pool, now).await?;
     tracing::info!(?stats, "conflation done");
     Ok(stats)
 }
 
 /// Runs the conflation whenever the API signals work (a contribution, a
 /// submission, a moderation decision), and at least every `every` for the
-/// imports and the daily opening hours. `today` gives the local date of
-/// each run. Errors are logged and the loop goes on after `every`: a
-/// database restart must not stop the worker.
+/// imports and the daily opening hours. `now` gives the instant of each
+/// run. After each run the points layer gets a new version when a change
+/// waits and the last one is older than `poi_layer_every`. Errors are
+/// logged and the loop goes on after `every`: a database restart must not
+/// stop the worker.
 ///
 /// # Errors
 ///
@@ -183,13 +185,17 @@ pub async fn run(pool: &PgPool, today: NaiveDate) -> Result<RunStats, ConflateEr
 pub async fn watch(
     pool: &PgPool,
     every: std::time::Duration,
-    today: impl Fn() -> NaiveDate,
+    poi_layer_every: std::time::Duration,
+    now: impl Fn() -> DateTime<Utc>,
 ) -> Result<(), ConflateError> {
     let mut listener = WorkListener::connect(pool).await?;
     let settle = std::time::Duration::from_millis(300);
     loop {
-        if let Err(error) = run(pool, today()).await {
+        if let Err(error) = run(pool, now()).await {
             tracing::error!(%error, "conflation run failed; next attempt later");
+        }
+        if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
+            tracing::error!(%error, "publishing the points layer failed; next attempt later");
         }
         match listener.wait(every, settle).await {
             Ok(woken) => tracing::debug!(woken, "conflation worker wakes"),
@@ -246,7 +252,7 @@ struct Changed {
 async fn conflate(
     tx: &mut WriterTx,
     dirty: &[Uuid],
-    today: NaiveDate,
+    now: DateTime<Utc>,
     stats: &mut RunStats,
 ) -> Result<Changed, ConflateError> {
     // 2. Score the flagged records against everything within reach.
@@ -315,7 +321,7 @@ async fn conflate(
         constraints,
         current,
         states,
-        today,
+        now,
     };
     let plan = blocking(move || plan(&input)).await??;
     stats.conflicts = plan.conflicts;
@@ -367,8 +373,9 @@ pub struct PlanInput {
     pub current: BTreeMap<Uuid, Uuid>,
     /// The state of those places.
     pub states: BTreeMap<Uuid, PlaceState>,
-    /// The first day of the opening-hours window.
-    pub today: NaiveDate,
+    /// The instant of the run, which gives each place the first day of its
+    /// opening-hours window.
+    pub now: DateTime<Utc>,
 }
 
 /// A place to write.
@@ -523,11 +530,11 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
             Some(_) => out.updated += 1,
             None => out.created += 1,
         }
-        let opening = opening::evaluate(
+        let opening = opening::evaluate_at(
             resolved.content.opening_hours.as_deref(),
             resolved.content.address.country_code.as_deref(),
             resolved.content.position,
-            input.today,
+            input.now,
         );
         out.relink_records.extend(g.iter().copied());
         out.links.extend(group_links);
@@ -623,17 +630,17 @@ fn digest(
         .collect())
 }
 
-async fn refresh_opening(tx: &mut WriterTx, today: NaiveDate) -> Result<usize, ConflateError> {
-    let stale = store::stale_openings(tx, today).await?;
+async fn refresh_opening(tx: &mut WriterTx, now: DateTime<Utc>) -> Result<usize, ConflateError> {
+    let stale = store::stale_openings(tx, now).await?;
     let evaluated = blocking(move || {
         stale
             .into_iter()
             .map(|s| {
-                let eval = opening::evaluate(
+                let eval = opening::evaluate_at(
                     Some(&s.opening_hours),
                     s.country_code.as_deref(),
                     s.position,
-                    today,
+                    now,
                 );
                 let differs = s.intervals != eval.intervals || s.until != eval.until;
                 (s.id, eval, differs)

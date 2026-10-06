@@ -1355,6 +1355,13 @@ type Place {
 	"""
 	municipality: String
 	"""
+	The sync region the place belongs to (`Query.regions`): a French
+	region (`FR-BRE`) in France, the country code elsewhere. A device
+	that keeps a region drops the places of that region its pack or
+	its sync no longer lists.
+	"""
+	region: String
+	"""
 	Every description of every source, by language, the source most
 	trusted for descriptions first.
 	"""
@@ -2146,13 +2153,21 @@ type Query {
 	"""
 	sources: [Source!]!
 	"""
-	Syncs a region: the places inside `bbox` created or changed since the
-	cursor `since` (null for everything), oldest change first, at most
-	`first` (1000 at most), and the places deleted since. A cursor issued
-	by another copy of the database (after a restore) is refused with the
-	code `RESYNC`: sync again with `since: null`.
+	Syncs a region: the places inside `bbox`, or of the sync region
+	`region` (`Query.regions`, one of the two), created or changed since
+	the cursor `since` (null for everything), oldest change first, at
+	most `first` (1000 at most), and the places deleted since. A device
+	that imported a region's pack continues with `region` and the pack's
+	cursor. A cursor issued by another copy of the database (after a
+	restore) is refused with the code `RESYNC`: sync again with `since:
+	null`, or from the region's current pack.
 	"""
-	changes(bbox: BBoxInput!, since: String, first: Int = 1000): ChangeSet!
+	changes(bbox: BBoxInput, region: String, since: String, first: Int = 1000): ChangeSet!
+	"""
+	The regions a device can keep offline, with the pack to download
+	first for each (`docs/region-packs.md`).
+	"""
+	regions: [SyncRegion!]!
 	"""
 	The places of a viewport (500 per page at most, viewport area
 	bounded), for the web or a device that has not synced yet.
@@ -2240,6 +2255,79 @@ type RecoveryCodeResult {
 	it replaces any earlier one.
 	"""
 	code: String!
+}
+
+"""
+The box around a region's places.
+"""
+type RegionBounds {
+	"""
+	Southern edge.
+	"""
+	south: Float!
+	"""
+	Western edge.
+	"""
+	west: Float!
+	"""
+	Northern edge.
+	"""
+	north: Float!
+	"""
+	Eastern edge.
+	"""
+	east: Float!
+}
+
+"""
+A file holding every live place of a region at one position of the
+change feed, in the format `format` (`docs/region-packs.md`).
+"""
+type RegionPack {
+	"""
+	Where to download it: a static file, served whole or by byte range,
+	that never changes under this URL.
+	"""
+	url: String!
+	"""
+	Its format and version: `sqlite-gzip-1` is an SQLite database
+	compressed with gzip.
+	"""
+	format: String!
+	"""
+	Its size as downloaded, in bytes.
+	"""
+	bytes: Float!
+	"""
+	Its size once decompressed, in bytes.
+	"""
+	rawBytes: Float!
+	"""
+	SHA-256 of the file as downloaded, hexadecimal: check it before
+	importing.
+	"""
+	sha256: String!
+	"""
+	Opaque, changes with every new pack of the region: a device whose
+	pack has this version has nothing to download again.
+	"""
+	version: String!
+	"""
+	The `since` cursor that continues the feed after the pack.
+	"""
+	cursor: String!
+	"""
+	Places in it.
+	"""
+	places: Int!
+	"""
+	The box around them.
+	"""
+	bounds: RegionBounds!
+	"""
+	When it was built.
+	"""
+	generatedAt: DateTime!
 }
 
 """
@@ -3067,6 +3155,35 @@ enum SubmissionStatus {
 	Deleted by its author before it was applied.
 	"""
 	WITHDRAWN
+}
+
+"""
+A region a device can keep offline: a French region inside France, a
+country elsewhere.
+"""
+type SyncRegion {
+	"""
+	Its code, the `region` of `changes` and of `Place.region`: `FR-BRE`,
+	`ES`.
+	"""
+	code: String!
+	"""
+	The country it belongs to (ISO 3166-1).
+	"""
+	country: String!
+	"""
+	Its name in English.
+	"""
+	name: String!
+	"""
+	Its name in French.
+	"""
+	nameFr: String!
+	"""
+	The pack to download first, then `changes(region:, since: cursor)`;
+	null while none is built for this copy of the database.
+	"""
+	pack: RegionPack
 }
 
 """

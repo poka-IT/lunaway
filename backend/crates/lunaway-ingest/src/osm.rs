@@ -300,6 +300,10 @@ pub(crate) struct Element {
     pub(crate) bounds: Option<Bounds>,
     #[serde(default)]
     pub(crate) tags: BTreeMap<String, String>,
+    /// The country an extract read placed it in, so the record and the
+    /// filter that kept it agree; looked up from the position otherwise.
+    #[serde(skip)]
+    pub(crate) country: Option<&'static str>,
 }
 
 /// The elements of an Overpass answer, each typed and with its raw JSON.
@@ -415,8 +419,9 @@ pub(crate) fn build(
     let (mut sites, folded) = fold_pitches(sites);
     out.folded_pitches = folded;
 
+    let grid = SiteGrid::new(&sites, Reach::Station);
     for station in stations {
-        match host_site(&sites, &station) {
+        match host_site(&sites, &grid, &station) {
             Some(i) => {
                 let host = &mut sites[i];
                 host.record
@@ -471,9 +476,90 @@ fn pitch_like(m: &Mapped, host_name: Option<&str>) -> bool {
     }
 }
 
+/// Side of a cell of [`SiteGrid`], in degrees: about 2 km north to south,
+/// far larger than the margins the searches allow around a site.
+const GRID_DEG: f64 = 0.02;
+/// Slack added around a site before it is indexed, in degrees of latitude
+/// and of longitude: more than the largest margin a search allows
+/// ([`ATTACH_POINT_M`]) up to 80 degrees of latitude.
+const GRID_SLACK_DEG: (f64, f64) = (0.001, 0.003);
+/// Most cells one site is indexed under; a larger footprint (a mistaken
+/// outline spanning a region) is checked for every search instead.
+const GRID_MAX_CELLS: i64 = 10_000;
+
+/// Which search a [`SiteGrid`] serves: the sites whose outline holds a
+/// pitch, or those a dump station may belong to (outline plus a margin, or
+/// a point and a radius).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reach {
+    Pitch,
+    Station,
+}
+
+/// The sites indexed by the grid cells their footprint meets, so finding the
+/// site around a point reads one cell instead of every site: the scans of
+/// a country of 20 000 sites were quadratic, those of Europe would have
+/// been a hundred times longer. A search returns a superset of the sites
+/// that can match; the caller applies the exact test.
+struct SiteGrid {
+    cells: std::collections::HashMap<(i64, i64), Vec<usize>>,
+    /// Sites too large to index cell by cell: candidates of every search.
+    wide: Vec<usize>,
+}
+
+fn grid_cell(lat: f64, lon: f64) -> (i64, i64) {
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "a WGS 84 coordinate over 0.02 degrees is under 18 000"
+    )]
+    let cell = |v: f64| (v / GRID_DEG).floor() as i64;
+    (cell(lat), cell(lon))
+}
+
+impl SiteGrid {
+    fn new(sites: &[Mapped], reach: Reach) -> Self {
+        let mut grid = Self {
+            cells: std::collections::HashMap::new(),
+            wide: Vec::new(),
+        };
+        let (dlat, dlon) = GRID_SLACK_DEG;
+        for (i, s) in sites.iter().enumerate() {
+            let p = s.record.position;
+            let (south, west, north, east) = match (reach, s.bounds) {
+                (_, Some(b)) => (b.minlat, b.minlon, b.maxlat, b.maxlon),
+                // A pitch's host has an outline; a point is never one.
+                (Reach::Pitch, None) => continue,
+                (Reach::Station, None) => (p.lat(), p.lon(), p.lat(), p.lon()),
+            };
+            let (s0, w0) = grid_cell(south - dlat, west - dlon);
+            let (n0, e0) = grid_cell(north + dlat, east + dlon);
+            if (n0 - s0 + 1).saturating_mul(e0 - w0 + 1) > GRID_MAX_CELLS {
+                grid.wide.push(i);
+                continue;
+            }
+            for a in s0..=n0 {
+                for b in w0..=e0 {
+                    grid.cells.entry((a, b)).or_default().push(i);
+                }
+            }
+        }
+        grid
+    }
+
+    /// The sites that may hold `p`, each once.
+    fn candidates(&self, p: Position) -> impl Iterator<Item = usize> + '_ {
+        self.cells
+            .get(&grid_cell(p.lat(), p.lon()))
+            .into_iter()
+            .flatten()
+            .chain(&self.wide)
+            .copied()
+    }
+}
+
 /// The larger site whose footprint holds the small site `i`, if `i` reads as
 /// one of its pitches.
-fn pitch_host(sites: &[Mapped], i: usize) -> Option<usize> {
+fn pitch_host(sites: &[Mapped], grid: &SiteGrid, i: usize) -> Option<usize> {
     let pitch = &sites[i];
     let small = pitch.bounds.is_none() || pitch.record.accuracy_m <= PITCH_MAX_M;
     let site_kind = |k: PlaceKind| matches!(k, PlaceKind::Campsite | PlaceKind::MotorhomeArea);
@@ -481,9 +567,8 @@ fn pitch_host(sites: &[Mapped], i: usize) -> Option<usize> {
         return None;
     }
     let p = pitch.record.position;
-    sites
-        .iter()
-        .enumerate()
+    grid.candidates(p)
+        .map(|j| (j, &sites[j]))
         .filter(|(j, s)| {
             *j != i
                 && site_kind(s.record.kind)
@@ -506,7 +591,10 @@ fn pitch_host(sites: &[Mapped], i: usize) -> Option<usize> {
 /// payload goes under the site's `_attached`. Returns the sites left and
 /// how many pitches were folded.
 fn fold_pitches(sites: Vec<Mapped>) -> (Vec<Mapped>, usize) {
-    let hosts: Vec<Option<usize>> = (0..sites.len()).map(|i| pitch_host(&sites, i)).collect();
+    let grid = SiteGrid::new(&sites, Reach::Pitch);
+    let hosts: Vec<Option<usize>> = (0..sites.len())
+        .map(|i| pitch_host(&sites, &grid, i))
+        .collect();
     // A pitch's host is never itself a pitch: a host is larger than
     // `PITCH_MAX_M`, a pitch smaller.
     let mut slots: Vec<Option<Mapped>> = sites.into_iter().map(Some).collect();
@@ -548,18 +636,16 @@ const ATTACH_POINT_M: f64 = 50.0;
 
 /// The site a dump station belongs to: the nearest one whose footprint (plus
 /// a margin) holds it, or whose point is close enough.
-fn host_site(sites: &[Mapped], station: &Mapped) -> Option<usize> {
+fn host_site(sites: &[Mapped], grid: &SiteGrid, station: &Mapped) -> Option<usize> {
     let p = station.record.position;
     // A site whose point is more than 0.05 degrees away (over 3.5 km) cannot
-    // hold the station; the comparison is cheap, the distance is not, and a
-    // whole country has tens of millions of pairs.
+    // hold the station: the comparison is cheap, the distance is not.
     let near = |s: &Mapped| {
         (s.record.position.lat() - p.lat()).abs() < 0.05
             && (s.record.position.lon() - p.lon()).abs() < 0.05
     };
-    sites
-        .iter()
-        .enumerate()
+    grid.candidates(p)
+        .map(|i| (i, &sites[i]))
         .filter(|(_, s)| near(s))
         .filter(|(_, s)| {
             let d = s.record.position.distance_m(p);
@@ -897,9 +983,28 @@ fn map_element(element: &Element) -> Result<(NormalizedRecord, Option<Bounds>), 
     };
     r.address.postcode = tag(tags, "addr:postcode").map(str::to_owned);
     r.address.city = tag(tags, "addr:city").map(str::to_owned);
-    // Every element comes from a French region query.
-    r.address.country_code = Some(tag(tags, "addr:country").unwrap_or("FR").to_uppercase());
+    r.address.country_code = country_of(element, position, tags);
     Ok((r, bounds))
+}
+
+/// The country of an element: the one the extract read placed it in, else
+/// the one its position lies in, else its `addr:country` (a point at sea).
+/// The position wins over the tag: the time zone, the holidays and the
+/// sync region follow where the spot is.
+pub(crate) fn country_of(
+    element: &Element,
+    position: Position,
+    tags: &BTreeMap<String, String>,
+) -> Option<String> {
+    element
+        .country
+        .or_else(|| lunaway_domain::region::country_at(position))
+        .map(str::to_owned)
+        .or_else(|| {
+            tag(tags, "addr:country")
+                .filter(|c| c.len() == 2 && c.is_ascii())
+                .map(str::to_ascii_uppercase)
+        })
 }
 
 #[cfg(test)]
@@ -988,6 +1093,7 @@ mod tests {
             lon: Some(-0.5),
             bounds: None,
             tags: tags(t),
+            country: None,
         };
         let website = |t: &[(&str, &str)]| map_element(&element(t)).unwrap().0.website;
         assert_eq!(
@@ -1177,6 +1283,7 @@ mod tests {
                 ("maxweightrating", "3.5"),
                 ("maxweight", "12"),
             ]),
+            country: None,
         };
         let r = map_element(&e).unwrap().0;
         assert_eq!(r.max_length_m, Some(8.0));
@@ -1207,6 +1314,7 @@ mod tests {
                 lon: Some(lon),
                 bounds: None,
                 tags: tags(t),
+                country: None,
             };
             let raw = serde_json::json!({"type": "node", "id": id});
             (e, raw)
@@ -1223,6 +1331,7 @@ mod tests {
                 maxlon: -0.498,
             }),
             tags: tags(&[("tourism", "camp_site"), ("name", "Camping des Pins")]),
+            country: None,
         };
         let elements = vec![
             (site, serde_json::json!({"type": "way", "id": 1})),
@@ -1275,6 +1384,78 @@ mod tests {
             "a pitch's services are the site's"
         );
         assert_eq!(host.raw["_attached"].as_array().map(Vec::len), Some(3));
+    }
+
+    /// The scans the grid replaced, kept as the reference it must agree with.
+    fn naive_pitch_host(sites: &[Mapped], i: usize) -> Option<usize> {
+        let everything = SiteGrid {
+            cells: std::collections::HashMap::new(),
+            wide: (0..sites.len()).collect(),
+        };
+        pitch_host(sites, &everything, i)
+    }
+
+    fn naive_host_site(sites: &[Mapped], station: &Mapped) -> Option<usize> {
+        let everything = SiteGrid {
+            cells: std::collections::HashMap::new(),
+            wide: (0..sites.len()).collect(),
+        };
+        host_site(sites, &everything, station)
+    }
+
+    fn mapped(id: usize, kind: PlaceKind, lat: f64, lon: f64, half: Option<f64>) -> Mapped {
+        let position = Position::new(lat, lon).unwrap();
+        let mut record = NormalizedRecord::new(kind, position);
+        let bounds = half.map(|h| Bounds {
+            minlat: lat - h,
+            minlon: lon - h,
+            maxlat: lat + h,
+            maxlon: lon + h,
+        });
+        record.accuracy_m = half.map_or(0.0, |h| h * 111_195.0);
+        if id.is_multiple_of(3) {
+            record.name = Some(format!("S{id}"));
+        }
+        Mapped {
+            id: format!("node/{id}"),
+            record,
+            bounds,
+            raw: serde_json::json!({}),
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn the_grid_finds_the_hosts_the_full_scan_finds(
+            sites in proptest::collection::vec(
+                (40.0f64..80.0, -10.0f64..30.0, proptest::option::of(0.00005f64..0.3), any::<bool>()),
+                1..60,
+            ),
+            probes in proptest::collection::vec((0usize..60, -0.004f64..0.004, -0.004f64..0.004), 1..40),
+        ) {
+            let sites: Vec<Mapped> = sites
+                .iter()
+                .enumerate()
+                .map(|(i, (lat, lon, half, camp))| {
+                    let kind = if *camp { PlaceKind::Campsite } else { PlaceKind::MotorhomeArea };
+                    mapped(i, kind, *lat, *lon, *half)
+                })
+                .collect();
+            let pitches = SiteGrid::new(&sites, Reach::Pitch);
+            let stations = SiteGrid::new(&sites, Reach::Station);
+            for i in 0..sites.len() {
+                prop_assert_eq!(pitch_host(&sites, &pitches, i), naive_pitch_host(&sites, i));
+            }
+            for (k, (near, dlat, dlon)) in probes.iter().enumerate() {
+                let base = &sites[near % sites.len()].record.position;
+                let lat = (base.lat() + dlat).clamp(-80.0, 80.0);
+                let station = mapped(1_000 + k, PlaceKind::ServiceArea, lat, base.lon() + dlon, None);
+                prop_assert_eq!(
+                    host_site(&sites, &stations, &station),
+                    naive_host_site(&sites, &station)
+                );
+            }
+        }
     }
 
     #[test]

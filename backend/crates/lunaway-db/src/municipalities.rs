@@ -74,9 +74,10 @@ pub async fn replace_all(
     })
 }
 
-/// Gives every live place the commune that covers its point (none outside
-/// the communes loaded), moving in the change feed only the places whose
-/// commune changed. Returns how many.
+/// Gives every live place the commune that covers its point, else the
+/// nearest within about a kilometre (as the conflation does; none farther
+/// from the communes loaded), moving in the change feed only the places
+/// whose commune changed. Returns how many.
 ///
 /// # Errors
 ///
@@ -89,8 +90,10 @@ pub async fn refresh_places(tx: &mut WriterTx) -> Result<u64, DbError> {
             FROM places p
             LEFT JOIN LATERAL (
                 SELECT name, code FROM municipalities mm
-                WHERE ST_Covers(mm.geom, p.geom::geometry)
-                ORDER BY code LIMIT 1
+                WHERE ST_DWithin(mm.geom, p.geom::geometry, 0.015)
+                ORDER BY NOT ST_Covers(mm.geom, p.geom::geometry),
+                         ST_Distance(mm.geom, p.geom::geometry), code
+                LIMIT 1
             ) m ON true
             WHERE p.deleted_at IS NULL
         )

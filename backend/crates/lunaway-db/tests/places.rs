@@ -51,6 +51,7 @@ const NO_OPENING: OpeningEval = OpeningEval {
     intervals: None,
     until: None,
     window_start: None,
+    refresh_at: None,
 };
 
 async fn put(pool: &PgPool, c: &PlaceContent) -> Uuid {
@@ -367,6 +368,7 @@ async fn the_sources_of_many_places_come_in_one_query(pool: PgPool) {
         record: &r,
         raw: &raw,
         fetched_at: at,
+        scope: None,
     }];
     let af = [NewRecord {
         external_id: "49170:x:y",
@@ -374,11 +376,10 @@ async fn the_sources_of_many_places_come_in_one_query(pool: PgPool) {
         record: &r,
         raw: &raw,
         fetched_at: at,
+        scope: None,
     }];
-    records::upsert(&pool, &SourceId::OSM, None, &osm)
-        .await
-        .unwrap();
-    records::upsert(&pool, &SourceId::ATOUT_FRANCE, None, &af)
+    records::upsert(&pool, &SourceId::OSM, &osm).await.unwrap();
+    records::upsert(&pool, &SourceId::ATOUT_FRANCE, &af)
         .await
         .unwrap();
     let r1 = records::id_of(&pool, &SourceId::OSM, "way/1")

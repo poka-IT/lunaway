@@ -9,6 +9,7 @@ pub mod geo;
 pub mod opening;
 pub mod poi;
 pub mod record;
+pub mod region;
 pub mod routing;
 pub mod source;
 pub mod taxonomy;

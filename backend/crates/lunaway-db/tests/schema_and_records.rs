@@ -18,6 +18,11 @@ use lunaway_domain::{
     conflation::ConstraintKind,
 };
 
+/// The rows, each under `scope`.
+fn scoped<'a>(rows: &[NewRecord<'a>], scope: Option<&'a str>) -> Vec<NewRecord<'a>> {
+    rows.iter().map(|r| NewRecord { scope, ..*r }).collect()
+}
+
 fn record(name: &str) -> NormalizedRecord {
     let mut r = NormalizedRecord::new(PlaceKind::Campsite, Position::new(47.4, -0.6).unwrap());
     r.name = Some(name.to_owned());
@@ -138,6 +143,7 @@ async fn an_upsert_flags_only_new_and_changed_records(pool: PgPool) {
             record: &a,
             raw: &raw,
             fetched_at: at,
+            scope: None,
         },
         NewRecord {
             external_id: "way/2",
@@ -145,9 +151,10 @@ async fn an_upsert_flags_only_new_and_changed_records(pool: PgPool) {
             record: &b,
             raw: &raw,
             fetched_at: at,
+            scope: None,
         },
     ];
-    let first = records::upsert(&pool, &SourceId::OSM, Some("FR-PDL"), &rows)
+    let first = records::upsert(&pool, &SourceId::OSM, &scoped(&rows, Some("FR-PDL")))
         .await
         .unwrap();
     assert_eq!(
@@ -175,6 +182,7 @@ async fn an_upsert_flags_only_new_and_changed_records(pool: PgPool) {
             record: &a,
             raw: &raw2,
             fetched_at: later,
+            scope: None,
         },
         NewRecord {
             external_id: "way/2",
@@ -182,9 +190,10 @@ async fn an_upsert_flags_only_new_and_changed_records(pool: PgPool) {
             record: &b2,
             raw: &raw,
             fetched_at: later,
+            scope: None,
         },
     ];
-    let second = records::upsert(&pool, &SourceId::OSM, Some("FR-PDL"), &rows)
+    let second = records::upsert(&pool, &SourceId::OSM, &scoped(&rows, Some("FR-PDL")))
         .await
         .unwrap();
     assert_eq!(
@@ -226,18 +235,22 @@ async fn records_missing_from_a_scope_are_retired_and_come_back(pool: PgPool) {
         record: &r,
         raw: &raw,
         fetched_at: at,
+        scope: None,
     };
     records::upsert(
         &pool,
         &SourceId::OSM,
-        Some("FR-PDL"),
-        &[row("way/1"), row("way/2")],
+        &scoped(&[row("way/1"), row("way/2")], Some("FR-PDL")),
     )
     .await
     .unwrap();
-    records::upsert(&pool, &SourceId::OSM, Some("FR-BRE"), &[row("way/3")])
-        .await
-        .unwrap();
+    records::upsert(
+        &pool,
+        &SourceId::OSM,
+        &scoped(&[row("way/3")], Some("FR-BRE")),
+    )
+    .await
+    .unwrap();
     clear_flags(&pool).await;
 
     let retired = records::retire_missing(
@@ -272,9 +285,13 @@ async fn records_missing_from_a_scope_are_retired_and_come_back(pool: PgPool) {
     );
 
     clear_flags(&pool).await;
-    let back = records::upsert(&pool, &SourceId::OSM, Some("FR-PDL"), &[row("way/2")])
-        .await
-        .unwrap();
+    let back = records::upsert(
+        &pool,
+        &SourceId::OSM,
+        &scoped(&[row("way/2")], Some("FR-PDL")),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         back.changed, 1,
         "a record seen again after its retirement is a change"
@@ -294,6 +311,7 @@ async fn a_constraint_is_stored_once_per_pair_and_flags_both_records(pool: PgPoo
             record: &r,
             raw: &raw,
             fetched_at: at,
+            scope: None,
         },
         NewRecord {
             external_id: "b",
@@ -301,11 +319,10 @@ async fn a_constraint_is_stored_once_per_pair_and_flags_both_records(pool: PgPoo
             record: &r,
             raw: &raw,
             fetched_at: at,
+            scope: None,
         },
     ];
-    records::upsert(&pool, &SourceId::OSM, None, &rows)
-        .await
-        .unwrap();
+    records::upsert(&pool, &SourceId::OSM, &rows).await.unwrap();
     let a = records::id_of(&pool, &SourceId::OSM, "a")
         .await
         .unwrap()

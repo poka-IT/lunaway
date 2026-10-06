@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT version, changed_at FROM poi_layer",
+  "query": "SELECT version, changed_at, pending_since FROM poi_layer",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "changed_at"
           }
         }
+      },
+      {
+        "ordinal": 2,
+        "name": "pending_since",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "poi_layer",
+            "name": "pending_since"
+          }
+        }
       }
     ],
     "parameters": {
@@ -31,8 +42,9 @@
     },
     "nullable": [
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "730fef309126e02cabdf2ac54f6cda9b4cd2acb2fc2a148c5e86b5cebfe8ff36"
+  "hash": "b753a82fa8b3184f74ed6821feb04d772142d4938e25a909160c6a66561d3334"
 }

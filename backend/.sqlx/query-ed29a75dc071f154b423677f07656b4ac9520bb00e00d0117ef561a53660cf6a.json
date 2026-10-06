@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT count(*) AS \"n!\" FROM pois WHERE source_id = $1 AND deleted_at IS NULL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM source_records\n        WHERE source_id = $1 AND deleted_at IS NULL AND scope = ANY($2)\n        ",
   "describe": {
     "columns": [
       {
@@ -12,12 +12,13 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "TextArray"
       ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "c600fbec030c7ae02f31a79e358affb57d8a524dcaced4365db9e58d0268ee2b"
+  "hash": "ed29a75dc071f154b423677f07656b4ac9520bb00e00d0117ef561a53660cf6a"
 }

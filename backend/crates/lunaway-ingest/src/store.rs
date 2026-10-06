@@ -85,9 +85,10 @@ async fn store(
             record: &f.record,
             raw: &f.raw,
             fetched_at: f.fetched_at,
+            scope,
         })
         .collect();
-    let upsert = records::upsert(pool, source, scope, &rows).await?;
+    let upsert = records::upsert(pool, source, &rows).await?;
     if truncated(fetched.len(), before) {
         tracing::warn!(
             source = %source,
@@ -119,10 +120,162 @@ async fn store(
     })
 }
 
-/// Stores `points` as the complete content of `source` in the POI layer:
-/// points are inserted or updated, and the stored points the fetch did not
-/// contain are retired, unless the fetch looks truncated
-/// ([`RETIRE_GUARD_PERCENT`]).
+/// The country a record of an extract run was read in: its scope.
+fn country_scope(r: &lunaway_domain::NormalizedRecord) -> Option<&str> {
+    r.address.country_code.as_deref()
+}
+
+/// Inserts or updates the records of one extract of a run, each under the
+/// scope of its country, without retiring anything: the run retires once
+/// every extract is read ([`retire_in_coverage`]).
+///
+/// # Errors
+///
+/// [`IngestError::Db`] when a statement fails.
+pub async fn upsert_by_country(
+    pool: &PgPool,
+    source: &SourceId,
+    fetched: &[FetchedRecord],
+) -> Result<records::UpsertStats, IngestError> {
+    let rows: Vec<NewRecord<'_>> = fetched
+        .iter()
+        .map(|f| NewRecord {
+            external_id: &f.external_id,
+            external_url: f.external_url.as_deref(),
+            record: &f.record,
+            raw: &f.raw,
+            fetched_at: f.fetched_at,
+            scope: country_scope(&f.record),
+        })
+        .collect();
+    Ok(records::upsert(pool, source, &rows).await?)
+}
+
+/// What a retirement at the end of a run did.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Retirement {
+    /// Records or points retired.
+    pub retired: u64,
+    /// Whether retiring was skipped by [`RETIRE_GUARD_PERCENT`].
+    pub refused: bool,
+}
+
+/// Retires the records of `source` in the countries `coverage` speaks for
+/// that the run did not see, unless the run saw less than
+/// [`RETIRE_GUARD_PERCENT`] of what is stored there.
+///
+/// # Errors
+///
+/// [`IngestError::Db`] when a statement fails.
+pub async fn retire_in_coverage(
+    pool: &PgPool,
+    source: &SourceId,
+    coverage: &crate::osm_extract::Coverage,
+    seen: &[String],
+    at: chrono::DateTime<chrono::Utc>,
+) -> Result<Retirement, IngestError> {
+    let scopes = coverage.scopes();
+    let before = match &scopes {
+        Some(scopes) => records::live_count_in_scopes(pool, source, scopes).await?,
+        None => records::live_count(pool, source, None).await?,
+    };
+    if truncated(seen.len(), before) {
+        tracing::warn!(
+            source = %source,
+            seen = seen.len(),
+            stored = before,
+            "the run holds less than half of the stored records; nothing is retired"
+        );
+        return Ok(Retirement {
+            retired: 0,
+            refused: true,
+        });
+    }
+    let retired = match &scopes {
+        Some(scopes) => records::retire_missing_in_scopes(pool, source, scopes, seen, at).await?,
+        None => records::retire_missing_in_source(pool, source, seen, at).await?,
+    };
+    Ok(Retirement {
+        retired,
+        refused: false,
+    })
+}
+
+/// Inserts or updates the points of one extract of a run, each under the
+/// scope of its country, without retiring anything; marks the layer when a
+/// point changed.
+///
+/// # Errors
+///
+/// [`IngestError::Db`] when a statement fails.
+pub async fn upsert_pois_by_country(
+    pool: &PgPool,
+    source: &SourceId,
+    points: &[crate::poi_osm::FetchedPoi],
+) -> Result<records::UpsertStats, IngestError> {
+    let rows: Vec<lunaway_db::pois::NewPoi<'_>> = points
+        .iter()
+        .map(|p| lunaway_db::pois::NewPoi {
+            external_id: &p.external_id,
+            external_url: p.external_url.as_deref(),
+            record: &p.record,
+            raw: &p.raw,
+            fetched_at: p.fetched_at,
+            scope: p.record.address.country_code.as_deref(),
+        })
+        .collect();
+    let upsert = lunaway_db::pois::upsert(pool, source, &rows).await?;
+    if upsert.inserted + upsert.changed > 0 {
+        lunaway_db::pois::mark_layer_now(pool).await?;
+    }
+    Ok(upsert)
+}
+
+/// Retires the points of `source` in the countries `coverage` speaks for
+/// that the run did not see, unless the run saw less than
+/// [`RETIRE_GUARD_PERCENT`] of what is stored there; marks the layer when
+/// a point went.
+///
+/// # Errors
+///
+/// [`IngestError::Db`] when a statement fails.
+pub async fn retire_pois_in_coverage(
+    pool: &PgPool,
+    source: &SourceId,
+    coverage: &crate::osm_extract::Coverage,
+    seen: &[String],
+    at: chrono::DateTime<chrono::Utc>,
+) -> Result<Retirement, IngestError> {
+    let scopes = coverage.scopes();
+    let before = lunaway_db::pois::live_count(pool, source, scopes.as_deref()).await?;
+    if truncated(seen.len(), before) {
+        tracing::warn!(
+            source = %source,
+            seen = seen.len(),
+            stored = before,
+            "the run holds less than half of the stored points; nothing is retired"
+        );
+        return Ok(Retirement {
+            retired: 0,
+            refused: true,
+        });
+    }
+    let retired =
+        lunaway_db::pois::retire_missing(pool, source, scopes.as_deref(), seen, at).await?;
+    if retired > 0 {
+        lunaway_db::pois::mark_layer_now(pool).await?;
+    }
+    Ok(Retirement {
+        retired,
+        refused: false,
+    })
+}
+
+/// Stores `points` as the complete content of `source` in the POI layer,
+/// whatever their countries: points are inserted or updated, and the stored
+/// points the fetch did not contain are retired, unless the fetch looks
+/// truncated ([`RETIRE_GUARD_PERCENT`]). An extract run retires by country
+/// instead ([`crate::extract_run`]).
 ///
 /// # Errors
 ///
@@ -132,49 +285,25 @@ pub async fn store_pois(
     source: &SourceId,
     points: &[crate::poi_osm::FetchedPoi],
 ) -> Result<StoreReport, IngestError> {
-    let before = lunaway_db::pois::live_count(pool, source).await?;
-    let rows: Vec<lunaway_db::pois::NewPoi<'_>> = points
-        .iter()
-        .map(|p| lunaway_db::pois::NewPoi {
-            external_id: &p.external_id,
-            external_url: p.external_url.as_deref(),
-            record: &p.record,
-            raw: &p.raw,
-            fetched_at: p.fetched_at,
-        })
-        .collect();
-    let upsert = lunaway_db::pois::upsert(pool, source, &rows).await?;
-    if truncated(points.len(), before) {
-        if upsert.inserted + upsert.changed > 0 {
-            lunaway_db::pois::bump_layer_now(pool).await?;
-        }
-        tracing::warn!(
-            source = %source,
-            seen = points.len(),
-            stored = before,
-            "the fetch holds less than half of the stored points; nothing is retired"
-        );
-        return Ok(StoreReport {
-            upsert,
-            retired: 0,
-            retire_refused: true,
-        });
-    }
+    let upsert = upsert_pois_by_country(pool, source, points).await?;
     let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
     let at = points
         .iter()
         .map(|p| p.fetched_at)
         .max()
         .unwrap_or_else(chrono::Utc::now);
-    let retired = lunaway_db::pois::retire_missing(pool, source, &seen, at).await?;
-    // Once for the whole import: every device fetches its tiles again.
-    if upsert.inserted + upsert.changed + retired > 0 {
-        lunaway_db::pois::bump_layer_now(pool).await?;
-    }
+    let r = retire_pois_in_coverage(
+        pool,
+        source,
+        &crate::osm_extract::Coverage::Everywhere,
+        &seen,
+        at,
+    )
+    .await?;
     Ok(StoreReport {
         upsert,
-        retired,
-        retire_refused: false,
+        retired: r.retired,
+        retire_refused: r.refused,
     })
 }
 
@@ -205,7 +334,7 @@ pub async fn store_joins(
     let upsert = lunaway_db::pois::upsert_joins(pool, source, rows).await?;
     if truncated(rows.len(), before) {
         if upsert.tile_changes > 0 {
-            lunaway_db::pois::bump_layer_now(pool).await?;
+            lunaway_db::pois::mark_layer_now(pool).await?;
         }
         tracing::warn!(
             source = %source,
@@ -228,7 +357,7 @@ pub async fn store_joins(
     let (retired, retired_on_tile) =
         lunaway_db::pois::retire_missing_joins(pool, source, &seen, at).await?;
     if upsert.tile_changes > 0 || retired_on_tile {
-        lunaway_db::pois::bump_layer_now(pool).await?;
+        lunaway_db::pois::mark_layer_now(pool).await?;
     }
     Ok(JoinStoreReport {
         upsert,

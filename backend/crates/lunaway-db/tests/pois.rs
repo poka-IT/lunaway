@@ -37,12 +37,18 @@ async fn store(pool: &PgPool, points: &[(&str, PoiRecord)]) -> lunaway_db::recor
             record: r,
             raw: &raw,
             fetched_at: at,
+            scope: Some("FR"),
         })
         .collect();
     pois::upsert(pool, &SourceId::OSM, &rows).await.unwrap()
 }
 
+/// The tiles' version once what waits is published: the worker publishes
+/// at most every few hours, the tests at once.
 async fn version(pool: &PgPool) -> i64 {
+    pois::publish_layer(pool, std::time::Duration::ZERO)
+        .await
+        .unwrap();
     pois::layer_version(pool).await.unwrap().version
 }
 
@@ -95,13 +101,63 @@ async fn an_upsert_tells_new_changed_and_unchanged_points_apart(pool: PgPool) {
         v0,
         "the tiles' version moves once per import, by its caller, not per batch"
     );
-    let retired = pois::retire_missing(&pool, &SourceId::OSM, &["node/1".to_owned()], Utc::now())
+    let other_country = ["DE".to_owned()];
+    let retired = pois::retire_missing(
+        &pool,
+        &SourceId::OSM,
+        Some(&other_country),
+        &["node/1".to_owned()],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        retired, 0,
+        "a run of another country retires none of the French points"
+    );
+    let france = ["FR".to_owned()];
+    let retired = pois::retire_missing(
+        &pool,
+        &SourceId::OSM,
+        Some(&france),
+        &["node/1".to_owned()],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(retired, 1);
+    assert_eq!(
+        pois::live_count(&pool, &SourceId::OSM, None).await.unwrap(),
+        1
+    );
+    // A version that has just moved: the template database's may be hours
+    // old.
+    sqlx::query("UPDATE poi_layer SET changed_at = now()")
+        .execute(&pool)
         .await
         .unwrap();
-    assert_eq!(retired, 1);
-    assert_eq!(pois::live_count(&pool, &SourceId::OSM).await.unwrap(), 1);
-    let v1 = pois::bump_layer_now(&pool).await.unwrap();
-    assert_eq!(v1, v0 + 1);
+    pois::mark_layer_now(&pool).await.unwrap();
+    assert_eq!(
+        pois::publish_layer(&pool, std::time::Duration::from_secs(3_600))
+            .await
+            .unwrap(),
+        None,
+        "a version younger than the interval does not move"
+    );
+    assert_eq!(
+        pois::publish_layer(&pool, std::time::Duration::ZERO)
+            .await
+            .unwrap(),
+        Some(v0 + 1),
+        "a waiting change is published once the interval has passed"
+    );
+    assert_eq!(
+        pois::publish_layer(&pool, std::time::Duration::ZERO)
+            .await
+            .unwrap(),
+        None,
+        "nothing waits any more"
+    );
 }
 
 async fn account(pool: &PgPool, level: i16) -> Uuid {
@@ -459,8 +515,9 @@ async fn hours_gone_from_the_source_leave_nothing_behind(pool: PgPool) {
         .await
         .unwrap();
     let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap();
+    let now = Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap();
     let mut tx = pois::begin_poi_writer(&pool).await.unwrap();
-    let stale = pois::stale_hours(&mut tx, today, 10).await.unwrap();
+    let stale = pois::stale_hours(&mut tx, now, 10).await.unwrap();
     assert_eq!(stale.len(), 1);
     assert_eq!(stale[0].source_id, SourceId::OSM);
     pois::set_hours(
@@ -471,6 +528,7 @@ async fn hours_gone_from_the_source_leave_nothing_behind(pool: PgPool) {
             intervals: Some(Vec::new()),
             until: Some(Utc.with_ymd_and_hms(2026, 11, 15, 23, 0, 0).unwrap()),
             window_start: today,
+            refresh_at: Utc.with_ymd_and_hms(2026, 11, 2, 23, 0, 0).unwrap(),
             source: Some(SourceId::OSM),
             tile: Some(String::new()),
         }],

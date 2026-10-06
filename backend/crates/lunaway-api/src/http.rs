@@ -39,6 +39,8 @@ pub(crate) struct Endpoint {
     rate: Arc<RateLimiter>,
     /// Requests running at once.
     slots: Semaphore,
+    /// Documents known by their hash.
+    persisted: crate::persisted::Registry,
 }
 
 impl Endpoint {
@@ -48,19 +50,49 @@ impl Endpoint {
             limits,
             rate,
             slots: Semaphore::new(limits.max_concurrent_requests),
+            persisted: crate::persisted::Registry::default(),
         }
     }
 }
 
-/// The JSON body of a request; unknown members (`extensions`) are ignored.
+/// The JSON body of a request; unknown members are ignored.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Body {
-    query: String,
+    /// Absent when `extensions.persistedQuery` names a known document.
+    #[serde(default)]
+    query: Option<String>,
     #[serde(default)]
     variables: Option<serde_json::Value>,
     #[serde(default)]
     operation_name: Option<String>,
+    #[serde(default)]
+    extensions: Option<Extensions>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Extensions {
+    #[serde(default)]
+    persisted_query: Option<PersistedQuery>,
+}
+
+/// Apollo's `extensions.persistedQuery` (`crate::persisted`).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedQuery {
+    version: i64,
+    sha256_hash: String,
+}
+
+/// The document a request runs, and the hash to keep it under once it ran
+/// without error.
+enum Document {
+    Text(String),
+    Persisted {
+        text: String,
+        register: Option<String>,
+    },
 }
 
 pub(crate) fn error_body(code: &str, message: &str, retry_after: Option<u64>) -> Vec<u8> {
@@ -189,6 +221,57 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
             wait,
         );
     }
+    let persisted = body.extensions.and_then(|e| e.persisted_query);
+    let document = match (body.query, persisted) {
+        (Some(text), None) => Document::Text(text),
+        (None, None) => {
+            return refuse(
+                StatusCode::BAD_REQUEST,
+                INVALID_INPUT,
+                "the body must hold a `query`, or the hash of a persisted one",
+            );
+        }
+        (query, Some(p)) => {
+            if p.version != 1 || !crate::persisted::well_formed(&p.sha256_hash) {
+                return refuse(
+                    StatusCode::BAD_REQUEST,
+                    INVALID_INPUT,
+                    "persistedQuery must be version 1 with a hexadecimal SHA-256",
+                );
+            }
+            let hash = p.sha256_hash.to_ascii_lowercase();
+            match query {
+                Some(text) if crate::persisted::hash(&text) == hash => Document::Persisted {
+                    text,
+                    register: Some(hash),
+                },
+                Some(_) => {
+                    return refuse(
+                        StatusCode::BAD_REQUEST,
+                        INVALID_INPUT,
+                        "the hash is not the SHA-256 of the query",
+                    );
+                }
+                None => match endpoint.persisted.get(&hash) {
+                    Some(text) => Document::Persisted {
+                        text: text.to_string(),
+                        register: None,
+                    },
+                    None => {
+                        return refuse(
+                            StatusCode::OK,
+                            crate::persisted::NOT_FOUND,
+                            crate::persisted::NOT_FOUND_MESSAGE,
+                        );
+                    }
+                },
+            }
+        }
+    };
+    let (text, register) = match document {
+        Document::Text(text) => (text, None),
+        Document::Persisted { text, register } => (text, register),
+    };
     let Ok(Ok(_slot)) = tokio::time::timeout(limits.queue_wait, endpoint.slots.acquire()).await
     else {
         return wait_response(
@@ -198,7 +281,7 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
         );
     };
 
-    let mut request = async_graphql::Request::new(body.query)
+    let mut request = async_graphql::Request::new(text.as_str())
         .data(key)
         .data(credentials)
         .data(ViewerCell::default())
@@ -221,6 +304,13 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
             "the request took too long",
         );
     };
+    // Kept only once it ran clean: a document that does not parse, validate
+    // or fit the limits never takes a place in the registry.
+    if let Some(hash) = register
+        && response.errors.is_empty()
+    {
+        endpoint.persisted.put(&hash, &text);
+    }
     respond(response, limits.max_response_bytes)
 }
 

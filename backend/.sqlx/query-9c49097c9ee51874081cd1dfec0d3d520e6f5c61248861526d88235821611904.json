@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE poi_layer\n        SET version = version + 1, changed_at = now(), pending_since = NULL\n        WHERE pending_since IS NOT NULL AND changed_at <= now() - make_interval(secs => $1)\n        RETURNING version\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "version",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "poi_layer",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9c49097c9ee51874081cd1dfec0d3d520e6f5c61248861526d88235821611904"
+}

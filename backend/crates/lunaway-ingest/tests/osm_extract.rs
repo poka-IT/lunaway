@@ -15,8 +15,19 @@ use lunaway_ingest::{
     cache::Cache,
     http::{self, RetryPolicy},
     osm::Skip,
-    osm_extract,
+    osm_extract::{self, Refresh},
 };
+
+/// Where the France extract is kept in the cache.
+const KEY: &str = "osm-extract/france-latest.osm.pbf";
+
+/// The area of a run of the France extract alone.
+fn france() -> osm_extract::Area<'static> {
+    static COVERAGE: std::sync::LazyLock<osm_extract::Coverage> = std::sync::LazyLock::new(|| {
+        osm_extract::Coverage::of(&[osm_extract::extract("france").unwrap()])
+    });
+    osm_extract::Area::of(&osm_extract::extract("france").unwrap(), &COVERAGE)
+}
 
 fn varint(out: &mut Vec<u8>, mut v: u64) {
     while v >= 0x80 {
@@ -317,7 +328,7 @@ fn the_points_of_interest_come_from_the_same_extract() {
     let path = dir.path().join("pois.osm.pbf");
     std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
     let at = Utc.with_ymd_and_hms(2026, 10, 4, 20, 0, 0).unwrap();
-    let parsed = lunaway_ingest::poi_osm::read(&path, at).unwrap();
+    let parsed = lunaway_ingest::poi_osm::read(&path, at, france()).unwrap();
     let got: Vec<(&str, PoiKind)> = parsed
         .points
         .iter()
@@ -360,7 +371,7 @@ fn an_extract_maps_like_an_overpass_answer() {
     let path = dir.path().join("sample.osm.pbf");
     std::fs::write(&path, extract()).unwrap();
     let at = Utc.with_ymd_and_hms(2026, 10, 4, 20, 0, 0).unwrap();
-    let parsed = osm_extract::read(&path, at).unwrap();
+    let parsed = osm_extract::read(&path, at, france()).unwrap();
 
     let ids: Vec<&str> = parsed
         .records
@@ -436,12 +447,12 @@ async fn the_extract_is_downloaded_once_then_read_from_the_cache() {
         max_delay: std::time::Duration::from_millis(5),
         max_retries: 1,
     };
-    let first = osm_extract::fetch(&client, &cache, &url, retry, false)
+    let first = osm_extract::fetch(&client, &cache, &url, KEY, retry, Refresh::Never)
         .await
         .unwrap();
     assert!(!first.cached);
     assert_eq!(std::fs::read(&first.path).unwrap(), extract());
-    let again = osm_extract::fetch(&client, &cache, &url, retry, false)
+    let again = osm_extract::fetch(&client, &cache, &url, KEY, retry, Refresh::Never)
         .await
         .unwrap();
     assert!(again.cached);
@@ -562,8 +573,9 @@ async fn an_interrupted_download_of_the_same_file_resumes_where_it_stopped() {
         &http::client_allowing_plain_http().unwrap(),
         &Cache::new(dir.path()),
         &latest,
+        KEY,
         fast(),
-        true,
+        Refresh::OlderThan(std::time::Duration::ZERO),
     )
     .await
     .unwrap();
@@ -595,8 +607,9 @@ async fn a_file_replaced_between_two_attempts_is_downloaded_whole_not_spliced() 
         &http::client_allowing_plain_http().unwrap(),
         &Cache::new(dir.path()),
         &url,
+        KEY,
         fast(),
-        true,
+        Refresh::OlderThan(std::time::Duration::ZERO),
     )
     .await
     .unwrap();
@@ -624,8 +637,9 @@ async fn a_partial_file_without_a_validator_or_from_another_url_starts_over() {
             &http::client_allowing_plain_http().unwrap(),
             &Cache::new(dir.path()),
             &url,
+            KEY,
             fast(),
-            true,
+            Refresh::OlderThan(std::time::Duration::ZERO),
         )
         .await
         .unwrap();
@@ -658,8 +672,9 @@ async fn a_partial_file_already_complete_is_downloaded_again_not_stuck() {
         &http::client_allowing_plain_http().unwrap(),
         &Cache::new(dir.path()),
         &url,
+        KEY,
         fast(),
-        true,
+        Refresh::OlderThan(std::time::Duration::ZERO),
     )
     .await
     .unwrap();

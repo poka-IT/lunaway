@@ -514,6 +514,14 @@ impl Place {
         self.0.municipality.as_deref()
     }
 
+    /// The sync region the place belongs to (`Query.regions`): a French
+    /// region (`FR-BRE`) in France, the country code elsewhere. A device
+    /// that keeps a region drops the places of that region its pack or
+    /// its sync no longer lists.
+    async fn region(&self) -> Option<&str> {
+        self.0.region.as_deref()
+    }
+
     /// Every description of every source, by language, the source most
     /// trusted for descriptions first.
     async fn descriptions(&self) -> Vec<LocalizedText> {

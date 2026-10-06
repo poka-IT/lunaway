@@ -12,6 +12,7 @@ repository = "https://github.com/poka-IT/lunaway"
 publish = false
 
 [workspace.dependencies]
+lunaway-api = { path = "crates/lunaway-api" }
 lunaway-auth = { path = "crates/lunaway-auth" }
 lunaway-conflate = { path = "crates/lunaway-conflate" }
 lunaway-db = { path = "crates/lunaway-db" }
@@ -32,6 +33,11 @@ base64 = "0.22.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
 chrono-tz = "0.10.4"
 clap = { version = "4.6.7", features = ["derive", "env"] }
+# Which country a point is in, from boundaries derived from OpenStreetMap
+# (ODbL, the licence of the places database itself), embedded in the binary:
+# the time zone and holidays of opening hours, and the region a place syncs
+# with, without a lookup service. No dependency of its own.
+country-boundaries = "1.2.0"
 csv = "1.4.0"
 flate2 = "1.1.10"
 futures-util = { version = "0.3.34", default-features = false }
@@ -55,6 +61,12 @@ proptest = "1.11.0"
 # build avoids aws-lc-sys (C toolchain, OpenSSL licence terms).
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "http2", "json", "multipart", "form", "charset"] }
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+# Writes the regional packs, SQLite files the app attaches to its own cache
+# (docs/region-packs.md): the SQLite amalgamation compiled in (`bundled`),
+# nothing else. 0.39, not 0.40: Cargo checks the `links` of every optional
+# dependency, and sqlx's SQLite bindings, never built here, cap
+# libsqlite3-sys below 0.38.
+rusqlite = { version = "0.39.0", default-features = false, features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sha2 = "0.11.0"

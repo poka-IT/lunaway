@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT region AS \"region!\", count(*) AS \"places!\",\n                   min(ST_Y(geom::geometry)) AS \"south!\", min(ST_X(geom::geometry)) AS \"west!\",\n                   max(ST_Y(geom::geometry)) AS \"north!\", max(ST_X(geom::geometry)) AS \"east!\"\n            FROM places\n            WHERE deleted_at IS NULL AND region IS NOT NULL\n            GROUP BY region\n            ORDER BY region\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "region!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "region"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "places!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "south!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "west!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "north!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "east!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e1c44edb2d511ceb75c1ad4ec8c05c7b9c4cfa64cb14498dc9e3fc8876a5188c"
+}

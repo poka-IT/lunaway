@@ -1,0 +1,182 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT region, seq, feed_identity, places, south, west, north, east, file, format,\n               bytes, raw_bytes, sha256, generated_at\n        FROM region_packs\n        ORDER BY region\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "region",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "region"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "seq",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "seq"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "feed_identity",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "feed_identity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "places",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "places"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "south",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "south"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "west",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "west"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "north",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "north"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "east",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "east"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "file",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "file"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "format",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "format"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "raw_bytes",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "raw_bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "sha256",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "sha256"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "generated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "region_packs",
+            "name": "generated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bbbb59908da855d1f1175e871d13b771e64e4318136809f058743d4a1c249d2b"
+}

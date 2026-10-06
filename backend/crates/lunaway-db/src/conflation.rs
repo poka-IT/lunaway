@@ -385,6 +385,9 @@ pub struct OpeningEval {
     pub until: Option<DateTime<Utc>>,
     /// First local day of the window.
     pub window_start: Option<NaiveDate>,
+    /// When the window must move: the next local midnight after its first
+    /// day, in the zone of the place. `None` without hours.
+    pub refresh_at: Option<DateTime<Utc>>,
 }
 
 /// A place to write.
@@ -437,9 +440,15 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
     sqlx::query!(
         r#"
         WITH m AS (
+            -- The commune that covers the point, else the nearest within
+            -- about a kilometre: the communes are simplified to 100 m, and
+            -- a campsite on the shore fell outside every one (24 of 18 391
+            -- French places, all within 422 m of one, on 2026-10-06).
             SELECT code, name FROM municipalities
-            WHERE ST_Covers(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326))
-            ORDER BY code LIMIT 1
+            WHERE ST_DWithin(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326), 0.015)
+            ORDER BY NOT ST_Covers(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)),
+                     ST_Distance(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)), code
+            LIMIT 1
         )
         INSERT INTO places
             (id, kind, name, geom, overnight, services, activities, description, street,
@@ -447,10 +456,10 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
              capacity, opening_hours, opening_hours_parsed, opening_intervals,
              opening_window_start, website, phone, stars, provenance, content_hash,
              opening_intervals_until, descriptions, external_links, municipality,
-             municipality_code, max_length_m, max_width_m, max_weight_t)
+             municipality_code, max_length_m, max_width_m, max_weight_t, opening_refresh_at)
         SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
-               $26, $27, $28, $29, m.name, m.code, $30, $31, $32
+               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33
         FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true
         -- Ends the SELECT before ON CONFLICT: the parser would otherwise
         -- read the conflict clause as part of the join.
@@ -470,6 +479,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             opening_intervals = EXCLUDED.opening_intervals,
             opening_intervals_until = EXCLUDED.opening_intervals_until,
             opening_window_start = EXCLUDED.opening_window_start,
+            opening_refresh_at = EXCLUDED.opening_refresh_at,
             website = EXCLUDED.website, phone = EXCLUDED.phone, stars = EXCLUDED.stars,
             provenance = EXCLUDED.provenance, content_hash = EXCLUDED.content_hash,
             descriptions = EXCLUDED.descriptions, external_links = EXCLUDED.external_links,
@@ -510,6 +520,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         c.max_length_m,
         c.max_width_m,
         c.max_weight_t,
+        p.opening.refresh_at,
     )
     .execute(tx.conn())
     .await?;
@@ -591,7 +602,7 @@ pub async fn clear_dirty(tx: &mut WriterTx, ids: &[Uuid]) -> Result<(), DbError>
     Ok(())
 }
 
-/// A live place whose opening intervals are older than `today`.
+/// A live place whose opening window must move.
 #[derive(Debug, Clone)]
 pub struct StaleOpening {
     /// The place.
@@ -608,16 +619,16 @@ pub struct StaleOpening {
     pub until: Option<DateTime<Utc>>,
 }
 
-/// Live places with opening hours whose window does not start on `today`,
-/// or whose intervals lack the end of their window (computed before the
-/// window end was stored).
+/// Live places with opening hours whose window must move at `now` (its
+/// local midnight has passed, or it was never set), or whose intervals lack
+/// the end of their window (computed before the window end was stored).
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
 pub async fn stale_openings(
     tx: &mut WriterTx,
-    today: NaiveDate,
+    now: DateTime<Utc>,
 ) -> Result<Vec<StaleOpening>, DbError> {
     let rows = sqlx::query!(
         r#"
@@ -626,11 +637,12 @@ pub async fn stale_openings(
                ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!"
         FROM places
         WHERE deleted_at IS NULL AND opening_hours IS NOT NULL
-          AND (opening_window_start IS DISTINCT FROM $1
+          AND (opening_window_start IS NULL OR opening_refresh_at IS NULL
+               OR opening_refresh_at <= $1
                OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))
         ORDER BY id
         "#,
-        today,
+        now,
     )
     .fetch_all(tx.conn())
     .await?;
@@ -670,7 +682,7 @@ pub async fn set_opening(
         r#"
         UPDATE places SET
             opening_hours_parsed = $2, opening_intervals = $3, opening_window_start = $4,
-            opening_intervals_until = $6,
+            opening_intervals_until = $6, opening_refresh_at = $7,
             updated_at = CASE WHEN $5 THEN now() ELSE updated_at END,
             updated_seq = CASE WHEN $5 THEN nextval('place_change_seq') ELSE updated_seq END
         WHERE id = $1
@@ -681,6 +693,7 @@ pub async fn set_opening(
         opening.window_start,
         changed,
         opening.until,
+        opening.refresh_at,
     )
     .execute(tx.conn())
     .await?;

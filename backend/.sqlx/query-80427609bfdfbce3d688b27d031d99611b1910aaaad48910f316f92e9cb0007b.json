@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH u AS (\n            SELECT * FROM UNNEST($1::uuid[], $2::bool[], $3::jsonb[], $4::timestamptz[],\n                                 $5::date[], $6::text[], $7::text[], $8::timestamptz[])\n                AS u(id, parsed, intervals, until, start, source, tile, refresh)\n        ),\n        old AS (\n            SELECT p.id, p.opening_tile, p.opening_intervals_until\n            FROM pois p JOIN u ON u.id = p.id\n        )\n        UPDATE pois p SET\n            opening_hours_parsed = u.parsed, opening_intervals = u.intervals,\n            opening_intervals_until = u.until, opening_window_start = u.start,\n            opening_source = u.source, opening_tile = u.tile, opening_refresh_at = u.refresh\n        FROM u JOIN old ON old.id = u.id\n        WHERE p.id = u.id\n        RETURNING (old.opening_tile IS DISTINCT FROM u.tile\n                   OR old.opening_intervals_until IS DISTINCT FROM u.until) AS \"changed!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "changed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "BoolArray",
+        "JsonbArray",
+        "TimestamptzArray",
+        "DateArray",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "80427609bfdfbce3d688b27d031d99611b1910aaaad48910f316f92e9cb0007b"
+}

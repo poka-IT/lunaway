@@ -263,7 +263,7 @@ pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
     };
     r.address.postcode = tag(tags, "addr:postcode").map(str::to_owned);
     r.address.city = tag(tags, "addr:city").map(str::to_owned);
-    r.address.country_code = Some(tag(tags, "addr:country").unwrap_or("FR").to_uppercase());
+    r.address.country_code = crate::osm::country_of(element, position, tags);
     r.wheelchair = tag(tags, "wheelchair")
         .filter(|w| matches!(*w, "yes" | "limited" | "no"))
         .map(str::to_owned);
@@ -392,14 +392,18 @@ impl Selector for Pois {
     }
 }
 
-/// Reads the extract at `path` into points. CPU-bound and blocking: run it
-/// on a blocking thread.
+/// Reads the extract at `path` into points, those of `area` only.
+/// CPU-bound and blocking: run it on a blocking thread.
 ///
 /// # Errors
 ///
 /// [`IngestError::Pbf`] when the file is not a readable PBF.
-pub fn read(path: &std::path::Path, fetched_at: DateTime<Utc>) -> Result<ParsedPois, IngestError> {
-    let (elements, outside) = osm_extract::read_selected(path, &Pois)?;
+pub fn read(
+    path: &std::path::Path,
+    fetched_at: DateTime<Utc>,
+    area: osm_extract::Area<'_>,
+) -> Result<ParsedPois, IngestError> {
+    let (elements, outside) = osm_extract::read_selected(path, &Pois, area)?;
     let mut parsed = build(elements, fetched_at);
     parsed
         .skipped
@@ -502,6 +506,7 @@ mod tests {
             lon: Some(-0.5),
             bounds: None,
             tags: tags(t),
+            country: None,
         };
         assert!(map_element(&element(&[("amenity", "toilets"), ("access", "private")])).is_err());
         assert!(map_element(&element(&[("shop", "bakery"), ("opening_hours", "closed")])).is_err());
@@ -534,6 +539,7 @@ mod tests {
                 ("check_date", "2025-06"),
                 ("website", "javascript:alert(1)"),
             ]),
+            country: None,
         };
         let r = map_element(&e).unwrap();
         assert_eq!(r.kind, PoiKind::FuelStation);
@@ -551,6 +557,7 @@ mod tests {
         assert_eq!(r.osm_ref.as_deref(), Some("way/42"));
         let post = Element {
             tags: tags(&[("amenity", "post_office"), ("ref:FR:LaPoste", "13905d")]),
+            country: None,
             ..e.clone()
         };
         assert_eq!(

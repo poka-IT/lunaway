@@ -71,6 +71,8 @@ pub struct PlaceRow {
     pub provenance: Vec<FieldProvenance>,
     /// The commune that covers the place.
     pub municipality: Option<String>,
+    /// The sync region it belongs to (`lunaway_domain::region`).
+    pub region: Option<String>,
     /// Every description of every source, by language.
     pub descriptions: Vec<LocalizedText>,
     /// Pages about the place elsewhere.
@@ -124,6 +126,7 @@ pub(crate) struct PlaceDb {
     pub(crate) cover_photos: serde_json::Value,
     pub(crate) reported_issues: serde_json::Value,
     pub(crate) verification: String,
+    pub(crate) region: Option<String>,
 }
 
 fn codes<T: std::str::FromStr<Err = lunaway_domain::UnknownCode>>(
@@ -186,6 +189,7 @@ impl TryFrom<PlaceDb> for PlaceRow {
             provenance: serde_json::from_value(r.provenance)
                 .map_err(|e| DbError::decode("provenance", e))?,
             municipality: r.municipality,
+            region: r.region,
             descriptions: serde_json::from_value(r.descriptions)
                 .map_err(|e| DbError::decode("descriptions", e))?,
             external_links: serde_json::from_value(r.external_links)
@@ -270,7 +274,7 @@ pub async fn in_bbox(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification
+               reported_issues, verification, region
         FROM places
         WHERE deleted_at IS NULL
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -391,7 +395,7 @@ pub async fn changes(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification
+               reported_issues, verification, region
         FROM places
         WHERE updated_seq > $5
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -409,6 +413,52 @@ pub async fn changes(
     )
     .fetch_all(pool)
     .await?;
+    page_of_changes(rows, first)
+}
+
+/// The places of the sync region `region` changed after `since`, in feed
+/// order, at most `first`; plus whether more follow. A place keeps its
+/// region in its tombstone, so its deletion reaches the devices that keep
+/// the region. Deletions are left out when `with_deletions` is false.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails or a row does not decode.
+pub async fn changes_in_region(
+    pool: &PgPool,
+    region: &str,
+    since: i64,
+    first: i64,
+    with_deletions: bool,
+) -> Result<(Vec<Change>, bool), DbError> {
+    let rows = sqlx::query_as!(
+        PlaceDb,
+        r#"
+        SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
+               overnight, services, activities, description, street, postcode, city,
+               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               max_width_m, max_weight_t, capacity,
+               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
+               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
+               deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
+               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
+               reported_issues, verification, region
+        FROM places
+        WHERE region = $1 AND updated_seq > $2 AND ($3 OR deleted_at IS NULL)
+        ORDER BY updated_seq
+        LIMIT $4
+        "#,
+        region,
+        since,
+        with_deletions,
+        first + 1,
+    )
+    .fetch_all(pool)
+    .await?;
+    page_of_changes(rows, first)
+}
+
+fn page_of_changes(rows: Vec<PlaceDb>, first: i64) -> Result<(Vec<Change>, bool), DbError> {
     let has_more = i64::try_from(rows.len()).unwrap_or(i64::MAX) > first;
     let changes = rows
         .into_iter()
@@ -452,7 +502,7 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
                    updated_at, updated_seq, provenance,
                    deleted_at IS NOT NULL AS "deleted!", merged_into, municipality,
                    descriptions, external_links, rating_avg, rating_count, review_count,
-                   photo_count, cover_photos, reported_issues, verification
+                   photo_count, cover_photos, reported_issues, verification, region
             FROM places WHERE id = $1
             "#,
             id,

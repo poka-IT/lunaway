@@ -9,6 +9,7 @@ pub mod conflation;
 pub mod lists;
 pub mod moderation;
 pub mod municipalities;
+pub mod packs;
 pub mod places;
 pub mod pois;
 pub mod records;

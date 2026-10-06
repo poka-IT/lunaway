@@ -33,13 +33,13 @@ async fn insert(pool: &PgPool, external_id: &str) {
     records::upsert(
         pool,
         &SourceId::OSM,
-        None,
         &[NewRecord {
             external_id,
             external_url: None,
             record: &r,
             raw: &raw,
             fetched_at: Utc::now(),
+            scope: None,
         }],
     )
     .await
@@ -325,6 +325,7 @@ async fn the_api_role_runs_an_account_from_creation_to_deletion(pool: PgPool) {
         intervals: None,
         until: None,
         window_start: None,
+        refresh_at: None,
     };
     let mut tx = conflation::begin_writer(&pool).await.unwrap();
     conflation::upsert_place(

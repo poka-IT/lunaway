@@ -125,6 +125,21 @@ impl Cache {
         Ok(DateTime::<Utc>::from(SystemTime::now()))
     }
 
+    /// Removes the file stored under `key`; nothing to do when there is
+    /// none.
+    ///
+    /// # Errors
+    ///
+    /// [`IngestError::Cache`] when the file exists but cannot be removed.
+    pub async fn remove(&self, key: &str) -> Result<(), IngestError> {
+        let path = self.path(key);
+        match tokio::fs::remove_file(&path).await {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(source) => Err(IngestError::Cache { path, source }),
+        }
+    }
+
     /// The most recently modified file in the sub-directory `dir` whose name
     /// starts with `prefix`, as a key.
     ///
