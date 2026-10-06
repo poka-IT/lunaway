@@ -18,9 +18,16 @@ ReadOnly=true
 Volume=/srv/routing:/srv/routing:ro
 DropCapability=all
 NoNewPrivileges=true
+# valhalla_service ignores SIGTERM, and as PID 1 SIGINT too; podman's init
+# (RunInit) did not pass SIGINT on (tested 2026-10-06). The engine keeps no
+# state, so a stop is the SIGKILL, after 2 s instead of 10.
+StopTimeout=2
 PodmanArgs=--memory=2g --pids-limit=128
 
 [Service]
+# 128 + SIGKILL, the way it is stopped. A candidate killed by memory fails
+# its route tests, which fails the refresh.
+SuccessExitStatus=137
 Restart=no
 IPAddressDeny=any
 IPAddressAllow=localhost

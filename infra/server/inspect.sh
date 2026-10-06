@@ -129,6 +129,17 @@ ls -l /srv/tiles/builds /srv/tiles/serve
 echo "local tile z0: $(curl -sS -o /dev/null -w '%{http_code} %{size_download} bytes in %{time_total}s' -m 10 http://127.0.0.1:8485/planet/0/0/0.mvt)"
 # pmtiles logs each request path; the unit's LogFilterPatterns keeps them out.
 echo "request lines from pmtiles in the journal (should be 0): $(journalctl -u lunaway-tiles --no-pager -o cat | grep -cE 'served [0-9]+|[^-]fetching|fetched')"
+echo "--- routing"
+echo "valhalla: $(systemctl is-active valhalla), candidate: $(systemctl is-active valhalla-candidate), podman $(podman --version 2>/dev/null | awk '{ print $3 }')"
+echo "image: $(podman image inspect --format '{{.Digest}}' "$(sed -n 's/^Image=//p' /etc/containers/systemd/valhalla.container)" 2>&1 | head -n 1)"
+echo "refresh timer: $(systemctl is-enabled lunaway-routing-refresh.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-routing-refresh.timer | awk '{ print $1, $2, $3 }')"
+echo "last refresh: $(systemctl show -p Result --value lunaway-routing-refresh), $(journalctl -u lunaway-routing-refresh --no-pager -n 1 -o cat 2>/dev/null)"
+echo "current: $(readlink /srv/routing/current 2>/dev/null || echo none), previous: $(cat /srv/routing/previous 2>/dev/null || echo none)"
+stat -c '%a %U:%G %n' /srv/routing /etc/lunaway/routing-signers /usr/local/sbin/lunaway-routing-refresh
+grep -E '^(containers|lunaway)' /etc/subuid /etc/subgid
+echo "graph files: $(du -sh /srv/routing 2>/dev/null | cut -f1), root disk $(df --output=avail -h / | tail -n 1 | tr -d ' ') free"
+echo "engine status: $(curl -sS -m 5 http://127.0.0.1:8002/status 2>&1 | head -c 300)"
+echo "engine memory: $(systemctl show -p MemoryCurrent --value valhalla) bytes (unit), limit $(podman inspect --format '{{.HostConfig.Memory}}' systemd-valhalla 2>/dev/null) bytes (container)"
 echo "--- what the ops server may read (lunaway-pull)"
 id lunaway-pull
 stat -c '%a %U:%G %n' /var/lib/lunaway-pull/.ssh/authorized_keys

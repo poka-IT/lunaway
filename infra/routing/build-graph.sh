@@ -71,7 +71,19 @@ log "graph $graph_id from $pbf"
 prepare=(routing prepare --pbf "$pbf" --out "$out" --graph-id "$graph_id" --engine "$engine")
 if [ "$ign" = yes ]; then
   log "1. IGN BD TOPO sections"
-  "$lunaway" routing fetch-ign ${refresh[@]+"${refresh[@]}"}
+  # The WFS may cut a page off mid-answer: an HTTP/2 stream reset after
+  # 102 s on page 7 on 2026-10-06, a page it served in 18 s ten minutes
+  # later. The fetch does not retry that error and keeps nothing of the
+  # pages read, so the whole read runs again after a pause, three times at
+  # most.
+  for attempt in 1 2 3; do
+    if "$lunaway" routing fetch-ign ${refresh[@]+"${refresh[@]}"}; then
+      break
+    fi
+    [ "$attempt" -lt 3 ] || { log "IGN BD TOPO: three reads failed"; exit 1; }
+    log "IGN BD TOPO: read $attempt failed, next one in 5 minutes"
+    sleep 300
+  done
 else
   prepare+=(--no-ign)
 fi

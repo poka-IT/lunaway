@@ -107,6 +107,16 @@ jobs:
           # The build job is not trusted to name its own graph: the id and
           # the build time must fall within this run (a graph from the
           # future would hold back every real one on the backend).
+          # build.json must be one flat object with the fields of the CLI's
+          # BuildInfo and a single "id": jq reads the last of repeated keys,
+          # the backend's refresh refuses them, and the two must agree.
+          jq -e 'type == "object"
+            and (keys == ["built_at", "engine", "id", "ign_edition", "ign_fetched_at", "osm_data_at"])
+            and all(.[]; type == "string" or type == "null")' build.json >/dev/null \
+            || { echo "build.json: not the flat object the CLI writes"; exit 1; }
+          if [ "$(grep -c '"id"' build.json)" != 1 ]; then
+            echo "build.json: more than one id"; exit 1
+          fi
           id=$(jq -r .id build.json)
           built=$(jq -r .built_at build.json)
           now=$(date -u +%s)

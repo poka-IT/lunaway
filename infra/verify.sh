@@ -124,6 +124,14 @@ print(t["tiles"][0], "zoom %s-%s" % (t["minzoom"], t["maxzoom"]), "schema", t.ge
       echo "basemap $asset: $(curl -sS -o /dev/null -D - -w 'status %{http_code}, %{content_type}' -m 10 "$tiles/$asset" | tr -d '\r' | grep -i '^cache-control:\|^status' | tr '\n' ' ')"
     done
     echo "basemap other path: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "$tiles/admin")"
+    # Routing (docs/deploy.md, "Routing"): an active graph the engine serves,
+    # and the witness route of the status page (a 3.3 m motorhome round the
+    # 2.7 m bridge of Rue Maurice Utrillo, Limoges). One route of the quota.
+    echo "routing: $(curl -sS -m 10 -H 'Content-Type: application/json' \
+      -d '{"query":"{ routing { available graph { id ignEdition builtAt } } }"}' "https://$host/graphql")"
+    echo "witness route: $(curl -sS -m 20 -H 'Content-Type: application/json' \
+      -d '{"query":"{ route(input: {origin: {lat: 45.84719, lon: 1.28476}, destination: {lat: 45.8451, lon: 1.28637}, vehicle: {kind: OVERCAB, heightM: 3.3, widthM: 2.3, lengthM: 7.4, weightT: 3.5}}) { status recalculations routes { distanceM } } }"}' \
+      "https://$host/graphql")"
     refused "lunaway-pull over the public address (it is the ops server's, private network only)" \
       ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       -o IdentitiesOnly=yes -i "$LUNAWAY_SSH_IDENTITY" -o ConnectTimeout=10 "lunaway-pull@$ip4" true

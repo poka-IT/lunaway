@@ -27,6 +27,8 @@ __pycache__/
 # Flutter and Dart (the app has its own app/.gitignore for platform builds).
 .dart_tool/
 build/
+# The API's build scripts (infra/deploy-api.sh), not a build output.
+!/infra/build/
 .flutter-plugins
 .flutter-plugins-dependencies
 pubspec_overrides.yaml

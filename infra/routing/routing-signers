@@ -1,0 +1,9 @@
+# The key the weekly graph build signs its SHA256SUMS with
+# (.github/workflows/routing-graph.yml, job `publish`), in the allowed
+# signers format of ssh-keygen -Y verify; installed as
+# /etc/lunaway/routing-signers by infra/server/routing.sh. The private half
+# exists only as the secret ROUTING_SIGNING_KEY of the GitHub environment
+# `routing-graph` (deployments from main only): it was generated on
+# 2026-10-06, stored there from stdin and deleted. Rotation is a new pair:
+# docs/deploy.md, "Routing".
+lunaway-routing namespaces="lunaway-routing-graph" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICoJVU2eTOIH7GX3vRo+ZDcZ348FIOpqT/7tBSzskYXx

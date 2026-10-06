@@ -7,6 +7,9 @@
 #
 #   infra/deploy-api.sh                          the backend of HEAD
 #   LUNAWAY_DEPLOY_REV=<commit> infra/deploy-api.sh
+#   LUNAWAY_BUILDER=hetzner infra/deploy-api.sh  the same build on a throwaway
+#                                                Hetzner server, without local
+#                                                Docker (infra/build/remote-build.sh)
 #
 # Builds a committed revision (git archive), never the working tree: what
 # runs in production is always a commit anyone can check out. Needs docker
@@ -19,8 +22,14 @@
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 require_host
-command -v docker >/dev/null || die "docker is needed (colima start)"
-docker info >/dev/null 2>&1 || die "the docker daemon does not answer (colima start)"
+builder="${LUNAWAY_BUILDER:-docker}"
+case "$builder" in
+  docker)
+    command -v docker >/dev/null || die "docker is needed (colima start), or LUNAWAY_BUILDER=hetzner"
+    docker info >/dev/null 2>&1 || die "the docker daemon does not answer (colima start), or LUNAWAY_BUILDER=hetzner" ;;
+  hetzner) . "$LUNAWAY_INFRA_DIR/build/remote-build.sh" ;;
+  *) die "LUNAWAY_BUILDER is docker or hetzner" ;;
+esac
 
 SCRATCH="${LUNAWAY_SCRATCH_DIR:-$LUNAWAY_REPO_DIR/data/tmp/infra}"
 CONTAINER=lunaway-api-build
@@ -40,7 +49,11 @@ case "$server_arch" in
   aarch64) target=aarch64-unknown-linux-gnu; cross_pkgs="gcc-aarch64-linux-gnu libc6-dev-arm64-cross"; cross_linker=aarch64-linux-gnu-gcc ;;
   *) die "unsupported server architecture $server_arch" ;;
 esac
-builder_arch="$(docker info --format '{{.Architecture}}')"
+if [ "$builder" = hetzner ]; then
+  builder_arch=x86_64
+else
+  builder_arch="$(docker info --format '{{.Architecture}}')"
+fi
 if [ "$builder_arch" = "$server_arch" ]; then
   cross_pkgs=""
   cross_linker=""
@@ -52,18 +65,23 @@ log "building lunaway-api for $target in $RUST_IMAGE (builder: $builder_arch), r
 install -d -m 0700 "$SCRATCH"
 git -C "$LUNAWAY_REPO_DIR" archive --format=tar --output="$SCRATCH/backend-src.tar" "$rev:backend"
 cp "$LUNAWAY_INFRA_DIR/build/build-api.sh" "$SCRATCH/build-api.sh"
-# A container left by an interrupted run has the same name: remove it first.
-docker rm lunaway-api-build >/dev/null 2>&1 || true
-docker run --name "$CONTAINER" -v "$SCRATCH:/w:ro" \
-  -e TARGET="$target" -e CROSS_PKGS="$cross_pkgs" -e CROSS_LINKER="$cross_linker" \
-  "$RUST_IMAGE" bash /w/build-api.sh
-rm -f "$SCRATCH/release/lunaway-api" "$SCRATCH/release/lunaway" "$SCRATCH/glibc"
-install -d -m 0700 "$SCRATCH/release"
-docker cp "$CONTAINER:/out/lunaway-api" "$SCRATCH/release/lunaway-api"
-# The CLI exists from the revisions that carry backend/crates/lunaway-cli on.
-docker cp "$CONTAINER:/out/lunaway" "$SCRATCH/release/lunaway" 2>/dev/null || true
-docker cp "$CONTAINER:/out/glibc" "$SCRATCH/glibc"
-docker rm lunaway-api-build >/dev/null
+if [ "$builder" = hetzner ]; then
+  [ "$server_arch" = x86_64 ] || die "the Hetzner builder is x86_64; the server is $server_arch"
+  remote_build "$RUST_IMAGE" "$target"
+else
+  # A container left by an interrupted run has the same name: remove it first.
+  docker rm lunaway-api-build >/dev/null 2>&1 || true
+  docker run --name "$CONTAINER" -v "$SCRATCH:/w:ro" \
+    -e TARGET="$target" -e CROSS_PKGS="$cross_pkgs" -e CROSS_LINKER="$cross_linker" \
+    "$RUST_IMAGE" bash /w/build-api.sh
+  rm -f "$SCRATCH/release/lunaway-api" "$SCRATCH/release/lunaway" "$SCRATCH/glibc"
+  install -d -m 0700 "$SCRATCH/release"
+  docker cp "$CONTAINER:/out/lunaway-api" "$SCRATCH/release/lunaway-api"
+  # The CLI exists from the revisions that carry backend/crates/lunaway-cli on.
+  docker cp "$CONTAINER:/out/lunaway" "$SCRATCH/release/lunaway" 2>/dev/null || true
+  docker cp "$CONTAINER:/out/glibc" "$SCRATCH/glibc"
+  docker rm lunaway-api-build >/dev/null
+fi
 
 needed_glibc="$(sed 's/GLIBC_//' "$SCRATCH/glibc")"
 server_glibc="$(lunaway_ssh getconf GNU_LIBC_VERSION | awk '{ print $2 }')"

@@ -55,6 +55,8 @@ source_records SELECT
 sources SELECT
 sync_epoch SELECT
 place_refresh_queue INSERT
+route_restrictions SELECT
+routing_graphs SELECT
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -75,6 +77,14 @@ place_refresh_queue SELECT
 place_submissions SELECT
 place_submissions UPDATE
 reviews SELECT
+route_restrictions DELETE
+route_restrictions INSERT
+route_restrictions SELECT
+route_restrictions UPDATE
+routing_graphs DELETE
+routing_graphs INSERT
+routing_graphs SELECT
+routing_graphs UPDATE
 match_pairs DELETE
 match_pairs INSERT
 match_pairs SELECT
@@ -145,6 +155,9 @@ refused "lunaway_app adds a record" /etc/lunaway/api.env "INSERT INTO source_rec
 refused "lunaway_app writes a merge decision" /etc/lunaway/api.env "INSERT INTO conflation_constraints SELECT * FROM conflation_constraints WHERE false"
 refused "lunaway_app writes the communes" /etc/lunaway/api.env "DELETE FROM municipalities WHERE false"
 refused "lunaway_app empties the worker's queue" /etc/lunaway/api.env "DELETE FROM place_refresh_queue WHERE false"
+refused "lunaway_app writes a route restriction" /etc/lunaway/api.env "DELETE FROM route_restrictions WHERE false"
+refused "lunaway_app activates a routing graph" /etc/lunaway/api.env "UPDATE routing_graphs SET id = id WHERE false"
+allowed "lunaway_app reads the routing graphs" /etc/lunaway/api.env "SELECT 'routing graphs: ' || count(*) FROM routing_graphs"
 allowed "lunaway_app writes an account" /etc/lunaway/api.env "BEGIN; UPDATE accounts SET pseudonym = pseudonym WHERE false; ROLLBACK; SELECT 'accounts writable'"
 
 compare lunaway_ingest /etc/lunaway/ingest.env "$expected_ingest"

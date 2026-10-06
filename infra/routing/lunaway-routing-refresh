@@ -54,7 +54,10 @@ PART_RE='^graph\.tar\.gz\.part-[0-9]{2}$'
 # The graph's files, the only names unpacked or removed.
 GRAPH_FILES=(valhalla_tiles.tar admins.sqlite valhalla.json)
 META_FILES=(build.json prepare.json restrictions.ndjson.gz test-routes.txt)
-CURL_SAFE=(--proto "=https" --proto-redir "=https" --max-redirs 5 --fail --silent --show-error
+# GitHub answers a release download with a 302 to its asset host
+# (release-assets.githubusercontent.com on 2026-10-06): without --location,
+# curl takes the empty redirect for the file.
+CURL_SAFE=(--location --proto "=https" --proto-redir "=https" --max-redirs 5 --fail --silent --show-error
   -A "Lunaway routing refresh (+https://lunaway.net)")
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -88,6 +91,33 @@ remove_build() {
 
 current_id() { basename "$(readlink "$ROUTING/current" 2>/dev/null || echo none)"; }
 
+# The graph id of a build.json as `lunaway routing load` reads it: the
+# top-level "id" of the CLI's pretty-printed object (two spaces of indent),
+# exactly once. A nested or repeated "id" yields nothing.
+build_id() {
+  local found
+  found=$(sed -nE 's/^  "id": "([^"]*)",?$/\1/p' "$1")
+  [ "$(printf '%s\n' "$found" | grep -c .)" = 1 ] && printf '%s\n' "$found"
+}
+
+# Removes the downloads in $INCOMING, except the one of the id given: a
+# download of the same graph resumes, any other goes, so a run of failed
+# downloads never holds more than one on disk.
+clear_incoming() {
+  local keep=${1:-} old f base
+  for old in $(ls -1 "$INCOMING" | grep -E "$ID_RE"); do
+    [ "$old" = "$keep" ] && continue
+    for f in "$INCOMING/$old"/*; do
+      base=$(basename "$f")
+      case "$base" in
+        SHA256SUMS | SHA256SUMS.sig | build.json | prepare.json | restrictions.ndjson.gz | test-routes.txt) rm -f "$f" ;;
+        *) [[ "$base" =~ $PART_RE ]] && rm -f "$f" ;;
+      esac
+    done
+    rmdir "$INCOMING/$old" 2>/dev/null || true
+  done
+}
+
 switch_to() {
   local id=$1
   ln -sfn "builds/$id" "$ROUTING/current.new"
@@ -113,8 +143,9 @@ if [ "${1:-}" = --rollback ]; then
 fi
 
 # 1. What is published.
-info=$(curl "${CURL_SAFE[@]}" --max-time 60 "$RELEASE/build.json")
-id=$(printf '%s' "$info" | sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | head -1)
+curl "${CURL_SAFE[@]}" --max-time 60 --max-filesize 65536 -o "$ROUTING/published.json" "$RELEASE/build.json"
+id=$(build_id "$ROUTING/published.json" || true)
+rm -f "$ROUTING/published.json"
 [[ "$id" =~ $ID_RE ]] || die "the published build.json names no graph"
 if [ "$(current_id)" = "$id" ]; then
   # A run that stopped between the switch and the activation leaves the
@@ -145,25 +176,33 @@ log "graph $id: downloading"
 
 # 2. Download, resumed, then check the signature and every sum.
 dl="$INCOMING/$id"
+clear_incoming "$id"
 mkdir -p "$dl"
-curl "${CURL_SAFE[@]}" --max-time 120 -o "$dl/SHA256SUMS" "$RELEASE/SHA256SUMS"
-curl "${CURL_SAFE[@]}" --max-time 120 -o "$dl/SHA256SUMS.sig" "$RELEASE/SHA256SUMS.sig"
+curl "${CURL_SAFE[@]}" --max-time 120 --max-filesize 65536 -o "$dl/SHA256SUMS" "$RELEASE/SHA256SUMS"
+curl "${CURL_SAFE[@]}" --max-time 120 --max-filesize 65536 -o "$dl/SHA256SUMS.sig" "$RELEASE/SHA256SUMS.sig"
 ssh-keygen -Y verify -f "$SIGNERS" -I lunaway-routing -n lunaway-routing-graph \
   -s "$dl/SHA256SUMS.sig" <"$dl/SHA256SUMS" >/dev/null || die "SHA256SUMS is not signed by the build key"
 names=$(awk '{print $2}' "$dl/SHA256SUMS")
+# France is one part of 1.48 GB (2026-10-06); eight parts of 2 GiB at most
+# bound what a download may put on the root disk.
+[ "$(printf '%s\n' "$names" | grep -cE "$PART_RE")" -le 8 ] || die "SHA256SUMS names more than 8 parts"
 for name in $names; do
   case "$name" in
-    build.json | prepare.json | restrictions.ndjson.gz | test-routes.txt) ;;
-    *) [[ "$name" =~ $PART_RE ]] || die "unexpected file in SHA256SUMS: $name" ;;
+    build.json | prepare.json | test-routes.txt) cap=$((1024 * 1024)) ;;
+    restrictions.ndjson.gz) cap=$((512 * 1024 * 1024)) ;;
+    *)
+      [[ "$name" =~ $PART_RE ]] || die "unexpected file in SHA256SUMS: $name"
+      cap=$((2048 * 1024 * 1024))
+      ;;
   esac
   for attempt in 1 2 3 4 5; do
-    curl "${CURL_SAFE[@]}" --max-time 3600 -C - -o "$dl/$name" "$RELEASE/$name" && break
+    curl "${CURL_SAFE[@]}" --max-time 3600 --max-filesize "$cap" -C - -o "$dl/$name" "$RELEASE/$name" && break
     [ "$attempt" -lt 5 ] || die "cannot download $name"
     sleep 30
   done
 done
 (cd "$dl" && sha256sum --quiet --check SHA256SUMS) || die "a file does not match its sum"
-grep -q "\"id\": *\"$id\"" "$dl/build.json" || die "the signed build.json names another graph"
+[ "$(build_id "$dl/build.json" || true)" = "$id" ] || die "the signed build.json names another graph"
 built=$(sed -n 's/.*"built_at": *"\([0-9-]*\)T.*/\1/p' "$dl/build.json" | head -1)
 [ -n "$built" ] || die "build.json has no build date"
 age_days=$(( ($(date -u +%s) - $(date -u -d "$built" +%s)) / 86400 ))
@@ -223,14 +262,5 @@ for old in $(ls -1 "$BUILDS" | grep -E "$ID_RE" | grep -vx "$id" | grep -vx "$pr
   log "removing graph $old"
   remove_build "$old"
 done
-for old in $(ls -1 "$INCOMING" | grep -E "$ID_RE"); do
-  for f in "$INCOMING/$old"/*; do
-    base=$(basename "$f")
-    case "$base" in
-      SHA256SUMS | SHA256SUMS.sig | build.json | prepare.json | restrictions.ndjson.gz | test-routes.txt) rm -f "$f" ;;
-      *) [[ "$base" =~ $PART_RE ]] && rm -f "$f" ;;
-    esac
-  done
-  rmdir "$INCOMING/$old" 2>/dev/null || true
-done
+clear_incoming
 log "graph $id serves"

@@ -19,6 +19,9 @@
 #                      waited there for 15 minutes
 #   media_backup.ok    true when the encrypted copy of the photos was brought
 #                      up to date less than 26 hours ago
+#   routing.ok         true when valhalla.service is active and the graph it
+#                      serves (/srv/routing/current) was built less than 10
+#                      days ago: built weekly, installed by a daily refresh
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -96,8 +99,23 @@ if [ -n "$media_success" ]; then
 	fi
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s}}\n' \
+# The routing engine (docs/deploy.md, "Routing"): its unit, the graph it
+# serves and the build date read from that graph's build.json.
+routing_state="$(systemctl show -p ActiveState --value valhalla 2>/dev/null | tr -dc 'a-z')"
+routing_graph="$(readlink /srv/routing/current 2>/dev/null | sed -nE 's|^builds/([0-9]{8}T[0-9]{4}Z-[a-z0-9]{2,16})$|\1|p')"
+routing_built="$(head -c 4096 /srv/routing/current/build.json 2>/dev/null | sed -nE 's/.*"built_at": *"([0-9]{4}-[0-9]{2}-[0-9]{2})T.*/\1/p' | head -n 1)"
+routing_age=-1
+if [ -n "$routing_built" ]; then
+	routing_age=$(( ($(date -u +%s) - $(date -u -d "$routing_built" +%s)) / 86400 ))
+fi
+routing_ok=false
+if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" -ge 0 ] && [ "$routing_age" -lt 10 ]; then
+	routing_ok=true
+fi
+
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"build":"%s","age_days":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_build" "$tiles_age" \
 	"$worker_ok" "${worker_state:-unknown}" "${worker_restarts:-0}" "$status_age" "$queue_oldest" "$flagged" \
-	"$media_ok" "$media_success" "$media_age"
+	"$media_ok" "$media_success" "$media_age" \
+	"$routing_ok" "${routing_state:-unknown}" "$routing_graph" "$routing_age"

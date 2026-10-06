@@ -3,12 +3,12 @@
 # steps of its role in order, or only the ones named.
 #
 #   sudo env LUNAWAY_ROLE=backend LUNAWAY_VOLUME_ID=... bash ~/infra/server/setup.sh [step...]
-#   backend: harden data-volume postgres caddy tiles backups api pipeline ops-access
+#   backend: harden data-volume postgres caddy tiles backups api pipeline routing ops-access
 #   ops:     harden data-volume ops-replica ops-status
 . "$(dirname "$0")/common.sh"
 need_root
 case "${LUNAWAY_ROLE:-}" in
-  backend) default_steps="harden data-volume postgres caddy tiles backups api pipeline ops-access" ;;
+  backend) default_steps="harden data-volume postgres caddy tiles backups api pipeline routing ops-access" ;;
   ops) default_steps="harden data-volume ops-replica ops-status" ;;
   *) die "set LUNAWAY_ROLE to backend or ops" ;;
 esac

@@ -56,6 +56,10 @@ ReadOnly=true
 Volume=/srv/routing:/srv/routing:ro
 DropCapability=all
 NoNewPrivileges=true
+# valhalla_service ignores SIGTERM, and as PID 1 SIGINT too; podman's init
+# (RunInit) did not pass SIGINT on (tested 2026-10-06). The engine keeps no
+# state, so a stop is the SIGKILL, after 2 s instead of 10.
+StopTimeout=2
 # cgroup v2 charges the page cache of the memory-mapped tiles to the
 # container. Serving France measured 593 MiB after long routes (anonymous
 # 427 MiB, file 160 MiB; 2026-10-06); the cap leaves the page cache room to
@@ -63,12 +67,16 @@ NoNewPrivileges=true
 PodmanArgs=--memory=3g --pids-limit=256
 
 [Service]
+# Each stop ends in SIGKILL (137), so a plain `systemctl stop valhalla`
+# leaves the unit failed; a restart, the refresh's switch, does not. 137 is
+# not declared a success: a kill by the memory cap must restart the engine.
 Restart=on-failure
 RestartSec=5s
 # The engine receives every route's positions: it reaches nothing but
 # loopback (where it listens). The filter applies to the unit's cgroup,
-# under which Quadlet places the container (to confirm on the server with an
-# outbound request from inside the container: it must fail).
+# under which Quadlet places the container: on 2026-10-06, HTTPS from inside
+# the container to 1.1.1.1 and github.com failed, and the same image outside
+# the unit reached 1.1.1.1.
 IPAddressDeny=any
 IPAddressAllow=localhost
 
