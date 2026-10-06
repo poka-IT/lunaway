@@ -67,6 +67,8 @@ final class NearbyFuelStations implements FuelStationsSource {
     required double fromM,
     required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
+    double consumptionL100 = defaultConsumptionL100,
+    Map<String, Object?>? vehicle,
   }) async {
     final points = [for (var i = 0; i < _samples; i++) ?_pointAt(route, fromM + i * _spacingM)];
     final answers = await Future.wait([
@@ -118,6 +120,7 @@ final class NearbyFuelStations implements FuelStationsSource {
     };
     return FuelOffer(
       id: '${poi['id']}',
+      poiId: '${poi['id']}',
       name: poi['name'] as String?,
       brand: poi['brand'] as String?,
       position: position,

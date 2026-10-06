@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/poi/application/fuel_feed_providers.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
@@ -46,13 +47,17 @@ class CheapestFuelList extends ConsumerWidget {
     final t = context.t;
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final zoom = ref.watch(viewportProvider)?.zoom ?? 0;
-    final offers = ref.watch(cheapestFuelProvider);
+    final inView = ref.watch(cheapestFuelProvider);
+    // Too many stations to read them all, or a view far out: the server's
+    // search around the user ranks the stations instead. Against an API
+    // without that search, the list asks to come closer.
+    final around =
+        zoom < fuelStationsMinZoom || (!inView.hasError && inView.hasValue && inView.value == null);
+    final offers = around ? ref.watch(nearbyFuelProvider) : inView;
     final prices = [
       for (final o in offers.value ?? const <FuelOffer>[])
         if (o.shortage == null) o.price.priceEur,
     ];
-    // Too many stations to read them all: the list would rank a part of
-    // them, so it asks to come closer, as when the view is far out.
     final tooMany = !offers.hasError && offers.hasValue && offers.value == null;
     final slivers = <Widget>[
       SliverToBoxAdapter(
@@ -66,7 +71,7 @@ class CheapestFuelList extends ConsumerWidget {
           ),
         ),
       ),
-      if (zoom < fuelStationsMinZoom || tooMany)
+      if (tooMany)
         SliverFillRemaining(
           hasScrollBody: false,
           child: MessageView(title: t.poi.cheapest.zoomIn, compact: true),
@@ -81,7 +86,7 @@ class CheapestFuelList extends ConsumerWidget {
               mood: SceneMood.error,
               title: t.poi.cheapest.error,
               action: t.common.retry,
-              onAction: () => ref.invalidate(fuelStationsProvider),
+              onAction: () => ref.invalidate(around ? nearbyFuelProvider : fuelStationsProvider),
               compact: true,
             ),
           ),
@@ -210,7 +215,11 @@ class _OfferRow extends ConsumerWidget {
     final known = station.hours.opennessAt(now) != PoiOpenness.unknown;
     return InkWell(
       onTap: () {
-        ref.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+        // A station no point of interest describes has no sheet: the map
+        // goes to it.
+        if (!station.id.startsWith('fuel-station:')) {
+          ref.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+        }
         final zoom = ref.read(viewportProvider)?.zoom ?? 0;
         unawaited(
           ref.read(mapControllerProvider)?.moveTo(station.position, zoom: zoom < 14 ? 14 : null),

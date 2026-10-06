@@ -533,7 +533,7 @@ final class FakeFuelStations implements FuelStationsSource {
   new(this.offers);
 
   final List<FuelOffer> offers;
-  final List<({double fromM, FuelType fuel})> queries = [];
+  final List<({double fromM, FuelType fuel, double consumption})> queries = [];
 
   @override
   Future<List<FuelOffer>> along({
@@ -541,8 +541,10 @@ final class FakeFuelStations implements FuelStationsSource {
     required double fromM,
     required FuelType fuel,
     double maxDetourM = defaultMaxDetourM,
+    double consumptionL100 = defaultConsumptionL100,
+    Map<String, Object?>? vehicle,
   }) async {
-    queries.add((fromM: fromM, fuel: fuel));
+    queries.add((fromM: fromM, fuel: fuel, consumption: consumptionL100));
     return offers;
   }
 }

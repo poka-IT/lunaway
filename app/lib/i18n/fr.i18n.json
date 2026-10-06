@@ -1253,6 +1253,23 @@
       "none": "Aucune station de la carte ne vend ce carburant.",
       "noneHint": "Déplacez la carte ou choisissez un autre carburant.",
       "error": "Les prix des stations n'ont pas pu être lus."
+    },
+    "trend": {
+      "title": "$fuel : prix des derniers jours",
+      "none": "Lunaway n'a pas encore vu de prix de ce carburant ici.",
+      "failed": "Les prix des derniers jours n'ont pas pu être lus pour l'instant.",
+      "week": "7 derniers jours :",
+      "month": "30 derniers jours :",
+      "range": "de $low à $high",
+      "span": "$range, $move",
+      "oneDay": "un seul jour relevé",
+      "steady": "stable",
+      "down": "en baisse de $amount",
+      "up": "en hausse de $amount",
+      "since(param=n)": {
+        "one": "$n jour relevé depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide",
+        "other": "$n jours relevés depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide"
+      }
     }
   },
   "offlineMaps": {

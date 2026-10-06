@@ -1235,6 +1235,7 @@ class _Translations$poi$fr extends Translations$poi$en {
 	@override String get searchOffline => 'Les commerces et services se cherchent en ligne : pas de réseau maintenant.';
 	@override late final _Translations$poi$add$fr add = _Translations$poi$add$fr._(_root);
 	@override late final _Translations$poi$cheapest$fr cheapest = _Translations$poi$cheapest$fr._(_root);
+	@override late final _Translations$poi$trend$fr trend = _Translations$poi$trend$fr._(_root);
 }
 
 // Path: offlineMaps
@@ -1974,6 +1975,30 @@ class _Translations$poi$cheapest$fr extends Translations$poi$cheapest$en {
 	@override String get none => 'Aucune station de la carte ne vend ce carburant.';
 	@override String get noneHint => 'Déplacez la carte ou choisissez un autre carburant.';
 	@override String get error => 'Les prix des stations n\'ont pas pu être lus.';
+}
+
+// Path: poi.trend
+class _Translations$poi$trend$fr extends Translations$poi$trend$en {
+	_Translations$poi$trend$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String title({required Object fuel}) => '${fuel} : prix des derniers jours';
+	@override String get none => 'Lunaway n\'a pas encore vu de prix de ce carburant ici.';
+	@override String get failed => 'Les prix des derniers jours n\'ont pas pu être lus pour l\'instant.';
+	@override String get week => '7 derniers jours :';
+	@override String get month => '30 derniers jours :';
+	@override String range({required Object low, required Object high}) => 'de ${low} à ${high}';
+	@override String span({required Object range, required Object move}) => '${range}, ${move}';
+	@override String get oneDay => 'un seul jour relevé';
+	@override String get steady => 'stable';
+	@override String down({required Object amount}) => 'en baisse de ${amount}';
+	@override String up({required Object amount}) => 'en hausse de ${amount}';
+	@override String since({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} jour relevé depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide',
+		other: '${n} jours relevés depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide',
+	);
 }
 
 // Path: navigation.states.dimension
@@ -3031,6 +3056,20 @@ extension on TranslationsFr {
 			'poi.cheapest.none' => 'Aucune station de la carte ne vend ce carburant.',
 			'poi.cheapest.noneHint' => 'Déplacez la carte ou choisissez un autre carburant.',
 			'poi.cheapest.error' => 'Les prix des stations n\'ont pas pu être lus.',
+			'poi.trend.title' => ({required Object fuel}) => '${fuel} : prix des derniers jours',
+			'poi.trend.none' => 'Lunaway n\'a pas encore vu de prix de ce carburant ici.',
+			'poi.trend.failed' => 'Les prix des derniers jours n\'ont pas pu être lus pour l\'instant.',
+			'poi.trend.week' => '7 derniers jours :',
+			'poi.trend.month' => '30 derniers jours :',
+			'poi.trend.range' => ({required Object low, required Object high}) => 'de ${low} à ${high}',
+			'poi.trend.span' => ({required Object range, required Object move}) => '${range}, ${move}',
+			_ => null,
+		} ?? switch (path) {
+			'poi.trend.oneDay' => 'un seul jour relevé',
+			'poi.trend.steady' => 'stable',
+			'poi.trend.down' => ({required Object amount}) => 'en baisse de ${amount}',
+			'poi.trend.up' => ({required Object amount}) => 'en hausse de ${amount}',
+			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} jour relevé depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', other: '${n} jours relevés depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', ), 
 			'offlineMaps.title' => 'Cartes hors ligne',
 			'offlineMaps.intro' => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.',
 			'offlineMaps.webTitle' => 'Les cartes hors ligne sont dans l\'application',
@@ -3038,8 +3077,6 @@ extension on TranslationsFr {
 			'offlineMaps.desktopTitle' => 'Les cartes hors ligne sont sur le téléphone',
 			'offlineMaps.desktop' => 'Les applications Android et iOS gardent des régions pour la route. Sur ordinateur, la carte a besoin du réseau.',
 			'offlineMaps.unreadable' => 'Les cartes hors ligne de cet appareil n\'ont pas pu être lues.',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.none' => 'Aucune région sur cet appareil pour l\'instant.',
 			'offlineMaps.used' => ({required Object size}) => 'Espace utilisé : ${size}',
 			'offlineMaps.downloads' => 'Téléchargements',

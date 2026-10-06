@@ -786,7 +786,7 @@ class _MapButtons extends ConsumerWidget {
               RouteStop(
                 position: offer.position,
                 label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
-                poiId: offer.id,
+                poiId: offer.poiId,
               ),
             ),
           ),

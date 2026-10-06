@@ -1253,6 +1253,23 @@
       "none": "No station on the map sells this fuel.",
       "noneHint": "Move the map or pick another fuel.",
       "error": "The stations' prices could not be read."
+    },
+    "trend": {
+      "title": "$fuel: prices of the last days",
+      "none": "Lunaway has not seen a price of this fuel here yet.",
+      "failed": "The prices of the last days could not be read now.",
+      "week": "Last 7 days:",
+      "month": "Last 30 days:",
+      "range": "from $low to $high",
+      "span": "$range, $move",
+      "oneDay": "one day seen",
+      "steady": "unchanged",
+      "down": "down $amount",
+      "up": "up $amount",
+      "since(param=n)": {
+        "one": "$n day seen since $date, as Lunaway reads the feed; a day not seen stays empty",
+        "other": "$n days seen since $date, as Lunaway reads the feed; a day not seen stays empty"
+      }
     }
   },
   "offlineMaps": {

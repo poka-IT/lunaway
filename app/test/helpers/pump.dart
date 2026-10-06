@@ -251,6 +251,10 @@ Future<TestApp> pumpLunaway(
   return app;
 }
 
+/// The demo server the tests talk to by default, for a fake that answers a
+/// few operations of its own and hands it the others.
+http.Client get testDemoClient => _demo;
+
 final http.Client _demo = demoApiClient(
   const [],
   apiBase: Uri.parse(testApiBase),

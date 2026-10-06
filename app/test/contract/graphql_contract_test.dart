@@ -7,11 +7,13 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/account/data/account_operations.dart';
 import 'package:lunaway/features/community/data/community_operations.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
+import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/data/fuel_feed.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 
@@ -41,6 +43,8 @@ void main() {
     ...GraphQLFavoritesRemote.operations,
     ...poiOperations,
     ...regionOperations,
+    ...fuelFeedOperations,
+    fuelAlongRouteOperation,
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);

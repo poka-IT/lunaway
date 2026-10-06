@@ -2568,6 +2568,7 @@ class Translations$poi$en {
 
 	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
 	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
+	late final Translations$poi$trend$en trend = Translations$poi$trend$en.internal(_root);
 }
 
 // Path: offlineMaps
@@ -4142,6 +4143,54 @@ class Translations$poi$cheapest$en {
 	String get error => 'The stations\' prices could not be read.';
 }
 
+// Path: poi.trend
+class Translations$poi$trend$en {
+	Translations$poi$trend$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '$fuel: prices of the last days'
+	String title({required Object fuel}) => '${fuel}: prices of the last days';
+
+	/// en: 'Lunaway has not seen a price of this fuel here yet.'
+	String get none => 'Lunaway has not seen a price of this fuel here yet.';
+
+	/// en: 'The prices of the last days could not be read now.'
+	String get failed => 'The prices of the last days could not be read now.';
+
+	/// en: 'Last 7 days:'
+	String get week => 'Last 7 days:';
+
+	/// en: 'Last 30 days:'
+	String get month => 'Last 30 days:';
+
+	/// en: 'from $low to $high'
+	String range({required Object low, required Object high}) => 'from ${low} to ${high}';
+
+	/// en: '$range, $move'
+	String span({required Object range, required Object move}) => '${range}, ${move}';
+
+	/// en: 'one day seen'
+	String get oneDay => 'one day seen';
+
+	/// en: 'unchanged'
+	String get steady => 'unchanged';
+
+	/// en: 'down $amount'
+	String down({required Object amount}) => 'down ${amount}';
+
+	/// en: 'up $amount'
+	String up({required Object amount}) => 'up ${amount}';
+
+	/// en: '(one) {$n day seen since $date, as Lunaway reads the feed; a day not seen stays empty} (other) {$n days seen since $date, as Lunaway reads the feed; a day not seen stays empty}'
+	String since({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty',
+		other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty',
+	);
+}
+
 // Path: navigation.states.dimension
 class Translations$navigation$states$dimension$en {
 	Translations$navigation$states$dimension$en.internal(this._root);
@@ -5217,6 +5266,20 @@ extension on Translations {
 			'poi.cheapest.none' => 'No station on the map sells this fuel.',
 			'poi.cheapest.noneHint' => 'Move the map or pick another fuel.',
 			'poi.cheapest.error' => 'The stations\' prices could not be read.',
+			'poi.trend.title' => ({required Object fuel}) => '${fuel}: prices of the last days',
+			'poi.trend.none' => 'Lunaway has not seen a price of this fuel here yet.',
+			'poi.trend.failed' => 'The prices of the last days could not be read now.',
+			'poi.trend.week' => 'Last 7 days:',
+			'poi.trend.month' => 'Last 30 days:',
+			'poi.trend.range' => ({required Object low, required Object high}) => 'from ${low} to ${high}',
+			'poi.trend.span' => ({required Object range, required Object move}) => '${range}, ${move}',
+			_ => null,
+		} ?? switch (path) {
+			'poi.trend.oneDay' => 'one day seen',
+			'poi.trend.steady' => 'unchanged',
+			'poi.trend.down' => ({required Object amount}) => 'down ${amount}',
+			'poi.trend.up' => ({required Object amount}) => 'up ${amount}',
+			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', ), 
 			'offlineMaps.title' => 'Offline maps',
 			'offlineMaps.intro' => 'Download a region before you leave: the map then shows without network, every street included.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',
@@ -5224,8 +5287,6 @@ extension on Translations {
 			'offlineMaps.desktopTitle' => 'Offline maps are on the phone',
 			'offlineMaps.desktop' => 'The Android and iOS apps keep regions for the road. On a computer, the map needs the network.',
 			'offlineMaps.unreadable' => 'The offline maps of this device could not be read.',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.none' => 'No region on this device yet.',
 			'offlineMaps.used' => ({required Object size}) => 'Space used: ${size}',
 			'offlineMaps.downloads' => 'Downloading',

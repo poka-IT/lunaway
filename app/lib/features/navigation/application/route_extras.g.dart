@@ -217,15 +217,19 @@ final class PlacesNearRouteFamily extends $Family
   String toString() => r'placesNearRouteProvider';
 }
 
-/// Stations along a route; the server's search along a route replaces the
-/// nearby search when it exists.
+/// Stations along a route: the server's search along it, the nearby
+/// search around points of it against an API without that search. Through
+/// the routing client, which does not wait out a rate limit: the list
+/// says at once that the server asks to wait.
 // keepAlive: stateless, wired once.
 
 @ProviderFor(fuelStations)
 final fuelStationsProvider = FuelStationsProvider._();
 
-/// Stations along a route; the server's search along a route replaces the
-/// nearby search when it exists.
+/// Stations along a route: the server's search along it, the nearby
+/// search around points of it against an API without that search. Through
+/// the routing client, which does not wait out a rate limit: the list
+/// says at once that the server asks to wait.
 // keepAlive: stateless, wired once.
 
 final class FuelStationsProvider
@@ -236,8 +240,10 @@ final class FuelStationsProvider
           FuelStationsSource
         >
     with $Provider<FuelStationsSource> {
-  /// Stations along a route; the server's search along a route replaces the
-  /// nearby search when it exists.
+  /// Stations along a route: the server's search along it, the nearby
+  /// search around points of it against an API without that search. Through
+  /// the routing client, which does not wait out a rate limit: the list
+  /// says at once that the server asks to wait.
   // keepAlive: stateless, wired once.
   FuelStationsProvider._()
     : super(
@@ -273,7 +279,7 @@ final class FuelStationsProvider
   }
 }
 
-String _$fuelStationsHash() => r'cbe944a344c40a5e260b3dbeace1fbc6f708696e';
+String _$fuelStationsHash() => r'6a70cf69dc3613bc6e27a255ffdc8365e52b13ac';
 
 /// The stations of [query], cheapest first, the detour counted at the
 /// vehicle's consumption. A failure shows at once (`noRetry`).
@@ -338,7 +344,7 @@ final class FuelOffersProvider
   }
 }
 
-String _$fuelOffersHash() => r'8249cbc0d4edc26cc4c53df3d1af6e2ea3805f59';
+String _$fuelOffersHash() => r'2ed1aaf2e7b39394b7f6cd2aabdde630772adc0d';
 
 /// The stations of [query], cheapest first, the detour counted at the
 /// vehicle's consumption. A failure shows at once (`noRetry`).

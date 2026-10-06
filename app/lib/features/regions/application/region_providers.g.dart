@@ -341,7 +341,7 @@ final class KeptRegionsControllerProvider
 }
 
 String _$keptRegionsControllerHash() =>
-    r'251388968fd083f053062cef6de10041ce22ca6d';
+    r'c2e09853f3e40e5eb53d36836fe852068f5ae006';
 
 /// The regions the user keeps; null until a first choice.
 // keepAlive: the sync and the profile read it for the whole run.
@@ -469,7 +469,7 @@ final class PlacesSyncProvider
   }
 }
 
-String _$placesSyncHash() => r'd3f49d0bcd158bf0a189ad889f480a735e8bc8a1';
+String _$placesSyncHash() => r'094eb6061a2243b16cec6aa260579d918a150cad';
 
 /// The state of each region held, and the places of each.
 
