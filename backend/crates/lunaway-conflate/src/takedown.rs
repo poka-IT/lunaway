@@ -232,14 +232,28 @@ pub async fn replay(
             match takedowns::take_down(&mut tx, standing.root, e.code, e.with_nearby, key).await? {
                 TakeDown::Done(d) => {
                     tx.commit().await?;
-                    publish_places_now(pool).await;
                     out.taken_down.push(d);
                 }
                 TakeDown::NoPlace => out.absent += 1,
-                TakeDown::Unconflated(n) => return Err(TakedownError::Unconflated(n, *id)),
-                TakeDown::OtherKey => return Err(TakedownError::OtherKey),
+                TakeDown::Unconflated(n) => {
+                    publish_if_any(pool, &out).await;
+                    return Err(TakedownError::Unconflated(n, *id));
+                }
+                TakeDown::OtherKey => {
+                    publish_if_any(pool, &out).await;
+                    return Err(TakedownError::OtherKey);
+                }
             }
         }
     }
+    publish_if_any(pool, &out).await;
     Ok(out)
+}
+
+/// One new version of the places' tiles for every place a replay took down
+/// again, however many: each version makes devices fetch their tiles anew.
+async fn publish_if_any(pool: &PgPool, out: &Replayed) {
+    if !out.taken_down.is_empty() {
+        publish_places_now(pool).await;
+    }
 }

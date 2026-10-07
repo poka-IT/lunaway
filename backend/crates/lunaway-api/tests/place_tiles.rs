@@ -610,6 +610,112 @@ async fn the_nearest_places_come_first_page_after_page(pool: PgPool) {
         "INVALID_INPUT",
         "an empty group would keep nothing"
     );
+    let body = gql(
+        &app,
+        "query($b: BBoxInput!) { places(bbox: $b, near: {lat: 45.9, lon: 6.1}, filter: {overnight: []}) { totalCount } }",
+        json!({"b": europe}),
+    )
+    .await;
+    assert_eq!(
+        code(&body),
+        "INVALID_INPUT",
+        "an empty list of statuses would keep nothing"
+    );
+    let id = seeds[0].id;
+    let nan = f64::NAN.to_bits();
+    let negative = (-1.0_f64).to_bits();
+    for broken in [
+        format!("n1.zz.{id}"),
+        format!("n1.{nan:016x}.{id}"),
+        format!("n1.{negative:016x}.{id}"),
+        format!("n1.{:016x}.not-a-uuid", 10.0_f64.to_bits()),
+        format!("n1.{:016x}", 10.0_f64.to_bits()),
+        format!("n1..{id}"),
+    ] {
+        let body = gql(
+            &app,
+            NEAR,
+            json!({"b": europe, "n": {"lat": 45.9, "lon": 6.1}, "after": broken}),
+        )
+        .await;
+        assert_eq!(code(&body), "INVALID_INPUT", "{broken}");
+    }
+}
+
+/// An app whose tile builds are refused by the client's budget (a request
+/// costs 1 000, a build 2 000 more, the burst is 2 500): a tile it gets was
+/// built by the API ahead of any client.
+fn app_building_ahead(pool: &PgPool, concurrency: usize) -> axum::Router {
+    let defaults = ApiConfig::default();
+    let config = ApiConfig {
+        tiles: lunaway_api::config::TilesConfig {
+            public_url: "https://api.test".into(),
+            warm: true,
+            concurrency,
+            ..defaults.tiles.clone()
+        },
+        limits: lunaway_api::config::Limits {
+            rate_burst: 2_500,
+            rate_per_second: 1_500,
+            ..defaults.limits
+        },
+        ..defaults
+    };
+    lunaway_api::router(ApiState::new(pool.clone(), config))
+}
+
+/// Asks `uri` once a second until it answers 200, up to `tries` times.
+async fn ready(app: &axum::Router, uri: &str, tries: u32) -> bool {
+    for _ in 0..tries {
+        let (status, _, _) = get(app, uri, &[]).await;
+        if status == StatusCode::OK {
+            return true;
+        }
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{uri}");
+        tokio::time::sleep(std::time::Duration::from_millis(1_100)).await;
+    }
+    false
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_dots_of_a_new_version_are_built_before_anyone_asks(pool: PgPool) {
+    seeded(&pool).await;
+    let app = app_building_ahead(&pool, 2);
+    let (v, _) = version(&app).await;
+    let (x12, y12) = home();
+    let (status, _, _) = get(&app, &format!("/places/{v}/12/{x12}/{y12}.mvt"), &[]).await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "a pin tile is not built ahead, and this client cannot build one"
+    );
+    for z in place_tiles::DOTS_MIN_ZOOM..place_tiles::PIN_ZOOM {
+        let (x, y) = tile_of(45.9, 6.12, u32::try_from(z).unwrap());
+        assert!(
+            ready(&app, &format!("/places/{v}/{z}/{x}/{y}.mvt"), 20).await,
+            "zoom {z}: built ahead once the TileJSON named version {v}"
+        );
+    }
+    // A new version: the first request naming it starts the building again.
+    let next = place_tiles::publish_layer_now(&pool).await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    let (x, y) = tile_of(45.9, 6.12, 9);
+    assert!(
+        ready(&app, &format!("/places/{next}/9/{x}/{y}.mvt"), 20).await,
+        "the tiles of version {next} are built ahead too"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn with_one_builder_nothing_is_built_ahead(pool: PgPool) {
+    seeded(&pool).await;
+    let app = app_building_ahead(&pool, 1);
+    let (v, _) = version(&app).await;
+    let (x, y) = tile_of(45.9, 6.12, 9);
+    assert!(
+        !ready(&app, &format!("/places/{v}/9/{x}/{y}.mvt"), 4).await,
+        "the only builder stays the clients'"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

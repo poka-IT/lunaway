@@ -67,10 +67,11 @@ pub const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributo
      Ministère de l'Économie (prix des carburants), FINESS";
 /// The attribution of what the places' tiles carry, the sources places are
 /// made of (`sources`, `docs/data-sources.md`): OpenStreetMap and the
-/// community (ODbL), and Atout France's classified campsites (Licence
+/// community (ODbL), and Atout France's classified campsites with their
+/// positions from the Base Adresse Nationale and IGN's BD TOPO (Licence
 /// Ouverte 2.0).
-pub const PLACES_ATTRIBUTION: &str =
-    "© OpenStreetMap contributors, Lunaway contributors, Atout France";
+pub const PLACES_ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, \
+     Atout France (positions: Base Adresse Nationale, IGN BD TOPO)";
 /// The area both layers cover (west, south, east, north), the extent of
 /// the European import (`osm_extract::EUROPE`), from the Azores and the
 /// Canary Islands to Svalbard and Finland: a tile outside it is empty
@@ -367,7 +368,9 @@ impl TileEndpoint {
     /// background, unless it already runs (it then moves on to the newer
     /// version by itself).
     fn start_warming(self: &Arc<Self>) {
-        if self.layer != Layer::Places || !self.config.warm {
+        // With a single builder, the clients would wait behind every tile
+        // built ahead: the building ahead keeps one free, so it needs two.
+        if self.layer != Layer::Places || !self.config.warm || self.config.concurrency < 2 {
             return;
         }
         if self.warming.swap(true, Ordering::SeqCst) {
@@ -416,6 +419,9 @@ impl TileEndpoint {
                 continue;
             }
             let slot = loop {
+                if self.known_version() != Some(version) {
+                    return;
+                }
                 if self.builders.available_permits() > 1
                     && let Ok(slot) = self.builders.try_acquire()
                 {
@@ -515,12 +521,20 @@ pub(crate) async fn tile_json(
     response
 }
 
-/// The coordinates of a tile path, if they name a tile `layer` serves.
+/// The coordinates of a tile path, if they name a tile `layer` serves,
+/// written in digits only: Caddy's access log masks `/<z>/<x>/<y>.mvt` in
+/// digits, so a spelling it would not mask (`+2075`) is not served.
 fn coordinates(layer: Layer, z: &str, x: &str, y_mvt: &str) -> Option<(i32, i32, i32)> {
-    let z: i32 = z.parse().ok()?;
-    let x: i32 = x.parse().ok()?;
-    let y: i32 = y_mvt.strip_suffix(".mvt")?.parse().ok()?;
-    coordinates_of(layer, z, x, y)
+    let y = y_mvt.strip_suffix(".mvt")?;
+    coordinates_of(layer, digits(z)?, digits(x)?, digits(y)?)
+}
+
+/// `s` as a number, if it is written in ASCII digits only.
+fn digits<T: std::str::FromStr>(s: &str) -> Option<T> {
+    if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    s.parse().ok()
 }
 
 /// `z/x/y`, if it is a tile `layer` serves.
@@ -564,7 +578,7 @@ pub(crate) async fn tile(
     let Some((z, x, y)) = coordinates(layer, &z, &x, &y_mvt) else {
         return refuse(StatusCode::NOT_FOUND, NOT_FOUND, "no such tile");
     };
-    let Ok(asked) = version.parse::<i64>() else {
+    let Some(asked) = digits::<i64>(&version) else {
         return refuse(StatusCode::NOT_FOUND, NOT_FOUND, "no such tile");
     };
     let Some(current) = endpoint.version_at_least(asked).await else {
@@ -573,6 +587,11 @@ pub(crate) async fn tile(
     let etag = format!("\"{current}-{z}-{x}-{y}\"");
     let cache_control = if asked == current {
         "public, max-age=31536000, immutable"
+    } else if asked > current {
+        // A version this copy does not know yet (read again at most every
+        // VERSION_RECHECK): today's tile, kept by nobody, since the newer
+        // version may lack a place this one still shows (a takedown).
+        "no-store"
     } else {
         // An older (or a made-up) version gets the current data, briefly
         // cached: the client's TileJSON is about to name the new version.
@@ -769,6 +788,15 @@ mod tests {
         assert_eq!(coordinates(places, "1", "1", "1.mvt"), None);
         assert_eq!(coordinates(places, "2", "4", "1.mvt"), None);
         assert_eq!(coordinates(places, "15", "1", "1.mvt"), None);
+        assert_eq!(
+            coordinates(places, "12", "+2075", "1409.mvt"),
+            None,
+            "a sign would escape Caddy's mask of the access log"
+        );
+        assert_eq!(coordinates(places, "12", "2075", "+1409.mvt"), None);
+        assert_eq!(coordinates(places, "12", "", "1.mvt"), None);
+        assert_eq!(digits::<i64>("+7"), None);
+        assert_eq!(digits::<i64>("7"), Some(7));
     }
 
     #[test]

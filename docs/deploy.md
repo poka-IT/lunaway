@@ -527,12 +527,17 @@ layer; `lunaway-db/src/place_tiles.rs`):
   URL under `LUNAWAY_PUBLIC_URL`, `minzoom` 2, `maxzoom` 14, the layer's
   bounds (`BOUNDS`, every place on 2026-10-07 lies inside), the attribution
   of the sources places are made of (OpenStreetMap, Lunaway contributors,
-  Atout France) and every field of both layers.
+  Atout France with its positions from the Base Adresse Nationale and IGN
+  BD TOPO) and every field of both layers.
 - `GET /places/{version}/{z}/{x}/{y}.mvt`, as `/poi/`: the current
-  version cached a year (`immutable`), another version the current data for
-  5 minutes, an ETag and 304, 204 for an empty tile or outside the bounds,
-  404 below zoom 2 and above 14 (maps draw zoom 14 beyond), the CORS
-  headers of `https://lunaway.net`, gzip when the client accepts it.
+  version cached a year (`immutable`), an older version the current data
+  for 5 minutes, a version newer than the one the API read (it reads again
+  at most every 200 ms) the current data with `no-store`, so a tile that
+  still shows a place taken down is kept by nobody; an ETag and 304, 204
+  for an empty tile or outside the bounds, 404 below zoom 2, above 14 (maps
+  draw zoom 14 beyond) and for coordinates not written in digits (`+12`
+  would escape Caddy's log mask); the CORS headers of `https://lunaway.net`,
+  gzip when the client accepts it.
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
@@ -636,10 +641,15 @@ reaches its database on loopback.
 (rounded by the server to 0.01 degree before any use), the places come
 nearest first from the GiST index (`ORDER BY geom <-> point, id`), the
 cursor carries the last place's distance and id, and the viewport may be
-any size, `first` (500 at most) bounding the page. Measured on the same
+any size, `first` (500 at most) bounding the page. The cursor's condition
+is not served by the index: a page walks every place nearer than its
+cursor, so the last page of Europe reads all of them. Measured on the same
 database: the first page of 200 around Lyon over all of Europe in 10 ms, a
 page 500 km out in 40 ms, `totalCount` of France (32 549 places) 51 ms and
-of Europe (86 111) 38 ms, 30 ms with three filters. No cap on the count.
+of Europe (86 111) 38 ms, 30 ms with three filters. No cap on the count;
+the statement timeout and the per-client budget bound the rest.
+`overnight: []` and an empty group of `serviceGroups` are refused: they
+would keep nothing.
 
 **Version.** `place_layer` holds the version and the change feed's
 position it covers. The conflation worker publishes a new version after a

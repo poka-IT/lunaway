@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT\n               floor((ST_X(g) + 20037508.342789244) / (40075016.68557849 / (1 << $1::int)))::int\n                   AS \"x!\",\n               floor((20037508.342789244 - ST_Y(g)) / (40075016.68557849 / (1 << $1::int)))::int\n                   AS \"y!\"\n        FROM places CROSS JOIN LATERAL (SELECT ST_Transform(geom::geometry, 3857) AS g) m\n        WHERE deleted_at IS NULL\n          -- Web Mercator ends at 85.05 degrees: a place beyond is in no tile.\n          AND geom::geometry && ST_MakeEnvelope(-180, -85.05, 180, 85.05, 4326)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "x!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "y!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "65fdbc86343dd38d3c07534648066edbaac282db65f322340921e72fac0585c5"
+}

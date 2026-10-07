@@ -153,7 +153,10 @@ pub async fn tile(
                 SELECT p.id::text AS id, p.kind, p.overnight AS night, p.services_mask AS s,
                        CASE WHEN p.price_parking_eur = 0 THEN 0
                             WHEN p.price_parking_eur > 0 THEN 1 END AS price,
-                       round(p.max_height_m * 100)::int AS h,
+                       -- Capped, so a wrong height in one row cannot overflow
+                       -- the integer and fail every tile around it.
+                       round(CASE WHEN p.max_height_m > 1000 THEN 1000
+                                  ELSE p.max_height_m END * 100)::int AS h,
                        CASE WHEN $1 >= $8 THEN p.name END AS name,
                        ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)
                            AS geom
@@ -189,13 +192,14 @@ pub async fn tile(
         r#"
         WITH bounds AS (
             SELECT ST_TileEnvelope($1, $2, $3) AS merc,
-                   ST_Transform(ST_TileEnvelope($1, $2, $3), 4326) AS geo
+                   ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $6), 4326) AS geo
         ),
         cells AS (
             SELECT DISTINCT p.kind, p.overnight AS night, p.services_mask & $5::int AS s,
                    CASE WHEN p.price_parking_eur = 0 THEN 0
                         WHEN p.price_parking_eur > 0 THEN 1 END AS price,
-                   round(p.max_height_m * 100)::int AS h,
+                   round(CASE WHEN p.max_height_m > 1000 THEN 1000
+                              ELSE p.max_height_m END * 100)::int AS h,
                    floor((ST_X(m.g) - ST_XMin(b.merc)) / (ST_XMax(b.merc) - ST_XMin(b.merc))
                          * $4::int)::int AS px,
                    floor((ST_YMax(b.merc) - ST_Y(m.g)) / (ST_YMax(b.merc) - ST_YMin(b.merc))
@@ -220,6 +224,10 @@ pub async fn tile(
         y,
         DOTS_EXTENT,
         DOTS_SERVICES,
+        // A pixel of margin: a place on a tile's edge passes the box test
+        // whatever the rounding of the projection back and forth; the
+        // pixel range then keeps it in one tile only.
+        1.0 / f64::from(DOTS_EXTENT),
     )
     .fetch_one(pool)
     .await?;
@@ -247,6 +255,8 @@ pub async fn dots_tiles_with_places(pool: &PgPool) -> Result<Vec<(i32, i32, i32)
                    AS "y!"
         FROM places CROSS JOIN LATERAL (SELECT ST_Transform(geom::geometry, 3857) AS g) m
         WHERE deleted_at IS NULL
+          -- Web Mercator ends at 85.05 degrees: a place beyond is in no tile.
+          AND geom::geometry && ST_MakeEnvelope(-180, -85.05, 180, 85.05, 4326)
         "#,
         top,
     )

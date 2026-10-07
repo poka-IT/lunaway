@@ -7,10 +7,10 @@
 -- it with the same bits; `lunaway-db/tests/place_tiles.rs` checks every bit
 -- against the domain's list. A new service goes last: this function then
 -- gets a new version with the new code appended, and the column below is
--- recomputed.
+-- recomputed. `bit_or`, so a code listed twice sets its bit once.
 CREATE FUNCTION lunaway_services_mask(services text[]) RETURNS integer
 LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
-    SELECT coalesce(sum(1 << (array_position(ARRAY[
+    SELECT coalesce(bit_or(1 << (array_position(ARRAY[
         'drinking_water', 'grey_water', 'black_water', 'waste_bin', 'toilets', 'showers',
         'electricity', 'wifi', 'laundry', 'lpg', 'gas_bottles', 'vehicle_wash', 'bakery',
         'swimming_pool', 'pets_allowed', 'mobile_data', 'winter_caravanning']::text[], s) - 1)),

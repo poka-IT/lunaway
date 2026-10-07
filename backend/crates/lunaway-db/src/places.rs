@@ -259,7 +259,9 @@ impl PlaceFilter {
     fn group_masks(&self) -> Vec<i32> {
         self.service_groups
             .iter()
-            .map(|g| i32::try_from(Service::mask(g)).unwrap_or(i32::MAX))
+            // 17 services fit 17 bits; were a mask ever too wide, 0 keeps
+            // nothing rather than everything.
+            .map(|g| i32::try_from(Service::mask(g)).unwrap_or(0))
             .collect()
     }
 }

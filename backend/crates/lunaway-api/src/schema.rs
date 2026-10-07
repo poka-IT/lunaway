@@ -314,9 +314,12 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
     }
     if f.overnight
         .as_ref()
-        .is_some_and(|o| o.len() > lunaway_domain::OvernightStatus::ALL.len())
+        .is_some_and(|o| o.is_empty() || o.len() > lunaway_domain::OvernightStatus::ALL.len())
     {
-        return Err(invalid_input("overnight lists each status once at most"));
+        // Empty would keep nothing: absent means every status.
+        return Err(invalid_input(
+            "overnight lists 1 to 5 statuses; leave it out for every status",
+        ));
     }
     let groups = f.service_groups.unwrap_or_default();
     if groups.len() > MAX_SERVICE_GROUPS
