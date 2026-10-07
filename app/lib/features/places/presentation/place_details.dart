@@ -216,6 +216,7 @@ class PlaceDetailsBody extends ConsumerWidget {
             ),
           ),
         PlaceReviewsSection(place: place),
+        ...placeReviewItems(context, ref, place),
         if (place.externalLinks.isNotEmpty)
           _Section(
             title: t.place.links,
@@ -665,7 +666,21 @@ class _Description extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final chosen = descriptionFor(place.descriptions, t.$meta.locale.languageCode);
-    if (chosen == null) return Text(place.description!, style: theme.textTheme.bodyLarge);
+    if (chosen == null) {
+      // Without the texts by language, the field's provenance still says
+      // where the one description came from.
+      final source = place.provenance.where((p) => p.field == 'description').firstOrNull;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(place.description!, style: theme.textTheme.bodyLarge),
+          if (source != null) ...[
+            const SizedBox(height: Space.s),
+            SourceBadge(label: sourceName(t, source.sourceId, sources: place.sources), maxLines: 2),
+          ],
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -676,7 +691,10 @@ class _Description extends StatelessWidget {
           runSpacing: Space.xxs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SourceBadge(label: sourceName(t, chosen.text.sourceId, sources: place.sources)),
+            SourceBadge(
+              label: sourceName(t, chosen.text.sourceId, sources: place.sources),
+              maxLines: 2,
+            ),
             if (!chosen.inUserLanguage)
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
@@ -822,7 +840,10 @@ class _Sources extends ConsumerWidget {
                     runSpacing: Space.xs,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      SourceBadge(label: s.source.name),
+                      SourceBadge(
+                        label: sourceName(t, s.source.id, sources: place.sources),
+                        maxLines: 2,
+                      ),
                       Text(s.source.licence, style: theme.textTheme.labelMedium),
                     ],
                   ),
@@ -830,15 +851,19 @@ class _Sources extends ConsumerWidget {
                   Text(s.source.attribution, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: Space.xs),
                   Text(t.place.fetched(when: t.ago(s.fetchedAt, now)), style: _muted(context)),
-                  if (webLink(s.externalUrl) case final url?) ...[
-                    const SizedBox(height: Space.xxs),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () => ref.read(externalActionsProvider).openUrl(url),
-                      icon: const Icon(AppIcons.openExternal, size: 18),
-                      label: Text(t.place.viewSource),
-                    ),
-                  ],
+                  // No link out for the external community source: its
+                  // label stands for it, and the card never sends readers
+                  // to the partner as if it vouched for it.
+                  if (s.source.id != extcomSourceId)
+                    if (webLink(s.externalUrl) case final url?) ...[
+                      const SizedBox(height: Space.xxs),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () => ref.read(externalActionsProvider).openUrl(url),
+                        icon: const Icon(AppIcons.openExternal, size: 18),
+                        label: Text(t.place.viewSource),
+                      ),
+                    ],
                 ],
               ),
             ),

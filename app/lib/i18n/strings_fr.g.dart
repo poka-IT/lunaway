@@ -55,6 +55,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$search$fr search = _Translations$search$fr._(_root);
 	@override late final _Translations$filters$fr filters = _Translations$filters$fr._(_root);
 	@override late final _Translations$place$fr place = _Translations$place$fr._(_root);
+	@override late final _Translations$sources$fr sources = _Translations$sources$fr._(_root);
 	@override late final _Translations$hours$fr hours = _Translations$hours$fr._(_root);
 	@override late final _Translations$directions$fr directions = _Translations$directions$fr._(_root);
 	@override late final _Translations$navigation$fr navigation = _Translations$navigation$fr._(_root);
@@ -490,6 +491,17 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get links => 'Sur d\'autres sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
+	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
+}
+
+// Path: sources
+class _Translations$sources$fr extends Translations$sources$en {
+	_Translations$sources$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$sources$extcom$fr extcom = _Translations$sources$extcom$fr._(_root);
 }
 
 // Path: hours
@@ -1456,6 +1468,16 @@ class _Translations$place$reviewVehicle$fr extends Translations$place$reviewVehi
 	@override String get motorhome => 'Camping-car';
 	@override String get caravan => 'Caravane';
 	@override String get other => 'Autre véhicule';
+}
+
+// Path: sources.extcom
+class _Translations$sources$extcom$fr extends Translations$sources$extcom$en {
+	_Translations$sources$extcom$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get label => 'Source communautaire externe';
 }
 
 // Path: hours.codes
@@ -2596,6 +2618,8 @@ extension on TranslationsFr {
 			'place.links' => 'Sur d\'autres sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
+			'sources.extcom.label' => 'Source communautaire externe',
 			'hours.open' => 'Ouvert maintenant',
 			'hours.openUntil' => ({required Object time}) => 'Ouvert, ferme à ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Ouvert, ferme ${day} à ${time}',
@@ -2873,10 +2897,10 @@ extension on TranslationsFr {
 			'navigation.guidance.overview' => 'Tout le trajet',
 			'navigation.guidance.recenter' => 'Revenir au véhicule',
 			'navigation.guidance.end' => 'Terminer',
-			'navigation.guidance.endTitle' => 'Terminer le guidage ?',
-			'navigation.guidance.endConfirm' => 'Terminer',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.endTitle' => 'Terminer le guidage ?',
+			'navigation.guidance.endConfirm' => 'Terminer',
 			'navigation.guidance.endKeep' => 'Continuer',
 			'navigation.guidance.arrivedTitle' => 'Vous êtes à destination',
 			'navigation.guidance.done' => 'Terminer',
@@ -3387,10 +3411,10 @@ extension on TranslationsFr {
 			'placeForm.submitEdit' => 'Enregistrer la modification',
 			'placeForm.submitPropose' => 'Envoyer la proposition',
 			'placeForm.nothingChanged' => 'Rien n\'a changé',
-			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
-			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
+			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
 			'placeForm.added' => 'Merci : le lieu arrive sur la carte dans un instant',
 			'placeForm.proposed' => 'Merci : votre proposition part en relecture',
 			'favoritesSync.local' => 'Sur cet appareil seulement',

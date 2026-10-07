@@ -331,6 +331,41 @@ $placeSummaryFragment''',
   },
 );
 
+const _externalReviewFields = '''
+fragment ExternalReviewFields on ExternalReviewConnection {
+  nodes { id sourceId authorName rating text lang authorVehicle writtenAt }
+  endCursor
+  hasNextPage
+  totalCount
+}
+''';
+
+/// What the external community source says of a place, read when its card
+/// opens and kept in memory only: the change feed, the packs and the
+/// device's stores never carry it. Null when the place no longer exists.
+final externalOperation = GraphQLOperation<ExternalContent?>(
+  name: 'PlaceExternal',
+  document: '''
+query PlaceExternal(\$id: UUID!, \$first: Int) {
+  place(id: \$id) {
+    id
+    externalPhotos { id sourceId authorName takenAt thumbUrl largeUrl width height thumbhash }
+    externalRatings { sourceId average count }
+    externalReviews(first: \$first) { ...ExternalReviewFields }
+  }
+}
+$_externalReviewFields''',
+  parse: (data) {
+    final place = data['place'];
+    if (place is! Map<String, dynamic>) return null;
+    return ExternalContent(
+      photos: externalPhotosFromJson(place['externalPhotos']),
+      ratings: ratingsFromJson(place['externalRatings']),
+      reviews: externalReviewPageFromJson(place['externalReviews']),
+    );
+  },
+);
+
 /// The places whose name or town matches what the user typed, online.
 final searchPlacesOperation = GraphQLOperation<List<PlaceSummary>>(
   name: 'SearchPlaces',
@@ -402,6 +437,25 @@ Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
   return input.isEmpty ? null : input;
 }
 
+/// The next page of the external community source's reviews.
+final externalReviewsOperation = GraphQLOperation<ReviewPage>(
+  name: 'PlaceExternalReviews',
+  document: '''
+query PlaceExternalReviews(\$id: UUID!, \$first: Int, \$after: String) {
+  place(id: \$id) {
+    id
+    externalReviews(first: \$first, after: \$after) { ...ExternalReviewFields }
+  }
+}
+$_externalReviewFields''',
+  parse: (data) {
+    final place = data['place'];
+    return place is Map<String, dynamic>
+        ? externalReviewPageFromJson(place['externalReviews'])
+        : ReviewPage.empty;
+  },
+);
+
 /// Every operation the app can send, for the contract test.
 final allOperations = <GraphQLOperation<Object?>>[
   changesOperation,
@@ -410,4 +464,6 @@ final allOperations = <GraphQLOperation<Object?>>[
   placeOperation,
   nearbyPlacesOperation,
   searchPlacesOperation,
+  externalOperation,
+  externalReviewsOperation,
 ];

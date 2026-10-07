@@ -323,3 +323,95 @@ final class PlaceExtras {
   final fallback = texts.where((t) => t.lang == 'en').firstOrNull ?? texts.first;
   return (text: fallback, inUserLanguage: false);
 }
+
+/// The external community source: a partner community's reviews, ratings
+/// and photos, shown under a written agreement with its own label and
+/// attribution, read online when a place opens and never stored with the
+/// places.
+const extcomSourceId = 'extcom';
+
+/// What the external community source says of a place: its photos, its
+/// ratings as a whole (it counts more ratings than the reviews it hands
+/// over) and a page of its reviews, newest first.
+@immutable
+final class ExternalContent {
+  const new({required this.photos, required this.ratings, required this.reviews});
+
+  /// A place the source says nothing of, or an API that does not serve it.
+  static const empty = ExternalContent(photos: [], ratings: [], reviews: ReviewPage.empty);
+
+  final List<Photo> photos;
+  final List<SourceRating> ratings;
+  final ReviewPage reviews;
+
+  ExternalContent withReviews(ReviewPage reviews) =>
+      ExternalContent(photos: photos, ratings: ratings, reviews: reviews);
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExternalContent &&
+      const ListEquality<Photo>().equals(other.photos, photos) &&
+      const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
+      other.reviews == reviews;
+
+  @override
+  int get hashCode => Object.hash(Object.hashAll(photos), Object.hashAll(ratings), reviews);
+}
+
+/// Which of the two review lists a place shows the next page should come
+/// from.
+enum ReviewOrigin { lunaway, external }
+
+/// Lunaway's reviews and the external source's in one list, newest first.
+/// Both arrive a page at a time: a review is shown only once no unread page
+/// can hold a newer one, so the order never changes as pages come in, and
+/// `next` names the list whose next page unblocks the rest (null when both
+/// are read to the end). At the same instant, Lunaway's comes first.
+({List<Review> reviews, ReviewOrigin? next}) mergeReviews(ReviewPage lunaway, ReviewPage external) {
+  DateTime? limit(ReviewPage page) {
+    if (!page.hasNextPage) return null;
+    // A page that announces more but brought nothing blocks everything:
+    // its next page may start with the newest review of all.
+    return page.nodes.isEmpty ? _farFuture : page.nodes.last.createdAt;
+  }
+
+  final ours = limit(lunaway);
+  final theirs = limit(external);
+  final DateTime? boundary;
+  final ReviewOrigin? next;
+  if (ours == null && theirs == null) {
+    boundary = null;
+    next = null;
+  } else if (theirs == null || (ours != null && !ours.isBefore(theirs))) {
+    boundary = ours;
+    next = ReviewOrigin.lunaway;
+  } else {
+    boundary = theirs;
+    next = ReviewOrigin.external;
+  }
+  bool shown(Review r) => boundary == null || !r.createdAt.isBefore(boundary);
+  final merged = <Review>[];
+  var i = 0;
+  var j = 0;
+  final a = lunaway.nodes;
+  final b = external.nodes;
+  while (i < a.length || j < b.length) {
+    final takeOurs = j >= b.length || (i < a.length && !a[i].createdAt.isBefore(b[j].createdAt));
+    final r = takeOurs ? a[i++] : b[j++];
+    if (!shown(r)) {
+      // Both lists are newest first: everything after is older still,
+      // but the other list may hold reviews on the right side of the
+      // boundary.
+      if (takeOurs) {
+        i = a.length;
+      } else {
+        j = b.length;
+      }
+      continue;
+    }
+    merged.add(r);
+  }
+  return (reviews: merged, next: next);
+}
+
+final _farFuture = DateTime.utc(9999);

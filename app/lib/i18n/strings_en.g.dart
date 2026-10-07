@@ -60,6 +60,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$search$en search = Translations$search$en.internal(_root);
 	late final Translations$filters$en filters = Translations$filters$en.internal(_root);
 	late final Translations$place$en place = Translations$place$en.internal(_root);
+	late final Translations$sources$en sources = Translations$sources$en.internal(_root);
 	late final Translations$hours$en hours = Translations$hours$en.internal(_root);
 	late final Translations$directions$en directions = Translations$directions$en.internal(_root);
 	late final Translations$navigation$en navigation = Translations$navigation$en.internal(_root);
@@ -950,6 +951,19 @@ class Translations$place$en {
 
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
+
+	/// en: '$source · $author'
+	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
+}
+
+// Path: sources
+class Translations$sources$en {
+	Translations$sources$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$sources$extcom$en extcom = Translations$sources$extcom$en.internal(_root);
 }
 
 // Path: hours
@@ -3097,6 +3111,18 @@ class Translations$place$reviewVehicle$en {
 	String get other => 'Other vehicle';
 }
 
+// Path: sources.extcom
+class Translations$sources$extcom$en {
+	Translations$sources$extcom$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'External community source'
+	String get label => 'External community source';
+}
+
 // Path: hours.codes
 class Translations$hours$codes$en {
 	Translations$hours$codes$en.internal(this._root);
@@ -5233,6 +5259,8 @@ extension on Translations {
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
+			'sources.extcom.label' => 'External community source',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Open, closes ${day} at ${time}',
@@ -5510,10 +5538,10 @@ extension on Translations {
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Back to the vehicle',
 			'navigation.guidance.end' => 'End',
-			'navigation.guidance.endTitle' => 'End the guidance?',
-			'navigation.guidance.endConfirm' => 'End',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.endTitle' => 'End the guidance?',
+			'navigation.guidance.endConfirm' => 'End',
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
@@ -6024,10 +6052,10 @@ extension on Translations {
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
-			'placeForm.invalidNumber' => 'A number, please',
-			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.invalidNumber' => 'A number, please',
+			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
 			'favoritesSync.local' => 'On this device only',

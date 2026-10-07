@@ -10,6 +10,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/online_places.dart';
+import 'package:lunaway/features/places/data/place_external_source.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -420,6 +421,39 @@ final class FakeExtrasSource implements PlaceExtrasSource {
   }) async {
     if (!online) throw StateError('offline');
     return _page(int.parse(after), pageSize);
+  }
+}
+
+/// The external community source served from memory: [content] for a
+/// place's card, then the pages of [more] by their cursor. While [hold] is
+/// set, reads wait for it, as on a slow network.
+final class FakeExternalSource implements PlaceExternalSource {
+  new({this.content = ExternalContent.empty, this.more = const {}});
+
+  ExternalContent content;
+  final Map<String, ReviewPage> more;
+  bool online = true;
+  Completer<void>? hold;
+  final fetched = <String>[];
+  final pagesAfter = <String>[];
+
+  @override
+  Future<ExternalContent> fetch(String placeId, {required int first}) async {
+    fetched.add(placeId);
+    await hold?.future;
+    if (!online) throw StateError('offline');
+    return content;
+  }
+
+  @override
+  Future<ReviewPage> moreReviews(
+    String placeId, {
+    required String after,
+    required int first,
+  }) async {
+    pagesAfter.add(after);
+    if (!online) throw StateError('offline');
+    return more[after] ?? ReviewPage.empty;
   }
 }
 
