@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_silhouette.dart';
@@ -129,6 +132,9 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final existing = ref.watch(vehicleProvider).value != null;
+    // The speeds read in the units the guidance speaks; they are kept in
+    // km/h, as the router takes them.
+    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     String? Function(String?) inRange(({double min, double max}) range, String unit) => (text) {
       if (text == null || text.trim().isEmpty) return null;
       final v = parse(text);
@@ -248,6 +254,30 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                   't',
                   AppIcons.weight,
                   inRange(Vehicle.weightRange, 't'),
+                ),
+                const SizedBox(height: Space.xl),
+                Text(t.vehicle.cruiseTitle, style: theme.textTheme.titleLarge),
+                const SizedBox(height: Space.xs),
+                Text(
+                  t.vehicle.cruiseHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: Space.m),
+                DropdownButtonFormField<int?>(
+                  initialValue: _draft.cruiseSpeedKph,
+                  decoration: InputDecoration(
+                    labelText: t.vehicle.cruiseTitle,
+                    prefixIcon: const Icon(AppIcons.hours),
+                  ),
+                  items: [
+                    DropdownMenuItem(child: Text(t.vehicle.cruiseNone)),
+                    for (final kmh in Vehicle.cruiseSpeeds)
+                      DropdownMenuItem(value: kmh, child: Text(t.speedLimit(kmh, units))),
+                  ],
+                  onChanged: (kmh) =>
+                      setState(() => _draft = _draft.copyWith(cruiseSpeedKph: () => kmh)),
+                  mouseCursor: WidgetStateMouseCursor.clickable,
+                  dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
                 ),
                 const SizedBox(height: Space.xl),
                 Text(t.vehicle.fuelTitle, style: theme.textTheme.titleLarge),

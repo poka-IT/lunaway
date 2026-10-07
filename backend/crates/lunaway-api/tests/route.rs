@@ -255,6 +255,74 @@ async fn a_route_under_a_bridge_too_low_is_computed_again_around_it(pool: PgPool
     );
 }
 
+const CRUISE_QUERY: &str = r"
+query Route($input: RouteInput!) {
+  route(input: $input) {
+    status recalculations
+    reroute { vehicle { cruiseSpeedKph } topSpeedKph }
+  }
+}";
+
+/// A 3.3 m motorhome of `weight_t` that keeps to `cruise` km/h at most.
+fn cruising(weight_t: f64, cruise: Option<i32>) -> Value {
+    let mut v = input(3.3);
+    v["input"]["vehicle"]["weightT"] = weight_t.into();
+    if let Some(kmh) = cruise {
+        v["input"]["vehicle"]["cruiseSpeedKph"] = kmh.into();
+    }
+    v
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn every_engine_call_of_a_route_assumes_the_lower_of_the_cruising_speed_and_the_legal_cap(
+    pool: PgPool,
+) {
+    seed(&pool).await;
+    for (weight_t, cruise, top) in [
+        (3.5, Some(90), Some(90)),
+        (4.5, Some(100), Some(100)),
+        (4.5, Some(130), Some(110)),
+        (4.5, None, Some(110)),
+        (3.5, None, None),
+    ] {
+        // The first route passes under the bridge: the route is computed
+        // again, and the second call must keep the speed too.
+        let (url, asked) = engine(
+            vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+            Duration::ZERO,
+        )
+        .await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+        let (_, body) = gql(&app, CRUISE_QUERY, cruising(weight_t, cruise)).await;
+        let r = &body["data"]["route"];
+        let case = format!("{weight_t} t at {cruise:?} km/h");
+        assert_eq!(r["status"], "OK", "{case}: {body}");
+        assert_eq!(r["recalculations"], 1, "{case}");
+        assert_eq!(
+            r["reroute"]["vehicle"]["cruiseSpeedKph"],
+            json!(cruise),
+            "a recalculation sends the speed again: {case}"
+        );
+        assert_eq!(r["reroute"]["topSpeedKph"], json!(top), "{case}");
+        let asked = asked.lock().unwrap();
+        assert_eq!(asked.len(), 2, "{case}");
+        for call in asked.iter() {
+            assert_eq!(
+                call["costing_options"]["auto"].get("top_speed").cloned(),
+                top.map(|t: i32| json!(t)),
+                "{case}: {call}"
+            );
+            assert_eq!(
+                call["costing_options"]["auto"]
+                    .get("speed_penalty_factor")
+                    .cloned(),
+                top.map(|_| json!(0.0)),
+                "a top speed never pushes the trip off fast roads: {case}"
+            );
+        }
+    }
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_van_that_fits_is_warned_of_a_close_clearance(pool: PgPool) {
     seed(&pool).await;
@@ -489,6 +557,9 @@ async fn a_bad_request_costs_the_engine_nothing(pool: PgPool) {
         ("a height in centimetres", tall),
         ("six waypoints", waypoints),
         ("three alternatives", alternatives),
+        ("a cruising speed of 0", cruising(3.5, Some(0))),
+        ("a negative cruising speed", cruising(3.5, Some(-90))),
+        ("a cruising speed of 250", cruising(3.5, Some(250))),
     ] {
         let (_, body) = gql(&app, ROUTE_QUERY, variables).await;
         assert_eq!(code(&body), "INVALID_INPUT", "{what}: {body}");
@@ -706,6 +777,16 @@ async fn a_route_carries_the_speed_limits_of_its_vehicle(pool: PgPool) {
         let traced = polyline::decode(traces[0]["encoded_polyline"].as_str().unwrap()).unwrap();
         assert_eq!(traced.len(), 1_661, "the route's own shape");
     }
+
+    // A driver keeping to 90 still sees the road's limits: the cruising
+    // speed changes the times, never the limits.
+    let mut slow = weighing(4.5);
+    slow["input"]["vehicle"]["cruiseSpeedKph"] = 90.into();
+    let (_, slow) = gql(&app, LIMITS_QUERY, slow).await;
+    assert_eq!(
+        slow["data"]["route"]["routes"][0]["speedLimits"], r["routes"][0]["speedLimits"],
+        "{slow}"
+    );
 
     // A car-sized motorhome keeps the signs, and the defaults where none.
     let (_, body) = gql(&app, LIMITS_QUERY, weighing(3.5)).await;

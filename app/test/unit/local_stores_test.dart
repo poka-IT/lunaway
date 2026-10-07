@@ -29,10 +29,13 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 5 (the places opened online), the user store at 3 (fuel)', () {
-    expect(db.schemaVersion, 5);
-    expect(user.schemaVersion, 3);
-  });
+  test(
+    'the cache is at version 5 (the places opened online), the user store at 4 (cruising speed)',
+    () {
+      expect(db.schemaVersion, 5);
+      expect(user.schemaVersion, 4);
+    },
+  );
 
   group('settings', () {
     test('a new user starts with no filter, the automatic theme and the device language', () async {

@@ -1321,6 +1321,15 @@ class Translations$vehicle$en {
 
 	/// en: 'LPG prices also show on the stations.'
 	String get lpgHeatingHint => 'LPG prices also show on the stations.';
+
+	/// en: 'Top cruising speed'
+	String get cruiseTitle => 'Top cruising speed';
+
+	/// en: 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.'
+	String get cruiseHint => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.';
+
+	/// en: 'No limit'
+	String get cruiseNone => 'No limit';
 }
 
 // Path: profile
@@ -3320,6 +3329,9 @@ class Translations$navigation$preview$en {
 
 	/// en: 'Edit'
 	String get editVehicle => 'Edit';
+
+	/// en: 'Timed at $speed max'
+	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
@@ -5392,6 +5404,7 @@ extension on Translations {
 			'navigation.preview.vehicle' => 'Your vehicle',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -5589,9 +5602,9 @@ extension on Translations {
 			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Road closed in ${distance}',
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Size limited by roadworks in ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, as of ${time}',
-			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, as of ${day} at ${time}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, as of ${day} at ${time}',
 			'navigation.guidance.avoidedClosures' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Route planned around a closure', other: 'Route planned around ${n} closures', ), 
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
@@ -5723,6 +5736,9 @@ extension on Translations {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Heating on LPG',
 			'vehicle.lpgHeatingHint' => 'LPG prices also show on the stations.',
+			'vehicle.cruiseTitle' => 'Top cruising speed',
+			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
+			'vehicle.cruiseNone' => 'No limit',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6100,12 +6116,12 @@ extension on Translations {
 			'placeForm.description' => 'Description',
 			'placeForm.descriptionHint' => 'What helps to find and choose the place',
 			'placeForm.details' => 'Details',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.priceNight' => 'Price of a night (€)',
 			'placeForm.priceServices' => 'Price of the services (€)',
 			'placeForm.maxHeight' => 'Maximum height (m)',
 			'placeForm.capacity' => 'Pitches',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.website' => 'Website',
 			'placeForm.phone' => 'Phone',
 			'placeForm.photo' => 'Photo (optional)',

@@ -147,6 +147,51 @@ void main() {
     },
   );
 
+  test('the detours are timed at the cruising speed, or without it on an older API', () async {
+    // The API before the cruising speed refuses it as async-graphql does.
+    final source = ServerFuelStations(
+      client((body) {
+        final vehicle = ((body['variables'] as Map)['input'] as Map)['vehicle'] as Map;
+        if (!vehicle.containsKey('cruiseSpeedKph')) return recorded(body);
+        return http.Response(
+          jsonEncode({
+            'data': null,
+            'errors': [
+              {
+                'message':
+                    'Invalid value for argument "input.vehicle", unknown field "cruiseSpeedKph" '
+                    'of type "VehicleProfileInput"',
+                'extensions': {'code': 'INVALID_INPUT'},
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+      fallback: FakeFuelStations(const []),
+    );
+    final offers = await source.along(
+      route: _route,
+      fromM: 0,
+      fuel: FuelType.diesel,
+      vehicle: const {
+        'kind': 'OVERCAB',
+        'heightM': 3.1,
+        'widthM': 2.3,
+        'lengthM': 7,
+        'weightT': 3.5,
+        'cruiseSpeedKph': 90,
+      },
+    );
+    expect(sent, hasLength(2));
+    Map<String, dynamic> vehicleOf(int i) =>
+        ((sent[i]['variables'] as Map)['input'] as Map)['vehicle'] as Map<String, dynamic>;
+    expect(vehicleOf(0)['cruiseSpeedKph'], 90, reason: 'the speed goes first');
+    expect(vehicleOf(1), isNot(contains('cruiseSpeedKph')));
+    expect(vehicleOf(1)['heightM'], 3.1, reason: 'the rest of the vehicle still goes');
+    expect(offers, isNotEmpty, reason: 'the server search, not the fallback');
+  });
+
   test('a route too long for the server is simplified before it leaves', () async {
     // 2 000 km of a zigzag every 100 m: hundreds of thousands of
     // characters as it is.

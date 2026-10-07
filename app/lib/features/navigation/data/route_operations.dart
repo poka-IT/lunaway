@@ -85,10 +85,10 @@ fragment FerryCrossingFields on FerryCrossing {
 ''';
 
 /// The route request, with the limits for the vehicle along each route when
-/// [speedLimits], and why there is no route and the ferry crossings when
-/// [reasons]: an API without them refuses the fields, and gets the request
-/// without them.
-String _routeDocument({required bool speedLimits, required bool reasons}) =>
+/// [speedLimits], why there is no route and the ferry crossings when
+/// [reasons], and the cruising speed the times assume when [cruise]: an API
+/// without them refuses the fields, and gets the request without them.
+String _routeDocument({required bool speedLimits, required bool reasons, bool cruise = false}) =>
     '''
 query Route(\$input: RouteInput!) {
   route(input: \$input) {
@@ -110,9 +110,9 @@ query Route(\$input: RouteInput!) {
     roadEventSources { id name attribution lastReadAt dataAt staleAfterSeconds fresh }
     recalculations
     reroute {
-      vehicle { kind heightM widthM lengthM weightT axleLoadT trailer { lengthM weightT heightM widthM } }
+      vehicle { kind heightM widthM lengthM weightT axleLoadT trailer { lengthM weightT heightM widthM }${cruise ? ' cruiseSpeedKph' : ''} }
       options { avoidTolls avoidMotorways avoidFerries avoidUnpaved }
-      language
+      language${cruise ? '\n      topSpeedKph' : ''}
     }
     graph { ...RoutingGraphFields }
     disclaimerKey
@@ -134,15 +134,44 @@ const _reasonsSelection = '''
 /// two.
 final routeOperation = GraphQLOperation<RoutePlan>(
   name: 'Route',
-  document: _routeDocument(speedLimits: true, reasons: true),
-  // The API before the reasons and the crossings (2026-10-07), then the
-  // one before the speed limits.
-  older: OlderForm.selecting(
-    _routeDocument(speedLimits: true, reasons: false),
-    older: OlderForm.selecting(_routeDocument(speedLimits: false, reasons: false)),
+  document: _routeDocument(speedLimits: true, reasons: true, cruise: true),
+  // The API before the cruising speed (2026-10-07), then the one before the
+  // reasons and the crossings, then the one before the speed limits. None
+  // of them knows the cruising speed: the route is timed without it, and
+  // the preview then tells no speed.
+  older: _withoutCruise(
+    _routeDocument(speedLimits: true, reasons: true),
+    older: _withoutCruise(
+      _routeDocument(speedLimits: true, reasons: false),
+      older: _withoutCruise(_routeDocument(speedLimits: false, reasons: false)),
+    ),
   ),
   parse: (data) => routePlanFromJson(data['route'] as Map<String, dynamic>),
 );
+
+/// [document] for an API before the cruising speed: its request leaves the
+/// vehicle's `cruiseSpeedKph` out, which that API would refuse.
+OlderForm _withoutCruise(String document, {OlderForm? older}) =>
+    OlderForm(document: document, variables: withoutCruiseSpeed, withoutFields: true, older: older);
+
+/// [variables] of a route or fuel request without the vehicle's cruising
+/// speed.
+Map<String, Object?> withoutCruiseSpeed(Map<String, Object?> variables) {
+  final input = variables['input'];
+  if (input is! Map<String, Object?>) return variables;
+  final vehicle = input['vehicle'];
+  if (vehicle is! Map<String, Object?>) return variables;
+  return {
+    ...variables,
+    'input': {
+      ...input,
+      'vehicle': {
+        for (final MapEntry(:key, :value) in vehicle.entries)
+          if (key != 'cruiseSpeedKph') key: value,
+      },
+    },
+  };
+}
 
 /// The request of [routeOperation].
 Map<String, Object?> routeVariables({
@@ -331,9 +360,11 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
                 heightM: (trailer['heightM'] as num?)?.toDouble(),
                 widthM: (trailer['widthM'] as num?)?.toDouble(),
               ),
+        cruiseSpeedKph: (vehicle['cruiseSpeedKph'] as num?)?.toInt(),
       ),
       avoid: AvoidOptions.fromJson(options),
       language: reroute['language'] == 'EN' ? RouteLanguage.en : RouteLanguage.fr,
+      topSpeedKph: (reroute['topSpeedKph'] as num?)?.toInt(),
     ),
     graph: _graph(json['graph'] as Map<String, dynamic>),
     disclaimerKey: json['disclaimerKey'] as String,

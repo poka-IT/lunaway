@@ -191,6 +191,36 @@ void main() {
     expect(voice.said, contains('Recalcul de l’itinéraire.'.replaceAll('’', "'")));
   });
 
+  test('a recalculation keeps the cruising speed the route was timed at', () async {
+    final a = routeFixture(
+      'limoges_drive',
+      edit: (answer) {
+        final reroute = answer['reroute'] as Map<String, dynamic>;
+        (reroute['vehicle'] as Map<String, dynamic>)['cruiseSpeedKph'] = 90;
+        reroute['topSpeedKph'] = 90;
+      },
+    );
+    final detour = routeFixture('missed_turn');
+    await start(a, answers: [detour], more: [detour]);
+    final fixes = along(a.routes.single, toM: 600);
+    await send(fixes);
+    final last = fixes.last;
+    final away = LatLng(last.position.lat + 0.003, last.position.lon);
+    await send([
+      for (var i = 1; i <= 3; i++)
+        Fix(
+          position: away,
+          accuracyM: 5,
+          at: last.at.add(Duration(seconds: i)),
+          courseDeg: 270,
+          speedMps: 9,
+        ),
+    ]);
+    expect(routes.requests, hasLength(1));
+    expect(routes.requests.single.vehicle.cruiseSpeedKph, 90);
+    expect(routes.requests.single.vehicle.toJson()['cruiseSpeedKph'], 90);
+  });
+
   test('off the route, the new route keeps the stops not reached yet', () async {
     final a = routeFixture('limoges_drive');
     final detour = routeFixture('missed_turn');

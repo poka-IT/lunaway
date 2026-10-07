@@ -93,6 +93,7 @@ pub(crate) fn vehicle(v: &VehicleProfileInput) -> Result<VehicleProfile> {
         weight_t: v.weight_t,
         axle_load_t: v.axle_load_t,
         trailer,
+        cruise_speed_kph: v.cruise_speed_kph.map(i64::from),
     })
     .map_err(bad)
 }
@@ -293,15 +294,14 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             return Err(internal(&e));
         }
     };
+    let dims = request.vehicle.routing();
     let reroute = RerouteParameters {
         vehicle: input.vehicle,
         options,
         language: input.language,
-        costing_options_json: crate::routing::valhalla::costing_options(
-            &request.vehicle.routing(),
-            request.avoid,
-        )
-        .to_string(),
+        top_speed_kph: dims.top_speed_kph.and_then(|s| i32::try_from(s).ok()),
+        costing_options_json: crate::routing::valhalla::costing_options(&dims, request.avoid)
+            .to_string(),
     };
     let road_event_sources: Vec<RoadEventSourceStatus> = sources
         .iter()
@@ -474,6 +474,7 @@ mod tests {
                 weight_t: 3.5,
                 axle_load_t: None,
                 trailer: None,
+                cruise_speed_kph: None,
             },
             options: None,
             alternatives: 0,

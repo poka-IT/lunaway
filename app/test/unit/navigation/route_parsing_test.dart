@@ -45,6 +45,23 @@ void main() {
       expect(plan.graph.ignEdition, DateTime(2026, 6, 15));
     });
 
+    test('the speed the times assume is told only when the driver set one', () {
+      void cruise(Map<String, dynamic> answer, int? asked, int? top) {
+        final reroute = answer['reroute'] as Map<String, dynamic>;
+        (reroute['vehicle'] as Map<String, dynamic>)['cruiseSpeedKph'] = asked;
+        reroute['topSpeedKph'] = top;
+      }
+
+      // 120 asked by a motorhome over 3.5 t: the server kept to its 110.
+      final capped = routeFixture('utrillo_motorhome', edit: (a) => cruise(a, 120, 110)).applied;
+      expect(capped.vehicle.cruiseSpeedKph, 120, reason: 'what a recalculation sends again');
+      expect(capped.topSpeedKph, 110);
+      expect(capped.cruiseShownKph, 110);
+      final legalOnly = routeFixture('utrillo_motorhome', edit: (a) => cruise(a, null, 110));
+      expect(legalOnly.applied.cruiseShownKph, isNull, reason: 'the law, not a choice to recall');
+      expect(routeFixture('utrillo_motorhome').applied.cruiseShownKph, isNull);
+    });
+
     test('a 2.50 m van under the 2.70 m bridge carries the warning with its place', () {
       final w = routeFixture('utrillo_van').routes.single.warnings.single;
       expect(w.kind, RouteWarningKind.lowClearance);
