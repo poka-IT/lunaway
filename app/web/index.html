@@ -86,6 +86,16 @@
     }
     #premap.shown { opacity: 1; pointer-events: auto; }
     #premap.done { opacity: 0; pointer-events: none; }
+    /* The maps' cursor (lunawayHits.hover in lunaway_maplibre.js): the
+       pointing finger over what a click picks, the closed hand while a map
+       is dragged. The browser takes the cursor of the element under the
+       mouse, and an app's map lies under the app's canvas even where a
+       dialog, a sheet or a button covers it: there, the cursor the app
+       sets on the body wins. The app marks the body while the mouse is
+       over one of its maps as it sees them (web_map_pointer.dart). */
+    body .maplibregl-canvas-container.maplibregl-interactive.lw-hit { cursor: pointer; }
+    body .maplibregl-canvas-container.maplibregl-interactive.lw-dragging { cursor: grabbing; }
+    body:not(.lw-on-map) flt-platform-view .maplibregl-canvas-container.maplibregl-interactive { cursor: inherit; }
   </style>
 </head>
 <body>

@@ -17,6 +17,12 @@ abstract final class Premap {
   /// The app's map shows the same view: the first map fades out.
   static void handOver() => impl.premapHandOver();
 
+  /// The place of the tiles the user clicked on the first map, which only
+  /// the app can open: its tile properties and its `[lon, lat]`; null when
+  /// none, and once taken.
+  static ({Map<Object?, Object?> properties, List<Object?> coordinates})? takePlace() =>
+      impl.premapTakePlace();
+
   /// Keeps [json] (premapState) for the first map of the next visit.
   static void remember(String json) => impl.premapRemember(json);
 

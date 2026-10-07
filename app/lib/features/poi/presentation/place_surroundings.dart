@@ -118,6 +118,7 @@ class _Row extends ConsumerWidget {
         color: scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           onTap: () {
             ref.read(selectionProvider.notifier).select(PoiSelection(poi.feature, from: from));
