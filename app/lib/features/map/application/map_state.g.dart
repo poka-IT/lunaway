@@ -811,7 +811,9 @@ String _$selectedPlaceHash() => r'9fbc396825f64453c59b7642d9448d365a4826ca';
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
 /// device without a request (exact, at once, and nothing of where the user
-/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// looks leaves it beyond the tiles themselves), except when the tiles
+/// cannot answer: no map yet, a tile that failed, or a view whose tiles
+/// hold no place, which the API's first page answers; below it, a page of the
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
@@ -823,7 +825,9 @@ final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
 /// device without a request (exact, at once, and nothing of where the user
-/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// looks leaves it beyond the tiles themselves), except when the tiles
+/// cannot answer: no map yet, a tile that failed, or a view whose tiles
+/// hold no place, which the API's first page answers; below it, a page of the
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
@@ -833,7 +837,9 @@ final class NearbyPlacesPageProvider
   /// The list beside the map. With the places from the tiles: from the zoom
   /// of their names, the places the tiles hold inside the view, read on the
   /// device without a request (exact, at once, and nothing of where the user
-  /// looks leaves it beyond the tiles themselves); below it, a page of the
+  /// looks leaves it beyond the tiles themselves), except when the tiles
+  /// cannot answer: no map yet, a tile that failed, or a view whose tiles
+  /// hold no place, which the API's first page answers; below it, a page of the
   /// API at a time, the view widened to a grid of 0.05 degree and ranked
   /// from a point of that grid, never the device's position. Either way
   /// sorted again on the device from the user when the map shows them.
@@ -862,7 +868,9 @@ String _$nearbyPlacesPageHash() => r'f2951904a42c59e60b78d3a592d558f92a18c333';
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
 /// device without a request (exact, at once, and nothing of where the user
-/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// looks leaves it beyond the tiles themselves), except when the tiles
+/// cannot answer: no map yet, a tile that failed, or a view whose tiles
+/// hold no place, which the API's first page answers; below it, a page of the
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
