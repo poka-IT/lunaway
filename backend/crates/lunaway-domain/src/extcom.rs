@@ -293,6 +293,9 @@ pub fn is_dns_name(host: &str) -> bool {
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
                 && !l.starts_with('-')
                 && !l.ends_with('-')
+                // `0x7f`: URL parsers read a hexadecimal label as part of an
+                // IPv4 address (`0x7f.0.0.0x1` is 127.0.0.1).
+                && !l.starts_with("0x")
         });
     // A last label of digits only makes an IPv4 address of the name.
     let tld_ok = labels
@@ -337,6 +340,17 @@ pub fn photo_url_host(url: &str) -> Option<String> {
 #[must_use]
 pub fn photo_url_allowed(url: &str, hosts: &[String]) -> bool {
     photo_url_host(url).is_some_and(|h| hosts.contains(&h))
+}
+
+/// `url` as stored when it is a photo URL ([`photo_url_host`]): the scheme
+/// and the host in lower case and no default port, so the database's check
+/// (`^https://`) and a later comparison see one spelling.
+#[must_use]
+pub fn normalize_photo_url(url: &str) -> Option<String> {
+    let host = photo_url_host(url)?;
+    let rest = &url[url.find("://")? + 3..];
+    let path = &rest[rest.find(['/', '?', '#']).unwrap_or(rest.len())..];
+    Some(format!("https://{host}{path}"))
 }
 
 /// Characters that reorder or hide text: a review could otherwise display
@@ -617,6 +631,19 @@ mod tests {
         ] {
             assert!(!photo_url_allowed(bad, &hosts), "{bad} must be refused");
         }
+    }
+
+    #[test]
+    fn a_photo_url_is_stored_in_one_spelling() {
+        assert_eq!(
+            normalize_photo_url("HTTPS://Img.Example.org:443/A/b.JPG?w=1").as_deref(),
+            Some("https://img.example.org/A/b.JPG?w=1")
+        );
+        assert_eq!(normalize_photo_url("http://img.example.org/a.jpg"), None);
+        assert!(
+            !is_dns_name("0x7f.0.0.0x1"),
+            "a hexadecimal label is an IPv4 address to a URL parser"
+        );
     }
 
     #[test]

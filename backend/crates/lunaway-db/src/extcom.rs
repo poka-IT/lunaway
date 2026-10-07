@@ -36,6 +36,7 @@ pub async fn upsert_agreement(
         .iter()
         .map(|s| s.code().to_owned())
         .collect();
+    let mut tx = pool.begin().await?;
     sqlx::query!(
         r#"
         INSERT INTO source_agreements AS g
@@ -61,8 +62,22 @@ pub async fn upsert_agreement(
         &agreement.photo_hosts,
         at,
     )
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    // The photo proxy downloads from the hosts of every agreement in
+    // force: only the one the server is configured with keeps any, so a
+    // host taken out of the configuration is no longer reached.
+    sqlx::query!(
+        r#"
+        UPDATE source_agreements SET photo_hosts = '{}'
+        WHERE source_id = $1 AND reference <> $2 AND photo_hosts <> '{}'
+        "#,
+        source.as_str(),
+        agreement.reference,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(())
 }
 
@@ -1067,8 +1082,23 @@ pub struct ProcessedPhoto<'a> {
     pub thumbhash: &'a [u8],
 }
 
+/// What recording a photo's files found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Recorded {
+    /// The photo is live and now names the files.
+    Live,
+    /// The photo was retired while it was downloaded (an import, an
+    /// erasure, a purge): it names the files all the same, so
+    /// `purge-media` removes them, and nothing may serve them.
+    Retired,
+    /// Another request recorded its files first.
+    Already,
+}
+
 /// Records the files the proxy made of photo `id`, unless another request
-/// did first. Returns whether this one did.
+/// did first. A photo retired meanwhile records them too, so that
+/// [`retired_photo_files`] finds them: a file no row names would stay
+/// under the media root for good.
 ///
 /// # Errors
 ///
@@ -1077,13 +1107,14 @@ pub async fn photo_processed(
     pool: &PgPool,
     id: Uuid,
     p: ProcessedPhoto<'_>,
-) -> Result<bool, DbError> {
-    let done = sqlx::query!(
+) -> Result<Recorded, DbError> {
+    let row = sqlx::query_scalar!(
         r#"
         UPDATE external_photos SET path = $2, thumb_path = $3, width = $4, height = $5,
                thumb_width = $6, thumb_height = $7, thumbhash = $8, processed_at = now(),
                retry_after = NULL
-        WHERE id = $1 AND processed_at IS NULL AND retired_at IS NULL
+        WHERE id = $1 AND processed_at IS NULL
+        RETURNING retired_at IS NOT NULL AS "retired!"
         "#,
         id,
         p.path,
@@ -1094,9 +1125,13 @@ pub async fn photo_processed(
         p.thumb_size.1,
         p.thumbhash,
     )
-    .execute(pool)
+    .fetch_optional(pool)
     .await?;
-    Ok(done.rows_affected() == 1)
+    Ok(match row {
+        Some(false) => Recorded::Live,
+        Some(true) => Recorded::Retired,
+        None => Recorded::Already,
+    })
 }
 
 /// Records a failed download of photo `id`: no new one before
@@ -1132,6 +1167,12 @@ pub struct RetiredPhoto {
     /// content-addressed, and a live photo (a community upload of the same
     /// picture, or the same picture under another id) may share it.
     pub unshared_files: Vec<String>,
+    /// The paths the row named when it was listed: it is deleted only if
+    /// it still names them (a download that finished meanwhile records
+    /// new ones, which the next round removes).
+    pub path: Option<String>,
+    /// The thumbnail's path when listed.
+    pub thumb_path: Option<String>,
 }
 
 /// Up to `limit` retired photos, with the files of each no other photo
@@ -1143,7 +1184,7 @@ pub struct RetiredPhoto {
 pub async fn retired_photo_files(pool: &PgPool, limit: i64) -> Result<Vec<RetiredPhoto>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT e.id,
+        SELECT e.id, e.path, e.thumb_path,
                array_remove(ARRAY[
                    CASE WHEN e.path IS NOT NULL AND NOT EXISTS (
                             SELECT 1 FROM external_photos o
@@ -1176,19 +1217,33 @@ pub async fn retired_photo_files(pool: &PgPool, limit: i64) -> Result<Vec<Retire
         .map(|r| RetiredPhoto {
             id: r.id,
             unshared_files: r.files,
+            path: r.path,
+            thumb_path: r.thumb_path,
         })
         .collect())
 }
 
-/// Deletes the retired photo rows `ids`, once their files are gone.
+/// Deletes the retired photo rows `photos`, once their files are gone,
+/// each only if it still names the paths it was listed with.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the statement fails.
-pub async fn delete_retired_photos(pool: &PgPool, ids: &[Uuid]) -> Result<u64, DbError> {
+pub async fn delete_retired_photos(pool: &PgPool, photos: &[RetiredPhoto]) -> Result<u64, DbError> {
+    let ids: Vec<Uuid> = photos.iter().map(|p| p.id).collect();
+    let paths: Vec<Option<String>> = photos.iter().map(|p| p.path.clone()).collect();
+    let thumbs: Vec<Option<String>> = photos.iter().map(|p| p.thumb_path.clone()).collect();
     Ok(sqlx::query!(
-        "DELETE FROM external_photos WHERE id = ANY($1) AND retired_at IS NOT NULL",
-        ids
+        r#"
+        DELETE FROM external_photos e
+        USING UNNEST($1::uuid[], $2::text[], $3::text[]) AS u(id, path, thumb_path)
+        WHERE e.id = u.id AND e.retired_at IS NOT NULL
+          AND e.path IS NOT DISTINCT FROM u.path
+          AND e.thumb_path IS NOT DISTINCT FROM u.thumb_path
+        "#,
+        &ids,
+        &paths as &[Option<String>],
+        &thumbs as &[Option<String>],
     )
     .execute(pool)
     .await?

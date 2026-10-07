@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM external_photos e\n        USING UNNEST($1::uuid[], $2::text[], $3::text[]) AS u(id, path, thumb_path)\n        WHERE e.id = u.id AND e.retired_at IS NOT NULL\n          AND e.path IS NOT DISTINCT FROM u.path\n          AND e.thumb_path IS NOT DISTINCT FROM u.thumb_path\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "72d543ff8b123b2da01ebd4994410ddf599f2337cc809eabacaa6149080122af"
+}

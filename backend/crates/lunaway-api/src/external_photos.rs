@@ -258,9 +258,17 @@ fn is_public_v6(ip: Ipv6Addr) -> bool {
         let [c, d] = s[7].to_be_bytes();
         return is_public_v4(Ipv4Addr::new(a, b, c, d));
     }
+    // 6to4 (2002::/16) embeds an IPv4 address in its next 32 bits.
+    if s[0] == 0x2002 {
+        let [a, b] = s[1].to_be_bytes();
+        let [c, d] = s[2].to_be_bytes();
+        return is_public_v4(Ipv4Addr::new(a, b, c, d));
+    }
     !(ip.is_unspecified()
         || ip.is_loopback()
         || ip.is_multicast()
+        // Teredo, 2001::/32: a tunnel to an address it hides.
+        || (s[0] == 0x2001 && s[1] == 0)
         // Unique local, fc00::/7.
         || (s[0] & 0xfe00) == 0xfc00
         // Link-local, fe80::/10.
@@ -280,6 +288,44 @@ pub(crate) struct ExternalPhotoEndpoint {
     pub(crate) workers: Arc<Semaphore>,
     pub(crate) slots: Semaphore,
     pub(crate) source: PhotoSource,
+    pub(crate) budget: DailyBudget,
+}
+
+/// Downloads allowed per UTC day, all clients together: a client walking
+/// the whole map within its own budget must not make the server copy the
+/// partner's photo library in a day, nor fill the disk.
+pub(crate) struct DailyBudget {
+    per_day: u32,
+    spent: std::sync::Mutex<(chrono::NaiveDate, u32)>,
+}
+
+impl DailyBudget {
+    fn new(per_day: u32) -> Self {
+        Self {
+            per_day,
+            spent: std::sync::Mutex::new((chrono::NaiveDate::MIN, 0)),
+        }
+    }
+
+    /// Takes one download at `now`, or says how long until the next day.
+    fn take(&self, now: chrono::DateTime<Utc>) -> Result<(), Duration> {
+        let today = now.date_naive();
+        let mut spent = self
+            .spent
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if spent.0 != today {
+            *spent = (today, 0);
+        }
+        if spent.1 >= self.per_day {
+            let midnight = today
+                .succ_opt()
+                .map_or(now, |d| d.and_time(chrono::NaiveTime::MIN).and_utc());
+            return Err((midnight - now).to_std().unwrap_or(Duration::from_secs(60)));
+        }
+        spent.1 += 1;
+        Ok(())
+    }
 }
 
 impl ExternalPhotoEndpoint {
@@ -300,6 +346,7 @@ impl ExternalPhotoEndpoint {
             workers,
             slots: Semaphore::new(config.fetches_at_once),
             source,
+            budget: DailyBudget::new(config.downloads_per_day),
         }
     }
 }
@@ -397,6 +444,13 @@ pub(crate) async fn photo(
             Duration::from_secs(5),
         );
     };
+    if let Err(wait) = ep.budget.take(Utc::now()) {
+        return wait_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "today's downloads of the partner's photos are spent; try again tomorrow",
+            wait,
+        );
+    }
     let max = ep.media_config.max_upload_bytes;
     let bytes = match ep.source.fetch(&photo.url, &photo.hosts, max).await {
         Ok(b) => b,
@@ -450,10 +504,27 @@ pub(crate) async fn photo(
         },
     )
     .await;
-    if let Err(e) = recorded {
-        return internal_error(&e);
+    match recorded {
+        Ok(extcom::Recorded::Live) => {
+            redirect(&ep.media_config.url(if thumb { &thumb_path } else { &full }))
+        }
+        // Retired while it downloaded (an erasure, a purge): its files are
+        // named by its row for `purge-media`, and served to nobody.
+        Ok(extcom::Recorded::Retired) => not_found(),
+        // Another request stored it first: serve what that one recorded.
+        Ok(extcom::Recorded::Already) => {
+            match extcom::photo_for_proxy(&ep.pool, photo.id, today).await {
+                Ok(Some(extcom::ProxyPhoto {
+                    path: Some(path),
+                    thumb_path: Some(thumb_path),
+                    ..
+                })) => redirect(&ep.media_config.url(if thumb { &thumb_path } else { &path })),
+                Ok(_) => not_found(),
+                Err(e) => internal_error(&e),
+            }
+        }
+        Err(e) => internal_error(&e),
     }
-    redirect(&ep.media_config.url(if thumb { &thumb_path } else { &full }))
 }
 
 /// Records a failed download and answers that the photo is not there yet.
@@ -506,6 +577,8 @@ mod tests {
             "64:ff9b::a9fe:a9fe",
             "::7f00:1",
             "2001:db8::1",
+            "2002:7f00:1::1",
+            "2001:0:4136:e378::1",
         ] {
             assert!(
                 !is_public(private.parse().unwrap()),

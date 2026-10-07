@@ -20,12 +20,17 @@ the feed says are in `backend/crates/lunaway-domain/src/extcom.rs`.
 - Compressed or not: a file starting with the gzip magic bytes is read as
   gzip (one member or several concatenated).
 - A file on the server, or an `https` URL the partner gives for its
-  export (downloaded once into the cache, at most 8 GiB; `--refresh`
-  downloads it again).
+  export (plain `http` is refused; downloaded into the cache, at most
+  8 GiB, kept only until an import of it completes, so a stopped run can
+  resume; `--refresh` downloads it again). A file given with `--file` is
+  the operator's to delete once imported.
 - Bounds, checked while reading: a line holds at most 1 MiB once
   inflated (a longer line is skipped and counted); a feed holds at most
-  2 000 000 places (past it the import stops and retires nothing); a place
-  keeps its 200 newest reviews and its first 30 photos.
+  2 000 000 places and 8 000 000 lines (past either the import stops and
+  retires nothing); a place keeps its 200 newest reviews and its first 30
+  photos; an id longer than 128 bytes drops its line before it is kept;
+  the report keeps 1000 distinct unknown codes of 64 bytes at most, and
+  counts the rest.
 - Line 1 is the header. Every other line is a place.
 
 ## The header
@@ -250,8 +255,12 @@ never guessed; the partner's categories are mapped by adding rows.
 erasure request the partner forwards: deletes every review and retires
 every photo whose `author_id` is that id, and keeps the SHA-256 of the id
 (never the id itself) so that later feeds do not bring them back while
-the partner propagates the erasure. Then `purge-media --yes` removes the
-files.
+the partner propagates the erasure. It also removes the feeds kept in the
+importer's cache, which hold the author's texts and id. Then
+`purge-media --yes` removes the photo files: the erasure is complete once
+it has run, so it runs after each import and each erasure (a timer of the
+API's user). The API never reads `author_id` (its role has no grant on
+that column).
 
 ## What the product shows
 
@@ -269,7 +278,13 @@ files.
   resolved to public addresses only, at most 10 MB, then re-encoded
   without its metadata and resized like an upload, stored under the media
   root, and served from Lunaway's host. A failed download waits an hour
-  before the next try, doubling up to a week.
+  before the next try, doubling up to a week. At most 5000 downloads a
+  UTC day, all clients together (`LUNAWAY_EXTERNAL_PHOTO_DAILY`): past
+  it the proxy answers 503 until the next day, and the photos already
+  stored are served as before. A photo retired while it downloads (an
+  erasure, a purge) keeps its files named by its row for `purge-media`
+  and is served to nobody. Only the agreement the server is configured
+  with keeps photo hosts: an import clears those of older references.
 
 ## Switches
 
@@ -279,7 +294,7 @@ For the day the agreement ends or is suspended:
 |---|---|---|
 | `lunaway extcom hide [--note TEXT]` | import | the API stops serving the source's reviews, ratings, photos and its entry in a place's sources at once; the conflation worker, woken, takes its records off every place, and the change feed hands the places so changed to every device. Nothing is deleted. The importer refuses to run while the source is hidden |
 | `lunaway extcom show [--note TEXT]` | import | undoes `hide` |
-| `lunaway extcom purge --yes [--note TEXT]` | import | hides the source, empties and retires all its records, deletes its reviews and ratings, retires its photos (URL and author forgotten) |
+| `lunaway extcom purge --yes [--note TEXT]` | import | hides the source, empties and retires all its records, deletes its reviews and ratings, retires its photos (URL and author forgotten), removes the feeds kept in the importer's cache |
 | `lunaway extcom purge-media --yes` | API, as the API's user | removes the files of the retired photos no other photo uses, then their rows |
 | `lunaway extcom status` | import | the switch and the counts |
 

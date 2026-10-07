@@ -785,12 +785,17 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
             ["SELECT", "INSERT", "UPDATE", "DELETE"],
             "lunaway_ingest on {t}"
         );
-        assert_eq!(
-            privileges(&pool, "lunaway_app", t).await,
-            ["SELECT"],
-            "lunaway_app on {t}"
-        );
     }
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "external_ratings").await,
+        ["SELECT"]
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "external_reviews")
+            .await
+            .is_empty(),
+        "the API reads the reviews column by column, the author id left out"
+    );
     for t in ["source_agreements", "source_switches"] {
         assert_eq!(
             privileges(&pool, "lunaway_ingest", t).await,
@@ -810,8 +815,9 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
     );
     assert_eq!(
         privileges(&pool, "lunaway_app", "external_photos").await,
-        ["SELECT", "DELETE"],
-        "the API fills in a photo's files only (column grants), and deletes retired rows"
+        ["DELETE"],
+        "the API reads and fills in a photo's columns one by one (the author id left out), \
+         and deletes retired rows"
     );
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "source_erasures").await,
@@ -906,21 +912,6 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
         .unwrap();
     assert_eq!(p.hosts, ["img.partner.example"]);
     extcom::photo_failed(&app, photo, Utc::now()).await.unwrap();
-    let path = format!("photos/ab/cd/abcd{}.webp", "0".repeat(60));
-    let thumb = format!("photos/ef/01/ef01{}.webp", "0".repeat(60));
-    extcom::photo_processed(
-        &app,
-        photo,
-        extcom::ProcessedPhoto {
-            path: &path,
-            thumb_path: &thumb,
-            size: (10, 10),
-            thumb_size: (10, 10),
-            thumbhash: &[1, 2, 3],
-        },
-    )
-    .await
-    .unwrap();
     denied(
         sqlx::query("UPDATE external_photos SET url = 'https://elsewhere.example/x.jpg'")
             .execute(&app)
@@ -933,12 +924,38 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
             .await,
         "the API deletes no review of the partner",
     );
+    denied(
+        sqlx::query("SELECT author_id FROM external_reviews")
+            .execute(&app)
+            .await,
+        "the API cannot read the partner's author ids",
+    );
 
-    // The erasure and the switches, with the import role.
+    // The author is erased while the proxy downloads their photo: the
+    // files it then records stay named by the retired row, for
+    // purge-media, and are served to nobody.
     let erased = extcom::erase_author(&ingest, &source, "u-1", &"0".repeat(64))
         .await
         .unwrap();
     assert_eq!((erased.reviews, erased.photos), (1, 1));
+    let path = format!("photos/ab/cd/abcd{}.webp", "0".repeat(60));
+    let thumb = format!("photos/ef/01/ef01{}.webp", "0".repeat(60));
+    let recorded = extcom::photo_processed(
+        &app,
+        photo,
+        extcom::ProcessedPhoto {
+            path: &path,
+            thumb_path: &thumb,
+            size: (10, 10),
+            thumb_size: (10, 10),
+            thumbhash: &[1, 2, 3],
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(recorded, extcom::Recorded::Retired);
+
+    // The switches, with the import role.
     extcom::set_hidden(&ingest, &source, true, None)
         .await
         .unwrap();
@@ -954,6 +971,8 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
     let retired = extcom::retired_photo_files(&app, 10).await.unwrap();
     assert_eq!(retired.len(), 1);
     assert_eq!(retired[0].unshared_files, [path, thumb]);
-    let ids: Vec<uuid::Uuid> = retired.iter().map(|r| r.id).collect();
-    assert_eq!(extcom::delete_retired_photos(&app, &ids).await.unwrap(), 1);
+    assert_eq!(
+        extcom::delete_retired_photos(&app, &retired).await.unwrap(),
+        1
+    );
 }

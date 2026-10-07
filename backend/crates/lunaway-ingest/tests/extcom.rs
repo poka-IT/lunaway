@@ -121,6 +121,16 @@ async fn a_feed_lands_with_its_agreement_and_provenance(pool: PgPool) {
         3
     );
     assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_photos \
+             WHERE url = 'https://img.partner.example/p-4.jpg'"
+        )
+        .await,
+        1,
+        "a URL spelled in capitals with its default port is stored in one spelling"
+    );
+    assert_eq!(
         count(&pool, "SELECT count(*) FROM external_photos").await,
         3
     );
@@ -494,4 +504,62 @@ async fn a_gzip_feed_reads_like_a_plain_one(pool: PgPool) {
         .unwrap();
     assert_eq!(r.places, 6);
     assert_eq!(r.records.inserted, 6);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_truncated_complete_feed_removes_nothing(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    // A complete feed cut after its second spot: two of the six stored.
+    let cut = variant(dir.path(), "cut.jsonl", |i, l| {
+        (i <= 2).then(|| l.to_owned())
+    });
+    let r = run(&pool, &cache, &cut, &o).await.unwrap();
+    assert!(
+        r.retire_refused,
+        "a feed holding less than half looks truncated"
+    );
+    assert_eq!(r.retired, 0);
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM source_records WHERE source_id = 'extcom' AND deleted_at IS NULL"
+        )
+        .await,
+        6,
+        "nothing a truncated feed leaves out is removed"
+    );
+    assert_eq!(
+        count(&pool, "SELECT count(*) FROM external_reviews").await,
+        6
+    );
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_photos WHERE retired_at IS NULL"
+        )
+        .await,
+        3
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_feed_over_plain_http_is_refused(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let http = lunaway_ingest::http::client_allowing_plain_http().unwrap();
+    let error = import(
+        &pool,
+        &http,
+        &Cache::new(dir.path()),
+        &Input::parse("http://feed.example.org/export.jsonl.gz"),
+        &options(Limits::default()),
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(error, IngestError::UntrustedUrl { .. }),
+        "pseudonyms, author ids and deletions never travel in clear: {error:?}"
+    );
 }

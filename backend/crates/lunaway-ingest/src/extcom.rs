@@ -33,8 +33,8 @@ use lunaway_domain::{
     UNDETERMINED_LANGUAGE,
     community::VehicleKind,
     extcom::{
-        Agreement, AgreementError, RawAgreement, Scope, Terms, photo_url_allowed, sanitize_line,
-        sanitize_pseudonym, sanitize_text,
+        Agreement, AgreementError, RawAgreement, Scope, Terms, normalize_photo_url,
+        photo_url_allowed, sanitize_line, sanitize_pseudonym, sanitize_text,
     },
     is_language_tag,
 };
@@ -407,8 +407,12 @@ pub struct Mapped {
 /// What mapping a line found besides the place.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LineNotes {
-    /// Codes no table knows, by table (`service:sauna`).
-    pub unmapped: Vec<String>,
+    /// Codes no table knows, by table (`service:sauna`), with how often;
+    /// at most [`MAX_UNMAPPED`] distinct ones, each cut to
+    /// [`MAX_CODE_BYTES`]: a hostile feed must not grow the report.
+    pub unmapped: BTreeMap<String, usize>,
+    /// Occurrences of codes past [`MAX_UNMAPPED`] distinct ones.
+    pub unmapped_more: usize,
     /// Reviews dropped (no rating nor text, a bad id or date, over the
     /// bound).
     pub reviews_dropped: usize,
@@ -418,6 +422,39 @@ pub struct LineNotes {
     /// Reviews and photos of an erased author the feed still carried,
     /// skipped.
     pub erased_skipped: usize,
+}
+
+/// Lines read at most per place allowed ([`Limits::max_places`]), dropped
+/// lines included.
+const MAX_LINES_PER_PLACE: u64 = 4;
+
+/// Most distinct unknown codes a report keeps.
+pub const MAX_UNMAPPED: usize = 1_000;
+/// Longest unknown code a report keeps, bytes.
+pub const MAX_CODE_BYTES: usize = 64;
+
+/// Counts `n` occurrences of `key` in `map`, a new key only while `map`
+/// holds fewer than [`MAX_UNMAPPED`]; the others go to `more`.
+fn count_capped(map: &mut BTreeMap<String, usize>, more: &mut usize, key: String, n: usize) {
+    if let Some(c) = map.get_mut(&key) {
+        *c += n;
+    } else if map.len() < MAX_UNMAPPED {
+        map.insert(key, n);
+    } else {
+        *more += n;
+    }
+}
+
+impl LineNotes {
+    /// Notes a code `table` does not know.
+    fn unknown(&mut self, table: &str, code: &str) {
+        let mut cut = MAX_CODE_BYTES.min(code.len());
+        while !code.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        let key = format!("{table}:{}", &code[..cut]);
+        count_capped(&mut self.unmapped, &mut self.unmapped_more, key, 1);
+    }
 }
 
 /// What a place line says, under `agreement`, read at `fetched_at`.
@@ -445,7 +482,7 @@ fn map_place(
         Some((_, Some(k))) => *k,
         Some((_, None)) => return Err(Dropped::NotAPlace),
         None => {
-            notes.unmapped.push(format!("kind:{code}"));
+            notes.unknown("kind", code);
             return Err(Dropped::UnknownKind);
         }
     };
@@ -494,13 +531,13 @@ fn map_place(
     for code in &p.services {
         match SERVICES.iter().find(|(c, _)| c == code) {
             Some((_, services)) => r.services.extend(services.iter().copied()),
-            None => notes.unmapped.push(format!("service:{code}")),
+            None => notes.unknown("service", code),
         }
     }
     for code in &p.activities {
         match ACTIVITIES.iter().find(|(c, _)| c == code) {
             Some((_, activities)) => r.activities.extend(activities.iter().copied()),
-            None => notes.unmapped.push(format!("activity:{code}")),
+            None => notes.unknown("activity", code),
         }
     }
     if let Some(prices) = &p.prices {
@@ -599,7 +636,7 @@ fn overnight(o: Option<&FeedOvernight>, kind: &str, notes: &mut LineNotes) -> Ov
         match lookup(OVERNIGHT, status) {
             Some(s) if s != OvernightStatus::Unknown => return s,
             Some(_) => {}
-            None => notes.unmapped.push(format!("overnight:{status}")),
+            None => notes.unknown("overnight", status),
         }
     }
     if let Some(o) = o {
@@ -692,7 +729,7 @@ fn review_of(r: &FeedReview, notes: &mut LineNotes) -> Option<NewReview> {
     let vehicle = r.vehicle.as_deref().and_then(|v| {
         let found = lookup(VEHICLES, v);
         if found.is_none() {
-            notes.unmapped.push(format!("vehicle:{v}"));
+            notes.unknown("vehicle", v);
         }
         found.map(|k| k.code().to_owned())
     });
@@ -731,17 +768,19 @@ fn photos_of(
             notes.erased_skipped += 1;
             continue;
         }
+        let url =
+            normalize_photo_url(&p.url).filter(|u| photo_url_allowed(u, &agreement.photo_hosts));
         let ok = valid_id(&p.id)
-            && photo_url_allowed(&p.url, &agreement.photo_hosts)
+            && url.is_some()
             && out.len() < limits.max_photos_per_place
             && seen.insert(p.id.clone());
-        if !ok {
+        let (true, Some(url)) = (ok, url) else {
             notes.photos_dropped += 1;
             continue;
-        }
+        };
         out.push(NewPhoto {
             external_id: p.id.clone(),
-            url: p.url.clone(),
+            url,
             author_id: author_id_of(p.author_id.as_deref()),
             author: p.author.as_deref().and_then(sanitize_pseudonym),
             licence: p
@@ -807,8 +846,10 @@ pub struct Report {
     pub places: usize,
     /// Lines dropped, by reason.
     pub dropped: BTreeMap<Dropped, usize>,
-    /// Codes no table knows, with how often.
+    /// Codes no table knows, with how often ([`MAX_UNMAPPED`] at most).
     pub unmapped: BTreeMap<String, usize>,
+    /// Occurrences of the unknown codes past [`MAX_UNMAPPED`] distinct ones.
+    pub unmapped_more: usize,
     /// Reviews dropped.
     pub reviews_dropped: usize,
     /// Photos dropped.
@@ -878,6 +919,14 @@ pub async fn import(
     let path = match input {
         Input::File(p) => p.clone(),
         Input::Url(url) => {
+            if !url.starts_with("https://") {
+                // The feed holds pseudonyms and author ids, and a complete
+                // feed deletes what it leaves out: never over plain HTTP.
+                return Err(IngestError::UntrustedUrl {
+                    url: url.clone(),
+                    reason: "a feed is downloaded over HTTPS only",
+                });
+            }
             let (p, cached) =
                 download(http, cache, url, limits.max_download_bytes, refresh).await?;
             report.cached = cached;
@@ -925,8 +974,14 @@ pub async fn import(
                 for (reason, n) in &batch.dropped {
                     *report.dropped.entry(*reason).or_insert(0) += n;
                 }
-                for code in &batch.notes.unmapped {
-                    *report.unmapped.entry(code.clone()).or_insert(0) += 1;
+                report.unmapped_more += batch.notes.unmapped_more;
+                for (code, n) in &batch.notes.unmapped {
+                    count_capped(
+                        &mut report.unmapped,
+                        &mut report.unmapped_more,
+                        code.clone(),
+                        *n,
+                    );
                 }
                 report.reviews_dropped += batch.notes.reviews_dropped;
                 report.photos_dropped += batch.notes.photos_dropped;
@@ -952,6 +1007,17 @@ pub async fn import(
     }
     report.forgotten = store::forget_retired(pool, &source).await?;
     cache.remove(&progress_key).await?;
+    if matches!(input, Input::Url(_)) {
+        // A downloaded feed holds pseudonyms, author ids and reviews that
+        // an erasure or a purge must not leave behind: kept only while a
+        // stopped run may need it to resume.
+        tokio::fs::remove_file(&path)
+            .await
+            .map_err(|source| IngestError::Cache {
+                path: path.clone(),
+                source,
+            })?;
+    }
     tracing::info!(
         agreement = report.agreement,
         places = report.places,
@@ -1130,6 +1196,16 @@ fn read_feed(
             break;
         };
         line_no += 1;
+        // Malformed and overlong lines count too: a feed of nothing but
+        // them must end, not keep the import inflating a bomb.
+        if line_no
+            > MAX_LINES_PER_PLACE
+                .saturating_mul(u64::try_from(limits.max_places).unwrap_or(u64::MAX))
+        {
+            return Err(IngestError::Implausible {
+                what: format!("{}: more than {line_no} lines", what()),
+            });
+        }
         if !fits {
             if agreement.is_none() {
                 return Err(IngestError::Implausible {
@@ -1168,6 +1244,13 @@ fn read_feed(
                 continue;
             }
         };
+        batch.last_line = line_no;
+        // Checked before it is kept: an id of a megabyte, line after line,
+        // would otherwise fill the memory the bounds are meant to hold.
+        if !valid_id(&place.id) {
+            *batch.dropped.entry(Dropped::BadId).or_insert(0) += 1;
+            continue;
+        }
         if !seen_ids.insert(place.id.clone()) {
             *batch.dropped.entry(Dropped::Duplicate).or_insert(0) += 1;
             continue;
@@ -1177,13 +1260,8 @@ fn read_feed(
                 what: format!("{}: more than {} places", what(), limits.max_places),
             });
         }
-        batch.last_line = line_no;
         if place.deleted {
-            if valid_id(&place.id) {
-                batch.deleted.push(place.id);
-            } else {
-                *batch.dropped.entry(Dropped::BadId).or_insert(0) += 1;
-            }
+            batch.deleted.push(place.id);
         } else {
             let id = place.id.clone();
             let map = MapContext {
@@ -1438,6 +1516,23 @@ mod tests {
     }
 
     #[test]
+    fn unknown_codes_are_cut_and_capped() {
+        let mut notes = LineNotes::default();
+        notes.unknown("service", &"é".repeat(100));
+        let key = notes.unmapped.keys().next().unwrap();
+        assert_eq!(
+            key.len(),
+            "service:".len() + 64,
+            "cut at a character boundary"
+        );
+        for i in 0..MAX_UNMAPPED + 10 {
+            notes.unknown("kind", &i.to_string());
+        }
+        assert_eq!(notes.unmapped.len(), MAX_UNMAPPED);
+        assert_eq!(notes.unmapped_more, 11, "the rest is only counted");
+    }
+
+    #[test]
     fn a_line_longer_than_the_bound_is_skipped_whole() {
         let input = b"short\n0123456789abcdef\nnext\nlast";
         let mut r: &[u8] = input;
@@ -1500,7 +1595,10 @@ mod tests {
             overnight(Some(&o(Some("sometimes"), 0, 0)), "parking", &mut notes),
             OvernightStatus::Unknown
         );
-        assert_eq!(notes.unmapped, ["overnight:sometimes"]);
+        assert_eq!(
+            notes.unmapped,
+            BTreeMap::from([("overnight:sometimes".to_owned(), 1)])
+        );
     }
 
     #[test]
@@ -1574,7 +1672,7 @@ mod tests {
             notes.reviews_dropped, 3,
             "a duplicate, a malformed one and one over the bound"
         );
-        assert!(notes.unmapped.iter().all(|u| u == "vehicle:hovercraft"));
+        assert!(notes.unmapped.keys().all(|u| u == "vehicle:hovercraft"));
     }
 
     #[test]

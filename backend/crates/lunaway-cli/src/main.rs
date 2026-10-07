@@ -1418,7 +1418,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Enforcement { action } => enforcement(&pool, action).await?,
         Command::Extcom { action } => {
             let media = lunaway_media::MediaStore::new(cli.media_dir);
-            extcom::run(&pool, &media, action).await?;
+            extcom::run(&pool, &media, &cache.root().join("extcom"), action).await?;
         }
         Command::Routing { .. } => unreachable!("handled before connecting"),
     }

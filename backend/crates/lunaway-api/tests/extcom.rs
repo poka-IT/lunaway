@@ -61,13 +61,59 @@ fn config(media: &Path) -> ApiConfig {
 
 /// The router, with the partner's photos `photos` (URL, bytes) in memory.
 fn app(pool: &PgPool, media: &Path, photos: &[(&str, &[u8])]) -> axum::Router {
+    app_with(pool, config(media), photos)
+}
+
+fn app_with(pool: &PgPool, config: ApiConfig, photos: &[(&str, &[u8])]) -> axum::Router {
     let photos: HashMap<String, Vec<u8>> = photos
         .iter()
         .map(|(u, b)| ((*u).to_owned(), b.to_vec()))
         .collect();
-    let state = ApiState::new(pool.clone(), config(media))
+    let state = ApiState::new(pool.clone(), config)
         .with_external_photos(PhotoSource::Memory(Arc::new(photos)));
     lunaway_api::router(state)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_downloads_of_a_day_are_bounded_for_all_clients(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, &dir.path().join("raw")).await;
+    let mut c = config(&dir.path().join("media"));
+    c.external_photos.downloads_per_day = 1;
+    let app = app_with(
+        &pool,
+        c,
+        &[
+            ("https://img.partner.example/p-1.jpg", PIXEL),
+            ("https://img.partner.example/p-2.jpg", PIXEL),
+        ],
+    );
+    let ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM external_photos WHERE external_id IN ('p-1', 'p-2') ORDER BY external_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        get(&app, &format!("/external-photos/{}/thumb", ids[0]))
+            .await
+            .0,
+        StatusCode::FOUND
+    );
+    let (status, headers) = get(&app, &format!("/external-photos/{}/thumb", ids[1])).await;
+    assert_eq!(
+        status,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "a walk over the whole map cannot copy the partner's library in a day"
+    );
+    assert!(headers.contains_key(header::RETRY_AFTER));
+    assert_eq!(
+        get(&app, &format!("/external-photos/{}/large", ids[0]))
+            .await
+            .0,
+        StatusCode::FOUND,
+        "a photo already stored is served whatever the day's budget"
+    );
 }
 
 /// The fixture feed imported and conflated; the place of spot 1001.

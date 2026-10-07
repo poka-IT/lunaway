@@ -45,6 +45,10 @@ pub struct ExternalPhotosConfig {
     /// Longest download, redirects included
     /// (`LUNAWAY_EXTERNAL_PHOTO_TIMEOUT_MS`, 20 s).
     pub timeout: Duration,
+    /// Downloads per UTC day, all clients together
+    /// (`LUNAWAY_EXTERNAL_PHOTO_DAILY`, 5000): at about 300 kB stored per
+    /// photo, 1.5 GB a day at most.
+    pub downloads_per_day: u32,
 }
 
 impl Default for ExternalPhotosConfig {
@@ -52,6 +56,7 @@ impl Default for ExternalPhotosConfig {
         Self {
             fetches_at_once: 2,
             timeout: Duration::from_secs(20),
+            downloads_per_day: 5_000,
         }
     }
 }
@@ -68,6 +73,10 @@ impl ExternalPhotosConfig {
                 .and_then(|v| v.trim().parse::<u64>().ok())
                 .filter(|ms| (1_000..=120_000).contains(ms))
                 .map_or(d.timeout, Duration::from_millis),
+            downloads_per_day: lookup("LUNAWAY_EXTERNAL_PHOTO_DAILY")
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| (1..=1_000_000).contains(n))
+                .unwrap_or(d.downloads_per_day),
         }
     }
 }

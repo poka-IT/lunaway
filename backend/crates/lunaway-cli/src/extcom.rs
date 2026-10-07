@@ -7,6 +7,8 @@
 //! role and as the API's user, like `moderation`, because it removes the
 //! photo files the API wrote.
 
+use std::path::Path;
+
 use anyhow::Context;
 use clap::Subcommand;
 use lunaway_db::{PgPool, extcom};
@@ -71,9 +73,35 @@ pub(crate) enum Extcom {
     },
 }
 
+/// Removes the files of `dir` (the importer's cache of downloaded feeds and
+/// of their progress), one by one; returns how many. Nothing to do when the
+/// directory does not exist.
+fn remove_cached_feeds(dir: &Path) -> anyhow::Result<usize> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(e) => return Err(e).with_context(|| format!("cannot list {}", dir.display())),
+    };
+    let mut removed = 0;
+    for entry in entries {
+        let path = entry
+            .with_context(|| format!("cannot list {}", dir.display()))?
+            .path();
+        if path.is_file() {
+            std::fs::remove_file(&path)
+                .with_context(|| format!("cannot remove {}", path.display()))?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+/// `feeds` is the importer's cache directory of the source
+/// (`LUNAWAY_DATA_DIR/raw/extcom`).
 pub(crate) async fn run(
     pool: &PgPool,
     media: &lunaway_media::MediaStore,
+    feeds: &Path,
     action: Extcom,
 ) -> anyhow::Result<()> {
     let source = SourceId::EXTCOM;
@@ -126,11 +154,14 @@ pub(crate) async fn run(
             let p = extcom::purge(pool, &source, note.as_deref())
                 .await
                 .context("the purge failed; nothing was changed")?;
+            let cached = remove_cached_feeds(feeds)?;
             println!(
                 "{source} purged: {} records emptied, {} reviews and {} rating summaries \
-                 deleted, {} photos retired. Next: the conflation takes the records off their \
-                 places (the worker is woken; or run `lunaway conflate`), then run \
-                 `lunaway extcom purge-media --yes` with the API's role, then rebuild the packs.",
+                 deleted, {} photos retired, {cached} cached feed files removed. Next: the \
+                 conflation takes the records off their places (the worker is woken; or run \
+                 `lunaway conflate`), then run `lunaway extcom purge-media --yes` with the API's \
+                 role, then rebuild the packs. A feed given with --file is the operator's to \
+                 delete.",
                 p.records, p.reviews, p.ratings, p.photos
             );
         }
@@ -152,11 +183,15 @@ pub(crate) async fn run(
             let e = extcom::erase_author(pool, &source, id, &hash)
                 .await
                 .context("the erasure failed; nothing was changed")?;
+            // A downloaded feed still holds the author's texts and id.
+            let cached = remove_cached_feeds(feeds)?;
             // The id is not printed: the terminal's scrollback and a
             // script's log keep what the command prints.
             println!(
-                "author erased: {} reviews deleted, {} photos retired; later feeds' items of \
-                 theirs are skipped. Next: `lunaway extcom purge-media --yes` with the API's role.",
+                "author erased: {} reviews deleted, {} photos retired, {cached} cached feed \
+                 files removed; later feeds' items of theirs are skipped. Next: `lunaway extcom \
+                 purge-media --yes` with the API's role. A feed given with --file is the \
+                 operator's to delete.",
                 e.reviews, e.photos
             );
         }
@@ -192,7 +227,6 @@ async fn purge_media(
             );
             return Ok(());
         }
-        let mut done = Vec::with_capacity(batch.len());
         for photo in &batch {
             for file in &photo.unshared_files {
                 if media
@@ -203,9 +237,14 @@ async fn purge_media(
                     files += 1;
                 }
             }
-            done.push(photo.id);
         }
-        rows += extcom::delete_retired_photos(pool, &done).await?;
+        let deleted = extcom::delete_retired_photos(pool, &batch).await?;
+        rows += deleted;
+        if deleted == 0 {
+            // Every row of the round named new files when it was deleted
+            // (a download finished meanwhile): the next run takes them.
+            break;
+        }
     }
     println!("{rows} retired photo rows deleted, {files} files removed");
     Ok(())
