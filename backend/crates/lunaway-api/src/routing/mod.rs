@@ -303,9 +303,11 @@ pub(crate) struct Routing {
 /// end with it: DiaLog's and the community's live outside the graphs, and
 /// DiaLog's come back under new ids at every reading, so a remembered copy
 /// would outlive the order it stood for. A blocker serves ahead once two
-/// requests have met it: one trip alone leaves no trace another client
-/// could read in its own answer. Public restrictions only, in memory,
-/// never logged.
+/// requests have met it, which keeps a single odd trip out of the list.
+/// What the list still tells: a client sending two trips through a
+/// restriction learns from the second answer's recalculations whether
+/// another vehicle at least that tall met it since the graph was built.
+/// Public restrictions only, in memory, never logged.
 #[derive(Default)]
 struct Remembered {
     graph_id: String,
@@ -496,7 +498,11 @@ impl Routing {
                 lunaway_domain::speed::spans(&p.points, &p.along, &e, vehicle)
             })
             .await;
-            out.push(spans.ok());
+            out.push(
+                spans
+                    .inspect_err(|error| tracing::warn!(%error, "no speed limits for a route"))
+                    .ok(),
+            );
         }
         out
     }
@@ -530,10 +536,16 @@ impl Routing {
                 // The remembered blockers led the trip where no safe way
                 // remained: asked again without them, it ends as it did
                 // before they were remembered.
-                Ok(Outcome::NoSafeRoute { .. }) if work.used_remembered => {
+                // When the second run cannot end before the route's deadline,
+                // the first answer stands.
+                Ok(first @ Outcome::NoSafeRoute { .. }) if work.used_remembered => {
                     work.without_remembered = true;
-                    self.route_within(pool, graph_id, request, fresh, deadline, &mut work)
-                        .await
+                    let again =
+                        self.route_within(pool, graph_id, request, fresh, deadline, &mut work);
+                    match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again).await {
+                        Ok(r) => r,
+                        Err(_) => Ok(first),
+                    }
                 }
                 other => other,
             }
@@ -549,8 +561,9 @@ impl Routing {
     }
 
     /// Keeps the restriction blockers of a check of graph `graph_id`, those
-    /// of OpenStreetMap and the IGN, each counted once per request.
-    fn remember(&self, graph_id: &str, blockers: &[Met]) {
+    /// of OpenStreetMap and the IGN, each counted once per request: those
+    /// in `counted` were counted by an earlier attempt of the request.
+    fn remember(&self, graph_id: &str, blockers: &[Met], counted: &mut Vec<uuid::Uuid>) {
         let mut memory = self
             .remembered
             .lock()
@@ -559,7 +572,6 @@ impl Routing {
             memory.blockers.clear();
             graph_id.clone_into(&mut memory.graph_id);
         }
-        let mut counted: Vec<uuid::Uuid> = Vec::new();
         for b in blockers {
             let r = &b.restriction;
             if !matches!(
@@ -834,7 +846,7 @@ impl Routing {
                 blockers.extend(b);
                 event_blockers.extend(e);
             }
-            self.remember(graph_id, &blockers);
+            self.remember(graph_id, &blockers, &mut work.counted);
             for e in &event_blockers {
                 if !avoided.iter().any(|a| a.id == e.event.id) {
                     avoided.push(Arc::clone(&e.event));
@@ -975,6 +987,8 @@ struct Work {
     used_remembered: bool,
     /// Whether to leave them out.
     without_remembered: bool,
+    /// The blockers this request has counted in the remembered ones.
+    counted: Vec<uuid::Uuid>,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -1467,19 +1481,25 @@ mod tests {
             met(RestrictionSource::Dialog, 2, order),
         ];
         // The same bridge twice in one answer, from two of its routes.
-        routing.remember(g, &[blockers[0].clone(), blockers[0].clone()]);
+        routing.remember(
+            g,
+            &[blockers[0].clone(), blockers[0].clone()],
+            &mut Vec::new(),
+        );
         assert!(
             routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
             "one request leaves nothing another client could notice"
         );
-        routing.remember(g, &blockers);
+        let mut second = Vec::new();
+        routing.remember(g, &blockers, &mut second);
+        routing.remember(g, &blockers, &mut second);
         assert_eq!(
             routing.remembered_for(g, &trip, &dims(3.3)),
             [bridge],
             "the bridge of the graph, met by two requests; never DiaLog's \
              order, which a later reading may end"
         );
-        routing.remember(g, &blockers);
+        routing.remember(g, &blockers, &mut Vec::new());
         assert_eq!(routing.remembered_for(g, &trip, &dims(3.3)), [bridge]);
         assert!(
             routing.remembered_for(g, &trip, &dims(2.5)).is_empty(),
@@ -1497,7 +1517,7 @@ mod tests {
                 .is_empty(),
             "a trip starting near it: a ring there could move the stop"
         );
-        routing.remember("20261013T0300Z-eu", &[]);
+        routing.remember("20261013T0300Z-eu", &[], &mut Vec::new());
         assert!(
             routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
             "a new graph forgets the old one's blockers"
