@@ -78,6 +78,13 @@ async fn the_stored_mask_uses_the_domain_s_bits(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_version_moves_when_places_changed_and_no_sooner_than_asked(pool: PgPool) {
+    // The version's date is the migration's, so as old as the test
+    // template: dated a minute ago here, the interval below is measured
+    // from the test and not from when the template was migrated.
+    sqlx::query!("UPDATE place_layer SET changed_at = now() - interval '1 minute'")
+        .execute(&pool)
+        .await
+        .unwrap();
     let start = place_tiles::layer_version(&pool).await.unwrap();
     assert_eq!(
         place_tiles::publish_layer(&pool, Duration::ZERO)

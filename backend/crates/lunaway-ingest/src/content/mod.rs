@@ -41,7 +41,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     PlaceKind, Position, SourceId,
-    content::{self, PhotoRelation, ReviewCandidate},
+    content::{self, PhotoRelation, ReviewCandidate, reviews::ReviewOffer},
 };
 use lunaway_media::{Collection, MediaStore, Options, PanoramaView};
 use tokio::{sync::Mutex, time::Instant};
@@ -226,6 +226,14 @@ pub struct SourceReport {
     pub failures: usize,
     /// Items left out, by reason.
     pub skipped: BTreeMap<String, usize>,
+    /// Reviews: keys whose first review this run kept.
+    pub new_keys: usize,
+    /// Reviews: reviews that would reach a new place, held for a later run
+    /// by the caps on new pairs, though their place had room.
+    pub held_new_pairs: usize,
+    /// Reviews: strikes recorded this run against keys whose review is
+    /// hidden; such a key ranks as new while the hide stands.
+    pub struck_keys: usize,
     /// Why the source was stopped before the end, if it was.
     pub stopped: Option<String>,
 }
@@ -1344,10 +1352,6 @@ const MANGROVE_MAX_PAGES: usize = 100;
 /// How far from where a review says it is a place is looked for, metres.
 const REVIEW_SEARCH_M: f64 = 300.0;
 
-/// Mangrove reviews kept per place at most, the newest: a place is not
-/// filled by one author with many keys.
-pub const MAX_REVIEWS_PER_PLACE: usize = 10;
-
 /// Mangrove: every review read, those about places on the map matched to
 /// a place, and the whole set stored in place of the last one. Nothing is
 /// replaced unless every page was read.
@@ -1438,8 +1442,11 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             distance_m,
         });
     }
-    // What an operator hid takes no room: then the newest first, one per
-    // author key and place, at most a few per place.
+    // What an operator or the reports hid takes no room, and a hidden
+    // review strikes its key before the review leaves the table; then the
+    // reviews shown stay, and few reviews reach new places, in the order
+    // Lunaway read them, so neither fresh keys nor aged ones flood the map
+    // (`pick_reviews`).
     let (hidden_items, hidden_authors) = db::hidden_keys(ctx.pool, id.as_str()).await?;
     matched.retain(|r| {
         !hidden_items.contains(&r.external_id)
@@ -1447,21 +1454,49 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
                 .as_ref()
                 .is_none_or(|k| !hidden_authors.contains(k))
     });
-    matched.sort_by_key(|r| std::cmp::Reverse(r.written_at));
-    let mut per_place: BTreeMap<Uuid, usize> = BTreeMap::new();
-    let mut per_author: BTreeSet<(Uuid, String)> = BTreeSet::new();
-    matched.retain(|r| {
-        if let Some(k) = &r.author_key
-            && !per_author.insert((r.place_id, k.clone()))
-        {
-            return false;
-        }
-        let n = per_place.entry(r.place_id).or_default();
-        *n += 1;
-        *n <= MAX_REVIEWS_PER_PLACE
-    });
-    report.places = per_place.len();
-    report.with_content = per_place.len();
+    let now = Utc::now();
+    report.struck_keys = db::record_review_strikes(ctx.pool, id.as_str())
+        .await?
+        .try_into()
+        .unwrap_or(usize::MAX);
+    let known = db::review_keys(ctx.pool, id.as_str()).await?;
+    let pairs = db::review_pairs(ctx.pool, id.as_str()).await?;
+    let signatures: Vec<String> = matched.iter().map(|r| r.external_id.clone()).collect();
+    let seen = db::sight_reviews(ctx.pool, id.as_str(), &signatures, now).await?;
+    let offers: Vec<ReviewOffer<'_, Uuid>> = matched
+        .iter()
+        .map(|r| ReviewOffer {
+            place: r.place_id,
+            key: r.author_key.as_deref(),
+            written_at: r.written_at,
+            key_since: r.author_key.as_ref().and_then(|k| known.get(k).copied()),
+            shown_here: r
+                .author_key
+                .as_ref()
+                .is_some_and(|k| pairs.contains(&(r.place_id, k.clone()))),
+            first_seen: seen.get(&r.external_id).copied().unwrap_or(now),
+        })
+        .collect();
+    let picked = content::reviews::pick_reviews(&offers, content::reviews::MANGROVE_CAPS);
+    let mut keep = picked.kept.iter().copied().peekable();
+    let matched: Vec<NewReview> = matched
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, r)| keep.next_if_eq(&i).map(|_| r))
+        .collect();
+    report.new_keys = picked.new_keys;
+    report.held_new_pairs = picked.deferred;
+    let places: BTreeSet<Uuid> = matched.iter().map(|r| r.place_id).collect();
+    report.places = places.len();
+    report.with_content = places.len();
+    tracing::info!(
+        kept = matched.len(),
+        new_keys = picked.new_keys,
+        new_pairs = picked.new_pairs,
+        held = picked.deferred,
+        struck = report.struck_keys,
+        "mangrove reviews chosen"
+    );
     let replaced = db::replace_reviews(ctx.pool, id.as_str(), &matched, Utc::now()).await?;
     report.items = replaced.kept;
     report.removed = replaced.removed;

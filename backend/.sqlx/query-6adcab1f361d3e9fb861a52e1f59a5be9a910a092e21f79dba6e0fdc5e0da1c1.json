@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT source_id AS \"source_id!\", external_id AS \"external_id!\"\n                FROM (\n                    SELECT source_id, external_id FROM content_photos WHERE id = $1\n                    UNION ALL\n                    SELECT source_id, external_id FROM external_photos\n                    WHERE id = $1 AND retired_at IS NULL\n                ) i\n                LIMIT 1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "external_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "6adcab1f361d3e9fb861a52e1f59a5be9a910a092e21f79dba6e0fdc5e0da1c1"
+}
