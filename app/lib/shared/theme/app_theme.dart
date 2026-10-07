@@ -35,9 +35,11 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       : Colors.transparent;
   // The pointing hand over everything that reacts to a click, the arrow
   // when it is disabled, on every platform. Material shows the hand only on
-  // the web and the arrow on desktop builds; the app keeps one rule, which
-  // the widget tests (headless, never the web) can then check. A widget
-  // with no theme (InkWell, a chip, a gesture detector) sets it itself.
+  // the web and the arrow on desktop builds. The app chose the hand for its
+  // desktop builds too: the same app in a browser and in a window, for
+  // users who look for what can be clicked. One rule is also one the
+  // widget tests (headless, never the web) can check. A widget with no
+  // theme (InkWell, a chip, a gesture detector) sets it itself.
   const clickable = WidgetStateMouseCursor.clickable;
 
   return ThemeData(
@@ -231,7 +233,12 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       selectedColor: scheme.onSurface,
       selectedTileColor: scheme.primaryContainer,
       shape: rounded(LunaTokens.radiusL),
-      mouseCursor: clickable,
+      // A tile with no tap of its own (the row of a menu item) is not a
+      // control: it leaves the cursor to what holds it, where Material
+      // would draw the arrow over most of a clickable menu item.
+      mouseCursor: WidgetStateMouseCursor.resolveWith(
+        (s) => s.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
+      ),
     ),
     switchTheme: SwitchThemeData(
       mouseCursor: clickable,

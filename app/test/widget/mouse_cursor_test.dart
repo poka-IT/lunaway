@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -117,6 +118,40 @@ void main() {
         await expectCursors(tester, atLeast: 3);
       });
     });
+    testWidgets('the menu of a place', (tester) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(tester, size: tallDesktop, api: FakeApi(), signedIn: true);
+        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        await settleShort(tester);
+        await tester.tap(find.byTooltip(t.contribute.more).first);
+        await settleShort(tester);
+        expect(find.text(t.contribute.reportIssue), findsWidgets);
+        await expectCursors(tester, atLeast: 3);
+      });
+    });
+
+    testWidgets('the review sheet, with its vehicle dropdown', (tester) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(
+          tester,
+          size: tallDesktop,
+          api: FakeApi(level: 1),
+          signedIn: true,
+        );
+        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        await settleShort(tester);
+        final write = find.descendant(
+          of: find.byType(PlaceDetailsBody),
+          matching: find.text(t.contribute.writeReview),
+        );
+        await tester.ensureVisible(write);
+        await tester.pump();
+        await tester.tap(write);
+        await settleShort(tester);
+        expect(find.text(t.reviewSheet.licence), findsOneWidget);
+        await expectCursors(tester, atLeast: 8);
+      });
+    });
   });
 
   group('under the mouse, the tabs', () {
@@ -128,6 +163,22 @@ void main() {
         await app.favorites.addToDefault(lakeArea.summary);
         await go(tester, app, AppRoutes.favorites);
         await expectCursors(tester, atLeast: 5);
+      });
+    });
+
+    testWidgets('the menu of a favourites list', (tester) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(tester, size: tallDesktop);
+        // Only a list of the user's own can be renamed: the menu is its.
+        final trip = await app.favorites.createList('Bretagne');
+        await app.favorites.add(trip, campsite.summary);
+        await go(tester, app, AppRoutes.favorites);
+        await tester.tap(find.text('Bretagne').first);
+        await settleShort(tester);
+        await tester.tap(find.byTooltip(t.favorites.listActions).first);
+        await settleShort(tester);
+        expect(find.text(t.favorites.renameList), findsOneWidget);
+        await expectCursors(tester, atLeast: 2);
       });
     });
 

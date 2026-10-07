@@ -52,8 +52,10 @@ platform (Material keeps it for the web only), and the arrow once disabled.
 The theme sets it for buttons, menus and toggles; an `InkWell`, a chip or a
 dropdown takes `mouseCursor: WidgetStateMouseCursor.clickable`, a
 `GestureDetector` with a tap sits in a `MouseRegion` with
-`SystemMouseCursors.click`, a drag handle shows the axis it moves
-(`resizeUpDown`) or `grab`. `test/widget/mouse_cursor_test.dart` hovers the
+`SystemMouseCursors.click`, a drag handle the app draws shows the axis it
+moves (`resizeUpDown`) or `grab` (the stock handle of a modal sheet keeps
+Flutter's arrow; the theme cannot reach it). A `ListTile` with no tap of
+its own, as in a menu item, leaves the cursor to what holds it (theme). `test/widget/mouse_cursor_test.dart` hovers the
 screens and fails on a control without its cursor; a new screen joins it.
 
 ## Text and data
