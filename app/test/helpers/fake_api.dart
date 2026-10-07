@@ -12,7 +12,11 @@ import '../contract/graphql_validator.dart';
 import 'samples.dart';
 
 /// One request the fake API received.
-typedef ApiCall = ({String operation, Map<String, Object?> variables, String? token});
+typedef ApiCall = ({
+  String operation,
+  Map<String, Object?> variables,
+  String? token,
+});
 
 /// The Lunaway API in memory, for the widget tests of the account and the
 /// community. It does what the real server does that the app relies on:
@@ -24,7 +28,9 @@ typedef ApiCall = ({String operation, Map<String, Object?> variables, String? to
 final class FakeApi {
   new({this.level = 0, this.pseudonym = 'Martre du Vercors'});
 
-  static final _schema = SchemaValidator(File('../schema/lunaway.graphql').readAsStringSync());
+  static final _schema = SchemaValidator(
+    File('../schema/lunaway.graphql').readAsStringSync(),
+  );
 
   /// A valid recovery code (it passes the app's check symbol).
   static const recoveryCode = '2W3Y-9GFA-J1DR-1DGC-WVE0-7C88-CF1';
@@ -37,6 +43,10 @@ final class FakeApi {
 
   /// No answer at all, as without a network.
   bool offline = false;
+
+  /// When the account's recovery code was made, as `myAccount` reads it;
+  /// null while it has none. `CreateRecoveryCode` sets it to [testNow].
+  DateTime? recoveryCodeCreatedAt;
 
   /// While set, the operations in [held] wait for it to complete before
   /// their answer: a slow network, to test what happens meanwhile.
@@ -111,21 +121,24 @@ final class FakeApi {
   /// The operations received, by name.
   List<String> get operations => [for (final c in calls) c.operation];
 
-  /// Answers as the API did before idempotency keys, `createIfUnknown` and
-  /// `PlaceDetailsInput.clear`: it refuses the documents that carry them,
-  /// and makes an account for any key it does not know.
+  /// Answers as the API did before idempotency keys, `createIfUnknown`,
+  /// `PlaceDetailsInput.clear` and `Account.recoveryCodeCreatedAt`: it
+  /// refuses the documents that carry them, and makes an account for any
+  /// key it does not know.
   bool older = false;
 
   /// The operations [older] refused, by name.
   final olderRefusals = <String>[];
 
   /// The variables of the last [operation] received.
-  Map<String, Object?>? last(String operation) =>
-      calls.lastWhere((c) => c.operation == operation, orElse: () => _none).variables;
+  Map<String, Object?>? last(String operation) => calls
+      .lastWhere((c) => c.operation == operation, orElse: () => _none)
+      .variables;
 
   static const ApiCall _none = (operation: '', variables: {}, token: null);
 
-  static String _uuid(int n) => '00000000-0000-7000-8000-${n.toRadixString(16).padLeft(12, '0')}';
+  static String _uuid(int n) =>
+      '00000000-0000-7000-8000-${n.toRadixString(16).padLeft(12, '0')}';
 
   String _next() => _uuid(1000 + _serial++);
 
@@ -141,7 +154,11 @@ final class FakeApi {
             'level': level + 1,
             'missing': [
               {'kind': 'ACCOUNT_AGE_DAYS', 'current': 0, 'needed': 3},
-              {'kind': 'CONFIRMATIONS', 'current': confirmations.length, 'needed': 3},
+              {
+                'kind': 'CONFIRMATIONS',
+                'current': confirmations.length,
+                'needed': 3,
+              },
             ],
             'instead': {'kind': 'SPONSOR', 'current': 0, 'needed': 1},
           },
@@ -180,12 +197,16 @@ final class FakeApi {
       // As the API before idempotency keys, `createIfUnknown` and `clear`
       // answered (async-graphql's validation, read on production on
       // 2026-10-06): the document runs nothing.
-      final unknown = RegExp(r'\b(idempotencyKey|createIfUnknown):').firstMatch(query)?.group(1);
+      final unknown = RegExp(r'\b(idempotencyKey|createIfUnknown):')
+          .firstMatch(query)
+          ?.group(1);
       final patch = variables['patch'];
       final message = unknown != null
           ? 'Unknown argument "$unknown" on field "x" of type "Mutation".'
           : patch is Map && patch.containsKey('clear')
           ? 'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"'
+          : query.contains('recoveryCodeCreatedAt')
+          ? 'Unknown field "recoveryCodeCreatedAt" on type "Account".'
           : null;
       if (message != null) {
         olderRefusals.add(name);
@@ -211,7 +232,7 @@ final class FakeApi {
     }
     final Object answer;
     try {
-      answer = _answer(name, variables, token);
+      answer = _answer(name, variables, token, query);
     } on _Refused catch (e) {
       return _json({
         'data': null,
@@ -281,7 +302,8 @@ final class FakeApi {
 
   String _signedIn(String? token) {
     final key = token == null ? null : _tokens[token];
-    if (key == null || !_keys.containsKey(key)) throw const _Refused('UNAUTHENTICATED');
+    if (key == null || !_keys.containsKey(key))
+      throw const _Refused('UNAUTHENTICATED');
     return key;
   }
 
@@ -300,10 +322,16 @@ final class FakeApi {
   String _verify(Map<String, Object?> v) {
     final nonce = v['nonce']! as String;
     if (!_nonces.remove(nonce)) throw const _Refused('BAD_CHALLENGE');
-    final jwk = PublicJwk.fromJson(jsonDecode(v['jwk']! as String) as Map<String, Object?>);
-    final message = Uint8List.fromList(utf8.encode('${P256.challengePrefix}$nonce'));
-    final signature = P256.fromB64url(v['signature']! as String) ?? Uint8List(0);
-    if (!P256.verify(jwk, message, signature)) throw const _Refused('BAD_SIGNATURE');
+    final jwk = PublicJwk.fromJson(
+      jsonDecode(v['jwk']! as String) as Map<String, Object?>,
+    );
+    final message = Uint8List.fromList(
+      utf8.encode('${P256.challengePrefix}$nonce'),
+    );
+    final signature =
+        P256.fromB64url(v['signature']! as String) ?? Uint8List(0);
+    if (!P256.verify(jwk, message, signature))
+      throw const _Refused('BAD_SIGNATURE');
     return jwk.thumbprint;
   }
 
@@ -346,20 +374,34 @@ final class FakeApi {
     return true;
   }
 
-  Object _answer(String name, Map<String, Object?> v, String? token) {
+  Object _answer(
+    String name,
+    Map<String, Object?> v,
+    String? token,
+    String query,
+  ) {
     switch (name) {
       case 'AuthChallenge':
-        final nonce = P256.b64url(List<int>.generate(32, (i) => (i * 7 + _serial++) % 256));
+        final nonce = P256.b64url(
+          List<int>.generate(32, (i) => (i * 7 + _serial++) % 256),
+        );
         _nonces.add(nonce);
         return {
-          'authChallenge': {'nonce': nonce, 'message': '${P256.challengePrefix}$nonce'},
+          'authChallenge': {
+            'nonce': nonce,
+            'message': '${P256.challengePrefix}$nonce',
+          },
         };
       case 'SignIn':
         final key = _verify(v);
-        final unknown = !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
+        final unknown =
+            !_keys.containsKey(key) && (_keys.isNotEmpty || _revoked);
         // `createIfUnknown: false`: an unknown key makes nothing.
         if (v['createIfUnknown'] == false && (unknown || _keys.isEmpty)) {
-          throw const _Refused('NOT_FOUND', extensions: {'reason': 'UNKNOWN_KEY'});
+          throw const _Refused(
+            'NOT_FOUND',
+            extensions: {'reason': 'UNKNOWN_KEY'},
+          );
         }
         if (unknown) {
           // A key it does not know: the server makes another account.
@@ -379,7 +421,8 @@ final class FakeApi {
         return {'signIn': _session(key, created: created)};
       case 'RecoverAccount':
         final key = _verify(v);
-        if (v['code'] != recoveryCode) throw const _Refused('INVALID_RECOVERY_CODE');
+        if (v['code'] != recoveryCode)
+          throw const _Refused('INVALID_RECOVERY_CODE');
         if (v['revokeOtherDevices'] == true) _keys.clear();
         _keys[key] = _next();
         return {'recoverAccount': _session(key, created: false)};
@@ -395,7 +438,7 @@ final class FakeApi {
     if (idempotency is String && _keyed.containsKey('$name/$idempotency')) {
       return _keyed['$name/$idempotency']!;
     }
-    final answer = _answerSignedIn(name, v, key, id);
+    final answer = _answerSignedIn(name, v, key, id, query);
     if (idempotency is String) _keyed['$name/$idempotency'] = answer;
     return answer;
   }
@@ -408,6 +451,7 @@ final class FakeApi {
     Map<String, Object?> v,
     String key,
     String Function() id,
+    String query,
   ) {
     return switch (name) {
       'MyAccount' => {
@@ -416,15 +460,22 @@ final class FakeApi {
           'mutedAuthors': [
             for (final m in muted) {'id': m.id, 'pseudonym': m.pseudonym},
           ],
+          if (query.contains('recoveryCodeCreatedAt'))
+            'recoveryCodeCreatedAt': recoveryCodeCreatedAt
+                ?.toUtc()
+                .toIso8601String(),
         },
       },
       'UpdateProfile' => () {
         pseudonym = v['pseudonym']! as String;
         return {'updateProfile': account()};
       }(),
-      'CreateRecoveryCode' => {
-        'createRecoveryCode': {'code': recoveryCode},
-      },
+      'CreateRecoveryCode' => () {
+        recoveryCodeCreatedAt = testNow;
+        return {
+          'createRecoveryCode': {'code': recoveryCode},
+        };
+      }(),
       'SignOut' => {'signOut': true},
       'SignOutElsewhere' => () {
         final others = _keys.length - 1;
@@ -467,7 +518,9 @@ final class FakeApi {
         confirmations.add(c);
         return {'confirm': c};
       }(),
-      'DeleteConfirmation' => {'deleteConfirmation': _remove(confirmations, id())},
+      'DeleteConfirmation' => {
+        'deleteConfirmation': _remove(confirmations, id()),
+      },
       'ReportIssue' => () {
         final i = {
           'id': _next(),
@@ -493,7 +546,9 @@ final class FakeApi {
           'confirmPoi': {'id': c['id']},
         };
       }(),
-      'DeletePoiConfirmation' => {'deletePoiConfirmation': _remove(poiConfirmations, id())},
+      'DeletePoiConfirmation' => {
+        'deletePoiConfirmation': _remove(poiConfirmations, id()),
+      },
       'AddVendingMachine' => () {
         if (vendingDuplicateOf case final existing?) {
           throw _Refused('INVALID_INPUT', extensions: {'existingId': existing});
@@ -510,7 +565,9 @@ final class FakeApi {
       },
       'ClearRoadEvent' => {'clearRoadEvent': 'ENDED'},
       'EditPlace' => {'editPlace': _submission('EDIT', v['placeId'])},
-      'DeletePlaceSubmission' => {'deletePlaceSubmission': _remove(submissions, id())},
+      'DeletePlaceSubmission' => {
+        'deletePlaceSubmission': _remove(submissions, id()),
+      },
       'DeletePhoto' => {'deletePhoto': _remove(photos, id())},
       'MuteAuthor' => () {
         if (!muted.any((m) => m.id == id())) {
@@ -527,12 +584,19 @@ final class FakeApi {
           'id': _accountId,
           'reviews': {'nodes': reviews, 'totalCount': reviews.length},
           'photos': {'nodes': photos, 'totalCount': photos.length},
-          'confirmations': {'nodes': confirmations, 'totalCount': confirmations.length},
+          'confirmations': {
+            'nodes': confirmations,
+            'totalCount': confirmations.length,
+          },
           'issueReports': {'nodes': issues, 'totalCount': issues.length},
-          'placeSubmissions': {'nodes': submissions, 'totalCount': submissions.length},
+          'placeSubmissions': {
+            'nodes': submissions,
+            'totalCount': submissions.length,
+          },
           'poiConfirmations': {
             'nodes': [
-              for (final c in poiConfirmations.reversed) {...c, 'poi': poiDetails[c['poiId']]},
+              for (final c in poiConfirmations.reversed)
+                {...c, 'poi': poiDetails[c['poiId']]},
             ],
             'totalCount': poiConfirmations.length,
           },
@@ -541,18 +605,22 @@ final class FakeApi {
       'MyFavoriteLists' => {'myFavoriteLists': <Object?>[]},
       'ImportFavorites' => {
         'importFavorites': [
-          for (final l in (v['lists']! as List<Object?>).cast<Map<String, Object?>>())
+          for (final l
+              in (v['lists']! as List<Object?>).cast<Map<String, Object?>>())
             {
               'id': _next(),
               'name': l['name'],
               'places': [
-                for (final p in (l['placeIds'] as List<Object?>? ?? const [])) {'placeId': p},
+                for (final p in (l['placeIds'] as List<Object?>? ?? const []))
+                  {'placeId': p},
               ],
             },
         ],
       },
       'SaveToList' || 'RemoveFromList' => {
-        name == 'SaveToList' ? 'saveToList' : 'removeFromList': {'id': v['listId']},
+        name == 'SaveToList' ? 'saveToList' : 'removeFromList': {
+          'id': v['listId'],
+        },
       },
       'RenameList' => {
         'renameList': {'id': id()},
@@ -577,7 +645,11 @@ final class FakeApi {
     uploads.add(Uint8List.sublistView(bytes, start, end + 2));
     final placeId = RegExp(r'name="placeId"\r\n\r\n([^\r]+)')
         .firstMatch(latin1.decode(bytes, allowInvalid: true))?[1];
-    calls.add((operation: 'upload', variables: {'placeId': placeId}, token: token));
+    calls.add((
+      operation: 'upload',
+      variables: {'placeId': placeId},
+      token: token,
+    ));
     final photo = {
       'id': _next(),
       'sourceId': 'lunaway',

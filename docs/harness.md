@@ -59,7 +59,7 @@ thing gets deleted**, not left with a note; git history keeps it.
 | analysis (`dart analyze --fatal-infos`, clippy `-D warnings`) | | pre-push | `app`, `backend` |
 | dependency licences, sources, advisories | | | `backend` (cargo deny) |
 | the app's guidance crate (`app/packages/lunaway_nav/rust`: fmt, clippy for the host and for WebAssembly, cargo deny with `backend/deny.toml`, tests) | edit guard (its lockfile and bridge are generated) | | `nav-crate` |
-| the crate's committed WebAssembly build (`app/web/lunaway_nav/`, rebuilt by `app/packages/lunaway_nav/tool/build_web.sh` after any change to the crate or to `lunaway-domain`) | | | `nav-crate` (`build_web.sh --check`) |
+| the crate's WebAssembly build (`app/web/lunaway_nav/`, gitignored, built from source by `app/packages/lunaway_nav/tool/build_web.sh` before every web build) and the web release that serves it | | | `web` |
 | one engine everywhere: the shared vectors (`app/integration_test/fixtures/engine_trace.dart`) answered by the macOS library and by each platform's build | | | `app` (host side); `integration_test/engine_vectors_test.dart` on a device or in a browser |
 | tests | | | `app`, `backend` |
 | commit message | | commit-msg | |

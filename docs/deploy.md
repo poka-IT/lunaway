@@ -882,7 +882,8 @@ same way. On a new backend nothing is served until `infra/enable-domain.sh`.
 ```bash
 python3 tool/site/build.py                 # regenerates infra/web/site/ from tool/site/src/
 infra/deploy-web.sh site infra/web/site     # index.html at the root
-infra/deploy-web.sh app --build           # fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
+infra/deploy-web.sh app --build           # build_web.sh, fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
+LUNAWAY_DRY_RUN=1 infra/deploy-web.sh app --build   # the same build and checks, nothing uploaded
 infra/deploy-web.sh app app/build/web     # an existing build
 ```
 
@@ -891,6 +892,11 @@ switches the `/srv/lunaway/site` or `/srv/lunaway/web` symlink. Without
 `--no-web-resources-cdn` the app would load CanvasKit from `www.gstatic.com`,
 which the CSP refuses. A previous release comes back with
 `sudo ln -sfn /srv/lunaway/releases/app/<name> /srv/lunaway/web` on the server.
+The guidance engine's WebAssembly (`app/web/lunaway_nav/`) is not committed:
+`--build` makes it from source first (`app/packages/lunaway_nav/tool/build_web.sh`,
+which needs the `wasm-bindgen` CLI of the crate's `Cargo.lock`), and the
+script refuses an app build that lacks it, since such an app runs but cannot
+guide.
 
 ## Backups and restore
 
@@ -1902,7 +1908,7 @@ reviews and routes come from api.lunaway.net, whose address is fixed at
 build time), and a build of the `fdroid` flavour from the source with the
 Flutter srclib at 3.47.6, NDK 28.2.13676358 (Flutter's, which compiles the
 vendored SQLite amalgamation through the sqlite3 build hook, `hooks:` in
-`app/pubspec.yaml`), JDK 21, the prebuilt web files (`sqlite3.wasm`, the guidance crate's WebAssembly build in `web/lunaway_nav/`,
+`app/pubspec.yaml`), JDK 21, the prebuilt web files (`sqlite3.wasm`,
 `drift_worker.js`) and the iOS, macOS and Windows trees removed, and the
 pub cache scanned then deleted. It passes `fdroid lint` against
 fdroiddata's own category and anti-feature lists and is unchanged by

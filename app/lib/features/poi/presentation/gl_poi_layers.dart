@@ -39,6 +39,7 @@ final class GlPoiLayers {
       PoiMapStyle.pinsLayerId,
       PoiMapStyle.fuelLayerId,
       PoiMapStyle.quietLayerId,
+      PoiMapStyle.vendingDotsLayerId,
       PoiMapStyle.dotsLayerId,
     ]) {
       await _quietly(() => c.removeLayer(layer));
@@ -46,7 +47,10 @@ final class GlPoiLayers {
     await _quietly(() => c.removeSource(PoiMapStyle.source));
     await _quietly(() => c.removeSource(PoiMapStyle.fuelSource));
     if (!current()) return;
-    await c.addSource(PoiMapStyle.source, gl.VectorSourceProperties(url: view.tileJsonUrl));
+    await c.addSource(
+      PoiMapStyle.source,
+      gl.VectorSourceProperties(url: view.tileJsonUrl),
+    );
     if (!current()) return;
     await c.addSymbolLayer(
       PoiMapStyle.source,
@@ -55,6 +59,15 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.clustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.dotsFilter(view),
+    );
+    if (!current()) return;
+    await c.addSymbolLayer(
+      PoiMapStyle.source,
+      PoiMapStyle.vendingDotsLayerId,
+      _vendingDots(pinScale),
+      sourceLayer: PoiMapStyle.vendingClustersLayer,
+      maxzoom: PoiMapStyle.pointsMinZoom,
+      filter: PoiMapStyle.vendingDotsFilter(view),
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -71,7 +84,9 @@ final class GlPoiLayers {
     // where there is some left.
     await c.addSource(
       PoiMapStyle.fuelSource,
-      gl.GeojsonSourceProperties(data: PoiMapStyle.fuelCollection(view.fuelLabels)),
+      gl.GeojsonSourceProperties(
+        data: PoiMapStyle.fuelCollection(view.fuelLabels),
+      ),
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -103,7 +118,9 @@ final class GlPoiLayers {
     if (!current()) return;
     await c.addSource(
       PoiMapStyle.selectionSource,
-      const gl.GeojsonSourceProperties(data: {'type': 'FeatureCollection', 'features': <Object>[]}),
+      const gl.GeojsonSourceProperties(
+        data: {'type': 'FeatureCollection', 'features': <Object>[]},
+      ),
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -130,20 +147,41 @@ final class GlPoiLayers {
     _sent = view;
     if (sent == null ||
         sent.category != view.category ||
+        sent.vending != view.vending ||
         sent.openNowOnly != view.openNowOnly ||
         sent.state != view.state ||
         sent.night != view.night) {
       await c.setFilter(PoiMapStyle.dotsLayerId, PoiMapStyle.dotsFilter(view));
-      await c.setFilter(PoiMapStyle.quietLayerId, PoiMapStyle.quietFilter(view));
+      await c.setFilter(
+        PoiMapStyle.vendingDotsLayerId,
+        PoiMapStyle.vendingDotsFilter(view),
+      );
+      await c.setFilter(
+        PoiMapStyle.quietLayerId,
+        PoiMapStyle.quietFilter(view),
+      );
       await c.setFilter(PoiMapStyle.pinsLayerId, PoiMapStyle.pinsFilter(view));
-      await c.setLayerProperties(PoiMapStyle.quietLayerId, _quiet(view, pinScale));
-      await c.setLayerProperties(PoiMapStyle.pinsLayerId, _pins(view, pinScale));
-      await c.setLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale));
+      await c.setLayerProperties(
+        PoiMapStyle.quietLayerId,
+        _quiet(view, pinScale),
+      );
+      await c.setLayerProperties(
+        PoiMapStyle.pinsLayerId,
+        _pins(view, pinScale),
+      );
+      await c.setLayerProperties(
+        PoiMapStyle.dotsLayerId,
+        _dots(view, pinScale),
+      );
     }
     if (!listEquals(sent?.fuelLabels, view.fuelLabels)) {
-      await c.setGeoJsonSource(PoiMapStyle.fuelSource, PoiMapStyle.fuelCollection(view.fuelLabels));
+      await c.setGeoJsonSource(
+        PoiMapStyle.fuelSource,
+        PoiMapStyle.fuelCollection(view.fuelLabels),
+      );
     }
-    if (sent?.selected != view.selected || sent?.selected?.kind != view.selected?.kind) {
+    if (sent?.selected != view.selected ||
+        sent?.selected?.kind != view.selected?.kind) {
       await c.setGeoJsonSource(
         PoiMapStyle.selectionSource,
         PoiMapStyle.selectionCollection(view.selected),
@@ -161,7 +199,7 @@ final class GlPoiLayers {
     required double zoom,
     required Object camera,
   }) async {
-    final key = (camera, view.category);
+    final key = (camera, view.category, view.vending);
     if (key == _probed) return null;
     _probed = key;
     final drawn = view.category != null
@@ -196,21 +234,30 @@ final class GlPoiLayers {
         iconPadding: 1,
       );
 
-  static gl.SymbolLayerProperties _fuel({required bool dark}) => gl.SymbolLayerProperties(
-    textField: const ['get', 'label'],
-    textFont: PoiMapStyle.fuelFont,
-    textSize: PoiMapStyle.fuelTextSize,
-    textColor: PoiMapStyle.fuelTextColor(dark: dark),
-    textHaloColor: PoiMapStyle.fuelHalo(dark: dark),
-    textHaloWidth: 2,
-    textAnchor: 'top',
-    textOffset: const [0, 0.25],
-    textPadding: 1,
-  );
+  static gl.SymbolLayerProperties _fuel({required bool dark}) =>
+      gl.SymbolLayerProperties(
+        textField: const ['get', 'label'],
+        textFont: PoiMapStyle.fuelFont,
+        textSize: PoiMapStyle.fuelTextSize,
+        textColor: PoiMapStyle.fuelTextColor(dark: dark),
+        textHaloColor: PoiMapStyle.fuelHalo(dark: dark),
+        textHaloWidth: 2,
+        textAnchor: 'top',
+        textOffset: const [0, 0.25],
+        textPadding: 1,
+      );
 
   static gl.SymbolLayerProperties _dots(PoiLayerView view, double scale) =>
       gl.SymbolLayerProperties(
         iconImage: PoiMapStyle.dotImage,
+        iconSize: PoiMapStyle.dotSize(scale),
+        symbolSortKey: PoiMapStyle.dotSortKey,
+        iconPadding: 2,
+      );
+
+  static gl.SymbolLayerProperties _vendingDots(double scale) =>
+      gl.SymbolLayerProperties(
+        iconImage: PoiMapStyle.vendingDotImage,
         iconSize: PoiMapStyle.dotSize(scale),
         symbolSortKey: PoiMapStyle.dotSortKey,
         iconPadding: 2,

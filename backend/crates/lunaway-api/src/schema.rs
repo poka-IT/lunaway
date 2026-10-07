@@ -108,6 +108,8 @@ pub struct ApiState {
     pub(crate) road_events: Arc<crate::road_events_query::RoadEventsCache>,
     /// The speed cameras feed's head and first pages, in memory.
     pub(crate) enforcement: Arc<crate::enforcement_query::EnforcementCache>,
+    /// Where the photo proxy gets a partner's photos.
+    pub(crate) external_photos: crate::external_photos::PhotoSource,
 }
 
 impl ApiState {
@@ -133,6 +135,13 @@ impl ApiState {
         let media = Arc::new(lunaway_media::MediaStore::new(config.media.dir.clone()));
         let media_workers = Arc::new(Semaphore::new(config.media.workers));
         let routing = Arc::new(crate::routing::Routing::new(&config.routing));
+        let external_photos = crate::external_photos::PhotoSource::network(
+            config.external_photos.timeout,
+        )
+        .unwrap_or_else(|error| {
+            tracing::error!(%error, "no HTTPS client: the partner's photos are not fetched");
+            crate::external_photos::PhotoSource::Memory(Arc::default())
+        });
         Self {
             pool,
             config,
@@ -145,7 +154,17 @@ impl ApiState {
             routing,
             road_events: Arc::default(),
             enforcement: Arc::default(),
+            external_photos,
         }
+    }
+
+    /// The same state with the partner's photos read from `source`
+    /// instead of the network: for the tests, and for a development server
+    /// that must not reach a partner.
+    #[must_use]
+    pub fn with_external_photos(mut self, source: crate::external_photos::PhotoSource) -> Self {
+        self.external_photos = source;
+        self
     }
 }
 

@@ -5,6 +5,7 @@
 
 mod cameras;
 mod enforcement_build;
+mod extcom;
 mod fixtures_parse;
 mod fuel_history;
 mod http_fetch;

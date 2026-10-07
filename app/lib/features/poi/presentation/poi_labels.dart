@@ -57,6 +57,28 @@ extension PoiLabels on Translations {
     .motorhomeShop => _t.poi.kind.motorhomeShop,
   };
 
+  /// What the machines of a [PoiKind.vendingChoices] kind sell, as the
+  /// vending chip's menu lists it ("Pizza").
+  String poiVendingSells(PoiKind k) => switch (k) {
+    .vendingPizza => _t.poi.vendingSells.pizza,
+    .vendingBread => _t.poi.vendingSells.bread,
+    .vendingFarmProducts => _t.poi.vendingSells.farmProducts,
+    .vendingEggsMilk => _t.poi.vendingSells.eggsMilk,
+    .vendingIce => _t.poi.vendingSells.ice,
+    _ => poiKind(k),
+  };
+
+  /// The vending chip's label while it shows one kind alone ("Pizza
+  /// vending machines").
+  String poiVendingChip(PoiKind k) => switch (k) {
+    .vendingPizza => _t.poi.vendingChip.pizza,
+    .vendingBread => _t.poi.vendingChip.bread,
+    .vendingFarmProducts => _t.poi.vendingChip.farmProducts,
+    .vendingEggsMilk => _t.poi.vendingChip.eggsMilk,
+    .vendingIce => _t.poi.vendingChip.ice,
+    _ => poiCategory(k.category),
+  };
+
   /// The name, else the kind ("Pizza vending machine").
   String poiTitle(String? name, PoiKind kind) =>
       name != null && name.trim().isNotEmpty ? name : poiKind(kind);
@@ -123,7 +145,11 @@ extension PoiLabels on Translations {
 
   /// A point's state at [now]: "Open 24/7", "Open, closes at 19:00",
   /// "Closed, opens tomorrow at 08:00", or "Hours unknown".
-  String poiOpening(PoiHours hours, DateTime now, {PlaceZone zone = PlaceZone.central}) {
+  String poiOpening(
+    PoiHours hours,
+    DateTime now, {
+    PlaceZone zone = PlaceZone.central,
+  }) {
     if (hours.alwaysOpen) return _t.poi.alwaysOpen;
     final state = hours.stateAt(now);
     if (state == null) return _t.poi.hoursUnknown;
@@ -143,7 +169,12 @@ Color poiOpeningColor(ColorScheme scheme, PoiHours hours, DateTime now) =>
 /// A point's tile in a list or a header: its glyph on its category's tone,
 /// as on the map.
 class PoiAvatar extends StatelessWidget {
-  const new({required this.kind, this.size = 44, this.faded = false, super.key});
+  const new({
+    required this.kind,
+    this.size = 44,
+    this.faded = false,
+    super.key,
+  });
 
   final PoiKind kind;
   final double size;
@@ -162,7 +193,11 @@ class PoiAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       alignment: Alignment.center,
-      child: Icon(PoiLook.kind(kind), size: size * 0.54, color: LunaTokens.pinGlyph),
+      child: Icon(
+        PoiLook.kind(kind),
+        size: size * 0.54,
+        color: LunaTokens.pinGlyph,
+      ),
     ),
   );
 }

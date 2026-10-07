@@ -36,12 +36,19 @@ class AccountSection extends ConsumerWidget {
           padding: const EdgeInsets.only(left: Space.xs, bottom: Space.s),
           child: Row(
             children: [
-              Icon(AppIcons.account, size: 20, color: theme.colorScheme.onSurfaceVariant),
+              Icon(
+                AppIcons.account,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: Space.s),
               Expanded(
                 child: Semantics(
                   header: true,
-                  child: Text(t.account.title, style: theme.textTheme.titleLarge),
+                  child: Text(
+                    t.account.title,
+                    style: theme.textTheme.titleLarge,
+                  ),
                 ),
               ),
             ],
@@ -79,7 +86,9 @@ class _NoAccount extends StatelessWidget {
           const SizedBox(height: Space.xs),
           Text(
             t.account.noneBody,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: Space.m),
           OutlinedButton.icon(
@@ -108,24 +117,31 @@ class _SignedIn extends ConsumerWidget {
     final muted = ref.watch(mutedAuthorIdsProvider).length;
     final locale = t.$meta.locale.languageCode;
     final initial = account.pseudonym.characters.first.toUpperCase();
-    Widget link(IconData icon, String label, String route, {String? trailing, Color? color}) =>
-        ListTile(
-          leading: Icon(icon, color: color),
-          title: Text(label, style: color == null ? null : TextStyle(color: color)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (trailing != null)
-                Text(
-                  trailing,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-              const SizedBox(width: Space.xs),
-              const Icon(AppIcons.chevron),
-            ],
-          ),
-          onTap: () => context.go(route),
-        );
+    Widget link(
+      IconData icon,
+      String label,
+      String route, {
+      String? trailing,
+      Color? color,
+    }) => ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(label, style: color == null ? null : TextStyle(color: color)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (trailing != null)
+            Text(
+              trailing,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          const SizedBox(width: Space.xs),
+          const Icon(AppIcons.chevron),
+        ],
+      ),
+      onTap: () => context.go(route),
+    );
     return Container(
       decoration: _card(context),
       clipBehavior: Clip.antiAlias,
@@ -135,7 +151,12 @@ class _SignedIn extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.s, Space.m),
+              padding: const EdgeInsets.fromLTRB(
+                Space.l,
+                Space.l,
+                Space.s,
+                Space.m,
+              ),
               child: Row(
                 children: [
                   ExcludeSemantics(
@@ -155,10 +176,14 @@ class _SignedIn extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(account.pseudonym, style: theme.textTheme.titleLarge),
+                        Text(
+                          account.pseudonym,
+                          style: theme.textTheme.titleLarge,
+                        ),
                         Text(
                           t.account.memberSince(
-                            date: DateFormat.yMMMM(locale).format(account.createdAt.toLocal()),
+                            date: DateFormat.yMMMM(locale)
+                                .format(account.createdAt.toLocal()),
                           ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -170,7 +195,8 @@ class _SignedIn extends ConsumerWidget {
                   IconButton(
                     tooltip: t.account.editPseudonym,
                     icon: const Icon(AppIcons.rename),
-                    onPressed: () => editPseudonym(context, ref, account.pseudonym),
+                    onPressed: () =>
+                        editPseudonym(context, ref, account.pseudonym),
                   ),
                 ],
               ),
@@ -178,7 +204,10 @@ class _SignedIn extends ConsumerWidget {
             const Divider(height: 1),
             _Level(account: account),
             const Divider(height: 1),
-            _RecoveryCard(made: state.recoveryCardAt),
+            _RecoveryCard(
+              made: state.recoveryCardAt,
+              checked: state.recoveryCardChecked,
+            ),
             const Divider(height: 1),
             if (pending > 0)
               link(
@@ -187,7 +216,11 @@ class _SignedIn extends ConsumerWidget {
                 AppRoutes.contributions,
                 color: scheme.primary,
               ),
-            link(AppIcons.contributions, t.account.contributions, AppRoutes.contributions),
+            link(
+              AppIcons.contributions,
+              t.account.contributions,
+              AppRoutes.contributions,
+            ),
             link(
               AppIcons.muted,
               t.account.mutedAuthors,
@@ -198,9 +231,15 @@ class _SignedIn extends ConsumerWidget {
             ListTile(
               leading: const Icon(AppIcons.signOut),
               title: Text(t.account.signOut),
-              onTap: () => signOut(context, ref, hasCard: state.recoveryCardAt != null),
+              onTap: () =>
+                  signOut(context, ref, hasCard: state.recoveryCardAt != null),
             ),
-            link(AppIcons.delete, t.account.delete, AppRoutes.deleteAccount, color: scheme.error),
+            link(
+              AppIcons.delete,
+              t.account.delete,
+              AppRoutes.deleteAccount,
+              color: scheme.error,
+            ),
           ],
         ),
       ),
@@ -235,29 +274,41 @@ class _Level extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: Space.xxs),
-                Text(t.levelOpens(account.trustLevel), style: theme.textTheme.bodyMedium),
+                Text(
+                  t.levelOpens(account.trustLevel),
+                  style: theme.textTheme.bodyMedium,
+                ),
                 const SizedBox(height: Space.s),
                 if (next == null)
                   Text(
                     t.account.levelTop,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   )
                 else ...[
                   Text(
                     t.account.nextLevel(level: '${next.level}'),
-                    style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   for (final r in next.missing)
                     Padding(
                       padding: const EdgeInsets.only(top: Space.xxs),
-                      child: Text('· ${t.requirement(r)}', style: theme.textTheme.bodyMedium),
+                      child: Text(
+                        '· ${t.requirement(r)}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
                     ),
                   if (next.instead != null)
                     Padding(
                       padding: const EdgeInsets.only(top: Space.xxs),
                       child: Text(
                         t.insteadRequirement(next.instead!),
-                        style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                 ],
@@ -271,9 +322,13 @@ class _Level extends StatelessWidget {
 }
 
 class _RecoveryCard extends StatelessWidget {
-  const new({required this.made});
+  const new({required this.made, required this.checked});
 
   final DateTime? made;
+
+  /// The server said whether the account has a card; else only this
+  /// device's memory speaks.
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -299,8 +354,12 @@ class _RecoveryCard extends StatelessWidget {
                 const SizedBox(width: Space.m),
                 Expanded(
                   child: Text(
-                    t.account.recoveryNone,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onPrimaryContainer),
+                    checked
+                        ? t.account.recoveryNoneAccount
+                        : t.account.recoveryNone,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],
@@ -321,7 +380,8 @@ class _RecoveryCard extends StatelessWidget {
       title: Text(t.recovery.title),
       subtitle: Text(
         t.account.recoveryMade(
-          date: DateFormat.yMMMd(t.$meta.locale.languageCode).format(made.toLocal()),
+          date: DateFormat.yMMMd(t.$meta.locale.languageCode)
+              .format(made.toLocal()),
         ),
       ),
       // The short word on the button, its object for a screen reader.
@@ -340,7 +400,11 @@ class _RecoveryCard extends StatelessWidget {
 }
 
 /// Changes the public pseudonym.
-Future<void> editPseudonym(BuildContext context, WidgetRef ref, String current) async {
+Future<void> editPseudonym(
+  BuildContext context,
+  WidgetRef ref,
+  String current,
+) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final controller = ref.read(accountControllerProvider.notifier);
@@ -356,7 +420,9 @@ Future<void> editPseudonym(BuildContext context, WidgetRef ref, String current) 
     _log.info('pseudonym refused: $e');
     showMessage(
       messenger,
-      e.hasCode(GraphQLError.invalidInput) ? t.account.pseudonymRefused : t.common.failed,
+      e.hasCode(GraphQLError.invalidInput)
+          ? t.account.pseudonymRefused
+          : t.common.failed,
     );
   } on Object catch (e) {
     _log.info('pseudonym not saved: $e');
@@ -410,7 +476,10 @@ class _PseudonymDialogState extends State<_PseudonymDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(t.common.cancel),
+        ),
         FilledButton(onPressed: _save, child: Text(t.common.save)),
       ],
     );
@@ -419,13 +488,19 @@ class _PseudonymDialogState extends State<_PseudonymDialog> {
 
 /// Signs this device out, after saying what it means; without a recovery
 /// card made here, the warning says the account would be lost.
-Future<void> signOut(BuildContext context, WidgetRef ref, {required bool hasCard}) async {
+Future<void> signOut(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool hasCard,
+}) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final controller = ref.read(accountControllerProvider.notifier);
   final outbox = ref.read(outboxStoreProvider);
   // What waits belongs to this account: it is dropped with it, and said so.
-  final waiting = (await outbox.all()).where((e) => e.state != OutboxState.failed).length;
+  final waiting = (await outbox.all())
+      .where((e) => e.state != OutboxState.failed)
+      .length;
   if (!context.mounted) return;
   final ok = await showDialog<bool>(
     context: context,
@@ -442,7 +517,10 @@ Future<void> signOut(BuildContext context, WidgetRef ref, {required bool hasCard
             Text(t.account.signOutBody),
             if (!hasCard) ...[
               const SizedBox(height: Space.m),
-              Text(t.account.signOutNoCard, style: TextStyle(color: scheme.error)),
+              Text(
+                t.account.signOutNoCard,
+                style: TextStyle(color: scheme.error),
+              ),
             ],
             if (waiting > 0) ...[
               const SizedBox(height: Space.m),
@@ -491,14 +569,20 @@ Future<void> showAccountWelcome(BuildContext context, Account account) {
                 style: theme.textTheme.bodyLarge,
               ),
               const SizedBox(height: Space.m),
-              Text(t.account.welcomeFavorites, style: theme.textTheme.bodyMedium),
+              Text(
+                t.account.welcomeFavorites,
+                style: theme.textTheme.bodyMedium,
+              ),
               const SizedBox(height: Space.m),
               Text(t.account.welcomeCard, style: theme.textTheme.bodyMedium),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.later)),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(t.common.later),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();

@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.id, e.path, e.thumb_path,\n               array_remove(ARRAY[\n                   CASE WHEN e.path IS NOT NULL AND NOT EXISTS (\n                            SELECT 1 FROM external_photos o\n                            WHERE o.id <> e.id AND (o.path = e.path OR o.thumb_path = e.path)\n                              AND o.retired_at IS NULL)\n                        AND NOT EXISTS (\n                            SELECT 1 FROM photos p WHERE p.path = e.path OR p.thumb_path = e.path)\n                        THEN e.path END,\n                   CASE WHEN e.thumb_path IS NOT NULL AND NOT EXISTS (\n                            SELECT 1 FROM external_photos o\n                            WHERE o.id <> e.id\n                              AND (o.path = e.thumb_path OR o.thumb_path = e.thumb_path)\n                              AND o.retired_at IS NULL)\n                        AND NOT EXISTS (\n                            SELECT 1 FROM photos p\n                            WHERE p.path = e.thumb_path OR p.thumb_path = e.thumb_path)\n                        THEN e.thumb_path END\n               ], NULL) AS \"files!\"\n        FROM external_photos e\n        WHERE e.retired_at IS NOT NULL\n        ORDER BY e.id\n        LIMIT $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "thumb_path"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "files!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "2eea8d9a6c94473c28abc23b94c801fcee1f0f8af2354aae345ad0848c801c3f"
+}

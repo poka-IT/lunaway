@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (SELECT 1 FROM source_switches\n                         WHERE source_id = $1 AND hidden_at IS NOT NULL) AS \"hidden!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hidden!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "584e4b07ca2706c13a2434673741a29693ed37c900e3c94194fe8b614974600d"
+}

@@ -70,13 +70,92 @@ abstract final class Conflation {
 
   /// Words that say what kind of spot a place is rather than which one.
   static const genericWords = {
-    'a', 'au', 'aux', 'd', 'de', 'des', 'du', 'en', 'et', 'l', 'la', 'le', 'les', 'sur', 'sous', //
+    'a',
+    'au',
+    'aux',
+    'd',
+    'de',
+    'des',
+    'du',
+    'en',
+    'et',
+    'l',
+    'la',
+    'le',
+    'les',
+    'sur',
+    'sous', //
     'and', 'of', 'the', //
-    'aire', 'aires', 'area', 'camp', 'camper', 'campers', 'camperplaats', 'camping', 'campings', //
-    'campingcar', 'campingcars', 'car', 'cars', 'caravan', 'caravane', 'caravanes', 'caravaning', //
-    'cc', 'motorhome', 'motorhomes', 'parking', 'parkings', 'site', 'sosta', 'stationnement', //
-    'stellplatz', //
-    'accueil', 'communal', 'communale', 'municipal', 'municipale', 'municipaux', 'naturel', //
+    'am',
+    'an',
+    'auf',
+    'bei',
+    'beim',
+    'das',
+    'dem',
+    'den',
+    'der',
+    'die',
+    'im',
+    'in',
+    'und', //
+    'zum',
+    'zur',
+    'al',
+    'del',
+    'el',
+    'las',
+    'los',
+    'y',
+    'da',
+    'dei',
+    'della',
+    'delle',
+    'dello', //
+    'di', 'il', //
+    'aire',
+    'aires',
+    'area',
+    'camp',
+    'camper',
+    'campers',
+    'camperplaats',
+    'camping',
+    'campings', //
+    'campingcar',
+    'campingcars',
+    'car',
+    'cars',
+    'caravan',
+    'caravane',
+    'caravanes',
+    'caravaning', //
+    'cc',
+    'motorhome',
+    'motorhomes',
+    'parking',
+    'parkings',
+    'site',
+    'sosta',
+    'stationnement', //
+    'stellplatz',
+    'aparcamiento',
+    'autocaravana',
+    'autocaravanas',
+    'campeggio',
+    'campingplatz', //
+    'parcheggio',
+    'parkplatz',
+    'wohnmobil',
+    'wohnmobile',
+    'wohnmobilstellplatz', //
+    'accueil',
+    'communal',
+    'communale',
+    'municipal',
+    'municipale',
+    'municipaux',
+    'naturel', //
     'naturelle', 'service', 'services',
   };
 
@@ -138,7 +217,8 @@ abstract final class Conflation {
   /// The identifying words of a folded name, in order.
   static List<String> coreTokens(String folded) => [
     for (final t in folded.split(' '))
-      if (t.isNotEmpty && !genericWords.contains(abbreviations[t] ?? t)) abbreviations[t] ?? t,
+      if (t.isNotEmpty && !genericWords.contains(abbreviations[t] ?? t))
+        abbreviations[t] ?? t,
   ];
 
   static String normalizeName(String raw) => coreTokens(fold(raw)).join(' ');
@@ -156,7 +236,9 @@ abstract final class Conflation {
     }
     final String normalised;
     if (international) {
-      normalised = digits.startsWith('330') ? '+33${digits.substring(3)}' : '+$digits';
+      normalised = digits.startsWith('330')
+          ? '+33${digits.substring(3)}'
+          : '+$digits';
     } else if (digits.length == 10 && digits.startsWith('0')) {
       normalised = '+33${digits.substring(1)}';
     } else {
@@ -181,7 +263,11 @@ abstract final class Conflation {
   /// `host/path`, lower case, without scheme, `www.`, query, fragment or
   /// trailing slash; null for a bare platform address.
   static String? normalizeWebsite(String raw) {
-    final first = raw.split(RegExp('[; ]')).where((s) => s.isNotEmpty).firstOrNull?.trim();
+    final first = raw
+        .split(RegExp('[; ]'))
+        .where((s) => s.isNotEmpty)
+        .firstOrNull
+        ?.trim();
     if (first == null) return null;
     final lower = first.toLowerCase();
     var rest = lower.startsWith('https://')
@@ -198,7 +284,8 @@ abstract final class Conflation {
     final slash = trimmed.indexOf('/');
     final host = slash < 0 ? trimmed : trimmed.substring(0, slash);
     final path = slash < 0 ? '' : trimmed.substring(slash + 1);
-    if (!host.contains('.') || host.startsWith('.') || host.endsWith('.')) return null;
+    if (!host.contains('.') || host.startsWith('.') || host.endsWith('.'))
+      return null;
     if (path.isEmpty && platformHosts.contains(host)) return null;
     return trimmed;
   }
@@ -248,16 +335,24 @@ abstract final class Conflation {
 
   static MatchScore score(MatchCandidate a, MatchCandidate b) {
     final distanceM = a.position.distanceTo(b.position);
-    final effective = math.max(0, distanceM - (a.accuracyM + b.accuracyM)).toDouble();
+    final effective = math
+        .max(0, distanceM - (a.accuracyM + b.accuracyM))
+        .toDouble();
     final radius = math.max(kindRadiusM(a.kind), kindRadiusM(b.kind));
     // Quadratic decay: flat near the spot, steep towards the radius.
-    final distance = math.max(0, 1 - math.pow(effective / radius, 2)).toDouble();
+    final distance = math
+        .max(0, 1 - math.pow(effective / radius, 2))
+        .toDouble();
     final name = _nameComponent(a, b);
     final kind = kindCompatibility(a.kind, b.kind);
-    final municipality = _same(a.cityCode, b.cityCode) ?? _same(a.postcode, b.postcode);
+    final municipality =
+        _same(a.cityCode, b.cityCode) ?? _same(a.postcode, b.postcode);
 
-    var weighted = weightDistance * distance + weightName * name;
-    var weights = weightDistance + weightName;
+    // A missing name is neutral: it leaves the mean, as an unknown
+    // municipality does.
+    final named = a.folded != null && b.folded != null;
+    var weighted = weightDistance * distance + (named ? weightName * name : 0);
+    var weights = weightDistance + (named ? weightName : 0);
     if (municipality != null) {
       weighted += weightMunicipality * (municipality ? 1 : 0);
       weights += weightMunicipality;
@@ -347,12 +442,19 @@ abstract final class Conflation {
     return math.max(trigramSimilarity(ga, gb), tokenContainment(ta, tb));
   }
 
-  static bool? _same(String? a, String? b) => a == null || b == null ? null : a == b;
+  static bool? _same(String? a, String? b) =>
+      a == null || b == null ? null : a == b;
 }
 
 enum MatchDecision { merge, review, distinct }
 
-enum MatchReason { score, sharedIdentifier, conflictingIdentifier, incompatibleKinds, sameSource }
+enum MatchReason {
+  score,
+  sharedIdentifier,
+  conflictingIdentifier,
+  incompatibleKinds,
+  sameSource,
+}
 
 enum IdentifierKind { osm, wikidata, phone, website }
 
@@ -413,16 +515,21 @@ final class MatchCandidate {
       source: source,
       kind: kind,
       position: position,
-      accuracyM: accuracyM.isFinite ? accuracyM.clamp(0, Conflation.accuracyCapM).toDouble() : 0,
+      accuracyM: accuracyM.isFinite
+          ? accuracyM.clamp(0, Conflation.accuracyCapM).toDouble()
+          : 0,
       folded: hasName ? folded : null,
       foldedTokens: hasName
-          ? (folded.split(' ').where((t) => t.isNotEmpty).toSet().toList()..sort())
+          ? (folded.split(' ').where((t) => t.isNotEmpty).toSet().toList()
+              ..sort())
           : const [],
       foldedTrigrams: hasName ? Conflation.trigrams(folded) : const [],
       coreTokens: core.toSet().toList()..sort(),
       coreTrigrams: hasName ? Conflation.trigrams(core.join(' ')) : const [],
       osm: clean(osm),
-      wikidata: wikidata == null ? null : Conflation.normalizeWikidata(wikidata),
+      wikidata: wikidata == null
+          ? null
+          : Conflation.normalizeWikidata(wikidata),
       phone: phone == null ? null : Conflation.normalizePhone(phone),
       website: website == null ? null : Conflation.normalizeWebsite(website),
       cityCode: clean(cityCode),

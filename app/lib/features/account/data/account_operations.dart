@@ -67,7 +67,10 @@ mutation AuthChallenge {
 }''',
   parse: (data) {
     final c = data['authChallenge'] as Map<String, dynamic>;
-    return Challenge(nonce: c['nonce'] as String, message: c['message'] as String);
+    return Challenge(
+      nonce: c['nonce'] as String,
+      message: c['message'] as String,
+    );
   },
 );
 
@@ -131,28 +134,54 @@ $_accountFields''',
   parse: (data) => _signInResult(data['recoverAccount']),
 );
 
-/// The account with its level, and the authors it mutes.
-final myAccountOperation = GraphQLOperation<({Account account, List<Author> muted})>(
-  name: 'MyAccount',
-  document: '''
+String _myAccountDocument({required bool withCard}) =>
+    '''
 query MyAccount {
   myAccount {
     ...AccountFields
-    mutedAuthors { id pseudonym }
+    mutedAuthors { id pseudonym }${withCard ? '\n    recoveryCodeCreatedAt' : ''}
   }
 }
-$_accountFields''',
-  parse: (data) {
-    final a = data['myAccount'] as Map<String, dynamic>;
-    return (
-      account: _account(a),
-      muted: [
-        for (final m in (a['mutedAuthors'] as List<dynamic>).cast<Map<String, dynamic>>())
-          Author(id: m['id'] as String, pseudonym: m['pseudonym'] as String),
-      ],
+$_accountFields''';
+
+/// What `myAccount` says of the recovery code: when it was made, null when
+/// the account has none. The record itself is null when the API is older
+/// than the field and says nothing.
+typedef ServerRecoveryCode = ({DateTime? createdAt});
+
+/// A date of the answer, null for null; anything else throws, so a garbled
+/// answer leaves the device's date alone rather than reading as "no card".
+DateTime? _date(Object? value) =>
+    value == null ? null : DateTime.parse(value as String).toUtc();
+
+/// The account with its level, the authors it mutes, and the date of its
+/// recovery code (the same on every device of the account).
+final myAccountOperation =
+    GraphQLOperation<
+      ({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})
+    >(
+      name: 'MyAccount',
+      document: _myAccountDocument(withCard: true),
+      older: OlderForm.selecting(_myAccountDocument(withCard: false)),
+      parse: (data) {
+        final a = data['myAccount'] as Map<String, dynamic>;
+        return (
+          account: _account(a),
+          muted: [
+            for (final m
+                in (a['mutedAuthors'] as List<dynamic>)
+                    .cast<Map<String, dynamic>>())
+              Author(
+                id: m['id'] as String,
+                pseudonym: m['pseudonym'] as String,
+              ),
+          ],
+          recoveryCode: a.containsKey('recoveryCodeCreatedAt')
+              ? (createdAt: _date(a['recoveryCodeCreatedAt']))
+              : null,
+        );
+      },
     );
-  },
-);
 
 final updateProfileOperation = GraphQLOperation<Account>(
   name: 'UpdateProfile',
@@ -170,7 +199,8 @@ final createRecoveryCodeOperation = GraphQLOperation<String>(
 mutation CreateRecoveryCode {
   createRecoveryCode { code }
 }''',
-  parse: (data) => (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
+  parse: (data) =>
+      (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
 );
 
 final signOutOperation = GraphQLOperation<bool>(
@@ -202,7 +232,8 @@ query MyDevices {
 }''',
   parse: (data) => [
     for (final d
-        in ((data['myAccount'] as Map<String, dynamic>)['devices'] as List<dynamic>)
+        in ((data['myAccount'] as Map<String, dynamic>)['devices']
+                as List<dynamic>)
             .cast<Map<String, dynamic>>())
       Device(
         id: d['id'] as String,

@@ -45,10 +45,14 @@ final _log = Logger('map');
 /// The height the search pill and the row of chips take over the map, below
 /// the status bar.
 double _overlayHeight(BuildContext context) =>
-    MapSearch.heightOf(context) + Space.s + Space.xxs + QuickFilters.heightOf(context);
+    MapSearch.heightOf(context) +
+    Space.s +
+    Space.xxs +
+    QuickFilters.heightOf(context);
 
 /// The search pill alone, while a selection hides the chips on a phone.
-double _searchHeight(BuildContext context) => MapSearch.heightOf(context) + Space.s;
+double _searchHeight(BuildContext context) =>
+    MapSearch.heightOf(context) + Space.s;
 
 /// The room the first download's card needs on a phone with its picture;
 /// with less, it goes without, so its buttons stay above the list.
@@ -81,7 +85,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         unawaited(_openLinkedPlace());
       } else {
         unawaited(
-          _locateAtLaunch().catchError((Object e) => _log.info('no position at launch: $e')),
+          _locateAtLaunch().catchError(
+            (Object e) => _log.info('no position at launch: $e'),
+          ),
         );
       }
     });
@@ -96,7 +102,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final access = await ref.read(locationPermissionsProvider).status();
     if (!mounted || access != LocationAccess.granted) return;
     // Ready once the map reports its first camera, after its first fit.
-    bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
+    bool ready() =>
+        ref.read(mapControllerProvider) != null &&
+        ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
@@ -141,7 +149,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
     // is laid out) can land off centre.
-    bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
+    bool ready() =>
+        ref.read(mapControllerProvider) != null &&
+        ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
@@ -172,7 +182,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       return;
     }
     ref.read(selectionProvider.notifier).select(PoiSelection(feature));
-    bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
+    bool ready() =>
+        ref.read(mapControllerProvider) != null &&
+        ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
@@ -188,8 +200,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final selection = ref.watch(selectionProvider);
     void locate() => unawaited(locateUser(context, ref));
     final body = switch (size) {
-      .compact => _CompactLayout(selection: selection, onLocate: locate, onClose: _clearSelection),
-      .medium => _MediumLayout(selection: selection, onLocate: locate, onClose: _clearSelection),
+      .compact => _CompactLayout(
+        selection: selection,
+        onLocate: locate,
+        onClose: _clearSelection,
+      ),
+      .medium => _MediumLayout(
+        selection: selection,
+        onLocate: locate,
+        onClose: _clearSelection,
+      ),
       .expanded => _ExpandedLayout(
         selection: selection,
         onLocate: locate,
@@ -213,12 +233,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         // The status bar floats over the map: transparent, its icons in the
         // contrast of the theme's scrim.
-        value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: Colors.transparent,
-        ),
+        value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+            .copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: Colors.transparent,
+            ),
         child: CallbackShortcuts(
-          bindings: {const SingleActivator(LogicalKeyboardKey.escape): _clearSelection},
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): _clearSelection,
+          },
           // The keyboard covers the map instead of squeezing it: the sheet
           // and the overlays keep their places, the search results end above
           // it.
@@ -258,7 +281,10 @@ class _Map extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final style = ref.watch(
-      basemapStyleProvider(dark: dark, language: Localizations.localeOf(context).languageCode),
+      basemapStyleProvider(
+        dark: dark,
+        language: Localizations.localeOf(context).languageCode,
+      ),
     );
     final viewport = ref.read(viewportProvider);
     final left = ref.read(initialViewProvider);
@@ -269,12 +295,15 @@ class _Map extends ConsumerWidget {
     final pois = PoiLayerView(
       tileJsonUrl: ref.watch(poiTileJsonUrlProvider),
       category: poiChoice.category,
+      vending: poiChoice.vending,
       openNowOnly: poiChoice.openNowOnly,
       state: ref.watch(poiLayerStateProvider),
       night: ref.watch(poiNightProvider),
       selected: selection is PoiSelection ? selection.feature : null,
       fuelLabels: poiChoice.category == PoiCategory.fuel
-          ? ref.watch(fuelLabelsProvider(Localizations.localeOf(context).languageCode))
+          ? ref.watch(
+              fuelLabelsProvider(Localizations.localeOf(context).languageCode),
+            )
           : const [],
     );
     final map = ref.watch(lunaMapBuilderProvider)(
@@ -306,11 +335,15 @@ class _Map extends ConsumerWidget {
             ref
                 .read(lastViewStoreProvider)
                 .save(v.center, v.zoom)
-                .catchError((Object e) => _log.info('the view was not kept: $e')),
+                .catchError(
+                  (Object e) => _log.info('the view was not kept: $e'),
+                ),
           );
           // A map at rest checks the basemap's host again when its last
           // answer is old: a lost network turns to the downloaded map.
-          unawaited(ref.read(basemapReachabilityProvider.notifier).probeIfStale());
+          unawaited(
+            ref.read(basemapReachabilityProvider.notifier).probeIfStale(),
+          );
         },
         onMapReady: (c) => ref.read(mapControllerProvider.notifier).attach(c),
         padding: padding,
@@ -328,7 +361,8 @@ class _Map extends ConsumerWidget {
           // As for a long press: the sheet that opens may cover the point.
           unawaited(ref.read(mapControllerProvider)?.moveTo(feature.position));
         },
-        onPoisInView: (features) => ref.read(poisInViewProvider.notifier).report(features),
+        onPoisInView: (features) =>
+            ref.read(poisInViewProvider.notifier).report(features),
       ),
     );
     return Stack(
@@ -427,8 +461,14 @@ class _SelectionActions extends ConsumerWidget {
       final place? => PlaceActionBar(place: place, floating: true),
       null => const SizedBox.shrink(),
     },
-    PointSelection(:final position) => PointActionBar(position: position, floating: true),
-    PoiSelection(:final feature) => PointActionBar(position: feature.position, floating: true),
+    PointSelection(:final position) => PointActionBar(
+      position: position,
+      floating: true,
+    ),
+    PoiSelection(:final feature) => PointActionBar(
+      position: feature.position,
+      floating: true,
+    ),
   };
 }
 
@@ -446,11 +486,17 @@ class _MapControls extends StatelessWidget {
   static void _addPlace(WidgetRef ref) {
     final viewport = ref.read(viewportProvider);
     if (viewport == null) return;
-    ref.read(selectionProvider.notifier).select(PointSelection(viewport.center));
+    ref
+        .read(selectionProvider.notifier)
+        .select(PointSelection(viewport.center));
     // From afar the middle of the map is no place in particular: the map
     // comes down to the street, where the point can be judged and moved.
     if (viewport.zoom < _addPlaceZoom) {
-      unawaited(ref.read(mapControllerProvider)?.moveTo(viewport.center, zoom: _addPlaceZoom));
+      unawaited(
+        ref
+            .read(mapControllerProvider)
+            ?.moveTo(viewport.center, zoom: _addPlaceZoom),
+      );
     }
   }
 
@@ -512,7 +558,11 @@ class _MapControls extends StatelessWidget {
 /// the details of a selection higher, with their actions where the dock
 /// was.
 class _CompactLayout extends ConsumerStatefulWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -533,7 +583,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
   /// The top of the map left free by the search, the chips and the notices.
   double _top(MediaQueryData m) =>
       m.padding.top +
-      (widget.selection == null ? _overlayHeight(context) : _searchHeight(context)) +
+      (widget.selection == null
+          ? _overlayHeight(context)
+          : _searchHeight(context)) +
       _notices;
 
   void _noticesChanged(double height) {
@@ -594,7 +646,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
       // The map centres what follows on the part the sheet will leave free,
       // not on the part it leaves free now.
       _rest = target;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _sheet.animateTo(target));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _sheet.animateTo(target),
+      );
     }
   }
 
@@ -635,7 +689,10 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           child: LayoutBuilder(
             builder: (context, box) => Center(
               child: SingleChildScrollView(
-                child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+                child: SyncBanner(
+                  compact: true,
+                  picture: box.maxHeight >= _bannerWithPicture,
+                ),
               ),
             ),
           ),
@@ -686,7 +743,12 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     scrollController: scroll,
                     bottomPadding: m.padding.bottom + Space.l,
                     header: const Padding(
-                      padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.s),
+                      padding: EdgeInsets.fromLTRB(
+                        Space.xl,
+                        0,
+                        Space.xl,
+                        Space.s,
+                      ),
                       child: NearbyCount(),
                     ),
                   )
@@ -695,12 +757,15 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     // The bar of actions grows with large text or a narrow
                     // screen: the details end above its measured top, so
                     // their last line is never under it.
-                    listenable: clearance ?? const AlwaysStoppedAnimation<double>(0),
+                    listenable:
+                        clearance ?? const AlwaysStoppedAnimation<double>(0),
                     builder: (context, _) => _SelectionDetails(
                       selection: selection,
                       scrollController: scroll,
                       onClose: widget.onClose,
-                      bottomPadding: math.max(m.padding.bottom, clearance?.value ?? 0) + Space.xl,
+                      bottomPadding:
+                          math.max(m.padding.bottom, clearance?.value ?? 0) +
+                          Space.xl,
                     ),
                   ),
           ),
@@ -715,7 +780,10 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
             switchInCurve: Motion.enter,
             switchOutCurve: Motion.exit,
             transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
+              position: Tween(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(animation),
               child: child,
             ),
             child: selection == null
@@ -727,16 +795,23 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     child: MediaQuery(
                       data: m.copyWith(
                         padding: m.padding.copyWith(
-                          bottom: (m.padding.bottom - dockSpace).clamp(0, double.infinity),
+                          bottom: (m.padding.bottom - dockSpace).clamp(
+                            0,
+                            double.infinity,
+                          ),
                         ),
                       ),
                       child: Stack(
                         children: [
                           // The sheet's text fades under the bar and never
                           // shows between it and the edge.
-                          const Positioned.fill(child: IgnorePointer(child: BottomFade())),
+                          const Positioned.fill(
+                            child: IgnorePointer(child: BottomFade()),
+                          ),
                           Padding(
-                            padding: const EdgeInsets.only(top: BottomFade.lead),
+                            padding: const EdgeInsets.only(
+                              top: BottomFade.lead,
+                            ),
                             child: _SelectionActions(selection: selection),
                           ),
                         ],
@@ -750,7 +825,8 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           listenable: _sheet,
           builder: (context, child) {
             final extent = _sheet.isAttached ? _sheet.extent : rest;
-            final covered = height - extent < m.padding.top + _overlayHeight(context);
+            final covered =
+                height - extent < m.padding.top + _overlayHeight(context);
             return Positioned(
               left: 0,
               right: 0,
@@ -781,7 +857,12 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                   child: selection != null
                       ? const SizedBox(width: double.infinity)
                       : const QuickFilters(
-                          padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0),
+                          padding: EdgeInsets.fromLTRB(
+                            Space.m,
+                            Space.xxs,
+                            Space.xxl,
+                            0,
+                          ),
                         ),
                 ),
                 ReportsHeight(
@@ -815,14 +896,21 @@ class _Panel extends StatelessWidget {
   Widget build(BuildContext context) => FloatingSurface(
     radius: LunaTokens.radiusSheet,
     color: Theme.of(context).colorScheme.surface,
-    child: AnimatedSwitcher(duration: Motion.of(context, Motion.medium), child: child),
+    child: AnimatedSwitcher(
+      duration: Motion.of(context, Motion.medium),
+      child: child,
+    ),
   );
 }
 
 /// Tablet: the map beside the rail; the list and the details open in a
 /// panel on the right.
 class _MediumLayout extends ConsumerStatefulWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -851,7 +939,10 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
         Positioned.fill(
           child: _Map(
             padding: EdgeInsets.only(right: reserved, top: top),
-            attributionInset: const EdgeInsets.only(left: Space.s, bottom: Space.s),
+            attributionInset: const EdgeInsets.only(
+              left: Space.s,
+              bottom: Space.s,
+            ),
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
@@ -865,7 +956,10 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
         Positioned(
           right: reserved + Space.l,
           bottom: Space.l,
-          child: _MapControls(onLocate: widget.onLocate, zoom: _pointerPlatform),
+          child: _MapControls(
+            onLocate: widget.onLocate,
+            zoom: _pointerPlatform,
+          ),
         ),
         // Above the buttons: the search results cover them.
         Positioned(
@@ -893,7 +987,11 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                       FloatingSurface(
                         child: TextButton.icon(
                           onPressed: () => setState(() => _listOpen = true),
-                          icon: Icon(fuelList ? PoiLook.category(PoiCategory.fuel) : AppIcons.list),
+                          icon: Icon(
+                            fuelList
+                                ? PoiLook.category(PoiCategory.fuel)
+                                : AppIcons.list,
+                          ),
                           label: Text(
                             fuelList
                                 ? t.poi.cheapest.show
@@ -901,7 +999,9 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                                 ? t.map.showList
                                 : t.map.showListCount(n: count),
                           ),
-                          style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, 56),
+                          ),
                         ),
                       ),
                     ],
@@ -946,12 +1046,18 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
                       )
                     : NearbyList(
                         header: Padding(
-                          padding: const EdgeInsets.fromLTRB(Space.xl, Space.l, Space.s, Space.s),
+                          padding: const EdgeInsets.fromLTRB(
+                            Space.xl,
+                            Space.l,
+                            Space.s,
+                            Space.s,
+                          ),
                           child: NearbyCount(
                             trailing: IconButton(
                               tooltip: t.common.close,
                               icon: const Icon(AppIcons.close),
-                              onPressed: () => setState(() => _listOpen = false),
+                              onPressed: () =>
+                                  setState(() => _listOpen = false),
                             ),
                           ),
                         ),
@@ -967,7 +1073,11 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
 
 /// Desktop: the list pane, the map, and the details pane side by side.
 class _ExpandedLayout extends ConsumerWidget {
-  const new({required this.selection, required this.onLocate, required this.onClose});
+  const new({
+    required this.selection,
+    required this.onLocate,
+    required this.onClose,
+  });
 
   final MapSelection? selection;
   final VoidCallback onLocate;
@@ -1000,7 +1110,10 @@ class _ExpandedLayout extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, 0),
           child: MapSearch(floating: false),
         ),
-        const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
+        const QuickFilters(
+          padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0),
+          floating: false,
+        ),
         if (fuelList) ...[
           const Divider(),
           const Expanded(child: CheapestFuelList(topPadding: Space.m)),
@@ -1019,8 +1132,12 @@ class _ExpandedLayout extends ConsumerWidget {
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border(
-          right: left ? BorderSide(color: scheme.outlineVariant) : BorderSide.none,
-          left: left ? BorderSide.none : BorderSide(color: scheme.outlineVariant),
+          right: left
+              ? BorderSide(color: scheme.outlineVariant)
+              : BorderSide.none,
+          left: left
+              ? BorderSide.none
+              : BorderSide(color: scheme.outlineVariant),
         ),
       ),
       child: SafeArea(child: child),
@@ -1044,7 +1161,10 @@ class _ExpandedLayout extends ConsumerWidget {
             children: [
               const Positioned.fill(
                 child: _Map(
-                  attributionInset: EdgeInsets.only(left: Space.s, bottom: Space.s),
+                  attributionInset: EdgeInsets.only(
+                    left: Space.s,
+                    bottom: Space.s,
+                  ),
                 ),
               ),
               const Positioned(

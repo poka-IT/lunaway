@@ -56,6 +56,7 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
             "cat-sct-radars",
             "community",
             "community-cc-by",
+            "extcom",
             "finess",
             "laposte",
             "lu-pch-radars",

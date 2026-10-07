@@ -21,14 +21,19 @@ pub struct SourceRow {
     pub url: String,
 }
 
-/// Every source, by id.
+/// Every source not hidden, by id, with the licence and attribution of its
+/// latest agreement when it came under one (`source_terms`).
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails or an id is malformed.
 pub async fn list(pool: &PgPool) -> Result<Vec<SourceRow>, DbError> {
     let rows = sqlx::query!(
-        "SELECT id, name, licence, licence_url, attribution, url FROM sources ORDER BY id"
+        r#"
+        SELECT id AS "id!", name AS "name!", licence AS "licence!",
+               licence_url AS "licence_url!", attribution AS "attribution!", url AS "url!"
+        FROM source_terms WHERE hidden_at IS NULL ORDER BY id
+        "#
     )
     .fetch_all(pool)
     .await?;

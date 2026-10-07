@@ -19,7 +19,16 @@ neither a letter nor a digit into a space, collapse runs of spaces, trim.
 **Core words** of a folded name: split on spaces, replace an abbreviation by
 its expansion (`st` to `saint`, `ste` to `sainte`), drop the generic words
 (`genericWords`: articles and prepositions, and the words that say what kind
-of place it is, such as `aire`, `camping`, `car`, `parking`, `municipal`).
+of place it is, such as `aire`, `camping`, `car`, `parking`, `municipal`;
+French and English, and since the external community source the German,
+Spanish and Italian ones, such as `am`, `del`, `di`, `parkplatz`,
+`autocaravanas`, `parcheggio`: on synthetic spots named the way visitors
+name them in those languages, they raised the share of same-spot pairs
+that merge from 0.38 to 0.50, for one merge of two different spots in 280,
+which the grouping refused: no place held two spots,
+`backend/crates/lunaway-domain/tests/extcom_synthetic.rs`; with the missing
+name made neutral (section 2), 0.87, for 9 merges of two different spots,
+of which the grouping refused 8: 1 place in 911 held two spots).
 The normalised name is the core words joined by spaces; it is empty for a
 name made of generic words only ("Camping municipal").
 
@@ -50,7 +59,11 @@ code.
    flat near the spot, where sources disagree by a few metres for no reason,
    steep towards the radius.
 2. **Name.** If either record has no name (or a name that folds to nothing),
-   `name = nameUnknown` (0.5): neither for nor against. Otherwise compare the
+   the name is absent: it is reported as `nameUnknown` (0.5) in the
+   components and left out of the base, so it counts neither for nor
+   against, and distance, kind and shared identifiers decide (two unnamed
+   car parks 80 m apart stay distinct: past the car park radius the
+   distance is 0). Otherwise compare the
    core words of both, or the full folded names when either core is empty.
    `name = max(trigram, containment)`:
    - `trigram` is PostgreSQL `pg_trgm` similarity: each word padded with two
@@ -65,7 +78,8 @@ code.
 4. **Municipality.** When both records have a municipality code, 1 if equal
    and 0 if not; otherwise the same with the postcode; otherwise absent.
 5. **Base**: the weighted mean of distance (`weights.distance`), name
-   (`weights.name`) and, when present, municipality
+   (`weights.name`) when both records have one, and, when present,
+   municipality
    (`weights.municipality`), divided by the sum of the weights used.
    `score = base * kind`.
 6. **Identifiers**, in this order:
@@ -125,8 +139,16 @@ id. OpenStreetMap leads on position, vehicle limits (height, length, width,
 weight) and opening hours;
 Atout France on the classification, the pitches and the postal address; the
 community on what visitors know (overnight status, services, prices). The
-other sources' differing values stay visible as alternatives
-(`Place.provenance`).
+external community source (`extcom`, a partner's community) ranks just below
+Lunaway's own users on what visitors report (overnight status 0.95,
+services and prices 0.85, activities 0.8, descriptions 0.75), and low on
+what a visitor's phone or a free-text form gets wrong: its position (0.65)
+loses to OpenStreetMap's mapped geometry and to Lunaway's reviewed pins, its
+vehicle limits (0.5) to the sign OpenStreetMap maps, its kind (0.6) to the
+finer taxonomy of the others, its stars (0.2) to Atout France. A pin of
+that source carries 20 m of accuracy unless the feed says otherwise
+(`docs/feeds.md`). The other sources' differing values stay visible as
+alternatives (`Place.provenance`).
 
 ## 5. On the server
 

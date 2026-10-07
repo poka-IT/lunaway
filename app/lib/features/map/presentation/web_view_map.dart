@@ -41,7 +41,8 @@ class WebViewLunaMap extends ConsumerStatefulWidget {
   ConsumerState<WebViewLunaMap> createState() => _WebViewLunaMapState();
 }
 
-class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements LunaMapController {
+class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap>
+    implements LunaMapController {
   PlatformInAppWebViewController? _web;
   Uri? _mapPage;
   late final PlatformInAppWebViewWidget _view = PlatformInAppWebViewWidget(
@@ -65,7 +66,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       },
       onLoadStop: (_, url) {
         final loaded = url == null ? null : Uri.tryParse(url.toString());
-        if (_mapPage == null && decideMapNavigation(loaded, mapPage: null) == .allow) {
+        if (_mapPage == null &&
+            decideMapNavigation(loaded, mapPage: null) == .allow) {
           _mapPage = loaded;
         }
         if (_onMapPage(loaded)) {
@@ -110,13 +112,20 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
 
   LunaMapProps get _props => widget.props;
 
-  Future<Object?> _call(String body, [Map<String, Object?> arguments = const {}]) async {
+  Future<Object?> _call(
+    String body, [
+    Map<String, Object?> arguments = const {},
+  ]) async {
     final web = _web;
     if (web == null) return null;
     // The bridge only ever talks to the map page.
     final current = await web.getUrl();
-    if (!_onMapPage(current == null ? null : Uri.tryParse(current.toString()))) return null;
-    final result = await web.callAsyncJavaScript(functionBody: body, arguments: arguments);
+    if (!_onMapPage(current == null ? null : Uri.tryParse(current.toString())))
+      return null;
+    final result = await web.callAsyncJavaScript(
+      functionBody: body,
+      arguments: arguments,
+    );
     if (result?.error != null) _log.warning('map js error: ${result!.error}');
     return result?.value;
   }
@@ -133,7 +142,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'lon': _props.initialCenter.lon,
         'zoom': _props.initialZoom,
         'pixelRatio': ratio,
-        'images': {for (final e in images.entries) e.key: base64Encode(e.value)},
+        'images': {
+          for (final e in images.entries) e.key: base64Encode(e.value),
+        },
         'spec': _spec(
           dark: _props.dark,
           language: _props.language,
@@ -162,7 +173,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'clusterSource': MapStyle.placesSource,
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
-    'tappable': [...MapStyle.tappableLayers, if (pois != null) ...PoiMapStyle.tappable],
+    'tappable': [
+      ...MapStyle.tappableLayers,
+      if (pois != null) ...PoiMapStyle.tappable,
+    ],
     if (pois != null)
       'pois': {
         'source': PoiMapStyle.source,
@@ -277,6 +291,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'layout': _poiDotsLayout,
     },
     {
+      'id': PoiMapStyle.vendingDotsLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.source,
+      'source-layer': PoiMapStyle.vendingClustersLayer,
+      'maxzoom': PoiMapStyle.pointsMinZoom,
+      'filter': PoiMapStyle.vendingDotsFilter(view),
+      'layout': {..._poiDotsLayout, 'icon-image': PoiMapStyle.vendingDotImage},
+    },
+    {
       'id': PoiMapStyle.quietLayerId,
       'type': 'symbol',
       'source': PoiMapStyle.source,
@@ -318,7 +341,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     },
   ];
 
-  static Map<String, Object?> _poiPinsLayout(PoiLayerView view, {bool quiet = false}) => {
+  static Map<String, Object?> _poiPinsLayout(
+    PoiLayerView view, {
+    bool quiet = false,
+  }) => {
     'icon-image': PoiMapStyle.iconImage(quiet: quiet),
     'icon-anchor': 'bottom',
     'icon-padding': 1,
@@ -337,6 +363,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   static Map<String, Object?> _poiUpdate(PoiLayerView view) => {
     'filters': {
       PoiMapStyle.dotsLayerId: PoiMapStyle.dotsFilter(view),
+      PoiMapStyle.vendingDotsLayerId: PoiMapStyle.vendingDotsFilter(view),
       PoiMapStyle.quietLayerId: PoiMapStyle.quietFilter(view),
       PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
     },
@@ -349,8 +376,17 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.pinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
     },
     'selection': PoiMapStyle.selectionCollection(view.selected),
-    'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},
-    'probe': {'category': view.category?.code, 'filter': PoiMapStyle.probeFilter(view)},
+    'data': {
+      PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels),
+    },
+    // The page reads the points again when this key changes at the same
+    // camera: a kind of vending machine chosen changes what is drawn.
+    'probe': {
+      'category': view.category == PoiCategory.vending
+          ? view.vending?.code ?? view.category!.code
+          : view.category?.code,
+      'filter': PoiMapStyle.probeFilter(view),
+    },
   };
 
   void _onEvent(List<dynamic> arguments) {
@@ -381,7 +417,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
               north: (event['north']! as num).toDouble(),
               east: (event['east']! as num).toDouble(),
             ),
-            center: LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
+            center: LatLng(
+              (event['lat']! as num).toDouble(),
+              (event['lon']! as num).toDouble(),
+            ),
             zoom: _zoom,
           ),
         );
@@ -395,12 +434,16 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         if (feature != null) _props.onPoiTap?.call(feature);
       case 'pois':
         final features = event['features'];
-        if (features is List<Object?>) _props.onPoisInView?.call(decodeProbe(features));
+        if (features is List<Object?>)
+          _props.onPoisInView?.call(decodeProbe(features));
       case 'empty':
         _props.onEmptyTap?.call();
       case 'longpress':
         _props.onLongPress(
-          LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
+          LatLng(
+            (event['lat']! as num).toDouble(),
+            (event['lon']! as num).toDouble(),
+          ),
         );
       case 'link':
         // A link clicked in the page (the attribution): the browser opens
@@ -453,7 +496,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     final props = _props;
     if (props.pois case final pois? when pois != _sentPois) {
       _sentPois = pois;
-      await _call('return window.lunaway.setPois(update);', {'update': _poiUpdate(pois)});
+      await _call('return window.lunaway.setPois(update);', {
+        'update': _poiUpdate(pois),
+      });
     }
     // The data goes as call arguments, which the web view serialises safely;
     // text interpolated into a script would break on quotes and accents.
@@ -468,7 +513,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
       _sentSelected = props.selectedId;
       _sentPoint = props.markedPoint;
-      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
+      final selected = props.places
+          .where((p) => p.id == props.selectedId)
+          .firstOrNull;
       await _call('return window.lunaway.setSelection(data);', {
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });
@@ -514,11 +561,14 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   @override
   Future<LatLng?> locateUser() async {
     try {
-      final position = await GeolocatorPlatform.instance.getCurrentPosition().timeout(
-        const Duration(seconds: 15),
-      );
+      final position = await GeolocatorPlatform.instance
+          .getCurrentPosition()
+          .timeout(const Duration(seconds: 15));
       final at = LatLng(position.latitude, position.longitude);
-      await _call('return window.lunaway.showPosition(lat, lon);', {'lat': at.lat, 'lon': at.lon});
+      await _call('return window.lunaway.showPosition(lat, lon);', {
+        'lat': at.lat,
+        'lon': at.lon,
+      });
       return at;
     } on Object catch (e) {
       _log.info('no position: $e');

@@ -724,6 +724,17 @@ impl Account {
         self.viewer.account.created_at
     }
 
+    /// When the account's current recovery code was made (the date of its
+    /// paper card, the same on every device); null when it has none. Only
+    /// the account itself reads it: `Account` is always the viewer's.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn recovery_code_created_at(&self, ctx: &Context<'_>) -> Result<Option<DateTime<Utc>>> {
+        let (pool, _permit) = db(ctx).await?;
+        lunaway_db::accounts::recovery_code_created_at(pool, self.viewer.id())
+            .await
+            .map_err(|e| internal(&e))
+    }
+
     /// The authors this account mutes.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn muted_authors(&self, ctx: &Context<'_>) -> Result<Vec<Author>> {

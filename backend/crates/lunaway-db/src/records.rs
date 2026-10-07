@@ -90,6 +90,43 @@ async fn upsert_batch(
     source: &SourceId,
     batch: &[NewRecord<'_>],
 ) -> Result<UpsertStats, DbError> {
+    let mut tx = crate::begin_locked(pool).await?;
+    let stats = write_batch(&mut tx, source, batch).await?;
+    tx.commit().await?;
+    Ok(stats)
+}
+
+/// Inserts or updates `records` of `source` as [`upsert`] does, unless the
+/// source is hidden (`source_switches`): then nothing is written and the
+/// answer is `None`. The check and the writes of a batch share one
+/// transaction under the writers' lock, so a purge cannot fall between
+/// them and see its records filled again.
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails; the batches already written stay.
+pub async fn upsert_unless_hidden(
+    pool: &PgPool,
+    source: &SourceId,
+    records: &[NewRecord<'_>],
+) -> Result<Option<UpsertStats>, DbError> {
+    let mut stats = UpsertStats::default();
+    for batch in records.chunks(BATCH) {
+        let mut tx = crate::begin_locked(pool).await?;
+        if crate::extcom::is_hidden(&mut tx, source).await? {
+            return Ok(None);
+        }
+        stats += write_batch(&mut tx, source, batch).await?;
+        tx.commit().await?;
+    }
+    Ok(Some(stats))
+}
+
+async fn write_batch(
+    tx: &mut sqlx::PgConnection,
+    source: &SourceId,
+    batch: &[NewRecord<'_>],
+) -> Result<UpsertStats, DbError> {
     let n = batch.len();
     let mut ids = Vec::with_capacity(n);
     let mut external_ids = Vec::with_capacity(n);
@@ -117,7 +154,6 @@ async fn upsert_batch(
         raws.push(r.raw.clone());
         fetched.push(r.fetched_at);
     }
-    let mut tx = crate::begin_locked(pool).await?;
     // A row is written only when the source says something new of it: a
     // rewrite of every row at each import doubled the table until the next
     // vacuum. The date of the read itself goes to `source_reads` once per
@@ -178,7 +214,6 @@ async fn upsert_batch(
     )
     .fetch_all(&mut *tx)
     .await?;
-    tx.commit().await?;
     Ok(UpsertStats::of(
         n,
         rows.iter().map(|r| (r.inserted, r.touched)),

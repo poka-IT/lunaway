@@ -35,17 +35,24 @@ String poiTileJsonUrl(Ref ref) {
 /// only the open ones.
 @immutable
 final class PoiLayerChoice {
-  const new({this.category, this.openNowOnly = false});
+  const new({this.category, this.vending, this.openNowOnly = false});
 
   final PoiCategory? category;
+
+  /// With the vending machines on, the one kind shown alone (one of
+  /// [PoiKind.vendingChoices]); null shows them all.
+  final PoiKind? vending;
   final bool openNowOnly;
 
   @override
   bool operator ==(Object other) =>
-      other is PoiLayerChoice && other.category == category && other.openNowOnly == openNowOnly;
+      other is PoiLayerChoice &&
+      other.category == category &&
+      other.vending == vending &&
+      other.openNowOnly == openNowOnly;
 
   @override
-  int get hashCode => Object.hash(category, openNowOnly);
+  int get hashCode => Object.hash(category, vending, openNowOnly);
 }
 
 // keepAlive: the chip stays on while the user visits another tab.
@@ -59,8 +66,24 @@ class PoiLayer extends _$PoiLayer {
       ? const PoiLayerChoice()
       : PoiLayerChoice(category: category, openNowOnly: state.openNowOnly);
 
-  void setOpenNowOnly({required bool on}) =>
-      state = PoiLayerChoice(category: state.category, openNowOnly: on);
+  /// Turns the vending machines on, only those of [kind] when given.
+  void showVending(PoiKind? kind) {
+    assert(
+      kind == null || PoiKind.vendingChoices.contains(kind),
+      'not a vending choice: $kind',
+    );
+    state = PoiLayerChoice(
+      category: PoiCategory.vending,
+      vending: kind,
+      openNowOnly: state.openNowOnly,
+    );
+  }
+
+  void setOpenNowOnly({required bool on}) => state = PoiLayerChoice(
+    category: state.category,
+    vending: state.vending,
+    openNowOnly: on,
+  );
 
   void clear() => state = const PoiLayerChoice();
 }
@@ -86,7 +109,11 @@ PoiLayerState poiLayerState(Ref ref) {
   if (features.isEmpty) return PoiLayerState.empty;
   final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
   final places = ref.watch(mapPlacesProvider).value ?? const [];
-  return computePoiLayerState(features, now, places: [for (final p in places) p.position]);
+  return computePoiLayerState(
+    features,
+    now,
+    places: [for (final p in places) p.position],
+  );
 }
 
 /// Whether it is night now, when what is open around the clock comes first.
@@ -176,7 +203,9 @@ Future<List<Poi>?> fuelStationsInView(Ref ref) async {
   if (ref.watch(poiLayerProvider).category != PoiCategory.fuel) return const [];
   final viewport = ref.watch(viewportProvider);
   if (viewport == null || viewport.zoom < fuelStationsMinZoom) return const [];
-  return await ref.watch(fuelStationsProvider(fuelQueryBox(viewport.bounds)).future);
+  return await ref.watch(
+    fuelStationsProvider(fuelQueryBox(viewport.bounds)).future,
+  );
 }
 
 /// The cheapest offers of the chosen fuel among the stations of the view
@@ -216,7 +245,8 @@ List<FuelLabel> fuelLabels(Ref ref, String language) {
   final priced = [
     for (final s in stations)
       if (view.contains(s.position))
-        if (s.fuel?.prices.where((p) => p.fuel == fuel).firstOrNull case final price?)
+        if (s.fuel?.prices.where((p) => p.fuel == fuel).firstOrNull
+            case final price?)
           // Out of it for now, its last price would mislead: the list says
           // so in words, the map shows none.
           if (s.fuel!.shortageOf(fuel) == null) (s, price.priceEur),
@@ -225,6 +255,11 @@ List<FuelLabel> fuelLabels(Ref ref, String language) {
   final format = NumberFormat('0.000', language);
   return [
     for (final (s, p) in priced)
-      FuelLabel(id: s.id, position: s.position, text: format.format(p), rank: priceRank(p, prices)),
+      FuelLabel(
+        id: s.id,
+        position: s.position,
+        text: format.format(p),
+        rank: priceRank(p, prices),
+      ),
   ];
 }

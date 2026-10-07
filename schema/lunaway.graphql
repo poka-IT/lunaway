@@ -23,6 +23,12 @@ type Account {
 	"""
 	createdAt: DateTime!
 	"""
+	When the account's current recovery code was made (the date of its
+	paper card, the same on every device); null when it has none. Only
+	the account itself reads it: `Account` is always the viewer's.
+	"""
+	recoveryCodeCreatedAt: DateTime
+	"""
 	The authors this account mutes.
 	"""
 	mutedAuthors: [Author!]!
@@ -722,6 +728,128 @@ type ExternalLink {
 	A short neutral label (`OpenStreetMap`, `Wikidata`, `Wikipedia`).
 	"""
 	label: String!
+}
+
+"""
+A photo from a partner's platform. Lunaway downloads it the first time
+a device asks for it (the URLs below lead to the API's photo proxy
+until then), re-encodes it without its metadata and serves it from its
+own host: a device never reaches the partner.
+"""
+type ExternalPhoto {
+	"""
+	Stable identifier.
+	"""
+	id: UUID!
+	"""
+	The source (`extcom`).
+	"""
+	sourceId: String!
+	"""
+	The source's name to show with the photo.
+	"""
+	sourceLabel: String!
+	"""
+	The author's pseudonym on the partner's platform.
+	"""
+	authorName: String
+	"""
+	The photo's licence, or the reference of the agreement it came
+	under.
+	"""
+	licence: String!
+	"""
+	When it was taken, when the partner says.
+	"""
+	takenAt: DateTime
+	"""
+	The 512-pixel thumbnail.
+	"""
+	thumbUrl: String!
+	"""
+	The 2048-pixel image.
+	"""
+	largeUrl: String!
+	"""
+	Width of the large image, pixels; null until first downloaded.
+	"""
+	width: Int
+	"""
+	Height of the large image, pixels; null until first downloaded.
+	"""
+	height: Int
+	"""
+	ThumbHash of the image, base64; null until first downloaded.
+	"""
+	thumbhash: String
+}
+
+type ExternalReview {
+	"""
+	Stable identifier.
+	"""
+	id: UUID!
+	"""
+	The source (`extcom`); `Query.sources` gives its licence and the
+	attribution its agreement words.
+	"""
+	sourceId: String!
+	"""
+	The source's name to show beside the review ("Source communautaire
+	externe"); the app may translate it by `sourceId`.
+	"""
+	sourceLabel: String!
+	"""
+	The author's pseudonym on the partner's platform; null when the
+	partner gave none.
+	"""
+	authorName: String
+	"""
+	Stars, 1 to 5; null for a text without a rating.
+	"""
+	rating: Int
+	"""
+	The text, plain.
+	"""
+	text: String!
+	"""
+	The language of the text (BCP 47), when the partner says.
+	"""
+	lang: String
+	"""
+	The author's vehicle, when the partner says.
+	"""
+	authorVehicle: VehicleKind
+	"""
+	When it was written.
+	"""
+	writtenAt: DateTime!
+	"""
+	The reference of the agreement it came under.
+	"""
+	licence: String!
+}
+
+"""
+A page of a partner's reviews, newest first.
+"""
+type ExternalReviewConnection {
+	"""
+	The reviews.
+	"""
+	nodes: [ExternalReview!]!
+	"""
+	Pass it as `after` for the next page; null on an empty page.
+	"""
+	endCursor: String
+	"""
+	Whether another page follows.
+	"""
+	hasNextPage: Boolean!
+	"""
+	Reviews in the whole list.
+	"""
+	totalCount: Int!
 }
 
 """
@@ -2172,6 +2300,26 @@ type Place {
 	"""
 	reviews(first: Int = 20, after: String): ReviewConnection!
 	"""
+	The reviews with text of a partner's community (the external
+	community source, `extcom`), newest first, 50 per page at most, each
+	with its author's pseudonym and the source's label. Read per place
+	when its card opens: the change feed, the packs and the map tiles
+	never carry them. Empty while the source is hidden.
+	"""
+	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
+	"""
+	What a partner's community says of the place's ratings as a whole,
+	by source (more ratings than the reviews it hands over). Read per
+	place, like `externalReviews`; empty while the source is hidden.
+	"""
+	externalRatings: [SourceRating!]!
+	"""
+	The photos of a partner's community, newest first (50 at most),
+	each with its author's pseudonym and the source's label. Read per
+	place, like `externalReviews`; empty while the source is hidden.
+	"""
+	externalPhotos: [ExternalPhoto!]!
+	"""
 	The caller's own rating or review of the place, whatever its status;
 	null when anonymous or when there is none.
 	"""
@@ -2942,7 +3090,8 @@ type PoiLayer {
 	"""
 	Lowest zoom served: clusters per category and grid cell below
 	`pointMinZoom` (layer `poi_clusters`, properties `category`,
-	`count`).
+	`count`), and the food vending machines per kind (layer
+	`poi_vending_clusters`, properties `kind`, `count`).
 	"""
 	minZoom: Int!
 	"""

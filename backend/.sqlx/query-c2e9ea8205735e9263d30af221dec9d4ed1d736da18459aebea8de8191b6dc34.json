@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records SET needs_conflation = true\n        WHERE source_id = $1 AND taken_down_at IS NULL AND NOT needs_conflation\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2e9ea8205735e9263d30af221dec9d4ed1d736da18459aebea8de8191b6dc34"
+}
