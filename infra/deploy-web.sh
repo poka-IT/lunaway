@@ -46,10 +46,10 @@ fi
 if [ "$kind" = app ]; then
   # The startup files get names that carry their digest (served immutable)
   # and every text file a Brotli copy, once per build: a directory passed
-  # in that already went through it keeps its names.
-  if [ ! -f "$dir/hashed.txt" ]; then
-    python3 "$LUNAWAY_REPO_DIR/app/tool/web/fingerprint.py" --compress "$dir" || die "the build was not fingerprinted"
-  fi
+  # in that already went through it keeps its names, and the renamed files
+  # an earlier run left in the build's output go first.
+  python3 "$LUNAWAY_REPO_DIR/app/tool/web/fingerprint.py" --compress "$dir" || die "the build was not fingerprinted"
+  grep -q 'src="flutter_bootstrap\.[0-9a-f]\{12\}\.js"' "$dir/index.html" || die "$dir/index.html names no fingerprinted bootstrap"
   # The service worker that serves a second visit from the browser's cache
   # names every other file of this build, so it is written last.
   python3 "$LUNAWAY_REPO_DIR/app/tool/web/service_worker.py" "$dir" || die "the service worker was not written"

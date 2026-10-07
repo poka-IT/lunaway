@@ -57,6 +57,10 @@ class BuildError(Exception):
     pass
 
 
+class AlreadyDone(Exception):
+    """The page names renamed files already: a release passed in again."""
+
+
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:DIGITS]
 
@@ -110,6 +114,26 @@ def fingerprint(root: str) -> list[str]:
     b = Build(root)
     if not b.exists("index.html"):
         raise BuildError(f"no index.html in {root}")
+    if re.search(r'src="flutter_bootstrap\.[0-9a-f]{%d}\.js"' % DIGITS, b.read("index.html")):
+        raise AlreadyDone()
+    # `flutter build web` writes over its output without emptying it: the
+    # renamed files of an earlier run of this tool are still there, listed
+    # in its hashed.txt, and go before this build is renamed.
+    stale = b.path("hashed.txt")
+    if os.path.isfile(stale):
+        with open(stale) as f:
+            listed = [line.strip() for line in f if line.strip()]
+        for rel in listed:
+            if not HASHED.search(rel) or ".." in rel.split("/"):
+                raise BuildError(f"hashed.txt names {rel!r}, which this tool never writes")
+            for path in (b.path(rel), b.path(rel) + ".br"):
+                if os.path.isfile(path):
+                    os.remove(path)
+        os.remove(stale)
+        for rel in sorted({r.split("/")[0] for r in listed if r.startswith("canvaskit-")}):
+            for directory, _, _ in sorted(os.walk(b.path(rel)), key=lambda t: -len(t[0])):
+                if not os.listdir(directory):
+                    os.rmdir(directory)
     for directory, _, names in os.walk(root):
         for name in names:
             rel = os.path.relpath(os.path.join(directory, name), root).replace(os.sep, "/")
@@ -221,6 +245,8 @@ def main() -> int:
         print(f"fingerprint: {len(listed)} files renamed, listed in hashed.txt")
         if want_compress:
             print(f"fingerprint: {compress(args[0])} Brotli copies")
+    except AlreadyDone:
+        print("fingerprint: the page names renamed files already, nothing to do")
     except BuildError as e:
         print(f"fingerprint: {e}", file=sys.stderr)
         return 1
