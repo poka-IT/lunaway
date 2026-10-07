@@ -141,6 +141,80 @@ type Address {
 }
 
 """
+What an address designates.
+"""
+enum AddressKind {
+	"""
+	A house number on a street.
+	"""
+	HOUSE_NUMBER
+	"""
+	A street, at its middle.
+	"""
+	STREET
+	"""
+	A named place smaller than a town: a hamlet, a "lieu-dit", a
+	district.
+	"""
+	LOCALITY
+	"""
+	A town, a village, a municipality.
+	"""
+	TOWN
+	"""
+	The area of a postcode: `name` is the postcode, `city` its town.
+	"""
+	POSTCODE
+	"""
+	A county, a region, a state, a country.
+	"""
+	REGION
+}
+
+"""
+A postal address, a street, a town or a postcode found by a geocoder.
+"""
+type AddressMatch {
+	"""
+	What it designates.
+	"""
+	kind: AddressKind!
+	"""
+	The first line: the house number and street, the street, or the
+	name of the locality, town or area.
+	"""
+	name: String!
+	"""
+	Its postcode, when known.
+	"""
+	postcode: String
+	"""
+	Its town, when it lies in one (null for a town itself).
+	"""
+	city: String
+	"""
+	The wider area ("77, Seine-et-Marne, Île-de-France").
+	"""
+	context: String
+	"""
+	ISO 3166-1 alpha-2 country code, when known.
+	"""
+	countryCode: String
+	"""
+	Latitude.
+	"""
+	lat: Float!
+	"""
+	Longitude.
+	"""
+	lon: Float!
+	"""
+	Where it comes from, with the attribution to show with it.
+	"""
+	source: Source!
+}
+
+"""
 A value another source gave for a field, different from the one shown.
 """
 type AlternativeValue {
@@ -3346,6 +3420,25 @@ type Query {
 	"""
 	search(text: String!, near: LatLonInput, first: Int = 20): [Place!]!
 	"""
+	The map's search: the places of `search`, ranked as it ranks them,
+	then up to `addresses` postal addresses, streets, towns and
+	postcodes (10 at most): in France from the Base Adresse Nationale
+	(IGN's Géoplateforme, Licence Ouverte 2.0), elsewhere from
+	OpenStreetMap (Lunaway's Photon geocoder, ODbL), each with its
+	source. The addresses come nearest to `near` first, without a town
+	the places already show (a town whose name starts like the text,
+	with a place in it among the results); `near` is rounded by the
+	server to the nearest 0.05 degree (about 5 km) before any use, and
+	it and the text go to the geocoders and are kept nowhere. A text of
+	fewer than 3 letters or digits asks no geocoder. The geocoders are
+	asked by one `searchAll` per request, 300 times every ten minutes
+	per client; beyond, or when one is late or down, the places come
+	with the addresses that did, and `addressesComplete` is false.
+	`language` (`fr`, `en`, `de`, `it`) names the places outside France
+	in it where OpenStreetMap does; otherwise, in their local language.
+	"""
+	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String): SearchAnswer!
+	"""
 	The signed-in account, with its level and what the next one needs.
 	`UNAUTHENTICATED` without a valid session.
 	"""
@@ -5038,6 +5131,26 @@ type RoutingInfo {
 	Typical trailers.
 	"""
 	trailerPresets: [TrailerPreset!]!
+}
+
+"""
+The map's search: places, then addresses.
+"""
+type SearchAnswer {
+	"""
+	The places, as `search` ranks them.
+	"""
+	places: [Place!]!
+	"""
+	The addresses, nearest to `near` first, without the towns the
+	places already show.
+	"""
+	addresses: [AddressMatch!]!
+	"""
+	False when a geocoder did not answer in time or is paused: the
+	addresses may be missing some. Asking again later may give them.
+	"""
+	addressesComplete: Boolean!
 }
 
 """

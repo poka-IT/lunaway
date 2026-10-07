@@ -147,6 +147,8 @@
     },
     "pointTitle": "Point choisi",
     "pointHint": "Ses coordonnées et l'itinéraire jusqu'à lui",
+    "addressSource": "Source : $attribution",
+    "placesAround": "Les lieux autour",
     "downloading": "Téléchargement des lieux de France",
     "downloadingCount(param=n)": {
       "one": "$count lieu reçu",
@@ -195,6 +197,18 @@
     "townPlaces(param=n)": {
       "one": "$n lieu",
       "other": "$n lieux"
+    },
+    "addresses": "Adresses",
+    "addressesSearching": "Recherche des adresses",
+    "addressesFailed": "Les adresses n'ont pas pu être cherchées pour l'instant.",
+    "addressSources": "Adresses : $sources",
+    "addressKind": {
+      "houseNumber": "Adresse",
+      "street": "Rue",
+      "locality": "Lieu-dit",
+      "town": "Commune",
+      "postcode": "Code postal",
+      "region": "Région"
     }
   },
   "filters": {
@@ -837,6 +851,8 @@
     "attributionIcons": "Icônes Phosphor, sous licence MIT.",
     "noTracking": "Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.",
     "attributionBdTopo": "Campings placés par leur nom : BD TOPO de l'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.",
+    "attributionAddresses": "Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l'IGN, sous Licence Ouverte 2.0.",
+    "attributionAddressesOsm": "Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.",
     "attributionPoiOdbl": "Commerces et services : OpenStreetMap, et le calendrier d'ouverture de La Poste, sous ODbL.",
     "attributionPoiLo": "Prix des carburants (ministère de l'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).",

@@ -331,6 +331,35 @@ is stopped for the run.
 | the offices' photo hosts (`content::DATATOURISME_MEDIA_HOSTS`: `*.tourinsoft.eu`, `*.tourinsoft.com`, `static.apidae-tourisme.com`, ...) | the photos | 500 ms apart; a host outside the list is left out and counted |
 | `api.mangrove.reviews` | `/reviews`, 1 000 a page (3 500 pass the 5.8 MB its host serves), the latest edit of each | 2 s apart, 11 pages a week; the terms forbid "placing an undue burden on the website" |
 
+## Addresses of the map's search
+
+`Query.searchAll` gives, under the places, the postal addresses, streets,
+towns and postcodes a geocoder finds for the text typed
+(`lunaway-api/src/geocode.rs`, ranking in `lunaway-domain/src/address.rs`).
+Nothing is stored: each search asks the geocoders, through the backend's
+Caddy (`infra/caddy/geocoders.caddy`), and the answer goes to the app with
+the source of each address, which the app shows under the list and on the
+address's page. Research and measures: plan/research/58-recherche-adresses.md.
+
+| source | content | licence | attribution | status |
+|---|---|---|---|---|
+| Base Adresse Nationale, through IGN's Géoplateforme geocoder (`data.geopf.fr/geocodage/search`, `index=address`, `autocomplete=1`) | France: house numbers, streets, localities ("lieux-dits"), municipalities, typos and missing accents forgiven (16 of 20 real addresses found to the number, the other four to the street or the town, plan/research/58) | Licence Ouverte 2.0: "Sauf indication contraire, tout le contenu de ce site est disponible sous la licence Open Licence 2.0" (data.gouv.fr page of the API, read 2026-10-07); the Géoplateforme's terms apply the Licence Ouverte of Etalab to every dataset whose producer sets no other (https://cartes.gouv.fr/cgu, "Droits des Fournisseurs de données", read 2026-10-07) | "Base Adresse Nationale, IGN Géoplateforme" | live, server side |
+| OpenStreetMap, through Lunaway's Photon (Apache 2.0) on the geocoding server, over GraphHopper's Europe database for Photon and a Morocco import of its Africa dump (`infra/geocode/`) | every other country of Europe and Morocco; French matches are left to the BAN | ODbL 1.0 (the OpenStreetMap row above) | "© OpenStreetMap contributors" | live, server side |
+
+| host | for | terms as read |
+|---|---|---|
+| `data.geopf.fr` (`/geocodage/search`) | one request per search once typing pauses, the text and the map's centre on the 0.05 degree grid, 40 a second at most for every client together, stopped for as long as a 429's `Retry-After` says | "50 requêtes par seconde depuis une même adresse IP", open access without a key (data.gouv.fr page of the API, read 2026-10-07); beyond, "une erreur HTML 429 (Too Many Requests) est envoyée en réponse à toute requête. Ce blocage intervient pour une durée de 5 secondes" (cartes.gouv.fr, "Limites d'usage des API", read 2026-10-07); the terms name commercial and non-commercial developers alike ("Développeur : Utilisateur API effectuant un développement (par exemple : site Internet, application web, application mobile) à des fins commerciales ou non", https://cartes.gouv.fr/cgu) |
+| `download1.graphhopper.com` | Photon's databases, by the geocoding server once a month: the Europe database (about 32 GB) and the Africa dump (about 600 MB), each checked against its published MD5 | "This is the download service for dumps of OpenStreetMap data, preprocessed for use with the Photon geocoder. You can use these dumps to set up your own local Photon server." (its front page, read 2026-10-07); ODbL data |
+| `github.com` | the Photon jar, pinned by its SHA-256 (`infra/geocode/version.sh`) | Apache 2.0 |
+
+Not used: the public `photon.komoot.io` ("You can use the API for your
+project, but please be fair - extensive usage will be throttled. We do not
+guarantee for the availability", its front page, read 2026-10-07) and
+Nominatim's public instance ("an absolute maximum of 1 request per second",
+"Auto-complete search: This is not yet supported by Nominatim and you must
+not implement such a service on the client side using the API",
+https://operations.osmfoundation.org/policies/nominatim/, read 2026-10-07).
+
 ## Never ingested
 
 Proprietary databases of spots, reviews and photos are not ingested, whoever

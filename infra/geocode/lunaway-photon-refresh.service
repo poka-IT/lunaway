@@ -1,0 +1,49 @@
+# Installs the newest Photon databases and switches Photon to them
+# (/usr/local/sbin/lunaway-photon-refresh). Run by
+# lunaway-photon-refresh.timer; installed by infra/server/geocode.sh. Root
+# for the switch, the restarts of photon@ over D-Bus and the removal of a
+# slot; the download, the unpacking and Photon's import run as photon
+# (setpriv, hence the two id capabilities). The sandbox keeps it to
+# /srv/photon and to HTTPS outbound.
+[Unit]
+Description=Lunaway geocoding: install the newest Photon databases
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lunaway-photon-refresh
+# About 50 minutes of download at the source's pace, 10 of unpacking, and
+# Morocco's import, three.
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=idle
+
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+PrivateDevices=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+ReadWritePaths=/srv/photon
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# Outbound: the dump's host over HTTPS, and Photon on this host for the
+# checks; never the rest of the private network or the metadata service.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost 10.42.0.4/32
+# The import of Morocco holds a JVM of 1 GB of heap.
+MemoryMax=3G

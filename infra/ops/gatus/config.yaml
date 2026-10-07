@@ -199,6 +199,61 @@ endpoints:
       - "[BODY].data.route.routes[0].distanceM > 1000"
       - "[RESPONSE_TIME] < 15000"
 
+  # The addresses of the map's search as the app asks them (docs/deploy.md,
+  # "Geocoding"): France from the Géoplateforme, the rest of Europe and
+  # Morocco from Photon on the geocoding server, each behind the backend's
+  # Caddy. addressesComplete turns false when a geocoder is late, down or
+  # paused by the Géoplateforme's limit. France checks a house number of a
+  # public building (a ministry, avenue de Ségur in Paris); Europe and
+  # Morocco a street near the point sent, which ranks it before any French
+  # match. Three searches every ten minutes are nothing to the
+  # Géoplateforme's 50 a second, nor to the quota of 300 every ten minutes
+  # per client.
+  - name: Addresses (France)
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ searchAll(text: \"20 avenue de segur 75007 paris\", addresses: 1) { addresses { name city } addressesComplete } }"
+    interval: 10m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].data.searchAll.addressesComplete == true"
+      - "[BODY].data.searchAll.addresses[0].name == 20 Avenue de Ségur"
+      - "[RESPONSE_TIME] < 2000"
+
+  - name: Addresses (Europe)
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ searchAll(text: \"unter den linden berlin\", near: {lat: 52.5, lon: 13.4}, addresses: 1, language: \"de\") { addresses { countryCode } addressesComplete } }"
+    interval: 10m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].data.searchAll.addressesComplete == true"
+      - "[BODY].data.searchAll.addresses[0].countryCode == DE"
+      - "[RESPONSE_TIME] < 2000"
+
+  - name: Addresses (Morocco)
+    group: public
+    url: "https://__API_HOST__/graphql"
+    method: POST
+    graphql: true
+    headers:
+      Content-Type: application/json
+    body: "{ searchAll(text: \"rue de fes rabat\", near: {lat: 34.0, lon: -6.85}, addresses: 1, language: \"fr\") { addresses { countryCode } addressesComplete } }"
+    interval: 10m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].data.searchAll.addressesComplete == true"
+      - "[BODY].data.searchAll.addresses[0].countryCode == MA"
+      - "[RESPONSE_TIME] < 2000"
+
   # Road events (docs/deploy.md, "Road events"). The sources come in a fixed
   # order, the DIR first and DiaLog second. ageSeconds counts from the last
   # read that succeeded: the DIR is read every 3 minutes, DiaLog every 15,

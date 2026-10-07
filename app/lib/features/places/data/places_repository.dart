@@ -1,5 +1,6 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:meta/meta.dart';
@@ -66,12 +67,16 @@ final class Municipality {
 
 @immutable
 final class SearchResults {
-  const new({this.places = const [], this.municipalities = const []});
+  const new({this.places = const [], this.municipalities = const [], this.addresses});
 
   static const empty = SearchResults();
 
   final List<PlaceSummary> places;
   final List<Municipality> municipalities;
+
+  /// The addresses the server's geocoders found with the places, when the
+  /// places came from the API; null when the device searched its own.
+  final List<AddressMatch>? addresses;
 
   bool get isEmpty => places.isEmpty && municipalities.isEmpty;
 }

@@ -32,6 +32,10 @@ abstract final class AppIcons {
   static const IconData coordinates = PhosphorRegular.gpsFix;
   static const IconData point = PhosphorFill.mapPin;
   static const IconData town = PhosphorRegular.buildings;
+  static const IconData address = PhosphorRegular.mapPin;
+  static const IconData street = PhosphorRegular.signpost;
+  static const IconData locality = PhosphorRegular.mapPinSimpleLine;
+  static const IconData region = PhosphorRegular.globeHemisphereEast;
   static const IconData openExternal = PhosphorRegular.arrowSquareOut;
   static const IconData website = PhosphorRegular.globe;
   static const IconData call = PhosphorRegular.phone;

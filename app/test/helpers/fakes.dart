@@ -14,6 +14,7 @@ import 'package:lunaway/features/places/data/place_external_source.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -186,9 +187,56 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     );
   }
 
+  /// What the server's geocoders know: [searchAll] answers those whose
+  /// name or town holds the text.
+  final List<AddressMatch> addresses = [];
+
+  /// Holds the answers of [searchAll] until it completes.
+  Completer<void>? holdSearches;
+
+  /// The language of each [searchAll].
+  final List<String?> languages = [];
+
+  /// The searches cancelled by their caller while held.
+  final List<String> aborted = [];
+
+  @override
+  Future<SearchAnswer> searchAll(
+    String text, {
+    LatLng? near,
+    bool places = true,
+    String? language,
+    Future<void>? abort,
+  }) async {
+    languages.add(language);
+    _ask('${places ? 'searchAll' : 'addresses'}:$text');
+    if (near != null) nears.add(near);
+    final hold = holdSearches;
+    if (hold != null) {
+      var cancelled = false;
+      await Future.any([hold.future, if (abort != null) abort.then((_) => cancelled = true)]);
+      if (cancelled) {
+        aborted.add(text);
+        throw GraphQLNetworkException('aborted', null);
+      }
+    }
+    final q = text.toLowerCase();
+    return SearchAnswer(
+      places: places ? await _match(text, near: near) : const [],
+      addresses: [
+        for (final a in addresses)
+          if (a.name.toLowerCase().contains(q) || (a.city ?? '').toLowerCase().contains(q)) a,
+      ],
+    );
+  }
+
   @override
   Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20}) async {
     _ask('search:$text');
+    return await _match(text, first: first);
+  }
+
+  Future<List<PlaceSummary>> _match(String text, {LatLng? near, int first = 20}) async {
     final q = text.toLowerCase();
     return [
       for (final p in _places.values)

@@ -2,12 +2,14 @@
 # shellcheck disable=SC2034 # the settings are read by the scripts that source this file
 # Shared settings and helpers of the local infra scripts. Sourced, never run.
 #
-# Two servers, one role each, on a private network (10.42.0.0/16):
+# Three servers, one role each, on a private network (10.42.0.0/16):
 #   backend   lunaway-backend-1   10.42.0.2   API, PostgreSQL + PostGIS, Caddy,
 #                                             the data pipeline (lunaway CLI),
 #                                             the basemap (pmtiles, own volume)
 #   ops       lunaway-sync-1      10.42.0.3   status page and checks (Gatus),
 #                                             replica of the nightly dumps
+#   geocode   lunaway-geocode-1   10.42.0.4   Photon, the addresses outside
+#                                             France, answering the backend only
 # The ops server reads two things from the backend over the private network,
 # each through a key forced to one read-only command (infra/server/ops-access.sh):
 # the health facts and the encrypted dumps. The backend never connects to it.
@@ -59,6 +61,9 @@ LUNAWAY_BACKEND_PRIVATE_IP="10.42.0.2"
 # Also written as is in infra/files/etc/nftables.conf (the ops server's
 # exemption from the SSH rate limit): change both together.
 LUNAWAY_OPS_PRIVATE_IP="10.42.0.3"
+# Also written as is in infra/files/roles/geocode/nftables.nft (who may ask
+# Photon) and infra/caddy/Caddyfile (the backend's way to it).
+LUNAWAY_GEOCODE_PRIVATE_IP="10.42.0.4"
 LUNAWAY_IMAGE="${LUNAWAY_IMAGE:-debian-13}"
 # The admin account on both servers. Root never logs in over SSH.
 LUNAWAY_ADMIN_USER="ops"
@@ -96,6 +101,18 @@ role_get() {
     ops:env) echo LUNAWAY_OPS ;;
     ops:backups) echo no ;;
     ops:candidates) echo "${LUNAWAY_OPS_CANDIDATES:-cax11:nbg1 cax11:fsn1 cx23:nbg1 cx23:fsn1 cax11:hel1 cx23:hel1}" ;;
+    # Photon over the Europe database: its index (about 44 GB in October
+    # 2026) on the local NVMe, which a network volume could not match for
+    # random reads, and room for the next one during a refresh. No volume:
+    # everything on it is downloaded again in an hour.
+    geocode:server) echo lunaway-geocode-1 ;;
+    geocode:firewall) echo lunaway-geocode-fw ;;
+    geocode:volume) echo "" ;;
+    geocode:private_ip) echo "$LUNAWAY_GEOCODE_PRIVATE_IP" ;;
+    geocode:alias) echo lunaway-geocode ;;
+    geocode:env) echo LUNAWAY_GEOCODE ;;
+    geocode:backups) echo no ;;
+    geocode:candidates) echo "${LUNAWAY_GEOCODE_CANDIDATES:-cx43:fsn1 cx43:nbg1 cx43:hel1}" ;;
     *) die "unknown role or field: $1 $2" ;;
   esac
 }
@@ -154,7 +171,7 @@ write_ssh_config() {
   install -d -m 0700 "$LUNAWAY_CONFIG_DIR"
   {
     echo "# Written by infra/lib.sh. Use with: ssh -F $LUNAWAY_SSH_CONFIG lunaway (or lunaway-ops)"
-    for role in backend ops; do
+    for role in backend ops geocode; do
       ip="$(role_var "$role" IPV4)"
       [ -n "$ip" ] || continue
       aliases="$(role_get "$role" alias)"

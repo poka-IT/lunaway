@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Base hardening of a Lunaway server (Debian 13, either role), run as root by
+# Base hardening of a Lunaway server (Debian 13, any role), run as root by
 # setup.sh with LUNAWAY_ROLE set.
 # Installs the files of infra/files (the ones cloud-init wrote at first boot),
 # the SSH algorithm policy once this OpenSSH is known to support it, swap on
@@ -21,7 +21,7 @@ ssh_changed=0 nft_changed=0 sysctl_changed=0 f2b_changed=0 journald_changed=0 un
 install_file files/etc/ssh/sshd_config.d/10-lunaway.conf /etc/ssh/sshd_config.d/10-lunaway.conf 0644 && ssh_changed=1
 # The role file goes in first: the base ruleset includes it, and the check
 # below parses both together before anything is loaded.
-role="${LUNAWAY_ROLE:?set LUNAWAY_ROLE (backend or ops)}"
+role="${LUNAWAY_ROLE:?set LUNAWAY_ROLE (backend, ops or geocode)}"
 [ -f "$INFRA/files/roles/$role/nftables.nft" ] || die "unknown role $role"
 install_file "files/roles/$role/nftables.nft" /etc/nftables.d/lunaway-role.nft 0644 && nft_changed=1
 nft -c -f "$INFRA/files/etc/nftables.conf" || die "nftables ruleset does not parse"

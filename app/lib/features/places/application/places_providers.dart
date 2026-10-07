@@ -15,6 +15,7 @@ import 'package:lunaway/features/places/data/online_places.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -491,9 +492,10 @@ class PlaceReviews extends _$PlaceReviews {
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
-/// else the API's once typing pauses.
+/// else the API's once typing pauses, with the addresses, named in
+/// [language] abroad where the data has it.
 @riverpod
-Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near}) async {
+Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String? language}) async {
   final local = ref.watch(placesRepositoryProvider);
   final fromTiles = ref.watch(placesFromTilesProvider);
   if (!fromTiles || await local.watchCount().first > 0) {
@@ -506,8 +508,86 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near}) async
   final centre = ref.read(viewportProvider)?.center;
   await Future<void>.delayed(const Duration(milliseconds: 300));
   if (!ref.mounted) return SearchResults.empty;
-  final places = await ref.read(onlinePlacesProvider).search(text, near: centre);
-  return SearchResults(places: places, municipalities: townsOf(places, text));
+  // One request for the places and the addresses; a query the user typed
+  // past is cancelled with its provider.
+  final abort = Completer<void>();
+  ref.onDispose(abort.complete);
+  final answer = await ref
+      .read(onlinePlacesProvider)
+      .searchAll(text, near: centre, language: language, abort: abort.future);
+  return SearchResults(
+    places: answer.places,
+    municipalities: townsOf(answer.places, text),
+    addresses: answer.addresses,
+  );
+}
+
+/// The addresses under the places of the map's search: those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, asked from the map's centre on the search
+/// grid as the places are, and given up after [addressWait]. Offline, or for
+/// fewer than three characters, none: the places and towns the device holds
+/// still answer. A query the user typed past is cancelled.
+@Riverpod(retry: noRetry)
+Future<List<AddressMatch>> addressSearch(
+  Ref ref,
+  String query, {
+  LatLng? near,
+  String? language,
+}) async {
+  final results = ref.watch(searchResultsProvider(query, near: near, language: language).future);
+  final online = ref.watch(placesFromTilesProvider);
+  final answered = (await results).addresses;
+  if (answered != null) return answered;
+  final text = query.trim();
+  if (!online || text.length < 3) return const [];
+  final centre = ref.read(viewportProvider)?.center;
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  if (!ref.mounted) return const [];
+  // Cancelled when the user types past it, or when it takes longer than
+  // the server's own bound on its geocoders could explain: a weak network.
+  final abort = Completer<void>();
+  void cancel() {
+    if (!abort.isCompleted) abort.complete();
+  }
+
+  ref.onDispose(cancel);
+  final late = Timer(addressWait, cancel);
+  ref.onDispose(late.cancel);
+  final answer = await ref
+      .read(onlinePlacesProvider)
+      .searchAll(text, near: centre, places: false, language: language, abort: abort.future);
+  late.cancel();
+  return answer.addresses;
+}
+
+/// The longest wait for the addresses of a device that searched its own
+/// places: the server gives its geocoders 700 ms each.
+const addressWait = Duration(seconds: 5);
+
+/// [addresses] without the towns already listed in [towns] (the same name
+/// and, when both say, the same postcode): the device lists its own towns,
+/// which the server did not see.
+List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipality> towns) {
+  bool shown(AddressMatch a) {
+    final name = switch (a.kind) {
+      AddressKind.town => a.name,
+      AddressKind.postcode => a.city,
+      _ => null,
+    };
+    if (name == null) return false;
+    final folded = foldForSearch(name);
+    return towns.any(
+      (t) =>
+          foldForSearch(t.name) == folded &&
+          (t.postcode == null || a.postcode == null || t.postcode == a.postcode),
+    );
+  }
+
+  return [
+    for (final a in addresses)
+      if (!shown(a)) a,
+  ];
 }
 
 /// The towns among [places] whose name starts like [text], at the middle

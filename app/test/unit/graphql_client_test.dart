@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -218,6 +219,36 @@ void main() {
     );
   });
 
+  group('a request its caller cancels', () {
+    const addresses = '{"data":{"searchAll":{"addresses":[]}}}';
+
+    test('carries its trigger to the HTTP client and ends as a network failure', () async {
+      final requests = <http.BaseRequest>[];
+      final c = GraphQLClient(
+        endpoint: Uri.parse('http://127.0.0.1:8484/graphql'),
+        httpClient: _HeldClient(requests),
+        userAgent: 'x',
+      );
+      final abort = Completer<void>();
+      final call = c.execute(searchAddressesOperation, {'text': 'segur'}, const {}, abort.future);
+      await Future<void>.delayed(Duration.zero);
+      expect(requests.single, isA<http.Abortable>());
+      final body = jsonDecode((requests.single as http.Request).body) as Map<String, dynamic>;
+      expect(body['variables'], {
+        'text': 'segur',
+      }, reason: 'the same body as a request that cannot be cancelled');
+      abort.complete();
+      await expectLater(call, throwsA(isA<GraphQLNetworkException>()));
+    });
+
+    test('without a trigger, goes and answers as before', () async {
+      final c = client((_) => json(addresses));
+      final answer = await c.execute(searchAddressesOperation, {'text': 'segur'});
+      expect(answer.addresses, isEmpty);
+      expect(sent.single, isNot(isA<http.Abortable>()));
+    });
+  });
+
   test('a dropped connection is a network exception', () async {
     final c = GraphQLClient(
       endpoint: Uri.parse('http://127.0.0.1:1/graphql'),
@@ -418,4 +449,20 @@ mutation Edit($id: UUID!, $patch: PatchInput!, $key: String) {
       expect(sent, hasLength(2));
     });
   });
+}
+
+/// An HTTP client whose answers never come: a request ends only when its
+/// caller cancels it, as the platform clients end an [http.Abortable].
+final class _HeldClient extends http.BaseClient {
+  new(this.requests);
+
+  final List<http.BaseRequest> requests;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    final trigger = request is http.Abortable ? request.abortTrigger : null;
+    await (trigger ?? Completer<void>().future);
+    throw http.RequestAbortedException(request.url);
+  }
 }

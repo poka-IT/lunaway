@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Installs the newest Photon databases and switches Photon to them
+# (/usr/local/sbin/lunaway-photon-refresh [europe|morocco], both by
+# default; run by its monthly timer on the geocoding server;
+# docs/deploy.md, "Geocoding").
+#
+#   europe   GraphHopper's ready-made Europe database (about 32 GB to
+#            download, 44 GB unpacked), checked against its published MD5
+#   morocco  imported here from GraphHopper's Africa dump (about 600 MB,
+#            MD5 checked too), Morocco alone (-country-codes ma), in about
+#            three minutes
+#
+# Each instance has two slots, /srv/photon/<instance>/a and b, and
+# /srv/photon/<instance>/current pointing at the one served. A refresh
+# fills the other slot, switches, restarts photon@<instance> and runs
+# searches that must answer; when they do not, the previous slot serves
+# again. Nothing is done when the dump served is the one published.
+set -euo pipefail
+# shellcheck source=infra/geocode/version.sh
+. /usr/local/share/lunaway/geocode/version.sh
+
+log() { echo "lunaway-photon-refresh: $*"; }
+
+# as_photon CMD...: CMD as the photon account. What comes from the network
+# (the download, its unpacking, Photon's import) never runs as root; root
+# keeps the switch, the restart and the removal of a slot.
+as_photon() { setpriv --reuid=photon --regid=photon --clear-groups -- "$@"; }
+
+# answers PORT QUERY:CC...: Photon on PORT is up and finds each query in
+# its country.
+answers() {
+  local port="$1" pair q cc
+  shift
+  for _ in $(seq 1 60); do
+    curl -fsS -o /dev/null --max-time 2 "http://10.42.0.4:$port/api?q=test&limit=1" 2>/dev/null && break
+    sleep 5
+  done
+  for pair in "$@"; do
+    q="${pair%%:*}"
+    cc="${pair##*:}"
+    curl -fsS --max-time 5 -G "http://10.42.0.4:$port/api" --data-urlencode "q=$q" -d limit=1 \
+      | grep -q "\"countrycode\":\"$cc\"" || { log "no $cc answer for \"$q\" on port $port"; return 1; }
+  done
+}
+
+# empty_slot INSTANCE SLOT: removes the slot by its literal name.
+empty_slot() {
+  case "$1:$2" in
+    europe:a) rm -rf --one-file-system /srv/photon/europe/a ;;
+    europe:b) rm -rf --one-file-system /srv/photon/europe/b ;;
+    morocco:a) rm -rf --one-file-system /srv/photon/morocco/a ;;
+    morocco:b) rm -rf --one-file-system /srv/photon/morocco/b ;;
+    *) log "no slot $1:$2"; return 1 ;;
+  esac
+}
+
+refresh() {
+  local instance="$1" url port min_free_gb dir current next remote_md5 free_gb
+  case "$instance" in
+    europe) url="$PHOTON_DUMP_URL" port=2322 min_free_gb=85 ;;
+    morocco) url="$PHOTON_MOROCCO_DUMP_URL" port=2323 min_free_gb=5 ;;
+    *) log "unknown instance $instance"; return 1 ;;
+  esac
+  dir="/srv/photon/$instance"
+  install -d -m 0750 -o photon -g photon "$dir"
+  current="$(readlink "$dir/current" 2>/dev/null || true)"
+  case "$current" in
+    "$dir/a") next=b ;;
+    *) next=a ;;
+  esac
+
+  remote_md5="$(curl -fsS --max-time 60 "$url.md5" | awk '{ print $1 }')"
+  [[ "$remote_md5" =~ ^[0-9a-f]{32}$ ]] || { log "$instance: no checksum published beside the dump"; return 1; }
+  if [ -n "$current" ] && [ "$(cat "$current/SOURCE_MD5" 2>/dev/null || true)" = "$remote_md5" ]; then
+    log "$instance: the database served is the one published ($remote_md5)"
+    return 0
+  fi
+
+  empty_slot "$instance" "$next"
+  rm -f "$dir/download"
+  free_gb="$(df --output=avail -BG /srv/photon | tail -n 1 | tr -dc '0-9')"
+  [ "$free_gb" -ge "$min_free_gb" ] || { log "$instance: only $free_gb GB free, $min_free_gb needed"; return 1; }
+
+  log "$instance: downloading $url"
+  as_photon curl -fsS --retry 3 --retry-delay 30 -o "$dir/download" "$url"
+  echo "$remote_md5  $dir/download" | md5sum -c --quiet - \
+    || { rm -f "$dir/download"; log "$instance: the download does not match its MD5"; return 1; }
+  install -d -m 0750 -o photon -g photon "$dir/$next"
+  case "$instance" in
+    europe)
+      log "europe: unpacking into $dir/$next"
+      as_photon lbzip2 -dc "$dir/download" \
+        | as_photon tar -x -C "$dir/$next" --no-same-owner --no-same-permissions
+      ;;
+    morocco)
+      log "morocco: importing into $dir/$next"
+      as_photon zstd -dc "$dir/download" \
+        | as_photon java -Xmx1g -jar /opt/photon/photon.jar import -import-file - -country-codes ma \
+          -data-dir "$dir/$next" -j 2
+      ;;
+  esac
+  rm -f "$dir/download"
+  [ -d "$dir/$next/photon_data" ] || { log "$instance: no photon_data in the new database"; return 1; }
+  echo "$remote_md5" > "$dir/$next/SOURCE_MD5"
+  date -u +%Y-%m-%dT%H:%M:%SZ > "$dir/$next/INSTALLED_AT"
+  chown photon:photon "$dir/$next/SOURCE_MD5" "$dir/$next/INSTALLED_AT"
+
+  ln -sfn "$dir/$next" "$dir/current.new"
+  mv -T "$dir/current.new" "$dir/current"
+  systemctl restart "photon@$instance"
+  local checks
+  case "$instance" in
+    europe) checks=("unter den linden berlin:DE" "zaragoza:ES" "via del corso roma:IT") ;;
+    morocco) checks=("chefchaouen:MA" "avenue mohammed v rabat:MA") ;;
+  esac
+  if answers "$port" "${checks[@]}"; then
+    log "$instance: serving $dir/$next ($remote_md5)"
+    return 0
+  fi
+  if [ -n "$current" ]; then
+    log "$instance: the new database does not answer, back to $current"
+    ln -sfn "$current" "$dir/current.new"
+    mv -T "$dir/current.new" "$dir/current"
+    systemctl restart "photon@$instance"
+  fi
+  return 1
+}
+
+exec 9>/srv/photon/.lock
+flock -n 9 || { log "another refresh holds the lock"; exit 0; }
+status=0
+for instance in "${@:-morocco europe}"; do
+  for one in $instance; do
+    refresh "$one" || status=1
+  done
+done
+exit "$status"
