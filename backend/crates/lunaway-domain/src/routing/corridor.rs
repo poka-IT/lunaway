@@ -543,6 +543,27 @@ pub fn exclusion_ring(center: Position, radius_m: f64) -> Vec<Position> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn the_marks_of_old_queries_never_hide_a_segment() {
+        let mut seen = Seen {
+            call: 0,
+            marks: Vec::new(),
+        };
+        seen.start(3);
+        assert!(seen.first(1) && !seen.first(1), "once per query");
+        seen.start(5);
+        assert!(seen.first(1), "a new query meets it again");
+        assert!(seen.first(4), "on a longer line too");
+        // Four billion queries later the counter starts again: a mark of
+        // the query that bore the same number long ago must not count.
+        seen.marks[3] = 1;
+        seen.call = u32::MAX;
+        seen.first(2);
+        seen.start(5);
+        assert_eq!(seen.call, 1);
+        assert!(seen.first(2) && seen.first(3), "{:?}", seen.marks);
+    }
+
     /// A point `east` and `north` metres from `origin`.
     fn at(origin: Position, east: f64, north: f64) -> Position {
         let k = metres_per_degree();

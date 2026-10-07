@@ -304,7 +304,9 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
     forced.only = vec!["dialog".into()];
     // An order disappears from DiaLog: it ended.
     let gone = {
-        let now = dialog_now();
+        // The text served, moved once: the remaining orders keep their
+        // instants and only the one taken out changes.
+        let now = f.dialog.lock().unwrap().clone();
         let start = now.find("<trafficRegulationOrder ").unwrap();
         let end = start
             + now[start..].find("</trafficRegulationOrder>").unwrap()
