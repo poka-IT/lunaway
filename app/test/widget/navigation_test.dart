@@ -1429,8 +1429,9 @@ void main() {
         await tester.pump();
         expect(find.byType(MarkTip), findsOneWidget);
         SchematicRouteMap.last!.onEmptyTap!(const LatLng(45.84, 1.27), 16);
-        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         expect(find.byType(MarkTip), findsNothing, reason: 'a tap elsewhere closes it');
+        expect(find.text('Point de la carte'), findsNothing, reason: 'and opens nothing else');
         SchematicRouteMap.last!.onMarkTap!('destination', at: const Offset(200, 120));
         await tester.pump();
         expect(inTip('Arrivée'), findsOneWidget);

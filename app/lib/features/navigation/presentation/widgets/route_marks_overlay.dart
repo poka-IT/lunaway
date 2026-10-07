@@ -33,6 +33,7 @@ class RouteMarksMap extends ConsumerStatefulWidget {
     required this.markers,
     required this.base,
     required this.onPointTap,
+    this.onAnyMarkTap,
     this.plan,
     super.key,
   });
@@ -45,6 +46,9 @@ class RouteMarksMap extends ConsumerStatefulWidget {
 
   /// A place, a station or a stop was tapped.
   final ValueChanged<String> onPointTap;
+
+  /// Any mark was tapped: a tap on bare map that waits is no longer one.
+  final VoidCallback? onAnyMarkTap;
 
   /// The answer the marks come from, for the sources of road events.
   final RoutePlan? plan;
@@ -87,6 +91,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   void _onTap(String id, {Offset? at}) {
     final marker = _byId[id];
     if (marker == null) return;
+    widget.onAnyMarkTap?.call();
     switch (marker.subject) {
       case PlaceSubject() || FuelSubject() || StopSubject():
         setState(() => _callout = null);
@@ -145,6 +150,8 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
           _close();
           return;
         }
+        // A mark clicked with a mouse goes back to rest with its row.
+        _focus.select(null);
         b.onEmptyTap?.call(at, zoom);
       },
       onCameraMove: _close,

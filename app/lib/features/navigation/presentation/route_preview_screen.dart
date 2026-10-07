@@ -360,8 +360,8 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
           unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
         }),
       ),
+      onAnyMarkTap: _gate.cancel,
       onPointTap: (id) {
-        _gate.cancel();
         if (points.pointOf(id, context.t, now) case final point?) {
           unawaited(openPreviewPoint(context, ref, target, point));
         }
