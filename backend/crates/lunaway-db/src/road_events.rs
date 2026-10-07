@@ -1391,7 +1391,9 @@ impl RawRow {
 /// The live events near a route: those whose matched lines lie within
 /// `within_m` of it, and those whose own geometry lies within `wide_m`
 /// (slip road events are placed on the main road up to a kilometre from
-/// the slip roads; unmatched events warn from a little farther).
+/// the slip roads; unmatched events warn from a little farther), and a few
+/// more a little farther still: the caller matches each with its own
+/// tolerance, under these distances.
 ///
 /// # Errors
 ///
@@ -1411,19 +1413,19 @@ pub async fn events_near(
             limit: MAX_ROUTE_POINTS,
         });
     }
-    let lons: Vec<f64> = route.iter().map(|p| p.lon()).collect();
-    let lats: Vec<f64> = route.iter().map(|p| p.lat()).collect();
+    let pieces = crate::routing::corridor_pieces(route);
+    // The same pieces and the same two-step test as the restrictions
+    // (`routing::restrictions_near`): the index box, then a planar
+    // distance in degrees that only ever widens the corridor. 0.22 s down
+    // to 0.06 s on a route of 3 200 km (2026-10-07).
     let rows = sqlx::query_as!(
         RawRow,
         r#"
-        WITH line AS (
-            SELECT ST_SetSRID(ST_MakeLine(ARRAY(
-                SELECT ST_MakePoint(lon, lat)
-                FROM UNNEST($1::float8[], $2::float8[]) WITH ORDINALITY AS u(lon, lat, n)
-                ORDER BY n
-            )), 4326) AS geom
-        ), pieces AS (
-            SELECT ST_Subdivide(geom, 32)::geography AS piece FROM line
+        WITH pieces AS (
+            SELECT g AS line, g::geography AS piece,
+                1.05 / (110574.0 * cos(radians(least(89.0,
+                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS deg_per_m
+            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($1::text[]) AS s) t
         )
         SELECT DISTINCT ON (e.id)
             e.id, e.source, e.external_id, e.class, e.detail, e.carriageway, e.direction,
@@ -1435,11 +1437,13 @@ pub async fn events_near(
             e.first_seen_at, e.last_seen_at, e.revision, e.ended_at, e.in_window
         FROM pieces p
         JOIN road_events e ON e.ended_at IS NULL AND (
-            ST_DWithin(e.geom_matched, p.piece, $3) OR ST_DWithin(e.geom_source, p.piece, $4))
+            (e.geom_matched && _ST_Expand(p.piece, $2)
+                AND ST_DWithin(e.geom_matched::geometry, p.line, p.deg_per_m * $2))
+            OR (e.geom_source && _ST_Expand(p.piece, $3)
+                AND ST_DWithin(e.geom_source::geometry, p.line, p.deg_per_m * $3)))
         ORDER BY e.id
         "#,
-        &lons,
-        &lats,
+        &pieces,
         within_m,
         wide_m,
     )

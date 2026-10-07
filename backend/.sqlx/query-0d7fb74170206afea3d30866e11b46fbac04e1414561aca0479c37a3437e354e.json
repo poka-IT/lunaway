@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH line AS (\n            SELECT ST_SetSRID(ST_MakeLine(ARRAY(\n                SELECT ST_MakePoint(lon, lat)\n                FROM UNNEST($2::float8[], $3::float8[]) WITH ORDINALITY AS u(lon, lat, n)\n                ORDER BY n\n            )), 4326) AS geom\n        ), pieces AS (\n            SELECT ST_Subdivide(geom, 32)::geography AS piece FROM line\n        )\n        SELECT DISTINCT ON (r.id)\n            r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,\n            r.name, ST_AsGeoJSON(r.geom::geometry, 7) AS \"shape!\"\n        FROM pieces p\n        JOIN route_restrictions r ON ST_DWithin(r.geom, p.piece, $4)\n        WHERE r.graph_id = $1 OR r.graph_id IS NULL\n        ORDER BY r.id\n        ",
+  "query": "\n        WITH pieces AS (\n            SELECT g AS line, g::geography AS piece,\n                $3::float8 * 1.05 / (110574.0 * cos(radians(least(89.0,\n                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS within_deg\n            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($2::text[]) AS s) t\n        )\n        SELECT DISTINCT ON (r.id)\n            r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,\n            r.name, ST_AsGeoJSON(r.geom::geometry, 7) AS \"shape!\"\n        FROM pieces p\n        JOIN route_restrictions r\n            ON r.geom && _ST_Expand(p.piece, $3)\n            AND ST_DWithin(r.geom::geometry, p.line, p.within_deg)\n        WHERE r.graph_id = $1 OR r.graph_id IS NULL\n        ORDER BY r.id\n        ",
   "describe": {
     "columns": [
       {
@@ -101,8 +101,7 @@
     "parameters": {
       "Left": [
         "Text",
-        "Float8Array",
-        "Float8Array",
+        "TextArray",
         "Float8"
       ]
     },
@@ -118,5 +117,5 @@
       null
     ]
   },
-  "hash": "ba00b685bc0e18719b8e92db931fc477858d3c0bd8b781a7f7a9d93b7ac4fa2d"
+  "hash": "0d7fb74170206afea3d30866e11b46fbac04e1414561aca0479c37a3437e354e"
 }

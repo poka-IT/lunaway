@@ -243,6 +243,27 @@ pub(crate) struct Routed {
     /// Whether the engine answered at least once: the work was done, and a
     /// failure after it is not given back to the client's quota.
     pub(crate) engine_answered: bool,
+    /// Where the time went.
+    pub(crate) spent: Spent,
+}
+
+/// Where a route's time went, logged once per route by the resolver: the
+/// latency of a route is a sum of engine calls, corridor queries and
+/// matching, and only this line tells them apart in production. Durations
+/// and counts only, never a position.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Spent {
+    /// Waiting for an engine slot.
+    pub(crate) queue: Duration,
+    /// Route calls of the engine, all attempts together.
+    pub(crate) engine: Duration,
+    /// How many.
+    pub(crate) engine_calls: u32,
+    /// Corridor queries of the database.
+    pub(crate) corridor: Duration,
+    /// Matching the routes against what the queries found, off the async
+    /// threads.
+    pub(crate) check: Duration,
 }
 
 /// The engine and its share of the server.
@@ -438,17 +459,18 @@ impl Routing {
         // One deadline for everything a route does: waits for an engine
         // slot, engine calls, corridor queries, the matching.
         let deadline = tokio::time::Instant::now() + ROUTE_DEADLINE;
-        let answered = std::sync::atomic::AtomicBool::new(false);
+        let mut work = Work::default();
         let result = tokio::time::timeout_at(
             deadline,
-            self.route_within(pool, graph_id, request, fresh, deadline, &answered),
+            self.route_within(pool, graph_id, request, fresh, deadline, &mut work),
         )
         .await
         .map_err(|_| RouteError::Deadline)
         .and_then(|r| r);
         Routed {
             result,
-            engine_answered: answered.load(std::sync::atomic::Ordering::Relaxed),
+            engine_answered: work.answered,
+            spent: work.spent,
         }
     }
 
@@ -522,7 +544,7 @@ impl Routing {
         request: &RouteRequest,
         fresh: &Freshness,
         deadline: tokio::time::Instant,
-        answered: &std::sync::atomic::AtomicBool,
+        work: &mut Work,
     ) -> Result<Outcome, RouteError> {
         let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
         let dims = request.vehicle.routing();
@@ -533,7 +555,6 @@ impl Routing {
         let mut event_blockers: Vec<EventHit> = Vec::new();
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
-        let mut known = Known::default();
         let mut calls = 0;
         let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
         for attempt in 0..MAX_ATTEMPTS {
@@ -547,15 +568,21 @@ impl Routing {
             );
             // The slot is held until the answer is checked and trimmed: the
             // memory of the answers in hand stays bounded by the slots.
+            let waited = std::time::Instant::now();
             let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
                 .await
                 .map_err(|_| RouteError::Busy)?
                 .map_err(|_| RouteError::Busy)?;
-            let answer = engine.route(&body).await?;
+            let called = std::time::Instant::now();
+            work.spent.queue += called - waited;
+            let answer = engine.route(&body).await;
+            work.spent.engine += called.elapsed();
+            work.spent.engine_calls += 1;
+            let answer = answer?;
             // From here the engine has worked for this client: a later
             // failure of the server is not given back (a trip made slow on
             // purpose would otherwise cost nothing).
-            answered.store(true, std::sync::atomic::Ordering::Relaxed);
+            work.answered = true;
             let osrm = match answer {
                 Answer::Routes(v) => v,
                 Answer::NoSegment if attempt == 0 => {
@@ -602,16 +629,8 @@ impl Routing {
             // for each route: 1.3 ms for a 650 km route (measured, test
             // `copying_a_long_route_costs_little`).
             let osrm = Arc::new(osrm);
-            let checked = check_routes(
-                pool,
-                graph_id,
-                &osrm,
-                &dims,
-                request.depart_at,
-                fresh,
-                &mut known,
-            )
-            .await?;
+            let checked =
+                check_routes(pool, graph_id, &osrm, &dims, request.depart_at, fresh, work).await?;
             // The checks are over and dropped their shares: no copy.
             let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
@@ -707,6 +726,19 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
     let mut seen = std::collections::HashSet::new();
     blockers.retain(|m| seen.insert(m.restriction.id));
     blockers
+}
+
+/// What a route request has done so far. It lives outside the future the
+/// route's deadline cuts, so a route out of time still tells whether the
+/// engine worked for it and where the time went.
+#[derive(Default)]
+struct Work {
+    /// Whether the engine answered at least once.
+    answered: bool,
+    /// Where the time went.
+    spent: Spent,
+    /// What the corridor queries found.
+    known: Known,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -833,7 +865,7 @@ async fn check_routes(
     dims: &RoutingDimensions,
     depart_at: DateTime<Utc>,
     fresh: &Freshness,
-    known: &mut Known,
+    work: &mut Work,
 ) -> Result<Vec<Checked>, RouteError> {
     let routes = osrm
         .get("routes")
@@ -855,11 +887,14 @@ async fn check_routes(
             continue;
         }
         let points = Arc::new(points);
-        query_corridors(pool, graph_id, Arc::clone(&points), known).await?;
+        let queried = std::time::Instant::now();
+        query_corridors(pool, graph_id, Arc::clone(&points), &mut work.known).await?;
+        work.spent.corridor += queried.elapsed();
+        let matched = std::time::Instant::now();
         // Everything known near this request's routes: the check keeps what
         // this route meets.
-        let near: Vec<db::NearRestriction> = known.restrictions.values().cloned().collect();
-        let near_events: Vec<Arc<EventRow>> = known.events.values().cloned().collect();
+        let near: Vec<db::NearRestriction> = work.known.restrictions.values().cloned().collect();
+        let near_events: Vec<Arc<EventRow>> = work.known.events.values().cloned().collect();
         let legs: Vec<f64> = route
             .get("legs")
             .and_then(Value::as_array)
@@ -898,6 +933,7 @@ async fn check_routes(
             })
             .await
             .map_err(RouteError::Blocking)??;
+        work.spent.check += matched.elapsed();
         let (has_toll, has_ferry, has_motorway) = classes(route);
         out.push((
             CheckedRoute {

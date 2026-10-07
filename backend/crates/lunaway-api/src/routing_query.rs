@@ -14,7 +14,7 @@ use crate::{
     quota::{Action, Subject},
     road_event_types::{RoadEvent, RoadEventSourceStatus},
     routing::{
-        MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest, Routed,
+        MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest, Routed, Spent,
         events::Freshness,
         valhalla::{Avoid, EngineError, Stop},
     },
@@ -165,6 +165,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         return Err(invalid_input("one route per request"));
     }
     let (request, options) = request(&input)?;
+    let started = std::time::Instant::now();
     let client = Subject::Client(
         ctx.data_opt::<ClientKey>()
             .copied()
@@ -223,6 +224,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         Routed {
             result: Ok(Outcome::NoRoute(NoRoute::OutsideCoverage(outside))),
             engine_answered: false,
+            spent: Spent::default(),
         }
     };
     // Once the engine has answered, the work was done: a failure after it
@@ -233,6 +235,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             refund();
         }
     };
+    let spent = routed.spent;
     let outcome = match routed.result {
         Ok(o) => o,
         Err(RouteError::Busy) => {
@@ -263,7 +266,13 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         }
         Err(RouteError::Deadline) => {
             refund_unworked();
-            tracing::warn!("a route ran out of time");
+            tracing::warn!(
+                engine_ms = spent.engine.as_millis(),
+                engine_calls = spent.engine_calls,
+                corridor_ms = spent.corridor.as_millis(),
+                check_ms = spent.check.as_millis(),
+                "a route ran out of time"
+            );
             return Err(unavailable("routing"));
         }
         Err(e @ RouteError::TooLarge) => return Err(invalid_input(e.to_string())),
@@ -287,6 +296,8 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         .map(|s| RoadEventSourceStatus::of(s, now))
         .collect();
     let last_stop = request.stops.len().saturating_sub(1);
+    let mut limits_spent = std::time::Duration::ZERO;
+    let mut osrm_bytes = 0;
     let base = |status, recalculations: usize| RouteResult {
         status,
         no_route_reasons: Vec::new(),
@@ -301,7 +312,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         graph: RoutingGraph::from(graph.clone()),
         disclaimer_key: DISCLAIMER_KEY.to_owned(),
     };
-    Ok(match outcome {
+    let result = match outcome {
         Outcome::Found {
             osrm,
             routes,
@@ -316,6 +327,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
                     .field("routes")
                     .field("speedLimits")
                     .exists();
+                let traced = std::time::Instant::now();
                 let limits = if wanted {
                     st.routing
                         .speed_limits(&osrm, speed_vehicle(&request.vehicle))
@@ -323,6 +335,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
                 } else {
                     Vec::new()
                 };
+                limits_spent = traced.elapsed();
                 routes
                     .iter()
                     .map(|r| RouteSummary {
@@ -335,7 +348,11 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
                     })
                     .collect()
             },
-            osrm_json: Some(osrm.to_string()),
+            osrm_json: Some({
+                let text = osrm.to_string();
+                osrm_bytes = text.len();
+                text
+            }),
             avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
             ..base(RouteStatus::Ok, recalculations)
         },
@@ -374,7 +391,21 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
                 .collect(),
             ..base(RouteStatus::NoSafeRoute, recalculations)
         },
-    })
+    };
+    tracing::info!(
+        status = ?result.status,
+        total_ms = started.elapsed().as_millis(),
+        queue_ms = spent.queue.as_millis(),
+        engine_ms = spent.engine.as_millis(),
+        engine_calls = spent.engine_calls,
+        corridor_ms = spent.corridor.as_millis(),
+        check_ms = spent.check.as_millis(),
+        limits_ms = limits_spent.as_millis(),
+        routes = result.routes.len(),
+        osrm_bytes,
+        "route computed"
+    );
+    Ok(result)
 }
 
 /// Logs an engine failure with its causes (a timeout, a refused
