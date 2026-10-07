@@ -112,6 +112,16 @@
       kick();
       return true;
     },
+    // No vehicle any more: the glide stops, so no frame draws it back.
+    clear: function (sourceId) {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = null;
+      from = null;
+      to = null;
+      lastTarget = null;
+      window.lunaway.setData(sourceId, { type: 'FeatureCollection', features: [] });
+      return true;
+    },
     // Following ({zoom, padding}) or not (null): the overview, the preview.
     follow: function (options) {
       var m = map();

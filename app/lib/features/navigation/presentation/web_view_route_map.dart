@@ -297,10 +297,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       final before = _sentVehicle;
       _sentVehicle = vehicle;
       if (vehicle == null) {
-        await _call('return window.lunaway.setData(id, data);', {
-          'id': RouteLayers.vehicleSource,
-          'data': vehicleCollection(null),
-        });
+        await _call('return window.lunawayRoute.clear(id);', {'id': RouteLayers.vehicleSource});
       } else {
         await _call('return window.lunawayRoute.vehicle(id, lat, lon, course, jump);', {
           'id': RouteLayers.vehicleSource,

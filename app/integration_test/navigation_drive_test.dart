@@ -117,7 +117,9 @@ final class _Routes implements RouteService {
   }
 
   @override
-  Future<RoutingInfo> info() => throw UnimplementedError();
+  // An answer that fails, as a server without the query: the preview then
+  // leaves the trip to the route request (a synchronous throw would fail it).
+  Future<RoutingInfo> info() async => throw UnimplementedError();
 }
 
 /// No road event, then the closure once the test publishes it.

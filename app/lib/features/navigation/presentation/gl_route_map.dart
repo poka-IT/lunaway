@@ -61,6 +61,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// ease from that view into the driver's, instead of a cut.
   gl.CameraPosition? _entryFrom;
   Duration _entryStart = Duration.zero;
+
+  /// The insets following asks for; during the entry they grow from none
+  /// with the rest of the camera, so the view does not drop at once.
+  EdgeInsets _followTarget = EdgeInsets.zero;
   static const _entry = Duration(milliseconds: 900);
 
   /// Native maps take each frame over a platform channel: 30 a second keeps
@@ -311,7 +315,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final pad = _props.padding;
     final free = math.max(0, _size.height - pad.top - pad.bottom);
     final insets = EdgeInsets.fromLTRB(pad.left, pad.top + free * 0.45, pad.right, pad.bottom);
-    if (insets == _sentInsets) return;
+    _followTarget = insets;
+    // During the entry the frames move the insets along with the camera.
+    if (insets == _sentInsets || _entryFrom != null) return;
     _sentInsets = insets;
     await c.updateContentInsets(insets);
   }
@@ -355,6 +361,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         final t = (now - _entryStart).inMicroseconds / _entry.inMicroseconds;
         if (t >= 1) {
           _entryFrom = null;
+          _sentInsets = _followTarget;
+          calls.add(c.updateContentInsets(_followTarget));
         } else {
           settled = false;
           final k = Motion.standard.transform(t.clamp(0, 1).toDouble());
@@ -366,6 +374,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           zoom = from.zoom + (zoom - from.zoom) * k;
           bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
           tilt = from.tilt + (followTiltDeg - from.tilt) * k;
+          calls.add(c.updateContentInsets(EdgeInsets.lerp(EdgeInsets.zero, _followTarget, k)!));
         }
       }
       calls.add(
