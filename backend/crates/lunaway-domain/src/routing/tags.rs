@@ -218,14 +218,14 @@ const SAME_FIGURE: f64 = 0.01;
 pub type TagFixes = BTreeMap<String, Option<String>>;
 
 /// Applies `fixes` to `tags`.
-pub fn apply_fixes(tags: &mut BTreeMap<String, String>, fixes: &TagFixes) {
+pub fn apply_fixes(tags: &mut BTreeMap<String, String>, fixes: TagFixes) {
     for (key, value) in fixes {
         match value {
             Some(v) => {
-                tags.insert(key.clone(), v.clone());
+                tags.insert(key, v);
             }
             None => {
-                tags.remove(key);
+                tags.remove(&key);
             }
         }
     }
@@ -287,22 +287,35 @@ pub fn spares_local_access(raw: &str) -> bool {
 /// key that carries a figure must have the exception, its own or that of
 /// the other key when both carry the same figure (one sign mapped twice);
 /// with one figure, the exception on either key counts. A figure without
-/// it is a sign without the plate, and the limit stays whole.
+/// it is a sign without the plate, and the limit stays whole. A measured
+/// figure (`maxwidth:physical`) is a structure: nothing lifts it, and a
+/// plate on its conditional key is not read.
 #[must_use]
 pub fn limit_spares_local_access(tags: &BTreeMap<String, String>, kind: RestrictionKind) -> bool {
     if !kind.spares_local_access() {
         return false;
     }
-    let figures: Vec<(usize, f64)> = kind
+    let physical = |key: &str| key.ends_with(":physical");
+    let mut figures: Vec<(usize, f64)> = Vec::new();
+    for (i, key) in kind.osm_keys().iter().enumerate() {
+        let Some(figure) = tags.get(*key).and_then(|raw| parse_for(kind, raw).limit()) else {
+            continue;
+        };
+        if physical(key) {
+            return false;
+        }
+        figures.push((i, figure));
+    }
+    let spared: Vec<bool> = kind
         .osm_keys()
         .iter()
-        .enumerate()
-        .filter_map(|(i, key)| Some((i, parse_for(kind, tags.get(*key)?).limit()?)))
-        .collect();
-    let spared: Vec<bool> = kind
-        .conditional_keys()
-        .iter()
-        .map(|key| tags.get(*key).is_some_and(|v| spares_local_access(v)))
+        .zip(kind.conditional_keys())
+        .map(|(key, conditional)| {
+            !physical(key)
+                && tags
+                    .get(*conditional)
+                    .is_some_and(|v| spares_local_access(v))
+        })
         .collect();
     match figures.as_slice() {
         [] => false,
@@ -391,6 +404,22 @@ pub fn graph_fixes(
             }
         } else if valhalla_spares {
             out.insert((*conditional).to_owned(), None);
+        }
+    }
+    // Valhalla also reads the exception on one direction's limit
+    // (`maxweight:forward:conditional`, `lua/graph.lua`). Those limits are
+    // left to the router, so only an exception a motorhome may not use goes.
+    for kind in RestrictionKind::LIMITS {
+        for direction in ["forward", "backward"] {
+            let key = format!("{}:{direction}:conditional", kind.graph_key());
+            let Some(current) = tags.get(&key) else {
+                continue;
+            };
+            if VALHALLA_LOCAL_ACCESS.contains(&current.as_str())
+                && !(kind.spares_local_access() && spares_local_access(current))
+            {
+                out.insert(key, None);
+            }
         }
     }
     if let Some(v) = tags.get("motorhome").map(|v| v.trim())
@@ -514,7 +543,7 @@ mod tests {
     ) -> BTreeMap<String, String> {
         let mut t = tags(pairs);
         let fixes = graph_fixes(&t, extra);
-        apply_fixes(&mut t, &fixes);
+        apply_fixes(&mut t, fixes);
         t
     }
 
@@ -669,6 +698,84 @@ mod tests {
         );
         assert_eq!(t.get("maxweight").map(String::as_str), Some("3.5"));
         assert!(!t.contains_key("maxweight:conditional"));
+    }
+
+    #[test]
+    fn a_measured_width_is_a_structure_no_plate_lifts() {
+        // Valhalla falls back on maxwidth:physical and would read the plate
+        // with it: a 2.3 m motorhome would be sent through a 2.0 m gap at a
+        // stop. The physical figure keeps the limit whole.
+        for pairs in [
+            &[
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:physical:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth", "2.0"),
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth", "2.0"),
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:physical:conditional", "none @ destination"),
+            ][..],
+        ] {
+            assert!(
+                !limit_spares_local_access(&tags(pairs), RestrictionKind::MaxWidth),
+                "{pairs:?}"
+            );
+            let t = fixed(pairs, &BTreeMap::new());
+            assert_eq!(
+                t.get("maxwidth").map(String::as_str),
+                Some("2"),
+                "{pairs:?}"
+            );
+            assert!(
+                !t.contains_key("maxwidth:conditional"),
+                "Valhalla must not read the plate on a measured width: {t:?}"
+            );
+        }
+        // A width sign alone, with its plate, is a traffic order.
+        assert!(limit_spares_local_access(
+            &tags(&[
+                ("maxwidth", "2.0"),
+                ("maxwidth:conditional", "none @ destination")
+            ]),
+            RestrictionKind::MaxWidth
+        ));
+    }
+
+    #[test]
+    fn a_delivery_plate_on_one_direction_leaves_the_graph_too() {
+        let t = fixed(
+            &[
+                ("maxweight:backward", "3.5"),
+                ("maxweight:backward:conditional", "none @ delivery"),
+                ("maxheight:forward", "2.5"),
+                ("maxheight:forward:conditional", "none @ delivery"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert!(!t.contains_key("maxweight:backward:conditional"), "{t:?}");
+        assert!(!t.contains_key("maxheight:forward:conditional"), "{t:?}");
+        assert_eq!(
+            t.get("maxweight:backward").map(String::as_str),
+            Some("3.5"),
+            "the directional limit itself is the router's"
+        );
+        let kept = tags(&[
+            ("maxweight:forward", "3.5"),
+            ("maxweight:forward:conditional", "none @ destination"),
+        ]);
+        assert!(
+            graph_fixes(&kept, &BTreeMap::new()).is_empty(),
+            "a local access plate on one direction stays as Valhalla reads it"
+        );
     }
 
     #[test]
@@ -876,6 +983,23 @@ mod tests {
         fn parsing_never_panics(s in ".{0,20}") {
             let _ = parse_length(&s);
             let _ = parse_weight(&s);
+        }
+
+        #[test]
+        fn local_access_is_read_only_from_a_none_rule_naming_destination(
+            s in "[ a-zA-Z0-9@();,.:<>=-]{0,40}"
+        ) {
+            if spares_local_access(&s) {
+                let lower = s.to_ascii_lowercase();
+                prop_assert!(lower.contains("destination"), "{s:?}");
+                prop_assert!(lower.contains('@'), "{s:?}");
+                prop_assert!(lower.contains("no"), "{s:?}");
+            }
+        }
+
+        #[test]
+        fn a_conditional_never_panics(s in ".{0,40}") {
+            let _ = spares_local_access(&s);
         }
     }
 }

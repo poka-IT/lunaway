@@ -526,19 +526,32 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
     hits
 }
 
-/// Largest gap, metres, between two stretches of a run of local access, or
-/// between a stop and the run: the hits of two ways that meet at a junction
-/// end and start a few sample steps apart.
-pub const LOCAL_ACCESS_GAP_M: f64 = 20.0;
+/// Largest distance, metres, between a stop and the first stretch of a run
+/// of local access: the route starts on the limited road itself (the
+/// engine grants the right only from the stop's own edge), and the hit of
+/// that road starts a few sample steps from the stop.
+pub const LOCAL_ACCESS_STOP_M: f64 = 20.0;
+
+/// Largest gap, metres, between two stretches of one run of local access:
+/// the junctions, squares and short streets a zone's mappers leave without
+/// the sign between two that carry it, or a street of a higher limit the
+/// vehicle meets no limit on.
+pub const LOCAL_ACCESS_LINK_M: f64 = 200.0;
 
 /// The parts of a route where limits that spare local access let it
 /// through: the runs of `spans` (`(start_m, end_m)` along the route) that
-/// join up, each within [`LOCAL_ACCESS_GAP_M`] of the next, and reach a
-/// stop. Valhalla 3.9.0 does the same: a trip that starts or ends on a
-/// limit marked `except_destination` may drive on along limits of the same
-/// kind so marked, and loses the right at the first edge without one
-/// (`DynamicCost::EvaluateRestrictions` and `BidirectionalAStar::SetOrigin`,
-/// tag 3.9.0). A run that reaches no stop is through traffic.
+/// join up, each within [`LOCAL_ACCESS_LINK_M`] of the next, and reach a
+/// stop within [`LOCAL_ACCESS_STOP_M`]. A run that reaches no stop is
+/// through traffic.
+///
+/// The engine is more lenient (Valhalla 3.9.0, `DynamicCost::
+/// EvaluateRestrictions` and `BidirectionalAStar::SetOrigin`): a trip that
+/// starts or ends on a limit marked `except_destination` keeps the right
+/// across every road without a limit, gains it on any marked limit the
+/// vehicle is under, and loses it only on a limit of the kind without the
+/// mark. So a trip ending in one zone may cross another anywhere on the
+/// way. The check stops that at the link gap: what it blocks, the engine is
+/// asked again around.
 #[must_use]
 pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
     let mut sorted: Vec<(f64, f64)> = spans.iter().map(|(a, b)| (a.min(*b), a.max(*b))).collect();
@@ -546,14 +559,14 @@ pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)>
     let mut runs: Vec<(f64, f64)> = Vec::new();
     for (a, b) in sorted {
         match runs.last_mut() {
-            Some(run) if a <= run.1 + LOCAL_ACCESS_GAP_M => run.1 = run.1.max(b),
+            Some(run) if a <= run.1 + LOCAL_ACCESS_LINK_M => run.1 = run.1.max(b),
             _ => runs.push((a, b)),
         }
     }
     runs.retain(|(a, b)| {
         stops
             .iter()
-            .any(|s| *s >= a - LOCAL_ACCESS_GAP_M && *s <= b + LOCAL_ACCESS_GAP_M)
+            .any(|s| *s >= a - LOCAL_ACCESS_STOP_M && *s <= b + LOCAL_ACCESS_STOP_M)
     });
     runs
 }
@@ -595,8 +608,8 @@ mod tests {
             vec![(9_700.0, 10_000.0)],
             "the streets reaching the destination are local access, the one crossed at 4 km is not"
         );
-        // A run that stops short of the destination by more than the gap
-        // left a street without the plate between: through traffic again.
+        // A run that stops short of the destination left a road without the
+        // plate under the stop: the engine gives no right from there.
         assert!(local_access_runs(&stops, &[(9_700.0, 9_900.0)]).is_empty());
         // From the start too, and around a waypoint.
         assert_eq!(
@@ -608,6 +621,23 @@ mod tests {
             vec![(4_900.0, 5_100.0)]
         );
         assert!(local_access_runs(&stops, &[]).is_empty());
+    }
+
+    #[test]
+    fn a_short_street_without_the_sign_keeps_a_zone_whole() {
+        let stops = [0.0, 10_000.0];
+        // The entry street of the zone, a 150 m square left untagged, then
+        // the destination's street: one run, as the engine drove it.
+        assert_eq!(
+            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_550.0, 10_000.0)]),
+            vec![(9_000.0, 10_000.0)]
+        );
+        // 300 m of other streets between them: the first is another zone,
+        // crossed on the way.
+        assert_eq!(
+            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_700.0, 10_000.0)]),
+            vec![(9_700.0, 10_000.0)]
+        );
     }
 
     #[test]

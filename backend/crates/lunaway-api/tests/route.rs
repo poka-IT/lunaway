@@ -466,7 +466,7 @@ fn heavy(weight_t: f64) -> Value {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_sauf_desserte_zone_takes_a_heavy_motorhome_home_and_never_across(pool: PgPool) {
+async fn a_sauf_desserte_zone_takes_a_heavy_motorhome_to_its_destination(pool: PgPool) {
     // Two streets of a "sauf desserte" 3.5 t zone lead to the destination:
     // a 4.5 t motorhome may drive them, and is told of the limit.
     seed_records(

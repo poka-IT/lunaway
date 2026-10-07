@@ -409,7 +409,7 @@ fn node_element(
     fixes.retain(|k, _| k == "motorcar");
     if !fixes.is_empty() {
         let mut new_tags = tags.clone();
-        tags::apply_fixes(&mut new_tags, &fixes);
+        tags::apply_fixes(&mut new_tags, fixes);
         out.rewrites.push(Rewrite {
             id,
             version: version.max(0) + 1,
@@ -688,10 +688,10 @@ pub fn prepare(
             if applied_ign {
                 report.ign_applied += 1;
             }
-            let conditionals = RestrictionKind::LIMITS
+            let conditionals = fixes
                 .iter()
-                .filter_map(|k| k.conditional_keys().first())
-                .filter_map(|key| fixes.get(*key));
+                .filter(|(key, _)| key.ends_with(":conditional"))
+                .map(|(_, change)| change);
             for change in conditionals {
                 match change {
                     Some(_) => report.local_access_written += 1,
@@ -699,7 +699,7 @@ pub fn prepare(
                 }
             }
             let mut new_tags = w.tags.clone();
-            tags::apply_fixes(&mut new_tags, &fixes);
+            tags::apply_fixes(&mut new_tags, fixes);
             rewrites.push(Rewrite {
                 id: w.id,
                 version: w.version.max(0) + 1,

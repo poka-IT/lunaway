@@ -50,6 +50,7 @@ fn section(id: &str, lat: f64, lon: f64, nature: &str, access: &str) -> IgnSecti
         geometry: line(lat, lon),
         nature: Some(nature.to_owned()),
         access: Some(access.to_owned()),
+        road_number: None,
     }
 }
 

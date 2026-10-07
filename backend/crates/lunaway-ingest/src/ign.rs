@@ -76,10 +76,14 @@ pub struct IgnSection {
     /// Who may drive it (`acces_vehicule_leger`: "Libre", "A péage",
     /// "Restreint aux ayants droit", "Physiquement impossible").
     pub access: Option<String>,
+    /// The road's number (`cpx_numero`: "A8", "N113", "D301").
+    pub road_number: Option<String>,
 }
 
-/// The natures of a motorway and its ramps in BD TOPO.
-const MOTORWAY_NATURES: [&str; 2] = ["Type autoroutier", "Bretelle"];
+/// The nature of a motorway in BD TOPO.
+const MOTORWAY: &str = "Type autoroutier";
+/// The nature of a ramp, of a motorway or of any interchange.
+const RAMP: &str = "Bretelle";
 /// The access of a section most motorised users may not take: "seules
 /// certaines catégories sont autorisées : secours, employés, propriétaires,
 /// livreurs" (bdtopoexplorer.ign.fr, `troncon_de_route`, September 2026).
@@ -97,9 +101,11 @@ impl IgnSection {
     /// between Arles and Salon, all of them `sources = DSR` and without a
     /// clearance, roads that coaches and heavy goods vehicles take every
     /// day: a 3.8 t motorhome from Marseille to Nice was sent 81 km round
-    /// (`plan/research/61-limites-urbaines.md`). On a motorway or one of its
-    /// ramps, IGN's weight is set aside; OpenStreetMap's own limits stay,
-    /// such as the A86 tunnel at Rueil, mapped `maxweight=3.5`.
+    /// (`plan/research/61-limites-urbaines.md`). On a motorway, or a ramp
+    /// numbered as one ("A54", "A908633"), IGN's weight is set aside;
+    /// OpenStreetMap's own limits stay, such as the A86 tunnel at Rueil,
+    /// mapped `maxweight=3.5`. The ramps of other roads keep it: most carry
+    /// no number, and their figures (2 t, 4.5 t) may be structures.
     ///
     /// A section closed to the public describes a reserved lane: its limit
     /// says nothing of the public road a few metres off, where the check
@@ -107,10 +113,15 @@ impl IgnSection {
     /// from such a lane at 3.5 t).
     #[must_use]
     pub fn weight_concerns_public_traffic(&self) -> bool {
-        let motorway = self
-            .nature
+        let numbered_a = self
+            .road_number
             .as_deref()
-            .is_some_and(|n| MOTORWAY_NATURES.contains(&n));
+            .is_some_and(|n| n.starts_with('A'));
+        let motorway = match self.nature.as_deref() {
+            Some(MOTORWAY) => true,
+            Some(RAMP) => numbered_a,
+            _ => false,
+        };
         let reserved = self.access.as_deref() == Some(RESTRICTED_ACCESS);
         !(motorway || reserved)
     }
@@ -233,6 +244,7 @@ pub fn parse(bytes: &[u8]) -> Result<(Vec<IgnSection>, usize), IngestError> {
                 geometry,
                 nature: text(p, "nature"),
                 access: text(p, "acces_vehicule_leger"),
+                road_number: text(p, "cpx_numero"),
             },
             _ => {
                 skipped += 1;
@@ -543,7 +555,13 @@ mod tests {
              "acces_vehicule_leger":"Restreint aux ayants droit","restriction_de_poids_total":3.5}},
           {"type":"Feature","geometry":{"type":"LineString","coordinates":[[1.0,45.0],[1.001,45.001]]},
            "properties":{"cleabs":"TRONROUT0000000000003","nature":"Route à 1 chaussée",
-             "acces_vehicule_leger":"Libre","restriction_de_poids_total":3.5}}
+             "acces_vehicule_leger":"Libre","restriction_de_poids_total":3.5}},
+          {"type":"Feature","geometry":{"type":"LineString","coordinates":[[5.13,43.62],[5.131,43.621]]},
+           "properties":{"cleabs":"TRONROUT0000000000004","nature":"Bretelle","cpx_numero":"A54",
+             "acces_vehicule_leger":"Libre","restriction_de_poids_total":3.5}},
+          {"type":"Feature","geometry":{"type":"LineString","coordinates":[[4.85,45.68],[4.851,45.681]]},
+           "properties":{"cleabs":"TRONROUT0000000000005","nature":"Bretelle",
+             "acces_vehicule_leger":"Libre","restriction_de_poids_total":2}}
         ]}"#;
         let (sections, _) = parse(body.as_bytes()).unwrap();
         assert_eq!(sections[0].nature.as_deref(), Some("Type autoroutier"));
@@ -557,8 +575,9 @@ mod tests {
             .collect();
         assert_eq!(
             concerns,
-            [false, false, true],
-            "a motorway's 3.5 t and a reserved lane's leave the road open; a street's stays"
+            [false, false, true, false, true],
+            "a motorway's 3.5 t, its ramp's and a reserved lane's leave the road open; a \
+             street's and an unnumbered ramp's stay"
         );
     }
 
@@ -589,6 +608,7 @@ mod tests {
             geometry: vec![p, p],
             nature: None,
             access: None,
+            road_number: None,
         };
         assert!(check_area(&[section(at(45.8, 1.2))]).is_ok());
         // Latitude and longitude swapped.

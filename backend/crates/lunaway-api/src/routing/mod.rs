@@ -27,7 +27,7 @@ pub(crate) mod public;
 pub(crate) mod valhalla;
 
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::Duration,
 };
@@ -37,8 +37,8 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, RestrictionKind, RouteLine, RoutingDimensions, Severity, VehicleProfile,
-        assess, exclusion_ring, local_access_runs, match_route, polyline,
+        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
+        exclusion_ring, local_access_runs, match_route, polyline,
     },
 };
 use serde_json::Value;
@@ -1307,7 +1307,9 @@ async fn check_routes(
 /// A limit the vehicle exceeds that spares local access ("sauf desserte")
 /// warns where the route uses it to reach or leave a stop, and blocks where
 /// it crosses it: the route may drive the runs of such limits of one kind
-/// that reach a stop ([`local_access_runs`]), as the engine does.
+/// that reach a stop ([`local_access_runs`], stricter than the engine,
+/// which lets a trip ending in one zone cross another on the way). A limit
+/// met twice blocks at the place it is through traffic.
 pub(crate) fn match_restrictions(
     line: &RouteLine,
     near: Vec<db::NearRestriction>,
@@ -1343,34 +1345,32 @@ pub(crate) fn match_restrictions(
             _ => blocking.push(met),
         }
     }
-    let kinds: BTreeSet<RestrictionKind> = sparing
-        .iter()
-        .map(|(m, _)| m.restriction.restriction.kind)
-        .collect();
-    for kind in kinds {
-        let spans: Vec<(f64, f64)> = sparing
+    // One kind at a time: the engine's right to local access is per kind of
+    // limit.
+    sparing.sort_by_key(|(m, _)| m.restriction.restriction.kind);
+    let mut sparing = sparing.into_iter().peekable();
+    while let Some(first) = sparing.next() {
+        let kind = first.0.restriction.restriction.kind;
+        let mut group = vec![first];
+        while let Some(next) = sparing.next_if(|(m, _)| m.restriction.restriction.kind == kind) {
+            group.push(next);
+        }
+        let spans: Vec<(f64, f64)> = group
             .iter()
-            .filter(|(m, _)| m.restriction.restriction.kind == kind)
             .flat_map(|(_, hits)| hits.iter().map(|h| (h.start_m, h.end_m)))
             .collect();
         let runs = local_access_runs(line.stops(), &spans);
         let inside = |h: &Hit| runs.iter().any(|(a, b)| h.start_m >= *a && h.end_m <= *b);
-        for (met, hits) in sparing
-            .iter()
-            .filter(|(m, _)| m.restriction.restriction.kind == kind)
-        {
+        for (mut met, hits) in group {
             match hits.iter().find(|h| !inside(h)) {
-                Some(through) => blocking.push(Met {
-                    hit: *through,
-                    ..met.clone()
-                }),
-                None => warnings.push(Met {
-                    finding: Finding {
-                        severity: Severity::Warning,
-                        ..met.finding
-                    },
-                    ..met.clone()
-                }),
+                Some(through) => {
+                    met.hit = *through;
+                    blocking.push(met);
+                }
+                None => {
+                    met.finding.severity = Severity::Warning;
+                    warnings.push(met);
+                }
             }
         }
     }
@@ -1696,6 +1696,68 @@ mod tests {
         assert!(chord.len() == 1 && chord[0] == (0..2), "{chord:?}");
         // Along the first route, however far apart its points.
         assert!(uncovered(&[x, z, y], &first, &segments).is_empty());
+    }
+
+    #[test]
+    fn a_sauf_desserte_street_met_twice_blocks_where_it_is_crossed() {
+        use lunaway_domain::routing::{
+            Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        };
+        // A point `north` and `east` metres from (45, 1).
+        let at = |north: f64, east: f64| {
+            Position::new(
+                45.0 + north / 111_195.0,
+                1.0 + east / (111_195.0 * 45.0_f64.to_radians().cos()),
+            )
+            .unwrap()
+        };
+        // A long "sauf desserte" street runs 1 km north. The trip starts
+        // 50 m into it and leaves it at 150 m, comes back to it 2 km later
+        // at 800 m, follows it to 900 m and ends far east of it: local
+        // access at the start, through traffic later.
+        let points = vec![
+            at(50.0, 0.0),
+            at(150.0, 0.0),
+            at(150.0, 500.0),
+            at(800.0, 500.0),
+            at(800.0, 0.0),
+            at(900.0, 0.0),
+            at(900.0, 500.0),
+            at(1_500.0, 500.0),
+        ];
+        let line = RouteLine::new(points).unwrap();
+        let street = db::NearRestriction {
+            id: uuid::Uuid::nil(),
+            restriction: Restriction {
+                kind: RestrictionKind::MaxWeight,
+                limit: Some(3.5),
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Road,
+                except_destination: true,
+            },
+            external_id: "way/1".to_owned(),
+            name: None,
+            geometry: vec![at(0.0, 0.0), at(1_000.0, 0.0)],
+        };
+        let dims = RoutingDimensions {
+            height_m: 3.0,
+            width_m: 2.3,
+            length_m: 7.0,
+            weight_t: 4.5,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+        };
+        let (warnings, blocking) = match_restrictions(&line, vec![street], &dims);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(blocking.len(), 1);
+        // 100 m along it, 500 east, 650 north, 500 west: 1 750 m.
+        let s = blocking[0].hit.start_m;
+        assert!(
+            (1_700.0..1_800.0).contains(&s),
+            "the block sits where the street is driven through, not at the start: {s}"
+        );
     }
 
     #[test]

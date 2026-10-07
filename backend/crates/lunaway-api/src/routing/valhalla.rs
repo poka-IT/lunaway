@@ -168,9 +168,11 @@ pub(crate) fn costing_options(dims: &RoutingDimensions, avoid: Avoid) -> Value {
 /// halls of Toulouse and Montpellier, production, 2026-10-07,
 /// `plan/research/61-limites-urbaines.md`). The engine's snapping knows
 /// the vehicle's access, not its limits, so the filter is the tunnel tag
-/// those aisles carry. The vehicle's own position, the stop sent with a
-/// heading, keeps both: a driver recalculating on board is on the boat or
-/// in the tunnel, and the nearest road may be the one left behind.
+/// those aisles carry; Valhalla counts a building passage as a tunnel too,
+/// and an aisle mapped `covered=yes` alone still passes. The vehicle's own
+/// position, the stop sent with a heading, keeps both: a driver
+/// recalculating on board is on the boat or in the tunnel, and the nearest
+/// road may be the one left behind.
 fn location(s: &Stop) -> Value {
     let mut l = json!({
         "lat": s.at.lat(),
