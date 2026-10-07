@@ -777,6 +777,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         if (kIsWeb) c.onFeatureHover.add(_onHover);
       },
       onStyleLoadedCallback: _onStyleLoaded,
+      // A click on a layer the plugin watches (the hit discs, the other
+      // routes) is a map click too: the plugin would report it only as a
+      // feature tap, and _onTap decides what it hits.
+      featureTapsTriggersMapClick: true,
       onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
           : (point, _) => _onTap(point),

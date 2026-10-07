@@ -194,6 +194,9 @@ void main() {
       expect(ids(RouteLayers.marksSource), contains('poi:st1'));
       expect(ids(RouteLayers.marksSource), isNot(contains('place:p1')));
       expect(RouteMarkStyle.sourceOptions(RouteLayers.anchorsSource), isEmpty);
+      for (final line in [RouteLayers.routeSource, RouteLayers.alternativesSource]) {
+        expect(RouteMarkStyle.sourceOptions(line), isEmpty, reason: 'a grouped line draws nothing');
+      }
       for (final s in [RouteLayers.marksSource, RouteLayers.minorSource]) {
         expect(RouteMarkStyle.sourceOptions(s)['cluster'], isTrue);
       }

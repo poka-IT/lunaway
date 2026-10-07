@@ -281,8 +281,10 @@ abstract final class RouteMarkStyle {
   static Map<String, Object?> _minZoom(String source) =>
       source == RouteLayers.minorSource ? {'minzoom': minorMinZoom} : const {};
 
-  /// The options of each mark source: the anchors are never grouped.
-  static Map<String, Object?> sourceOptions(String source) => source == RouteLayers.anchorsSource
+  /// The options of a source of the route map: the marks and the minor
+  /// marks are grouped, nothing else (a grouped line draws nothing).
+  static Map<String, Object?> sourceOptions(String source) =>
+      source != RouteLayers.marksSource && source != RouteLayers.minorSource
       ? const {}
       : {
           'cluster': true,
