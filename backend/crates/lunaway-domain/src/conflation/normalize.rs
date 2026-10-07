@@ -84,6 +84,9 @@ pub const LIGATURES: &[(char, &str)] = &[
     ('œ', "oe"),
     ('Œ', "oe"),
     ('ß', "ss"),
+    // The capital lowers to `ß`, after this table is read: without its own
+    // entry a second fold would expand what the first one left.
+    ('ẞ', "ss"),
     ('ø', "o"),
     ('Ø', "o"),
     ('đ', "d"),
@@ -242,6 +245,11 @@ mod tests {
         assert_eq!(
             fold("Œuvre ÆSOP Straße Øresund Łódź"),
             "oeuvre aesop strasse oresund lodz"
+        );
+        assert_eq!(
+            fold("GROẞE STRAẞE"),
+            "grosse strasse",
+            "the capital sharp s folds like the small one, in one pass"
         );
         assert_eq!(fold("  ** Camping ***  "), "camping");
         assert_eq!(
