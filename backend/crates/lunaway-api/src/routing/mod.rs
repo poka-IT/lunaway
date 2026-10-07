@@ -36,7 +36,7 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
+        Finding, Hit, Restriction, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
         exclusion_ring, match_route, polyline,
     },
 };
@@ -283,7 +283,40 @@ pub(crate) struct Routing {
     queue_wait: Duration,
     /// The last answer of the engine's status, and when it was read.
     status: std::sync::Mutex<Option<(std::time::Instant, bool)>>,
+    /// Blockers earlier checks found, excluded from the start of later
+    /// routes.
+    remembered: std::sync::Mutex<Remembered>,
 }
+
+/// Restrictions the engine does not apply by itself (a height barrier
+/// mapped on a node, a ferry terminal's lane) that blocked earlier routes,
+/// on the graph they were found on. A route meeting one costs a second
+/// engine call and a second check: on 2026-10-07 every trip to Morocco met
+/// the same barrier at Tarifa port, the trips from Edinburgh a 2 m lane at
+/// Dover, at 1.2 to 2.6 s of engine time each
+/// (`plan/research/48-latence-itineraires.md`). Excluded from the first
+/// call of a later trip they may lie on, they cost nothing more. Public
+/// restrictions only, in memory, never logged.
+#[derive(Default)]
+struct Remembered {
+    graph_id: String,
+    /// Oldest first.
+    blockers: std::collections::VecDeque<(uuid::Uuid, Position, Restriction)>,
+}
+
+/// Blockers remembered at most: a few hundred places in Europe hold the
+/// limits the engine misses on the main roads.
+const REMEMBERED: usize = 512;
+/// Remembered blockers excluded from a first call at most, under
+/// [`MAX_EXCLUSIONS`].
+const REMEMBERED_RINGS: usize = 50;
+/// How far a remembered blocker must lie from every stop to be excluded
+/// ahead, metres: a ring within reach of a stop's snapping (5 km) could
+/// move the stop to another road unnoticed.
+const CLEAR_OF_STOPS_M: f64 = 10_000.0;
+/// How far beyond the box of its stops a trip may run, degrees: Lille to
+/// Guelmim leaves it by 0.6 degree to take the ferry at Tarifa.
+const TRIP_MARGIN_DEG: f64 = 1.0;
 
 /// How long a status read stays good: `Query.routing` is public, and its
 /// aliases must not turn into calls of the engine.
@@ -303,6 +336,7 @@ impl Routing {
             diagnoses: Semaphore::new(1),
             queue_wait: config.queue_wait,
             status: std::sync::Mutex::new(None),
+            remembered: std::sync::Mutex::new(Remembered::default()),
         }
     }
 
@@ -381,18 +415,19 @@ impl Routing {
         routes: &[Value],
         vehicle: lunaway_domain::speed::Vehicle,
     ) -> Vec<Option<Vec<lunaway_domain::speed::Span>>> {
-        let mut out = Vec::with_capacity(routes.len());
-        for route in routes {
-            let limits = match self.trace_route(route, vehicle).await {
+        // Every route and every piece at once, each piece under an engine
+        // slot: a piece takes 15 to 25 ms of the engine, and one after the
+        // other the pieces of three 800 km routes took 0.24 s (2026-10-07).
+        futures_util::future::join_all(routes.iter().map(|route| async move {
+            match self.trace_route(route, vehicle).await {
                 Ok(l) => l,
                 Err(error) => {
                     tracing::warn!(%error, "no speed limits for a route");
                     None
                 }
-            };
-            out.push(limits);
-        }
-        out
+            }
+        }))
+        .await
     }
 
     async fn trace_route(
@@ -431,15 +466,18 @@ impl Routing {
         let (points, along, Some(bodies)) = prepared else {
             return Ok(None);
         };
-        let mut edges = Vec::new();
-        for (first, body) in bodies {
-            let answer = {
+        let answers =
+            futures_util::future::join_all(bodies.iter().map(|(first, body)| async move {
                 let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
                     .await
                     .map_err(|_| RouteError::Busy)?
                     .map_err(|_| RouteError::Busy)?;
-                engine.trace(&body).await?
-            };
+                Ok::<_, RouteError>((*first, engine.trace(body).await?))
+            }))
+            .await;
+        let mut edges = Vec::new();
+        for answer in answers {
+            let (first, answer) = answer?;
             match limits::edges_of(&answer, first) {
                 Some(e) => edges.extend(e),
                 None => return Ok(None),
@@ -477,6 +515,75 @@ impl Routing {
             engine_answered: work.answered,
             spent: work.spent,
         }
+    }
+
+    /// Keeps the restriction blockers of a check of graph `graph_id`.
+    fn remember(&self, graph_id: &str, blockers: &[Met]) {
+        let mut memory = self
+            .remembered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if memory.graph_id != graph_id {
+            memory.blockers.clear();
+            graph_id.clone_into(&mut memory.graph_id);
+        }
+        for b in blockers {
+            if memory
+                .blockers
+                .iter()
+                .all(|(id, _, _)| *id != b.restriction.id)
+            {
+                memory.blockers.push_back((
+                    b.restriction.id,
+                    b.hit.middle,
+                    b.restriction.restriction.clone(),
+                ));
+            }
+        }
+        while memory.blockers.len() > REMEMBERED {
+            memory.blockers.pop_front();
+        }
+    }
+
+    /// The remembered blockers of graph `graph_id` that block `dims` and
+    /// that a route of `stops` may meet, away from the stops: the latest
+    /// first, [`REMEMBERED_RINGS`] at most.
+    fn remembered_for(
+        &self,
+        graph_id: &str,
+        stops: &[Stop],
+        dims: &RoutingDimensions,
+    ) -> Vec<Position> {
+        let memory = self
+            .remembered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if memory.graph_id != graph_id || stops.is_empty() {
+            return Vec::new();
+        }
+        let (mut south, mut west, mut north, mut east) =
+            (90.0_f64, 180.0_f64, -90.0_f64, -180.0_f64);
+        for s in stops {
+            south = south.min(s.at.lat());
+            north = north.max(s.at.lat());
+            west = west.min(s.at.lon());
+            east = east.max(s.at.lon());
+        }
+        memory
+            .blockers
+            .iter()
+            .rev()
+            .filter(|(_, at, _)| {
+                (south - TRIP_MARGIN_DEG..=north + TRIP_MARGIN_DEG).contains(&at.lat())
+                    && (west - TRIP_MARGIN_DEG..=east + TRIP_MARGIN_DEG).contains(&at.lon())
+                    && stops
+                        .iter()
+                        .all(|s| s.at.distance_m(*at) > CLEAR_OF_STOPS_M)
+            })
+            .filter(|(_, _, r)| assess(r, dims).is_some_and(|f| f.severity != Severity::Warning))
+            .map(|(_, at, _)| *at)
+            .take(REMEMBERED_RINGS)
+            .collect()
     }
 
     /// The reasons a trip has no route, within what is left of the route's
@@ -562,7 +669,14 @@ impl Routing {
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
         let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
-        for attempt in 0..MAX_ATTEMPTS {
+        let ahead = self.remembered_for(graph_id, &request.stops, &dims);
+        for centre in &ahead {
+            centres.push(*centre);
+            exclusions.push(exclusion_ring(*centre, RING_M));
+        }
+        let mut ahead = !ahead.is_empty();
+        let mut attempt = 0;
+        while attempt < MAX_ATTEMPTS {
             calls = attempt + 1;
             let body = valhalla::route_body(
                 &request.stops,
@@ -590,6 +704,16 @@ impl Routing {
             work.answered = true;
             let osrm = match answer {
                 Answer::Routes(v) => v,
+                // The remembered blockers closed the last way, or the road
+                // a stop lies on: the trip is asked again without them, so
+                // that a trip without a route is told why by the engine and
+                // the check, as before they were remembered.
+                Answer::NoSegment | Answer::NoRoute if attempt == 0 && ahead => {
+                    ahead = false;
+                    exclusions.clear();
+                    centres.clear();
+                    continue;
+                }
                 Answer::NoSegment if attempt == 0 => {
                     let stops = Self::off_network(engine, request, &costing, deadline).await;
                     return Ok(Outcome::NoRoute(NoRoute::OffNetwork(stops)));
@@ -657,6 +781,7 @@ impl Routing {
                 blockers.extend(b);
                 event_blockers.extend(e);
             }
+            self.remember(graph_id, &blockers);
             for e in &event_blockers {
                 if !avoided.iter().any(|a| a.id == e.event.id) {
                     avoided.push(Arc::clone(&e.event));
@@ -692,6 +817,7 @@ impl Routing {
                 exclusions = exclusions.len(),
                 "route recalculated around limits the vehicle exceeds or closed roads"
             );
+            attempt += 1;
         }
         Ok(Outcome::NoSafeRoute {
             blockers: distinct(blockers),
@@ -755,7 +881,9 @@ type Checked = (CheckedRoute, Vec<Met>, Vec<EventHit>);
 /// route computed again runs where the previous one ran but around a ring
 /// of a few metres, and an alternative shares most of the best route: only
 /// what no query covered is asked again. It holds a few lines and a few
-/// thousand rows for the request's life, under its engine slot.
+/// thousand rows for the request's life, under its engine slot, and the
+/// segments of the stretches: 40 bytes each, 4 to 6 MB for a trip of
+/// 3 000 km and its alternatives.
 #[derive(Default)]
 struct Known {
     /// The stretches queried, each exactly as it was: a stretch only
