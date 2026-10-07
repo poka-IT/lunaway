@@ -766,6 +766,7 @@ class _Translations$account$fr extends Translations$account$en {
 	@override late final _Translations$account$requirement$fr requirement = _Translations$account$requirement$fr._(_root);
 	@override String orInstead({required Object requirement}) => 'Ou bien ${requirement}';
 	@override String get recoveryNone => 'Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.';
+	@override String get recoveryNoneAccount => 'Pas encore de carte de secours pour ce compte. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.';
 	@override String get recoveryCreate => 'Faire ma carte de secours';
 	@override String recoveryMade({required Object date}) => 'Faite le ${date}';
 	@override String get recoveryRemake => 'Refaire';
@@ -1213,6 +1214,10 @@ class _Translations$poi$fr extends Translations$poi$en {
 	@override late final _Translations$poi$kind$fr kind = _Translations$poi$kind$fr._(_root);
 	@override String get chipsLabel => 'Commerces et services autour';
 	@override String get openNow => 'Ouvert maintenant';
+	@override late final _Translations$poi$vendingSells$fr vendingSells = _Translations$poi$vendingSells$fr._(_root);
+	@override String get vendingAll => 'Tous les distributeurs alimentaires';
+	@override String get vendingMenu => 'Ce que vendent les distributeurs';
+	@override late final _Translations$poi$vendingChip$fr vendingChip = _Translations$poi$vendingChip$fr._(_root);
 	@override String get alwaysOpen => 'Ouvert jour et nuit';
 	@override String get hoursUnknown => 'Horaires inconnus';
 	@override String get maybeClosed => 'Fermé selon l\'annuaire officiel des établissements de santé (FINESS).';
@@ -2159,6 +2164,34 @@ class _Translations$poi$kind$fr extends Translations$poi$kind$en {
 	@override String get motorhomeShop => 'Concession et atelier camping-car';
 }
 
+// Path: poi.vendingSells
+class _Translations$poi$vendingSells$fr extends Translations$poi$vendingSells$en {
+	_Translations$poi$vendingSells$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get pizza => 'Pizza';
+	@override String get bread => 'Pain';
+	@override String get farmProducts => 'Produits de la ferme';
+	@override String get eggsMilk => 'Œufs et lait';
+	@override String get ice => 'Glaçons';
+}
+
+// Path: poi.vendingChip
+class _Translations$poi$vendingChip$fr extends Translations$poi$vendingChip$en {
+	_Translations$poi$vendingChip$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get pizza => 'Distributeurs de pizza';
+	@override String get bread => 'Distributeurs de pain';
+	@override String get farmProducts => 'Distributeurs de produits de la ferme';
+	@override String get eggsMilk => 'Distributeurs d\'œufs et de lait';
+	@override String get ice => 'Distributeurs de glaçons';
+}
+
 // Path: poi.fuel
 class _Translations$poi$fuel$fr extends Translations$poi$fuel$en {
 	_Translations$poi$fuel$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -3056,6 +3089,7 @@ extension on TranslationsFr {
 			'account.requirement.administration' => 'Une désignation par l\'équipe de Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Ou bien ${requirement}',
 			'account.recoveryNone' => 'Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.',
+			'account.recoveryNoneAccount' => 'Pas encore de carte de secours pour ce compte. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryCreate' => 'Faire ma carte de secours',
 			'account.recoveryMade' => ({required Object date}) => 'Faite le ${date}',
 			'account.recoveryRemake' => 'Refaire',
@@ -3367,9 +3401,9 @@ extension on TranslationsFr {
 			'placeForm.submitEdit' => 'Enregistrer la modification',
 			'placeForm.submitPropose' => 'Envoyer la proposition',
 			'placeForm.nothingChanged' => 'Rien n\'a changé',
-			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
 			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
 			'placeForm.added' => 'Merci : le lieu arrive sur la carte dans un instant',
 			'placeForm.proposed' => 'Merci : votre proposition part en relecture',
@@ -3422,6 +3456,18 @@ extension on TranslationsFr {
 			'poi.kind.motorhomeShop' => 'Concession et atelier camping-car',
 			'poi.chipsLabel' => 'Commerces et services autour',
 			'poi.openNow' => 'Ouvert maintenant',
+			'poi.vendingSells.pizza' => 'Pizza',
+			'poi.vendingSells.bread' => 'Pain',
+			'poi.vendingSells.farmProducts' => 'Produits de la ferme',
+			'poi.vendingSells.eggsMilk' => 'Œufs et lait',
+			'poi.vendingSells.ice' => 'Glaçons',
+			'poi.vendingAll' => 'Tous les distributeurs alimentaires',
+			'poi.vendingMenu' => 'Ce que vendent les distributeurs',
+			'poi.vendingChip.pizza' => 'Distributeurs de pizza',
+			'poi.vendingChip.bread' => 'Distributeurs de pain',
+			'poi.vendingChip.farmProducts' => 'Distributeurs de produits de la ferme',
+			'poi.vendingChip.eggsMilk' => 'Distributeurs d\'œufs et de lait',
+			'poi.vendingChip.ice' => 'Distributeurs de glaçons',
 			'poi.alwaysOpen' => 'Ouvert jour et nuit',
 			'poi.hoursUnknown' => 'Horaires inconnus',
 			'poi.maybeClosed' => 'Fermé selon l\'annuaire officiel des établissements de santé (FINESS).',

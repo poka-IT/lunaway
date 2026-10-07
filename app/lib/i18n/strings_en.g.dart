@@ -1522,6 +1522,9 @@ class Translations$account$en {
 	/// en: 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.'
 	String get recoveryNone => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.';
 
+	/// en: 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.'
+	String get recoveryNoneAccount => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.';
+
 	/// en: 'Make my recovery card'
 	String get recoveryCreate => 'Make my recovery card';
 
@@ -2502,6 +2505,16 @@ class Translations$poi$en {
 
 	/// en: 'Open now'
 	String get openNow => 'Open now';
+
+	late final Translations$poi$vendingSells$en vendingSells = Translations$poi$vendingSells$en.internal(_root);
+
+	/// en: 'All food vending machines'
+	String get vendingAll => 'All food vending machines';
+
+	/// en: 'What the machines sell'
+	String get vendingMenu => 'What the machines sell';
+
+	late final Translations$poi$vendingChip$en vendingChip = Translations$poi$vendingChip$en.internal(_root);
 
 	/// en: 'Open day and night'
 	String get alwaysOpen => 'Open day and night';
@@ -4608,6 +4621,54 @@ class Translations$poi$kind$en {
 	String get motorhomeShop => 'Motorhome dealer and workshop';
 }
 
+// Path: poi.vendingSells
+class Translations$poi$vendingSells$en {
+	Translations$poi$vendingSells$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Farm produce'
+	String get farmProducts => 'Farm produce';
+
+	/// en: 'Eggs and milk'
+	String get eggsMilk => 'Eggs and milk';
+
+	/// en: 'Ice'
+	String get ice => 'Ice';
+}
+
+// Path: poi.vendingChip
+class Translations$poi$vendingChip$en {
+	Translations$poi$vendingChip$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza vending machines'
+	String get pizza => 'Pizza vending machines';
+
+	/// en: 'Bread vending machines'
+	String get bread => 'Bread vending machines';
+
+	/// en: 'Farm produce vending machines'
+	String get farmProducts => 'Farm produce vending machines';
+
+	/// en: 'Egg and milk vending machines'
+	String get eggsMilk => 'Egg and milk vending machines';
+
+	/// en: 'Ice vending machines'
+	String get ice => 'Ice vending machines';
+}
+
 // Path: poi.fuel
 class Translations$poi$fuel$en {
 	Translations$poi$fuel$en.internal(this._root);
@@ -5669,6 +5730,7 @@ extension on Translations {
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
+			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
@@ -5980,9 +6042,9 @@ extension on Translations {
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
-			'placeForm.invalidNumber' => 'A number, please',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
@@ -6035,6 +6097,18 @@ extension on Translations {
 			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
 			'poi.chipsLabel' => 'Shops and services around',
 			'poi.openNow' => 'Open now',
+			'poi.vendingSells.pizza' => 'Pizza',
+			'poi.vendingSells.bread' => 'Bread',
+			'poi.vendingSells.farmProducts' => 'Farm produce',
+			'poi.vendingSells.eggsMilk' => 'Eggs and milk',
+			'poi.vendingSells.ice' => 'Ice',
+			'poi.vendingAll' => 'All food vending machines',
+			'poi.vendingMenu' => 'What the machines sell',
+			'poi.vendingChip.pizza' => 'Pizza vending machines',
+			'poi.vendingChip.bread' => 'Bread vending machines',
+			'poi.vendingChip.farmProducts' => 'Farm produce vending machines',
+			'poi.vendingChip.eggsMilk' => 'Egg and milk vending machines',
+			'poi.vendingChip.ice' => 'Ice vending machines',
 			'poi.alwaysOpen' => 'Open day and night',
 			'poi.hoursUnknown' => 'Opening hours unknown',
 			'poi.maybeClosed' => 'Closed according to the official register of health facilities (FINESS).',

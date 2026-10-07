@@ -39,6 +39,7 @@ final class GlPoiLayers {
       PoiMapStyle.pinsLayerId,
       PoiMapStyle.fuelLayerId,
       PoiMapStyle.quietLayerId,
+      PoiMapStyle.vendingDotsLayerId,
       PoiMapStyle.dotsLayerId,
     ]) {
       await _quietly(() => c.removeLayer(layer));
@@ -55,6 +56,15 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.clustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.dotsFilter(view),
+    );
+    if (!current()) return;
+    await c.addSymbolLayer(
+      PoiMapStyle.source,
+      PoiMapStyle.vendingDotsLayerId,
+      _vendingDots(pinScale),
+      sourceLayer: PoiMapStyle.vendingClustersLayer,
+      maxzoom: PoiMapStyle.pointsMinZoom,
+      filter: PoiMapStyle.vendingDotsFilter(view),
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -130,10 +140,12 @@ final class GlPoiLayers {
     _sent = view;
     if (sent == null ||
         sent.category != view.category ||
+        sent.vending != view.vending ||
         sent.openNowOnly != view.openNowOnly ||
         sent.state != view.state ||
         sent.night != view.night) {
       await c.setFilter(PoiMapStyle.dotsLayerId, PoiMapStyle.dotsFilter(view));
+      await c.setFilter(PoiMapStyle.vendingDotsLayerId, PoiMapStyle.vendingDotsFilter(view));
       await c.setFilter(PoiMapStyle.quietLayerId, PoiMapStyle.quietFilter(view));
       await c.setFilter(PoiMapStyle.pinsLayerId, PoiMapStyle.pinsFilter(view));
       await c.setLayerProperties(PoiMapStyle.quietLayerId, _quiet(view, pinScale));
@@ -161,7 +173,7 @@ final class GlPoiLayers {
     required double zoom,
     required Object camera,
   }) async {
-    final key = (camera, view.category);
+    final key = (camera, view.category, view.vending);
     if (key == _probed) return null;
     _probed = key;
     final drawn = view.category != null
@@ -215,6 +227,13 @@ final class GlPoiLayers {
         symbolSortKey: PoiMapStyle.dotSortKey,
         iconPadding: 2,
       );
+
+  static gl.SymbolLayerProperties _vendingDots(double scale) => gl.SymbolLayerProperties(
+    iconImage: PoiMapStyle.vendingDotImage,
+    iconSize: PoiMapStyle.dotSize(scale),
+    symbolSortKey: PoiMapStyle.dotSortKey,
+    iconPadding: 2,
+  );
 
   static Future<void> _quietly(Future<void> Function() call) async {
     try {

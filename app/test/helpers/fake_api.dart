@@ -38,6 +38,10 @@ final class FakeApi {
   /// No answer at all, as without a network.
   bool offline = false;
 
+  /// When the account's recovery code was made, as `myAccount` reads it;
+  /// null while it has none. `CreateRecoveryCode` sets it to [testNow].
+  DateTime? recoveryCodeCreatedAt;
+
   /// While set, the operations in [held] wait for it to complete before
   /// their answer: a slow network, to test what happens meanwhile.
   Completer<void>? hold;
@@ -111,9 +115,10 @@ final class FakeApi {
   /// The operations received, by name.
   List<String> get operations => [for (final c in calls) c.operation];
 
-  /// Answers as the API did before idempotency keys, `createIfUnknown` and
-  /// `PlaceDetailsInput.clear`: it refuses the documents that carry them,
-  /// and makes an account for any key it does not know.
+  /// Answers as the API did before idempotency keys, `createIfUnknown`,
+  /// `PlaceDetailsInput.clear` and `Account.recoveryCodeCreatedAt`: it
+  /// refuses the documents that carry them, and makes an account for any
+  /// key it does not know.
   bool older = false;
 
   /// The operations [older] refused, by name.
@@ -186,6 +191,8 @@ final class FakeApi {
           ? 'Unknown argument "$unknown" on field "x" of type "Mutation".'
           : patch is Map && patch.containsKey('clear')
           ? 'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"'
+          : query.contains('recoveryCodeCreatedAt')
+          ? 'Unknown field "recoveryCodeCreatedAt" on type "Account".'
           : null;
       if (message != null) {
         olderRefusals.add(name);
@@ -211,7 +218,7 @@ final class FakeApi {
     }
     final Object answer;
     try {
-      answer = _answer(name, variables, token);
+      answer = _answer(name, variables, token, query);
     } on _Refused catch (e) {
       return _json({
         'data': null,
@@ -346,7 +353,7 @@ final class FakeApi {
     return true;
   }
 
-  Object _answer(String name, Map<String, Object?> v, String? token) {
+  Object _answer(String name, Map<String, Object?> v, String? token, String query) {
     switch (name) {
       case 'AuthChallenge':
         final nonce = P256.b64url(List<int>.generate(32, (i) => (i * 7 + _serial++) % 256));
@@ -395,7 +402,7 @@ final class FakeApi {
     if (idempotency is String && _keyed.containsKey('$name/$idempotency')) {
       return _keyed['$name/$idempotency']!;
     }
-    final answer = _answerSignedIn(name, v, key, id);
+    final answer = _answerSignedIn(name, v, key, id, query);
     if (idempotency is String) _keyed['$name/$idempotency'] = answer;
     return answer;
   }
@@ -408,6 +415,7 @@ final class FakeApi {
     Map<String, Object?> v,
     String key,
     String Function() id,
+    String query,
   ) {
     return switch (name) {
       'MyAccount' => {
@@ -416,15 +424,20 @@ final class FakeApi {
           'mutedAuthors': [
             for (final m in muted) {'id': m.id, 'pseudonym': m.pseudonym},
           ],
+          if (query.contains('recoveryCodeCreatedAt'))
+            'recoveryCodeCreatedAt': recoveryCodeCreatedAt?.toUtc().toIso8601String(),
         },
       },
       'UpdateProfile' => () {
         pseudonym = v['pseudonym']! as String;
         return {'updateProfile': account()};
       }(),
-      'CreateRecoveryCode' => {
-        'createRecoveryCode': {'code': recoveryCode},
-      },
+      'CreateRecoveryCode' => () {
+        recoveryCodeCreatedAt = testNow;
+        return {
+          'createRecoveryCode': {'code': recoveryCode},
+        };
+      }(),
       'SignOut' => {'signOut': true},
       'SignOutElsewhere' => () {
         final others = _keys.length - 1;

@@ -63,14 +63,21 @@ final class SignedIn extends AccountState {
   const new({
     required this.account,
     this.recoveryCardAt,
+    this.recoveryCardChecked = false,
     this.muted = const [],
     this.justCreated = false,
   });
 
   final Account account;
 
-  /// When a recovery card was made or used on this device.
+  /// When the account's recovery card was made: the server's date once
+  /// read, else the one this device kept (a card made or used here),
+  /// offline or with an API older than that date.
   final DateTime? recoveryCardAt;
+
+  /// The server said, this run, whether the account has a recovery card:
+  /// without a date, then, the account has none on any device.
+  final bool recoveryCardChecked;
 
   /// The authors the account mutes, as last read.
   final List<Author> muted;
@@ -87,6 +94,7 @@ final class SignedIn extends AccountState {
   }) => SignedIn(
     account: account ?? this.account,
     recoveryCardAt: recoveryCardAt ?? this.recoveryCardAt,
+    recoveryCardChecked: recoveryCardChecked,
     muted: muted ?? this.muted,
     justCreated: justCreated ?? this.justCreated,
   );
@@ -155,9 +163,21 @@ class AccountController extends _$AccountController {
       final read = await ref.read(accountServiceProvider).refresh();
       if (!ref.mounted) return;
       final current = state;
+      final card = read.recoveryCode;
       state = current is SignedIn
-          ? current.copyWith(account: read.account, muted: read.muted)
-          : SignedIn(account: read.account, muted: read.muted);
+          ? SignedIn(
+              account: read.account,
+              muted: read.muted,
+              recoveryCardAt: card == null ? current.recoveryCardAt : card.createdAt,
+              recoveryCardChecked: card != null || current.recoveryCardChecked,
+              justCreated: current.justCreated,
+            )
+          : SignedIn(
+              account: read.account,
+              muted: read.muted,
+              recoveryCardAt: card?.createdAt,
+              recoveryCardChecked: card != null,
+            );
     } on NoAccountException {
       if (ref.mounted) state = const NoAccount();
     } on Object catch (e) {

@@ -388,6 +388,24 @@ pub async fn set_recovery_code(
     Ok(())
 }
 
+/// When the current recovery code of `account` was made; `None` when the
+/// account has none.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn recovery_code_created_at(
+    pool: &PgPool,
+    account: Uuid,
+) -> Result<Option<DateTime<Utc>>, DbError> {
+    Ok(sqlx::query_scalar!(
+        "SELECT created_at FROM recovery_codes WHERE account_id = $1",
+        account,
+    )
+    .fetch_optional(pool)
+    .await?)
+}
+
 /// The account whose recovery code hashes to `hash`, and whether it is
 /// banned.
 ///

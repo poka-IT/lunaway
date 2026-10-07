@@ -885,6 +885,7 @@
     },
     "orInstead": "Ou bien $requirement",
     "recoveryNone": "Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s'il est perdu, le compte l'est aussi.",
+    "recoveryNoneAccount": "Pas encore de carte de secours pour ce compte. Sans elle, ce compte reste sur cet appareil : s'il est perdu, le compte l'est aussi.",
     "recoveryCreate": "Faire ma carte de secours",
     "recoveryMade": "Faite le $date",
     "recoveryRemake": "Refaire",
@@ -1324,6 +1325,22 @@
     },
     "chipsLabel": "Commerces et services autour",
     "openNow": "Ouvert maintenant",
+    "vendingSells": {
+      "pizza": "Pizza",
+      "bread": "Pain",
+      "farmProducts": "Produits de la ferme",
+      "eggsMilk": "Œufs et lait",
+      "ice": "Glaçons"
+    },
+    "vendingAll": "Tous les distributeurs alimentaires",
+    "vendingMenu": "Ce que vendent les distributeurs",
+    "vendingChip": {
+      "pizza": "Distributeurs de pizza",
+      "bread": "Distributeurs de pain",
+      "farmProducts": "Distributeurs de produits de la ferme",
+      "eggsMilk": "Distributeurs d'œufs et de lait",
+      "ice": "Distributeurs de glaçons"
+    },
     "alwaysOpen": "Ouvert jour et nuit",
     "hoursUnknown": "Horaires inconnus",
     "maybeClosed": "Fermé selon l'annuaire officiel des établissements de santé (FINESS).",

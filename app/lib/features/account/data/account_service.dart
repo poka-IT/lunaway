@@ -84,9 +84,8 @@ final class StoredAccount {
 
   final Account account;
 
-  /// When a recovery card was last made or used on this device; null when
-  /// the device never saw one (the server does not say whether a code
-  /// exists).
+  /// When the recovery card was made, as last read from the server or kept
+  /// when a card was made or used on this device; null when none is known.
   final DateTime? recoveryCardAt;
 }
 
@@ -353,13 +352,36 @@ final class AccountService {
     return (await refresh()).account;
   }
 
-  /// The account as the server sees it now, kept on the device.
-  Future<({Account account, List<Author> muted})> refresh() async {
+  /// The account as the server sees it now, kept on the device, with the
+  /// date of its recovery card when the server gave it: that date then
+  /// replaces the device's, which only knew the cards made or used here.
+  /// [ServerRecoveryCode] is null when the API is older than the date, or
+  /// when this device made or used a card while the read was under way
+  /// (the answer predates that card).
+  Future<({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})>
+  refresh() async {
+    final cards = _cardWrites;
     final read = await run(myAccountOperation);
     await secrets.write(_accountSlot, jsonEncode(read.account.toJson()));
+    var card = read.recoveryCode;
+    if (card != null && cards == _cardWrites) {
+      final at = card.createdAt;
+      if (at == null) {
+        await secrets.delete(_recoverySlot);
+      } else {
+        await secrets.write(_recoverySlot, at.toUtc().toIso8601String());
+      }
+    } else {
+      card = null;
+    }
     _events.add(AccountSignedIn(read.account, created: false));
-    return read;
+    return (account: read.account, muted: read.muted, recoveryCode: card);
   }
+
+  /// Counts the cards this device made or used, so a read of the account
+  /// sent before one of them does not bring back the date of the card it
+  /// replaced.
+  int _cardWrites = 0;
 
   Future<Account> rename(String pseudonym) async {
     final account = await run(updateProfileOperation, variables: {'pseudonym': pseudonym});
@@ -375,6 +397,7 @@ final class AccountService {
   /// page.
   Future<(String, DateTime)> createRecoveryCode() async {
     final code = await run(createRecoveryCodeOperation, fresh: true);
+    _cardWrites++;
     final at = clock();
     try {
       await secrets.write(_recoverySlot, at.toUtc().toIso8601String());
@@ -402,6 +425,7 @@ final class AccountService {
       'signature': signature,
       'revokeOtherDevices': revokeOthers,
     });
+    _cardWrites++;
     await keys.save(key);
     await _keep(result);
     await secrets.write(_recoverySlot, clock().toUtc().toIso8601String());
