@@ -122,7 +122,8 @@ pub(crate) fn relaxed_costing(
 
 /// The engine's options for the vehicle and what to avoid: the `auto`
 /// costing with the four dimensions always sent (its defaults are those of
-/// a small car), `top_speed` above 3.5 t, and avoidance as preferences
+/// a small car), `top_speed` when the vehicle has one (the lower of the
+/// driver's cruising speed and the legal ceiling), and avoidance as preferences
 /// (`use_*: 0`), so a toll or a ferry stays possible when there is no other
 /// way; unpaved roads are excluded outright, except where the trip starts or
 /// ends on one.

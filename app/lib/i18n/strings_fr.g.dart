@@ -672,7 +672,6 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get cruiseTitle => 'Vitesse de croisière max';
 	@override String get cruiseHint => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.';
 	@override String get cruiseNone => 'Pas de limite';
-	@override String cruiseValue({required Object kmh}) => '${kmh} km/h';
 }
 
 // Path: profile
@@ -1556,7 +1555,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override String get vehicle => 'Votre véhicule';
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, avec attelage';
 	@override String get editVehicle => 'Modifier';
-	@override String cruise({required Object kmh}) => 'Calculé à ${kmh} km/h max';
+	@override String cruise({required Object speed}) => 'Calculé à ${speed} max';
 	@override String get avoid => 'Éviter';
 	@override String get avoidTolls => 'Péages';
 	@override String get avoidMotorways => 'Autoroutes';
@@ -2705,7 +2704,7 @@ extension on TranslationsFr {
 			'navigation.preview.vehicle' => 'Votre véhicule',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, avec attelage',
 			'navigation.preview.editVehicle' => 'Modifier',
-			'navigation.preview.cruise' => ({required Object kmh}) => 'Calculé à ${kmh} km/h max',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Calculé à ${speed} max',
 			'navigation.preview.avoid' => 'Éviter',
 			'navigation.preview.avoidTolls' => 'Péages',
 			'navigation.preview.avoidMotorways' => 'Autoroutes',
@@ -3040,7 +3039,6 @@ extension on TranslationsFr {
 			'vehicle.cruiseTitle' => 'Vitesse de croisière max',
 			'vehicle.cruiseHint' => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.',
 			'vehicle.cruiseNone' => 'Pas de limite',
-			'vehicle.cruiseValue' => ({required Object kmh}) => '${kmh} km/h',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.',
 			'profile.language' => 'Langue',
@@ -3421,9 +3419,9 @@ extension on TranslationsFr {
 			'placeForm.phone' => 'Téléphone',
 			'placeForm.photo' => 'Photo (facultative)',
 			'placeForm.photoReady' => 'Photo prête',
+			'placeForm.removePhoto' => 'Retirer la photo',
 			_ => null,
 		} ?? switch (path) {
-			'placeForm.removePhoto' => 'Retirer la photo',
 			'placeForm.toVerify' => 'Le lieu apparaîtra « à vérifier » jusqu\'à ce que deux autres voyageurs le confirment.',
 			'placeForm.licence' => 'Les lieux sont publiés sous licence ODbL, crédités aux contributeurs de Lunaway.',
 			'placeForm.moderated' => 'Un site web ou un téléphone passe par un modérateur avant d\'être publié.',

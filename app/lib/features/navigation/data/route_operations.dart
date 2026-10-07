@@ -4,7 +4,6 @@ import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
-import 'package:meta/meta.dart';
 
 /// The routing operations the app sends, held to the schema by
 /// `test/contract/navigation_contract_test.dart`.
@@ -155,8 +154,8 @@ final routeOperation = GraphQLOperation<RoutePlan>(
 OlderForm _withoutCruise(String document, {OlderForm? older}) =>
     OlderForm(document: document, variables: withoutCruiseSpeed, withoutFields: true, older: older);
 
-/// [variables] of a route request without the vehicle's cruising speed.
-@visibleForTesting
+/// [variables] of a route or fuel request without the vehicle's cruising
+/// speed.
 Map<String, Object?> withoutCruiseSpeed(Map<String, Object?> variables) {
   final input = variables['input'];
   if (input is! Map<String, Object?>) return variables;

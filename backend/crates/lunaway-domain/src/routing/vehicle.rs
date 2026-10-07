@@ -84,7 +84,8 @@ pub mod bounds {
 /// (Code de la route, art. R413-8-1: passenger vehicles of 3.5 to 12 t).
 pub const HEAVY_ABOVE_T: f64 = 3.5;
 /// Top speed given to the router for a motorhome over [`HEAVY_ABOVE_T`]
-/// that tows nothing.
+/// that tows nothing. Both values mirror `crate::speed::vehicle_ceiling_kmh`,
+/// which [`legal_top_speed_kph`] reads; a test holds them equal.
 pub const HEAVY_TOP_SPEED_KPH: u32 = 110;
 /// Trailer mass above which a B9i sign (`caravan=no`) applies.
 pub const CARAVAN_SIGN_ABOVE_T: f64 = 0.25;

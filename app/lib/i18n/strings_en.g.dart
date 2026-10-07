@@ -1317,9 +1317,6 @@ class Translations$vehicle$en {
 
 	/// en: 'No limit'
 	String get cruiseNone => 'No limit';
-
-	/// en: '$kmh km/h'
-	String cruiseValue({required Object kmh}) => '${kmh} km/h';
 }
 
 // Path: profile
@@ -3296,8 +3293,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Edit'
 	String get editVehicle => 'Edit';
 
-	/// en: 'Timed at $kmh km/h max'
-	String cruise({required Object kmh}) => 'Timed at ${kmh} km/h max';
+	/// en: 'Timed at $speed max'
+	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
@@ -5366,7 +5363,7 @@ extension on Translations {
 			'navigation.preview.vehicle' => 'Your vehicle',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
-			'navigation.preview.cruise' => ({required Object kmh}) => 'Timed at ${kmh} km/h max',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -5701,7 +5698,6 @@ extension on Translations {
 			'vehicle.cruiseTitle' => 'Top cruising speed',
 			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
 			'vehicle.cruiseNone' => 'No limit',
-			'vehicle.cruiseValue' => ({required Object kmh}) => '${kmh} km/h',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6082,9 +6078,9 @@ extension on Translations {
 			'placeForm.phone' => 'Phone',
 			'placeForm.photo' => 'Photo (optional)',
 			'placeForm.photoReady' => 'Photo ready',
+			'placeForm.removePhoto' => 'Remove the photo',
 			_ => null,
 		} ?? switch (path) {
-			'placeForm.removePhoto' => 'Remove the photo',
 			'placeForm.toVerify' => 'The place will show as “to verify” until two other travellers confirm it.',
 			'placeForm.licence' => 'Places are published under the ODbL, credited to the Lunaway contributors.',
 			'placeForm.moderated' => 'A website or a phone number goes through a moderator before it is published.',

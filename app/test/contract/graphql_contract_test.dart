@@ -54,7 +54,9 @@ void main() {
     // idempotency keys (the schema of 6140356^, still in production when
     // this app ships), and against this one, which keeps those arguments
     // optional.
-    if (op.older case final older?) {
+    // A form that only leaves variables out (the cruising speed of the
+    // fuel search) is for a later API, checked in the navigation contract.
+    if (op.older case final older? when older.document != op.document) {
       test('${op.name} in its older form is valid against both APIs', () {
         expect(validator.validate(older.document), isEmpty);
         expect(before.validate(older.document), isEmpty);

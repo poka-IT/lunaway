@@ -790,8 +790,8 @@ pub struct RerouteParameters {
     pub language: RouteLanguage,
     /// The speed the engine assumed at most, km/h: the lower of
     /// `vehicle.cruiseSpeedKph` and the vehicle's legal ceiling on a
-    /// motorway (110 for a motorhome over 3.5 t, 90 for a train over
-    /// 3.5 t). Null when neither applies.
+    /// motorway (110 for a motorhome of 3.5 to 12 t, 90 for a train over
+    /// 3.5 t or a vehicle over 12 t). Null when neither applies.
     pub top_speed_kph: Option<i32>,
     /// The engine's costing options the route was computed with, as JSON:
     /// for display and support, not to call the engine directly (it is not

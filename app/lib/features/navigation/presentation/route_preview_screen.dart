@@ -649,7 +649,7 @@ class _Routes extends ConsumerWidget {
             const SizedBox(width: Space.s),
             Expanded(
               child: Text(
-                context.t.navigation.preview.cruise(kmh: kmh),
+                context.t.navigation.preview.cruise(speed: context.t.speedLimit(kmh, units)),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),

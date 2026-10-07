@@ -404,7 +404,7 @@
       "vehicle": "Your vehicle",
       "vehicleTowing": "$vehicle, towing",
       "editVehicle": "Edit",
-      "cruise": "Timed at $kmh km/h max",
+      "cruise": "Timed at $speed max",
       "avoid": "Avoid",
       "avoidTolls": "Tolls",
       "avoidMotorways": "Motorways",
@@ -800,8 +800,7 @@
     "lpgHeatingHint": "LPG prices also show on the stations.",
     "cruiseTitle": "Top cruising speed",
     "cruiseHint": "Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.",
-    "cruiseNone": "No limit",
-    "cruiseValue": "$kmh km/h"
+    "cruiseNone": "No limit"
   },
   "profile": {
     "title": "Profile",
