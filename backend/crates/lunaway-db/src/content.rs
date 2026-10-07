@@ -590,7 +590,8 @@ pub struct NewReview {
 }
 
 /// The keys of `source` whose reviews Lunaway kept, with when it first
-/// kept one: a key absent from it, or demoted, is new. The key of a review
+/// kept one. A key absent from it is new, and so is a key one of whose
+/// reviews stands hidden (`content_review_strikes`). The key of a review
 /// stored now and absent from `content_review_keys` counts too, from the
 /// last run that fetched the review: a release older than that table
 /// stored reviews without recording their keys, and the next run must not
@@ -605,17 +606,24 @@ pub async fn review_keys(
 ) -> Result<HashMap<String, DateTime<Utc>>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT author_key AS "author_key!", first_kept_at AS "since!"
-        FROM content_review_keys
-        WHERE source_id = $1 AND demoted_at IS NULL
-        UNION ALL
-        SELECT r.author_key AS "author_key!", min(r.fetched_at) AS "since!"
-        FROM content_reviews r
-        WHERE r.source_id = $1 AND r.author_key IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1 FROM content_review_keys k
-              WHERE k.source_id = r.source_id AND k.author_key = r.author_key)
-        GROUP BY r.author_key
+        SELECT author_key AS "author_key!", min(since) AS "since!"
+        FROM (
+            SELECT author_key, first_kept_at AS since
+            FROM content_review_keys WHERE source_id = $1
+            UNION ALL
+            SELECT r.author_key, r.fetched_at
+            FROM content_reviews r
+            WHERE r.source_id = $1 AND r.author_key IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM content_review_keys k
+                  WHERE k.source_id = r.source_id AND k.author_key = r.author_key)
+        ) known
+        WHERE NOT EXISTS (
+            SELECT 1 FROM content_review_strikes s
+            JOIN content_hides h
+              ON h.source_id = s.source_id AND h.scope = 'review' AND h.key = s.external_id
+            WHERE s.source_id = $1 AND s.author_key = known.author_key)
+        GROUP BY author_key
         "#,
         source,
     )
@@ -624,43 +632,120 @@ pub async fn review_keys(
     Ok(rows.into_iter().map(|r| (r.author_key, r.since)).collect())
 }
 
-/// Demotes, for good, the keys of `source` whose stored review the
-/// reports, a moderator or the operator hid: their author could sign the
-/// same review again under a new signature, which the hide does not
-/// match. Run before [`replace_reviews`], while the hidden review is still
-/// stored. Returns the keys demoted by this call.
+/// Records a strike against the key of each stored review of `source`
+/// that a hide names: its author could sign the same review again under a
+/// new signature, which the hide does not match, and the key ranks with
+/// the new ones while the hide stands. Run before [`replace_reviews`],
+/// while the hidden review is still stored. Returns the strikes recorded
+/// by this call.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn demote_hidden_review_keys(
-    pool: &PgPool,
-    source: &str,
-    at: DateTime<Utc>,
-) -> Result<u64, DbError> {
+pub async fn record_review_strikes(pool: &PgPool, source: &str) -> Result<u64, DbError> {
     Ok(sqlx::query!(
         r#"
-        INSERT INTO content_review_keys (source_id, author_key, first_kept_at, demoted_at)
-        SELECT r.source_id, r.author_key, min(r.fetched_at), $2::timestamptz
+        INSERT INTO content_review_strikes (source_id, author_key, external_id)
+        SELECT r.source_id, r.author_key, r.external_id
         FROM content_reviews r
         JOIN content_hides h
           ON h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id
         WHERE r.source_id = $1 AND r.author_key IS NOT NULL
-        GROUP BY r.source_id, r.author_key
-        ON CONFLICT (source_id, author_key) DO UPDATE SET demoted_at = excluded.demoted_at
-        WHERE content_review_keys.demoted_at IS NULL
+        ON CONFLICT DO NOTHING
         "#,
         source,
-        at,
     )
     .execute(pool)
     .await?
     .rows_affected())
 }
 
+/// The places each key of `source` has a review shown on now, as
+/// `(place, key)` pairs: a review there takes no new room. A hidden review
+/// shows nowhere, so its key gains no pair from it.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn review_pairs(
+    pool: &PgPool,
+    source: &str,
+) -> Result<std::collections::HashSet<(Uuid, String)>, DbError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT DISTINCT r.place_id, r.author_key AS "author_key!"
+        FROM content_reviews r
+        WHERE r.source_id = $1 AND r.author_key IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id)
+        "#,
+        source,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.place_id, r.author_key))
+        .collect())
+}
+
+/// When Lunaway first read each review of `signatures`, recording `at`
+/// for those read now for the first time; the sightings of reviews no
+/// longer read go.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails.
+pub async fn sight_reviews(
+    pool: &PgPool,
+    source: &str,
+    signatures: &[String],
+    at: DateTime<Utc>,
+) -> Result<HashMap<String, DateTime<Utc>>, DbError> {
+    let mut tx = pool.begin().await?;
+    sqlx::query!(
+        r#"
+        DELETE FROM content_review_sightings
+        WHERE source_id = $1 AND NOT (external_id = ANY($2))
+        "#,
+        source,
+        signatures,
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        r#"
+        INSERT INTO content_review_sightings (source_id, external_id, first_seen_at)
+        SELECT $1, s, $3 FROM unnest($2::text[]) AS s
+        ON CONFLICT DO NOTHING
+        "#,
+        source,
+        signatures,
+        at,
+    )
+    .execute(&mut *tx)
+    .await?;
+    let rows = sqlx::query!(
+        "SELECT external_id, first_seen_at FROM content_review_sightings WHERE source_id = $1",
+        source,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.external_id, r.first_seen_at))
+        .collect())
+}
+
 /// Replaces every review of `source` with `reviews`, the whole of what the
 /// source holds (a review gone from it goes from Lunaway), in one
-/// transaction, and records the keys of the reviews kept.
+/// transaction, and records the keys of the reviews kept. A hidden review
+/// stays while its hide stands, never shown: a moderator who keeps it, or
+/// the operator who shows it again, still finds it by its id once its
+/// author signed it anew, and lifting that hide lifts the strike on its
+/// key (`review_keys`).
 ///
 /// # Errors
 ///
@@ -674,7 +759,13 @@ pub async fn replace_reviews(
     let mut tx = pool.begin().await?;
     let keep: Vec<String> = reviews.iter().map(|r| r.external_id.clone()).collect();
     let removed = sqlx::query!(
-        "DELETE FROM content_reviews WHERE source_id = $1 AND NOT (external_id = ANY($2))",
+        r#"
+        DELETE FROM content_reviews r
+        WHERE r.source_id = $1 AND NOT (r.external_id = ANY($2))
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id)
+        "#,
         source,
         &keep,
     )

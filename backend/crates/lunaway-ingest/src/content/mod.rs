@@ -228,12 +228,12 @@ pub struct SourceReport {
     pub skipped: BTreeMap<String, usize>,
     /// Reviews: keys whose first review this run kept.
     pub new_keys: usize,
-    /// Reviews: reviews of new keys held for a later run by the caps on
-    /// new keys, though their place had room.
+    /// Reviews: reviews that would reach a new place, held for a later run
+    /// by the caps on new pairs, though their place had room.
     pub held_new_keys: usize,
-    /// Reviews: keys that lost their rank this run, a review of theirs
-    /// being hidden.
-    pub demoted_keys: usize,
+    /// Reviews: strikes recorded this run against keys whose review is
+    /// hidden; such a key ranks as new while the hide stands.
+    pub struck_keys: usize,
     /// Why the source was stopped before the end, if it was.
     pub stopped: Option<String>,
 }
@@ -1442,10 +1442,10 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             distance_m,
         });
     }
-    // What an operator or the reports hid takes no room, and the key of a
-    // hidden review loses its rank before the review leaves the table;
-    // then keys kept before, oldest first, and few reviews of new keys, so
-    // fresh keys cannot push the reviews shown off a place
+    // What an operator or the reports hid takes no room, and a hidden
+    // review strikes its key before the review leaves the table; then the
+    // reviews shown stay, and few reviews reach new places, in the order
+    // Lunaway read them, so neither fresh keys nor aged ones flood the map
     // (`pick_reviews`).
     let (hidden_items, hidden_authors) = db::hidden_keys(ctx.pool, id.as_str()).await?;
     matched.retain(|r| {
@@ -1454,11 +1454,15 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
                 .as_ref()
                 .is_none_or(|k| !hidden_authors.contains(k))
     });
-    report.demoted_keys = db::demote_hidden_review_keys(ctx.pool, id.as_str(), Utc::now())
+    let now = Utc::now();
+    report.struck_keys = db::record_review_strikes(ctx.pool, id.as_str())
         .await?
         .try_into()
         .unwrap_or(usize::MAX);
     let known = db::review_keys(ctx.pool, id.as_str()).await?;
+    let pairs = db::review_pairs(ctx.pool, id.as_str()).await?;
+    let signatures: Vec<String> = matched.iter().map(|r| r.external_id.clone()).collect();
+    let seen = db::sight_reviews(ctx.pool, id.as_str(), &signatures, now).await?;
     let offers: Vec<ReviewOffer<'_, Uuid>> = matched
         .iter()
         .map(|r| ReviewOffer {
@@ -1466,6 +1470,11 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             key: r.author_key.as_deref(),
             written_at: r.written_at,
             key_since: r.author_key.as_ref().and_then(|k| known.get(k).copied()),
+            shown_here: r
+                .author_key
+                .as_ref()
+                .is_some_and(|k| pairs.contains(&(r.place_id, k.clone()))),
+            first_seen: seen.get(&r.external_id).copied().unwrap_or(now),
         })
         .collect();
     let picked = content::reviews::pick_reviews(&offers, content::reviews::MANGROVE_CAPS);
@@ -1483,9 +1492,9 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     tracing::info!(
         kept = matched.len(),
         new_keys = picked.new_keys,
-        new_reviews = picked.new_reviews,
+        new_pairs = picked.new_pairs,
         held = picked.deferred,
-        demoted = report.demoted_keys,
+        struck = report.struck_keys,
         "mangrove reviews chosen"
     );
     let replaced = db::replace_reviews(ctx.pool, id.as_str(), &matched, Utc::now()).await?;

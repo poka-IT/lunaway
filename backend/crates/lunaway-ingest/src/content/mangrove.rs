@@ -151,8 +151,15 @@ pub enum ReviewSkip {
 }
 
 /// What the key `kid` signed in `jwt`, once the signature, which must be
-/// the review's `signature`, verifies against it.
-fn verified_payload(signature: &str, kid: Option<&str>, jwt: Option<&str>) -> Option<Payload> {
+/// the review's `signature`, verifies against it; with the key as one
+/// line of PEM, its identity whatever line breaks `kid` carries. The API
+/// serves keys on one line, so that text is the one releases before the
+/// check hashed, and the reviews they stored keep their author.
+fn verified_payload(
+    signature: &str,
+    kid: Option<&str>,
+    jwt: Option<&str>,
+) -> Option<(Payload, String)> {
     let mut parts = jwt?.split('.');
     let (Some(header), Some(payload), Some(sig), None) =
         (parts.next(), parts.next(), parts.next(), parts.next())
@@ -168,13 +175,17 @@ fn verified_payload(signature: &str, kid: Option<&str>, jwt: Option<&str>) -> Op
         .chars()
         .filter(|c| !c.is_whitespace())
         .collect();
-    let der = STANDARD.decode(pem).ok()?;
+    let der = STANDARD.decode(&pem).ok()?;
     let point = der.strip_prefix(SPKI_P256_PREFIX.as_slice())?;
     let key = VerifyingKey::from_sec1_bytes(point).ok()?;
     let sig = Signature::from_slice(&BASE64URL.decode(sig).ok()?).ok()?;
     key.verify(format!("{header}.{payload}").as_bytes(), &sig)
         .ok()?;
-    serde_json::from_slice(&BASE64URL.decode(payload).ok()?).ok()
+    let payload = serde_json::from_slice(&BASE64URL.decode(payload).ok()?).ok()?;
+    Some((
+        payload,
+        format!("-----BEGIN PUBLIC KEY-----{pem}-----END PUBLIC KEY-----"),
+    ))
 }
 
 /// The reviews of a page about places on the map, and the reasons for the
@@ -208,7 +219,7 @@ fn review_of(r: Raw) -> Result<GeoReview, ReviewSkip> {
     if !signature_ok {
         return Err(ReviewSkip::Malformed);
     }
-    let payload = verified_payload(&r.signature, r.kid.as_deref(), r.jwt.as_deref())
+    let (payload, key_pem) = verified_payload(&r.signature, r.kid.as_deref(), r.jwt.as_deref())
         .ok_or(ReviewSkip::Unverified)?;
     let m = &payload.metadata;
     if m.get("is_generated").and_then(Value::as_bool) == Some(true) {
@@ -236,12 +247,7 @@ fn review_of(r: Raw) -> Result<GeoReview, ReviewSkip> {
     if stars.is_none() && text.is_none() {
         return Err(ReviewSkip::Empty);
     }
-    let author_key = r
-        .kid
-        .as_deref()
-        .map(str::trim)
-        .filter(|k| !k.is_empty())
-        .map(|k| hex_sha256(k.as_bytes()));
+    let author_key = Some(hex_sha256(key_pem.as_bytes()));
     let author = m
         .get("nickname")
         .and_then(Value::as_str)
@@ -383,7 +389,11 @@ mod tests {
         // No signed token at all.
         let mut bare = signed(&old, &p);
         bare.as_object_mut().unwrap().remove("jwt");
-        let body = json!({ "reviews": [borrowed, altered, bare] });
+        // The same key, its PEM text cut into lines.
+        let mut wrapped = signed(&old, &p);
+        let pem = kid(&old).replace("KEY-----", "KEY-----\n");
+        wrapped["kid"] = json!(pem);
+        let body = json!({ "reviews": [borrowed, altered, bare, wrapped] });
         let (kept, skipped, _) = parse_page(body.to_string().as_bytes()).unwrap();
         assert_eq!(
             skipped,
@@ -392,8 +402,17 @@ mod tests {
         );
         assert_eq!(
             kept.iter().map(|r| r.text.as_deref()).collect::<Vec<_>>(),
-            [Some("Parfait.")],
+            [Some("Parfait."), Some("Parfait.")],
             "what is read is what the key signed, not the API's copy"
+        );
+        assert_eq!(
+            kept[0].author_key, kept[1].author_key,
+            "one key is one author, however its text is laid out"
+        );
+        assert_eq!(
+            kept[0].author_key,
+            Some(hex_sha256(kid(&old).as_bytes())),
+            "the hash of the one-line key the API serves, as releases before the check stored it"
         );
     }
 
@@ -406,5 +425,9 @@ mod tests {
             "real reviews verify: {skipped:?}"
         );
         assert_eq!(kept.len() + skipped.len(), total);
+        assert!(
+            !kept.is_empty(),
+            "the signed payloads of real reviews parse: {skipped:?}"
+        );
     }
 }

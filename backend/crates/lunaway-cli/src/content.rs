@@ -185,11 +185,11 @@ pub(crate) async fn run(
                     r.files_removed,
                     r.failures
                 );
-                if r.new_keys > 0 || r.held_new_keys > 0 || r.demoted_keys > 0 {
+                if r.new_keys > 0 || r.held_new_keys > 0 || r.struck_keys > 0 {
                     println!(
                         "  new author keys: {} let in, {} reviews held for a later run; \
-                         {} keys demoted for a hidden review",
-                        r.new_keys, r.held_new_keys, r.demoted_keys
+                         {} strikes for a hidden review",
+                        r.new_keys, r.held_new_keys, r.struck_keys
                     );
                 }
                 if !r.skipped.is_empty() {

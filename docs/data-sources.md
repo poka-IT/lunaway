@@ -318,39 +318,49 @@ Not used:
 
 A Mangrove review is signed with a key its author makes in a second, and
 the date it carries is the author's: neither says whether a real person
-wrote it. Lunaway weighs a key by the history it earned on Lunaway, which
-no one can backdate: `content_review_keys` records, per key (its
-SHA-256), when a review it signed was first kept, on any place. A key
-absent from it is new. A key one of whose stored reviews the reports, a
-moderator or the operator hid is demoted for good (`demoted_at`) and
-counts as new again: a hide names one signature, and the author could
-sign the same text again under another. Each weekly run then chooses the
-reviews of each place (`lunaway_domain::content::reviews::pick_reviews`,
-caps in `MANGROVE_CAPS`):
+wrote it. Lunaway ranks reviews by what it saw itself, which no author
+sets:
+
+- whether the key has a review shown on the place now;
+- the key's age: `content_review_keys` records, per key (the SHA-256 of
+  the key as one line of PEM, the form the API serves), when a review it signed was first kept, on any
+  place. A key absent from it is new, and so is a key one of whose
+  reviews stands hidden by the reports, a moderator or the operator
+  (`content_review_strikes`): a hide names one signature, and the author
+  could sign the same text again under another. The strike lasts as long
+  as the hide: a moderator who keeps the review gives the key its age
+  back. A hidden review's row stays while its hide stands, never shown,
+  so the moderator and the operator still find it;
+- when Lunaway first read the review (`content_review_sightings`).
+
+A review that would add a key to a place is a new pair, whatever the
+key's age. Each weekly run chooses the reviews of each place
+(`lunaway_domain::content::reviews::pick_reviews`, caps in
+`MANGROVE_CAPS`):
 
 1. hidden reviews and hidden keys take no room (`content_hides`);
-2. one review per key and place, its newest;
-3. keys kept before first, the oldest key first, then the newest review;
-4. then the reviews of new keys, the newest first: at most 2 per place,
-   3 places per new key, and 50 reviews of new keys per run over every
-   place;
+2. one review per key and place, its latest;
+3. the reviews of keys shown on the place first, the oldest key first;
+4. then the new pairs: keys kept before first, the oldest first, then new
+   keys, each group in the order Lunaway first read the reviews; at most
+   2 new pairs per place, 3 new places per key and 50 new pairs per run
+   over every place;
 5. ten reviews per place at most.
 
-How many places a new key reviews in the run gives it no rank: whoever
-makes the keys sets that number, as they set the review's date. A review
-kept makes its key known, and the key stays known when the review goes.
-Ten fresh keys therefore never push the reviews shown off a place: the
-reviewers kept before keep their slots, new keys fill only free ones, two
-per place and fifty in all per week, where the reports and the operator's
-hides reach them, and a key that reviews every place on the map reaches
-three of them a week. A legitimate new reviewer of a place that already
-shows ten reviews by older keys waits until one of them goes. The keys of
-the reviews already shown when the rule arrived, or stored by a release
-older than it, start known, dated from the last run that fetched them
-(migration `20261008110200_content_review_keys.sql`, `review_keys`). Each
-run prints the new keys it let in, the reviews of new keys it held for a
-later run and the keys it demoted (`lunaway content refresh`, "new author
-keys").
+The review's date and the number of places a key reviews give no rank:
+whoever makes the keys sets both. Ten fresh keys therefore never push the
+reviews shown off a place: those reviewers keep their slots, and new
+pairs fill only free ones, two per place and fifty in all per week, where
+the reports and the operator's hides reach them. A key that reviews every
+place on the map reaches three more of them a week, aged or not, and its
+reviews wait in the order they were read, behind those read before them.
+A legitimate reviewer of a place that already shows ten reviews waits
+until one goes, and a place gains its first reviews two a week. The keys
+of the reviews already shown when the rule arrived, or stored by a
+release older than it, start known, dated from the last run that fetched
+them (`review_keys`). Each run prints the new keys it let in, the new
+pairs it held for a later run and the strikes it recorded (`lunaway
+content refresh`, "new author keys").
 
 The key's age means something only if a review cannot borrow a key.
 Mangrove's API documentation (https://docs.mangrove.reviews/, read

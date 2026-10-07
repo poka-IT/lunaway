@@ -479,9 +479,10 @@ async fn a_key_is_known_once_a_review_it_signed_was_kept(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_key_whose_review_was_hidden_is_new_again_for_good(pool: PgPool) {
+async fn a_key_ranks_as_new_while_a_hide_of_its_review_stands(pool: PgPool) {
     let a = place(&pool, "A", 47.0, 2.0).await;
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let key = "c".repeat(64);
     let review = |sig: &str| NewReview {
         place_id: a,
@@ -497,48 +498,61 @@ async fn a_key_whose_review_was_hidden_is_new_again_for_good(pool: PgPool) {
         licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
         distance_m: None,
     };
-    let now = Utc::now();
-    content::replace_reviews(&ingest, "mangrove", &[review("sig1")], now)
+    let first = Utc::now() - Duration::days(30);
+    content::replace_reviews(&ingest, "mangrove", &[review("sig1")], first)
         .await
         .unwrap();
-    assert!(
-        content::review_keys(&ingest, "mangrove")
+    let known = |pool: PgPool| async move {
+        content::review_keys(&pool, "mangrove")
             .await
             .unwrap()
-            .contains_key(&key)
-    );
-    content::set_hidden(
-        &ingest,
-        "mangrove",
-        &Hide::Item(ItemKind::Review, "sig1".into()),
-        true,
-    )
-    .await
-    .unwrap();
+            .get(&"c".repeat(64))
+            .map(chrono::DateTime::timestamp)
+    };
+    assert_eq!(known(ingest.clone()).await, Some(first.timestamp()));
+    // Three reports hide the review until a moderator decides.
+    let id = content::reviews_of_place(&app, a, 20, None)
+        .await
+        .unwrap()
+        .nodes[0]
+        .id;
+    for n in 1..=3 {
+        let r = account(&app, n).await;
+        report(&app, r, ReportTarget::ExternalReview, id).await;
+    }
     assert_eq!(
-        content::demote_hidden_review_keys(&ingest, "mangrove", now)
+        content::record_review_strikes(&ingest, "mangrove")
             .await
             .unwrap(),
         1,
-        "the import role demotes the key of a hidden review"
+        "the import role strikes the key of a hidden review"
     );
     assert_eq!(
-        content::demote_hidden_review_keys(&ingest, "mangrove", now)
+        content::record_review_strikes(&ingest, "mangrove")
             .await
             .unwrap(),
         0
     );
     // The author signs the same review again: the hide misses the new
-    // signature, and the key stays new.
+    // signature, and the key stays new while the hide stands.
+    let now = Utc::now();
     content::replace_reviews(&ingest, "mangrove", &[review("sig2")], now)
         .await
         .unwrap();
-    assert!(
-        !content::review_keys(&ingest, "mangrove")
-            .await
-            .unwrap()
-            .contains_key(&key),
+    assert_eq!(
+        known(ingest.clone()).await,
+        None,
         "a review signed again does not give the key its rank back"
+    );
+    // The moderator keeps the review: the reports' hide goes, and with it
+    // the strike's effect.
+    moderation::decide(&app, open_entry(&pool, id).await, Decision::Approve, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        known(ingest.clone()).await,
+        Some(first.timestamp()),
+        "a key the moderator cleared keeps the age it earned"
     );
 }
 
