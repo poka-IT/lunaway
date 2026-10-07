@@ -265,6 +265,14 @@ impl Ask<'_> {
         tx: &mut Transaction<'_, Postgres>,
         path: LookupPath,
     ) -> Result<Vec<PlaceDb>, DbError> {
+        // Places of a kind are ranked by distance alone: the nearest `first`
+        // are the answer, and walking out from the point costs more for each
+        // one taken (parking: one place in 80 is a car park).
+        let nearest = if path == LookupPath::Kind {
+            self.first
+        } else {
+            self.nearest
+        };
         let path = match path {
             LookupPath::Index => "index",
             LookupPath::Nearest => "nearest",
@@ -357,7 +365,7 @@ impl Ask<'_> {
             self.query.every_word(),
             &kinds,
             path,
-            self.nearest,
+            nearest,
             cap,
             self.first,
         )

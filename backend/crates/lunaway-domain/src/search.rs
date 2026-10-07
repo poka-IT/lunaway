@@ -227,8 +227,10 @@ impl PlaceQuery {
             })
             .collect();
         let kinds = implied_kinds(&folded);
-        let by_kind =
-            only_generic && !kinds.is_empty() && !folded.iter().any(|w| QUALIFIERS.contains(w));
+        let by_kind = only_generic
+            && !kinds.is_empty()
+            && !folded.iter().any(|w| QUALIFIERS.contains(w))
+            && ends_with_kind_word(&folded);
         Some(Self {
             slots,
             kinds,
@@ -243,7 +245,10 @@ impl PlaceQuery {
     }
 
     /// Whether the query asks for places of a kind rather than by name: its
-    /// words are kind words, articles and prepositions only.
+    /// words are kind words, articles and prepositions only, the last one a
+    /// kind word. A text that ends on an article is a name being typed
+    /// ("camping la"), or a town that is one ("camping die", Die in the
+    /// Drôme).
     #[must_use]
     pub fn by_kind(&self) -> bool {
         self.by_kind
@@ -332,6 +337,16 @@ impl PlaceQuery {
             .map(|(i, s)| s.term(typed && i == last))
             .collect();
         terms.join(" <-> ")
+    }
+}
+
+/// Whether the last of `words` names a kind of place, alone or as the end
+/// of "camping car".
+fn ends_with_kind_word(words: &[&str]) -> bool {
+    match words {
+        [.., "camping" | "campings", "car" | "cars"] => true,
+        [.., last] => KIND_WORDS.iter().any(|(w, _)| w == last),
+        [] => false,
     }
 }
 
@@ -568,6 +583,11 @@ mod tests {
             "a qualifier narrows the kind: the municipal campsites are asked, by name"
         );
         assert_eq!(municipal.kinds(), [PlaceKind::Campsite]);
+        assert!(
+            !query(&["camping", "die"]).by_kind(),
+            "a text ending on an article is a name being typed, or the town of Die"
+        );
+        assert!(query(&["camping", "car"]).by_kind());
         assert!(query(&["de", "la"]).kinds().is_empty());
         assert!(!query(&["de", "la"]).by_kind());
     }

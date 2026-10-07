@@ -60,6 +60,13 @@ $$;
 CREATE FUNCTION lunaway_place_search_words_update() RETURNS trigger
     LANGUAGE plpgsql AS $$
 BEGIN
+    -- Most updates change no word (a place's summary, one place at a time).
+    IF NOT EXISTS (
+        SELECT 1 FROM old_places o JOIN new_places n ON n.id = o.id
+        WHERE o.search_vector IS DISTINCT FROM n.search_vector
+           OR o.deleted_at IS DISTINCT FROM n.deleted_at) THEN
+        RETURN NULL;
+    END IF;
     INSERT INTO place_search_words (word)
     SELECT DISTINCT w
     FROM old_places o

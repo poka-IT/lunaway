@@ -647,6 +647,11 @@ async fn a_word_no_place_starts_with_finds_the_word_it_was_meant_to_be(pool: PgP
         [arolles, chamois],
         "both words are one edit away; the nearer place first"
     );
+    let port = put(
+        &pool,
+        &content(PlaceKind::Parking, "Parking du Port", 47.1, 2.0),
+    )
+    .await;
     let later = put(
         &pool,
         &content(PlaceKind::Parking, "Parking des Grillons", 47.0, 2.0),
@@ -663,8 +668,13 @@ async fn a_word_no_place_starts_with_finds_the_word_it_was_meant_to_be(pool: PgP
         .await
         .unwrap();
     assert!(
-        !words.contains(&"grillons".to_owned()) && words.contains(&"chamonix".to_owned()),
+        !words.contains(&"grillons".to_owned()) && words.contains(&"parking".to_owned()),
         "a word no live place holds leaves, one another place holds stays: {words:?}"
+    );
+    assert_eq!(
+        ids(search::search(&pool, "parking", None, 20).await.unwrap()),
+        [port],
+        "a word the gone place shared is still a word, not a typo"
     );
     assert_eq!(
         ids(search::search(&pool, "gerrardm", None, 20).await.unwrap()),
