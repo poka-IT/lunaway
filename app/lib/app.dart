@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/database/cache_pruning.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/account/data/card_file_io.dart'
@@ -32,6 +33,9 @@ class LunawayApp extends ConsumerStatefulWidget {
 class _LunawayAppState extends ConsumerState<LunawayApp> {
   static final ThemeData _light = lunaTheme(Brightness.light);
   static final ThemeData _dark = lunaTheme(Brightness.dark);
+  // The desktop look, with a mouse in a window wide enough for the rail.
+  static final ThemeData _lightPointer = lunaTheme(Brightness.light, pointer: true);
+  static final ThemeData _darkPointer = lunaTheme(Brightness.dark, pointer: true);
 
   @override
   void initState() {
@@ -106,14 +110,16 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
   @override
   Widget build(BuildContext context) {
     final brightness = ref.watch(appBrightnessProvider);
+    // The window's size comes from the view, above the app.
+    final pointer = pointerDensity(MediaQuery.sizeOf(context));
     return MaterialApp.router(
       onGenerateTitle: (context) => context.t.appTitle,
       routerConfig: ref.watch(routerProvider),
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: _light,
-      darkTheme: _dark,
+      theme: pointer ? _lightPointer : _light,
+      darkTheme: pointer ? _darkPointer : _dark,
       // Light or dark is decided by the app (the user's choice, or the sun),
       // never by the system's own setting.
       themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,

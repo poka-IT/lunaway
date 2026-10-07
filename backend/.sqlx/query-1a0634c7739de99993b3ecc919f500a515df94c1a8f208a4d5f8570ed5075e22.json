@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE road_events SET in_window = true\n        WHERE ended_at IS NULL AND NOT in_window\n          AND valid_from <= $1::timestamptz + road_events_feed_window()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a0634c7739de99993b3ecc919f500a515df94c1a8f208a4d5f8570ed5075e22"
+}

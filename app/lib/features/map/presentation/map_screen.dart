@@ -50,10 +50,11 @@ final _log = Logger('map');
 
 /// The height the search pill and the row of chips take over the map, below
 /// the status bar.
-const double _overlayHeight = 56 + Space.s + Space.xxs + QuickFilters.height;
+double _overlayHeight(BuildContext context) =>
+    MapSearch.heightOf(context) + Space.s + Space.xxs + QuickFilters.heightOf(context);
 
 /// The search pill alone, while a selection hides the chips on a phone.
-const double _searchHeight = 56 + Space.s;
+double _searchHeight(BuildContext context) => MapSearch.heightOf(context) + Space.s;
 
 /// The room the first download's card needs on a phone with its picture;
 /// with less, it goes without, so its buttons stay above the list.
@@ -383,7 +384,7 @@ class _Map extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        map,
+        MapShield(child: map),
         Positioned(
           left: attributionInset.left + Space.s + MapCredit.leading,
           // The credit's touch padding reaches below its label, which lines
@@ -581,7 +582,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
 
   /// The top of the map left free by the search, the chips and the notices.
   double _top(MediaQueryData m) =>
-      m.padding.top + (widget.selection == null ? _overlayHeight : _searchHeight) + _notices;
+      m.padding.top +
+      (widget.selection == null ? _overlayHeight(context) : _searchHeight(context)) +
+      _notices;
 
   void _noticesChanged(double height) {
     if (!mounted || height == _notices) return;
@@ -793,7 +796,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           listenable: _sheet,
           builder: (context, child) {
             final extent = _sheet.isAttached ? _sheet.extent : rest;
-            final covered = height - extent < m.padding.top + _overlayHeight;
+            final covered = height - extent < m.padding.top + _overlayHeight(context);
             return Positioned(
               left: 0,
               right: 0,
@@ -886,7 +889,7 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
     final width = MediaQuery.sizeOf(context).width;
     final panelWidth = width < 720 ? 340.0 : 380.0;
     final reserved = panelOpen ? panelWidth + Space.xxl : 0.0;
-    final top = MediaQuery.paddingOf(context).top + _overlayHeight;
+    final top = MediaQuery.paddingOf(context).top + _overlayHeight(context);
     final page = ref.watch(nearbyPlacesPageProvider).value;
     final count = page?.total ?? page?.places.length;
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;

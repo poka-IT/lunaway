@@ -72,7 +72,7 @@ void main() {
     'aix_marseille_closures',
   ]) {
     // Recorded before the routes carried their speed limits: they answer
-    // the request without them. The Aix-Marseille answer predates the
+    // the oldest form of the request, without them. The Aix-Marseille answer predates the
     // events' heading, limits and dates too: those were added to it empty
     // (its first-seen date is its validity start).
     test('the recorded answer $name matches the selection', () {
@@ -81,7 +81,7 @@ void main() {
       ) as Map<String, dynamic>;
       expect(
         validator.checkResponse(
-          routeOperation.older!.document,
+          routeOperation.older!.older!.document,
           body['data'] as Map<String, dynamic>,
         ),
         isEmpty,
@@ -95,7 +95,8 @@ void main() {
       File('test/fixtures/navigation/route_a20_limits.json').readAsStringSync(),
     ) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
-    expect(validator.checkResponse(routeOperation.document, data), isEmpty);
+    // Recorded before the reasons and the crossings: the form without them.
+    expect(validator.checkResponse(routeOperation.older!.document, data), isEmpty);
     final route = routePlanFromJson(data['route'] as Map<String, dynamic>).routes.single;
     final limits = route.speedLimits!;
     expect(limits.first.kmh, 50);
@@ -105,12 +106,56 @@ void main() {
   });
 
   test('the route request without the speed limits is valid too, for an API without them', () {
-    final older = routeOperation.older!;
+    final older = routeOperation.older!.older!;
     expect(older.withoutFields, isTrue);
     expect(validator.validate(older.document), isEmpty);
     expect(older.document, isNot(contains('speedLimits')));
     expect(routeOperation.document, contains('speedLimits'));
   });
+
+  // The API in production before the reasons, the crossings and the
+  // covered countries (schema of 26961d1): the app falls back one step to
+  // it, and keeps the speed limits it knows.
+  group('against the API before 2026-10-07', () {
+    final before = SchemaValidator(
+      File('test/fixtures/schema_before_europe.graphql').readAsStringSync(),
+    );
+
+    for (final op in navigationOperations) {
+      test('${op.name} needs its older form there, which is valid on both APIs', () {
+        final older = op.older!;
+        expect(before.validate(op.document), isNotEmpty, reason: 'else no older form is needed');
+        expect(before.validate(older.document), isEmpty);
+        expect(validator.validate(older.document), isEmpty);
+        expect(older.withoutFields, isTrue);
+      });
+    }
+
+    test('the route keeps its speed limits in the first older form', () {
+      expect(routeOperation.older!.document, contains('speedLimits'));
+      expect(routeOperation.older!.document, isNot(contains('noRouteReasons')));
+      expect(routeOperation.older!.document, isNot(contains('notices')));
+      expect(routingInfoOperation.older!.document, isNot(contains('coveredCountries')));
+    });
+  });
+
+  for (final name in [
+    'toulouse_no_route',
+    'warsaw_no_route',
+    'porquerolles_no_route',
+    'sea_off_network',
+    'elba_ferry',
+  ]) {
+    test('the answer $name, built from the backend recordings, matches the selection', () {
+      final body = jsonDecode(
+        File('test/fixtures/navigation/route_$name.json').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      expect(
+        validator.checkResponse(routeOperation.document, body['data'] as Map<String, dynamic>),
+        isEmpty,
+      );
+    });
+  }
 
   // The road events delta lands with the backend's road events
   // (plan/research/21-backend-travaux.md); until the schema has it, the

@@ -1205,3 +1205,108 @@ async fn a_purged_report_takes_its_key_with_it(pool: PgPool) {
         "a key names the account, the time and the request of a report the privacy page says is erased"
     );
 }
+
+/// The ids of `rows`, by external id.
+fn external_ids(rows: &[db::EventRow]) -> Vec<&str> {
+    rows.iter().map(|r| r.external_id.as_str()).collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_event_reaches_the_phones_when_its_start_comes_within_the_window(pool: PgPool) {
+    let window: bool =
+        sqlx::query_scalar("SELECT road_events_feed_window() = make_interval(hours => $1::int)")
+            .bind(i32::try_from(db::FEED_WINDOW_HOURS).unwrap())
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(window, "the Rust copy of the window is the one SQL applies");
+    let now = Utc::now();
+    let mut today = event("today", "0000000001");
+    today.valid_from = now - Duration::hours(1);
+    let mut soon = event("soon", "0000000001");
+    soon.valid_from = now + Duration::hours(db::FEED_WINDOW_HOURS - 1);
+    let mut later = event("later", "0000000001");
+    later.valid_from = now + Duration::days(3);
+    later.valid_to = Some(now + Duration::days(4));
+    store(&pool, "ndw", &[today, soon, later], now, true).await;
+    let head = db::feed_head(&pool).await.unwrap();
+    let whole = db::live_events(&pool, &[EventClass::Closure], false, 0, head.revision, 100)
+        .await
+        .unwrap();
+    assert_eq!(
+        external_ids(&whole),
+        ["today", "soon"],
+        "a phone's whole set holds what is in force or starts within two days, \
+         not two weeks of planned works"
+    );
+    let changes = db::changed_since(&pool, 0, head.revision, 100)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(external_ids(&changes), ["today", "soon"]);
+
+    // While it waits, a new version of the later event is not sent: no
+    // phone holds it.
+    let mut moved = event("later", "0000000002");
+    moved.valid_from = now + Duration::days(3);
+    moved.valid_to = Some(now + Duration::days(5));
+    store(&pool, "ndw", &[moved], now, true).await;
+    assert_eq!(db::feed_head(&pool).await.unwrap().revision, head.revision);
+
+    // The poller's pass, as the importers' role, 20 hours on: the later
+    // event starts 52 hours after, still out; 25 hours on, it enters.
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let pass = |at| {
+        db::lifecycle(
+            &ingest,
+            at,
+            Duration::days(30),
+            Duration::days(7),
+            Duration::days(14),
+        )
+    };
+    assert_eq!(
+        pass(now + Duration::hours(20))
+            .await
+            .unwrap()
+            .entered_window,
+        0
+    );
+    let done = pass(now + Duration::hours(25)).await.unwrap();
+    assert_eq!(done.entered_window, 1);
+    let next = db::feed_head(&pool).await.unwrap();
+    let changes = db::changed_since(&pool, head.revision, next.revision, 100)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        external_ids(&changes),
+        ["later"],
+        "the cursor a phone already holds brings the event that entered the window, \
+         though the event itself did not change"
+    );
+    assert!(changes[0].in_window && changes[0].ended_at.is_none());
+
+    // Postponed past the window by its source: phones that hold it drop it.
+    let mut postponed = event("soon", "0000000002");
+    postponed.valid_from = Utc::now() + Duration::days(6);
+    store(&pool, "ndw", &[postponed], Utc::now(), true).await;
+    let last = db::feed_head(&pool).await.unwrap();
+    let changes = db::changed_since(&pool, next.revision, last.revision, 100)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(external_ids(&changes), ["soon"]);
+    assert!(
+        !changes[0].in_window,
+        "a start moved past the window takes the event out of the phones' sets"
+    );
+    let whole = db::live_events(&pool, &[EventClass::Closure], false, 0, last.revision, 100)
+        .await
+        .unwrap();
+    assert_eq!(
+        external_ids(&whole),
+        ["today", "later"],
+        "nor is it in the whole set a new phone starts from"
+    );
+}

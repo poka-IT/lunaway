@@ -73,7 +73,7 @@ enum RouteFailureKind {
   /// The routing engine or its data is down.
   unavailable,
 
-  /// The server refused the request (a point outside the covered area, a
+  /// The server refused the request (a trip longer than it accepts, a
   /// figure out of bounds).
   refused,
 }
@@ -158,7 +158,9 @@ Future<RoutePlan> withShapes(RoutePlan plan) async {
 
 /// [RouteService] that answers a request it was just asked again from
 /// memory: the route of a stop's detour, computed to show its cost, serves
-/// once the stop is added. A few answers, for two minutes.
+/// once the stop is added. A few answers, for two minutes. The routing
+/// information, read before each preview, is kept a few hours once read:
+/// it changes with the weekly graph.
 final class CachingRouteService implements RouteService {
   new(this._inner, {DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
@@ -166,7 +168,13 @@ final class CachingRouteService implements RouteService {
   final DateTime Function() _clock;
   final Map<RouteRequest, ({DateTime at, RoutePlan plan})> _recent = {};
 
+  ({DateTime at, RoutingInfo info})? _info;
+
+  /// The request under way, shared by those who ask meanwhile.
+  Future<RoutingInfo>? _asking;
+
   static const _keep = Duration(minutes: 2);
+  static const _keepInfo = Duration(hours: 6);
   static const _size = 6;
 
   @override
@@ -183,6 +191,18 @@ final class CachingRouteService implements RouteService {
     return plan;
   }
 
+  /// A failure is not kept: the next preview asks again.
   @override
-  Future<RoutingInfo> info() => _inner.info();
+  Future<RoutingInfo> info() async {
+    final known = _info;
+    if (known != null && _clock().difference(known.at) < _keepInfo) return known.info;
+    final asking = _asking ??= _inner.info();
+    try {
+      final info = await asking;
+      _info = (at: _clock(), info: info);
+      return info;
+    } finally {
+      if (identical(_asking, asking)) _asking = null;
+    }
+  }
 }

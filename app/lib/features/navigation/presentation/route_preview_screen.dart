@@ -23,6 +23,8 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/road_events_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
@@ -278,6 +280,9 @@ class _PreviewMap extends ConsumerWidget {
         RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
       for (final b in plan?.blockers ?? const <RouteWarning>[])
         RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
+      // What keeps the vehicle out of a stop, where the server knows it.
+      for (final at in blockingPositions(p?.noRouteReasons ?? const []))
+        RouteMapMark(position: at, kind: RouteMarkKind.blocker),
       // Road events met on the way, and the closures the route goes round:
       // seen on the map, the detour explains itself.
       for (final e in selected?.roadEvents ?? const <RouteRoadEvent>[])
@@ -300,6 +305,7 @@ class _PreviewMap extends ConsumerWidget {
             target.destination,
             ?p?.origin,
             for (final b in plan?.blockers ?? const <RouteWarning>[]) b.position,
+            ...blockingPositions(p?.noRouteReasons ?? const []),
           ]);
     return ref.watch(routeMapBuilderProvider)(
       context,
@@ -405,6 +411,18 @@ class _Panel extends ConsumerWidget {
         ),
       ];
     }
+    if (p.unreachable.isNotEmpty) {
+      // Told on the device: no request went out.
+      return [
+        NoRouteExplanation(
+          reasons: p.unreachable,
+          target: target,
+          stops: p.stops,
+          avoid: ref.watch(routeSettingsControllerProvider).value?.avoid ?? const AvoidOptions(),
+          coveredCountries: p.coveredCountries,
+        ),
+      ];
+    }
     final plan = p.plan!;
     final avoid = AvoidSection(
       onChanged: (a) => ref.read(routeSettingsControllerProvider.notifier).setAvoid(a),
@@ -436,6 +454,10 @@ class _Panel extends ConsumerWidget {
               style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
             ),
           ),
+        if (p.route case final route? when route.ferries.isNotEmpty) ...[
+          const SizedBox(height: Space.l),
+          FerrySection(route: route, avoided: plan.applied.avoid.ferries, units: units),
+        ],
         const SizedBox(height: Space.l),
         _Warnings(route: p.route, units: units, target: target),
         const SizedBox(height: Space.l),
@@ -446,7 +468,7 @@ class _Panel extends ConsumerWidget {
         avoid,
         if (p.route != null) ...[
           const SizedBox(height: Space.s),
-          Roadbook(steps: p.route!.steps, units: units),
+          Roadbook(steps: p.route!.steps, units: units, ferries: p.route!.ferries),
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
@@ -460,6 +482,20 @@ class _Panel extends ConsumerWidget {
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
       ],
+      RouteStatus.noRoute || RouteStatus.offNetwork when plan.noRouteReasons.isNotEmpty => [
+        NoRouteExplanation(
+          reasons: plan.noRouteReasons,
+          target: target,
+          stops: p.stops,
+          avoid: plan.applied.avoid,
+          coveredCountries: p.coveredCountries,
+        ),
+        const SizedBox(height: Space.l),
+        const VehicleLine(),
+        const SizedBox(height: Space.m),
+        avoid,
+      ],
+      // An API that does not tell why, or could not in time.
       RouteStatus.noRoute || RouteStatus.offNetwork => [
         _Prompt(
           title: plan.status == RouteStatus.noRoute
@@ -837,8 +873,21 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
         plan.osrmJson != null;
     // Where Lunaway found no road the vehicle may take, the other apps,
     // which know nothing of its size, are not offered a tap away; the
-    // place's directions still lead to them.
-    if (plan != null && plan.status != RouteStatus.ok) return const SizedBox.shrink();
+    // place's directions still lead to them. Where Lunaway computes no
+    // route at all (a country it does not cover, a trip too long), they
+    // are the way left.
+    final reasons = preview?.noRouteReasons ?? const <NoRouteReason>[];
+    final elsewhere =
+        reasons.isNotEmpty &&
+        reasons.every(
+          (r) =>
+              r.kind == NoRouteReasonKind.outsideCoverage ||
+              r.kind == NoRouteReasonKind.tripTooLong,
+        );
+    if (!elsewhere && plan != null && plan.status != RouteStatus.ok) {
+      return const SizedBox.shrink();
+    }
+    if (!elsewhere && (preview?.unreachable.isNotEmpty ?? false)) return const SizedBox.shrink();
     final others = TextButton(
       onPressed: () => openDirections(
         context,
@@ -865,7 +914,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // While the engine loads, the button holds its place.
-                if (engine != null || engineState.isLoading)
+                if (elsewhere)
+                  const SizedBox.shrink()
+                else if (engine != null || engineState.isLoading)
                   FilledButton.icon(
                     onPressed: ready && engine != null
                         ? () => _start(plan, preview!.selected, preview!.stops)

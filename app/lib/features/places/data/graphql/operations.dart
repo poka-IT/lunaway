@@ -33,12 +33,15 @@ final class OlderForm {
     required this.variables,
     this.usable = _always,
     this.withoutFields = false,
+    this.older,
   });
 
   /// [document] for an API that lacks fields it selects (`speedLimits` on
   /// a route): sent when the server answers that it does not know a field.
-  factory selecting(String document) =>
-      OlderForm(document: document, variables: _same, withoutFields: true);
+  /// [older] is the form for an API older still, tried when this one is
+  /// refused in turn.
+  factory selecting(String document, {OlderForm? older}) =>
+      OlderForm(document: document, variables: _same, withoutFields: true, older: older);
 
   /// The form of [document] without [arguments]: their variables and their
   /// uses, wherever they stand on a line. [usable] says which requests may
@@ -72,6 +75,11 @@ final class OlderForm {
   /// The older form leaves out fields, not only arguments: an unknown
   /// field also calls for it.
   final bool withoutFields;
+
+  /// The form for an API older than the one this form is for: fields
+  /// added over two releases fall back one release at a time, so an API
+  /// that knows the first keeps it.
+  final OlderForm? older;
 
   static bool _always(Map<String, Object?> _) => true;
 

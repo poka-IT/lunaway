@@ -247,6 +247,19 @@ under `/media/` with a year of cache.
   server's `read_body` is 3 minutes for every request; headers still have
   10 seconds. The API gives an upload 120 seconds to arrive, so a 10 MiB
   photo needs about 700 kbit/s; the app should shrink photos first.
+- Every answer must reach its client within 3 minutes of the request plus
+  one second per 32 KiB already sent (`write_idle 3m 32768`): the API holds
+  a whole answer (a route reaches 12 MB) until Caddy has passed it on, and
+  Caddy's default only cuts a write stalled for a minute, so a client
+  reading a few KB a second held it for an hour. 3 minutes covers an
+  upload's 120 s before the API answers; past it 256 kbit/s still receives
+  anything, and a slower offline pack download is cut and resumes by
+  range (measured on 2026-10-07: a pack read at 16 KiB/s cut after 486 s
+  over HTTP/1.1, 513 s over HTTP/2, 416 s over HTTP/3). Server-wide
+  because the per-route `timeouts` handler of Caddy 2.11.7 has no effect:
+  the server's own writer, on by default, arms the connection's deadline
+  again on each write. `infra/tests/caddy-layout.sh` checks the bound with
+  shorter values.
 - The API runs as the static user `lunaway-api`, which owns
   `/srv/data/media` (0755, files 0644 for Caddy). Its unit sees nothing else
   of `/srv` and may write only there. `/etc/lunaway/media.env` gives it
@@ -1734,9 +1747,10 @@ sudo /usr/local/sbin/lunaway-routing-refresh --rollback
 ### The check after each route
 
 `Query.route` validates the request (points in the area the API declares
-covered, `lunaway_domain::routing::covered_area`: still metropolitan France
-and Corsica on 2026-10-07, although the graph covers the 25 countries of
-`infra/routing/europe-extracts.txt`; 5 waypoints, 2 alternatives, 2 500 km in a straight line, the
+covered, `lunaway_domain::routing::coverage`: the Geofabrik outlines of
+the 25 extracts of `infra/routing/europe-extracts.txt`; 5 waypoints, 2
+alternatives, `MAX_TRIP_M` in a straight line, at most the engine's
+`service_limits.auto.max_distance` in `infra/routing/valhalla.json`, the
 vehicle's bounds; one route per request), takes one use of the client's
 route quota (`LUNAWAY_QUOTA_ROUTE`, 30 every ten minutes, given back when
 the server fails), waits at most `LUNAWAY_ROUTING_QUEUE_WAIT_MS` (1 s) for
@@ -2020,7 +2034,7 @@ sudo lunaway-admin road-events poll --force --only dir
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
 | API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |

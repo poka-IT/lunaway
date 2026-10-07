@@ -693,6 +693,21 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   @override
+  Future<void> showPosition(LatLng position, {double? accuracy}) async {
+    final c = _controller;
+    if (c == null || !mounted) return;
+    if (!_locationOn) setState(() => _locationOn = true);
+    // Native builds draw the device's own position once it is on.
+    if (!kIsWeb) return;
+    await c.updateManualLocation(
+      gl.ManualLocationUpdate(
+        target: gl.LatLng(position.lat, position.lon),
+        horizontalAccuracy: accuracy,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final props = _props;
     if (kIsWeb) {
@@ -710,6 +725,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       // races a style switch (the theme turning at sunset).
       annotationOrder: const [],
       myLocationEnabled: _locationOn,
+      // On the web the position comes from the app's own button, which asks
+      // the browser during the click; the engine's source would add
+      // MapLibre's geolocate button, a second one under ours.
+      locationSource: kIsWeb ? const gl.ManualLocationSource() : const gl.PlatformLocationSource(),
       // North stays up: rotating a map by accident confuses more than it
       // helps when looking for a place to sleep.
       rotateGesturesEnabled: false,

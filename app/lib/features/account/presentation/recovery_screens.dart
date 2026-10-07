@@ -48,6 +48,10 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
   Future<void> _make() async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
+    final account = ref.read(accountControllerProvider);
+    final previous = account is SignedIn ? account.recoveryCardAt : null;
+    if (previous != null && !await _confirmReplace(previous)) return;
+    if (!mounted) return;
     setState(() => _making = true);
     try {
       final code = await ref.read(accountControllerProvider.notifier).createRecoveryCode();
@@ -96,13 +100,35 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
     super.dispose();
   }
 
-  /// Leaves the card once the user says it is kept; only then does the
-  /// device count a card.
+  /// A new card replaces the one of [previous], whose code stops working
+  /// and can never be shown again: said before anything is changed.
+  Future<bool> _confirmReplace(DateTime previous) async {
+    final t = context.t;
+    final date = DateFormat.yMMMMd(t.$meta.locale.languageCode).format(previous.toLocal());
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.recovery.replaceTitle(date: date)),
+        content: Text(t.recovery.replaceBody(date: date)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t.recovery.replaceKeep),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(t.recovery.replaceConfirm),
+          ),
+        ],
+      ),
+    );
+    return replace ?? false;
+  }
+
+  /// Leaves the card once the user says it is kept.
   Future<void> _leave() async {
     if (!await _confirmLeave() || !mounted) return;
-    final router = GoRouter.of(context);
-    await ref.read(accountControllerProvider.notifier).recoveryCardKept();
-    router.go(AppRoutes.profile);
+    GoRouter.of(context).go(AppRoutes.profile);
   }
 
   Future<bool> _confirmLeave() async {

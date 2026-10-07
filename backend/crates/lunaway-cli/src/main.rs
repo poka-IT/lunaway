@@ -1351,8 +1351,9 @@ fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
     }
     if let Some(l) = &report.lifecycle {
         println!(
-            "lifecycle: {} past their end, {} expired, {} purged, {} reports purged",
-            l.past_end, l.expired, l.purged, l.reports_purged
+            "lifecycle: {} past their end, {} expired, {} entered the phones' window, \
+             {} purged, {} reports purged",
+            l.past_end, l.expired, l.entered_window, l.purged, l.reports_purged
         );
     }
 }

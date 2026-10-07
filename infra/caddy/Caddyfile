@@ -18,10 +18,27 @@
 		# in JSON), so the server-wide bound is 3 minutes, above the API's own
 		# 120 s for an upload. The other bodies stay capped at 1 MB below, and
 		# headers must still arrive within 10 s.
+		#
+		# write_idle bounds how long an answer may take to reach its client:
+		# 3 minutes from the request, plus one second per 32 KiB already
+		# sent. The API builds a whole answer before sending it (a route
+		# reaches 12 MB) and holds it until Caddy has passed it on, so
+		# without this bound a client reading a few KB a second would hold
+		# that memory for an hour (Caddy's default only cuts a write that
+		# makes no progress for a minute). 3 minutes covers what the API
+		# does before its first byte (an upload, 120 s at most) and far
+		# more than the app waits for an answer (20 s for a route, 30 s
+		# otherwise); past it, 32 KiB/s (256 kbit/s, a weak 3G link) still
+		# receives anything. A slower offline pack download is cut and
+		# resumes by range. Server-wide because Caddy 2.11.7's per-route
+		# timeouts handler has no effect: this server-level writer, on by
+		# default, arms the connection's deadline again on each write
+		# (measured on 2026-10-07).
 		timeouts {
 			read_header 10s
 			read_body 3m
 			idle 2m
+			write_idle 3m 32768
 		}
 		max_header_size 16KB
 	}

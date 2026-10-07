@@ -47,7 +47,7 @@ fn speed_vehicle(v: &VehicleProfile) -> lunaway_domain::speed::Vehicle {
 /// trips), and their corridor queries up to 2.7 s on the backend itself;
 /// [`crate::routing::valhalla::alternates_for`] keeps the answer's size
 /// within bounds.
-pub(crate) const MAX_TRIP_M: f64 = 4_500_000.0;
+pub(crate) const MAX_TRIP_M: f64 = 3_000_000.0;
 /// Waypoints accepted between the origin and the destination.
 pub(crate) const MAX_WAYPOINTS: usize = 5;
 /// Alternatives accepted besides the best route.
@@ -500,7 +500,7 @@ mod tests {
             heading_deg: None,
         };
         assert!(
-            message(request(&far)).contains("more than the 4500 km"),
+            message(request(&far)).contains("more than the 3000 km"),
             "El Hierro to the North Cape: {}",
             message(request(&far))
         );

@@ -91,6 +91,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
 	late final Translations$regions$en regions = Translations$regions$en.internal(_root);
 	late final Translations$roadReport$en roadReport = Translations$roadReport$en.internal(_root);
+	late final Translations$countries$en countries = Translations$countries$en.internal(_root);
 }
 
 // Path: nav
@@ -109,6 +110,12 @@ class Translations$nav$en {
 
 	/// en: 'Profile'
 	String get profile => 'Profile';
+
+	/// en: 'Fold the menu'
+	String get fold => 'Fold the menu';
+
+	/// en: 'Unfold the menu'
+	String get unfold => 'Unfold the menu';
 }
 
 // Path: common
@@ -628,6 +635,15 @@ class Translations$location$en {
 
 	/// en: 'This device does not give its position.'
 	String get unsupported => 'This device does not give its position.';
+
+	/// en: 'The browser blocks your position'
+	String get browserDeniedTitle => 'The browser blocks your position';
+
+	/// en: 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.'
+	String get browserDenied => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.';
+
+	/// en: 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.'
+	String get browserNoFix => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.';
 }
 
 // Path: search
@@ -831,11 +847,17 @@ class Translations$place$en {
 	/// en: 'Copy'
 	String get copyShort => 'Copy';
 
+	/// en: 'Copy as $format'
+	String copyAs({required Object format}) => 'Copy as ${format}';
+
+	/// en: '"Copy" copies: $format'
+	String copiesAs({required Object format}) => '"Copy" copies: ${format}';
+
 	/// en: 'Copied: $text'
 	String copied({required Object text}) => 'Copied: ${text}';
 
-	/// en: 'Other formats'
-	String get otherFormats => 'Other formats';
+	/// en: 'Choose the format to copy'
+	String get otherFormats => 'Choose the format to copy';
 
 	/// en: 'Decimal degrees'
 	String get formatDecimal => 'Decimal degrees';
@@ -1059,6 +1081,8 @@ class Translations$navigation$en {
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
+	late final Translations$navigation$noRoute$en noRoute = Translations$navigation$noRoute$en.internal(_root);
+	late final Translations$navigation$ferry$en ferry = Translations$navigation$ferry$en.internal(_root);
 	late final Translations$navigation$warning$en warning = Translations$navigation$warning$en.internal(_root);
 	late final Translations$navigation$roadEvents$en roadEvents = Translations$navigation$roadEvents$en.internal(_root);
 	late final Translations$navigation$guidance$en guidance = Translations$navigation$guidance$en.internal(_root);
@@ -1498,8 +1522,8 @@ class Translations$account$en {
 	/// en: 'Or $requirement'
 	String orInstead({required Object requirement}) => 'Or ${requirement}';
 
-	/// en: 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.'
-	String get recoveryNone => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.';
+	/// en: 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.'
+	String get recoveryNone => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.';
 
 	/// en: 'Make my recovery card'
 	String get recoveryCreate => 'Make my recovery card';
@@ -1582,11 +1606,23 @@ class Translations$recovery$en {
 	/// en: 'Recovery card'
 	String get title => 'Recovery card';
 
-	/// en: 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.'
-	String get intro => 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.';
+	/// en: 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.'
+	String get intro => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.';
 
-	/// en: 'A new card replaces the previous one, which stops working.'
-	String get replaces => 'A new card replaces the previous one, which stops working.';
+	/// en: 'A new card replaces the previous one: the old code will stop working.'
+	String get replaces => 'A new card replaces the previous one: the old code will stop working.';
+
+	/// en: 'Replace the card of $date?'
+	String replaceTitle({required Object date}) => 'Replace the card of ${date}?';
+
+	/// en: 'The new card will have another code. The code of the card of $date stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.'
+	String replaceBody({required Object date}) => 'The new card will have another code. The code of the card of ${date} stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.';
+
+	/// en: 'Keep the old one'
+	String get replaceKeep => 'Keep the old one';
+
+	/// en: 'Make a new card'
+	String get replaceConfirm => 'Make a new card';
 
 	/// en: 'Make the card'
 	String get make => 'Make the card';
@@ -2904,6 +2940,9 @@ class Translations$roadReport$en {
 	/// en: 'Report a problem here'
 	String get fromMap => 'Report a problem here';
 
+	/// en: 'No report here'
+	String get notHereTitle => 'No report here';
+
 	/// en: '10 cm lower'
 	String get lower => '10 cm lower';
 
@@ -2912,6 +2951,111 @@ class Translations$roadReport$en {
 
 	/// en: 'You just passed: $what. Still there?'
 	String passed({required Object what}) => 'You just passed: ${what}. Still there?';
+
+	/// en: 'Lunaway takes reports where an official feed cross-checks them: $countries.'
+	String notHere({required Object countries}) => 'Lunaway takes reports where an official feed cross-checks them: ${countries}.';
+}
+
+// Path: countries
+class Translations$countries$en {
+	Translations$countries$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Andorra'
+	String get ad => 'Andorra';
+
+	/// en: 'Austria'
+	String get at => 'Austria';
+
+	/// en: 'Åland'
+	String get ax => 'Åland';
+
+	/// en: 'Belgium'
+	String get be => 'Belgium';
+
+	/// en: 'Switzerland'
+	String get ch => 'Switzerland';
+
+	/// en: 'Czechia'
+	String get cz => 'Czechia';
+
+	/// en: 'Germany'
+	String get de => 'Germany';
+
+	/// en: 'Denmark'
+	String get dk => 'Denmark';
+
+	/// en: 'Western Sahara'
+	String get eh => 'Western Sahara';
+
+	/// en: 'Spain'
+	String get es => 'Spain';
+
+	/// en: 'Finland'
+	String get fi => 'Finland';
+
+	/// en: 'France'
+	String get fr => 'France';
+
+	/// en: 'United Kingdom'
+	String get gb => 'United Kingdom';
+
+	/// en: 'Gibraltar'
+	String get gi => 'Gibraltar';
+
+	/// en: 'Greece'
+	String get gr => 'Greece';
+
+	/// en: 'Croatia'
+	String get hr => 'Croatia';
+
+	/// en: 'Ireland'
+	String get ie => 'Ireland';
+
+	/// en: 'Italy'
+	String get it => 'Italy';
+
+	/// en: 'Liechtenstein'
+	String get li => 'Liechtenstein';
+
+	/// en: 'Luxembourg'
+	String get lu => 'Luxembourg';
+
+	/// en: 'Morocco'
+	String get ma => 'Morocco';
+
+	/// en: 'Monaco'
+	String get mc => 'Monaco';
+
+	/// en: 'Netherlands'
+	String get nl => 'Netherlands';
+
+	/// en: 'Norway'
+	String get no => 'Norway';
+
+	/// en: 'Poland'
+	String get pl => 'Poland';
+
+	/// en: 'Portugal'
+	String get pt => 'Portugal';
+
+	/// en: 'Sweden'
+	String get se => 'Sweden';
+
+	/// en: 'Slovenia'
+	String get si => 'Slovenia';
+
+	/// en: 'Svalbard'
+	String get sj => 'Svalbard';
+
+	/// en: 'San Marino'
+	String get sm => 'San Marino';
+
+	/// en: 'Vatican City'
+	String get va => 'Vatican City';
 }
 
 // Path: place.reviewVehicle
@@ -3338,8 +3482,8 @@ class Translations$navigation$states$en {
 	/// en: 'No route here'
 	String get refusedTitle => 'No route here';
 
-	/// en: 'Routes cover France for now. Pick a destination in France.'
-	String get refusedHint => 'Routes cover France for now. Pick a destination in France.';
+	/// en: 'Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle's figures.'
+	String get refusedHint => 'Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle\'s figures.';
 
 	/// en: 'No safe route for your vehicle'
 	String get noSafeTitle => 'No safe route for your vehicle';
@@ -3370,6 +3514,161 @@ class Translations$navigation$states$en {
 
 	/// en: 'Pick a destination on a road.'
 	String get offNetworkHint => 'Pick a destination on a road.';
+}
+
+// Path: navigation.noRoute
+class Translations$navigation$noRoute$en {
+	Translations$navigation$noRoute$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your vehicle cannot leave from here'
+	String get originUnreachable => 'Your vehicle cannot leave from here';
+
+	/// en: 'Your vehicle cannot leave from here: $limit'
+	String originUnreachableBy({required Object limit}) => 'Your vehicle cannot leave from here: ${limit}';
+
+	/// en: 'Destination out of reach for your vehicle'
+	String get destinationUnreachable => 'Destination out of reach for your vehicle';
+
+	/// en: 'Destination out of reach for your vehicle: $limit'
+	String destinationUnreachableBy({required Object limit}) => 'Destination out of reach for your vehicle: ${limit}';
+
+	/// en: 'Stop $n out of reach for your vehicle'
+	String waypointUnreachable({required Object n}) => 'Stop ${n} out of reach for your vehicle';
+
+	/// en: 'Stop $n out of reach for your vehicle: $limit'
+	String waypointUnreachableBy({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}';
+
+	/// en: 'No way through for your vehicle between the stops'
+	String get blockedOnTheWay => 'No way through for your vehicle between the stops';
+
+	/// en: 'No way through for your vehicle between the stops: $limit'
+	String blockedOnTheWayBy({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}';
+
+	/// en: 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.'
+	String get blockedHint => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.';
+
+	/// en: 'No road leads away from your position'
+	String get notConnectedOrigin => 'No road leads away from your position';
+
+	/// en: 'No road leads to the destination'
+	String get notConnectedDestination => 'No road leads to the destination';
+
+	/// en: 'No road leads to stop $n'
+	String notConnectedWaypoint({required Object n}) => 'No road leads to stop ${n}';
+
+	/// en: 'No road joins your stops'
+	String get notConnectedTrip => 'No road joins your stops';
+
+	/// en: 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.'
+	String get notConnectedHint => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.';
+
+	/// en: 'Your position is outside the area routes cover'
+	String get outsideOrigin => 'Your position is outside the area routes cover';
+
+	/// en: 'Destination outside the area routes cover'
+	String get outsideDestination => 'Destination outside the area routes cover';
+
+	/// en: 'Stop $n outside the area routes cover'
+	String outsideWaypoint({required Object n}) => 'Stop ${n} outside the area routes cover';
+
+	/// en: 'Lunaway computes routes in these countries: $countries.'
+	String outsideHint({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.';
+
+	/// en: 'Lunaway does not compute routes in this country yet.'
+	String get outsideHintUnknown => 'Lunaway does not compute routes in this country yet.';
+
+	/// en: 'Your position is too far from a road'
+	String get noRoadOrigin => 'Your position is too far from a road';
+
+	/// en: 'Destination too far from a road'
+	String get noRoadDestination => 'Destination too far from a road';
+
+	/// en: 'Stop $n too far from a road'
+	String noRoadWaypoint({required Object n}) => 'Stop ${n} too far from a road';
+
+	/// en: 'No road your vehicle may take within 5 km of this point.'
+	String get noRoadHint => 'No road your vehicle may take within 5 km of this point.';
+
+	/// en: 'Trip too long'
+	String get tooLong => 'Trip too long';
+
+	/// en: '$trip in a straight line from stop to stop: Lunaway computes trips of $max at most.'
+	String tooLongHint({required Object trip, required Object max}) => '${trip} in a straight line from stop to stop: Lunaway computes trips of ${max} at most.';
+
+	/// en: 'Your vehicle: $value'
+	String vehicleValue({required Object value}) => 'Your vehicle: ${value}';
+
+	late final Translations$navigation$noRoute$limit$en limit = Translations$navigation$noRoute$limit$en.internal(_root);
+
+	/// en: 'Edit the vehicle'
+	String get editVehicle => 'Edit the vehicle';
+
+	/// en: 'Allow unpaved roads'
+	String get allowUnpaved => 'Allow unpaved roads';
+
+	/// en: 'Remove stop $n'
+	String removeStop({required Object n}) => 'Remove stop ${n}';
+
+	/// en: 'Remove the stop "$name"'
+	String removeStopNamed({required Object name}) => 'Remove the stop "${name}"';
+
+	/// en: 'See the places around the destination'
+	String get placesAround => 'See the places around the destination';
+
+	/// en: 'Or pick another arrival: long press on the map, then "Go there directly".'
+	String get moveDestination => 'Or pick another arrival: long press on the map, then "Go there directly".';
+
+	/// en: 'For another stop: long press on the map, then "Add a stop".'
+	String get moveStop => 'For another stop: long press on the map, then "Add a stop".';
+
+	/// en: 'The start is your position: get to a road your vehicle may take, then try again.'
+	String get moveOrigin => 'The start is your position: get to a road your vehicle may take, then try again.';
+
+	/// en: 'Pick a destination in one of these countries.'
+	String get pickInside => 'Pick a destination in one of these countries.';
+
+	/// en: 'Pick a closer destination, or make the trip in several legs.'
+	String get shorter => 'Pick a closer destination, or make the trip in several legs.';
+}
+
+// Path: navigation.ferry
+class Translations$navigation$ferry$en {
+	Translations$navigation$ferry$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '(one) {Ferry crossing} (other) {$n ferry crossings}'
+	String title({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Ferry crossing',
+		other: '${n} ferry crossings',
+	);
+
+	/// en: 'Ferry'
+	String get unnamed => 'Ferry';
+
+	/// en: 'Ferry $name'
+	String named({required Object name}) => 'Ferry ${name}';
+
+	/// en: 'Ports: $ports'
+	String ports({required Object ports}) => 'Ports: ${ports}';
+
+	/// en: 'Boarding: $from · Landing: $to'
+	String countries({required Object from, required Object to}) => 'Boarding: ${from} · Landing: ${to}';
+
+	/// en: 'Country: $country'
+	String country({required Object country}) => 'Country: ${country}';
+
+	/// en: '$distance from the start · $sea at sea, about $duration'
+	String where({required Object distance, required Object sea, required Object duration}) => '${distance} from the start · ${sea} at sea, about ${duration}';
+
+	/// en: 'The destination cannot be reached without a ferry: the route takes one, even though you avoid ferries.'
+	String get needed => 'The destination cannot be reached without a ferry: the route takes one, even though you avoid ferries.';
 }
 
 // Path: navigation.warning
@@ -4188,8 +4487,8 @@ class Translations$poi$category$en {
 	/// en: 'Groceries'
 	String get groceries => 'Groceries';
 
-	/// en: 'Vending machines'
-	String get vending => 'Vending machines';
+	/// en: 'Food vending machines'
+	String get vending => 'Food vending machines';
 
 	/// en: 'Water and dump'
 	String get water => 'Water and dump';
@@ -4573,6 +4872,57 @@ class Translations$navigation$states$dimension$en {
 	String get weight => 'weight';
 }
 
+// Path: navigation.noRoute.limit
+class Translations$navigation$noRoute$limit$en {
+	Translations$navigation$noRoute$limit$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'low bridge at $limit'
+	String underpass({required Object limit}) => 'low bridge at ${limit}';
+
+	/// en: 'tunnel at $limit'
+	String tunnel({required Object limit}) => 'tunnel at ${limit}';
+
+	/// en: 'archway at $limit'
+	String buildingPassage({required Object limit}) => 'archway at ${limit}';
+
+	/// en: 'bridge at $limit'
+	String bridge({required Object limit}) => 'bridge at ${limit}';
+
+	/// en: 'height bar at $limit'
+	String barrier({required Object limit}) => 'height bar at ${limit}';
+
+	/// en: 'height limit $limit'
+	String height({required Object limit}) => 'height limit ${limit}';
+
+	/// en: 'height limit'
+	String get heightUnknown => 'height limit';
+
+	/// en: 'narrow passage of $limit'
+	String width({required Object limit}) => 'narrow passage of ${limit}';
+
+	/// en: 'narrow passage'
+	String get widthUnknown => 'narrow passage';
+
+	/// en: 'length limit $limit'
+	String length({required Object limit}) => 'length limit ${limit}';
+
+	/// en: 'length limit'
+	String get lengthUnknown => 'length limit';
+
+	/// en: 'weight limit $limit'
+	String weight({required Object limit}) => 'weight limit ${limit}';
+
+	/// en: 'weight limit'
+	String get weightUnknown => 'weight limit';
+
+	/// en: 'unpaved road'
+	String get unpaved => 'unpaved road';
+}
+
 // Path: navigation.warning.lowClearance
 class Translations$navigation$warning$lowClearance$en {
 	Translations$navigation$warning$lowClearance$en.internal(this._root);
@@ -4612,6 +4962,8 @@ extension on Translations {
 			'nav.map' => 'Map',
 			'nav.favorites' => 'Favourites',
 			'nav.profile' => 'Profile',
+			'nav.fold' => 'Fold the menu',
+			'nav.unfold' => 'Unfold the menu',
 			'common.close' => 'Close',
 			'common.cancel' => 'Cancel',
 			'common.retry' => 'Try again',
@@ -4744,6 +5096,9 @@ extension on Translations {
 			'location.notAllowed' => 'Position not allowed. The map works without it.',
 			'location.noFix' => 'Your position cannot be found yet. Try again in the open or in a moment.',
 			'location.unsupported' => 'This device does not give its position.',
+			'location.browserDeniedTitle' => 'The browser blocks your position',
+			'location.browserDenied' => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.',
+			'location.browserNoFix' => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.',
 			'search.towns' => 'Towns',
 			'search.places' => 'Places',
 			'search.noResult' => ({required Object query}) => 'No place or town matches "${query}".',
@@ -4798,8 +5153,10 @@ extension on Translations {
 			'place.coordinates' => 'Coordinates',
 			'place.copy' => 'Copy the coordinates',
 			'place.copyShort' => 'Copy',
+			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
+			'place.copiesAs' => ({required Object format}) => '"Copy" copies: ${format}',
 			'place.copied' => ({required Object text}) => 'Copied: ${text}',
-			'place.otherFormats' => 'Other formats',
+			'place.otherFormats' => 'Choose the format to copy',
 			'place.formatDecimal' => 'Decimal degrees',
 			'place.formatDms' => 'Degrees, minutes, seconds',
 			'place.formatGeo' => 'geo: link',
@@ -4979,7 +5336,7 @@ extension on Translations {
 			'navigation.states.unavailableTitle' => 'Routing is down',
 			'navigation.states.unavailableHint' => 'The route service is stopped for now. Try again later.',
 			'navigation.states.refusedTitle' => 'No route here',
-			'navigation.states.refusedHint' => 'Routes cover France for now. Pick a destination in France.',
+			'navigation.states.refusedHint' => 'Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle\'s figures.',
 			'navigation.states.noSafeTitle' => 'No safe route for your vehicle',
 			'navigation.states.noSafeHint' => 'Every possible road meets a limit your vehicle exceeds:',
 			'navigation.states.whatToDo' => 'What you can do',
@@ -4990,6 +5347,64 @@ extension on Translations {
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
+			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
+			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Your vehicle cannot leave from here: ${limit}',
+			'navigation.noRoute.destinationUnreachable' => 'Destination out of reach for your vehicle',
+			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destination out of reach for your vehicle: ${limit}',
+			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Stop ${n} out of reach for your vehicle',
+			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
+			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
+			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
+			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
+			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
+			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
+			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
+			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
+			'navigation.noRoute.outsideOrigin' => 'Your position is outside the area routes cover',
+			'navigation.noRoute.outsideDestination' => 'Destination outside the area routes cover',
+			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
+			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
+			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
+			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
+			'navigation.noRoute.noRoadHint' => 'No road your vehicle may take within 5 km of this point.',
+			'navigation.noRoute.tooLong' => 'Trip too long',
+			'navigation.noRoute.tooLongHint' => ({required Object trip, required Object max}) => '${trip} in a straight line from stop to stop: Lunaway computes trips of ${max} at most.',
+			'navigation.noRoute.vehicleValue' => ({required Object value}) => 'Your vehicle: ${value}',
+			'navigation.noRoute.limit.underpass' => ({required Object limit}) => 'low bridge at ${limit}',
+			'navigation.noRoute.limit.tunnel' => ({required Object limit}) => 'tunnel at ${limit}',
+			'navigation.noRoute.limit.buildingPassage' => ({required Object limit}) => 'archway at ${limit}',
+			'navigation.noRoute.limit.bridge' => ({required Object limit}) => 'bridge at ${limit}',
+			'navigation.noRoute.limit.barrier' => ({required Object limit}) => 'height bar at ${limit}',
+			'navigation.noRoute.limit.height' => ({required Object limit}) => 'height limit ${limit}',
+			'navigation.noRoute.limit.heightUnknown' => 'height limit',
+			'navigation.noRoute.limit.width' => ({required Object limit}) => 'narrow passage of ${limit}',
+			'navigation.noRoute.limit.widthUnknown' => 'narrow passage',
+			'navigation.noRoute.limit.length' => ({required Object limit}) => 'length limit ${limit}',
+			'navigation.noRoute.limit.lengthUnknown' => 'length limit',
+			'navigation.noRoute.limit.weight' => ({required Object limit}) => 'weight limit ${limit}',
+			'navigation.noRoute.limit.weightUnknown' => 'weight limit',
+			'navigation.noRoute.limit.unpaved' => 'unpaved road',
+			'navigation.noRoute.editVehicle' => 'Edit the vehicle',
+			'navigation.noRoute.allowUnpaved' => 'Allow unpaved roads',
+			'navigation.noRoute.removeStop' => ({required Object n}) => 'Remove stop ${n}',
+			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Remove the stop "${name}"',
+			'navigation.noRoute.placesAround' => 'See the places around the destination',
+			'navigation.noRoute.moveDestination' => 'Or pick another arrival: long press on the map, then "Go there directly".',
+			'navigation.noRoute.moveStop' => 'For another stop: long press on the map, then "Add a stop".',
+			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
+			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
+			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
+			'navigation.ferry.unnamed' => 'Ferry',
+			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
+			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
+			'navigation.ferry.countries' => ({required Object from, required Object to}) => 'Boarding: ${from} · Landing: ${to}',
+			'navigation.ferry.country' => ({required Object country}) => 'Country: ${country}',
+			'navigation.ferry.where' => ({required Object distance, required Object sea, required Object duration}) => '${distance} from the start · ${sea} at sea, about ${duration}',
+			'navigation.ferry.needed' => 'The destination cannot be reached without a ferry: the route takes one, even though you avoid ferries.',
 			'navigation.warning.lowClearance.underpass' => ({required Object limit}) => 'Low bridge ${limit}',
 			'navigation.warning.lowClearance.tunnel' => ({required Object limit}) => 'Tunnel ${limit}',
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Archway ${limit}',
@@ -5055,6 +5470,8 @@ extension on Translations {
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.recenter' => 'Back to the vehicle',
 			'navigation.guidance.end' => 'End',
 			'navigation.guidance.endTitle' => 'End the guidance?',
@@ -5120,8 +5537,6 @@ extension on Translations {
 			'navigation.settings.speedSound' => 'Spoken speed alerts',
 			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.',
 			'list.title' => 'Places nearby',
-			_ => null,
-		} ?? switch (path) {
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
 			'list.downloading' => 'Places are on their way',
@@ -5257,7 +5672,7 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
-			'account.recoveryNone' => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.',
+			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
@@ -5280,8 +5695,12 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
-			'recovery.intro' => 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.',
-			'recovery.replaces' => 'A new card replaces the previous one, which stops working.',
+			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
+			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
+			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
+			'recovery.replaceBody' => ({required Object date}) => 'The new card will have another code. The code of the card of ${date} stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.',
+			'recovery.replaceKeep' => 'Keep the old one',
+			'recovery.replaceConfirm' => 'Make a new card',
 			'recovery.make' => 'Make the card',
 			'recovery.codeLabel' => 'Your recovery code',
 			'recovery.shownOnce' => 'This code shows only once. Write it down, or save the image, before closing.',
@@ -5565,6 +5984,8 @@ extension on Translations {
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
@@ -5578,7 +5999,7 @@ extension on Translations {
 			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
 			'favoritesSync.confirm' => 'Make the account and sync',
 			'poi.category.groceries' => 'Groceries',
-			'poi.category.vending' => 'Vending machines',
+			'poi.category.vending' => 'Food vending machines',
 			'poi.category.water' => 'Water and dump',
 			'poi.category.fuel' => 'Fuel and energy',
 			'poi.category.health' => 'Health',
@@ -5634,8 +6055,6 @@ extension on Translations {
 			'poi.thanksThere' => 'Thank you, noted: still there.',
 			'poi.thanksGone' => 'Thank you, noted: gone.',
 			'poi.fuelPrices' => 'Fuel prices',
-			_ => null,
-		} ?? switch (path) {
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prices checked ${when}',
@@ -5804,9 +6223,42 @@ extension on Translations {
 			'roadReport.over' => 'It\'s over',
 			'roadReport.overSent' => 'Thank you: noted.',
 			'roadReport.fromMap' => 'Report a problem here',
+			'roadReport.notHereTitle' => 'No report here',
 			'roadReport.lower' => '10 cm lower',
 			'roadReport.higher' => '10 cm higher',
 			'roadReport.passed' => ({required Object what}) => 'You just passed: ${what}. Still there?',
+			'roadReport.notHere' => ({required Object countries}) => 'Lunaway takes reports where an official feed cross-checks them: ${countries}.',
+			'countries.ad' => 'Andorra',
+			'countries.at' => 'Austria',
+			'countries.ax' => 'Åland',
+			'countries.be' => 'Belgium',
+			'countries.ch' => 'Switzerland',
+			'countries.cz' => 'Czechia',
+			'countries.de' => 'Germany',
+			'countries.dk' => 'Denmark',
+			'countries.eh' => 'Western Sahara',
+			'countries.es' => 'Spain',
+			'countries.fi' => 'Finland',
+			'countries.fr' => 'France',
+			'countries.gb' => 'United Kingdom',
+			'countries.gi' => 'Gibraltar',
+			'countries.gr' => 'Greece',
+			'countries.hr' => 'Croatia',
+			'countries.ie' => 'Ireland',
+			'countries.it' => 'Italy',
+			'countries.li' => 'Liechtenstein',
+			'countries.lu' => 'Luxembourg',
+			'countries.ma' => 'Morocco',
+			'countries.mc' => 'Monaco',
+			'countries.nl' => 'Netherlands',
+			'countries.no' => 'Norway',
+			'countries.pl' => 'Poland',
+			'countries.pt' => 'Portugal',
+			'countries.se' => 'Sweden',
+			'countries.si' => 'Slovenia',
+			'countries.sj' => 'Svalbard',
+			'countries.sm' => 'San Marino',
+			'countries.va' => 'Vatican City',
 			_ => null,
 		};
 	}

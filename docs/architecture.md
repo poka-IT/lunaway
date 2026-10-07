@@ -168,10 +168,12 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   together): a stop outside every cut is answered `NO_ROUTE`
   (`OUTSIDE_COVERAGE`) without asking the engine. `Query.routing` gives the
   countries (`coveredCountries`) and a box around them.
-- **Length.** 4 500 km at most in a straight line from stop to stop, the
-  engine's `auto` limit raised to match; one alternative at most beyond
-  2 000 km, none beyond 3 000 km, so that the engine's answer stays within
-  16 MB and the route sent within 11 MB.
+- **Length.** 3 000 km at most in a straight line from stop to stop, the
+  engine's `auto` limit set to match (`infra/routing/valhalla.json`, tied by a
+  test): 8 of 10 trips between 2 645 and 4 166 km took 7 to 15 s on the
+  production server on 2026-10-07. One alternative at most beyond 2 000 km,
+  so that the engine's answer stays within 16 MB and the route sent within
+  11 MB.
 - **Stops.** A stop is snapped to the nearest road the vehicle may drive,
   never onto a ferry line (`search_filter.exclude_ferry`), except the
   vehicle's own position during a recalculation (it may be on board).
@@ -236,7 +238,15 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
 - **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
   of the events that can block, in every country with a feed, without the
   phone's position (only the sources on the routing graph,
-  `road_event_sources.routed`, all of them since the graph covers Europe);
+  `road_event_sources.routed`, all of them since the graph covers Europe),
+  only those in force or starting within 48 hours
+  (`road_events.in_window`, `road_events_feed_window()`): NDW publishes
+  two weeks of planned works. The poller's lifecycle pass, every three
+  minutes, lets an event into the window when its start comes within it
+  and gives it a new revision, so the cursor a phone holds delivers it
+  then; an event outside the window keeps its revision while it changes,
+  and one postponed past it comes back as a removal. Routes read every
+  event, whatever the window;
   the phone checks its remaining route itself and asks for a new route
   when a blocker appears ahead (the contract is in
   `plan/research/21-backend-travaux.md`, part 5).

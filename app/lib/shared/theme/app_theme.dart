@@ -8,18 +8,23 @@ import 'package:lunaway/shared/theme/typography.dart';
 /// Every component the app uses is themed here, so no widget falls back to
 /// a stock Material look: no elevation shadows (surfaces separate by tone),
 /// no tinted surfaces, amber for actions and selection only.
-ThemeData lunaTheme(Brightness brightness) {
+///
+/// [pointer] is the desktop look (`pointerDensity`): a mouse aims finer
+/// than a finger, so controls lose a notch of height (the compact visual
+/// density takes 8 off every button and field) and the text a point, still
+/// in Atkinson Hyperlegible and still above the Material desktop sizes.
+ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
   final dark = brightness == Brightness.dark;
   final scheme = dark ? LunaScheme.minuit : LunaScheme.aube;
   final tokens = dark ? LunaTokens.minuitTheme : LunaTokens.aube;
-  final text = LunaType.textTheme(scheme.onSurface);
+  final text = LunaType.textTheme(scheme.onSurface, dense: pointer);
 
   RoundedRectangleBorder rounded(double r, [BorderSide side = BorderSide.none]) =>
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(r), side: side);
   WidgetStateProperty<T> states<T>(T Function(Set<WidgetState> s) resolve) =>
       WidgetStateProperty.resolveWith(resolve);
   const noElevation = WidgetStatePropertyAll<double>(0);
-  final buttonText = text.labelLarge!.copyWith(fontSize: 16);
+  final buttonText = text.labelLarge!.copyWith(fontSize: pointer ? 15 : 16);
   final disabledFg = scheme.onSurface.withValues(alpha: 0.38);
   final disabledBg = scheme.onSurface.withValues(alpha: 0.08);
   // The ink of a press: the content's own colour, faint, never a grey wash.
@@ -36,8 +41,10 @@ ThemeData lunaTheme(Brightness brightness) {
     fontFamily: LunaType.body,
     textTheme: text,
     primaryTextTheme: text,
-    visualDensity: VisualDensity.standard,
-    materialTapTargetSize: MaterialTapTargetSize.padded,
+    visualDensity: pointer ? VisualDensity.compact : VisualDensity.standard,
+    materialTapTargetSize: pointer
+        ? MaterialTapTargetSize.shrinkWrap
+        : MaterialTapTargetSize.padded,
     scaffoldBackgroundColor: scheme.surface,
     canvasColor: scheme.surface,
     splashFactory: InkSparkle.splashFactory,
@@ -113,6 +120,8 @@ ThemeData lunaTheme(Brightness brightness) {
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
+        // Material 3 icon buttons keep the standard density unless told.
+        visualDensity: pointer ? VisualDensity.compact : null,
         minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
         iconSize: const WidgetStatePropertyAll(24),
         foregroundColor: states(
@@ -179,6 +188,9 @@ ThemeData lunaTheme(Brightness brightness) {
       ),
     ),
     dialogTheme: DialogThemeData(
+      // Material's widest dialog: a question with a long text otherwise
+      // spread over the whole width of a desktop window, one line of 1300 px.
+      constraints: const BoxConstraints(minWidth: 280, maxWidth: 560),
       shape: rounded(LunaTokens.radiusSheet),
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,

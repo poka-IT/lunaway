@@ -4,6 +4,13 @@
 //! check its remaining route itself, every three minutes, without sending
 //! its position; and `Query.roadEventSources`: each feed's freshness.
 //!
+//! The feed carries the events in force or starting within the next 48
+//! hours (`lunaway_db::road_events::FEED_WINDOW_HOURS`): one starting
+//! later takes a new revision when the poller lets it into the window, so
+//! the same cursor delivers it then, and one whose start moves past the
+//! window comes back in `removals`. The `route` query reads every event,
+//! whatever the window, at the vehicle's time of arrival.
+//!
 //! A cursor is `e1.<identity>.<revision>`: the copy of the database that
 //! issued it, and the last revision the client holds. A cursor of another
 //! copy, past the end of the feed, or older than the newest purged event
@@ -249,7 +256,8 @@ pub(crate) async fn road_events(
         }
     }
     // The whole set reads only the events asked for; changes read every
-    // event changed, so that one leaving the selection is removed.
+    // event changed, so that one leaving the selection or the window is
+    // removed.
     let rows = {
         let (pool, _permit) = db_share(ctx).await?;
         let changes = match after {
@@ -285,7 +293,11 @@ pub(crate) async fn road_events(
     let mut upserts = Vec::new();
     let mut removals: Vec<Uuid> = Vec::new();
     for r in &rows {
-        if r.ended_at.is_none() && classes.contains(&r.class) && (!blocking_only || can_block(r)) {
+        if r.ended_at.is_none()
+            && r.in_window
+            && classes.contains(&r.class)
+            && (!blocking_only || can_block(r))
+        {
             upserts.push(RoadEvent::of(r, now));
         } else if !full {
             removals.push(r.id);
