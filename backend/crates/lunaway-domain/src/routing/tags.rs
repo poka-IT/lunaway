@@ -208,6 +208,20 @@ const VALHALLA_LOCAL_ACCESS: [&str; 4] = [
     "none @ (destination)",
 ];
 
+/// The conditional keys of one direction's limit that Valhalla 3.9.0 reads
+/// an exception on (`access_restriction_tags` in `lua/graph.lua`, the
+/// directed ones).
+const DIRECTED_CONDITIONALS: [(RestrictionKind, &str); 8] = [
+    (RestrictionKind::MaxHeight, "maxheight:forward:conditional"),
+    (RestrictionKind::MaxHeight, "maxheight:backward:conditional"),
+    (RestrictionKind::MaxWidth, "maxwidth:forward:conditional"),
+    (RestrictionKind::MaxWidth, "maxwidth:backward:conditional"),
+    (RestrictionKind::MaxLength, "maxlength:forward:conditional"),
+    (RestrictionKind::MaxLength, "maxlength:backward:conditional"),
+    (RestrictionKind::MaxWeight, "maxweight:forward:conditional"),
+    (RestrictionKind::MaxWeight, "maxweight:backward:conditional"),
+];
+
 /// Two figures closer than this, tonnes or metres, are one sign mapped
 /// under two keys (`maxweight` and `maxweightrating` copied from each
 /// other).
@@ -409,17 +423,14 @@ pub fn graph_fixes(
     // Valhalla also reads the exception on one direction's limit
     // (`maxweight:forward:conditional`, `lua/graph.lua`). Those limits are
     // left to the router, so only an exception a motorhome may not use goes.
-    for kind in RestrictionKind::LIMITS {
-        for direction in ["forward", "backward"] {
-            let key = format!("{}:{direction}:conditional", kind.graph_key());
-            let Some(current) = tags.get(&key) else {
-                continue;
-            };
-            if VALHALLA_LOCAL_ACCESS.contains(&current.as_str())
-                && !(kind.spares_local_access() && spares_local_access(current))
-            {
-                out.insert(key, None);
-            }
+    for (kind, key) in DIRECTED_CONDITIONALS {
+        let Some(current) = tags.get(key) else {
+            continue;
+        };
+        if VALHALLA_LOCAL_ACCESS.contains(&current.as_str())
+            && !(kind.spares_local_access() && spares_local_access(current))
+        {
+            out.insert(key.to_owned(), None);
         }
     }
     if let Some(v) = tags.get("motorhome").map(|v| v.trim())
@@ -986,15 +997,46 @@ mod tests {
         }
 
         #[test]
-        fn local_access_is_read_only_from_a_none_rule_naming_destination(
-            s in "[ a-zA-Z0-9@();,.:<>=-]{0,40}"
+        fn local_access_needs_a_none_rule_whose_condition_admits_destination_alone(
+            rules in prop::collection::vec(
+                (
+                    prop::sample::select(vec!["none", "no", "3.5", "yes", "None"]),
+                    prop::collection::vec(
+                        prop::sample::select(vec![
+                            "destination", "delivery", "agricultural", "psv", "08:00-18:00",
+                        ]),
+                        1..4,
+                    ),
+                    prop::sample::select(vec![", ", "; ", " OR ", " AND "]),
+                    any::<bool>(),
+                ),
+                1..3,
+            )
         ) {
-            if spares_local_access(&s) {
-                let lower = s.to_ascii_lowercase();
-                prop_assert!(lower.contains("destination"), "{s:?}");
-                prop_assert!(lower.contains('@'), "{s:?}");
-                prop_assert!(lower.contains("no"), "{s:?}");
-            }
+            let text: Vec<String> = rules
+                .iter()
+                .map(|(value, items, join, wrap)| {
+                    let condition = items.join(join);
+                    if *wrap {
+                        format!("{value} @ ({condition})")
+                    } else {
+                        format!("{value} @ {condition}")
+                    }
+                })
+                .collect();
+            let raw = text.join("; ");
+            // What the rules say, read without the parser under test: a
+            // rule with no figure whose condition lists destination among
+            // alternatives. A semicolon outside parentheses ends a rule, so
+            // an unwrapped "; " list is cut there.
+            let expected = rules.iter().any(|(value, items, join, wrap)| {
+                let free = value.eq_ignore_ascii_case("none") || value.eq_ignore_ascii_case("no");
+                let first_only = !*wrap && *join == "; ";
+                let alternatives = if first_only { &items[..1] } else { &items[..] };
+                let and = *join == " AND " && alternatives.len() > 1;
+                free && !and && alternatives.contains(&"destination")
+            });
+            prop_assert_eq!(spares_local_access(&raw), expected, "{}", raw);
         }
 
         #[test]

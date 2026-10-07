@@ -544,14 +544,15 @@ pub const LOCAL_ACCESS_LINK_M: f64 = 200.0;
 /// stop within [`LOCAL_ACCESS_STOP_M`]. A run that reaches no stop is
 /// through traffic.
 ///
-/// The engine is more lenient (Valhalla 3.9.0, `DynamicCost::
-/// EvaluateRestrictions` and `BidirectionalAStar::SetOrigin`): a trip that
-/// starts or ends on a limit marked `except_destination` keeps the right
-/// across every road without a limit, gains it on any marked limit the
-/// vehicle is under, and loses it only on a limit of the kind without the
-/// mark. So a trip ending in one zone may cross another anywhere on the
-/// way. The check stops that at the link gap: what it blocks, the engine is
-/// asked again around.
+/// The engine is more lenient (Valhalla 3.9.0,
+/// `DynamicCost::EvaluateRestrictions` and
+/// `BidirectionalAStar::SetOrigin`): a trip that starts or ends on a limit
+/// marked `except_destination` keeps the right across every road without a
+/// limit, gains it on any marked limit the vehicle is under, and loses it
+/// on the first road whose limits carry no mark for this kind. So a trip
+/// ending in one zone may cross another anywhere on the way. The check
+/// stops that at the link gap: what it blocks, the engine is asked again
+/// around.
 #[must_use]
 pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
     let mut sorted: Vec<(f64, f64)> = spans.iter().map(|(a, b)| (a.min(*b), a.max(*b))).collect();
