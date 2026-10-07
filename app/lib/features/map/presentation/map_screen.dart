@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
@@ -14,6 +16,7 @@ import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
@@ -23,6 +26,7 @@ import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/map/presentation/premap_spec.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -35,6 +39,7 @@ import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/cheapest_fuel.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -275,7 +280,7 @@ bool get _pointerPlatform =>
     defaultTargetPlatform == TargetPlatform.linux;
 
 /// The map itself, fed from the providers.
-class _Map extends ConsumerWidget {
+class _Map extends ConsumerStatefulWidget {
   const new({
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
@@ -285,12 +290,62 @@ class _Map extends ConsumerWidget {
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
 
-  /// After a place's pin was tapped and selected: the camera stays where it
-  /// is, unlike a pick from a list, which moves it to the place.
+  /// After a place's pin or a bare point was tapped and selected: the camera
+  /// stays where it is, unlike a pick from a list, which moves it to the
+  /// place.
   final VoidCallback? onPlaceTapped;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Map> createState() => _MapState();
+}
+
+class _MapState extends ConsumerState<_Map> {
+  /// A tap on bare map waits to know it is no double tap, which zooms.
+  final _gate = DoubleTapGate();
+
+  @override
+  void dispose() {
+    _gate.cancel();
+    super.dispose();
+  }
+
+  /// A tap where nothing can be opened: closes what is open, or, at street
+  /// level, marks the point and opens its card.
+  void _onBareTap(LatLng at, double zoom) {
+    _gate.tap(window: freeTapWindow(), () {
+      if (!mounted) return;
+      final select = ref.read(selectionProvider.notifier);
+      switch (bareTapAt(zoom: zoom, open: ref.read(selectionProvider) != null)) {
+        case BareTap.close:
+          select.select(null);
+        case BareTap.freePoint:
+          select.select(PointSelection(at));
+          widget.onPlaceTapped?.call();
+        case BareTap.nothing:
+          break;
+      }
+    });
+  }
+
+  /// The first time the map comes down to the street, one line says that a
+  /// tap there leads somewhere; never again after.
+  void _hintFreeTap(MapViewport v) {
+    if (v.zoom < FreeTap.freePointMinZoom) return;
+    final settings = ref.read(settingsProvider);
+    if (settings.mapTapHintShown) return;
+    unawaited(ref.read(settingsProvider.notifier).setMapTapHintShown());
+    final t = context.t;
+    showMessage(
+      ScaffoldMessenger.maybeOf(context),
+      pointerPlatform ? t.map.freeTapHintClick : t.map.freeTapHint,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final padding = widget.padding;
+    final attributionInset = widget.attributionInset;
+    final onPlaceTapped = widget.onPlaceTapped;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final style = ref.watch(
       basemapStyleProvider(dark: dark, language: Localizations.localeOf(context).languageCode),
@@ -361,13 +416,15 @@ class _Map extends ConsumerWidget {
         selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
         onPlaceTap: (id, {hint}) {
+          _gate.cancel();
           select.select(PlaceSelection(id, hint: hint));
           onPlaceTapped?.call();
         },
         onPlacesInView: (places, bounds, {failed = false}) =>
             ref.read(placesInViewProvider.notifier).report(places, bounds, failed: failed),
-        onEmptyTap: () => select.select(null),
+        onEmptyTap: _onBareTap,
         onLongPress: (p) {
+          _gate.cancel();
           select.select(PointSelection(p));
           // The sheet or panel that opens may cover the point: bring it into
           // the part of the map left free, at the same zoom.
@@ -375,6 +432,7 @@ class _Map extends ConsumerWidget {
         },
         onViewportChanged: (v) {
           ref.read(viewportProvider.notifier).update(v);
+          _hintFreeTap(v);
           remember(v);
           unawaited(
             ref
@@ -398,6 +456,7 @@ class _Map extends ConsumerWidget {
         fitInitial: premap == null && (viewport == null ? left == null : isFirstCamera(viewport)),
         pois: pois,
         onPoiTap: (feature) {
+          _gate.cancel();
           select.select(PoiSelection(feature));
           // As for a long press: the sheet that opens may cover the point.
           unawaited(ref.read(mapControllerProvider)?.moveTo(feature.position));
@@ -518,34 +577,23 @@ class _SelectionActions extends ConsumerWidget {
       final place? => PlaceActionBar(place: place, floating: true),
       null => const SizedBox.shrink(),
     },
-    PointSelection(:final position) => PointActionBar(position: position, floating: true),
+    PointSelection(:final position) => PointActionBar(
+      position: position,
+      floating: true,
+      here: true,
+    ),
     PoiSelection(:final feature) => PointActionBar(position: feature.position, floating: true),
   };
 }
 
-/// The map's own buttons: a new place, the position, and zoom where there
-/// is a mouse.
+/// The map's own buttons: the position, and zoom where there is a mouse. A
+/// new place starts from a tap on the map at street level, or a long press,
+/// right where it goes.
 class _MapControls extends StatelessWidget {
   const new({required this.onLocate, this.zoom = false});
 
   final VoidCallback onLocate;
   final bool zoom;
-
-  /// Marks the middle of the map as the point of a new place: the second
-  /// gesture is "Add a place here" in the point's details, and a long press
-  /// moves the point.
-  static void _addPlace(WidgetRef ref) {
-    final viewport = ref.read(viewportProvider);
-    if (viewport == null) return;
-    ref.read(selectionProvider.notifier).select(PointSelection(viewport.center));
-    // From afar the middle of the map is no place in particular: the map
-    // comes down to the street, where the point can be judged and moved.
-    if (viewport.zoom < _addPlaceZoom) {
-      unawaited(ref.read(mapControllerProvider)?.moveTo(viewport.center, zoom: _addPlaceZoom));
-    }
-  }
-
-  static const _addPlaceZoom = 15.0;
 
   @override
   Widget build(BuildContext context) {
@@ -557,13 +605,6 @@ class _MapControls extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            MapButton(
-              icon: AppIcons.addPlace,
-              tooltip: t.contribute.addPlace,
-              onPressed: () => _addPlace(ref),
-              size: 48,
-            ),
-            const SizedBox(height: Space.s),
             if (zoom) ...[
               FloatingSurface(
                 radius: LunaTokens.radiusL,
@@ -633,26 +674,35 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     _reveal();
   }
 
-  /// Brings the selected place into the part of the map left free when the
-  /// sheet or a notice covers its pin: a tap near the bottom opens the sheet
-  /// over it, a notice appearing offline lands on it. Only after a tap on a
-  /// pin or a notice's change: a pick from the list, the search or the
+  /// Brings the selected place or point into the part of the map left free
+  /// when the sheet or a notice covers its pin: a tap near the bottom opens
+  /// the sheet over it, a notice appearing offline lands on it. Only after a
+  /// tap on the map or a notice's change: a pick from the list, the search or the
   /// favourites moves the camera itself, with its own zoom.
   void _reveal() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final selection = widget.selection;
       final viewport = ref.read(viewportProvider);
-      if (selection is! PlaceSelection || viewport == null) return;
-      final place = ref.read(selectedPlaceProvider);
-      if (place == null || place.id != selection.id) return;
+      if (viewport == null) return;
+      final LatLng position;
+      switch (selection) {
+        case PlaceSelection(:final id):
+          final place = ref.read(selectedPlaceProvider);
+          if (place == null || place.id != id) return;
+          position = place.position;
+        case PointSelection(position: final at):
+          position = at;
+        case PoiSelection() || null:
+          return;
+      }
       final m = MediaQuery.of(context);
-      final y = screenYOf(place.position, viewport.bounds, m.size.height);
+      final y = screenYOf(position, viewport.bounds, m.size.height);
       final bottom = m.size.height - (_rest ?? _detailsOpen(m));
       // The pin stands above its point: its head needs this much room.
       const pin = 52.0;
       if (y - pin >= _top(m) && y <= bottom - Space.m) return;
-      unawaited(ref.read(mapControllerProvider)?.moveTo(place.position));
+      unawaited(ref.read(mapControllerProvider)?.moveTo(position));
     });
   }
 
@@ -670,7 +720,12 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
   // A selection opens high enough to show its name, its night and its
   // facts, and can be lowered to its header above the action bar.
   double _detailsPeek(MediaQueryData m) => 22 + 128 + m.padding.bottom;
-  double _detailsOpen(MediaQueryData m) => m.size.height * 0.6;
+  double _detailsOpen(MediaQueryData m) => widget.selection is PointSelection
+      // A bare point has little to say: its card opens just high enough for
+      // its title, the new place and the coordinates, and the map keeps the
+      // rest.
+      ? math.min(m.size.height * 0.6, 22 + m.textScaler.scale(300) + m.padding.bottom)
+      : m.size.height * 0.6;
 
   @override
   void didUpdateWidget(_CompactLayout old) {

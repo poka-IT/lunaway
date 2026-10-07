@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 
@@ -53,3 +54,11 @@ class _WebMapPointerState extends State<WebMapPointer> {
     return MouseRegion(onEnter: (_) => _set(true), onExit: (_) => _set(false), child: widget.child);
   }
 }
+
+/// How long a bare tap waits before it acts on this engine, with the
+/// pointer that pressed last ([FreeTap.doubleTapWindowFor]).
+Duration freeTapWindow() => FreeTap.doubleTapWindowFor(
+  web: kIsWeb,
+  platform: defaultTargetPlatform,
+  pointer: webMapPointerKind(),
+);

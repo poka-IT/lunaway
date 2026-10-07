@@ -165,6 +165,7 @@ final class RouteMapProps {
     this.onLineTap,
     this.onMarkTap,
     this.onLongPress,
+    this.onEmptyTap,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -186,6 +187,10 @@ final class RouteMapProps {
 
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
+
+  /// A tap with no mark and no route within reach (`hitAroundTap`), at
+  /// that point, with the map's zoom then.
+  final void Function(LatLng at, double zoom)? onEmptyTap;
 }
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);
@@ -318,6 +323,15 @@ const Map<String, HitShape> routeHitShapes = {
   RouteLayers.tappableMarks: _markHit,
   RouteLayers.alternatives: _lineHit,
   RouteLayers.alternativesCasing: _lineHit,
+};
+
+/// Every mark of the route, those that open nothing too: what a tap must
+/// miss to be a tap on bare map.
+const Map<String, HitShape> routeSignHitShapes = {
+  RouteLayers.marks: HitShape(
+    radius: PropertyHit('radius', plus: RouteLook.markStrokeWidth, fallback: 8),
+    priority: 1,
+  ),
 };
 
 const _markHit = HitShape(

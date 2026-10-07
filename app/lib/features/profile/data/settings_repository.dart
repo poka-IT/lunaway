@@ -26,6 +26,7 @@ final class AppSettings {
     this.navigationApp,
     this.railCollapsed = false,
     this.copyFormat = CoordinateFormat.decimal,
+    this.mapTapHintShown = false,
   });
 
   /// Null: follow the device language.
@@ -48,6 +49,10 @@ final class AppSettings {
   /// it once.
   final CoordinateFormat copyFormat;
 
+  /// The one line saying that a tap on the map at street level leads
+  /// somewhere was shown: it never comes back.
+  final bool mapTapHintShown;
+
   AppSettings copyWith({
     String? Function()? localeCode,
     PlaceFilter? filter,
@@ -55,6 +60,7 @@ final class AppSettings {
     String? Function()? navigationApp,
     bool? railCollapsed,
     CoordinateFormat? copyFormat,
+    bool? mapTapHintShown,
   }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
@@ -62,6 +68,7 @@ final class AppSettings {
     navigationApp: navigationApp == null ? this.navigationApp : navigationApp(),
     railCollapsed: railCollapsed ?? this.railCollapsed,
     copyFormat: copyFormat ?? this.copyFormat,
+    mapTapHintShown: mapTapHintShown ?? this.mapTapHintShown,
   );
 
   @override
@@ -72,11 +79,19 @@ final class AppSettings {
       other.theme == theme &&
       other.navigationApp == navigationApp &&
       other.railCollapsed == railCollapsed &&
-      other.copyFormat == copyFormat;
+      other.copyFormat == copyFormat &&
+      other.mapTapHintShown == mapTapHintShown;
 
   @override
-  int get hashCode =>
-      Object.hash(localeCode, filter, theme, navigationApp, railCollapsed, copyFormat);
+  int get hashCode => Object.hash(
+    localeCode,
+    filter,
+    theme,
+    navigationApp,
+    railCollapsed,
+    copyFormat,
+    mapTapHintShown,
+  );
 }
 
 /// Where the settings live between runs.
@@ -98,6 +113,7 @@ final class SettingsRepository implements SettingsStore {
   static const _navigation = 'navigation_app';
   static const _rail = 'rail_collapsed';
   static const _copyFormat = 'copy_format';
+  static const _mapTapHint = 'map_tap_hint_shown';
 
   @override
   Future<AppSettings> load() async {
@@ -112,6 +128,7 @@ final class SettingsRepository implements SettingsStore {
       // A format an older or newer app wrote and this one lacks copies the
       // default.
       copyFormat: CoordinateFormat.values.asNameMap()[values[_copyFormat]] ?? .decimal,
+      mapTapHintShown: values[_mapTapHint] == 'true',
     );
   }
 
@@ -123,6 +140,7 @@ final class SettingsRepository implements SettingsStore {
     await _put(_theme, settings.theme.name);
     await _put(_rail, '${settings.railCollapsed}');
     await _put(_copyFormat, settings.copyFormat.name);
+    await _put(_mapTapHint, '${settings.mapTapHintShown}');
   });
 
   Future<void> _putOrDelete(String id, String? value) async {

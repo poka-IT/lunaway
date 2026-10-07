@@ -145,8 +145,12 @@
       "one": "place nearest the centre",
       "other": "places nearest the centre"
     },
-    "pointTitle": "Chosen point",
-    "pointHint": "Its coordinates and the way there",
+    "pointTitle": "Here",
+    "pointHint": "Point on the map",
+    "directionsHere": "Directions here",
+    "copyCoordinates": "Copy coordinates",
+    "freeTapHint": "Tap the map to go there or add a place",
+    "freeTapHintClick": "Click the map to go there or add a place",
     "downloading": "Downloading the places of France",
     "downloadingCount(param=n)": {
       "one": "$count place received",
@@ -388,7 +392,7 @@
   "navigation": {
     "preview": {
       "titleTo": "To $name",
-      "titlePoint": "To this point",
+      "titlePoint": "Point on the map",
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
       "recommended": "Recommended",
@@ -421,10 +425,10 @@
     },
     "stops": {
       "title": "Stops",
-      "add": "Add a stop",
-      "addCost": "Add a stop · +$minutes min",
-      "addFree": "Add a stop · no detour",
-      "quoting": "Add a stop · working out the detour",
+      "add": "Add as a stop",
+      "addCost": "Add as a stop · +$minutes min",
+      "addFree": "Add as a stop · no detour",
+      "quoting": "Add as a stop · working out the detour",
       "noRoute": "No route through this point for your vehicle.",
       "full": "Five stops at most.",
       "goDirectly": "Go there directly",
@@ -544,7 +548,7 @@
       "removeStopNamed": "Remove the stop \"$name\"",
       "placesAround": "See the places around the destination",
       "moveDestination": "Or pick another arrival: long press on the map, then \"Go there directly\".",
-      "moveStop": "For another stop: long press on the map, then \"Add a stop\".",
+      "moveStop": "For another stop: tap the map close up, or long press, then \"Add as a stop\".",
       "moveOrigin": "The start is your position: get to a road your vehicle may take, then try again.",
       "pickInside": "Pick a destination in one of these countries.",
       "shorter": "Pick a closer destination, or make the trip in several legs."
@@ -1105,6 +1109,14 @@
     "queued": "No connection: it will be sent once you are back online",
     "refused": "Not sent. $reason"
   },
+  "placement": {
+    "title": "Place the spot",
+    "hint": "Move the map: the crosshair marks the exact spot.",
+    "confirm": "Use this spot",
+    "duplicate": "“$name” is already $distance away: is it the same spot?",
+    "same": "Yes, open its page",
+    "notSame": "No, it is another place"
+  },
   "contribute": {
     "yourRating": "Your rating",
     "rateHint": "Tap a star to rate",
@@ -1136,9 +1148,8 @@
     "toVerifyBody": "Added by the community, waiting for two confirmations. Know it? Confirm it.",
     "issuesTitle": "Reports from the last 30 days",
     "issueCount": "$kind ($count)",
-    "addPlace": "Add a place",
-    "addPlaceHere": "Add a place here",
-    "addPlaceHint": "A long press on the map moves the point."
+    "addPlaceHere": "Create a place here",
+    "addPlaceHint": "The spot set under the crosshair."
   },
   "confirmSheet": {
     "title": "Still there?",

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -92,6 +93,10 @@ class StopsStrip extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              // A bare point has no name: its coordinates tell two apart.
+              subtitle: stops[i].label == null
+                  ? Text(CoordinateFormat.decimal.format(stops[i].position))
+                  : null,
               trailing: IconButton(
                 tooltip: t.navigation.stops.remove,
                 icon: const Icon(AppIcons.close),
