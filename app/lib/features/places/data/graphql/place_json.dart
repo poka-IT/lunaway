@@ -402,3 +402,57 @@ Address? _withCommune(Address? address, String? municipality) {
     countryCode: address?.countryCode,
   );
 }
+
+/// The photos of the external community source: `takenAt` stands where a
+/// Lunaway photo has its upload date, and no author id ever comes (the
+/// pseudonym is all the API serves of a partner's member).
+List<Photo> externalPhotosFromJson(Object? json) => [
+  for (final m in _maps(json))
+    if ((m['id'], m['sourceId'], m['thumbUrl'], m['largeUrl']) case (
+      final Object id,
+      final String source,
+      final String thumb,
+      final String large,
+    ))
+      Photo(
+        id: '$id',
+        sourceId: source,
+        thumbUrl: thumb,
+        largeUrl: large,
+        thumbhash: _nonEmpty(m['thumbhash']),
+        width: (m['width'] as num?)?.toInt(),
+        height: (m['height'] as num?)?.toInt(),
+        authorName: _nonEmpty(m['authorName']),
+        createdAt: _date(m['takenAt']),
+      ),
+];
+
+/// A page of the external community source's reviews: `writtenAt` is
+/// their writing time, as `createdAt` is a Lunaway review's.
+ReviewPage externalReviewPageFromJson(Object? json) {
+  if (json is! Map<String, dynamic>) return ReviewPage.empty;
+  return ReviewPage(
+    nodes: [
+      for (final m in _maps(json['nodes']))
+        if ((m['id'], m['sourceId'], _nonEmpty(m['text']), _date(m['writtenAt'])) case (
+          final Object id,
+          final String source,
+          final String text,
+          final written?,
+        ))
+          Review(
+            id: '$id',
+            sourceId: source,
+            rating: (m['rating'] as num?)?.toInt(),
+            text: text,
+            lang: _nonEmpty(m['lang']),
+            authorName: _nonEmpty(m['authorName']),
+            authorVehicle: ReviewVehicle.fromWire(m['authorVehicle']),
+            createdAt: written,
+          ),
+    ],
+    endCursor: json['endCursor'] as String?,
+    hasNextPage: json['hasNextPage'] == true,
+    totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
+  );
+}

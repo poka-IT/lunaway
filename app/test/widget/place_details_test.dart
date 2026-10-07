@@ -418,10 +418,21 @@ void main() {
 
   testWidgets('reviews show their source, author and vehicle, with more on demand', (tester) async {
     await openPlace(tester, lakeArea);
+    // The reviews are items of the card's list, built as they come into
+    // view.
+    await tester.scrollUntilVisible(
+      find.text('Avis inventé numéro 1.'),
+      400,
+      scrollable: inDetails(find.byType(Scrollable)).first,
+    );
     expect(find.text('Avis inventé numéro 1.'), findsOneWidget);
     expect(find.text('Avis inventé numéro 3.'), findsNothing);
     expect(find.textContaining('Voyageur démo 1 · Fourgon aménagé'), findsOneWidget);
-    await tester.ensureVisible(find.text("Plus d'avis"));
+    await tester.scrollUntilVisible(
+      find.text("Plus d'avis"),
+      200,
+      scrollable: inDetails(find.byType(Scrollable)).first,
+    );
     await settleShort(tester);
     await tester.tap(find.text("Plus d'avis"));
     await settleShort(tester);
