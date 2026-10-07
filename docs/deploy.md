@@ -600,7 +600,8 @@ what the API's compression uses):
 
 Names add 60 to 70% to a tile at zooms 10 to 12, where a map draws no
 label for a pin anyway: they travel from zoom 12 (`NAME_MIN_ZOOM`), where
-the densest tile weighs 2.2 KB gzip. The town travels with the name: from
+the densest tile weighed 2.2 KB gzip on 2026-10-07, before the town
+travelled with the name. The town travels with it: from
 that zoom the app's list beside the map reads the pins in view rather than
 ask the API (nothing of the view leaves the device beyond the tiles), and a
 row names an unnamed place by its town. The 7 337 tiles of zoom 10 hold

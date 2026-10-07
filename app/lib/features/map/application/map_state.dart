@@ -306,7 +306,12 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
         // The map reports the places of a view once its tiles are in: until
         // it has for this one, the list keeps the rows it shows.
         if (!report.covers(viewport)) return await Completer<NearbyPage>().future;
-        final places = _sorted(report.places.where((p) => viewport.bounds.contains(p.position)));
+        // The filters again on the device: a report made under the previous
+        // filters stands until the map reports again (the tiles carry no
+        // height in a summary, so the height alone waits for that report).
+        final places = _sorted(
+          report.places.where((p) => viewport.bounds.contains(p.position) && filter.matches(p)),
+        );
         return NearbyPage(places, total: places.length);
       }
       final query = (
