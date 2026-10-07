@@ -5,8 +5,8 @@ and a returning browser takes them from its HTTP cache without asking.
     python3 tool/web/fingerprint.py [--compress] BUILD_DIR
 
 Run after `flutter build web` and before tool/web/service_worker.py, which
-reads the list this writes. Why it matters, measured in
-plan/research/54-perf-carte-2.md: a script served from the HTTP cache gets
+reads the list this writes. Why it matters, measured on 2026-10-07 in
+Chrome 155 on a returning visit: a script served from the HTTP cache gets
 V8's code cache on a returning visit, one served by the service worker from
 Cache Storage did not (main.dart.js ran in about 240 ms instead of 45 ms),
 and MapLibre's worker no longer revalidates its module before it can parse
@@ -36,6 +36,7 @@ the on-the-fly compression for the Dart program and CanvasKit. It needs the
 Standard library only.
 """
 
+import concurrent.futures
 import hashlib
 import os
 import re
@@ -188,19 +189,24 @@ def fingerprint(root: str) -> list[str]:
 def compress(root: str) -> int:
     if shutil.which("brotli") is None:
         raise BuildError("--compress needs the brotli command (brew install brotli, apt install brotli)")
-    n = 0
+    todo = []
     for directory, _, names in os.walk(root):
         for name in names:
             full = os.path.join(directory, name)
-            if not name.endswith(COMPRESSIBLE) or os.path.getsize(full) < 1024:
-                continue
-            subprocess.run(["brotli", "-q", "11", "-f", "-o", full + ".br", full], check=True)
-            # A copy that saves nothing is not worth a second file.
-            if os.path.getsize(full + ".br") >= os.path.getsize(full):
-                os.remove(full + ".br")
-                continue
-            n += 1
-    return n
+            if name.endswith(COMPRESSIBLE) and os.path.getsize(full) >= 1024:
+                todo.append(full)
+
+    def one(full: str) -> bool:
+        subprocess.run(["brotli", "-q", "11", "-f", "-o", full + ".br", full], check=True)
+        # A copy that saves nothing is not worth a second file.
+        if os.path.getsize(full + ".br") >= os.path.getsize(full):
+            os.remove(full + ".br")
+            return False
+        return True
+
+    # Quality 11 takes seconds per megabyte: one file per core.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
+        return sum(pool.map(one, todo))
 
 
 def main() -> int:
