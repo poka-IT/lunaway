@@ -1967,20 +1967,30 @@ and IGN edition. Tested end to end on the prepared France graph
 never on the maintainer's Mac).
 
 A blocker the engine does not see by itself (a height barrier mapped on a
-node, a port's lane) costs a second engine call. The API remembers, in
-memory and per graph, the OpenStreetMap and IGN barriers and road limits
-that blocked routes more than 10 km from their stops; once two requests
-have met one, the first call of a later trip it may lie on (box of the
-stops widened by 1 degree, stops more than 10 km away) excludes it ahead,
-and a trip left without a safe route that way is asked again without
-them. What the list still reveals, and the options to close it, are in
-the comment of `routing::Remembered`.
+node, a port's lane) costs a second engine call. The API looks for them
+ahead from public data only (`routing::public`): a minute after it
+starts, then whenever the active graph or the restrictions outside the
+graphs (DiaLog's, the community's) changed, read every ten minutes, it
+routes the pairs of capitals of the graph's countries within the longest
+trip for a typical vehicle of each of three classes (vans up to 2.6 m,
+low motorhomes up to 3.0 m, the rest), one engine call at a time and
+only while another slot stays free, and keeps the barriers and road
+limits other than clearances that those routes meet more than 10 km from
+their ends. The first call of a trip then excludes the kept ones that lie
+in the box of its stops widened by 1 degree, more than 10 km from each
+stop, and stop its vehicle; a trip left without a safe route that way is
+asked again without them. Nothing a client asks enters the list. The
+journal says `restrictions kept ahead computed again` with the graph, the
+pairs, the calls and the seconds it took; until then, after a start or a
+new graph, trips exclude nothing ahead.
 
 Each route writes one line to the API's journal, `route computed`, with
 where its time went: `queue_ms` (waiting for a slot), `engine_ms` and
 `engine_calls`, `corridor_ms` (the corridor queries and the sampling
-around them), `check_ms` (the matching), `limits_ms` (the speed-limit
-traces, two at a time), the routes kept and `osrm_bytes`; durations and
+around them), `check_ms` (the matching), `limits_ms` (the wait for the
+speed-limit traces once the check is over: they are traced one at a time
+during the check, in pieces of 150 km, 40 at most), the routes kept and
+`osrm_bytes`; durations and
 counts only, no position. `journalctl -u lunaway-api | grep "route
 computed"` reads them. On 2026-10-07 the engine took most of the time of
 a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9
