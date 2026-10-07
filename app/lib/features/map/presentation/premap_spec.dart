@@ -65,6 +65,8 @@ Map<String, Object?> premapDefaults() {
     'places': places,
     'bounds': [france.west, france.south, france.east, france.north],
     'maxZoom': DriftLastViewStore.maxZoom,
+    // A click on a dot comes at least this close (zoomForDot).
+    'pinZoom': PlaceTiles.pinZoom,
     'layers': {
       'aube': placeTileStyleLayers(view, dark: false),
       'minuit': placeTileStyleLayers(view, dark: true),

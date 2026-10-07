@@ -66,6 +66,7 @@ final class GlPlaceTiles {
       maxzoom: PlaceTiles.pinZoom,
       filter: filter,
       belowLayerId: below,
+      enableInteraction: false,
     );
     if (!current()) return;
     await c.addCircleLayer(
@@ -76,6 +77,7 @@ final class GlPlaceTiles {
       minzoom: PlaceTiles.pinZoom,
       filter: filter,
       belowLayerId: below,
+      enableInteraction: false,
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -86,6 +88,7 @@ final class GlPlaceTiles {
       minzoom: PlaceTiles.pinZoom,
       filter: filter,
       belowLayerId: below,
+      enableInteraction: false,
     );
     _sent = view;
     _sentDark = dark;
