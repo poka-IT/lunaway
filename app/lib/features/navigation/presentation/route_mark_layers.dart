@@ -160,11 +160,9 @@ abstract final class RouteMarkStyle {
       'max',
       ['get', 'rank'],
     ],
-    // How large its badge is for the pointer (routeHitShapes).
-    'size': [
-      'max',
-      ['get', 'size'],
-    ],
+    // A group's badge is drawn full size, whatever its marks: so is its
+    // target (routeHitShapes reads `size`).
+    'size': ['max', 1],
     for (final k in RouteMarkKind.values)
       if (!k.anchor)
         'n_${k.name}': [
