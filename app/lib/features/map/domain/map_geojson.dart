@@ -46,7 +46,7 @@ Map<String, Object?> placesFeatureCollection(List<PlaceSummary> places) {
           'kind': _placeFeature,
           'icon': pinImageId(p.kind, p.overnight),
           // Nights allowed draw on top of the rest where pins collide.
-          'rank': _rank(p.overnight),
+          'rank': placeRank(p.overnight),
         },
       },
   ];
@@ -85,7 +85,8 @@ Map<String, Object?> pointFeatureCollection(PlaceSummary? place, {LatLng? point}
   ],
 };
 
-int _rank(OvernightStatus o) => switch (o) {
+/// Where pins collide, the higher rank draws on top: a night allowed first.
+int placeRank(OvernightStatus o) => switch (o) {
   .allowed => 4,
   .tolerated => 3,
   .unknown => 2,

@@ -187,7 +187,7 @@ final class PlacesNearRouteProvider
   }
 }
 
-String _$placesNearRouteHash() => r'142b1ea25b8cf149e4c5f384a51db2b865161cd8';
+String _$placesNearRouteHash() => r'bbae21c7c0552168a6a25a463305ffbd81520eb7';
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.

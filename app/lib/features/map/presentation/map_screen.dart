@@ -11,6 +11,7 @@ import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
@@ -21,6 +22,7 @@ import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -135,7 +137,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final id = widget.placeId;
     if (id == null) return;
     ref.read(selectionProvider.notifier).select(PlaceSelection(id));
-    final place = await ref.read(placesRepositoryProvider).watchPlace(id).first;
+    final Place? place;
+    try {
+      place = await ref.read(placeReaderProvider).watch(id).first;
+    } on Object catch (e) {
+      // Offline without a copy: the page says so.
+      _log.info('linked place $id not read: $e');
+      return;
+    }
     if (!mounted || place == null) return;
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
@@ -261,7 +270,12 @@ class _Map extends ConsumerWidget {
     );
     final viewport = ref.read(viewportProvider);
     final left = ref.read(initialViewProvider);
-    final places = ref.watch(mapPlacesProvider).value ?? const [];
+    // Online the places come from the tiles: the device's own places are
+    // neither read nor turned into GeoJSON.
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final places = fromTiles
+        ? const <PlaceSummary>[]
+        : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
     final selection = ref.watch(selectionProvider);
     final select = ref.read(selectionProvider.notifier);
     final poiChoice = ref.watch(poiLayerProvider);
@@ -286,12 +300,19 @@ class _Map extends ConsumerWidget {
         initialCenter: viewport?.center ?? left?.center ?? initialMapCenter,
         initialZoom: viewport?.zoom ?? left?.zoom ?? initialMapZoom,
         places: places,
-        selectedId: selection is PlaceSelection ? selection.id : null,
+        placeTiles: fromTiles
+            ? PlaceTilesView(
+                tileJsonUrl: ref.watch(placeTileJsonUrlProvider),
+                filter: ref.watch(effectiveFilterProvider),
+              )
+            : null,
+        selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
-        onPlaceTap: (id) {
-          select.select(PlaceSelection(id));
+        onPlaceTap: (id, {hint}) {
+          select.select(PlaceSelection(id, hint: hint));
           onPlaceTapped?.call();
         },
+        onPlacesInView: (positions) => ref.read(placesInViewProvider.notifier).report(positions),
         onEmptyTap: () => select.select(null),
         onLongPress: (p) {
           select.select(PointSelection(p));
@@ -550,12 +571,8 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
       final selection = widget.selection;
       final viewport = ref.read(viewportProvider);
       if (selection is! PlaceSelection || viewport == null) return;
-      final place = ref
-          .read(mapPlacesProvider)
-          .value
-          ?.where((p) => p.id == selection.id)
-          .firstOrNull;
-      if (place == null) return;
+      final place = ref.read(selectedPlaceProvider);
+      if (place == null || place.id != selection.id) return;
       final m = MediaQuery.of(context);
       final y = screenYOf(place.position, viewport.bounds, m.size.height);
       final bottom = m.size.height - (_rest ?? _detailsOpen(m));
@@ -841,7 +858,8 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
     final panelWidth = width < 720 ? 340.0 : 380.0;
     final reserved = panelOpen ? panelWidth + Space.xxl : 0.0;
     final top = MediaQuery.paddingOf(context).top + _overlayHeight;
-    final count = ref.watch(nearbyPlacesProvider).value?.length;
+    final page = ref.watch(nearbyPlacesPageProvider).value;
+    final count = page?.total ?? page?.places.length;
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
     return Stack(
       children: [

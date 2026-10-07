@@ -1092,6 +1092,9 @@ class Translations$list$en {
 
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
+
+	/// en: 'More places could not be loaded. Try again'
+	String get moreFailed => 'More places could not be loaded. Try again';
 }
 
 // Path: favorites
@@ -5124,6 +5127,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -5630,9 +5634,9 @@ extension on Translations {
 			'poi.thanksThere' => 'Thank you, noted: still there.',
 			'poi.thanksGone' => 'Thank you, noted: gone.',
 			'poi.fuelPrices' => 'Fuel prices',
-			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			_ => null,
 		} ?? switch (path) {
+			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prices checked ${when}',
 			'poi.shortageTemporary' => 'Out of stock for now',

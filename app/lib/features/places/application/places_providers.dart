@@ -1,13 +1,17 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/data/online_places.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -49,6 +53,21 @@ SyncService syncService(Ref ref) => SyncService(
   source: GraphQLChangesSource(ref.watch(graphQLClientProvider)),
   store: ref.watch(driftPlacesRepositoryProvider),
 );
+
+/// Whether this device keeps places of its own for offline use (regions,
+/// packs, the change feed): not the web, which reads them from the API's
+/// tiles and queries and keeps only what the user opened.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+bool keepsPlaces(Ref ref) => !kIsWeb;
+
+/// How long the first sync of a run waits behind the map: `afterMap` once
+/// the map has drawn its first view (the tiles of that view load first),
+/// `atLatest` when no map shows; replaced in tests.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+({Duration afterMap, Duration atLatest}) syncStartDelays(Ref ref) =>
+    (afterMap: const Duration(seconds: 3), atLatest: const Duration(seconds: 15));
 
 /// Why a sync failed, in the terms the user can act on.
 enum SyncFailure {
@@ -190,9 +209,10 @@ class SyncController extends _$SyncController {
     await sync();
   }
 
-  /// Starts the automatic syncs; later calls do nothing.
+  /// Starts the automatic syncs; later calls do nothing, and so does a
+  /// device that keeps no places.
   void start() {
-    if (_lifecycle != null) return;
+    if (_lifecycle != null || !ref.read(keepsPlacesProvider)) return;
     _lifecycle = AppLifecycleListener(onResume: () => unawaited(syncIfStale()));
     unawaited(syncIfStale());
   }
@@ -232,6 +252,7 @@ class SyncController extends _$SyncController {
   bool _again = false;
 
   Future<void> sync({bool fromScratch = false}) async {
+    if (!ref.read(keepsPlacesProvider)) return;
     if (state is SyncRunning) {
       _again = true;
       return;
@@ -303,19 +324,66 @@ PlaceFilter effectiveFilter(Ref ref) =>
 Stream<List<PlaceSummary>> mapPlaces(Ref ref) =>
     ref.watch(placesRepositoryProvider).watchAll(ref.watch(effectiveFilterProvider));
 
+/// One place for its page: the synced copy, the copy of an earlier
+/// opening, or the API's ([PlaceReader]).
 @riverpod
-Stream<Place?> place(Ref ref, String id) => ref.watch(placesRepositoryProvider).watchPlace(id);
+Stream<Place?> place(Ref ref, String id) => ref.watch(placeReaderProvider).watch(id);
+
+// keepAlive: a stateless service over the run's client.
+@Riverpod(keepAlive: true)
+OnlinePlaces onlinePlaces(Ref ref) => GraphQLOnlinePlaces(ref.watch(graphQLClientProvider));
+
+// keepAlive: a repository over the app-wide database and client.
+@Riverpod(keepAlive: true)
+PlaceReader placeReader(Ref ref) => PlaceReader(
+  db: ref.watch(cacheDatabaseProvider),
+  local: ref.watch(placesRepositoryProvider),
+  // Offline the API is not asked: a place the device does not hold is not
+  // there for it.
+  online: ref.watch(placesFromTilesProvider) ? ref.watch(onlinePlacesProvider) : null,
+  clock: ref.watch(clockProvider),
+);
+
+/// The TileJSON of the places' vector tiles on the API.
+@riverpod
+String placeTileJsonUrl(Ref ref) {
+  final base = ref.watch(appConfigProvider).apiBase;
+  return base.replace(path: '${base.path}/places/tiles.json').toString();
+}
+
+/// Whether the map draws the places from the API's vector tiles, and the
+/// list and the search ask the API: always on the web, which keeps no
+/// places; on a phone while the network answers (the places the device
+/// holds take over offline). A demo build has no server behind its tiles.
+// keepAlive: the map, the list and the reader of places follow it all the run.
+@Riverpod(keepAlive: true)
+bool placesFromTiles(Ref ref) {
+  if (ref.watch(appConfigProvider).demo) return false;
+  if (kIsWeb) return true;
+  return ref.watch(basemapReachabilityProvider) != false;
+}
 
 @riverpod
 Stream<int> placeCount(Ref ref) => ref.watch(placesRepositoryProvider).watchCount();
 
-/// How many places a filter keeps, before the user applies it.
+/// How many places a filter keeps, before the user applies it: those the
+/// device holds, or with the places from the tiles, those of the map's
+/// view as the API counts them once the choice pauses.
 @riverpod
-Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) {
-  // Re-count when a sync writes.
-  ref.watch(placeCountProvider);
+Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) async {
   final resolved = filter.resolve(vehicleHeightM: ref.watch(vehicleHeightProvider));
-  return ref.watch(placesRepositoryProvider).countMatching(resolved);
+  if (!ref.watch(placesFromTilesProvider)) {
+    // Re-count when a sync writes.
+    ref.watch(placeCountProvider);
+    return await ref.watch(placesRepositoryProvider).countMatching(resolved);
+  }
+  final view = ref.watch(viewportProvider) ?? initialViewport;
+  await Future<void>.delayed(const Duration(milliseconds: 250));
+  if (!ref.mounted) return 0;
+  final page = await ref
+      .read(onlinePlacesProvider)
+      .inBounds(view.bounds, resolved, near: view.center, first: 1);
+  return page.total;
 }
 
 /// Where the sync stands, as stored: every region kept together
@@ -421,7 +489,63 @@ class PlaceReviews extends _$PlaceReviews {
   }
 }
 
-/// Local search; [near] ranks the nearest matches first.
+/// The search of the map; [near] ranks the nearest matches first. On the
+/// device when it holds places (no request, and it works in a tunnel),
+/// else the API's once typing pauses.
 @riverpod
-Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near}) =>
-    ref.watch(placesRepositoryProvider).search(query, near: near);
+Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near}) async {
+  final local = ref.watch(placesRepositoryProvider);
+  final fromTiles = ref.watch(placesFromTilesProvider);
+  if (!fromTiles || await local.watchCount().first > 0) {
+    return await local.search(query, near: near);
+  }
+  final text = query.trim();
+  if (text.length < 2) return SearchResults.empty;
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  if (!ref.mounted) return SearchResults.empty;
+  final places = await ref.read(onlinePlacesProvider).search(text, near: near);
+  return SearchResults(places: places, municipalities: townsOf(places, text));
+}
+
+/// The towns among [places] whose name starts like [text], at the middle
+/// of their places: the search moves the map there, as it does with the
+/// towns the device holds.
+List<Municipality> townsOf(List<PlaceSummary> places, String text) {
+  final wanted = foldForSearch(text);
+  final byTown = <String, List<PlaceSummary>>{};
+  for (final p in places) {
+    final city = p.city;
+    if (city == null || !foldForSearch(city).startsWith(wanted)) continue;
+    byTown.putIfAbsent(city, () => []).add(p);
+  }
+  return [
+    for (final MapEntry(key: name, value: inTown) in byTown.entries)
+      Municipality(
+        name: name,
+        center: LatLng(
+          inTown.map((p) => p.lat).reduce((a, b) => a + b) / inTown.length,
+          inTown.map((p) => p.lon).reduce((a, b) => a + b) / inTown.length,
+        ),
+        placeCount: inTown.length,
+      ),
+  ]..sort((a, b) => b.placeCount.compareTo(a.placeCount));
+}
+
+/// [text] in lower case without the accents of the Latin languages the map
+/// covers, so that "Évian" starts like "evi".
+String foldForSearch(String text) {
+  final out = StringBuffer();
+  for (final rune in text.toLowerCase().trim().runes) {
+    final c = String.fromCharCode(rune);
+    out.write(_unaccented[c] ?? c);
+  }
+  return out.toString();
+}
+
+const _unaccented = {
+  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ç': 'c', 'è': 'e', //
+  'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ñ': 'n', //
+  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', //
+  'û': 'u', 'ü': 'u', 'ý': 'y', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss', 'ł': 'l', //
+  'š': 's', 'ž': 'z', 'č': 'c', //
+};

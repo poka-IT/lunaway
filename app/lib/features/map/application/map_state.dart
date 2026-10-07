@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/location/location_access.dart';
@@ -11,11 +12,14 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_view.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'map_state.g.dart';
+
+final _log = Logger('map');
 
 /// What the map points at: a place, a point the user long-pressed, or a
 /// point of interest.
@@ -25,9 +29,14 @@ sealed class MapSelection {
 }
 
 final class PlaceSelection extends MapSelection {
-  const new(this.id);
+  const new(this.id, {this.hint});
 
   final String id;
+
+  /// What the tap or the row already knew of the place (its name, kind,
+  /// night and position): the page and the selected pin show it at once
+  /// while the place itself is read. Not part of the selection's identity.
+  final PlaceSummary? hint;
 
   @override
   bool operator ==(Object other) => other is PlaceSelection && other.id == id;
@@ -203,6 +212,153 @@ Stream<List<PlaceSummary>> nearbyPlaces(Ref ref) {
   final user = ref.watch(userLocationProvider);
   final center = user != null && viewport.bounds.contains(user) ? user : viewport.center;
   return ref.watch(placesRepositoryProvider).watchInBounds(viewport.bounds, filter, center: center);
+}
+
+/// The selected place as the map draws its pin and the sheet titles it:
+/// the place once read, what the tap or the row knew before that.
+@riverpod
+PlaceSummary? selectedPlace(Ref ref) {
+  final selection = ref.watch(selectionProvider);
+  if (selection is! PlaceSelection) return null;
+  return ref.watch(placeProvider(selection.id)).value?.summary ?? selection.hint;
+}
+
+/// The list beside the map: the places of the view passing the filters,
+/// nearest to the user (or to the map's centre) first.
+@immutable
+final class NearbyPage {
+  const new(
+    this.places, {
+    this.total,
+    this.hasMore = false,
+    this.cursor,
+    this.loadingMore = false,
+    this.moreFailed = false,
+  });
+
+  final List<PlaceSummary> places;
+
+  /// Every place of the view passing the filters; null when the list stops
+  /// at its limit without knowing how many the view holds.
+  final int? total;
+
+  /// Another page follows ([NearbyPlacesPage.loadMore]).
+  final bool hasMore;
+  final String? cursor;
+  final bool loadingMore;
+
+  /// The last attempt at the next page failed; the list offers a retry.
+  final bool moreFailed;
+
+  NearbyPage copyWith({bool? loadingMore, bool? moreFailed}) => NearbyPage(
+    places,
+    total: total,
+    hasMore: hasMore,
+    cursor: cursor,
+    loadingMore: loadingMore ?? this.loadingMore,
+    moreFailed: moreFailed ?? this.moreFailed,
+  );
+}
+
+/// Rows per page of the list asked of the API: three screens of a phone.
+const nearbyPageSize = 30;
+
+/// The rows the device's own list stops at: past that, the area is too wide
+/// for a useful list.
+const nearbyLocalLimit = 200;
+
+/// The list beside the map. With the places from the tiles, a page of the
+/// API at a time, nearest to the map's centre (the device's position is
+/// never sent), sorted again on the device from the user when the map
+/// shows them; otherwise the places the device holds.
+@riverpod
+class NearbyPlacesPage extends _$NearbyPlacesPage {
+  LatLng _from = initialMapCenter;
+
+  @override
+  Future<NearbyPage> build() async {
+    final viewport = ref.watch(viewportProvider) ?? initialViewport;
+    final filter = ref.watch(effectiveFilterProvider);
+    final user = ref.watch(userLocationProvider);
+    _from = user != null && viewport.bounds.contains(user) ? user : viewport.center;
+    if (ref.watch(placesFromTilesProvider)) {
+      try {
+        final page = await ref
+            .read(onlinePlacesProvider)
+            .inBounds(viewport.bounds, filter, near: viewport.center, first: nearbyPageSize);
+        return NearbyPage(
+          _sorted(page.places),
+          total: page.total,
+          hasMore: page.hasNextPage,
+          cursor: page.endCursor,
+        );
+      } on GraphQLNetworkException {
+        // The network went before the map noticed: the places the device
+        // holds, when it holds some, rather than an error.
+        final local = ref.read(placesRepositoryProvider);
+        if (await local.watchCount().first == 0) rethrow;
+        final places = await local.watchInBounds(viewport.bounds, filter, center: _from).first;
+        return NearbyPage(places, total: places.length < nearbyLocalLimit ? places.length : null);
+      }
+    }
+    final places = await ref.watch(nearbyPlacesProvider.future);
+    return NearbyPage(places, total: places.length < nearbyLocalLimit ? places.length : null);
+  }
+
+  List<PlaceSummary> _sorted(Iterable<PlaceSummary> places) =>
+      places.toList()
+        ..sort((a, b) => a.position.distanceTo(_from).compareTo(b.position.distanceTo(_from)));
+
+  /// Appends the next page of the API's list.
+  Future<void> loadMore() async {
+    final current = state.value;
+    final cursor = current?.cursor;
+    if (current == null || cursor == null || !current.hasMore || current.loadingMore) return;
+    final viewport = ref.read(viewportProvider) ?? initialViewport;
+    final filter = ref.read(effectiveFilterProvider);
+    state = AsyncData(current.copyWith(loadingMore: true, moreFailed: false));
+    try {
+      final next = await ref
+          .read(onlinePlacesProvider)
+          .inBounds(
+            viewport.bounds,
+            filter,
+            near: viewport.center,
+            first: nearbyPageSize,
+            after: cursor,
+          );
+      if (!ref.mounted) return;
+      final seen = {for (final p in current.places) p.id};
+      state = AsyncData(
+        NearbyPage(
+          // A page comes nearest first: sorted on its own, it follows the
+          // rows already shown, which never jump.
+          [...current.places, ..._sorted(next.places.where((p) => !seen.contains(p.id)))],
+          total: next.total,
+          hasMore: next.hasNextPage,
+          cursor: next.endCursor,
+        ),
+      );
+    } on Object catch (e) {
+      _log.info('the next page of the list failed: $e');
+      if (!ref.mounted) return;
+      state = AsyncData(current.copyWith(moreFailed: true));
+    }
+  }
+}
+
+/// The places of the tiles under the map's view, as the map reported them
+/// once it settled at the zoom of the pins: what the points of interest
+/// leave room for.
+// keepAlive: the map reports them; the points' state reads them at each tick.
+@Riverpod(keepAlive: true)
+class PlacesInView extends _$PlacesInView {
+  @override
+  List<LatLng> build() => const [];
+
+  void report(List<LatLng> positions) {
+    if (!listEquals(positions, state)) state = positions;
+  }
 }
 
 /// The map widget, swapped for a fake in widget tests where platform views do

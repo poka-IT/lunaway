@@ -55,6 +55,9 @@ Future<void> _writeVersion(
 /// and the speed camera data of the guidance.
 const _regionColumns = ['region'];
 const _v4Tables = {'enforcement_items'};
+
+/// What version 5 of the cache added: the places opened online.
+const _v5Tables = {'place_cache'};
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -132,7 +135,7 @@ void main() {
           ..._regionColumns,
         ],
       },
-      dropTables: const {'poi_cache', ..._v4Tables},
+      dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
     );
     sqlite3.open(file.path)
@@ -168,7 +171,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {'places': _regionColumns},
-      dropTables: const {'poi_cache', ..._v4Tables},
+      dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 2,
     );
@@ -203,7 +206,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {'places': _regionColumns},
-      dropTables: _v4Tables,
+      dropTables: const {..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 3,
     );
@@ -236,6 +239,33 @@ void main() {
           ),
         );
     expect(await upgraded.select(upgraded.enforcementItems).get(), hasLength(1));
+    await upgraded.close();
+  });
+
+  test('a version 4 cache keeps its places and gains the places opened online', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache4.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {},
+      dropTables: _v5Tables,
+      version: 4,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at, region) '
+        "VALUES ('p1', 'PARKING', 0, 45, 6, 'ALLOWED', 1, 'FR-ARA')",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    expect(await DriftPlacesRepository(upgraded).watchPlace('p1').first, isNotNull);
+    await upgraded
+        .into(upgraded.placeCache)
+        .insert(PlaceCacheCompanion.insert(placeId: 'p2', json: '{}', fetchedAt: 1));
+    expect(await upgraded.select(upgraded.placeCache).get(), hasLength(1));
     await upgraded.close();
   });
 

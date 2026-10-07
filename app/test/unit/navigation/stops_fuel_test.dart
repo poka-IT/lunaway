@@ -188,6 +188,7 @@ void main() {
         overrides: [
           placesRepositoryProvider.overrideWithValue(FakePlacesRepository(places)),
           effectiveFilterProvider.overrideWithValue(PlaceFilter.none),
+          placesFromTilesProvider.overrideWithValue(false),
         ],
       );
       return await container.read(placesNearRouteProvider(line).future);

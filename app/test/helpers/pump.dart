@@ -106,6 +106,7 @@ final class TestApp {
     required this.secrets,
     required this.files,
     this.api,
+    this.online,
   });
 
   final FakePlacesRepository places;
@@ -122,6 +123,9 @@ final class TestApp {
 
   /// The account and community API, when the test talks to one.
   final FakeApi? api;
+
+  /// The API's places, when the map draws them from the tiles.
+  final FakeOnlinePlaces? online;
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
@@ -171,6 +175,9 @@ Future<TestApp> pumpLunaway(
   List<Override> overrides = const [],
   // Whether the system shows what was copied (Android 13 and later).
   bool systemShowsCopies = false,
+  // The places come from the API's tiles and queries, as on the web and on a
+  // phone online; null keeps them on the device, as offline.
+  FakeOnlinePlaces? online,
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -217,6 +224,7 @@ Future<TestApp> pumpLunaway(
     secrets: MemorySecretStore(),
     files: MemoryPendingFiles(),
     api: api,
+    online: online,
   );
   if (api != null) {
     addTearDown(() => expect(api.violations, isEmpty, reason: 'the API schema'));
@@ -246,6 +254,12 @@ Future<TestApp> pumpLunaway(
         userDatabaseProvider.overrideWithValue(app.user),
         locationPermissionsProvider.overrideWithValue(app.location),
         syncRetryDelaysProvider.overrideWithValue(const []),
+        // The first sync starts with the map, as it did before it waited for
+        // the map's tiles: the tests of the download see it at once.
+        syncStartDelaysProvider.overrideWithValue((
+          afterMap: Duration.zero,
+          atLatest: Duration.zero,
+        )),
         // The account's secrets in memory: no keychain in a widget test.
         secretStoreProvider.overrideWithValue(app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),
@@ -266,6 +280,8 @@ Future<TestApp> pumpLunaway(
         packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
         regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(regions)),
         deviceCountryProvider.overrideWithValue('FR'),
+        placesFromTilesProvider.overrideWithValue(online != null),
+        if (online != null) onlinePlacesProvider.overrideWithValue(online),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),

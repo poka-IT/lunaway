@@ -12,6 +12,8 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -104,7 +106,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   double _zoom = 0;
   List<PlaceSummary>? _sentPlaces;
   PoiLayerView? _sentPois;
-  String? _sentSelected;
+  PlaceTilesView? _sentTiles;
+  Object? _sentSelected;
   LatLng? _sentPoint;
   Future<void> _queue = Future.value();
 
@@ -138,6 +141,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           dark: _props.dark,
           language: _props.language,
           pois: _props.pois,
+          tiles: _props.placeTiles,
           style: _props.style,
         ),
         'reducedMotion': reducedMotion,
@@ -157,12 +161,26 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     required bool dark,
     required String language,
     PoiLayerView? pois,
+    PlaceTilesView? tiles,
     String? style,
   }) => {
     'clusterSource': MapStyle.placesSource,
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
-    'tappable': [...MapStyle.tappableLayers, if (pois != null) ...PoiMapStyle.tappable],
+    'tappable': [
+      ...MapStyle.tappableLayers,
+      if (tiles != null) ...PlaceTiles.tappable,
+      if (pois != null) ...PoiMapStyle.tappable,
+    ],
+    if (tiles != null)
+      'placeTiles': {
+        'source': PlaceTiles.source,
+        'sourceLayer': PlaceTiles.pinsSourceLayer,
+        'layers': const [PlaceTiles.dotsLayer, PlaceTiles.pinDotsLayer, PlaceTiles.pinsLayer],
+        'dotsLayer': PlaceTiles.dotsLayer,
+        'pinZoom': PlaceTiles.pinZoom,
+        'filter': placeTileFilter(tiles.filter),
+      },
     if (pois != null)
       'pois': {
         'source': PoiMapStyle.source,
@@ -172,6 +190,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'quietMinZoom': PoiMapStyle.quietMinZoom,
       },
     'sources': [
+      if (tiles != null) {'id': PlaceTiles.source, 'vector': true, 'url': tiles.tileJsonUrl},
       if (pois != null) ...[
         {'id': PoiMapStyle.source, 'vector': true, 'url': pois.tileJsonUrl},
         {'id': PoiMapStyle.selectionSource, 'options': <String, Object?>{}},
@@ -191,6 +210,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       // The points of interest under the places, the quiet ones under the
       // basemap's labels.
       if (pois != null) ..._poiLayers(pois, style, dark: dark),
+      if (tiles != null) ..._placeTileLayers(tiles, dark: dark),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -259,6 +279,59 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         },
     ],
   };
+
+  /// The places' layers as [GlPlaceTiles] draws them on maplibre_gl, in
+  /// the GL JS syntax.
+  static List<Map<String, Object?>> _placeTileLayers(PlaceTilesView view, {required bool dark}) {
+    final filter = placeTileFilter(view.filter);
+    final dotPaint = {
+      'circle-color': placeTileDotColor(MapLook.familyColor),
+      'circle-radius': MapLook.dotRadius,
+      'circle-stroke-width': MapLook.dotStrokeWidth,
+      'circle-stroke-color': MapLook.dotStroke(dark: dark),
+      'circle-opacity': MapLook.dotOpacity,
+    };
+    final dotLayout = {'circle-sort-key': placeTileRank()};
+    return [
+      {
+        'id': PlaceTiles.dotsLayer,
+        'type': 'circle',
+        'source': PlaceTiles.source,
+        'source-layer': PlaceTiles.dotsSourceLayer,
+        'maxzoom': PlaceTiles.pinZoom,
+        'filter': filter,
+        'layout': dotLayout,
+        'paint': dotPaint,
+      },
+      {
+        'id': PlaceTiles.pinDotsLayer,
+        'type': 'circle',
+        'source': PlaceTiles.source,
+        'source-layer': PlaceTiles.pinsSourceLayer,
+        'minzoom': PlaceTiles.pinZoom,
+        'filter': filter,
+        'layout': dotLayout,
+        'paint': dotPaint,
+      },
+      {
+        'id': PlaceTiles.pinsLayer,
+        'type': 'symbol',
+        'source': PlaceTiles.source,
+        'source-layer': PlaceTiles.pinsSourceLayer,
+        'minzoom': PlaceTiles.pinZoom,
+        'filter': filter,
+        'layout': {
+          'icon-image': placeTilePinImage(),
+          'icon-size': MapLook.pinSize(1),
+          'icon-anchor': 'bottom',
+          'icon-allow-overlap': false,
+          'icon-ignore-placement': false,
+          'icon-padding': 0,
+          'symbol-sort-key': placeTileRank(placement: true),
+        },
+      },
+    ];
+  }
 
   /// The points' layers as [PoiMapStyle] draws them on maplibre_gl, in the
   /// GL JS syntax.
@@ -362,6 +435,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         _ready = true;
         _sentPlaces = null;
         _sentPois = null;
+        _sentTiles = _props.placeTiles;
         _sentSelected = null;
         _sentPoint = null;
         // The theme or the language changed while the page was loading.
@@ -386,7 +460,23 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           ),
         );
       case 'place':
-        _props.onPlaceTap('${event['id']}');
+        final hint = placeFromTile(
+          event['properties'] as Map<Object?, Object?>?,
+          event['coordinates'] as List<Object?>?,
+        );
+        _props.onPlaceTap(
+          '${event['id']}',
+          hint: hint ?? _props.places.where((p) => p.id == '${event['id']}').firstOrNull,
+        );
+      case 'places':
+        final positions = event['positions'];
+        if (positions is List<Object?>) {
+          _props.onPlacesInView?.call([
+            for (final p in positions)
+              if (p is List && p.length == 2 && p[0] is num && p[1] is num)
+                LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()),
+          ]);
+        }
       case 'poi':
         final feature = PoiFeature.fromTile(
           event['properties'] as Map<Object?, Object?>?,
@@ -418,17 +508,21 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         _style != null &&
         (_props.style != _style ||
             _props.dark != old.props.dark ||
-            _props.language != old.props.language)) {
+            _props.language != old.props.language ||
+            (_props.placeTiles == null) != (old.props.placeTiles == null))) {
       _setStyle();
       return;
     }
     _scheduleSync();
   }
 
-  /// Loads the current style; the page answers with `ready` once the places
-  /// are back on it.
+  /// Gives the page the current style and layers. It turns the loaded
+  /// style into the new one in place when it can (a theme: colours and the
+  /// sprite), keeping the data; when it loads the style whole it answers
+  /// with `ready` once the places are back on it.
   void _setStyle() {
     _style = _props.style;
+    _sentTiles = _props.placeTiles;
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
@@ -436,6 +530,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           dark: _props.dark,
           language: _props.language,
           pois: _props.pois,
+          tiles: _props.placeTiles,
           style: _props.style,
         ),
       }),
@@ -451,6 +546,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   Future<void> _sync() async {
     if (!_ready) return;
     final props = _props;
+    if (props.placeTiles case final tiles? when tiles.filter != _sentTiles?.filter) {
+      _sentTiles = tiles;
+      await _call('return window.lunaway.setPlaceTiles(filter);', {
+        'filter': placeTileFilter(tiles.filter),
+      });
+    }
     if (props.pois case final pois? when pois != _sentPois) {
       _sentPois = pois;
       await _call('return window.lunaway.setPois(update);', {'update': _poiUpdate(pois)});
@@ -465,10 +566,13 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'data': json,
       });
     }
-    if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
-      _sentSelected = props.selectedId;
+    final selected = props.selectedPlace;
+    final selectedKey = selected == null
+        ? null
+        : (selected.id, selected.lat, selected.lon, selected.kind, selected.overnight);
+    if (selectedKey != _sentSelected || props.markedPoint != _sentPoint) {
+      _sentSelected = selectedKey;
       _sentPoint = props.markedPoint;
-      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
       await _call('return window.lunaway.setSelection(data);', {
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });

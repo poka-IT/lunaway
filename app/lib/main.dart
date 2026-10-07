@@ -50,13 +50,10 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
   registerBundledLicences();
   if (kIsWeb) {
     // Shipped with the web build: no CDN sees the visitors, and the map loads
-    // from the same origin as the app.
-    // Absolute URLs: a module import refuses a bare relative path, and the
-    // app may be served under a sub-path (/app/).
-    MapLibreMap.webLibrarySource = MapLibreJsSource.urls(
-      scriptUrl: Uri.base.resolve('maplibre-gl/maplibre-gl.mjs').toString(),
-      styleUrl: Uri.base.resolve('maplibre-gl/maplibre-gl.css').toString(),
-    );
+    // from the same origin as the app. The page imports it while the engine
+    // starts (web/lunaway_maplibre.js), and publishes a map that keeps the
+    // app's layers across a change of theme.
+    MapLibreMap.webLibrarySource = const MapLibreJsSource.preloaded();
   }
   // The status bar floats over the map, which runs under it edge to edge.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

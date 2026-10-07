@@ -11,6 +11,7 @@ import 'package:lunaway/features/account/data/card_file_io.dart'
     if (dart.library.js_interop) 'package:lunaway/features/account/data/card_file_web.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/profile/application/appearance_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -35,12 +36,9 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
   @override
   void initState() {
     super.initState();
-    // The sync starts with the app, not with a screen: it resumes a cut
-    // download, refreshes old data, and comes back on every return to the
-    // foreground.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(syncControllerProvider.notifier).start();
+      _startSyncBehindTheMap();
       // The contributions made offline leave as soon as they can, and the
       // favourites follow the account once there is one. Neither makes an
       // account: browsing never does.
@@ -61,6 +59,48 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
         }),
       );
     });
+  }
+
+  Timer? _syncLater;
+
+  @override
+  void dispose() {
+    _syncLater?.cancel();
+    super.dispose();
+  }
+
+  /// The sync starts with the app, not with a screen: it resumes a cut
+  /// download, refreshes old data, and comes back on every return to the
+  /// foreground. It waits until the map has drawn its first view, plus a
+  /// few seconds for the tiles of that view: the map draws the places from
+  /// the API's tiles meanwhile, and the download (a region's pack, its
+  /// import) must not compete with them. A map that never shows (a link to
+  /// another tab) starts it later ([syncStartDelaysProvider]).
+  void _startSyncBehindTheMap() {
+    if (!ref.read(keepsPlacesProvider)) {
+      // The web keeps no places: what an earlier version synced into the
+      // browser goes, in the database's own worker.
+      unawaited(
+        ref.read(driftPlacesRepositoryProvider).forgetAll().catchError((Object e) {
+          _log.info('the old places were not forgotten: $e');
+          return 0;
+        }),
+      );
+      return;
+    }
+    void start() {
+      _syncLater?.cancel();
+      if (mounted) ref.read(syncControllerProvider.notifier).start();
+    }
+
+    final delays = ref.read(syncStartDelaysProvider);
+    _syncLater = Timer(delays.atLatest, start);
+    ref.listenManual(viewportProvider, (_, view) {
+      if (view != null && (_syncLater?.isActive ?? false)) {
+        _syncLater?.cancel();
+        _syncLater = Timer(delays.afterMap, start);
+      }
+    }, fireImmediately: true);
   }
 
   @override

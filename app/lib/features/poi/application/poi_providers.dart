@@ -4,6 +4,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -85,8 +86,12 @@ PoiLayerState poiLayerState(Ref ref) {
   final features = ref.watch(poisInViewProvider);
   if (features.isEmpty) return PoiLayerState.empty;
   final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
-  final places = ref.watch(mapPlacesProvider).value ?? const [];
-  return computePoiLayerState(features, now, places: [for (final p in places) p.position]);
+  // The places of the tiles in view, or those the device holds when the
+  // map draws them.
+  final places = ref.watch(placesFromTilesProvider)
+      ? ref.watch(placesInViewProvider)
+      : [for (final p in ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[]) p.position];
+  return computePoiLayerState(features, now, places: places);
 }
 
 /// Whether it is night now, when what is open around the clock comes first.

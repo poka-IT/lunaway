@@ -2,6 +2,8 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
 /// One GraphQL operation the app sends: its document and how to read its
@@ -243,9 +245,143 @@ $_reviewFields''',
   },
 );
 
+/// One place for its page, read when it is opened and the device holds no
+/// copy of its region (the web, or a region not kept); null when it is
+/// gone. A place merged into another answers with that one.
+final placeOperation = GraphQLOperation<Place?>(
+  name: 'Place',
+  document: '''
+query Place(\$id: UUID!) {
+  place(id: \$id) { ...PlaceFields }
+}
+$placeFieldsFragment''',
+  parse: (data) => switch (data['place']) {
+    final Map<String, dynamic> place => placeFromJson(place),
+    _ => null,
+  },
+);
+
+/// What a row of a list shows of a place.
+const placeSummaryFragment = '''
+fragment PlaceSummaryFields on Place {
+  id
+  name
+  kind
+  lat
+  lon
+  overnight
+  services
+  priceParkingEur
+  address { city }
+  municipality
+  ratings { sourceId average count }
+  verification
+}
+''';
+
+/// A page of the places of a viewport, the total they make, and the cursor
+/// of the next page.
+@immutable
+final class PlacePage {
+  const new({required this.places, required this.total, required this.hasNextPage, this.endCursor});
+
+  static const empty = PlacePage(places: [], total: 0, hasNextPage: false);
+
+  final List<PlaceSummary> places;
+
+  /// Every place of the viewport the filter keeps, beyond this page.
+  final int total;
+  final bool hasNextPage;
+  final String? endCursor;
+}
+
+/// The places of a viewport passing a filter, nearest to `near` first: the
+/// list beside the map when the places come from the tiles.
+final nearbyPlacesOperation = GraphQLOperation<PlacePage>(
+  name: 'NearbyPlaces',
+  document: '''
+query NearbyPlaces(\$bbox: BBoxInput!, \$filter: PlaceFilter, \$near: LatLonInput, \$first: Int, \$after: String) {
+  places(bbox: \$bbox, filter: \$filter, near: \$near, first: \$first, after: \$after) {
+    nodes { ...PlaceSummaryFields }
+    endCursor
+    hasNextPage
+    totalCount
+  }
+}
+$placeSummaryFragment''',
+  parse: (data) {
+    final page = data['places'] as Map<String, dynamic>;
+    return PlacePage(
+      places: [
+        for (final p in page['nodes'] as List<dynamic>)
+          placeFromJson(p as Map<String, dynamic>).summary,
+      ],
+      total: (page['totalCount'] as num?)?.toInt() ?? 0,
+      hasNextPage: page['hasNextPage'] == true,
+      endCursor: page['endCursor'] as String?,
+    );
+  },
+);
+
+/// The places whose name or town matches what the user typed, online.
+final searchPlacesOperation = GraphQLOperation<List<PlaceSummary>>(
+  name: 'SearchPlaces',
+  document: '''
+query SearchPlaces(\$text: String!, \$near: LatLonInput, \$first: Int) {
+  search(text: \$text, near: \$near, first: \$first) { ...PlaceSummaryFields }
+}
+$placeSummaryFragment''',
+  parse: (data) => [
+    for (final p in data['search'] as List<dynamic>)
+      placeFromJson(p as Map<String, dynamic>).summary,
+  ],
+);
+
+/// A point rounded to a hundredth of a degree (about 1 km), as the API
+/// rounds `near` before any use: what the app sends of the map's centre.
+Map<String, Object?> roundedPointInput(LatLng point) => {
+  'lat': (point.lat * 100).round() / 100,
+  'lon': (point.lon * 100).round() / 100,
+};
+
+Map<String, Object?> bboxInput(GeoBounds b) => {
+  'south': b.south,
+  'west': b.west,
+  'north': b.north,
+  'east': b.east,
+};
+
+/// [filter] as the API's `PlaceFilter`, with the same meaning as
+/// [PlaceFilter.matches]; null for the empty filter.
+Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
+  final input = <String, Object?>{
+    if (filter.families.isNotEmpty)
+      'kinds': [
+        for (final k in PlaceKind.values)
+          if (filter.families.contains(k.family)) k.wire,
+      ],
+    if (filter.overnight.isNotEmpty)
+      'overnight': [
+        for (final o in OvernightStatus.values)
+          if (filter.overnight.contains(o)) o.wire,
+      ],
+    if (filter.amenities.isNotEmpty)
+      'serviceGroups': [
+        for (final a in Amenity.values)
+          if (filter.amenities.contains(a)) [for (final s in a.services) s.wire],
+      ],
+    if (filter.freeOnly) 'freeOnly': true,
+    'vehicleHeightM': ?filter.vehicleHeightM,
+  };
+  return input.isEmpty ? null : input;
+}
+
 /// Every operation the app can send, for the contract test.
 final allOperations = <GraphQLOperation<Object?>>[
   changesOperation,
   extrasOperation,
   reviewsOperation,
+  placeOperation,
+  nearbyPlacesOperation,
+  searchPlacesOperation,
 ];

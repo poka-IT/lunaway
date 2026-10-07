@@ -193,6 +193,122 @@ final class SyncServiceProvider
 
 String _$syncServiceHash() => r'be7ed1cffea8b9c4fe57457d9a4962fedab3140c';
 
+/// Whether this device keeps places of its own for offline use (regions,
+/// packs, the change feed): not the web, which reads them from the API's
+/// tiles and queries and keeps only what the user opened.
+// keepAlive: a constant of the run.
+
+@ProviderFor(keepsPlaces)
+final keepsPlacesProvider = KeepsPlacesProvider._();
+
+/// Whether this device keeps places of its own for offline use (regions,
+/// packs, the change feed): not the web, which reads them from the API's
+/// tiles and queries and keeps only what the user opened.
+// keepAlive: a constant of the run.
+
+final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// Whether this device keeps places of its own for offline use (regions,
+  /// packs, the change feed): not the web, which reads them from the API's
+  /// tiles and queries and keeps only what the user opened.
+  // keepAlive: a constant of the run.
+  KeepsPlacesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'keepsPlacesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$keepsPlacesHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return keepsPlaces(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$keepsPlacesHash() => r'bea16bf775ddabfc13271d421da67cef11d3bd26';
+
+/// How long the first sync of a run waits behind the map: `afterMap` once
+/// the map has drawn its first view (the tiles of that view load first),
+/// `atLatest` when no map shows; replaced in tests.
+// keepAlive: a constant of the run.
+
+@ProviderFor(syncStartDelays)
+final syncStartDelaysProvider = SyncStartDelaysProvider._();
+
+/// How long the first sync of a run waits behind the map: `afterMap` once
+/// the map has drawn its first view (the tiles of that view load first),
+/// `atLatest` when no map shows; replaced in tests.
+// keepAlive: a constant of the run.
+
+final class SyncStartDelaysProvider
+    extends
+        $FunctionalProvider<
+          ({Duration afterMap, Duration atLatest}),
+          ({Duration afterMap, Duration atLatest}),
+          ({Duration afterMap, Duration atLatest})
+        >
+    with $Provider<({Duration afterMap, Duration atLatest})> {
+  /// How long the first sync of a run waits behind the map: `afterMap` once
+  /// the map has drawn its first view (the tiles of that view load first),
+  /// `atLatest` when no map shows; replaced in tests.
+  // keepAlive: a constant of the run.
+  SyncStartDelaysProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'syncStartDelaysProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$syncStartDelaysHash();
+
+  @$internal
+  @override
+  $ProviderElement<({Duration afterMap, Duration atLatest})> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  ({Duration afterMap, Duration atLatest}) create(Ref ref) {
+    return syncStartDelays(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(({Duration afterMap, Duration atLatest}) value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride:
+          $SyncValueProvider<({Duration afterMap, Duration atLatest})>(value),
+    );
+  }
+}
+
+String _$syncStartDelaysHash() => r'ce755d588b3dbb94304a19b757c344168cabfe1a';
+
 /// The waits between automatic retries of a failed sync, the last one
 /// repeated; replaced in tests.
 // keepAlive: a constant of the run.
@@ -296,7 +412,7 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'93bac213b50b636c2200098581b45e6557b99b49';
+String _$syncControllerHash() => r'cabf15f7b32a13607ce1a3ba448fd02ff1c74106';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
@@ -418,12 +534,20 @@ final class MapPlacesProvider
 
 String _$mapPlacesHash() => r'979c36a3a26865a95b52303ad4886ac4e826aa34';
 
+/// One place for its page: the synced copy, the copy of an earlier
+/// opening, or the API's ([PlaceReader]).
+
 @ProviderFor(place)
 final placeProvider = PlaceFamily._();
+
+/// One place for its page: the synced copy, the copy of an earlier
+/// opening, or the API's ([PlaceReader]).
 
 final class PlaceProvider
     extends $FunctionalProvider<AsyncValue<Place?>, Place?, Stream<Place?>>
     with $FutureModifier<Place?>, $StreamProvider<Place?> {
+  /// One place for its page: the synced copy, the copy of an earlier
+  /// opening, or the API's ([PlaceReader]).
   PlaceProvider._({
     required PlaceFamily super.from,
     required String super.argument,
@@ -467,7 +591,10 @@ final class PlaceProvider
   }
 }
 
-String _$placeHash() => r'adbd4ef4e04016208154346db9d0bd2a83637130';
+String _$placeHash() => r'c3d7194ee4a2e3de1d90b8c4c485c5ef8971dd5e';
+
+/// One place for its page: the synced copy, the copy of an earlier
+/// opening, or the API's ([PlaceReader]).
 
 final class PlaceFamily extends $Family
     with $FunctionalFamilyOverride<Stream<Place?>, String> {
@@ -480,11 +607,200 @@ final class PlaceFamily extends $Family
         isAutoDispose: true,
       );
 
+  /// One place for its page: the synced copy, the copy of an earlier
+  /// opening, or the API's ([PlaceReader]).
+
   PlaceProvider call(String id) => PlaceProvider._(argument: id, from: this);
 
   @override
   String toString() => r'placeProvider';
 }
+
+@ProviderFor(onlinePlaces)
+final onlinePlacesProvider = OnlinePlacesProvider._();
+
+final class OnlinePlacesProvider
+    extends $FunctionalProvider<OnlinePlaces, OnlinePlaces, OnlinePlaces>
+    with $Provider<OnlinePlaces> {
+  OnlinePlacesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'onlinePlacesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$onlinePlacesHash();
+
+  @$internal
+  @override
+  $ProviderElement<OnlinePlaces> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  OnlinePlaces create(Ref ref) {
+    return onlinePlaces(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(OnlinePlaces value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<OnlinePlaces>(value),
+    );
+  }
+}
+
+String _$onlinePlacesHash() => r'8ed2be8458dc84b6a7d21e237351b75718ea5724';
+
+@ProviderFor(placeReader)
+final placeReaderProvider = PlaceReaderProvider._();
+
+final class PlaceReaderProvider
+    extends $FunctionalProvider<PlaceReader, PlaceReader, PlaceReader>
+    with $Provider<PlaceReader> {
+  PlaceReaderProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placeReaderProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placeReaderHash();
+
+  @$internal
+  @override
+  $ProviderElement<PlaceReader> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PlaceReader create(Ref ref) {
+    return placeReader(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlaceReader value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlaceReader>(value),
+    );
+  }
+}
+
+String _$placeReaderHash() => r'777f5e63f0f0fef4f0558a6ce13babdc58355780';
+
+/// The TileJSON of the places' vector tiles on the API.
+
+@ProviderFor(placeTileJsonUrl)
+final placeTileJsonUrlProvider = PlaceTileJsonUrlProvider._();
+
+/// The TileJSON of the places' vector tiles on the API.
+
+final class PlaceTileJsonUrlProvider
+    extends $FunctionalProvider<String, String, String>
+    with $Provider<String> {
+  /// The TileJSON of the places' vector tiles on the API.
+  PlaceTileJsonUrlProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placeTileJsonUrlProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placeTileJsonUrlHash();
+
+  @$internal
+  @override
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  String create(Ref ref) {
+    return placeTileJsonUrl(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(String value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
+  }
+}
+
+String _$placeTileJsonUrlHash() => r'8b054d955d9d7295744948b848e29d9783b12241';
+
+/// Whether the map draws the places from the API's vector tiles, and the
+/// list and the search ask the API: always on the web, which keeps no
+/// places; on a phone while the network answers (the places the device
+/// holds take over offline). A demo build has no server behind its tiles.
+// keepAlive: the map, the list and the reader of places follow it all the run.
+
+@ProviderFor(placesFromTiles)
+final placesFromTilesProvider = PlacesFromTilesProvider._();
+
+/// Whether the map draws the places from the API's vector tiles, and the
+/// list and the search ask the API: always on the web, which keeps no
+/// places; on a phone while the network answers (the places the device
+/// holds take over offline). A demo build has no server behind its tiles.
+// keepAlive: the map, the list and the reader of places follow it all the run.
+
+final class PlacesFromTilesProvider
+    extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// Whether the map draws the places from the API's vector tiles, and the
+  /// list and the search ask the API: always on the web, which keeps no
+  /// places; on a phone while the network answers (the places the device
+  /// holds take over offline). A demo build has no server behind its tiles.
+  // keepAlive: the map, the list and the reader of places follow it all the run.
+  PlacesFromTilesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placesFromTilesProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placesFromTilesHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return placesFromTiles(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$placesFromTilesHash() => r'3812bbd31fe46555b8ccb0c944a61114d24cff56';
 
 @ProviderFor(placeCount)
 final placeCountProvider = PlaceCountProvider._();
@@ -519,17 +835,23 @@ final class PlaceCountProvider
 
 String _$placeCountHash() => r'2d060b78030305c4daafe89ae5b3331e749ce7c5';
 
-/// How many places a filter keeps, before the user applies it.
+/// How many places a filter keeps, before the user applies it: those the
+/// device holds, or with the places from the tiles, those of the map's
+/// view as the API counts them once the choice pauses.
 
 @ProviderFor(filterPreviewCount)
 final filterPreviewCountProvider = FilterPreviewCountFamily._();
 
-/// How many places a filter keeps, before the user applies it.
+/// How many places a filter keeps, before the user applies it: those the
+/// device holds, or with the places from the tiles, those of the map's
+/// view as the API counts them once the choice pauses.
 
 final class FilterPreviewCountProvider
     extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
     with $FutureModifier<int>, $FutureProvider<int> {
-  /// How many places a filter keeps, before the user applies it.
+  /// How many places a filter keeps, before the user applies it: those the
+  /// device holds, or with the places from the tiles, those of the map's
+  /// view as the API counts them once the choice pauses.
   FilterPreviewCountProvider._({
     required FilterPreviewCountFamily super.from,
     required PlaceFilter super.argument,
@@ -574,9 +896,11 @@ final class FilterPreviewCountProvider
 }
 
 String _$filterPreviewCountHash() =>
-    r'ee34b1f35d59288ed82b02771f34308ca123e43d';
+    r'ee600a955d3533efb2af61e7a1c4cbe21fcc38a4';
 
-/// How many places a filter keeps, before the user applies it.
+/// How many places a filter keeps, before the user applies it: those the
+/// device holds, or with the places from the tiles, those of the map's
+/// view as the API counts them once the choice pauses.
 
 final class FilterPreviewCountFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<int>, PlaceFilter> {
@@ -589,7 +913,9 @@ final class FilterPreviewCountFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// How many places a filter keeps, before the user applies it.
+  /// How many places a filter keeps, before the user applies it: those the
+  /// device holds, or with the places from the tiles, those of the map's
+  /// view as the API counts them once the choice pauses.
 
   FilterPreviewCountProvider call(PlaceFilter filter) =>
       FilterPreviewCountProvider._(argument: filter, from: this);
@@ -921,12 +1247,16 @@ abstract class _$PlaceReviews extends $AsyncNotifier<ReviewList> {
   }
 }
 
-/// Local search; [near] ranks the nearest matches first.
+/// The search of the map; [near] ranks the nearest matches first. On the
+/// device when it holds places (no request, and it works in a tunnel),
+/// else the API's once typing pauses.
 
 @ProviderFor(searchResults)
 final searchResultsProvider = SearchResultsFamily._();
 
-/// Local search; [near] ranks the nearest matches first.
+/// The search of the map; [near] ranks the nearest matches first. On the
+/// device when it holds places (no request, and it works in a tunnel),
+/// else the API's once typing pauses.
 
 final class SearchResultsProvider
     extends
@@ -936,7 +1266,9 @@ final class SearchResultsProvider
           FutureOr<SearchResults>
         >
     with $FutureModifier<SearchResults>, $FutureProvider<SearchResults> {
-  /// Local search; [near] ranks the nearest matches first.
+  /// The search of the map; [near] ranks the nearest matches first. On the
+  /// device when it holds places (no request, and it works in a tunnel),
+  /// else the API's once typing pauses.
   SearchResultsProvider._({
     required SearchResultsFamily super.from,
     required (String, {LatLng? near}) super.argument,
@@ -981,9 +1313,11 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'3ca1ef9a91f023662ede7e32513a9178cef19e07';
+String _$searchResultsHash() => r'4566919231a9c9a6ca4f32eb7398b7df6ee7eee8';
 
-/// Local search; [near] ranks the nearest matches first.
+/// The search of the map; [near] ranks the nearest matches first. On the
+/// device when it holds places (no request, and it works in a tunnel),
+/// else the API's once typing pauses.
 
 final class SearchResultsFamily extends $Family
     with
@@ -1000,7 +1334,9 @@ final class SearchResultsFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// Local search; [near] ranks the nearest matches first.
+  /// The search of the map; [near] ranks the nearest matches first. On the
+  /// device when it holds places (no request, and it works in a tunnel),
+  /// else the API's once typing pauses.
 
   SearchResultsProvider call(String query, {LatLng? near}) =>
       SearchResultsProvider._(argument: (query, near: near), from: this);
