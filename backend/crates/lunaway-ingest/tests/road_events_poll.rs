@@ -32,6 +32,7 @@ use lunaway_ingest::{
     cache::Cache,
     http::{self, RetryPolicy},
     road_events::{
+        dialog,
         matching::{self, Engine, MatchError},
         poll::{self, DirState, PollConfig},
     },
@@ -218,7 +219,20 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
     );
     // DiaLog too: due at the first pass.
     assert!(report.sources["dialog"].error.is_none());
-    assert_eq!(db::live_count(&pool, "dialog").await.unwrap(), 6);
+    // The poller reads the feed at the real time, and the excerpt's orders
+    // end one after the other from 2026-10-07: what stays live is what the
+    // parser keeps now and has not ended yet, 6 events on 2026-10-06.
+    let now = Utc::now();
+    let kept = dialog::parse_temporary(DIALOG.as_bytes(), now)
+        .unwrap()
+        .events
+        .iter()
+        .filter(|e| e.valid_to.is_none_or(|t| t > now))
+        .count();
+    assert_eq!(
+        db::live_count(&pool, "dialog").await.unwrap(),
+        i64::try_from(kept).unwrap()
+    );
 
     // The next pass, three minutes later: the aggregate is not due, the
     // poller resumes at the next increment and finds none yet.
@@ -285,7 +299,10 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
         report.sources["dialog"].ended, 1,
         "an order DiaLog no longer lists is over"
     );
-    assert_eq!(db::live_count(&pool, "dialog").await.unwrap(), 5);
+    assert_eq!(
+        db::live_count(&pool, "dialog").await.unwrap(),
+        i64::try_from(kept).unwrap() - 1
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
