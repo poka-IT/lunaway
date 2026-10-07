@@ -68,6 +68,7 @@ final class LunaMapProps {
     required this.onViewportChanged,
     required this.onMapReady,
     this.markedPoint,
+    this.onMarkerTap,
     this.onEmptyTap,
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
@@ -104,6 +105,10 @@ final class LunaMapProps {
 
   /// A point the user long-pressed, marked until the selection changes.
   final LatLng? markedPoint;
+
+  /// A tap on the marker of [markedPoint]: its card, open already, comes
+  /// back up.
+  final VoidCallback? onMarkerTap;
 
   /// A tap on a place, with what the tile said of it as `hint`.
   final void Function(String id, {PlaceSummary? hint}) onPlaceTap;

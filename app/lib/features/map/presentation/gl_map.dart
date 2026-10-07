@@ -624,8 +624,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (mounted) onEmptyTap(reference, zoom);
       return;
     }
-    // The marker of a long-pressed point: its details are already open.
-    if (hit.inert) return;
+    // The marker of a bare point: its card is open, and comes back up.
+    if (hit.marker) {
+      _props.onMarkerTap?.call();
+      return;
+    }
     final properties = candidates[hit.index].properties;
     final position = positions[hit.index][hit.pointIndex];
     final coordinates = [position.lon, position.lat];

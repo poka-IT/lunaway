@@ -285,10 +285,15 @@ class _Map extends ConsumerStatefulWidget {
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
     this.onPlaceTapped,
+    this.onMarkerTapped,
   });
 
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
+
+  /// The marker of the bare point tapped: its card comes back up where a
+  /// sheet holds it.
+  final VoidCallback? onMarkerTapped;
 
   /// After a place's pin or a bare point was tapped and selected: the camera
   /// stays where it is, unlike a pick from a list, which moves it to the
@@ -415,6 +420,10 @@ class _MapState extends ConsumerState<_Map> {
             : null,
         selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
+        onMarkerTap: () {
+          _gate.cancel();
+          widget.onMarkerTapped?.call();
+        },
         onPlaceTap: (id, {hint}) {
           _gate.cancel();
           select.select(PlaceSelection(id, hint: hint));
@@ -707,6 +716,18 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     });
   }
 
+  /// The marker of the point tapped again: its card, lowered or scrolled
+  /// out of sight, rises back to the height it opened at, the point kept
+  /// in the part of the map left free.
+  void _raiseDetails() {
+    if (widget.selection is! PointSelection) return;
+    final open = _detailsOpen(MediaQuery.of(context));
+    if (_sheet.isAttached && _sheet.extent >= open - 1) return;
+    setState(() => _rest = open);
+    unawaited(_sheet.animateTo(open));
+    _reveal();
+  }
+
   @override
   void dispose() {
     _sheet.dispose();
@@ -765,6 +786,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
             padding: EdgeInsets.only(top: top, bottom: rest),
             attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
             onPlaceTapped: _reveal,
+            onMarkerTapped: _raiseDetails,
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),

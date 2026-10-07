@@ -326,7 +326,7 @@ void main() {
       expect(hitTolerance(PointerKind.mouse) * 2, inInclusiveRange(24, 32));
     });
 
-    test('the long-press marker absorbs a tap without leading anywhere', () {
+    test('the marker of a bare point is picked as the marker, no empty map', () {
       final hit = nearestHit(
         _here,
         [
@@ -336,7 +336,7 @@ void main() {
         zoom: 14,
         tolerance: _touch,
       );
-      expect(hit?.inert, isTrue);
+      expect(hit?.marker, isTrue);
     });
   });
 
@@ -545,7 +545,7 @@ const out = input.at.map((at) => {
     coordinates: c.coordinates[h.pointIndex],
     shape: hits.shapeOf(c.layer, c.properties),
     zoom: input.zoom,
-    inert: h.inert,
+    marker: h.marker,
     feature: c.feature
   });
 });

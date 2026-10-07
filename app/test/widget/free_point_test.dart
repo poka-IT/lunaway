@@ -137,6 +137,34 @@ void main() {
     });
   });
 
+  group('the marker of the point', () {
+    testWidgets('on a phone, a tap on it brings the lowered card back up', (tester) async {
+      final app = await pumpLunaway(tester);
+      await tapBare(app, tester, 15);
+      final title = find.text('Point sur la carte');
+      final open = tester.getTopLeft(title).dy;
+      await tester.drag(title, const Offset(0, 250));
+      await settleShort(tester);
+      expect(tester.getTopLeft(title).dy, greaterThan(open + 100), reason: 'the card lowered');
+      app.map.lastProps!.onMarkerTap!();
+      await settleShort(tester);
+      expect(tester.getTopLeft(title).dy, moreOrLessEquals(open, epsilon: 1));
+      expect(app.map.lastProps!.markedPoint, spot, reason: 'the point stays marked');
+      expect(find.text('Créer un lieu ici'), findsOneWidget);
+    });
+
+    testWidgets('on a desktop, a tap on it keeps the card open and opens nothing else', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester, size: desktop);
+      await tapBare(app, tester, 15);
+      app.map.lastProps!.onMarkerTap!();
+      await settleShort(tester);
+      expect(find.text('Ici'), findsOneWidget);
+      expect(app.container(tester).read(selectionProvider), isA<PointSelection>());
+    });
+  });
+
   group('the hint', () {
     MapViewport street(double zoom) => MapViewport(
       bounds: const GeoBounds(south: 45.76, west: 4.83, north: 45.78, east: 4.85),

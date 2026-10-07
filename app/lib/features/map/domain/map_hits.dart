@@ -121,7 +121,7 @@ final class HitShape {
     this.icon,
     this.hoverState,
     this.needs,
-    this.inert = false,
+    this.marker = false,
     this.line = false,
   });
 
@@ -160,9 +160,10 @@ final class HitShape {
   /// id is a sign on the route, not a target.
   final String? needs;
 
-  /// Picked but leads nowhere: the marker of a long-pressed point, whose
-  /// details are already open. A tap on it is not a tap on empty map.
-  final bool inert;
+  /// The marker of a bare point (tapped at street level or held), whose
+  /// card is open: a tap on it brings that card back rather than open
+  /// anything, and is no tap on empty map.
+  final bool marker;
 
   /// A line: any part of it inside the tolerance box counts, ranked after
   /// every point-like shape in reach.
@@ -177,7 +178,7 @@ final class HitShape {
     if (icon != null) 'icon': icon!.toJson(),
     if (hoverState != null) 'state': hoverState,
     if (needs != null) 'needs': needs,
-    if (inert) 'inert': true,
+    if (marker) 'marker': true,
     if (line) 'line': true,
   };
 }
@@ -220,15 +221,15 @@ final class MapHit {
     required this.index,
     required this.pointIndex,
     required this.distance,
-    this.inert = false,
+    this.marker = false,
   });
 
   final int index;
   final int pointIndex;
   final double distance;
 
-  /// The shape leads nowhere ([HitShape.inert]).
-  final bool inert;
+  /// The marker of a bare point ([HitShape.marker]).
+  final bool marker;
 }
 
 /// The candidate nearest [at] within [tolerance] of its drawn shape, or
@@ -272,7 +273,7 @@ MapHit? nearestHit(
         distance < best.distance - _epsilon ||
         (distance <= best.distance + _epsilon && shape.priority < bestPriority);
     if (better) {
-      best = MapHit(index: i, pointIndex: point, distance: distance, inert: shape.inert);
+      best = MapHit(index: i, pointIndex: point, distance: distance, marker: shape.marker);
       bestPriority = shape.priority;
     }
   }

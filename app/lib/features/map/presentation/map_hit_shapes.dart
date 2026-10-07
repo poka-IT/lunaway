@@ -19,7 +19,7 @@ final Map<String, HitShape> mapHitShapes = () {
   const selected = PinGeometry(selected: true);
   // The marker of a long-pressed point (`pointMarkerSize`): a drop of
   // radius 14 whose head stands 17 px under the image's top.
-  const marker = HitShape(radius: FixedHit(14), lift: FixedHit(44 - 17), priority: 0, inert: true);
+  const marker = HitShape(radius: FixedHit(14), lift: FixedHit(44 - 17), priority: 0, marker: true);
   return {
     // A selection stands over the pin it was chosen from, drawn by another
     // layer: its tip, where the place's dot is (one of the tiles), is part
