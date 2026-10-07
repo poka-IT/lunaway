@@ -195,6 +195,7 @@
       "œ": "oe",
       "Œ": "oe",
       "ß": "ss",
+      "ẞ": "ss",
       "ø": "o",
       "Ø": "o",
       "đ": "d",
@@ -260,6 +261,10 @@
     {
       "input": "Straße am Øresund",
       "normalized": "strasse am oresund"
+    },
+    {
+      "input": "GROẞE STRAẞE",
+      "normalized": "grosse strasse"
     },
     {
       "input": "Stellplatz Wohnmobil 2",

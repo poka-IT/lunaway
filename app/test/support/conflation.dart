@@ -88,6 +88,7 @@ abstract final class Conflation {
     'œ': 'oe',
     'Œ': 'oe',
     'ß': 'ss',
+    'ẞ': 'ss',
     'ø': 'o',
     'Ø': 'o',
     'đ': 'd',
