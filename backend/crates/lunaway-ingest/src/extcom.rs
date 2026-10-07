@@ -1198,12 +1198,11 @@ fn read_feed(
         line_no += 1;
         // Malformed and overlong lines count too: a feed of nothing but
         // them must end, not keep the import inflating a bomb.
-        if line_no
-            > MAX_LINES_PER_PLACE
-                .saturating_mul(u64::try_from(limits.max_places).unwrap_or(u64::MAX))
-        {
+        let max_lines = MAX_LINES_PER_PLACE
+            .saturating_mul(u64::try_from(limits.max_places).unwrap_or(u64::MAX));
+        if line_no > max_lines {
             return Err(IngestError::Implausible {
-                what: format!("{}: more than {line_no} lines", what()),
+                what: format!("{}: more than {max_lines} lines", what()),
             });
         }
         if !fits {
