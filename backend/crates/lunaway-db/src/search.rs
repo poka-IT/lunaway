@@ -13,8 +13,8 @@
 //! index out from the point, when many do ("parking" near a town takes the
 //! nearest car parks rather than every one in Europe); the first matches
 //! read from the table when many do and there is no point. A query of kind
-//! words only ("aire de camping car") around a point takes the nearest
-//! places of that kind, named after it or not.
+//! words ending on one ("aire de camping car") around a point takes the
+//! nearest places of that kind, named after it or not.
 //!
 //! Then, in order: the query's words in their order as whole words, then
 //! with the last one being typed, then all of them in any order, then the

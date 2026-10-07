@@ -3,10 +3,11 @@
 //! The words that name a place ("colmyr", "annecy") decide which places
 //! match; the words that only say what kind of place is wanted ("aire",
 //! "camping", "parking", "de") rank them, so a generic word never decides
-//! alone what a query finds. A query made of kind words only ("aire de
-//! camping car", "stellplatz") asks for places of that kind: with a point
-//! to search around, the nearest of them come first, named after the kind
-//! or not.
+//! alone what a query finds. A query made of kind words, articles and
+//! prepositions only, that ends on a kind word ("aire de camping car",
+//! "stellplatz"), asks for places of that kind: with a point to search
+//! around, the nearest of them come first, named after the kind or not.
+//! One that ends on an article ("camping la") is a name being typed.
 //!
 //! The database crate turns a [`PlaceQuery`] into text search queries
 //! (`to_tsquery('simple', ..)` over `places.search_vector`) and picks how

@@ -3420,8 +3420,8 @@ type Query {
 	that do (a typo). Words that only say what kind of place is wanted
 	("aire", "camping", "parking", "de") rank the places and never make
 	one match alone, places of that kind first. A text of such words
-	only ("aire de camping car") lists the places of that kind nearest
-	`near` first, named so or not. Among equal matches, the nearest to
+	only that ends on a kind ("aire de camping car", not "camping la")
+	lists the places of that kind nearest `near` first, named so or not. Among equal matches, the nearest to
 	`near` first, `near` rounded by the server to the nearest 0.05
 	degree (about 5 km) before any use. A search the database cannot
 	answer within its time limit (a fraction of a second) answers no
