@@ -232,8 +232,9 @@ Map<String, Object?> routeVariables({
       'lon': origin.lon,
       if (headingDeg != null) 'headingDeg': headingDeg % 360,
       // The vehicle's own position during guidance: the server never moves
-      // it, course or not.
-      if (fromVehicle) 'vehiclePosition': true,
+      // it, course or not. Said either way: an origin that says nothing
+      // counts as the vehicle's, which the preview's need not be.
+      'vehiclePosition': fromVehicle,
     },
     'destination': {'lat': destination.lat, 'lon': destination.lon},
     if (stops.isNotEmpty)

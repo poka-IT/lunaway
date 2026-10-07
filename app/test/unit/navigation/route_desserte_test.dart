@@ -190,7 +190,11 @@ void main() {
         avoid: const AvoidOptions(),
         language: RouteLanguage.fr,
       );
-      expect(origin(planned), isNot(contains('vehiclePosition')));
+      expect(
+        origin(planned)['vehiclePosition'],
+        isFalse,
+        reason: 'the preview may have its start moved: an origin that says nothing would not',
+      );
     });
 
     test('leaves the flag out for every older API', () {
