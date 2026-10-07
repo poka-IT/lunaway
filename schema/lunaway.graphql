@@ -5147,8 +5147,10 @@ type SearchAnswer {
 	"""
 	addresses: [AddressMatch!]!
 	"""
-	False when a geocoder did not answer in time or is paused: the
-	addresses may be missing some. Asking again later may give them.
+	False when a geocoder did not answer in time, failed or is paused,
+	when the client's quota of searches with addresses is spent, or for
+	a second `searchAll` in the same request: the addresses may be
+	missing some. Asking again later may give them.
 	"""
 	addressesComplete: Boolean!
 }

@@ -215,7 +215,11 @@ class _Results extends ConsumerWidget {
     // One family key for both: on the web they are one request.
     final language = t.$meta.locale.languageCode;
     final results = ref.watch(searchResultsProvider(query, near: near, language: language));
-    final addresses = ref.watch(addressSearchProvider(query, near: near, language: language));
+    // No address is asked offline nor under three characters: no line
+    // saying one is on its way.
+    final addresses = query.trim().length < 3 || !ref.watch(placesFromTilesProvider)
+        ? const AsyncData(<AddressMatch>[])
+        : ref.watch(addressSearchProvider(query, near: near, language: language));
     Widget addressSection(List<Municipality> towns) =>
         _AddressSection(addresses: addresses, towns: towns, from: user, onTap: onAddress);
     // The screen's own insets: the shell's Scaffold removes the keyboard from

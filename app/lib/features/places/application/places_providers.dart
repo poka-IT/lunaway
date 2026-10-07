@@ -552,12 +552,12 @@ Future<List<AddressMatch>> addressSearch(
   }
 
   ref.onDispose(cancel);
-  final late = Timer(addressWait, cancel);
-  ref.onDispose(late.cancel);
+  final giveUp = Timer(addressWait, cancel);
+  ref.onDispose(giveUp.cancel);
   final answer = await ref
       .read(onlinePlacesProvider)
       .searchAll(text, near: centre, places: false, language: language, abort: abort.future);
-  late.cancel();
+  giveUp.cancel();
   return answer.addresses;
 }
 

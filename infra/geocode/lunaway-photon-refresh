@@ -69,7 +69,7 @@ refresh() {
     *) next=a ;;
   esac
 
-  remote_md5="$(curl -fsS --max-time 60 "$url.md5" | awk '{ print $1 }')"
+  remote_md5="$(as_photon curl -fsS --max-time 60 "$url.md5" | awk '{ print $1 }')"
   [[ "$remote_md5" =~ ^[0-9a-f]{32}$ ]] || { log "$instance: no checksum published beside the dump"; return 1; }
   if [ -n "$current" ] && [ "$(cat "$current/SOURCE_MD5" 2>/dev/null || true)" = "$remote_md5" ]; then
     log "$instance: the database served is the one published ($remote_md5)"
@@ -101,9 +101,10 @@ refresh() {
   esac
   rm -f "$dir/download"
   [ -d "$dir/$next/photon_data" ] || { log "$instance: no photon_data in the new database"; return 1; }
-  echo "$remote_md5" > "$dir/$next/SOURCE_MD5"
-  date -u +%Y-%m-%dT%H:%M:%SZ > "$dir/$next/INSTALLED_AT"
-  chown photon:photon "$dir/$next/SOURCE_MD5" "$dir/$next/INSTALLED_AT"
+  # Written as photon too: the slot is photon's, and a link planted there
+  # must not turn a write of root's elsewhere.
+  echo "$remote_md5" | as_photon tee "$dir/$next/SOURCE_MD5" >/dev/null
+  date -u +%Y-%m-%dT%H:%M:%SZ | as_photon tee "$dir/$next/INSTALLED_AT" >/dev/null
 
   ln -sfn "$dir/$next" "$dir/current.new"
   mv -T "$dir/current.new" "$dir/current"
@@ -126,7 +127,9 @@ refresh() {
   return 1
 }
 
-exec 9>/srv/photon/.lock
+# The lock in root's runtime directory (the unit's RuntimeDirectory),
+# outside what photon may write.
+exec 9>"${RUNTIME_DIRECTORY:-/run/lunaway-photon-refresh}/lock"
 flock -n 9 || { log "another refresh holds the lock"; exit 0; }
 status=0
 for instance in "${@:-morocco europe}"; do

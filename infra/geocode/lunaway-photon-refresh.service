@@ -40,6 +40,8 @@ LockPersonality=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
 ReadWritePaths=/srv/photon
+RuntimeDirectory=lunaway-photon-refresh
+RuntimeDirectoryMode=0700
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # Outbound: the dump's host over HTTPS, and Photon on this host for the
 # checks; never the rest of the private network or the metadata service.
