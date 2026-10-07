@@ -375,17 +375,21 @@ impl Routing {
     /// order of its routes: `None` for a route the engine could not trace
     /// within [`LIMITS_DEADLINE`] altogether (a route is never refused for
     /// its limits).
+    ///
+    /// The pieces of a route marked in `skip` are not traced from then on:
+    /// the check found the route blocked, and it will not be sent.
     async fn speed_limits(
         &self,
         osrm: &Value,
         vehicle: lunaway_domain::speed::Vehicle,
+        skip: &[std::sync::atomic::AtomicBool],
     ) -> Vec<Option<Vec<lunaway_domain::speed::Span>>> {
         let routes = osrm
             .get("routes")
             .and_then(Value::as_array)
             .map_or(&[][..], Vec::as_slice);
         let traced =
-            tokio::time::timeout(LIMITS_DEADLINE, self.trace_routes(routes, vehicle)).await;
+            tokio::time::timeout(LIMITS_DEADLINE, self.trace_routes(routes, vehicle, skip)).await;
         match traced {
             Ok(limits) => limits,
             Err(_) => {
@@ -399,6 +403,7 @@ impl Routing {
         &self,
         routes: &[Value],
         vehicle: lunaway_domain::speed::Vehicle,
+        skip: &[std::sync::atomic::AtomicBool],
     ) -> Vec<Option<Vec<lunaway_domain::speed::Span>>> {
         use futures_util::StreamExt as _;
         let Some(engine) = self.engine.as_ref() else {
@@ -432,8 +437,15 @@ impl Routing {
             .collect();
         let calls: Vec<_> = pieces
             .iter()
-            .map(|&(_, p, first, last, body)| {
+            .map(|&(r, p, first, last, body)| async move {
+                if skip
+                    .get(r)
+                    .is_some_and(|s| s.load(std::sync::atomic::Ordering::Relaxed))
+                {
+                    return Err(RouteError::Malformed("a route found blocked"));
+                }
                 self.trace_stretch(engine, &p.points, first, last, Some(body), &p.refused)
+                    .await
             })
             .collect();
         let answers: Vec<Result<Vec<lunaway_domain::speed::Edge>, RouteError>> =
@@ -449,7 +461,12 @@ impl Routing {
             match (answer, &mut edges[r]) {
                 (Ok(e), Some(all)) => all.extend(e),
                 (Err(error), _) => {
-                    tracing::warn!(%error, "no speed limits for a route");
+                    let blocked = skip
+                        .get(r)
+                        .is_some_and(|s| s.load(std::sync::atomic::Ordering::Relaxed));
+                    if !blocked {
+                        tracing::warn!(%error, "no speed limits for a route");
+                    }
                     edges[r] = None;
                 }
                 (Ok(_), None) => {}
@@ -780,9 +797,19 @@ impl Routing {
             // its check about as long (2026-10-07,
             // `plan/research/53-obstacles-publics.md`). Those of an answer
             // whose every route is blocked are dropped unfinished.
+            let routes_in_answer = osrm
+                .get("routes")
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len);
+            let skip: Arc<Vec<std::sync::atomic::AtomicBool>> = Arc::new(
+                (0..routes_in_answer)
+                    .map(|_| std::sync::atomic::AtomicBool::new(false))
+                    .collect(),
+            );
             let traces = work.limits.map(|vehicle| {
                 let shared = Arc::clone(&osrm);
-                Box::pin(async move { self.speed_limits(&shared, vehicle).await })
+                let skip = Arc::clone(&skip);
+                Box::pin(async move { self.speed_limits(&shared, vehicle, &skip).await })
             });
             let check = Box::pin(check_routes(
                 pool,
@@ -807,6 +834,14 @@ impl Routing {
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
                 .into_iter()
                 .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
+            // The routes that will not be sent are traced no further: on a
+            // long trip with alternatives, their pieces would hold the slot
+            // a second more.
+            for (i, flag) in skip.iter().enumerate() {
+                if !safe.iter().any(|(r, _, _)| r.index == i) {
+                    flag.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
             if !safe.is_empty() {
                 let waited = std::time::Instant::now();
                 let traced = match traces {

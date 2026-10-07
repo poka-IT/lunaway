@@ -457,6 +457,9 @@ impl Routing {
                     engine.route(&body).await
                 };
                 calls += 1;
+                if answer.is_ok() {
+                    failures_in_a_row = 0;
+                }
                 let osrm = match answer {
                     Ok(Answer::Routes(v)) => v,
                     Ok(Answer::NoRoute | Answer::NoSegment) => break,
@@ -476,7 +479,6 @@ impl Routing {
                         break;
                     }
                 };
-                failures_in_a_row = 0;
                 let shapes: Vec<String> = osrm
                     .get("routes")
                     .and_then(Value::as_array)
