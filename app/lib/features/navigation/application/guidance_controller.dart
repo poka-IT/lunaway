@@ -515,6 +515,7 @@ class GuidanceController extends _$GuidanceController {
     avoid: s.plan.applied.avoid,
     language: s.plan.applied.language,
     headingDeg: fix.courseDeg,
+    fromVehicle: true,
     stops: [for (final stop in stops ?? s.stops) stop.position],
   );
 

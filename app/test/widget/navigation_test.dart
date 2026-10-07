@@ -930,6 +930,27 @@ void main() {
       expect(find.textContaining('dans 40 m'), findsOneWidget);
     });
 
+    testWidgets('a street for local access coming up says so, with the sign figure', (
+      tester,
+    ) async {
+      final plan = _desserte();
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 10);
+      expect(
+        find.text(
+          'Accès riverains (desserte) : interdit aux plus de 3,5 t sauf pour rejoindre votre '
+          'destination',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('dans 40 m'), findsOneWidget);
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination').position,
+        const LatLng(45.8452, 1.2862),
+        reason: 'the route ends where the server moved the destination',
+      );
+    });
+
     testWidgets('without a voice for the language, the screen says so', (tester) async {
       await guide(tester, routeFixture('limoges_drive'), readiness: VoiceReadiness.none);
       expect(
@@ -1234,6 +1255,51 @@ void main() {
         countries: FakeCountries((p) => p.lon > 15 ? 'BA' : 'FR'),
       );
       expect(routes.requests, hasLength(1));
+    });
+  });
+
+  group('a stop moved and a street for local access', () {
+    for (final (name, size) in [
+      ('phone', tallPhone),
+      ('tablet', const Size(700, 1600)),
+      ('desktop', const Size(1280, 1600)),
+    ]) {
+      testWidgets('on a $name, the preview tells the move and the street, the map shows them', (
+        tester,
+      ) async {
+        await openPreview(tester, answers: [_desserte()], size: size);
+        expect(
+          find.text("Point d'arrivée déplacé de 120 m vers la rue accessible la plus proche"),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            'Accès riverains (desserte) : interdit aux plus de 3,5 t sauf pour rejoindre votre '
+            'destination',
+          ),
+          findsOneWidget,
+        );
+        final destination = SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination');
+        expect(destination.position, const LatLng(45.8452, 1.2862));
+      });
+    }
+
+    testWidgets('in English, the start moved', (tester) async {
+      final plan = routeFixture(
+        'utrillo_van',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 0, 'lat': 45.8478, 'lon': 1.2843, 'distanceM': 80.0},
+        ],
+      );
+      await openPreview(tester, answers: [plan], locale: AppLocale.en);
+      expect(
+        find.text('Start moved 80 m to the nearest street your vehicle can reach'),
+        findsOneWidget,
+      );
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'origin').position,
+        const LatLng(45.8478, 1.2843),
+      );
     });
   });
 
@@ -1655,3 +1721,23 @@ final class _Confirmation implements ArrivalConfirmation {
   @override
   Future<void> confirm(String placeId) async => confirmed.add(placeId);
 }
+
+/// The van's route under the Utrillo bridge, with its first restriction a
+/// 3.5 t street for local access and its destination moved 120 m, as the
+/// API answers since 2026-10-08.
+RoutePlan _desserte() => routeFixture(
+  'utrillo_van',
+  edit: (answer) {
+    answer['movedStops'] = [
+      {'stopIndex': 1, 'lat': 45.8452, 'lon': 1.2862, 'distanceM': 120.0},
+    ];
+    final route = (answer['routes'] as List<dynamic>).first as Map<String, dynamic>;
+    ((route['warnings'] as List<dynamic>).first as Map<String, dynamic>)
+      ..['kind'] = 'TOO_HEAVY'
+      ..['limit'] = 3.5
+      ..['vehicleValue'] = 4.5
+      ..['place'] = 'ROAD'
+      ..['certainty'] = 'KNOWN'
+      ..['exceptDestination'] = true;
+  },
+);

@@ -295,21 +295,24 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     final places = line.length < 2
         ? const <PlaceSummary>[]
         : ref.watch(placesNearRouteProvider(line)).value ?? const <PlaceSummary>[];
+    final stops = p?.stops ?? const <RouteStop>[];
     final points = RoutePoints(
       places: places,
       stations: ref.watch(shownFuelOffersProvider(line)),
-      stops: p?.stops ?? const [],
+      stops: stops,
+      movedTo: RoutePoints.movedWaypoints(plan, stops.length),
     );
     final now = ref.watch(clockProvider)();
     final t = context.t;
     // Road events met on the way, and the closures the route goes round:
-    // seen on the map, the detour explains itself.
+    // seen on the map, the detour explains itself. A stop the server moved
+    // shows where the route starts or ends.
     final markers = previewMarkers(
       t: t,
-      destination: target.destination,
+      destination: plan?.movedTo(stops.length + 1) ?? target.destination,
       destinationLabel: target.label,
       points: points.markers(t),
-      origin: p?.origin,
+      origin: plan?.movedTo(0) ?? p?.origin,
       route: selected,
       plan: plan,
       noRouteReasons: p?.noRouteReasons ?? const [],
@@ -476,6 +479,10 @@ class _Panel extends ConsumerWidget {
     );
     return switch (plan.status) {
       RouteStatus.ok => [
+        if (plan.movedStops.isNotEmpty) ...[
+          _MovedStops(plan: plan, lastStop: p.stops.length + 1, units: units),
+          const SizedBox(height: Space.m),
+        ],
         _Routes(plan: plan, selected: p.selected, target: target, units: units),
         if (p.route case final route?)
           Align(
@@ -706,6 +713,44 @@ class _Routes extends ConsumerWidget {
       ],
     ],
   );
+}
+
+/// The stops the server moved to a road the vehicle can reach: said first,
+/// the moved points stand on the map where the route starts or ends.
+class _MovedStops extends StatelessWidget {
+  const new({required this.plan, required this.lastStop, required this.units});
+
+  final RoutePlan plan;
+  final int lastStop;
+  final DistanceUnits units;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final m in plan.movedStops)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xxs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(AppIcons.address, color: theme.colorScheme.tertiary),
+                const SizedBox(width: Space.s),
+                Expanded(
+                  child: Text(
+                    t.movedStop(m, lastStop: lastStop, units: units),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _Warnings extends StatelessWidget {

@@ -78,6 +78,7 @@ final class RouteWarning {
     this.limit,
     this.vehicleValue,
     this.name,
+    this.exceptDestination = false,
   });
 
   final RouteWarningKind kind;
@@ -105,6 +106,11 @@ final class RouteWarning {
   /// The source's identifier (`way/52984577`), to report a wrong figure.
   final String externalId;
 
+  /// Whether the limit spares local access ("sauf desserte" under the
+  /// sign): a vehicle above it may drive it only to reach or leave a place
+  /// within. False from an API that does not tell.
+  final bool exceptDestination;
+
   /// Whether it limits the height: what a driver checks first.
   bool get isClearance =>
       kind == RouteWarningKind.lowClearance || kind == RouteWarningKind.unknownClearance;
@@ -116,10 +122,39 @@ final class RouteWarning {
       other.severity == severity &&
       other.limit == limit &&
       other.distanceFromStartM == distanceFromStartM &&
-      other.externalId == externalId;
+      other.externalId == externalId &&
+      other.exceptDestination == exceptDestination;
 
   @override
-  int get hashCode => Object.hash(kind, severity, limit, distanceFromStartM, externalId);
+  int get hashCode =>
+      Object.hash(kind, severity, limit, distanceFromStartM, externalId, exceptDestination);
+}
+
+/// A stop the vehicle could not reach where it was put (the road it lay on
+/// is closed to the vehicle), which the routes start or end at instead:
+/// the nearest road it can reach, up to 150 m away.
+@immutable
+final class MovedStop {
+  const new({required this.stopIndex, required this.position, required this.distanceM});
+
+  /// 0 the origin, then the waypoints in order, the last the destination.
+  final int stopIndex;
+
+  /// Where the routes start or end now.
+  final LatLng position;
+
+  /// How far from the point asked, metres.
+  final double distanceM;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MovedStop &&
+      other.stopIndex == stopIndex &&
+      other.position == position &&
+      other.distanceM == distanceM;
+
+  @override
+  int get hashCode => Object.hash(stopIndex, position, distanceM);
 }
 
 /// Why a trip has no route (`NoRouteReasonKind` of the API, and one the
@@ -488,6 +523,7 @@ final class RoutePlan {
     this.roadEventBlockers = const [],
     this.roadEventSources = const [],
     this.noRouteReasons = const [],
+    this.movedStops = const [],
   });
 
   final RouteStatus status;
@@ -525,6 +561,15 @@ final class RoutePlan {
   /// The sources of road events and the age of their data.
   final List<RoadEventSourceStatus> roadEventSources;
 
+  /// With [RouteStatus.ok]: the stops the routes do not start or end at,
+  /// moved to a road the vehicle can reach; empty from an API that does not
+  /// move them.
+  final List<MovedStop> movedStops;
+
+  /// Where the stop at [stopIndex] was moved, if it was.
+  LatLng? movedTo(int stopIndex) =>
+      movedStops.where((m) => m.stopIndex == stopIndex).firstOrNull?.position;
+
   /// The status of [source], when the answer named it.
   RoadEventSourceStatus? sourceOf(String source) =>
       roadEventSources.where((s) => s.id == source).firstOrNull;
@@ -542,5 +587,6 @@ final class RoutePlan {
     roadEventBlockers: roadEventBlockers,
     roadEventSources: roadEventSources,
     noRouteReasons: noRouteReasons,
+    movedStops: movedStops,
   );
 }
