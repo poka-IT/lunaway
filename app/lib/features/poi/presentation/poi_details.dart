@@ -723,6 +723,7 @@ class _LinkRow extends StatelessWidget {
         color: scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           onTap: onTap,
           child: ConstrainedBox(

@@ -47,6 +47,7 @@ class _PlaceTileState extends State<PlaceTile> {
     final tile = Material(
       color: selected ? scheme.primaryContainer : Colors.transparent,
       child: InkWell(
+        mouseCursor: WidgetStateMouseCursor.clickable,
         onTap: () {
           final ctx = avatarKey.currentContext;
           final rect = ctx == null ? null : PlaceHeroSource.rectOf(ctx);

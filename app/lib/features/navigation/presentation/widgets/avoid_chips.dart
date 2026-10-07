@@ -15,6 +15,7 @@ class AvoidChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     Widget chip(String label, {required bool on, required AvoidOptions next}) => FilterChip(
+      mouseCursor: WidgetStateMouseCursor.clickable,
       label: Text(label),
       selected: on,
       onSelected: (_) {
