@@ -12,7 +12,7 @@
 
   // A copy of premapDefaults() in premap_spec.dart, kept equal to it by
   // test/unit/premap_test.dart (UPDATE_PREMAP=1 rewrites it).
-  var DEFAULTS = /* BEGIN DEFAULTS */ {"v":1,"base":"https://tiles.lunaway.net","places":"https://api.lunaway.net/places/tiles.json","bounds":[-5.5,41.2,9.9,51.3],"maxZoom":10.0,"layers":{"aube":[{"id":"lw-place-dots","type":"circle","source":"lw-place-tiles","source-layer":"place_dots","maxzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#fdf1db","circle-opacity":0.95}},{"id":"lw-place-pin-dots","type":"circle","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#fdf1db","circle-opacity":0.95}},{"id":"lw-place-pins","type":"symbol","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"icon-image":["match",["get","kind"],"motorhome_area",["match",["get","night"],"allowed","pin-motorhomeArea-allowed","tolerated","pin-motorhomeArea-tolerated","day_only","pin-motorhomeArea-dayOnly","forbidden","pin-motorhomeArea-forbidden","unknown","pin-motorhomeArea-unknown","pin-motorhomeArea-unknown"],"service_area",["match",["get","night"],"allowed","pin-serviceArea-allowed","tolerated","pin-serviceArea-tolerated","day_only","pin-serviceArea-dayOnly","forbidden","pin-serviceArea-forbidden","unknown","pin-serviceArea-unknown","pin-serviceArea-unknown"],"campsite",["match",["get","night"],"allowed","pin-campsite-allowed","tolerated","pin-campsite-tolerated","day_only","pin-campsite-dayOnly","forbidden","pin-campsite-forbidden","unknown","pin-campsite-unknown","pin-campsite-unknown"],"parking",["match",["get","night"],"allowed","pin-parking-allowed","tolerated","pin-parking-tolerated","day_only","pin-parking-dayOnly","forbidden","pin-parking-forbidden","unknown","pin-parking-unknown","pin-parking-unknown"],"nature",["match",["get","night"],"allowed","pin-nature-allowed","tolerated","pin-nature-tolerated","day_only","pin-nature-dayOnly","forbidden","pin-nature-forbidden","unknown","pin-nature-unknown","pin-nature-unknown"],"rest_area",["match",["get","night"],"allowed","pin-restArea-allowed","tolerated","pin-restArea-tolerated","day_only","pin-restArea-dayOnly","forbidden","pin-restArea-forbidden","unknown","pin-restArea-unknown","pin-restArea-unknown"],"picnic_area",["match",["get","night"],"allowed","pin-picnicArea-allowed","tolerated","pin-picnicArea-tolerated","day_only","pin-picnicArea-dayOnly","forbidden","pin-picnicArea-forbidden","unknown","pin-picnicArea-unknown","pin-picnicArea-unknown"],"farm",["match",["get","night"],"allowed","pin-farm-allowed","tolerated","pin-farm-tolerated","day_only","pin-farm-dayOnly","forbidden","pin-farm-forbidden","unknown","pin-farm-unknown","pin-farm-unknown"],"homestay",["match",["get","night"],"allowed","pin-homestay-allowed","tolerated","pin-homestay-tolerated","day_only","pin-homestay-dayOnly","forbidden","pin-homestay-forbidden","unknown","pin-homestay-unknown","pin-homestay-unknown"],"off_road",["match",["get","night"],"allowed","pin-offRoad-allowed","tolerated","pin-offRoad-tolerated","day_only","pin-offRoad-dayOnly","forbidden","pin-offRoad-forbidden","unknown","pin-offRoad-unknown","pin-offRoad-unknown"],"extra_service",["match",["get","night"],"allowed","pin-extraService-allowed","tolerated","pin-extraService-tolerated","day_only","pin-extraService-dayOnly","forbidden","pin-extraService-forbidden","unknown","pin-extraService-unknown","pin-extraService-unknown"],"pin-extraService-unknown"],"icon-size":["interpolate",["linear"],["zoom"],6,0.72,12,1.0],"icon-anchor":"bottom","icon-allow-overlap":false,"icon-ignore-placement":false,"icon-padding":0,"symbol-sort-key":["match",["get","night"],"allowed",-4,"tolerated",-3,"day_only",-1,"forbidden",0,"unknown",-2,-2]}}],"minuit":[{"id":"lw-place-dots","type":"circle","source":"lw-place-tiles","source-layer":"place_dots","maxzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#061f43","circle-opacity":0.95}},{"id":"lw-place-pin-dots","type":"circle","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#061f43","circle-opacity":0.95}},{"id":"lw-place-pins","type":"symbol","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"icon-image":["match",["get","kind"],"motorhome_area",["match",["get","night"],"allowed","pin-motorhomeArea-allowed","tolerated","pin-motorhomeArea-tolerated","day_only","pin-motorhomeArea-dayOnly","forbidden","pin-motorhomeArea-forbidden","unknown","pin-motorhomeArea-unknown","pin-motorhomeArea-unknown"],"service_area",["match",["get","night"],"allowed","pin-serviceArea-allowed","tolerated","pin-serviceArea-tolerated","day_only","pin-serviceArea-dayOnly","forbidden","pin-serviceArea-forbidden","unknown","pin-serviceArea-unknown","pin-serviceArea-unknown"],"campsite",["match",["get","night"],"allowed","pin-campsite-allowed","tolerated","pin-campsite-tolerated","day_only","pin-campsite-dayOnly","forbidden","pin-campsite-forbidden","unknown","pin-campsite-unknown","pin-campsite-unknown"],"parking",["match",["get","night"],"allowed","pin-parking-allowed","tolerated","pin-parking-tolerated","day_only","pin-parking-dayOnly","forbidden","pin-parking-forbidden","unknown","pin-parking-unknown","pin-parking-unknown"],"nature",["match",["get","night"],"allowed","pin-nature-allowed","tolerated","pin-nature-tolerated","day_only","pin-nature-dayOnly","forbidden","pin-nature-forbidden","unknown","pin-nature-unknown","pin-nature-unknown"],"rest_area",["match",["get","night"],"allowed","pin-restArea-allowed","tolerated","pin-restArea-tolerated","day_only","pin-restArea-dayOnly","forbidden","pin-restArea-forbidden","unknown","pin-restArea-unknown","pin-restArea-unknown"],"picnic_area",["match",["get","night"],"allowed","pin-picnicArea-allowed","tolerated","pin-picnicArea-tolerated","day_only","pin-picnicArea-dayOnly","forbidden","pin-picnicArea-forbidden","unknown","pin-picnicArea-unknown","pin-picnicArea-unknown"],"farm",["match",["get","night"],"allowed","pin-farm-allowed","tolerated","pin-farm-tolerated","day_only","pin-farm-dayOnly","forbidden","pin-farm-forbidden","unknown","pin-farm-unknown","pin-farm-unknown"],"homestay",["match",["get","night"],"allowed","pin-homestay-allowed","tolerated","pin-homestay-tolerated","day_only","pin-homestay-dayOnly","forbidden","pin-homestay-forbidden","unknown","pin-homestay-unknown","pin-homestay-unknown"],"off_road",["match",["get","night"],"allowed","pin-offRoad-allowed","tolerated","pin-offRoad-tolerated","day_only","pin-offRoad-dayOnly","forbidden","pin-offRoad-forbidden","unknown","pin-offRoad-unknown","pin-offRoad-unknown"],"extra_service",["match",["get","night"],"allowed","pin-extraService-allowed","tolerated","pin-extraService-tolerated","day_only","pin-extraService-dayOnly","forbidden","pin-extraService-forbidden","unknown","pin-extraService-unknown","pin-extraService-unknown"],"pin-extraService-unknown"],"icon-size":["interpolate",["linear"],["zoom"],6,0.72,12,1.0],"icon-anchor":"bottom","icon-allow-overlap":false,"icon-ignore-placement":false,"icon-padding":0,"symbol-sort-key":["match",["get","night"],"allowed",-4,"tolerated",-3,"day_only",-1,"forbidden",0,"unknown",-2,-2]}}]}} /* END DEFAULTS */;
+  var DEFAULTS = /* BEGIN DEFAULTS */ {"v":1,"base":"https://tiles.lunaway.net","places":"https://api.lunaway.net/places/tiles.json","bounds":[-5.5,41.2,9.9,51.3],"maxZoom":10.0,"layers":{"aube":[{"id":"lw-place-dots","type":"circle","source":"lw-place-tiles","source-layer":"place_dots","maxzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#fdf1db","circle-opacity":0.95}},{"id":"lw-place-pin-dots","type":"circle","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#fdf1db","circle-opacity":0.95}},{"id":"lw-place-pins","type":"symbol","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"icon-image":["match",["get","kind"],"motorhome_area",["match",["get","night"],"allowed","pin-motorhomeArea-allowed","tolerated","pin-motorhomeArea-tolerated","day_only","pin-motorhomeArea-dayOnly","forbidden","pin-motorhomeArea-forbidden","unknown","pin-motorhomeArea-unknown","pin-motorhomeArea-unknown"],"service_area",["match",["get","night"],"allowed","pin-serviceArea-allowed","tolerated","pin-serviceArea-tolerated","day_only","pin-serviceArea-dayOnly","forbidden","pin-serviceArea-forbidden","unknown","pin-serviceArea-unknown","pin-serviceArea-unknown"],"campsite",["match",["get","night"],"allowed","pin-campsite-allowed","tolerated","pin-campsite-tolerated","day_only","pin-campsite-dayOnly","forbidden","pin-campsite-forbidden","unknown","pin-campsite-unknown","pin-campsite-unknown"],"parking",["match",["get","night"],"allowed","pin-parking-allowed","tolerated","pin-parking-tolerated","day_only","pin-parking-dayOnly","forbidden","pin-parking-forbidden","unknown","pin-parking-unknown","pin-parking-unknown"],"nature",["match",["get","night"],"allowed","pin-nature-allowed","tolerated","pin-nature-tolerated","day_only","pin-nature-dayOnly","forbidden","pin-nature-forbidden","unknown","pin-nature-unknown","pin-nature-unknown"],"rest_area",["match",["get","night"],"allowed","pin-restArea-allowed","tolerated","pin-restArea-tolerated","day_only","pin-restArea-dayOnly","forbidden","pin-restArea-forbidden","unknown","pin-restArea-unknown","pin-restArea-unknown"],"picnic_area",["match",["get","night"],"allowed","pin-picnicArea-allowed","tolerated","pin-picnicArea-tolerated","day_only","pin-picnicArea-dayOnly","forbidden","pin-picnicArea-forbidden","unknown","pin-picnicArea-unknown","pin-picnicArea-unknown"],"farm",["match",["get","night"],"allowed","pin-farm-allowed","tolerated","pin-farm-tolerated","day_only","pin-farm-dayOnly","forbidden","pin-farm-forbidden","unknown","pin-farm-unknown","pin-farm-unknown"],"homestay",["match",["get","night"],"allowed","pin-homestay-allowed","tolerated","pin-homestay-tolerated","day_only","pin-homestay-dayOnly","forbidden","pin-homestay-forbidden","unknown","pin-homestay-unknown","pin-homestay-unknown"],"off_road",["match",["get","night"],"allowed","pin-offRoad-allowed","tolerated","pin-offRoad-tolerated","day_only","pin-offRoad-dayOnly","forbidden","pin-offRoad-forbidden","unknown","pin-offRoad-unknown","pin-offRoad-unknown"],"extra_service",["match",["get","night"],"allowed","pin-extraService-allowed","tolerated","pin-extraService-tolerated","day_only","pin-extraService-dayOnly","forbidden","pin-extraService-forbidden","unknown","pin-extraService-unknown","pin-extraService-unknown"],"pin-extraService-unknown"],"icon-size":["interpolate",["linear"],["zoom"],6,0.72,12,1.0],"icon-anchor":"bottom","icon-allow-overlap":false,"icon-ignore-placement":false,"icon-padding":0,"symbol-sort-key":["match",["get","night"],"allowed",-4,"tolerated",-3,"day_only",-1,"forbidden",0,"unknown",-2,-2]}}],"minuit":[{"id":"lw-place-dots","type":"circle","source":"lw-place-tiles","source-layer":"place_dots","maxzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#061f43","circle-opacity":0.95}},{"id":"lw-place-pin-dots","type":"circle","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"circle-sort-key":["match",["get","night"],"allowed",4,"tolerated",3,"day_only",1,"forbidden",0,"unknown",2,2]},"paint":{"circle-color":["match",["get","kind"],["motorhome_area","parking","rest_area","picnic_area"],"#2d5da8",["campsite","farm","homestay"],"#8a4b82",["nature","off_road"],"#4a8a43",["service_area","extra_service"],"#237f89","#237f89"],"circle-radius":["interpolate",["linear"],["zoom"],3,1.6,6,2.6,9,3.8,12,5],"circle-stroke-width":["interpolate",["linear"],["zoom"],3,0.3,8,0.9,12,1.4],"circle-stroke-color":"#061f43","circle-opacity":0.95}},{"id":"lw-place-pins","type":"symbol","source":"lw-place-tiles","source-layer":"places","minzoom":10.0,"filter":["has","kind"],"layout":{"icon-image":["match",["get","kind"],"motorhome_area",["match",["get","night"],"allowed","pin-motorhomeArea-allowed","tolerated","pin-motorhomeArea-tolerated","day_only","pin-motorhomeArea-dayOnly","forbidden","pin-motorhomeArea-forbidden","unknown","pin-motorhomeArea-unknown","pin-motorhomeArea-unknown"],"service_area",["match",["get","night"],"allowed","pin-serviceArea-allowed","tolerated","pin-serviceArea-tolerated","day_only","pin-serviceArea-dayOnly","forbidden","pin-serviceArea-forbidden","unknown","pin-serviceArea-unknown","pin-serviceArea-unknown"],"campsite",["match",["get","night"],"allowed","pin-campsite-allowed","tolerated","pin-campsite-tolerated","day_only","pin-campsite-dayOnly","forbidden","pin-campsite-forbidden","unknown","pin-campsite-unknown","pin-campsite-unknown"],"parking",["match",["get","night"],"allowed","pin-parking-allowed","tolerated","pin-parking-tolerated","day_only","pin-parking-dayOnly","forbidden","pin-parking-forbidden","unknown","pin-parking-unknown","pin-parking-unknown"],"nature",["match",["get","night"],"allowed","pin-nature-allowed","tolerated","pin-nature-tolerated","day_only","pin-nature-dayOnly","forbidden","pin-nature-forbidden","unknown","pin-nature-unknown","pin-nature-unknown"],"rest_area",["match",["get","night"],"allowed","pin-restArea-allowed","tolerated","pin-restArea-tolerated","day_only","pin-restArea-dayOnly","forbidden","pin-restArea-forbidden","unknown","pin-restArea-unknown","pin-restArea-unknown"],"picnic_area",["match",["get","night"],"allowed","pin-picnicArea-allowed","tolerated","pin-picnicArea-tolerated","day_only","pin-picnicArea-dayOnly","forbidden","pin-picnicArea-forbidden","unknown","pin-picnicArea-unknown","pin-picnicArea-unknown"],"farm",["match",["get","night"],"allowed","pin-farm-allowed","tolerated","pin-farm-tolerated","day_only","pin-farm-dayOnly","forbidden","pin-farm-forbidden","unknown","pin-farm-unknown","pin-farm-unknown"],"homestay",["match",["get","night"],"allowed","pin-homestay-allowed","tolerated","pin-homestay-tolerated","day_only","pin-homestay-dayOnly","forbidden","pin-homestay-forbidden","unknown","pin-homestay-unknown","pin-homestay-unknown"],"off_road",["match",["get","night"],"allowed","pin-offRoad-allowed","tolerated","pin-offRoad-tolerated","day_only","pin-offRoad-dayOnly","forbidden","pin-offRoad-forbidden","unknown","pin-offRoad-unknown","pin-offRoad-unknown"],"extra_service",["match",["get","night"],"allowed","pin-extraService-allowed","tolerated","pin-extraService-tolerated","day_only","pin-extraService-dayOnly","forbidden","pin-extraService-forbidden","unknown","pin-extraService-unknown","pin-extraService-unknown"],"pin-extraService-unknown"],"icon-size":["interpolate",["linear"],["zoom"],6,0.72,12,1.0],"icon-anchor":"bottom","icon-allow-overlap":false,"icon-ignore-placement":false,"icon-padding":0,"symbol-sort-key":["match",["get","night"],"allowed",-4,"tolerated",-3,"day_only",-1,"forbidden",0,"unknown",-2,-2]}}]},"frame":{"mediumFrom":600.0,"expandedFrom":840.0,"railFolded":[92.0,76.0],"railExtended":[232.0,200.0],"pane":[380.0,420.0],"paneWideFrom":1280.0,"overlay":[132.0,116.0],"listPeek":170.0,"dock":88.0,"fit":16.0}} /* END DEFAULTS */;
 
   var container = document.getElementById('premap');
   if (!container || !DEFAULTS || !window.fetch) return;
@@ -51,6 +51,81 @@
       s.layers.every(function (l) { return l && typeof l === 'object' && l.source === 'lw-place-tiles'; });
   }
   if (!valid(saved)) saved = null;
+
+  // Where the app's map will stand in this window, and the room its first
+  // fit leaves (premapFrame in premap_spec.dart): this map fills the window
+  // but frames its view there, so that nothing moves when the app takes
+  // over. The app keeps what it measured; a window of another size, or a
+  // first visit, gets the layout's rules (DEFAULTS.frame).
+  function measuredFrame() {
+    var f = null;
+    try {
+      f = JSON.parse(localStorage.getItem('lunaway.premapFrame') || 'null');
+    } catch (e) {
+      return null;
+    }
+    if (!f || typeof f !== 'object') return null;
+    var keys = ['w', 'h', 'l', 't', 'r', 'b', 'pl', 'pt', 'pr', 'pb'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = f[keys[i]];
+      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 10000) return null;
+    }
+    if (Math.abs(f.w - innerWidth) > 1 || Math.abs(f.h - innerHeight) > 1) return null;
+    return f;
+  }
+  // The safe areas of the window (a phone's notch, its home bar), which
+  // the app reads as its padding.
+  function safeAreas() {
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;' +
+      'padding:env(safe-area-inset-top) env(safe-area-inset-right) ' +
+      'env(safe-area-inset-bottom) env(safe-area-inset-left)';
+    document.body.appendChild(probe);
+    var s = getComputedStyle(probe);
+    var out = {
+      t: parseFloat(s.paddingTop) || 0, r: parseFloat(s.paddingRight) || 0,
+      b: parseFloat(s.paddingBottom) || 0, l: parseFloat(s.paddingLeft) || 0
+    };
+    probe.remove();
+    return out;
+  }
+  function modelFrame() {
+    var m = DEFAULTS.frame;
+    var w = innerWidth;
+    var safe = safeAreas();
+    // The desktop look of pointerDensity (lib/core/layout/pointer_input.dart):
+    // a desktop system, in a window wider than a phone's.
+    var ua = navigator.userAgent || '';
+    var desktop = !/Android|iPhone|iPad|iPod/.test(ua) &&
+      !(/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 2);
+    var mouse = desktop && w >= m.mediumFrom ? 1 : 0;
+    var f = { l: 0, t: 0, r: 0, b: 0, pl: m.fit, pt: m.fit, pr: m.fit, pb: m.fit };
+    if (w < m.mediumFrom) {
+      // A phone: the map under everything, the search and the chips above,
+      // the list's sheet at rest above the dock below.
+      f.pt += safe.t + m.overlay[0];
+      f.pb += m.listPeek + m.dock + safe.b;
+    } else if (w < m.expandedFrom) {
+      // The folded rail, the search and the chips over the map.
+      f.l = m.railFolded[mouse] + safe.l;
+      f.pt += safe.t + m.overlay[mouse];
+    } else {
+      // The extended rail and the list's pane beside the map.
+      f.l = m.railExtended[mouse] + safe.l + m.pane[w >= m.paneWideFrom ? 1 : 0];
+    }
+    return f;
+  }
+  // A frame that leaves the view less than 40 px either way (a very short
+  // window under the search and the sheet) would have MapLibre fit nothing
+  // and show the world: the whole window then, with a margin.
+  function roomy(f) {
+    return !!f &&
+      innerWidth - f.l - f.r - f.pl - f.pr >= 40 &&
+      innerHeight - f.t - f.b - f.pt - f.pb >= 40;
+  }
+  var frame = measuredFrame();
+  if (!roomy(frame)) frame = modelFrame();
+  if (!roomy(frame)) frame = { l: 0, t: 0, r: 0, b: 0, pl: 24, pt: 24, pr: 24, pb: 24 };
 
   // A first visit: the day's basemap by day, the night's after dark (the
   // app then turns it by the sun), labels in the browser's language.
@@ -117,10 +192,14 @@
 
   window.lunawayPremap = {
     // The camera the user may have moved meanwhile, for the app's map to
-    // open on; null before the map exists.
-    camera: function () {
+    // open on; null before the map exists. Given a point of the window
+    // (x, y), the place drawn there: the centre of a map that stands
+    // around that point and draws the same view.
+    camera: function (x, y) {
       if (!map || gone) return null;
-      var c = map.getCenter();
+      var c = typeof x === 'number' && typeof y === 'number' && isFinite(x) && isFinite(y)
+        ? map.unproject([x, y])
+        : map.getCenter();
       return { lat: c.lat, lon: c.lng, zoom: map.getZoom() };
     },
     handOver: handOver
@@ -147,9 +226,16 @@
       options.center = saved.center;
       options.zoom = Math.min(saved.zoom, DEFAULTS.maxZoom);
     } else {
+      // France where the app fits it: inside its map, clear of what floats
+      // over it.
       var b = DEFAULTS.bounds;
       options.bounds = [[b[0], b[1]], [b[2], b[3]]];
-      options.fitBoundsOptions = { padding: 24 };
+      options.fitBoundsOptions = {
+        padding: {
+          left: frame.l + frame.pl, top: frame.t + frame.pt,
+          right: frame.r + frame.pr, bottom: frame.b + frame.pb
+        }
+      };
     }
     full = style;
     options.style = Object.assign({}, style, {
@@ -159,6 +245,13 @@
       })
     });
     map = new lib.Map(options);
+    if (saved) {
+      // The view kept is the centre of the app's map: drawn where that map
+      // will have its centre, not in the middle of the window.
+      var cx = (frame.l + innerWidth - frame.r) / 2;
+      var cy = (frame.t + innerHeight - frame.b) / 2;
+      map.jumpTo({ center: map.unproject([innerWidth - cx, innerHeight - cy]) });
+    }
     setTimeout(addBasemap, 1500);
     if (window.lunawayLoadMissingPins) window.lunawayLoadMissingPins(map);
     markPlacesDrawn();

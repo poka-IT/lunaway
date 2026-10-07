@@ -1072,11 +1072,27 @@ which needs the `wasm-bindgen` CLI of the crate's `Cargo.lock`), and the
 script refuses an app build that lacks it, since such an app runs but cannot
 guide.
 
-Before uploading the app, the script writes its service worker,
-`lunaway_sw.js`, with `app/tool/web/service_worker.py`: it names every file
-of the build and a digest of them all, so a second visit is served from the
-browser's cache without a round trip per file (every file of `/app/` is
-served `no-cache`, its name carrying no content hash). A new deploy is a new
+The app is built with `--wasm`: Chrome runs the dart2wasm build with skwasm,
+every other browser (and one without WasmGC) the dart2js build with
+CanvasKit, both in the same release. Before uploading it, the script runs
+`app/tool/web/fingerprint.py --compress`: the startup files (the Dart
+program, CanvasKit, MapLibre GL JS, the page's scripts) get names that carry
+their digest (`name.<12 hex>.js`, `canvaskit-<12 hex>/`), listed in the
+build's `hashed.txt`, which `/app/` serves `immutable` for a year, and every
+text or WebAssembly file gets a Brotli copy (`.br`, quality 11) that Caddy
+serves to browsers that accept it. `infra/server/install-web.sh` copies the
+renamed files of the last twenty app releases into the new one, so a page
+that a service worker still serves from an older build finds them. Pointing
+the symlink back at an older release carries nothing: a browser whose worker
+already serves a newer build then loads that build's renamed files from its
+HTTP cache, or deploy the older commit again instead. On the web, starting
+offline rests on the HTTP cache for the renamed files. Then the
+script writes the service worker, `lunaway_sw.js`, with
+`app/tool/web/service_worker.py`: it names every other file of the build and
+a digest of them all, so a second visit is served from the browser's cache
+without a round trip per file (those files are served `no-cache`, their
+names carrying no content hash); the renamed files it leaves to the HTTP
+cache, where the browser also keeps their compiled code. A new deploy is a new
 worker: browsers install it in the background at their next visit and use
 the new build from the one after. The worker also answers the TileJSON of
 the places, the points of interest and the basemap from its copy while it

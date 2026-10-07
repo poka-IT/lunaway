@@ -51,10 +51,32 @@ final _log = Logger('map');
 /// The height the search pill and the row of chips take over the map, below
 /// the status bar.
 double _overlayHeight(BuildContext context) =>
-    MapSearch.heightOf(context) + Space.s + Space.xxs + QuickFilters.heightOf(context);
+    mapOverlayHeight(Theme.of(context).visualDensity.baseSizeAdjustment.dy);
+
+/// [_overlayHeight] for the density's size adjustment [dy] (0 to a finger,
+/// -8 to a mouse), without a context: the web page's first map leaves the
+/// same room (`premapDefaults`).
+double mapOverlayHeight(double dy) =>
+    MapSearch.touchHeight +
+    dy +
+    Space.s +
+    Space.xxs +
+    QuickFilters.chipTouchHeight +
+    dy +
+    Space.s * 2;
 
 /// The search pill alone, while a selection hides the chips on a phone.
 double _searchHeight(BuildContext context) => MapSearch.heightOf(context) + Space.s;
+
+/// The list's pane beside the map of a wide window.
+double mapPaneWidth(double windowWidth) => windowWidth >= mapPaneWideFrom ? 420 : 380;
+
+/// The window width from which [mapPaneWidth] is the wider one.
+const double mapPaneWideFrom = 1280;
+
+/// How much of the list a phone shows over the map at rest, above the
+/// bottom safe area: its handle, its count and one whole row.
+const double mapListPeek = 22 + 60 + 88;
 
 /// The room the first download's card needs on a phone with its picture;
 /// with less, it goes without, so its buttons stay above the list.
@@ -342,8 +364,8 @@ class _Map extends ConsumerWidget {
           select.select(PlaceSelection(id, hint: hint));
           onPlaceTapped?.call();
         },
-        onPlacesInView: (places, bounds) =>
-            ref.read(placesInViewProvider.notifier).report(places, bounds),
+        onPlacesInView: (places, bounds, {failed = false}) =>
+            ref.read(placesInViewProvider.notifier).report(places, bounds, failed: failed),
         onEmptyTap: () => select.select(null),
         onLongPress: (p) {
           select.select(PointSelection(p));
@@ -383,10 +405,27 @@ class _Map extends ConsumerWidget {
         onPoisInView: (features) => ref.read(poisInViewProvider.notifier).report(features),
       ),
     );
+    final window = MediaQuery.sizeOf(context);
     return Stack(
       fit: StackFit.expand,
       children: [
-        MapShield(child: map),
+        if (kIsWeb)
+          // Where this map stands and the room its first fit leaves, for the
+          // page's first map of the next visit (web/premap.js).
+          ReportsRect(
+            onRect: (rect) => Premap.rememberFrame(
+              jsonEncode(
+                premapFrame(
+                  window: window,
+                  map: rect,
+                  fit: padding + const EdgeInsets.all(fitInitialMargin),
+                ),
+              ),
+            ),
+            child: MapShield(child: map),
+          )
+        else
+          MapShield(child: map),
         Positioned(
           left: attributionInset.left + Space.s + MapCredit.leading,
           // The credit's touch padding reaches below its label, which lines
@@ -624,7 +663,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
   }
 
   // The list rests showing its count and one whole row above the dock.
-  double _listPeek(MediaQueryData m) => 22 + 60 + 88 + m.padding.bottom;
+  double _listPeek(MediaQueryData m) => mapListPeek + m.padding.bottom;
   double _half(MediaQueryData m) => m.size.height * 0.52;
   double _full(MediaQueryData m) => m.size.height - m.padding.top - Space.s;
 
@@ -1030,7 +1069,7 @@ class _ExpandedLayout extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
-    final paneWidth = width >= 1280 ? 420.0 : 380.0;
+    final paneWidth = mapPaneWidth(width);
     final threePanes = width >= threePanesFrom;
     final selection = this.selection;
     final details = selection == null

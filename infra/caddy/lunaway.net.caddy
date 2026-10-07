@@ -77,9 +77,14 @@ lunaway.net {
 	# WebAssembly compilation, blob: workers, the inline styles the engine
 	# injects, the API and our tile host (tiles, glyphs, sprites, styles).
 	# Build the app with --base-href /app/ --no-web-resources-cdn, or
-	# CanvasKit loads from www.gstatic.com and the CSP refuses it. Its file
-	# names carry no content hash, so every response is revalidated (the ETag
-	# answers 304).
+	# CanvasKit loads from www.gstatic.com and the CSP refuses it. The
+	# startup files carry their content's digest in their name
+	# (app/tool/web/fingerprint.py: name.<12 hex>.js, canvaskit-<12 hex>/):
+	# cached for a year, never revalidated, which also lets V8 keep their
+	# compiled code. Every other name is revalidated (the ETag answers 304).
+	# The two matchers exclude each other, as on the site below. Each build
+	# carries a Brotli copy (name.br) of its text and WebAssembly files,
+	# served to the browsers that accept it; the others get zstd or gzip.
 	#
 	# Only the app's own routes (/app/place/42) fall back to index.html. A
 	# file it asks for by name, under assets/, fonts/, canvaskit/, icons/ or
@@ -88,14 +93,19 @@ lunaway.net {
 	handle_path /app/* {
 		root * /srv/lunaway/web
 		header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.lunaway.net; font-src 'self' data:; connect-src 'self' https://api.lunaway.net https://tiles.lunaway.net; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-		header Cache-Control "no-cache"
+		@hashed path_regexp \.[0-9a-f]{12}\.(js|mjs|css|wasm)$|^/canvaskit-[0-9a-f]{12}/
+		@not_hashed not path_regexp \.[0-9a-f]{12}\.(js|mjs|css|wasm)$|^/canvaskit-[0-9a-f]{12}/
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		header @not_hashed Cache-Control "no-cache"
 		@route {
-			not path /assets/* /fonts/* /canvaskit/* /icons/*
+			not path /assets/* /fonts/* /canvaskit/* /canvaskit-* /icons/*
 			not path_regexp \.[A-Za-z0-9]+$
 			not file
 		}
 		rewrite @route /index.html
-		file_server
+		file_server {
+			precompressed br
+		}
 	}
 
 	# The landing site, in French at / and English under /en/: HTML and CSS,

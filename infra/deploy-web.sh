@@ -7,7 +7,10 @@
 #   infra/deploy-web.sh app DIR        a Flutter web build built with --base-href /app/
 #   infra/deploy-web.sh app --build    builds the guidance WebAssembly and app/ first, then deploys it
 #
-# LUNAWAY_FLUTTER_WEB_ARGS adds flags to the build (--wasm, for instance).
+# The app is built twice in one release: dart2wasm with skwasm, which Chrome
+# loads (it started faster when measured, 2026-10-07), and dart2js with
+# CanvasKit, which the Flutter loader gives every other browser and any
+# browser without WasmGC. LUNAWAY_FLUTTER_WEB_ARGS adds flags to the build.
 # LUNAWAY_DRY_RUN=1 builds and checks the release, then stops before the
 # server is touched.
 set -euo pipefail
@@ -29,7 +32,7 @@ if [ "$kind" = app ] && [ "$dir" = --build ]; then
   log "building the web app"
   # The CSP refuses scripts from other hosts, so CanvasKit must be bundled.
   # shellcheck disable=SC2086 # extra flags, one per word
-  ( cd "$LUNAWAY_REPO_DIR/app" && fvm flutter build web --release --base-href /app/ --no-web-resources-cdn ${LUNAWAY_FLUTTER_WEB_ARGS:-} )
+  ( cd "$LUNAWAY_REPO_DIR/app" && fvm flutter build web --release --wasm --base-href /app/ --no-web-resources-cdn ${LUNAWAY_FLUTTER_WEB_ARGS:-} )
   dir="$LUNAWAY_REPO_DIR/app/build/web"
 fi
 [ -n "$dir" ] && [ -f "$dir/index.html" ] || die "no index.html in '${dir}'"
@@ -41,8 +44,14 @@ if [ "$kind" = app ] && [ ! -s "$dir/lunaway_nav/lunaway_nav_bg.wasm" ]; then
   die "$dir has no lunaway_nav/lunaway_nav_bg.wasm; run app/packages/lunaway_nav/tool/build_web.sh before the build"
 fi
 if [ "$kind" = app ]; then
+  # The startup files get names that carry their digest (served immutable)
+  # and every text file a Brotli copy, once per build: a directory passed
+  # in that already went through it keeps its names, and the renamed files
+  # an earlier run left in the build's output go first.
+  python3 "$LUNAWAY_REPO_DIR/app/tool/web/fingerprint.py" --compress "$dir" || die "the build was not fingerprinted"
+  grep -q 'src="flutter_bootstrap\.[0-9a-f]\{12\}\.js"' "$dir/index.html" || die "$dir/index.html names no fingerprinted bootstrap"
   # The service worker that serves a second visit from the browser's cache
-  # names every file of this build, so it is written after the build.
+  # names every other file of this build, so it is written last.
   python3 "$LUNAWAY_REPO_DIR/app/tool/web/service_worker.py" "$dir" || die "the service worker was not written"
 fi
 

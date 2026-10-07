@@ -435,10 +435,14 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 - **Web start**: the page loads MapLibre GL JS with itself and draws a first
   map (`web/premap.js`) from the view, theme and filters the app kept in
   `localStorage`, its places before its basemap, while the Flutter engine
-  downloads; the app's map takes its camera and replaces it once it has
-  drawn the same view. Pin images load when a layer first draws them. A
-  service worker written for each build (`app/tool/web/service_worker.py`)
-  serves a second visit from the browser's cache.
+  downloads, framed where the app's map will stand (beside the rail and
+  the panes, clear of the search); the app's map takes the camera at its
+  own centre and replaces it once it has drawn the same view, so nothing
+  moves. Pin images load when a layer first draws them. The startup files
+  carry their digest in their names and come from the HTTP cache on a
+  second visit (`app/tool/web/fingerprint.py`); a service worker written for
+  each build (`app/tool/web/service_worker.py`) serves the other files.
+  Chrome runs the dart2wasm build, other browsers the dart2js one.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
 - **Coordinates in one gesture**: every place shows its coordinates with a

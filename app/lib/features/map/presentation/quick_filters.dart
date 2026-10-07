@@ -26,8 +26,12 @@ import 'package:lunaway/shared/widgets/over_map.dart';
 class QuickFilters extends ConsumerWidget {
   const new({this.padding = EdgeInsets.zero, this.floating = true, super.key});
 
+  /// A chip's height to a finger; 8 less to a mouse.
+  static const double chipTouchHeight = 48;
+
   /// The height the row takes, for the map's top padding.
-  static double heightOf(BuildContext context) => controlHeight(context, 48) + Space.s * 2;
+  static double heightOf(BuildContext context) =>
+      controlHeight(context, chipTouchHeight) + Space.s * 2;
 
   /// The chips after "Filters", by what a motorhome needs on the road: fuel
   /// first (a heavy van burns 10 to 15 l per 100 km, and not every station

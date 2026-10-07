@@ -466,6 +466,10 @@ base class FakeMap implements LunaMapController {
   LatLng? userPosition;
   LunaMapProps? lastProps;
   LatLng longPressAt = const LatLng(45.7629, 4.831697);
+
+  /// False for a map that never gets ready (a platform view that does not
+  /// come): it reports its camera but never hands its controller over.
+  bool becomesReady = true;
   MapViewport viewport = const MapViewport(
     bounds: GeoBounds(south: 41, west: -5.5, north: 51.5, east: 10),
     center: LatLng(46.6, 2.5),
@@ -520,7 +524,7 @@ class _FakeMapViewState extends State<_FakeMapView> {
     // Like the real map: ready once built, then the camera rests.
     scheduleMicrotask(() {
       if (!mounted) return;
-      widget.props.onMapReady(widget.map);
+      if (widget.map.becomesReady) widget.props.onMapReady(widget.map);
       widget.props.onViewportChanged(widget.map.viewport);
     });
   }

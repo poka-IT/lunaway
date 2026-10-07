@@ -243,6 +243,67 @@ void main() {
       );
     });
 
+    group('from the zoom of the names, the API answers at once when the tiles cannot', () {
+      const view = MapViewport(
+        bounds: GeoBounds(south: 45.86, west: 6.06, north: 45.94, east: 6.24),
+        center: LatLng(45.9, 6.15),
+        zoom: 13.2,
+      );
+
+      /// The list once the map rested on [view] and the test ran [then],
+      /// short of the wait for a report: what the API was asked meanwhile.
+      Future<(NearbyPage, List<String>)> listAfter(
+        WidgetTester tester, {
+        bool ready = true,
+        void Function(FakeMap map)? then,
+      }) async {
+        final online = FakeOnlinePlaces(samplePlaces);
+        final map = FakeMap()
+          ..becomesReady = ready
+          ..viewport = const MapViewport(
+            bounds: GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25),
+            center: LatLng(45.9, 6.15),
+            zoom: 13,
+          );
+        final app = await pumpLunaway(tester, places: const [], online: online, map: map);
+        online.requests.clear();
+        map.lastProps!.onViewportChanged(view);
+        await settleShort(tester);
+        then?.call(map);
+        await settleShort(tester);
+        final page = app.container(tester).read(nearbyPlacesPageProvider);
+        expect(page.isLoading, isFalse, reason: 'answered well before $nearbyReportWait');
+        return (page.value!, online.requests.where((r) => r.startsWith('page:')).toList());
+      }
+
+      testWidgets('a tile that failed', (tester) async {
+        final (page, asked) = await listAfter(
+          tester,
+          then: (map) =>
+              map.lastProps!.onPlacesInView!([lakeArea.summary], view.bounds, failed: true),
+        );
+        expect(asked, isNotEmpty);
+        expect(page.query, isNotNull, reason: "the API's page, not the partial report");
+      });
+
+      testWidgets('tiles that hold no place in the view', (tester) async {
+        final (page, asked) = await listAfter(
+          tester,
+          then: (map) => map.lastProps!.onPlacesInView!(const [], view.bounds),
+        );
+        expect(asked, isNotEmpty);
+        expect(page.query, isNotNull);
+      });
+
+      testWidgets('a map that never got ready', (tester) async {
+        final (page, asked) = await listAfter(tester, ready: false);
+        expect(asked, isNotEmpty);
+        expect(page.query, isNotNull);
+        // The screen gives up waiting for the map to locate the user.
+        await settleShort(tester, const Duration(seconds: 11));
+      });
+    });
+
     testWidgets('the search asks the API when the device holds no place', (tester) async {
       final online = FakeOnlinePlaces(samplePlaces);
       final app = await pumpLunaway(tester, places: const [], online: online);

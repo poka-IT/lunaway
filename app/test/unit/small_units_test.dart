@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -181,6 +182,16 @@ void main() {
       const tiny = GeoBounds(south: 45, west: 6, north: 45.0001, east: 6.0001);
       final camera = cameraForBounds(tiny, const Size(400, 800), EdgeInsets.zero, maxZoom: 16);
       expect(camera.zoom, 16);
+    });
+
+    test("a feature query covers the whole map in the engine's units", () {
+      // MapLibre Android counts physical pixels: a rectangle in logical
+      // pixels covers only the top left part of its map.
+      double scale(TargetPlatform platform, {bool web = false}) =>
+          mapQueryScale(web: web, platform: platform, devicePixelRatio: 2.625);
+      expect(scale(TargetPlatform.android), 2.625);
+      expect(scale(TargetPlatform.iOS), 1);
+      expect(scale(TargetPlatform.android, web: true), 1);
     });
   });
 

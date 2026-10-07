@@ -261,6 +261,7 @@ LOCAL = "packages:\n  durt:\n    dependency: \"direct main\"\n    description:\n
 # The app's own package, committed under app/packages/, resolves on every
 # clone; a path that climbs out of it does not.
 IN_REPO = "packages:\n  lunaway_nav:\n    dependency: \"direct main\"\n    description:\n      path: \"packages/lunaway_nav\"\n      relative: true\n    source: path\n    version: \"0.1.0\"\n"
+VENDORED = "packages:\n  maplibre_gl_web:\n    dependency: \"direct overridden\"\n    description:\n      path: \"third_party/maplibre_gl_web\"\n      relative: true\n    source: path\n    version: \"0.27.1\"\n"
 CLIMBS = "packages:\n  x:\n    dependency: \"direct main\"\n    description:\n      path: \"packages/../../x\"\n      relative: true\n    source: path\n    version: \"0.1.0\"\n"
 ABSOLUTE = "packages:\n  x:\n    dependency: \"direct main\"\n    description:\n      path: \"/home/me/packages/x\"\n      relative: false\n    source: path\n    version: \"0.1.0\"\n"
 CRATES = "[[package]]\nname = \"tokio\"\nversion = \"1.53.2\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\n"
@@ -290,6 +291,7 @@ with tempfile.TemporaryDirectory() as repo:
     check("lock: committed path pubspec.lock", lock_check("HEAD", "app/pubspec.lock", LOCAL), 1)
     check("lock: staged hosted pubspec.lock", lock_check("--cached", "app/pubspec.lock", HOSTED), 0)
     check("lock: committed in-repo package", lock_check("HEAD", "app/pubspec.lock", IN_REPO), 0)
+    check("lock: committed vendored package", lock_check("HEAD", "app/pubspec.lock", VENDORED), 0)
     check("lock: committed path climbing out", lock_check("HEAD", "app/pubspec.lock", CLIMBS), 1)
     check("lock: staged absolute path", lock_check("--cached", "app/pubspec.lock", ABSOLUTE), 1)
     check("lock: staged hosted again", lock_check("--cached", "app/pubspec.lock", HOSTED), 0)
