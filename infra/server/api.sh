@@ -51,6 +51,21 @@ LUNAWAY_PUBLIC_URL=${media_base%/media/}
 LUNAWAY_DELETION_JOURNAL=/srv/data/account-deletions
 EOF
 
+log "the API's way out"
+# HTTPS and DNS only, for the external community source's photo proxy
+# (files/etc/nftables.d/lunaway-api-egress.nft). Installed here, after the
+# user exists, because nft resolves its name when it loads the rules; a
+# file that does not load is taken out again at once, so the next boot
+# still loads the firewall.
+if install_file files/etc/nftables.d/lunaway-api-egress.nft /etc/nftables.d/lunaway-api-egress.nft 0644; then
+  if ! nft -c -f /etc/nftables.conf; then
+    rm -f /etc/nftables.d/lunaway-api-egress.nft
+    die "the nftables rules with the API's way out do not load"
+  fi
+  systemctl reload nftables
+  echo "    nftables reloaded: lunaway-api may open HTTPS and DNS connections only"
+fi
+
 changed=0
 install_file "$STAGING/media.env" /etc/lunaway/media.env 0600 && changed=1
 install_file systemd/lunaway-api.service /etc/systemd/system/lunaway-api.service 0644 && changed=1

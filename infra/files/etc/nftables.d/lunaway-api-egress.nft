@@ -1,0 +1,21 @@
+# The API's way out, appended to the output chain of /etc/nftables.conf
+# (policy accept). Installed as /etc/nftables.d/lunaway-api-egress.nft by
+# infra/server/api.sh once the user lunaway-api exists: nft resolves the
+# name when it loads the rules.
+#
+# The API leaves the host for one thing, the photo proxy of the external
+# community source (docs/feeds.md): HTTPS to the agreement's photo hosts,
+# and the DNS that resolves them. lunaway-api.service refuses the private,
+# shared and link-local ranges (IPAddressDeny=); systemd cannot bound ports
+# or protocols, so these rules do: loopback, then answers on connections
+# already open, then new HTTPS and DNS, nothing else. Every process of the
+# user is bound, lunaway-admin's commands as the API included.
+table inet lunaway {
+	chain output {
+		meta skuid "lunaway-api" oifname "lo" accept
+		meta skuid "lunaway-api" ct state established,related accept
+		meta skuid "lunaway-api" tcp dport 443 accept
+		meta skuid "lunaway-api" meta l4proto { tcp, udp } th dport 53 accept
+		meta skuid "lunaway-api" counter reject with icmpx type admin-prohibited
+	}
+}
