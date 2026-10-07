@@ -144,6 +144,33 @@ coded_enum! {
     }
 }
 
+impl Service {
+    /// The bit of this service in a services mask: its position in
+    /// [`Service::ALL`]. The map tiles of the places carry the mask
+    /// (`s`), the app filters it with the same bits (`Service.position`),
+    /// and the database computes it with `lunaway_services_mask`: a
+    /// reordering of the variants would change what a released tile means,
+    /// so a new service only ever goes last.
+    #[must_use]
+    pub fn bit(self) -> u32 {
+        // ALL lists every variant, so the position is always found; 17
+        // variants fit a u32 mask.
+        Self::ALL
+            .iter()
+            .position(|s| *s == self)
+            .and_then(|i| u32::try_from(i).ok())
+            .unwrap_or(u32::MAX)
+    }
+
+    /// The mask of `services`: bit [`Service::bit`] set for each.
+    #[must_use]
+    pub fn mask(services: &[Self]) -> u32 {
+        services
+            .iter()
+            .fold(0, |m, s| m | 1_u32.checked_shl(s.bit()).unwrap_or(0))
+    }
+}
+
 coded_enum! {
     /// Something to do from a place.
     Activity {
@@ -224,6 +251,47 @@ mod tests {
         assert_codes_hold(Service::ALL);
         assert_codes_hold(Activity::ALL);
         assert_codes_hold(OvernightStatus::ALL);
+    }
+
+    #[test]
+    fn service_bits_are_the_released_ones() {
+        // The places' tiles and the app's filters read these bits: a
+        // service moved in the enum would turn every released tile's `s`
+        // into another set of services.
+        let released = [
+            "drinking_water",
+            "grey_water",
+            "black_water",
+            "waste_bin",
+            "toilets",
+            "showers",
+            "electricity",
+            "wifi",
+            "laundry",
+            "lpg",
+            "gas_bottles",
+            "vehicle_wash",
+            "bakery",
+            "swimming_pool",
+            "pets_allowed",
+            "mobile_data",
+            "winter_caravanning",
+        ];
+        assert_eq!(
+            Service::ALL.len(),
+            released.len(),
+            "a new service goes last, with the next bit"
+        );
+        for (bit, code) in released.iter().enumerate() {
+            let s: Service = code.parse().unwrap();
+            assert_eq!(s.bit() as usize, bit, "{code}");
+        }
+        assert_eq!(
+            Service::mask(&[Service::GreyWater, Service::BlackWater]),
+            0b110
+        );
+        assert_eq!(Service::mask(&[]), 0);
+        assert_eq!(Service::mask(Service::ALL), (1 << 17) - 1);
     }
 
     #[test]

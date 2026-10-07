@@ -211,9 +211,10 @@ pub async fn run(
 /// submission, a moderation decision), and at least every `every` for the
 /// imports and the daily opening hours. `now` gives the instant of each
 /// run. After each run the points layer gets a new version when a change
-/// waits and the last one is older than `poi_layer_every`. Errors are
-/// logged and the loop goes on after `every`: a database restart must not
-/// stop the worker.
+/// waits and the last one is older than `poi_layer_every`, and the places
+/// layer when a place was written since its version and that one is older
+/// than `place_layer_every`. Errors are logged and the loop goes on after
+/// `every`: a database restart must not stop the worker.
 ///
 /// # Errors
 ///
@@ -222,6 +223,7 @@ pub async fn watch(
     pool: &PgPool,
     every: std::time::Duration,
     poi_layer_every: std::time::Duration,
+    place_layer_every: std::time::Duration,
     now: impl Fn() -> DateTime<Utc>,
     key: Option<&TakedownKey>,
 ) -> Result<(), ConflateError> {
@@ -234,6 +236,9 @@ pub async fn watch(
         if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
             tracing::error!(%error, "publishing the points layer failed; next attempt later");
         }
+        if let Err(error) = publish_place_layer(pool, place_layer_every).await {
+            tracing::error!(%error, "publishing the places layer failed; next attempt later");
+        }
         match listener.wait(every, settle).await {
             Ok(woken) => tracing::debug!(woken, "conflation worker wakes"),
             Err(error) => {
@@ -242,6 +247,24 @@ pub async fn watch(
             }
         }
     }
+}
+
+/// Publishes the places written since the current version of the places'
+/// tiles as a new version, when the current one is older than `every`.
+/// Returns the new version.
+///
+/// # Errors
+///
+/// [`ConflateError`] when the database fails.
+pub async fn publish_place_layer(
+    pool: &PgPool,
+    every: std::time::Duration,
+) -> Result<Option<i64>, ConflateError> {
+    let v = lunaway_db::place_tiles::publish_layer(pool, every).await?;
+    if let Some(version) = v {
+        tracing::info!(version, "places layer: new tiles version");
+    }
+    Ok(v)
 }
 
 /// The pairs worth storing among `candidate_pairs`, and how many were

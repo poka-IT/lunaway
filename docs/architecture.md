@@ -105,6 +105,9 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file
   the app downloads once before it follows the feed
   (`docs/region-packs.md`).
+- `place_layer`: the version of the places' map tiles and the change
+  feed's position it covers; `places.services_mask`, the services as the
+  bits the tiles carry.
 - `pois`: the points of interest around the places (shops, food vending
   machines, water and sanitation, fuel and energy, health, services), one
   source each, never conflated with the places; `poi_join_records`: what
@@ -153,6 +156,31 @@ vending machines, water, fuel, health, services).
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
   the worker writes as a point of the `community` source, ODbL).
+
+## Places on the map
+
+How a place reaches the screen, by platform (`docs/deploy.md`, "Places
+layer"):
+
+- **Map, every platform.** Vector tiles of the places built by PostGIS at
+  `GET /places/{version}/{z}/{x}/{y}.mvt`, described by
+  `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
+  overnight status, services mask, free or paid, height limit (and its
+  name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
+  and set of those properties. The app filters them with a map expression
+  on the device, with the same meaning as the `places` query's filter, so
+  a change of filter costs no request. The worker publishes a new version
+  at most every 15 minutes, and at once after a takedown; the version in
+  the URL lets a tile be cached for good.
+- **Details.** A tap on a pin reads `place(id)` (a persisted query, by its
+  hash).
+- **List.** `places(bbox, filter, near:)`: the places nearest to the map's
+  centre first, page by page, the centre rounded by the server to 0.01
+  degree; the device's own position is never sent.
+- **Offline, native apps.** The regions a user keeps come as packs, then
+  the change feed (`docs/region-packs.md`), into the local SQLite (drift),
+  for the screens and the search without network. The web app keeps no
+  copy of the places: it reads the tiles, `place(id)` and the list.
 
 ## Routing
 

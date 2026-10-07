@@ -332,6 +332,11 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ["SELECT"],
         "lunaway_app on enforcement_sources: the lists' reads it cites"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_layer").await,
+        ["SELECT"],
+        "lunaway_app on place_layer: the API names the places' tiles version, the worker moves it"
+    );
     for (column, granted) in [
         ("id", true),
         ("line", true),
@@ -557,6 +562,14 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     lunaway_db::places::feed_head(&ingest)
         .await
         .expect("the pack builder reads the feed's identity with the import role");
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_layer").await,
+        ["SELECT", "UPDATE"],
+        "the worker and a takedown move the places' tiles version; its row is the migration's"
+    );
+    lunaway_db::place_tiles::publish_layer_now(&ingest)
+        .await
+        .expect("a takedown publishes the places layer with the import role");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "source_reads").await,
         ["SELECT", "INSERT", "UPDATE"],

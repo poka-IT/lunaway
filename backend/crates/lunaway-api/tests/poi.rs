@@ -11,7 +11,7 @@
     reason = "a test states its preconditions with unwrap"
 )]
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use axum::{
     body::Body,
@@ -28,6 +28,8 @@ use lunaway_ingest::{
 };
 use serde_json::{Value, json};
 use tower::ServiceExt;
+
+use crate::mvt::{decode, tile_of};
 
 const POIS: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/osm_poi_sample.json");
 const FUEL: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/fuel_export_sample.json");
@@ -176,155 +178,6 @@ fn code(body: &Value) -> &str {
         .unwrap_or_else(|| panic!("no error code in {body}"))
 }
 
-/// The tile `z/x/y` that holds `(lat, lon)`.
-fn tile_of(lat: f64, lon: f64, z: u32) -> (u32, u32) {
-    let n = f64::from(1u32 << z);
-    let x = ((lon + 180.0) / 360.0 * n).floor();
-    let r = lat.to_radians();
-    let y = ((1.0 - (r.tan() + 1.0 / r.cos()).ln() / std::f64::consts::PI) / 2.0 * n).floor();
-    (x as u32, y as u32)
-}
-
-// A Mapbox Vector Tile reader, enough for the test: layers, their keys and
-// values, and each feature's tags and point.
-
-fn varint(b: &[u8], i: &mut usize) -> u64 {
-    let mut v = 0u64;
-    let mut shift = 0;
-    loop {
-        let byte = b[*i];
-        *i += 1;
-        v |= u64::from(byte & 0x7f) << shift;
-        if byte & 0x80 == 0 {
-            return v;
-        }
-        shift += 7;
-    }
-}
-
-/// The fields of a message: (field number, wire type, varint or bytes).
-fn fields(b: &[u8]) -> Vec<(u64, u64, u64, &[u8])> {
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < b.len() {
-        let key = varint(b, &mut i);
-        let (field, wire) = (key >> 3, key & 7);
-        match wire {
-            0 => out.push((field, wire, varint(b, &mut i), &b[0..0])),
-            1 => {
-                out.push((
-                    field,
-                    wire,
-                    u64::from_le_bytes(b[i..i + 8].try_into().unwrap()),
-                    &b[0..0],
-                ));
-                i += 8;
-            }
-            2 => {
-                let len = usize::try_from(varint(b, &mut i)).unwrap();
-                out.push((field, wire, 0, &b[i..i + len]));
-                i += len;
-            }
-            5 => {
-                out.push((
-                    field,
-                    wire,
-                    u64::from(u32::from_le_bytes(b[i..i + 4].try_into().unwrap())),
-                    &b[0..0],
-                ));
-                i += 4;
-            }
-            w => panic!("wire type {w}"),
-        }
-    }
-    out
-}
-
-fn packed(b: &[u8]) -> Vec<u64> {
-    let mut i = 0;
-    let mut out = Vec::new();
-    while i < b.len() {
-        out.push(varint(b, &mut i));
-    }
-    out
-}
-
-fn unzigzag(n: u64) -> i64 {
-    ((n >> 1) as i64) ^ -((n & 1) as i64)
-}
-
-/// A decoded feature: its properties and its point in tile units.
-#[derive(Debug)]
-struct Feature {
-    props: BTreeMap<String, Value>,
-    point: (i64, i64),
-}
-
-/// The layers of a tile, by name.
-fn decode(tile: &[u8]) -> BTreeMap<String, (u64, Vec<Feature>)> {
-    let mut layers = BTreeMap::new();
-    for (field, _, _, layer) in fields(tile) {
-        assert_eq!(field, 3, "a tile holds layers only");
-        let lf = fields(layer);
-        let name = lf
-            .iter()
-            .find(|f| f.0 == 1)
-            .map(|f| String::from_utf8(f.3.to_vec()).unwrap())
-            .unwrap();
-        let extent = lf.iter().find(|f| f.0 == 5).map_or(4096, |f| f.2);
-        let keys: Vec<String> = lf
-            .iter()
-            .filter(|f| f.0 == 3)
-            .map(|f| String::from_utf8(f.3.to_vec()).unwrap())
-            .collect();
-        let values: Vec<Value> = lf
-            .iter()
-            .filter(|f| f.0 == 4)
-            .map(|f| {
-                let (vf, _, n, bytes) = fields(f.3)[0];
-                match vf {
-                    1 => Value::String(String::from_utf8(bytes.to_vec()).unwrap()),
-                    2 => json!(f32::from_bits(u32::try_from(n).unwrap())),
-                    3 => json!(f64::from_bits(n)),
-                    4 | 5 => json!(n),
-                    6 => json!(unzigzag(n)),
-                    7 => Value::Bool(n != 0),
-                    other => panic!("value field {other}"),
-                }
-            })
-            .collect();
-        let features = lf
-            .iter()
-            .filter(|f| f.0 == 2)
-            .map(|f| {
-                let ff = fields(f.3);
-                let tags = ff
-                    .iter()
-                    .find(|x| x.0 == 2)
-                    .map(|x| packed(x.3))
-                    .unwrap_or_default();
-                let geometry = ff.iter().find(|x| x.0 == 4).map(|x| packed(x.3)).unwrap();
-                assert_eq!(geometry[0], 9, "one MoveTo of one point");
-                let props = tags
-                    .chunks(2)
-                    .map(|kv| {
-                        (
-                            keys[usize::try_from(kv[0]).unwrap()].clone(),
-                            values[usize::try_from(kv[1]).unwrap()].clone(),
-                        )
-                    })
-                    .collect();
-                Feature {
-                    props,
-                    point: (unzigzag(geometry[1]), unzigzag(geometry[2])),
-                }
-            })
-            .collect();
-        layers.insert(name, (extent, features));
-    }
-    layers
-}
-
 async fn version(app: &axum::Router) -> i64 {
     let (status, _, body) = get(app, "/poi/tiles.json", &[]).await;
     assert_eq!(status, StatusCode::OK);
@@ -367,7 +220,7 @@ async fn the_tiles_carry_every_point_with_its_hours_and_flags(pool: PgPool) {
             assert!(f.props.contains_key(key), "{key} missing: {f:?}");
         }
         assert!(
-            (-64..4096 + 64).contains(&f.point.0) && (-64..4096 + 64).contains(&f.point.1),
+            (-64..4096 + 64).contains(&f.point().0) && (-64..4096 + 64).contains(&f.point().1),
             "{f:?}"
         );
     }

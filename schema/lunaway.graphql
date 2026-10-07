@@ -2353,6 +2353,28 @@ input PlaceFilter {
 	tonnes; places of unknown weight stay.
 	"""
 	vehicleWeightT: Float
+	"""
+	Keeps only places whose overnight status is one of these (absent:
+	every status; at most 5). The places' map tiles carry the status as
+	`night`, so the map's filter `["in", ["get", "night"], ...]` keeps
+	the same places.
+	"""
+	overnight: [OvernightStatus!]
+	"""
+	Keeps only places that have at least one service of each group: the
+	app's dump station is `[[GREY_WATER, BLACK_WATER]]` (at most 17
+	groups of 17). The tiles carry the services as the mask `s`, so the
+	map keeps the same places with `(s & group mask) != 0` for each
+	group; below the pin zoom the dots carry bits 0 to 8 only (drinking
+	water to laundry, the services the app's filters offer).
+	"""
+	serviceGroups: [[Service!]!]
+	"""
+	`true` keeps only places whose parking is known to be free
+	(`priceParkingEur` 0); an unknown price is not free. The tiles say
+	the same with `price` 0. `false` or absent does not filter.
+	"""
+	freeOnly: Boolean
 }
 
 """
@@ -3018,10 +3040,15 @@ type Query {
 	"""
 	regions: [SyncRegion!]!
 	"""
-	The places of a viewport (500 per page at most, viewport area
-	bounded), for the web or a device that has not synced yet.
+	The places of a viewport (500 per page at most), for the web or a
+	device that has not synced yet. Without `near`, by id, the viewport
+	25 square degrees at most. With `near` (the map's centre, never the
+	device's position), nearest first, any viewport; `near` is rounded by
+	the server to 0.01 degree (about 1 km) before any use, and the cursor
+	of a page continues the same order. `filter` keeps the same places
+	as the map's filter on the places' tiles (`GET /places/tiles.json`).
 	"""
-	places(bbox: BBoxInput!, filter: PlaceFilter, first: Int = 200, after: String): PlaceConnection!
+	places(bbox: BBoxInput!, filter: PlaceFilter, first: Int = 200, after: String, near: LatLonInput): PlaceConnection!
 	"""
 	One place. A place merged into another answers with the place that
 	absorbed it (whose id differs); a deleted place answers null.
