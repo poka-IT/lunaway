@@ -268,6 +268,7 @@ class _ActionTile extends StatelessWidget {
           : {CustomSemanticsAction(label: longPressLabel!): onLongPress!},
       excludeSemantics: true,
       child: InkWell(
+        mouseCursor: WidgetStateMouseCursor.clickable,
         onTap: onPressed,
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),

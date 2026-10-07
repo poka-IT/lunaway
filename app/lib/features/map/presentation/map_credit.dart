@@ -34,27 +34,31 @@ class MapCredit extends ConsumerWidget {
       label: t.map.creditLabel,
       onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
-        // A small label, a finger-sized target: 48 dp tall at least.
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Center(
-            widthFactor: 1,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.78),
-                borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-                child: Text(
-                  t.map.credit,
-                  style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurface),
-                  // A legal line, not reading matter: at large text sizes
-                  // it would run under the map's buttons.
-                  textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+      // A link, so the pointing hand: a gesture detector shows none itself.
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
+          // A small label, a finger-sized target: 48 dp tall at least.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Center(
+              widthFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surface.withValues(alpha: 0.78),
+                  borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
+                  child: Text(
+                    t.map.credit,
+                    style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurface),
+                    // A legal line, not reading matter: at large text sizes
+                    // it would run under the map's buttons.
+                    textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+                  ),
                 ),
               ),
             ),

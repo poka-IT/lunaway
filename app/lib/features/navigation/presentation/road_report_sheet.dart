@@ -349,6 +349,7 @@ class _KindTile extends StatelessWidget {
           ),
         ),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           onTap: onTap,
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           child: ConstrainedBox(

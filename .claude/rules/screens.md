@@ -45,6 +45,17 @@ Many users are 55 to 75 and read the app at arm's length in a van cab. So:
 - one primary action per screen, named with a verb;
 - every icon-only button carries a tooltip (it is also the semantics label).
 
+## The mouse
+
+Everything that reacts to a click shows the pointing hand, on every
+platform (Material keeps it for the web only), and the arrow once disabled.
+The theme sets it for buttons, menus and toggles; an `InkWell`, a chip or a
+dropdown takes `mouseCursor: WidgetStateMouseCursor.clickable`, a
+`GestureDetector` with a tap sits in a `MouseRegion` with
+`SystemMouseCursors.click`, a drag handle shows the axis it moves
+(`resizeUpDown`) or `grab`. `test/widget/mouse_cursor_test.dart` hovers the
+screens and fails on a control without its cursor; a new screen joins it.
+
 ## Text and data
 
 - Every string a user reads comes from slang (`context.t`), never a literal

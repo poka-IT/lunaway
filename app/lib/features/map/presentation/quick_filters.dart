@@ -336,6 +336,7 @@ class MapChip extends StatelessWidget {
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
+              mouseCursor: WidgetStateMouseCursor.clickable,
               borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
               onTap: onTap,
               child: Padding(
