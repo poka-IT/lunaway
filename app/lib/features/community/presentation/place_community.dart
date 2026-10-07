@@ -410,7 +410,8 @@ class ReviewMenu extends ConsumerWidget {
     final name = review.authorName;
     if (mine) return const SizedBox.shrink();
     final community = isLunawayCommunity(review.sourceId);
-    final page = review.terms?.pageUrl;
+    // The partner's reviews have no page to open, whatever an answer says.
+    final page = review.sourceId == extcomSourceId ? null : review.terms?.pageUrl;
     return PopupMenuButton<String>(
       tooltip: t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),

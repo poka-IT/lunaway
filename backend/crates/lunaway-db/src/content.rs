@@ -889,7 +889,8 @@ impl Hide {
 
 /// Hides what `hide` names of `source` (or shows it again); `false` when
 /// nothing changed. A refresh never undoes it: the card reads every row
-/// through the hides.
+/// through the hides. An operator's hide over one the reports made becomes
+/// the operator's, so a moderator who keeps the item does not lift it.
 ///
 /// # Errors
 ///
@@ -905,7 +906,8 @@ pub async fn set_hidden(
         sqlx::query!(
             r#"
             INSERT INTO content_hides (source_id, scope, key) VALUES ($1, $2, $3)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (source_id, scope, key) DO UPDATE SET origin = 'operator'
+            WHERE content_hides.origin <> 'operator'
             "#,
             source,
             scope,

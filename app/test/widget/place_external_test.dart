@@ -19,10 +19,12 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 import '../fixtures/place_external.dart';
+import '../helpers/fake_api.dart';
 import '../helpers/fakes.dart';
 import '../helpers/fonts.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
+import 'place_open_content_test.dart' show sendReport;
 
 /// A place the external community source describes along with
 /// OpenStreetMap, with Lunaway's own rating.
@@ -82,11 +84,15 @@ Future<TestApp> openExtcom(
   FakeExternalSource? external,
   Size size = const Size(1280, 2400),
   AppLocale locale = AppLocale.fr,
+  FakeApi? api,
+  bool signedIn = false,
 }) async {
   final app = await pumpLunaway(
     tester,
     size: size,
     locale: locale,
+    api: api,
+    signedIn: signedIn,
     external: external ?? recorded(),
     places: [extcomArea, ...samplePlaces],
   );
@@ -155,6 +161,23 @@ void main() {
     expect(find.text('Signaler cet avis'), findsOneWidget);
     expect(find.textContaining('Masquer'), findsNothing);
     expect(find.text('Voir à la source'), findsNothing);
+  });
+
+  testWidgets("a partner's review is reported as an external review", (tester) async {
+    final api = FakeApi();
+    await openExtcom(tester, api: api, signedIn: true);
+    final card = reviewCard('Avis externe inventé numéro 1.');
+    await scrollTo(tester, card);
+    await tester.tap(find.descendant(of: card, matching: find.byTooltip("Plus d'actions")));
+    await settleShort(tester);
+    await tester.tap(find.text('Signaler cet avis'));
+    await settleShort(tester);
+    await sendReport(tester);
+    expect(api.last('ReportContent'), {
+      'target': 'EXTERNAL_REVIEW',
+      'id': '7a000000-0000-4000-8000-000000000001',
+      'reason': 'OFFENSIVE',
+    });
   });
 
   testWidgets('more reviews reads on whichever list holds the rest back, to the end', (

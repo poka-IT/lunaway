@@ -168,8 +168,11 @@ class PlaceDetailsBody extends ConsumerWidget {
     const gap = SizedBox(height: Space.l);
     // The open sources' texts come with the card's other external content;
     // the section waits for them without holding the rest back.
+    // Only the texts: loading more reviews leaves the details list alone.
     final externalTexts =
-        ref.watch(placeExternalProvider(place.id)).value?.content.descriptions ?? const [];
+        ref.watch(placeExternalProvider(place.id).select((s) => s.value?.content.descriptions)) ??
+        const [];
+    final ownText = place.descriptions.isNotEmpty || place.description != null;
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
@@ -198,22 +201,10 @@ class PlaceDetailsBody extends ConsumerWidget {
         PlaceSurroundings(place: place),
         gap,
         CoordinatesCard(position: place.position),
-        if (place.descriptions.isNotEmpty || place.description != null || externalTexts.isNotEmpty)
+        if (ownText)
           _Section(
             title: t.place.description,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (place.descriptions.isNotEmpty || place.description != null)
-                  _Description(place: place),
-                if (externalTexts.isNotEmpty)
-                  _ExternalDescription(
-                    texts: externalTexts,
-                    sources: place.sources,
-                    afterOwn: place.descriptions.isNotEmpty || place.description != null,
-                  ),
-              ],
-            ),
+            child: _Description(place: place),
           ),
         if (place.website != null || place.phone != null)
           _Section(
@@ -231,6 +222,13 @@ class PlaceDetailsBody extends ConsumerWidget {
                   _IconChip(icon: AppIcons.activity(a), label: t.activity(a)),
               ],
             ),
+          ),
+        // Read online after the card shows: placed with the reviews, which
+        // arrive the same way, so what the user is reading does not move.
+        if (externalTexts.isNotEmpty)
+          _Section(
+            title: ownText ? t.place.otherSources : t.place.description,
+            child: _ExternalDescription(texts: externalTexts, sources: place.sources),
           ),
         PlaceReviewsSection(place: place),
         ...placeReviewItems(context, ref, place),
@@ -728,16 +726,14 @@ class _Description extends StatelessWidget {
 
 /// The text of an open source (Wikipedia, a tourist office) in the user's
 /// language when one wrote it, with its source, licence and the date the
-/// licence asks for, and a link to the whole text. Read online when the
-/// card opens; never stored with the place.
+/// licence asks for, and a link to the whole text. One text at most, in
+/// the best language: two sources of a place mostly say the same thing.
+/// Read online when the card opens; never stored with the place.
 class _ExternalDescription extends ConsumerWidget {
-  const new({required this.texts, required this.sources, required this.afterOwn});
+  const new({required this.texts, required this.sources});
 
   final List<ExternalDescription> texts;
   final List<PlaceSource> sources;
-
-  /// A description of the place's own sources stands above.
-  final bool afterOwn;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -748,58 +744,43 @@ class _ExternalDescription extends ConsumerWidget {
     final item = texts.firstWhere((d) => identical(d.text, chosen.text));
     final page = item.terms.pageUrl;
     final terms = termsLine(t, item.terms);
-    return Padding(
-      padding: EdgeInsets.only(top: afterOwn ? Space.l : 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (afterOwn) ...[
-            Text(
-              t.place.otherSources,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(chosen.text.text, style: theme.textTheme.bodyLarge),
+        const SizedBox(height: Space.s),
+        Wrap(
+          spacing: Space.s,
+          runSpacing: Space.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SourceBadge(label: sourceName(t, chosen.text.sourceId, sources: sources), maxLines: 2),
+            if (terms != null)
+              Text(
+                terms,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: Space.s),
+            if (!chosen.inUserLanguage)
+              Text(
+                t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
           ],
-          Text(chosen.text.text, style: theme.textTheme.bodyLarge),
-          const SizedBox(height: Space.s),
-          Wrap(
-            spacing: Space.s,
-            runSpacing: Space.xxs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SourceBadge(
-                label: sourceName(t, chosen.text.sourceId, sources: sources),
-                maxLines: 2,
-              ),
-              if (terms != null)
-                Text(
-                  terms,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              if (!chosen.inUserLanguage)
-                Text(
-                  t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
-          ),
-          if (webLink(page) case final uri?)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: TextButton.icon(
-                icon: const Icon(AppIcons.openExternal, size: 18),
-                label: Text(item.shortened ? t.place.readMore : t.place.viewSource),
-                onPressed: () => ref.read(externalActionsProvider).openUrl(uri),
-              ),
+        ),
+        if (webLink(page) case final uri?)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              icon: const Icon(AppIcons.openExternal, size: 18),
+              label: Text(item.shortened ? t.place.readMore : t.place.viewSource),
+              onPressed: () => ref.read(externalActionsProvider).openUrl(uri),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

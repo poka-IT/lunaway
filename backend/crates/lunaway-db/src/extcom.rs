@@ -960,6 +960,10 @@ pub async fn ratings_of_place(
         JOIN external_ratings t ON t.record_id = ps.record_id
         LEFT JOIN source_switches w ON w.source_id = t.source_id
         WHERE ps.place_id = $1 AND w.hidden_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = t.source_id
+                AND ((h.scope = 'place' AND h.key = $1::text) OR h.scope = 'source'))
         GROUP BY t.source_id
         ORDER BY t.source_id
         "#,
@@ -1077,6 +1081,12 @@ pub async fn photo_for_proxy(
         FROM external_photos e
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE e.id = $1 AND e.retired_at IS NULL AND e.url IS NOT NULL AND w.hidden_at IS NULL
+          -- A photo the reports, a moderator or the operator hid is no
+          -- longer served, even to a client that kept its address.
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = e.source_id
+                AND ((h.scope = 'item' AND h.key = e.external_id) OR h.scope = 'source'))
         "#,
         id,
         today,

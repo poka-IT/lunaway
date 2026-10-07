@@ -614,6 +614,12 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         ReportOutcome::Hidden
     );
     assert_eq!(shown_reviews(&app, a).await, 0, "the third report hides it");
+    let queue = moderation::open(&app, 10).await.unwrap();
+    assert_eq!(
+        queue[0].excerpt.as_deref(),
+        Some("mangrove: Insulte le gérant."),
+        "the moderator reads what was reported"
+    );
 
     moderation::decide(&app, open_entry(&pool, id).await, Decision::Approve, None)
         .await
@@ -623,6 +629,30 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         1,
         "a moderator who keeps it shows it again"
     );
+
+    // Reported again, then hidden by the operator before a moderator keeps it.
+    for r in reporters {
+        report(&app, r, ReportTarget::ExternalReview, id).await;
+    }
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    assert!(
+        content::set_hidden(&ingest, "mangrove", &Hide::Item("sig".into()), true)
+            .await
+            .unwrap(),
+        "the operator's hide takes over the reports'"
+    );
+    moderation::decide(&app, open_entry(&pool, id).await, Decision::Approve, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        shown_reviews(&app, a).await,
+        0,
+        "a moderator who keeps it never lifts the operator's hide"
+    );
+    content::set_hidden(&ingest, "mangrove", &Hide::Item("sig".into()), false)
+        .await
+        .unwrap();
+    assert_eq!(shown_reviews(&app, a).await, 1);
 
     for r in reporters {
         report(&app, r, ReportTarget::ExternalReview, id).await;

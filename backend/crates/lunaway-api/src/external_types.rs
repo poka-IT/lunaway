@@ -193,21 +193,6 @@ impl ExternalReviewConnection {
     }
 }
 
-impl From<Page<ExternalReviewRow>> for ExternalReviewConnection {
-    fn from(p: Page<ExternalReviewRow>) -> Self {
-        let first = p.nodes.len();
-        Self::merge(
-            p,
-            Page {
-                nodes: Vec::new(),
-                has_next_page: false,
-                total_count: 0,
-            },
-            first,
-        )
-    }
-}
-
 /// What a photo of another source shows of a place.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(name = "PhotoKind")]

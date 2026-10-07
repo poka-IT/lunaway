@@ -32,7 +32,7 @@ pub struct QueueEntry {
     /// `poi_check`, `road_report`, `place_hold`.
     pub kind: String,
     /// `review`, `photo`, `place`, `submission`, `poi`, `road_event`,
-    /// `place_hold`.
+    /// `place_hold`, `external_review`, `external_photo`.
     pub target_type: String,
     /// The target.
     pub target_id: Uuid,
@@ -42,7 +42,8 @@ pub struct QueueEntry {
     pub reason: String,
     /// Distinct reporters, for a reported target.
     pub reports: i64,
-    /// What the target says: a review's text, a photo's path, a proposal's
+    /// What the target says: a review's text, a photo's path (an external
+    /// one's source and page or file, prefixed with its source), a proposal's
     /// JSON, a place's name, the records of a held group (source, id,
     /// kind, name; never a position).
     pub excerpt: Option<String>,
@@ -66,6 +67,16 @@ pub async fn open(pool: &PgPool, limit: i64) -> Result<Vec<QueueEntry>, DbError>
                CASE q.target_type
                    WHEN 'review' THEN (SELECT left(r.body, 300) FROM reviews r WHERE r.id = q.target_id)
                    WHEN 'photo' THEN (SELECT p.path FROM photos p WHERE p.id = q.target_id)
+                   WHEN 'external_review' THEN coalesce(
+                       (SELECT r.source_id || ': ' || left(coalesce(r.text, ''), 300)
+                        FROM content_reviews r WHERE r.id = q.target_id),
+                       (SELECT r.source_id || ': ' || left(coalesce(r.body, ''), 300)
+                        FROM external_reviews r WHERE r.id = q.target_id))
+                   WHEN 'external_photo' THEN coalesce(
+                       (SELECT p.source_id || ': ' || p.page_url
+                        FROM content_photos p WHERE p.id = q.target_id),
+                       (SELECT p.source_id || ': ' || coalesce(p.path, p.url, p.external_id)
+                        FROM external_photos p WHERE p.id = q.target_id))
                    WHEN 'submission' THEN (SELECT left(s.payload::text, 300)
                                            FROM place_submissions s WHERE s.id = q.target_id)
                    WHEN 'place' THEN (SELECT coalesce(p.name, p.kind) FROM places p

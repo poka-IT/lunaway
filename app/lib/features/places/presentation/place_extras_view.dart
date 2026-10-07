@@ -617,7 +617,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                       icon: Icon(AppIcons.moreVertical, color: onBackdrop),
                       onSelected: (action) => _act(action, photo),
                       itemBuilder: (context) => [
-                        if (photo.terms?.pageUrl != null)
+                        if (photo.terms?.pageUrl != null && photo.sourceId != extcomSourceId)
                           PopupMenuItem(
                             value: 'source',
                             child: ListTile(
