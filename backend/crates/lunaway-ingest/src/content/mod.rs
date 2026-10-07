@@ -379,6 +379,12 @@ impl Ctx<'_> {
                 report.skip("PhotoGone");
                 return Ok(None);
             }
+            // A redirect the client does not follow leads off the hosts a
+            // source is read from: the picture is left out, not retried.
+            Err(IngestError::Status { status, .. }) if status.is_redirection() => {
+                report.skip("PhotoRedirected");
+                return Ok(None);
+            }
             Err(IngestError::TooLarge { .. }) => {
                 report.skip("PhotoTooLarge");
                 return Ok(None);

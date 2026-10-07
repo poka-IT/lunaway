@@ -47,7 +47,15 @@ pub const REDIRECT_HOSTS: &[&str] = &[
 /// another one. Geofabrik sends its largest extracts (Germany, 4.9 GB on
 /// 2026-10-06) to the GWDG's mirror of its own download tree
 /// (`https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/`).
-pub const MIRRORS: &[(&str, &str)] = &[("download.geofabrik.de", "ftp5.gwdg.de")];
+/// IGN's Panoramax instance answers every picture with a redirect to its
+/// object storage at OVH (read 2026-10-07).
+pub const MIRRORS: &[(&str, &str)] = &[
+    ("download.geofabrik.de", "ftp5.gwdg.de"),
+    (
+        "panoramax.ign.fr",
+        "panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net",
+    ),
+];
 
 /// Whether a redirect of a request first sent to `first` may go to `next`:
 /// within the host first asked, to a source's host ([`REDIRECT_HOSTS`]), or
