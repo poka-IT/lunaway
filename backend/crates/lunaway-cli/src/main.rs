@@ -10,6 +10,13 @@
 //! lunaway ingest fuel [--refresh]
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
+//! lunaway ingest datatourisme [--refresh]
+//! lunaway content refresh [--source commons,...] [--max-places N] [--area S,W,N,E] [--stale-days 7]
+//! lunaway content coverage [--area S,W,N,E] [--source NAME]
+//! lunaway content gc
+//! lunaway content hide photo|review <id> [--author] [--show]
+//! lunaway content hide-place <place> <source> [--show]
+//! lunaway content hide-source <source> [--show]
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
@@ -77,6 +84,12 @@
 //! runs every three minutes on the server and matches the new events on
 //! the routing engine at `LUNAWAY_VALHALLA_URL` (loopback only).
 //!
+//! `content` reads the open content of the places with the import role
+//! and writes the photos it keeps under `LUNAWAY_MEDIA_DIR/external/`;
+//! `ingest datatourisme` needs the free key of the DATAtourisme API in
+//! `LUNAWAY_DATATOURISME_KEY` (never an argument: the process list is
+//! public on the machine).
+//!
 //! `DATABASE_URL` points at the database. Raw payloads are cached under
 //! `LUNAWAY_DATA_DIR/raw` (default: the repository's gitignored `data/`), so
 //! a re-run reads the disk unless `--refresh` is given.
@@ -85,6 +98,7 @@
 //! (the fetch looked truncated) exits with an error after its report, so a
 //! timer or a script sees it.
 
+mod content;
 mod extracts;
 mod packs;
 
@@ -195,6 +209,11 @@ enum Command {
     Pois {
         #[command(subcommand)]
         action: Pois,
+    },
+    /// The open content of the places: photos, descriptions and reviews.
+    Content {
+        #[command(subcommand)]
+        action: content::Content,
     },
     /// The takedown journal (with the import role): after a restore, takes
     /// down again what the restored database brought back.
@@ -648,6 +667,15 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// DATAtourisme's motorhome areas, service areas and campsites (the
+    /// French tourist offices), as records the conflation merges; their
+    /// descriptions and photos reach the card through `content refresh`.
+    /// Weekly, before it.
+    Datatourisme {
+        /// Asks the API again instead of reading today's pages.
+        #[arg(long)]
+        refresh: bool,
+    },
     /// The French communes (contours administratifs, data.gouv.fr), then
     /// the commune of every place.
     Municipalities {
@@ -968,6 +996,9 @@ async fn main() -> anyhow::Result<()> {
                         &[]
                     })?;
                 }
+                Source::Datatourisme { refresh } => {
+                    content::ingest_datatourisme(&pool, &cache, refresh).await?;
+                }
                 Source::Finess { refresh } => {
                     let r = lunaway_ingest::finess::import(
                         &pool,
@@ -1224,6 +1255,10 @@ async fn main() -> anyhow::Result<()> {
                 "opening hours: {} places, {} parsed",
                 s.opening_hours.0, s.opening_hours.1
             );
+        }
+        Command::Content { action } => {
+            let client = http::client().context("cannot build the HTTP client")?;
+            content::run(&pool, &client, &cli.media_dir, action).await?;
         }
         Command::Pois { action } => match action {
             Pois::Hours => {

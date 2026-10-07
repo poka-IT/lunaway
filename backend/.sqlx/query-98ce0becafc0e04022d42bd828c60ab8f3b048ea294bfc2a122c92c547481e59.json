@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH live AS (\n            SELECT id FROM places\n            WHERE deleted_at IS NULL AND taken_down_at IS NULL\n              AND geom::geometry && ST_MakeEnvelope($2, $1, $4, $3, 4326)\n        ), flags AS (\n            SELECT l.id,\n                   EXISTS (SELECT 1 FROM content_photos c WHERE c.place_id = l.id\n                           AND ($5::text IS NULL OR c.source_id = $5)) AS photo,\n                   EXISTS (SELECT 1 FROM content_photos c WHERE c.place_id = l.id\n                           AND ($5::text IS NULL OR c.source_id = $5)\n                           AND c.relation <> 'nearby') AS own_photo,\n                   EXISTS (SELECT 1 FROM content_descriptions c WHERE c.place_id = l.id\n                           AND ($5::text IS NULL OR c.source_id = $5)) AS description,\n                   EXISTS (SELECT 1 FROM content_reviews c WHERE c.place_id = l.id\n                           AND ($5::text IS NULL OR c.source_id = $5)) AS review\n            FROM live l\n        )\n        SELECT count(*) AS \"places!\",\n               count(*) FILTER (WHERE photo) AS \"with_photo!\",\n               count(*) FILTER (WHERE own_photo) AS \"with_own_photo!\",\n               count(*) FILTER (WHERE description) AS \"with_description!\",\n               count(*) FILTER (WHERE review) AS \"with_review!\",\n               count(*) FILTER (WHERE photo OR description OR review) AS \"with_any!\"\n        FROM flags\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "places!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "with_photo!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "with_own_photo!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "with_description!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "with_review!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "with_any!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "98ce0becafc0e04022d42bd828c60ab8f3b048ea294bfc2a122c92c547481e59"
+}

@@ -79,40 +79,47 @@ coded_field! {
 ///   commercial names.
 /// - The community: what changes and what only a visitor knows (whether a
 ///   night is tolerated, the state of the services, the price).
+/// - DATAtourisme: what a tourist office knows of a place it promotes (its
+///   kind, its address, its contacts); its points are placed by hand on a
+///   map by the office, close but not surveyed, and its names are
+///   commercial names ("Aire camping-car park de Treignac").
 #[must_use]
 pub fn trust_prior(source: &SourceId, field: Field) -> f64 {
     let osm = *source == SourceId::OSM;
     let atout = *source == SourceId::ATOUT_FRANCE;
     let community = *source == SourceId::COMMUNITY;
-    let pick = |o: f64, a: f64, c: f64| {
+    let datatourisme = *source == SourceId::DATATOURISME;
+    let pick = |o: f64, a: f64, c: f64, d: f64| {
         if osm {
             o
         } else if atout {
             a
         } else if community {
             c
+        } else if datatourisme {
+            d
         } else {
             0.5
         }
     };
     match field {
-        Field::Name => pick(0.7, 0.6, 0.8),
-        Field::Kind => pick(0.8, 0.9, 0.85),
-        Field::Position => pick(0.9, 0.4, 0.7),
-        Field::Overnight => pick(0.6, 0.7, 1.0),
-        Field::Services => pick(0.8, 0.1, 0.9),
-        Field::Activities => pick(0.7, 0.1, 0.9),
-        Field::Description => pick(0.6, 0.5, 0.8),
-        Field::Address => pick(0.7, 0.9, 0.6),
-        Field::PriceParking | Field::PriceServices => pick(0.6, 0.5, 0.9),
+        Field::Name => pick(0.7, 0.6, 0.8, 0.6),
+        Field::Kind => pick(0.8, 0.9, 0.85, 0.8),
+        Field::Position => pick(0.9, 0.4, 0.7, 0.6),
+        Field::Overnight => pick(0.6, 0.7, 1.0, 0.6),
+        Field::Services => pick(0.8, 0.1, 0.9, 0.1),
+        Field::Activities => pick(0.7, 0.1, 0.9, 0.1),
+        Field::Description => pick(0.6, 0.5, 0.8, 0.5),
+        Field::Address => pick(0.7, 0.9, 0.6, 0.8),
+        Field::PriceParking | Field::PriceServices => pick(0.6, 0.5, 0.9, 0.5),
         Field::MaxHeight | Field::MaxLength | Field::MaxWidth | Field::MaxWeight => {
-            pick(0.9, 0.1, 0.8)
+            pick(0.9, 0.1, 0.8, 0.1)
         }
-        Field::Capacity => pick(0.7, 0.9, 0.6),
-        Field::OpeningHours => pick(0.8, 0.3, 0.7),
-        Field::Website => pick(0.7, 0.8, 0.6),
-        Field::Phone => pick(0.8, 0.5, 0.7),
-        Field::Stars => pick(0.5, 1.0, 0.3),
+        Field::Capacity => pick(0.7, 0.9, 0.6, 0.5),
+        Field::OpeningHours => pick(0.8, 0.3, 0.7, 0.3),
+        Field::Website => pick(0.7, 0.8, 0.6, 0.8),
+        Field::Phone => pick(0.8, 0.5, 0.7, 0.8),
+        Field::Stars => pick(0.5, 1.0, 0.3, 0.4),
     }
 }
 
@@ -490,6 +497,8 @@ fn source_label(source: &SourceId) -> String {
         "Atout France".to_owned()
     } else if *source == SourceId::COMMUNITY {
         "Lunaway".to_owned()
+    } else if *source == SourceId::DATATOURISME {
+        "DATAtourisme".to_owned()
     } else {
         source.as_str().to_owned()
     }

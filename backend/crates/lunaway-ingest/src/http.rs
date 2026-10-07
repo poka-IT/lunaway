@@ -98,6 +98,27 @@ pub fn client() -> Result<reqwest::Client, IngestError> {
     build(true)
 }
 
+/// A client that follows no redirect at all, for a request that carries a
+/// secret in a header of its own (the DATAtourisme key in `X-API-Key`):
+/// reqwest strips only the standard authentication headers when a
+/// redirect changes host, and a redirect to any host of
+/// [`REDIRECT_HOSTS`] would hand the secret over.
+///
+/// # Errors
+///
+/// [`IngestError::Client`] when the TLS stack cannot be initialised.
+pub fn client_without_redirects() -> Result<reqwest::Client, IngestError> {
+    install_crypto_provider();
+    reqwest::Client::builder()
+        .user_agent(user_agent())
+        .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(300))
+        .build()
+        .map_err(IngestError::Client)
+}
+
 /// A client that also accepts plain HTTP, for tests against a local server.
 /// Imports use [`client`].
 ///

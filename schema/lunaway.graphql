@@ -707,6 +707,58 @@ type EnforcementZoneLengths {
 }
 
 """
+A description of a place from an open source (Wikipedia, DATAtourisme),
+in one language: show its source, licence and link with it.
+"""
+type ExternalDescription {
+	"""
+	Its source (`wikipedia`, `datatourisme`).
+	"""
+	sourceId: String!
+	"""
+	Its language, BCP 47.
+	"""
+	lang: String!
+	"""
+	The text, plain; it ends with an ellipsis when Lunaway shortened it.
+	"""
+	text: String!
+	"""
+	The title of the page it comes from (the article's).
+	"""
+	title: String
+	"""
+	Who wrote it, when the source credits a person.
+	"""
+	author: String
+	"""
+	Who published it: `Wikipedia`, or the tourist office on
+	DATAtourisme.
+	"""
+	publisher: String
+	"""
+	The source's own date of its last update; null when unknown.
+	"""
+	sourceUpdatedOn: NaiveDate
+	"""
+	Its licence's short name.
+	"""
+	licence: String!
+	"""
+	Its licence's text.
+	"""
+	licenceUrl: String!
+	"""
+	Its page at the source.
+	"""
+	pageUrl: String!
+	"""
+	When Lunaway last read it.
+	"""
+	fetchedAt: DateTime!
+}
+
+"""
 A page about the place elsewhere.
 """
 type ExternalLink {
@@ -722,6 +774,139 @@ type ExternalLink {
 	A short neutral label (`OpenStreetMap`, `Wikidata`, `Wikipedia`).
 	"""
 	label: String!
+}
+
+"""
+A photo of a place from an open source (Wikimedia Commons, Panoramax,
+DATAtourisme), stored and served by Lunaway: show its author and
+licence with it, and link to its page.
+"""
+type ExternalPhoto {
+	"""
+	Stable while the source offers it.
+	"""
+	id: UUID!
+	"""
+	Its source (`wikimedia-commons`, `panoramax`, `datatourisme`):
+	`Query.sources` gives its name.
+	"""
+	sourceId: String!
+	"""
+	Why it is shown on this place.
+	"""
+	relation: PhotoRelation!
+	"""
+	From the place to where it was taken, metres; null when unknown.
+	"""
+	distanceM: Float
+	"""
+	The 512-pixel thumbnail, on Lunaway's media host.
+	"""
+	thumbUrl: String!
+	"""
+	The image, 1280 pixels on its long side at most, on Lunaway's
+	media host.
+	"""
+	largeUrl: String!
+	"""
+	Width of the large image, pixels.
+	"""
+	width: Int!
+	"""
+	Height of the large image, pixels.
+	"""
+	height: Int!
+	"""
+	ThumbHash of the image, base64: a placeholder while it loads.
+	"""
+	thumbhash: String!
+	"""
+	Its title at the source.
+	"""
+	title: String
+	"""
+	Its author as the source credits them (a name, a pseudonym, a
+	photographer's credit); null when the source names none (public
+	domain).
+	"""
+	author: String
+	"""
+	Who published it when that is not the author: the tourist office
+	on DATAtourisme, the Panoramax instance.
+	"""
+	publisher: String
+	"""
+	The source's own date of its last update, which the Licence
+	Ouverte asks to show; null when the source gives none.
+	"""
+	sourceUpdatedOn: NaiveDate
+	"""
+	Its licence's short name (`CC BY-SA 4.0`, `Licence Ouverte 2.0`).
+	"""
+	licence: String!
+	"""
+	Its licence's text.
+	"""
+	licenceUrl: String!
+	"""
+	Its page at the source: open it from the photo.
+	"""
+	pageUrl: String!
+	"""
+	When it was taken; null when unknown.
+	"""
+	takenAt: DateTime
+	"""
+	When Lunaway last read it.
+	"""
+	fetchedAt: DateTime!
+}
+
+"""
+A review published elsewhere under an open licence (Mangrove Reviews):
+show its author's pseudonym, its source and its licence with it.
+"""
+type ExternalReview {
+	"""
+	Stable while the source offers it.
+	"""
+	id: UUID!
+	"""
+	Its source (`mangrove`).
+	"""
+	sourceId: String!
+	"""
+	Stars, 1 to 5; null for a text alone.
+	"""
+	rating: Int
+	"""
+	The text; null for a rating alone.
+	"""
+	text: String
+	"""
+	The language of the text (BCP 47), when the source says.
+	"""
+	lang: String
+	"""
+	The pseudonym the reviewer chose at the source; null when none.
+	"""
+	authorName: String
+	"""
+	When it was written.
+	"""
+	writtenAt: DateTime!
+	"""
+	Its licence's short name (`CC BY 4.0`).
+	"""
+	licence: String!
+	"""
+	Its licence's text.
+	"""
+	licenceUrl: String!
+	"""
+	Its page at the source.
+	"""
+	pageUrl: String!
 }
 
 """
@@ -1988,6 +2173,27 @@ type PhotoConnection {
 	totalCount: Int!
 }
 
+"""
+Why a photo of an open source is shown on a place.
+"""
+enum PhotoRelation {
+	"""
+	The place's own data names it (OpenStreetMap, Wikidata, the tourist
+	office's record): it shows the place.
+	"""
+	LINKED
+	"""
+	A street-level picture taken near the place, its camera pointing at
+	it.
+	"""
+	FACING
+	"""
+	A picture taken near the place, in no particular direction: the
+	app labels it as the surroundings.
+	"""
+	NEARBY
+}
+
 type Place {
 	"""
 	Stable identifier (UUID v7). A place merged into another keeps
@@ -2171,6 +2377,29 @@ type Place {
 	without the authors the caller muted. Read per place.
 	"""
 	reviews(first: Int = 20, after: String): ReviewConnection!
+	"""
+	Photos of the place from open sources (Wikimedia Commons,
+	Panoramax, the tourist offices on DATAtourisme), served from
+	Lunaway's media host: those the place's own data names first, then
+	those looking at it, then those taken around it (24 at most). Each
+	carries its author, licence and page, to show with it. Read per
+	place, for the card: it costs a database query, and neither the
+	change feed nor the offline packs carry it.
+	"""
+	externalPhotos: [ExternalPhoto!]!
+	"""
+	Descriptions of the place from open sources (the introduction of
+	its Wikipedia article, the tourist office's text on DATAtourisme),
+	one per source and language, each with its licence and page. Read
+	per place, for the card.
+	"""
+	externalDescriptions: [ExternalDescription!]!
+	"""
+	Reviews of the place published under an open licence elsewhere
+	(Mangrove Reviews), newest first (50 at most), each with its
+	author's pseudonym, licence and page. Read per place, for the card.
+	"""
+	externalReviews(first: Int = 20): [ExternalReview!]!
 	"""
 	The caller's own rating or review of the place, whatever its status;
 	null when anonymous or when there is none.

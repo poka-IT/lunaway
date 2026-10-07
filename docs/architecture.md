@@ -29,7 +29,7 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, the fuel price feed, La Poste, FINESS, the road event feeds), paced HTTP client, raw payload cache |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
@@ -153,6 +153,36 @@ vending machines, water, fuel, health, services).
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
   the worker writes as a point of the `community` source, ODbL).
+
+## Open content
+
+Photos, descriptions and reviews published elsewhere under an open
+licence, shown on a place's card (`docs/data-sources.md`, "Open
+content").
+
+- **Sources.** Wikimedia Commons (the files a place's data names, and
+  those taken around it), Panoramax (street-level pictures looking at
+  it), Wikipedia (its article's introduction), DATAtourisme (the tourist
+  offices' texts and photos, through the records the conflation linked to
+  the place) and Mangrove (open reviews, matched by their `geo:` URI).
+- **Worker.** `lunaway content refresh`, weekly, with the import role:
+  each source is asked about the places it has not been asked about for a
+  week, least recently asked first (`content_checks`), so a stopped run
+  resumes. Only what a licence lets anyone reuse and redistribute with
+  attribution is kept, each item with its author, licence and link.
+- **Storage.** `content_photos`, `content_descriptions`,
+  `content_reviews`, kept apart from `places`: the change feed and the
+  offline packs never carry them. A photo is downloaded once, re-encoded
+  from its pixels (`lunaway-media`) and stored under `external/` in the
+  media directory, which the API's host serves; the app never loads a
+  source's own URL. A place gone (deleted, merged, taken down) loses its
+  content at the next run. An operator hides an item, a review author's
+  key, a source on a place or a whole source (`lunaway content hide`,
+  `content_hides`); the card reads every row through the hides, so no
+  refresh brings back what was hidden.
+- **API.** `Place.externalPhotos`, `Place.externalDescriptions` and
+  `Place.externalReviews`, read per place for the card (each costs a
+  database query in the request's budget).
 
 ## Routing
 

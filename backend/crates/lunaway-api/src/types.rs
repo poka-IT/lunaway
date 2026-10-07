@@ -18,6 +18,7 @@ use crate::{
         GqlVerification, IssueSummary, Photo, Review, ReviewConnection, SourceRating,
         parse_item_cursor,
     },
+    content_types::{ExternalDescription, ExternalPhoto, ExternalReview},
     error::{internal, invalid_input},
     loaders::PlaceSourcesLoader,
     schema::{DB_FIELD_COST, cost, db, state},
@@ -331,6 +332,13 @@ pub struct ExternalLink {
 pub const MAX_PLACE_PHOTOS: i64 = 100;
 /// Largest page of `Place.reviews`.
 pub const MAX_REVIEWS_PAGE: i32 = 50;
+/// Most photos of open sources returned for a place: every source keeps
+/// eight at most, and few places have more than two sources.
+pub const MAX_EXTERNAL_PHOTOS: i64 = 24;
+/// Most reviews of open sources returned for a place at once.
+pub const MAX_EXTERNAL_REVIEWS: i32 = 50;
+/// Reviews of open sources returned when the client does not say.
+const DEFAULT_EXTERNAL_REVIEWS: i32 = 20;
 /// Reviews per page when the client does not say.
 const DEFAULT_REVIEWS_PAGE: i32 = 20;
 
@@ -652,6 +660,67 @@ impl Place {
         .await
         .map_err(|e| internal(&e))?
         .into())
+    }
+
+    /// Photos of the place from open sources (Wikimedia Commons,
+    /// Panoramax, the tourist offices on DATAtourisme), served from
+    /// Lunaway's media host: those the place's own data names first, then
+    /// those looking at it, then those taken around it (24 at most). Each
+    /// carries its author, licence and page, to show with it. Read per
+    /// place, for the card: it costs a database query, and neither the
+    /// change feed nor the offline packs carry it.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+        let (pool, _permit) = db(ctx).await?;
+        let rows = lunaway_db::content::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
+            .await
+            .map_err(|e| internal(&e))?;
+        let media = &state(ctx).config.media;
+        Ok(rows
+            .into_iter()
+            .map(|r| ExternalPhoto::from_row(r, media))
+            .collect())
+    }
+
+    /// Descriptions of the place from open sources (the introduction of
+    /// its Wikipedia article, the tourist office's text on DATAtourisme),
+    /// one per source and language, each with its licence and page. Read
+    /// per place, for the card.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_descriptions(&self, ctx: &Context<'_>) -> Result<Vec<ExternalDescription>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::content::descriptions_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(ExternalDescription::from)
+            .collect())
+    }
+
+    /// Reviews of the place published under an open licence elsewhere
+    /// (Mangrove Reviews), newest first (50 at most), each with its
+    /// author's pseudonym, licence and page. Read per place, for the card.
+    #[graphql(complexity = "cost(first, DEFAULT_EXTERNAL_REVIEWS, child_complexity)")]
+    async fn external_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+    ) -> Result<Vec<ExternalReview>> {
+        let first = first.unwrap_or(DEFAULT_EXTERNAL_REVIEWS);
+        if !(1..=MAX_EXTERNAL_REVIEWS).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_EXTERNAL_REVIEWS}"
+            )));
+        }
+        let (pool, _permit) = db(ctx).await?;
+        Ok(
+            lunaway_db::content::reviews_of_place(pool, self.0.id, i64::from(first))
+                .await
+                .map_err(|e| internal(&e))?
+                .into_iter()
+                .map(ExternalReview::from)
+                .collect(),
+        )
     }
 
     /// The caller's own rating or review of the place, whatever its status;

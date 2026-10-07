@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_descriptions WHERE place_id = $1 AND source_id = $2 AND NOT (lang = ANY($3))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b6d828237d0b7b032ede20524db729cb7ce779bbf6ad70da08032a9b24393054"
+}

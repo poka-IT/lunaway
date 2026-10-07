@@ -1,0 +1,148 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n                  WHERE p.taken_down_at IS NULL\n        )\n        SELECT DISTINCT ON (c.source_id, c.lang)\n               c.source_id, c.lang, c.text, c.title, c.page_url, c.author, c.publisher,\n               c.source_updated_on, c.licence, c.licence_url, c.fetched_at\n        FROM content_descriptions c\n        WHERE c.place_id IN (SELECT id FROM family)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'place' AND h.key IN (c.place_id::text, $1::text)) OR h.scope = 'source'))\n        ORDER BY c.source_id, c.lang, (c.place_id = $1) DESC, c.fetched_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "lang"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "text",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "text"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "page_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "page_url"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "author",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "author"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "publisher",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "publisher"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "source_updated_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "source_updated_on"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "licence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "licence"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "licence_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "licence_url"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "fetched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b854e3c2f3bcf65fa1eed25e48885b05d6ac91c2ac346e362d89b38af5a7bfc3"
+}

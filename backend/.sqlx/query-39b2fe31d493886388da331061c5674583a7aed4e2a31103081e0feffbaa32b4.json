@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_descriptions c\n        WHERE c.source_id = $1 AND NOT EXISTS (\n            SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n            WHERE ps.place_id = c.place_id AND r.source_id = $1\n              AND r.deleted_at IS NULL AND r.taken_down_at IS NULL)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "39b2fe31d493886388da331061c5674583a7aed4e2a31103081e0feffbaa32b4"
+}

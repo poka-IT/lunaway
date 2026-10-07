@@ -6,6 +6,7 @@
 pub mod accounts;
 pub mod community;
 pub mod conflation;
+pub mod content;
 mod day_files;
 pub mod deletions;
 pub mod enforcement;
@@ -76,6 +77,18 @@ pub enum DbError {
 }
 
 impl DbError {
+    /// Whether the database refused the rows themselves (a constraint
+    /// they break, SQLSTATE class 23) rather than failing: the same rows
+    /// would be refused again.
+    #[must_use]
+    pub fn is_constraint_violation(&self) -> bool {
+        matches!(
+            self,
+            Self::Query(sqlx::Error::Database(d))
+                if d.code().is_some_and(|c| c.starts_with("23"))
+        )
+    }
+
     pub(crate) fn decode(
         what: &'static str,
         source: impl std::error::Error + Send + Sync + 'static,

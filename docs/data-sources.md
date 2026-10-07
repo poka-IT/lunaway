@@ -8,7 +8,7 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 | source | content | licence | attribution | status |
 |---|---|---|---|---|
 | OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
-| DATAtourisme | `CamperVanArea`, `RVServiceArea` | Licence Ouverte 2.0 (credit the producer and the update date) | the producing territory, via DATAtourisme | planned, phase 1 (needs a free API key) |
+| DATAtourisme (ADN Tourisme, `api.datatourisme.fr/v1`) | the motorhome areas (`CamperVanArea`), service areas (`RVServiceArea`) and campsites (`CampingAndCaravanning` and its subclasses) the French tourist offices publish, 9 389 objects on 2026-10-07, as records the conflation merges (mapping table `datatourisme::CLASSES`); their descriptions and photos stay in the record's raw payload and reach the card through the content worker ("Open content" below) | Licence Ouverte 2.0: "L'usage est soumis aux termes de la Licence Ouverte d'Etalab ainsi qu'aux Conditions Générales d'Utilisation. L'utilisateur doit toujours mentionner la paternité du jeu de données (identifiée sous l'appellation « HasBeenCreatedBy » au sein de chaque jeu de données) utilisé dans le cadre de sa réutilisation et la date de dernière mise à jour du jeu de données réutilisé." (https://www.datatourisme.fr/utiliser-les-donnees/, read 2026-10-07); CGU v2.0 art. 62: "Tous les Jeux de données publiés sur l'Interface diffuseurs sont régis par la Licence Ouverte / Open Licence publiée par Etalab" | the producing office (`hasBeenCreatedBy`) and its last update (`lastUpdate`), "via DATAtourisme" | ingested weekly (`lunaway ingest datatourisme`, a free key in `LUNAWAY_DATATOURISME_KEY`) |
 | Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte | "Atout France" | ingested |
 | Base Adresse Nationale (Géoplateforme geocoder, `data.geopf.fr/geocodage`) | coordinates of the Atout France campsites, geocoded from their address; for the campsites that fails on, a second pass with the address stripped of what the BAN cannot read (a "lieu-dit" marker, a road number, a post box), then the campsite's name among the Géoplateforme's points of interest (`index=poi`, IGN BD TOPO toponyms of category `camping`), then the municipality alone, the record then flagged approximate: such a record enriches the place it merges with, and makes no place of its own (195 of the 225 that would have stood alone had a campsite of a close name mapped in OSM in the same commune on 2026-10-06, `docs/conflation.md` section 3) | Licence Ouverte 2.0 (BAN and BD TOPO alike, the BD TOPO row below) | "Base Adresse Nationale, IGN BD TOPO" (part of the `atout-france` attribution) | used by the Atout France adapter |
 | Contours administratifs (data.gouv.fr dataset `683424e996857155175d4f68`, published by data.gouv.fr) | the outlines of the French communes, 2025, simplified to 100 m (`communes-100m.geojson.gz`, about 8 MB); each place takes the name of the commune that covers it, for the search and the offline copy. Built "à partir du produit Admin Express de l'IGN" and, for the overseas collectivities, OpenStreetMap (dataset page, read 2026-10-06) | ODbL (licence `odc-odbl` in the dataset's metadata, read 2026-10-06), the same as the places database | "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)" | ingested (`lunaway ingest municipalities`), not a `sources` row: it gives no place, only the commune of each |
@@ -236,6 +236,70 @@ Not ingested:
 | `data.geoportail.lu` | `/radar`, GeoJSON | CC0 |
 | `transit.gencat.cat` | `radars.txt` | Generalitat open licence |
 | `nvdbapiles.atlas.vegvesen.no` | `/vegobjekter/162`, at most 20 pages, a second apart, following the `neste` link on that host only | NLOD; the API documents 40 calls a second |
+
+## Open content
+
+Photos, descriptions and reviews shown on a place's card, read by the
+content worker (`lunaway content refresh`, weekly) and kept apart from the
+places: neither the change feed nor the offline packs carry them; the
+card asks for them by place (`Place.externalPhotos`,
+`Place.externalDescriptions`, `Place.externalReviews`). Every item keeps
+its source, author, licence and link, and the app shows them with it.
+Photos are downloaded once by the server, re-encoded from their pixels
+(`lunaway-media`: no metadata of the source file survives) and served
+from `api.lunaway.net/media/external/`: the app never loads a source's
+URL. Only a licence that allows reuse and redistribution with attribution
+is accepted (`lunaway_domain::content::accepted_licence`: CC0, public
+domain, CC BY, CC BY-SA, Licence Ouverte, ODbL); a non-commercial or
+no-derivatives licence is refused. Research and measurements:
+`plan/research/46-contenus-ouverts.md`. Read 2026-10-07.
+
+| source (`sources.id`) | content | licence, as read | attribution shown | status |
+|---|---|---|---|---|
+| Wikimedia Commons (`wikimedia-commons`) | the files a place's OpenStreetMap tags name (`wikimedia_commons` as a file or a category, `image` when it is a Commons file), the image of its Wikidata item (P18) and the first files of its Commons category, and the geotagged files taken within 80 to 250 m of it (by kind), four at most, shown as the surroundings | per file, read from its own metadata (`extmetadata.LicenseShortName`): "Wikimedia Commons only accepts free content" and "the license must meet the following conditions: Republication and distribution must be allowed. Publication of derivative work must be allowed. Commercial use of the work must be allowed" (https://commons.wikimedia.org/wiki/Commons:Licensing) | the file's author (`Artist`, as text), its licence with a link, its page | ingested weekly |
+| Wikipedia (`wikipedia`) | the introduction of the article a place's OpenStreetMap `wikipedia` tag or its Wikidata item names, in up to three languages (the tag's, French, English, the country's), cut to 1 200 characters with an ellipsis | CC BY-SA 4.0: "To re-distribute text on Wikipedia in any form, provide credit to the authors either by including a) a hyperlink (where possible) or URL to the page or pages you are re-using" (https://en.wikipedia.org/wiki/Wikipedia:Copyrights) | "Wikipedia", the licence with its link, the article | ingested weekly |
+| Wikidata (no row of its own) | which article and which image an item names | CC0: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero" (https://www.wikidata.org/wiki/Wikidata:Licensing) | none required | read weekly, nothing stored |
+| Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
+| DATAtourisme (`datatourisme`) | the descriptions (long, else short, per language) and the photos of the objects the conflation linked to a place | Licence Ouverte 2.0 (the row above). For photos, the CGU put every published file under it unless its annotation says otherwise: "un producteur de données n'est supposé publier sur DATAtourisme que les liens vers les photos publiables en open data sous licence ouverte", and the reuser must "mentionner, en plus de la source et de la date de MAJ, le crédit photo (propriété HasCredit) à proximité immédiate du visuel et [...] respecter la date de fin de droits quand celle ci est mentionnée" (https://support.datatourisme.fr/t/2341, read 2026-10-07). A photo without a credit, with a licence of its own that is refused (11 644 of 24 377 say `By-NC-ND 4.0`), or whose rights end within 8 days is left out | the office, the update date, the photo's credit and licence, the object's page | ingested weekly, from the records |
+| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, the newest. Anyone can sign a review with a new key, so an operator hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
+
+Not used:
+
+- Mapillary: its terms let a registered application download images and
+  serve them, on conditions a third-party app cannot keep: "must be
+  designed to provide products or services that materially supplement
+  those provided via the Mapillary Services (and not to merely redistribute
+  Content [...])", "you must attribute the image(s) by visibly displaying
+  the Mapillary logo", and Meta may "throttle usage, revoke client_ids"
+  (https://www.mapillary.com/terms, section 11, effective 2024-02-15).
+  Panoramax and Commons cover the same need without them.
+- OpenStreetMap `note`: "A note to other mappers regarding the feature's
+  mapping [...] To inform end-users about something, use description
+  instead" (https://wiki.openstreetmap.org/wiki/Key:note). The
+  `description` tags already reach the place (`Place.descriptions`).
+- An OpenStreetMap `image` that is not a Commons file: "there is no
+  guarantee whatsoever that you can display this image. In general there
+  is also no way to get info about licensing status of image"
+  (https://wiki.openstreetmap.org/wiki/Key:image).
+- The other Panoramax instances, until their terms are read
+  (`content::panoramax::INSTANCES`).
+
+### Hosts the content worker calls
+
+HTTPS only, each source on its own hosts, the User-Agent
+`Lunaway/<version> (+https://lunaway.net)`, retries on load shedding only
+and never sooner than a `Retry-After`; a source whose places keep failing
+is stopped for the run.
+
+| host | for | pace and terms |
+|---|---|---|
+| `commons.wikimedia.org`, `www.wikidata.org`, `<lang>.wikipedia.org` | the action API, with `maxlag=5` except on Wikidata, whose lag counts its query service's, which a read of items does not wait for (every request waited for minutes on 2026-10-07) | one request at a time, 300 ms apart for all of Wikimedia: "keep the concurrency of your requests to 1 at a time, and below 5 requests per second overall" (https://wikitech.wikimedia.org/wiki/Robot_policy) and 200 a minute for an identified bot (https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits) |
+| `thumb.wikimedia.org`, `upload.wikimedia.org` | the 1 280-pixel thumbnail, a standard width ("direct requests (hotlinking) will be rejected unless they use a standard size", https://www.mediawiki.org/wiki/Common_thumbnail_sizes) | the same pace, one download at a time |
+| `api.panoramax.xyz` | the search of the meta catalogue | 500 ms apart; no limit published |
+| `panoramax.openstreetmap.fr`, `panoramax.ign.fr` | the pictures | the same pace |
+| `api.datatourisme.fr` | the catalogue, 100 objects a page, the key in `X-API-Key`, with a client that follows no redirect (the key would follow it) | one page a second; "Limite de 1000 requêtes/heure" (https://api.datatourisme.fr/v1/docs) |
+| the offices' photo hosts (`content::DATATOURISME_MEDIA_HOSTS`: `*.tourinsoft.eu`, `*.tourinsoft.com`, `static.apidae-tourisme.com`, ...) | the photos | 500 ms apart; a host outside the list is left out and counted |
+| `api.mangrove.reviews` | `/reviews`, 1 000 a page (3 500 pass the 5.8 MB its host serves), the latest edit of each | 2 s apart, 11 pages a week; the terms forbid "placing an undue burden on the website" |
 
 ## Never ingested
 

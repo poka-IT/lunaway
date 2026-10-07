@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_checks c\n        WHERE c.place_id IN (\n            SELECT p.merged_into FROM places p\n            WHERE p.merged_into IS NOT NULL\n              AND EXISTS (SELECT 1 FROM content_checks g WHERE g.place_id = p.id))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "43649eac4d0e8fc3068ae2d1f79acee8d7de1fd13d2c254c9519da0b4ea83079"
+}

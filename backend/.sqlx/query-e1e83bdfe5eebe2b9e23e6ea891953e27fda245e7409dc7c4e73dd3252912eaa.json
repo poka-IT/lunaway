@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO content_descriptions (\n                place_id, source_id, lang, text, title, page_url, author, licence,\n                licence_url, fetched_at, publisher, source_updated_on)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n            ON CONFLICT (place_id, source_id, lang) DO UPDATE SET\n                text = excluded.text, title = excluded.title, page_url = excluded.page_url,\n                author = excluded.author, licence = excluded.licence,\n                licence_url = excluded.licence_url, fetched_at = excluded.fetched_at,\n                publisher = excluded.publisher, source_updated_on = excluded.source_updated_on\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e1e83bdfe5eebe2b9e23e6ea891953e27fda245e7409dc7c4e73dd3252912eaa"
+}

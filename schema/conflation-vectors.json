@@ -5,7 +5,7 @@
     "The algorithm is specified in docs/conflation.md; every constant it uses is in `parameters` below, and the Rust test asserts that its constants are these.",
     "`names`: input name -> normalised name (fold, abbreviations, generic words removed). `phones` and `websites`: input -> normalised value, null when it identifies nothing.",
     "`cases`: score record `a` against record `b`. `expected` is the decision (merge, review, distinct); `score` is the final score, to be matched within 0.001. Scoring is symmetric: b against a gives the same result.",
-    "A record: `source` (source id: osm, atout-france, community), `kind` (taxonomy code), `name` (null when the source gives none), `lat`, `lon` (WGS 84 degrees), and optionally `accuracyM` (metres of position uncertainty, default 0), `osm` (OSM element the record is or cites, e.g. node/123), `wikidata`, `phone`, `website`, `postcode`, `cityCode` (INSEE code).",
+    "A record: `source` (source id: osm, atout-france, community, datatourisme), `kind` (taxonomy code), `name` (null when the source gives none), `lat`, `lon` (WGS 84 degrees), and optionally `accuracyM` (metres of position uncertainty, default 0), `osm` (OSM element the record is or cites, e.g. node/123), `wikidata`, `phone`, `website`, `postcode`, `cityCode` (INSEE code).",
     "`why` says what the case pins down; `id` is stable, so a failing case can be named in a commit.",
     "Format version 1. Adding a case or a parameter is compatible; changing a value is a change of the algorithm and goes with both implementations."
   ],
@@ -1164,6 +1164,91 @@
         "lon": 4.1,
         "postcode": "30140",
         "cityCode": "30132"
+      }
+    },
+    {
+      "id": "datatourisme-prefixed-name",
+      "why": "A tourist office writes the campsite's name after the word \"Camping\", which OpenStreetMap leaves out; 25 m apart, the office's link is the campsite's social page.",
+      "expected": "merge",
+      "score": 0.9966,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Le Clos de Banes",
+        "lat": 44.8084323,
+        "lon": 2.8057586,
+        "website": "https://www.leclosdebanes.com"
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "campsite",
+        "name": "Camping Le Clos de Banes",
+        "lat": 44.8083,
+        "lon": 2.806,
+        "website": "https://www.facebook.com/leclosdebanes/",
+        "phone": "+33 6 28 48 01 18",
+        "cityCode": "12223"
+      }
+    },
+    {
+      "id": "datatourisme-generic-area-name",
+      "why": "An office's generic name for a motorhome area against the mapped area named after its town, 8 m apart: a person decides.",
+      "expected": "review",
+      "score": 0.8102,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car de Lapalisse",
+        "lat": 46.2502484,
+        "lon": 3.6354309
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": "Aire de services camping-cars",
+        "lat": 46.250184,
+        "lon": 3.635479,
+        "cityCode": "03138"
+      }
+    },
+    {
+      "id": "datatourisme-area-of-a-campsite",
+      "why": "The motorhome area a campsite runs at its gate and the campsite itself, 56 m apart: often two spots, a person decides.",
+      "expected": "review",
+      "score": 0.7852,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Le Ranch",
+        "lat": 49.4804393,
+        "lon": -1.8432893
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car > Camping Le Ranch",
+        "lat": 49.4803442,
+        "lon": -1.8425262
+      }
+    },
+    {
+      "id": "datatourisme-same-source-twins",
+      "why": "Two records of the tourist offices for one area (two offices publish it): the same source never merges itself; the pair goes to review as a duplicate to report.",
+      "expected": "review",
+      "score": 1.0,
+      "a": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": "Aire de services camping-cars",
+        "lat": 46.250184,
+        "lon": 3.635479
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": "Aire de services camping-cars",
+        "lat": 46.25019,
+        "lon": 3.63548
       }
     }
   ]
