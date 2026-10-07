@@ -242,8 +242,10 @@
         if (p.id !== undefined) {
           send({ type: 'place', id: p.id, properties: p, coordinates: f.geometry.coordinates });
         } else {
+          // A dot of the low zooms: one feature for the dots that share
+          // their properties (a MultiPoint), so around the click.
           var closer = Math.max(map.getZoom() + 3, tiles.pinZoom + 0.5);
-          map.easeTo({ center: f.geometry.coordinates, zoom: closer, duration: reducedMotion ? 0 : 600 });
+          map.easeTo({ center: e.lngLat, zoom: closer, duration: reducedMotion ? 0 : 600 });
         }
         return;
       }

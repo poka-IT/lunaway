@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -262,6 +263,30 @@ void main() {
     expect(p.name, 'Le Pré');
     expect((p.lat, p.lon), (45.9, 6.1));
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');
+  });
+
+  test("a tap opens a place of the tiles, comes closer to a dot, leaves the map's own alone", () {
+    expect(
+      placeTileTapFor({'id': 'a', 'kind': 'parking', 'night': 'allowed'}, [6.1, 45.9]),
+      isA<OpenTilePlace>().having((t) => t.place.id, 'id', 'a'),
+    );
+    expect(
+      placeTileTapFor(
+        {'kind': 'parking', 'night': 'allowed'},
+        [
+          [6.1, 45.9],
+          [6.2, 45.8],
+        ],
+      ),
+      isA<ZoomToTileDot>(),
+      reason: 'the dots of the low zooms come as MultiPoints without id',
+    );
+    expect(
+      placeTileTapFor({'id': 'a', 'kind': 'place'}, [6.1, 45.9]),
+      isNull,
+      reason: "the device's own pins (GeoJSON) are the map's",
+    );
+    expect(placeTileTapFor({'kind': 'point'}, [6.1, 45.9]), isNull);
   });
 
   test('the tile codes are the domain codes of the server', () {

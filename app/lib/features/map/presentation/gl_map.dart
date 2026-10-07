@@ -536,8 +536,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         case OpenTilePlace(:final place):
           _props.onPlaceTap(place.id, hint: place);
           return;
-        case ZoomToTileDot(:final at):
-          await moveTo(at, zoom: zoomForDot((await c.queryCameraPosition())?.zoom ?? 6));
+        case ZoomToTileDot():
+          final at = await c.toLatLng(point);
+          final zoom = (await c.queryCameraPosition())?.zoom ?? 6;
+          await moveTo(LatLng(at.latitude, at.longitude), zoom: zoomForDot(zoom));
           return;
         case null:
           break;

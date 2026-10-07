@@ -202,10 +202,11 @@ final class OpenTilePlace extends PlaceTileTap {
   final PlaceSummary place;
 }
 
+/// A dot of the low zooms: the tiles draw the dots that share their
+/// properties as one feature of several points (`place_dots`, a MultiPoint),
+/// so the map comes closer around the tap rather than around a point of it.
 final class ZoomToTileDot extends PlaceTileTap {
-  const new(this.at);
-
-  final LatLng at;
+  const new();
 }
 
 /// The action for a tap on a feature with [properties] at [coordinates]
@@ -216,12 +217,8 @@ PlaceTileTap? placeTileTapFor(Map<Object?, Object?>? properties, List<Object?>? 
   if (kind is! String || kind == 'place' || kind == 'point') return null;
   final place = placeFromTile(properties, coordinates);
   if (place != null) return OpenTilePlace(place);
-  if (coordinates == null || coordinates.length < 2) return null;
-  final lon = coordinates[0];
-  final lat = coordinates[1];
-  if (lon is! num || lat is! num) return null;
   // A dot of the low zooms: no id, the map comes closer.
-  return ZoomToTileDot(LatLng(lat.toDouble(), lon.toDouble()));
+  return const ZoomToTileDot();
 }
 
 /// The zoom a tap on a dot brings the map to: closer by three levels, at
