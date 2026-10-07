@@ -178,6 +178,12 @@ Future<TestApp> pumpLunaway(
   // The places come from the API's tiles and queries, as on the web and on a
   // phone online; null keeps them on the device, as offline.
   FakeOnlinePlaces? online,
+  // How long the first sync waits behind the map; at once by default, so the
+  // tests of the download see it start.
+  ({Duration afterMap, Duration atLatest}) syncStartDelays = (
+    afterMap: Duration.zero,
+    atLatest: Duration.zero,
+  ),
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -254,12 +260,7 @@ Future<TestApp> pumpLunaway(
         userDatabaseProvider.overrideWithValue(app.user),
         locationPermissionsProvider.overrideWithValue(app.location),
         syncRetryDelaysProvider.overrideWithValue(const []),
-        // The first sync starts with the map, as it did before it waited for
-        // the map's tiles: the tests of the download see it at once.
-        syncStartDelaysProvider.overrideWithValue((
-          afterMap: Duration.zero,
-          atLatest: Duration.zero,
-        )),
+        syncStartDelaysProvider.overrideWithValue(syncStartDelays),
         // The account's secrets in memory: no keychain in a widget test.
         secretStoreProvider.overrideWithValue(app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),

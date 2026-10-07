@@ -189,9 +189,14 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     ].take(first).toList();
   }
 
+  /// Holds the answers of [place] until it completes: what the page shows
+  /// while the place is on its way.
+  Completer<void>? hold;
+
   @override
   Future<Place?> place(String id) async {
     _ask('place:$id');
+    await hold?.future;
     return _places[id];
   }
 }

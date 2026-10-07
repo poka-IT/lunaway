@@ -251,6 +251,8 @@ class _OfflineData extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The web keeps no places: nothing to download, nothing to show here.
+    if (!ref.watch(keepsPlacesProvider)) return const SizedBox.shrink();
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
