@@ -11,6 +11,7 @@ import 'package:lunaway/core/web/tile_errors.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/domain/style_diff.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
@@ -529,23 +530,32 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     }
   }
 
-  Future<void> _onTap(math.Point<double> point) async {
+  Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
-    // A finger is wider than a pin: look in a square around the tap, of 14
-    // logical pixels each way. The tap's point is in the engine's units.
-    final slop = 14.0 * _queryScale;
-    final features = await c.queryRenderedFeaturesInRect(
-      Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
-      [
-        ...MapStyle.tappableLayers,
-        if (_tiles.installed) ...PlaceTiles.tappable,
-        if (_props.pois != null) ...PoiMapStyle.tappable,
-      ],
-      null,
-    );
+    final layers = [
+      ...MapStyle.tappableLayers,
+      if (_tiles.installed) ...PlaceTiles.tappable,
+      if (_props.pois != null) ...PoiMapStyle.tappable,
+    ];
+    // A finger is wider than a pin: look in a square around the tap, then
+    // in a wider one before calling it bare map (MapHit). The tap's point is
+    // in the engine's units.
+    final features = await featuresAroundTap((logical) {
+      final slop = logical * _queryScale;
+      return c.queryRenderedFeaturesInRect(
+        Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
+        layers,
+        null,
+      );
+    });
+    if (!mounted) return;
     if (features.isEmpty) {
-      _props.onEmptyTap?.call();
+      final onEmptyTap = _props.onEmptyTap;
+      if (onEmptyTap == null) return;
+      final zoom = (await c.queryCameraPosition())?.zoom;
+      if (!mounted || zoom == null) return;
+      onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
       return;
     }
     // Topmost first: the first feature that means something decides.
@@ -576,7 +586,6 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           _props.onPlaceTap(place.id, hint: place);
           return;
         case ZoomToTileDot():
-          final at = await c.toLatLng(point);
           final zoom = (await c.queryCameraPosition())?.zoom ?? 6;
           await moveTo(LatLng(at.latitude, at.longitude), zoom: zoomForDot(zoom));
           return;
@@ -803,7 +812,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         props.onMapReady(this);
       },
       onStyleLoadedCallback: _onStyleLoaded,
-      onMapClick: (point, _) => _onTap(point),
+      onMapClick: _onTap,
       // Every tap comes to onMapClick, on a layer's feature too: the plugins
       // otherwise send a tap on any layer they count as interactive (the
       // pins, the points of interest) to onFeatureTapped only, which

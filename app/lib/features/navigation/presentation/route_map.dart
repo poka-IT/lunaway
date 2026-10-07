@@ -163,6 +163,7 @@ final class RouteMapProps {
     this.onLineTap,
     this.onMarkTap,
     this.onLongPress,
+    this.onEmptyTap,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -184,6 +185,10 @@ final class RouteMapProps {
 
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
+
+  /// A tap with no mark and no route within `MapHit.freePoint`, at that
+  /// point, with the map's zoom then.
+  final void Function(LatLng at, double zoom)? onEmptyTap;
 }
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);

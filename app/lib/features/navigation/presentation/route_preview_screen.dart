@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -241,7 +243,7 @@ class _SheetFrame extends StatelessWidget {
 
 /// The map of the preview: the routes, the limits along the chosen one,
 /// the start and the destination.
-class _PreviewMap extends ConsumerWidget {
+class _PreviewMap extends ConsumerStatefulWidget {
   const new({required this.target, required this.preview, required this.padding});
 
   final RouteTarget target;
@@ -249,7 +251,24 @@ class _PreviewMap extends ConsumerWidget {
   final EdgeInsets padding;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PreviewMap> createState() => _PreviewMapState();
+}
+
+class _PreviewMapState extends ConsumerState<_PreviewMap> {
+  /// A tap on bare map waits to know it is no double tap, which zooms.
+  final _gate = DoubleTapGate();
+
+  @override
+  void dispose() {
+    _gate.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final target = widget.target;
+    final preview = widget.preview;
+    final padding = widget.padding;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final style = ref.watch(
       basemapStyleProvider(dark: dark, language: Localizations.localeOf(context).languageCode),
@@ -317,12 +336,21 @@ class _PreviewMap extends ConsumerWidget {
         padding: padding,
         onLineTap: (i) => ref.read(routePreviewControllerProvider(target).notifier).select(i),
         onMarkTap: (id) {
+          _gate.cancel();
           if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openPreviewPoint(context, ref, target, point));
           }
         },
-        onLongPress: (at) =>
-            unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at))),
+        onLongPress: (at) {
+          _gate.cancel();
+          unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
+        },
+        // At street level a tap on bare map opens the same card as a long
+        // press: the point as a stop, or as the destination.
+        onEmptyTap: (at, zoom) => _gate.tap(() {
+          if (!mounted || bareTapAt(zoom: zoom, open: false) != BareTap.freePoint) return;
+          unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
+        }),
       ),
     );
   }
@@ -368,6 +396,12 @@ class _Panel extends ConsumerWidget {
     return SliverList.list(
       children: [
         Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
+        // A bare point has no name: its coordinates say which one it is.
+        if (label == null)
+          Text(
+            CoordinateFormat.decimal.format(target.destination),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
         const SizedBox(height: Space.m),
         StopsStrip(target: target),
         if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)

@@ -99,7 +99,10 @@ void main() {
             .select(const PointSelection(LatLng(45.8992, 6.1294)));
         await settleShort(tester);
         await tester.tap(
-          find.descendant(of: find.byType(PointActionBar), matching: find.text('Copier')),
+          find.descendant(
+            of: find.byType(PointActionBar),
+            matching: find.text('Copier les coordonnées'),
+          ),
         );
         await settleShort(tester);
         expect(find.byType(SnackBar), findsOneWidget);

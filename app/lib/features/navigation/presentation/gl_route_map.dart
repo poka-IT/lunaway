@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -420,18 +422,25 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   }
 
   /// A mark first (a place, a station, a stop), then another route.
-  Future<void> _onTap(math.Point<double> point) async {
+  Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
     final c = _controller;
-    if (c == null || !_ready) return;
-    const slop = 16.0;
-    final box = Rect.fromCenter(
+    if (c == null || !_ready || !mounted) return;
+    // The tap's point is in the engine's units, physical pixels on Android.
+    final scale = mapQueryScale(
+      web: kIsWeb,
+      platform: defaultTargetPlatform,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    Rect box(double slop) => Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: slop * 2,
-      height: slop * 2,
+      width: slop * 2 * scale,
+      height: slop * 2 * scale,
     );
     final onMarkTap = _props.onMarkTap;
     if (onMarkTap != null) {
-      final marks = await c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null);
+      final marks = await featuresAroundTap(
+        (slop) => c.queryRenderedFeaturesInRect(box(slop), const [RouteLayers.marks], null),
+      );
       for (final f in marks) {
         final properties = (f as Map<Object?, Object?>)['properties'];
         final id = properties is Map<Object?, Object?> ? properties['id'] : null;
@@ -442,15 +451,25 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       }
     }
     final onLineTap = _props.onLineTap;
-    if (onLineTap == null) return;
-    final features = await c.queryRenderedFeaturesInRect(box, const [
-      RouteLayers.alternatives,
-      RouteLayers.alternativesCasing,
-    ], null);
-    if (features.isEmpty) return;
-    final properties = (features.first as Map<Object?, Object?>)['properties'];
-    final index = properties is Map<Object?, Object?> ? properties['index'] : null;
-    if (index is num) onLineTap(index.toInt());
+    if (onLineTap != null) {
+      final features = await featuresAroundTap(
+        (slop) => c.queryRenderedFeaturesInRect(box(slop), const [
+          RouteLayers.alternatives,
+          RouteLayers.alternativesCasing,
+        ], null),
+      );
+      if (features.isNotEmpty) {
+        final properties = (features.first as Map<Object?, Object?>)['properties'];
+        final index = properties is Map<Object?, Object?> ? properties['index'] : null;
+        if (index is num) onLineTap(index.toInt());
+        return;
+      }
+    }
+    final onEmptyTap = _props.onEmptyTap;
+    if (onEmptyTap == null || !mounted) return;
+    final zoom = (await c.queryCameraPosition())?.zoom;
+    if (zoom == null || !mounted) return;
+    onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
   }
 
   @override
@@ -485,9 +504,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
       onMapCreated: (c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
-      onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null
+      onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
-          : (point, _) => _onTap(point),
+          : _onTap,
       onMapLongClick: p.onLongPress == null
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),

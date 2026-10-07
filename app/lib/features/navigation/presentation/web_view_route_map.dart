@@ -9,6 +9,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
@@ -138,6 +139,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   static Map<String, Object?> _spec({required bool dark}) => {
     'clusterSource': RouteLayers.routeSource,
     'selectionLayer': RouteLayers.marks,
+    'hit': {'select': MapHit.select, 'freePoint': MapHit.freePoint},
     'tappable': const [RouteLayers.tappableMarks],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
@@ -237,6 +239,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
             when lat.abs() <= 90 && lon.isFinite) {
           final wrapped = (lon + 180) % 360 - 180;
           _props.onLongPress?.call(LatLng(lat.toDouble(), wrapped.toDouble()));
+        }
+      case 'empty':
+        if ((event['lat'], event['lon'], event['zoom'])
+            case (final num lat, final num lon, final num zoom)
+            when lat.abs() <= 90 && lon.isFinite) {
+          final wrapped = (lon + 180) % 360 - 180;
+          _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
         }
       case 'link':
         if (Uri.tryParse('${event['url']}') case final url?) {

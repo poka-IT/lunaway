@@ -220,11 +220,21 @@
   // zooms in, the long-press marker does nothing.
   function onClick(e) {
     if (suppressClick) { suppressClick = false; return; }
-    var slop = 14;
-    var box = [[e.point.x - slop, e.point.y - slop], [e.point.x + slop, e.point.y + slop]];
+    // The same two squares as featuresAroundTap in
+    // lib/features/map/domain/map_taps.dart: a tap that just missed a pin
+    // opens it rather than the card of a bare point.
+    var hit = spec.hit || { select: 14, freePoint: 21 };
     var layers = spec.tappable.filter(function (id) { return map.getLayer(id); });
-    var features = map.queryRenderedFeatures(box, { layers: layers });
-    if (features.length === 0) { send({ type: 'empty' }); return; }
+    function around(slop) {
+      var box = [[e.point.x - slop, e.point.y - slop], [e.point.x + slop, e.point.y + slop]];
+      return map.queryRenderedFeatures(box, { layers: layers });
+    }
+    var features = around(hit.select);
+    if (features.length === 0) features = around(hit.freePoint);
+    if (features.length === 0) {
+      send({ type: 'empty', lat: e.lngLat.lat, lon: e.lngLat.lng, zoom: map.getZoom() });
+      return;
+    }
     // Topmost first: the first feature that means something decides.
     for (var i = 0; i < features.length; i++) {
       var f = features[i];

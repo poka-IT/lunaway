@@ -79,6 +79,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$muted$en muted = Translations$muted$en.internal(_root);
 	late final Translations$mine$en mine = Translations$mine$en.internal(_root);
 	late final Translations$outbox$en outbox = Translations$outbox$en.internal(_root);
+	late final Translations$placement$en placement = Translations$placement$en.internal(_root);
 	late final Translations$contribute$en contribute = Translations$contribute$en.internal(_root);
 	late final Translations$confirmSheet$en confirmSheet = Translations$confirmSheet$en.internal(_root);
 	late final Translations$issueSheet$en issueSheet = Translations$issueSheet$en.internal(_root);
@@ -520,11 +521,23 @@ class Translations$map$en {
 		other: 'places nearest the centre',
 	);
 
-	/// en: 'Chosen point'
-	String get pointTitle => 'Chosen point';
+	/// en: 'Here'
+	String get pointTitle => 'Here';
 
-	/// en: 'Its coordinates and the way there'
-	String get pointHint => 'Its coordinates and the way there';
+	/// en: 'Point on the map'
+	String get pointHint => 'Point on the map';
+
+	/// en: 'Directions here'
+	String get directionsHere => 'Directions here';
+
+	/// en: 'Copy coordinates'
+	String get copyCoordinates => 'Copy coordinates';
+
+	/// en: 'Tap the map to go there or add a place'
+	String get freeTapHint => 'Tap the map to go there or add a place';
+
+	/// en: 'Click the map to go there or add a place'
+	String get freeTapHintClick => 'Click the map to go there or add a place';
 
 	/// en: 'Downloading the places of France'
 	String get downloading => 'Downloading the places of France';
@@ -2031,6 +2044,33 @@ class Translations$outbox$en {
 	String refused({required Object reason}) => 'Not sent. ${reason}';
 }
 
+// Path: placement
+class Translations$placement$en {
+	Translations$placement$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Place the spot'
+	String get title => 'Place the spot';
+
+	/// en: 'Move the map: the crosshair marks the exact spot.'
+	String get hint => 'Move the map: the crosshair marks the exact spot.';
+
+	/// en: 'Use this spot'
+	String get confirm => 'Use this spot';
+
+	/// en: '“$name” is already $distance away: is it the same spot?'
+	String duplicate({required Object name, required Object distance}) => '“${name}” is already ${distance} away: is it the same spot?';
+
+	/// en: 'Yes, open its page'
+	String get same => 'Yes, open its page';
+
+	/// en: 'No, it is another place'
+	String get notSame => 'No, it is another place';
+}
+
 // Path: contribute
 class Translations$contribute$en {
 	Translations$contribute$en.internal(this._root);
@@ -2123,14 +2163,11 @@ class Translations$contribute$en {
 	/// en: '$kind ($count)'
 	String issueCount({required Object kind, required Object count}) => '${kind} (${count})';
 
-	/// en: 'Add a place'
-	String get addPlace => 'Add a place';
+	/// en: 'Create a place here'
+	String get addPlaceHere => 'Create a place here';
 
-	/// en: 'Add a place here'
-	String get addPlaceHere => 'Add a place here';
-
-	/// en: 'A long press on the map moves the point.'
-	String get addPlaceHint => 'A long press on the map moves the point.';
+	/// en: 'The spot set under the crosshair.'
+	String get addPlaceHint => 'The spot set under the crosshair.';
 }
 
 // Path: confirmSheet
@@ -3242,8 +3279,8 @@ class Translations$navigation$preview$en {
 	/// en: 'To $name'
 	String titleTo({required Object name}) => 'To ${name}';
 
-	/// en: 'To this point'
-	String get titlePoint => 'To this point';
+	/// en: 'Point on the map'
+	String get titlePoint => 'Point on the map';
 
 	/// en: 'Computing a route for your vehicle'
 	String get computing => 'Computing a route for your vehicle';
@@ -3338,17 +3375,17 @@ class Translations$navigation$stops$en {
 	/// en: 'Stops'
 	String get title => 'Stops';
 
-	/// en: 'Add a stop'
-	String get add => 'Add a stop';
+	/// en: 'Add as a stop'
+	String get add => 'Add as a stop';
 
-	/// en: 'Add a stop · +$minutes min'
-	String addCost({required Object minutes}) => 'Add a stop · +${minutes} min';
+	/// en: 'Add as a stop · +$minutes min'
+	String addCost({required Object minutes}) => 'Add as a stop · +${minutes} min';
 
-	/// en: 'Add a stop · no detour'
-	String get addFree => 'Add a stop · no detour';
+	/// en: 'Add as a stop · no detour'
+	String get addFree => 'Add as a stop · no detour';
 
-	/// en: 'Add a stop · working out the detour'
-	String get quoting => 'Add a stop · working out the detour';
+	/// en: 'Add as a stop · working out the detour'
+	String get quoting => 'Add as a stop · working out the detour';
 
 	/// en: 'No route through this point for your vehicle.'
 	String get noRoute => 'No route through this point for your vehicle.';
@@ -3654,8 +3691,8 @@ class Translations$navigation$noRoute$en {
 	/// en: 'Or pick another arrival: long press on the map, then "Go there directly".'
 	String get moveDestination => 'Or pick another arrival: long press on the map, then "Go there directly".';
 
-	/// en: 'For another stop: long press on the map, then "Add a stop".'
-	String get moveStop => 'For another stop: long press on the map, then "Add a stop".';
+	/// en: 'For another stop: tap the map close up, or long press, then "Add as a stop".'
+	String get moveStop => 'For another stop: tap the map close up, or long press, then "Add as a stop".';
 
 	/// en: 'The start is your position: get to a road your vehicle may take, then try again.'
 	String get moveOrigin => 'The start is your position: get to a road your vehicle may take, then try again.';
@@ -5147,8 +5184,12 @@ extension on Translations {
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
 			'map.nearestYouLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place nearest to you', other: 'places nearest to you', ), 
 			'map.nearestCentreLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place nearest the centre', other: 'places nearest the centre', ), 
-			'map.pointTitle' => 'Chosen point',
-			'map.pointHint' => 'Its coordinates and the way there',
+			'map.pointTitle' => 'Here',
+			'map.pointHint' => 'Point on the map',
+			'map.directionsHere' => 'Directions here',
+			'map.copyCoordinates' => 'Copy coordinates',
+			'map.freeTapHint' => 'Tap the map to go there or add a place',
+			'map.freeTapHintClick' => 'Click the map to go there or add a place',
 			'map.downloading' => 'Downloading the places of France',
 			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${count} place received', other: '${count} places received', ), 
 			'map.noData' => 'No places on this device yet',
@@ -5338,7 +5379,7 @@ extension on Translations {
 			'directions.openStreetMap' => 'OpenStreetMap (browser)',
 			'directions.none' => 'No navigation app found on this device.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
-			'navigation.preview.titlePoint' => 'To this point',
+			'navigation.preview.titlePoint' => 'Point on the map',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
 			'navigation.preview.start' => 'Let\'s go!',
 			'navigation.preview.recommended' => 'Recommended',
@@ -5366,10 +5407,10 @@ extension on Translations {
 			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.stops.title' => 'Stops',
-			'navigation.stops.add' => 'Add a stop',
-			'navigation.stops.addCost' => ({required Object minutes}) => 'Add a stop · +${minutes} min',
-			'navigation.stops.addFree' => 'Add a stop · no detour',
-			'navigation.stops.quoting' => 'Add a stop · working out the detour',
+			'navigation.stops.add' => 'Add as a stop',
+			'navigation.stops.addCost' => ({required Object minutes}) => 'Add as a stop · +${minutes} min',
+			'navigation.stops.addFree' => 'Add as a stop · no detour',
+			'navigation.stops.quoting' => 'Add as a stop · working out the detour',
 			'navigation.stops.noRoute' => 'No route through this point for your vehicle.',
 			'navigation.stops.full' => 'Five stops at most.',
 			'navigation.stops.goDirectly' => 'Go there directly',
@@ -5479,7 +5520,7 @@ extension on Translations {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Remove the stop "${name}"',
 			'navigation.noRoute.placesAround' => 'See the places around the destination',
 			'navigation.noRoute.moveDestination' => 'Or pick another arrival: long press on the map, then "Go there directly".',
-			'navigation.noRoute.moveStop' => 'For another stop: long press on the map, then "Add a stop".',
+			'navigation.noRoute.moveStop' => 'For another stop: tap the map close up, or long press, then "Add as a stop".',
 			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
@@ -5549,12 +5590,12 @@ extension on Translations {
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Size limited by roadworks in ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, as of ${time}',
 			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, as of ${day} at ${time}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.avoidedClosures' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Route planned around a closure', other: 'Route planned around ${n} closures', ), 
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
@@ -5935,6 +5976,12 @@ extension on Translations {
 			'outbox.sent' => 'Thank you, it is sent',
 			'outbox.queued' => 'No connection: it will be sent once you are back online',
 			'outbox.refused' => ({required Object reason}) => 'Not sent. ${reason}',
+			'placement.title' => 'Place the spot',
+			'placement.hint' => 'Move the map: the crosshair marks the exact spot.',
+			'placement.confirm' => 'Use this spot',
+			'placement.duplicate' => ({required Object name, required Object distance}) => '“${name}” is already ${distance} away: is it the same spot?',
+			'placement.same' => 'Yes, open its page',
+			'placement.notSame' => 'No, it is another place',
 			'contribute.yourRating' => 'Your rating',
 			'contribute.rateHint' => 'Tap a star to rate',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Rate ${n} star', other: 'Rate ${n} stars', ), 
@@ -5962,9 +6009,8 @@ extension on Translations {
 			'contribute.toVerifyBody' => 'Added by the community, waiting for two confirmations. Know it? Confirm it.',
 			'contribute.issuesTitle' => 'Reports from the last 30 days',
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
-			'contribute.addPlace' => 'Add a place',
-			'contribute.addPlaceHere' => 'Add a place here',
-			'contribute.addPlaceHint' => 'A long press on the map moves the point.',
+			'contribute.addPlaceHere' => 'Create a place here',
+			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
 			'confirmSheet.title' => 'Still there?',
 			'confirmSheet.body' => 'Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.',
 			'confirmSheet.stillOk' => 'Yes, as described',
@@ -6058,6 +6104,8 @@ extension on Translations {
 			'placeForm.priceServices' => 'Price of the services (€)',
 			'placeForm.maxHeight' => 'Maximum height (m)',
 			'placeForm.capacity' => 'Pitches',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.website' => 'Website',
 			'placeForm.phone' => 'Phone',
 			'placeForm.photo' => 'Photo (optional)',
@@ -6067,8 +6115,6 @@ extension on Translations {
 			'placeForm.licence' => 'Places are published under the ODbL, credited to the Lunaway contributors.',
 			'placeForm.moderated' => 'A website or a phone number goes through a moderator before it is published.',
 			'placeForm.direct' => 'Your level applies the change at once.',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.proposal' => 'A moderator will review your suggestion before it applies.',
 			'placeForm.submitAdd' => 'Add the place',
 			'placeForm.submitEdit' => 'Save the change',
