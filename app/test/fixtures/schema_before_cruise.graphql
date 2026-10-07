@@ -141,80 +141,6 @@ type Address {
 }
 
 """
-What an address designates.
-"""
-enum AddressKind {
-	"""
-	A house number on a street.
-	"""
-	HOUSE_NUMBER
-	"""
-	A street, at its middle.
-	"""
-	STREET
-	"""
-	A named place smaller than a town: a hamlet, a "lieu-dit", a
-	district.
-	"""
-	LOCALITY
-	"""
-	A town, a village, a municipality.
-	"""
-	TOWN
-	"""
-	The area of a postcode: `name` is the postcode, `city` its town.
-	"""
-	POSTCODE
-	"""
-	A county, a region, a state, a country.
-	"""
-	REGION
-}
-
-"""
-A postal address, a street, a town or a postcode found by a geocoder.
-"""
-type AddressMatch {
-	"""
-	What it designates.
-	"""
-	kind: AddressKind!
-	"""
-	The first line: the house number and street, the street, or the
-	name of the locality, town or area.
-	"""
-	name: String!
-	"""
-	Its postcode, when known.
-	"""
-	postcode: String
-	"""
-	Its town, when it lies in one (null for a town itself).
-	"""
-	city: String
-	"""
-	The wider area ("77, Seine-et-Marne, Île-de-France").
-	"""
-	context: String
-	"""
-	ISO 3166-1 alpha-2 country code, when known.
-	"""
-	countryCode: String
-	"""
-	Latitude.
-	"""
-	lat: Float!
-	"""
-	Longitude.
-	"""
-	lon: Float!
-	"""
-	Where it comes from, with the attribution to show with it.
-	"""
-	source: Source!
-}
-
-"""
 A value another source gave for a field, different from the one shown.
 """
 type AlternativeValue {
@@ -3420,25 +3346,6 @@ type Query {
 	"""
 	search(text: String!, near: LatLonInput, first: Int = 20): [Place!]!
 	"""
-	The map's search: the places of `search`, ranked as it ranks them,
-	then up to `addresses` postal addresses, streets, towns and
-	postcodes (10 at most): in France from the Base Adresse Nationale
-	(IGN's Géoplateforme, Licence Ouverte 2.0), elsewhere from
-	OpenStreetMap (Lunaway's Photon geocoder, ODbL), each with its
-	source. The addresses come nearest to `near` first, without a town
-	the places already show (a town whose name starts like the text,
-	with a place in it among the results); `near` is rounded by the
-	server to the nearest 0.05 degree (about 5 km) before any use, and
-	it and the text go to the geocoders and are kept nowhere. A text of
-	fewer than 3 letters or digits asks no geocoder. The geocoders are
-	asked by one `searchAll` per request, 300 times every ten minutes
-	per client; beyond, or when one is late or down, the places come
-	with the addresses that did, and `addressesComplete` is false.
-	`language` (`fr`, `en`, `de`, `it`) names the places outside France
-	in it where OpenStreetMap does; otherwise, in their local language.
-	"""
-	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String): SearchAnswer!
-	"""
 	The signed-in account, with its level and what the next one needs.
 	`UNAUTHENTICATED` without a valid session.
 	"""
@@ -3757,13 +3664,6 @@ type RerouteParameters {
 	The language.
 	"""
 	language: RouteLanguage!
-	"""
-	The speed the engine assumed at most, km/h: the lower of
-	`vehicle.cruiseSpeedKph` and the vehicle's legal ceiling on a
-	motorway (110 for a motorhome of 3.5 to 12 t, 90 for a train over
-	3.5 t or a vehicle over 12 t). Null when neither applies.
-	"""
-	topSpeedKph: Int
 	"""
 	The engine's costing options the route was computed with, as JSON:
 	for display and support, not to call the engine directly (it is not
@@ -5141,28 +5041,6 @@ type RoutingInfo {
 }
 
 """
-The map's search: places, then addresses.
-"""
-type SearchAnswer {
-	"""
-	The places, as `search` ranks them.
-	"""
-	places: [Place!]!
-	"""
-	The addresses, nearest to `near` first, without the towns the
-	places already show.
-	"""
-	addresses: [AddressMatch!]!
-	"""
-	False when a geocoder did not answer in time, failed or is paused,
-	when the client's quota of searches with addresses is spent, or for
-	a second `searchAll` in the same request: the addresses may be
-	missing some. Asking again later may give them.
-	"""
-	addressesComplete: Boolean!
-}
-
-"""
 A facility available at or next to a place.
 """
 enum Service {
@@ -5542,10 +5420,6 @@ type VehicleBounds {
 	Trailer mass, tonnes.
 	"""
 	trailerWeightT: Bounds!
-	"""
-	Cruising speed, km/h.
-	"""
-	cruiseSpeedKph: Bounds!
 }
 
 """
@@ -5639,8 +5513,7 @@ type VehiclePreset {
 The vehicle, as on its registration document. The bounds refuse typing
 errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
 mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
-0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
-130 km/h.
+0.5 to 40 t, an axle load of 0.5 to 13 t.
 """
 type VehicleProfile {
 	"""
@@ -5672,22 +5545,13 @@ type VehicleProfile {
 	The trailer, when towing.
 	"""
 	trailer: Trailer
-	"""
-	The highest speed the driver keeps to, km/h, when they set one (many
-	drive a motorhome at 90 to 100 on a motorway open at 130). The
-	travel times and the choice of route assume it wherever the road
-	allows more; it never lifts the vehicle's legal ceiling, and the
-	speed limits of the route stay the road's.
-	"""
-	cruiseSpeedKph: Int
 }
 
 """
 The vehicle, as on its registration document. The bounds refuse typing
 errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
 mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
-0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
-130 km/h.
+0.5 to 40 t, an axle load of 0.5 to 13 t.
 """
 input VehicleProfileInput {
 	"""
@@ -5719,14 +5583,6 @@ input VehicleProfileInput {
 	The trailer, when towing.
 	"""
 	trailer: TrailerInput
-	"""
-	The highest speed the driver keeps to, km/h, when they set one (many
-	drive a motorhome at 90 to 100 on a motorway open at 130). The
-	travel times and the choice of route assume it wherever the road
-	allows more; it never lifts the vehicle's legal ceiling, and the
-	speed limits of the route stay the road's.
-	"""
-	cruiseSpeedKph: Int
 }
 
 """

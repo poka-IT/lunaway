@@ -30,6 +30,15 @@ void main() {
       expect(p.lengthM, closeTo(12.2 - 4.78, 1e-9));
     });
 
+    test('the cruising speed goes with the profile only when the driver set one', () {
+      final usual = checkVehicle(motorhome).profile!;
+      expect(usual.toJson(), isNot(contains('cruiseSpeedKph')));
+      final slow = checkVehicle(motorhome.copyWith(cruiseSpeedKph: () => 95)).profile!;
+      expect(slow.cruiseSpeedKph, 95);
+      expect(slow.toJson()['cruiseSpeedKph'], 95);
+      expect(slow, isNot(usual), reason: 'another speed is another route to ask');
+    });
+
     test('a figure outside what the router accepts is named, not sent', () {
       final c = checkVehicle(motorhome.copyWith(lengthM: () => 18));
       expect(c.ready, isFalse);

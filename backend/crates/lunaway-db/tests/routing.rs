@@ -239,6 +239,7 @@ async fn the_corridor_holds_what_lies_along_the_route_and_the_check_blocks_a_hig
             weight_t: 3.5,
             axle_load_t: None,
             trailer: None,
+            cruise_speed_kph: None,
         })
         .unwrap()
         .routing()

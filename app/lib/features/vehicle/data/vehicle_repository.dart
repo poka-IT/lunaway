@@ -39,6 +39,7 @@ final class DriftVehicleRepository implements VehicleRepository {
           fuel: Value(v.fuel?.wire),
           consumptionL100: Value(v.consumptionL100),
           lpgHeating: Value(v.lpgHeating),
+          cruiseSpeedKph: Value(v.cruiseSpeedKph),
         ),
       );
 
@@ -55,5 +56,6 @@ final class DriftVehicleRepository implements VehicleRepository {
     fuel: FuelType.fromWire(r.fuel),
     consumptionL100: r.consumptionL100,
     lpgHeating: r.lpgHeating,
+    cruiseSpeedKph: r.cruiseSpeedKph,
   );
 }

@@ -1,15 +1,12 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 
-/// The stations along a route, searched by the server (`fuelAlongRoute`):
-/// the detours of the best of them measured by the routing engine.
-final fuelAlongRouteOperation = GraphQLOperation<List<Map<String, dynamic>>>(
-  name: 'FuelAlongRoute',
-  document: r'''
+const _fuelAlongRouteDocument = r'''
 query FuelAlongRoute($input: FuelAlongRouteInput!) {
   fuelAlongRoute(input: $input) {
     stations {
@@ -30,7 +27,16 @@ query FuelAlongRoute($input: FuelAlongRouteInput!) {
     }
   }
 }
-''',
+''';
+
+/// The stations along a route, searched by the server (`fuelAlongRoute`):
+/// the detours of the best of them measured by the routing engine.
+final fuelAlongRouteOperation = GraphQLOperation<List<Map<String, dynamic>>>(
+  name: 'FuelAlongRoute',
+  document: _fuelAlongRouteDocument,
+  // An API before the cruising speed refuses it in the vehicle: the
+  // detours are then timed without it.
+  older: const OlderForm(document: _fuelAlongRouteDocument, variables: withoutCruiseSpeed),
   parse: (data) => [
     for (final s in (data['fuelAlongRoute'] as Map<String, dynamic>)['stations'] as List)
       if (s is Map<String, dynamic>) s,

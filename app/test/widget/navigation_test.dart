@@ -515,6 +515,52 @@ void main() {
       );
       expect(tester.widget<FilledButton>(start).onPressed, isNull, reason: 'the toll route');
     });
+
+    RoutePlan timedAt(int kmh) => routeFixture(
+      'utrillo_motorhome',
+      edit: (answer) {
+        final reroute = answer['reroute'] as Map<String, dynamic>;
+        (reroute['vehicle'] as Map<String, dynamic>)['cruiseSpeedKph'] = kmh;
+        reroute['topSpeedKph'] = kmh;
+      },
+    );
+
+    testWidgets('the cruising speed is told in miles per hour to a driver in miles', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [timedAt(100)],
+        vehicle: motorhome.copyWith(cruiseSpeedKph: () => 100),
+        settings: MemoryRouteSettings(const NavigationSettings(units: DistanceUnits.imperial)),
+      );
+      expect(find.text('Calculé à 62 mph max'), findsOneWidget);
+    });
+
+    testWidgets("the route is asked and told at the driver's cruising speed", (tester) async {
+      final timed = routeFixture(
+        'utrillo_motorhome',
+        edit: (answer) {
+          final reroute = answer['reroute'] as Map<String, dynamic>;
+          (reroute['vehicle'] as Map<String, dynamic>)['cruiseSpeedKph'] = 100;
+          reroute['topSpeedKph'] = 100;
+        },
+      );
+      final (_, routes) = await openPreview(
+        tester,
+        answers: [timed],
+        vehicle: motorhome.copyWith(cruiseSpeedKph: () => 100),
+      );
+      expect(routes.requests.single.vehicle.cruiseSpeedKph, 100);
+      expect(find.text('Calculé à 100 km/h max'), findsOneWidget);
+    });
+
+    testWidgets('without a cruising speed, no speed is told with the times', (tester) async {
+      final (_, routes) = await openPreview(tester);
+      expect(routes.requests.single.vehicle.cruiseSpeedKph, isNull);
+      expect(find.textContaining('km/h max'), findsNothing);
+      expect(find.text('Recommandé'), findsOneWidget);
+    });
   });
 
   group('the guidance', () {

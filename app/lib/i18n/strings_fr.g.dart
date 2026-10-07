@@ -676,6 +676,9 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get consumptionUnit => 'L/100 km';
 	@override String get lpgHeating => 'Chauffage au GPL';
 	@override String get lpgHeatingHint => 'Le prix du GPL s\'affiche aussi sur les stations.';
+	@override String get cruiseTitle => 'Vitesse de croisière max';
+	@override String get cruiseHint => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.';
+	@override String get cruiseNone => 'Pas de limite';
 }
 
 // Path: profile
@@ -1576,6 +1579,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override String get vehicle => 'Votre véhicule';
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, avec attelage';
 	@override String get editVehicle => 'Modifier';
+	@override String cruise({required Object speed}) => 'Calculé à ${speed} max';
 	@override String get avoid => 'Éviter';
 	@override String get avoidTolls => 'Péages';
 	@override String get avoidMotorways => 'Autoroutes';
@@ -2736,6 +2740,7 @@ extension on TranslationsFr {
 			'navigation.preview.vehicle' => 'Votre véhicule',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, avec attelage',
 			'navigation.preview.editVehicle' => 'Modifier',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Calculé à ${speed} max',
 			'navigation.preview.avoid' => 'Éviter',
 			'navigation.preview.avoidTolls' => 'Péages',
 			'navigation.preview.avoidMotorways' => 'Autoroutes',
@@ -2925,9 +2930,9 @@ extension on TranslationsFr {
 			'navigation.guidance.rerouting' => 'Recherche d\'un nouvel itinéraire',
 			'navigation.guidance.rerouted' => 'Nouvel itinéraire',
 			'navigation.guidance.reroutedLonger' => ({required Object minutes}) => 'Nouvel itinéraire, ${minutes} min de plus',
-			'navigation.guidance.rerouteOffline' => 'Pas de réseau pour un nouvel itinéraire : rejoignez le trajet',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.rerouteOffline' => 'Pas de réseau pour un nouvel itinéraire : rejoignez le trajet',
 			'navigation.guidance.rerouteFailed' => 'Aucun nouvel itinéraire : rejoignez le trajet',
 			'navigation.guidance.closureAhead' => ({required Object distance}) => 'Route fermée dans ${distance} : recherche d\'un autre chemin',
 			'navigation.guidance.noDetour' => ({required Object distance}) => 'Route fermée dans ${distance} : aucun autre chemin',
@@ -3067,6 +3072,9 @@ extension on TranslationsFr {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Chauffage au GPL',
 			'vehicle.lpgHeatingHint' => 'Le prix du GPL s\'affiche aussi sur les stations.',
+			'vehicle.cruiseTitle' => 'Vitesse de croisière max',
+			'vehicle.cruiseHint' => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.',
+			'vehicle.cruiseNone' => 'Pas de limite',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.',
 			'profile.language' => 'Langue',
@@ -3436,12 +3444,12 @@ extension on TranslationsFr {
 			'placeForm.name' => 'Nom',
 			'placeForm.nameHint' => 'Le nom affiché sur place, ou une description courte',
 			'placeForm.nameInvalid' => 'De 2 à 120 caractères',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.night' => 'Nuit sur place',
 			'placeForm.services' => 'Services sur place',
 			'placeForm.description' => 'Description',
 			'placeForm.descriptionHint' => 'Ce qui aide à trouver et à choisir le lieu',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.details' => 'Précisions',
 			'placeForm.priceNight' => 'Prix de la nuit (€)',
 			'placeForm.priceServices' => 'Prix des services (€)',

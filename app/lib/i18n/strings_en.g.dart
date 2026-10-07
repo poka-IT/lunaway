@@ -1328,6 +1328,15 @@ class Translations$vehicle$en {
 
 	/// en: 'LPG prices also show on the stations.'
 	String get lpgHeatingHint => 'LPG prices also show on the stations.';
+
+	/// en: 'Top cruising speed'
+	String get cruiseTitle => 'Top cruising speed';
+
+	/// en: 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.'
+	String get cruiseHint => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.';
+
+	/// en: 'No limit'
+	String get cruiseNone => 'No limit';
 }
 
 // Path: profile
@@ -3336,6 +3345,9 @@ class Translations$navigation$preview$en {
 
 	/// en: 'Edit'
 	String get editVehicle => 'Edit';
+
+	/// en: 'Timed at $speed max'
+	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
@@ -5416,6 +5428,7 @@ extension on Translations {
 			'navigation.preview.vehicle' => 'Your vehicle',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -5605,9 +5618,9 @@ extension on Translations {
 			'navigation.guidance.rerouting' => 'Finding a new route',
 			'navigation.guidance.rerouted' => 'New route',
 			'navigation.guidance.reroutedLonger' => ({required Object minutes}) => 'New route, ${minutes} min longer',
-			'navigation.guidance.rerouteOffline' => 'No network for a new route: head back to the route',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.rerouteOffline' => 'No network for a new route: head back to the route',
 			'navigation.guidance.rerouteFailed' => 'No new route found: head back to the route',
 			'navigation.guidance.closureAhead' => ({required Object distance}) => 'Road closed in ${distance}: finding another way',
 			'navigation.guidance.noDetour' => ({required Object distance}) => 'Road closed in ${distance}: no other way',
@@ -5747,6 +5760,9 @@ extension on Translations {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Heating on LPG',
 			'vehicle.lpgHeatingHint' => 'LPG prices also show on the stations.',
+			'vehicle.cruiseTitle' => 'Top cruising speed',
+			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
+			'vehicle.cruiseNone' => 'No limit',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6116,12 +6132,12 @@ extension on Translations {
 			'placeForm.name' => 'Name',
 			'placeForm.nameHint' => 'The name shown on site, or a short description',
 			'placeForm.nameInvalid' => '2 to 120 characters',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.night' => 'Overnight',
 			'placeForm.services' => 'Services on site',
 			'placeForm.description' => 'Description',
 			'placeForm.descriptionHint' => 'What helps to find and choose the place',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.details' => 'Details',
 			'placeForm.priceNight' => 'Price of a night (€)',
 			'placeForm.priceServices' => 'Price of the services (€)',
