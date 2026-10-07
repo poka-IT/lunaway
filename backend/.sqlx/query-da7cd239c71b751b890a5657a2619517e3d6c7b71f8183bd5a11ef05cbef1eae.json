@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_reviews r\n        WHERE r.source_id = $1 AND NOT (r.external_id = ANY($2))\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id\n                AND h.origin = 'reports')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "da7cd239c71b751b890a5657a2619517e3d6c7b71f8183bd5a11ef05cbef1eae"
+}

@@ -185,6 +185,13 @@ pub(crate) async fn run(
                     r.files_removed,
                     r.failures
                 );
+                if r.new_keys > 0 || r.held_new_pairs > 0 || r.struck_keys > 0 {
+                    println!(
+                        "  new author keys: {} let in, {} reviews held for a later run; \
+                         {} strikes for a hidden review",
+                        r.new_keys, r.held_new_pairs, r.struck_keys
+                    );
+                }
                 if !r.skipped.is_empty() {
                     let skipped: Vec<String> =
                         r.skipped.iter().map(|(k, v)| format!("{k} {v}")).collect();
@@ -253,16 +260,20 @@ pub(crate) async fn run(
             author,
             show,
         } => {
-            let item = db::item(pool, id)
+            let kind = match what {
+                HideWhat::Photo => db::ItemKind::Photo,
+                HideWhat::Review => db::ItemKind::Review,
+            };
+            let item = db::item(pool, kind, id)
                 .await?
-                .with_context(|| format!("no photo or review has the id {id}"))?;
-            let hide = match (what, author) {
-                (HideWhat::Review, true) => db::Hide::Author(
+                .with_context(|| format!("no {} has the id {id}", kind.scope()))?;
+            let hide = match (kind, author) {
+                (db::ItemKind::Review, true) => db::Hide::Author(
                     item.author_key
                         .context("this review carries no key to hide its author by")?,
                 ),
-                (HideWhat::Photo, true) => anyhow::bail!("--author is for a review"),
-                (_, false) => db::Hide::Item(item.external_id),
+                (db::ItemKind::Photo, true) => anyhow::bail!("--author is for a review"),
+                (_, false) => db::Hide::Item(kind, item.external_id),
             };
             done(
                 db::set_hidden(pool, &item.source_id, &hide, !show).await?,

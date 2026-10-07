@@ -291,7 +291,7 @@ no-derivatives licence is refused. Research and measurements:
 | Wikidata (no row of its own) | which article and which image an item names | CC0: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero" (https://www.wikidata.org/wiki/Wikidata:Licensing) | none required | read weekly, nothing stored |
 | Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
 | DATAtourisme (`datatourisme`) | the descriptions (long, else short, per language) and the photos of the objects the conflation linked to a place | Licence Ouverte 2.0 (the row above). For photos, the CGU put every published file under it unless its annotation says otherwise: "un producteur de données n'est supposé publier sur DATAtourisme que les liens vers les photos publiables en open data sous licence ouverte", and the reuser must "mentionner, en plus de la source et de la date de MAJ, le crédit photo (propriété HasCredit) à proximité immédiate du visuel et [...] respecter la date de fin de droits quand celle ci est mentionnée" (https://support.datatourisme.fr/t/2341, read 2026-10-07). A photo without a credit, with a licence of its own that is refused (11 644 of 24 377 say `By-NC-ND 4.0`), or whose rights end within 8 days is left out | the office, the update date, the photo's credit and licence, the object's page | ingested weekly, from the records |
-| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, the newest. Anyone can sign a review with a new key, so an operator hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
+| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, chosen by the age of their keys ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
 
 Not used:
 
@@ -313,6 +313,78 @@ Not used:
   (https://wiki.openstreetmap.org/wiki/Key:image).
 - The other Panoramax instances, until their terms are read
   (`content::panoramax::INSTANCES`).
+
+### Mangrove reviews
+
+A Mangrove review is signed with a key its author makes in a second, and
+the date it carries is the author's: neither says whether a real person
+wrote it. Lunaway ranks reviews by what it saw itself, which no author
+sets:
+
+- whether the key has a review shown on the place now;
+- the key's age: `content_review_keys` records, per key (the SHA-256
+  of the key as one line of PEM, the form the API serves), when a review
+  it signed was first kept, on any place. A key absent from it is new,
+  and so is a key one of whose reviews stands hidden by the reports, a
+  moderator or the operator (`content_review_strikes`): a hide names one
+  signature, and the author could sign the same text again under
+  another. The strike lasts as long as the hide: a moderator who keeps
+  the review gives the key its age back. A review the reports hid stays
+  stored, never shown, until the moderator decides, so the moderator
+  finds it even once its author signed it anew; a moderator's or the
+  operator's hide is final, and the review's row goes at the next run.
+  `lunaway content hide --show`, which names a review by its Lunaway id,
+  works only before that run;
+- when Lunaway first read the review (`content_review_sightings`).
+
+A review that would add a key to a place is a new pair, whatever the
+key's age. Each weekly run chooses the reviews of each place
+(`lunaway_domain::content::reviews::pick_reviews`, caps in
+`MANGROVE_CAPS`):
+
+1. hidden reviews and hidden keys take no room (`content_hides`);
+2. one review per key and place, its latest;
+3. the reviews of keys shown on the place first, the oldest key first;
+4. then the new pairs: keys kept before first, the oldest first, then new
+   keys, each group in the order Lunaway first read the reviews; at most
+   2 new pairs per place, 3 new places per key and 50 new pairs per run
+   over every place, 20 of which only new keys may take;
+5. ten reviews per place at most.
+
+The review's date and the number of places a key reviews give no rank:
+whoever makes the keys sets both. Ten fresh keys therefore never push the
+reviews shown off a place: those reviewers keep their slots, and new
+pairs fill only free ones, two per place and fifty in all per week, where
+the reports and the operator's hides reach them. A key that reviews every
+place on the map reaches three more of them a week, aged or not, and its
+reviews wait in the order they were read, behind those read before them.
+The weekly room is shared by the whole map: a thousand reviews of spam
+read before a real one hold that one back about twenty weeks, unless the
+reports or the operator clear them first. Keys aged on purpose take at
+most thirty pairs a week, so first-time reviewers always have twenty. A
+legitimate reviewer of a place that already shows ten reviews waits
+until one goes, and a place gains its first reviews two a week. The keys
+of the reviews already shown when the rule arrived, or stored by a
+release older than it, start known, dated from the last run that fetched
+them (`review_keys`). Each run prints the new keys it let in, the new
+pairs it held for a later run and the strikes it recorded (`lunaway
+content refresh`, "new author keys").
+
+The key's age means something only if a review cannot borrow a key.
+Mangrove's API documentation (https://docs.mangrove.reviews/, read
+2026-10-07) states the signature format without saying the server checks
+it, so the importer checks each review itself: the ES256 signature of
+its token (`jwt`) must verify against the P-256 key its `kid` names, and
+the subject, rating, text, date and metadata are read from that signed
+token, never from the copy the API lays out beside it
+(`content::mangrove`, skip reason `Unverified`). On 2026-10-07 the 968
+reviews of the API's first page all verified; the copies differed from
+the signed tokens only in layout (line breaks of `kid`, an empty image
+label). A key must be an uncompressed point, so one key has one
+identity. Half of those signatures had a high `s`, so both forms are
+accepted: anyone can derive a second valid signature of someone else's
+review, which reaches Lunaway as a new pair, under the caps, of a key
+struck while the first copy stands hidden.
 
 ### Hosts the content worker calls
 
