@@ -276,6 +276,8 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                   ],
                   onChanged: (kmh) =>
                       setState(() => _draft = _draft.copyWith(cruiseSpeedKph: () => kmh)),
+                  mouseCursor: WidgetStateMouseCursor.clickable,
+                  dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
                 ),
                 const SizedBox(height: Space.xl),
                 Text(t.vehicle.fuelTitle, style: theme.textTheme.titleLarge),
