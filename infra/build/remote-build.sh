@@ -60,12 +60,14 @@ remote_build() {
       echo "  ed25519_public: $(cat "$SCRATCH/builder_host_ed25519.pub")"
     } >"$SCRATCH/builder-user-data.yaml"
   )
+  # Expanded as ${family[@]+...}: the bash of macOS (3.2) takes an empty
+  # array for an unset variable under `set -u`.
   local -a family=()
   [ "${LUNAWAY_BUILDER_IPV6:-0}" = 1 ] && family=(--without-ipv4)
   local type="${LUNAWAY_BUILDER_TYPE:-cx33}"
   log "creating the builder $BUILDER_NAME ($type, fsn1${family[*]:+, IPv6 only})"
   hcloud server create --name "$BUILDER_NAME" --type "$type" --location fsn1 --image debian-13 \
-    --ssh-key "$LUNAWAY_SSH_KEY_NAME" --firewall lunaway-backend-fw "${family[@]}" \
+    --ssh-key "$LUNAWAY_SSH_KEY_NAME" --firewall lunaway-backend-fw ${family[@]+"${family[@]}"} \
     --user-data-from-file "$SCRATCH/builder-user-data.yaml" \
     --label project=lunaway --label managed-by=claude --label purpose=build >/dev/null
   rm -f "$SCRATCH/builder_host_ed25519" "$SCRATCH/builder-user-data.yaml"
