@@ -895,7 +895,8 @@
     "attributionPoiOdbl": "Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.",
     "attributionPoiLo": "Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).",
-    "attributionOfflineLabels": "Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT)."
+    "attributionOfflineLabels": "Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).",
+    "attributionExtcom": "Places, reviews, ratings and photos, under a written agreement with this source."
   },
   "units": {
     "kilobytes": "$n KB",

@@ -480,5 +480,21 @@ void main() {
       expect(find.textContaining('styles derived from Protomaps'), findsOneWidget);
       expect(find.textContaining('OpenFreeMap'), findsNothing);
     });
+
+    for (final (locale, tab, label) in [
+      (AppLocale.fr, 'Profil', 'Source communautaire externe'),
+      (AppLocale.en, 'Profile', 'External community source'),
+    ]) {
+      testWidgets('the attributions credit the external community source by its agreed wording '
+          '(${locale.languageCode})', (tester) async {
+        final app = await pumpLunaway(tester, size: const Size(1280, 3200), locale: locale);
+        await openTab(tester, tab);
+        expect(find.text(label), findsOneWidget);
+        // No link: an address would name the partner.
+        await tester.tap(find.text(label));
+        await settleShort(tester);
+        expect(app.external.opened, isEmpty);
+      });
+    }
   });
 }

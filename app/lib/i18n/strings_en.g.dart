@@ -1486,6 +1486,9 @@ class Translations$profile$en {
 
 	/// en: 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).'
 	String get attributionOfflineLabels => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).';
+
+	/// en: 'Places, reviews, ratings and photos, under a written agreement with this source.'
+	String get attributionExtcom => 'Places, reviews, ratings and photos, under a written agreement with this source.';
 }
 
 // Path: units
@@ -5962,6 +5965,7 @@ extension on Translations {
 			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
 			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
+			'profile.attributionExtcom' => 'Places, reviews, ratings and photos, under a written agreement with this source.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -6259,9 +6263,9 @@ extension on Translations {
 			'reviewSheet.titleEdit' => 'Edit your review',
 			'reviewSheet.starsRequired' => 'Choose a rating from 1 to 5',
 			'reviewSheet.text' => 'Your review',
-			'reviewSheet.textHint' => 'The quiet, the welcome, the room to manoeuvre, what was useful',
 			_ => null,
 		} ?? switch (path) {
+			'reviewSheet.textHint' => 'The quiet, the welcome, the room to manoeuvre, what was useful',
 			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'At least ${n} more character', other: 'At least ${n} more characters', ), 
 			'reviewSheet.visited' => 'Date of the stay',
 			'reviewSheet.visitedNone' => 'Not given',

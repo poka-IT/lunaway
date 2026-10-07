@@ -895,7 +895,8 @@
     "attributionPoiOdbl": "Commerces et services : OpenStreetMap, et le calendrier d'ouverture de La Poste, sous ODbL.",
     "attributionPoiLo": "Prix des carburants (ministère de l'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).",
-    "attributionOfflineLabels": "Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT)."
+    "attributionOfflineLabels": "Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).",
+    "attributionExtcom": "Lieux, avis, notes et photos, sous accord écrit avec cette source."
   },
   "units": {
     "kilobytes": "$n ko",
