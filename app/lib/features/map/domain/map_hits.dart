@@ -116,6 +116,9 @@ final class HitShape {
     required this.radius,
     required this.priority,
     this.lift = const FixedHit(0),
+    this.anchor,
+    this.icon,
+    this.hoverState,
     this.needs,
     this.inert = false,
     this.line = false,
@@ -123,6 +126,24 @@ final class HitShape {
 
   final HitValue radius;
   final HitValue lift;
+
+  /// The disc drawn at the feature's point itself, when its head stands
+  /// above it: the dot under a place's pin, drawn by another layer from the
+  /// same feature. It belongs to the same target, so a pointer on the
+  /// place's exact point picks the pin as one on its head does, and the
+  /// hover's ring goes around it. Null for a shape centred on its point,
+  /// whose ring goes around [radius].
+  final HitValue? anchor;
+
+  /// The icon size the layer draws the feature at: under the mouse, the
+  /// hover grows a copy of its image from it (a pin). Null for what does
+  /// not grow (a dot, a cluster, a badge whose text the copy would hide).
+  final HitValue? icon;
+
+  /// The property a feature must carry for the hover to tell it, through
+  /// the feature state `hover`, that the mouse is on it: its layers then
+  /// give way to the hover's ring (a route mark's lit ring).
+  final String? hoverState;
 
   /// Breaks a tie (two shapes under the pointer): the lower wins. What is
   /// drawn on top and what matters more come first.
@@ -144,6 +165,9 @@ final class HitShape {
     'r': radius.toJson(),
     'y': lift.toJson(),
     'p': priority,
+    if (anchor != null) 'a': anchor!.toJson(),
+    if (icon != null) 'icon': icon!.toJson(),
+    if (hoverState != null) 'state': hoverState,
     if (needs != null) 'needs': needs,
     if (inert) 'inert': true,
     if (line) 'line': true,
@@ -222,10 +246,12 @@ MapHit? nearestHit(
       if (c.points.isEmpty) continue;
       final radius = shape.radius.at(zoom, c.properties);
       final lift = shape.lift.at(zoom, c.properties);
+      final anchor = shape.anchor?.at(zoom, c.properties);
       distance = double.infinity;
       for (var j = 0; j < c.points.length; j++) {
         final p = c.points[j];
-        final d = math.max<double>(0, (at - Offset(p.dx, p.dy - lift)).distance - radius);
+        var d = _outside(at, Offset(p.dx, p.dy - lift), radius);
+        if (anchor != null) d = math.min(d, _outside(at, p, anchor));
         if (d < distance) {
           distance = d;
           point = j;
@@ -246,6 +272,11 @@ MapHit? nearestHit(
 }
 
 const _epsilon = 1e-6;
+
+/// How far [at] lies outside the disc of [radius] around [centre]; zero
+/// inside.
+double _outside(Offset at, Offset centre, double radius) =>
+    math.max<double>(0, (at - centre).distance - radius);
 
 /// The points of a GeoJSON geometry as `[lon, lat]`: one for a Point, each
 /// of a MultiPoint, none for anything else.

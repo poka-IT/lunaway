@@ -1371,7 +1371,11 @@ void main() {
       expect(inTip('Pont bas 2,70 m'), findsOneWidget);
       expect(inTip('à 50 m du départ'), findsOneWidget);
       expect(inTip('OpenStreetMap'), findsOneWidget);
-      expect(SchematicRouteMap.last!.highlighted, {bridge});
+      expect(
+        SchematicRouteMap.last!.highlighted,
+        isEmpty,
+        reason: 'the map draws its own hover ring on the mark; a lit ring would be a second',
+      );
       await tester.pump(Motion.short);
       expect(rowTint(tester), lit(tester));
       SchematicRouteMap.last!.onMarkHover!(null);

@@ -227,6 +227,38 @@ void main() {
       expect(RouteBadge.all, contains(RouteBadge.cluster(MarkTone.alert)));
     });
 
+    test('a lit mark under the mouse wears the hover ring alone', () {
+      // The subset of the style's expressions the halo's opacity uses,
+      // evaluated as MapLibre does for a feature in [state].
+      Object? eval(Object? e, Map<String, bool> state) {
+        if (e is! List) return e;
+        switch (e.first) {
+          case 'case':
+            for (var i = 1; i + 1 < e.length; i += 2) {
+              if (eval(e[i], state) == true) return eval(e[i + 1], state);
+            }
+            return eval(e.last, state);
+          case 'boolean':
+            final v = eval(e[1], state);
+            return v is bool ? v : e[2];
+          case 'feature-state':
+            return state[e[1]];
+        }
+        throw UnsupportedError('$e');
+      }
+
+      double opacity(Map<String, bool> state) =>
+          (eval(RouteMarkStyle.haloOpacity, state)! as num).toDouble();
+      expect(opacity(const {}), 0);
+      expect(opacity(const {'lit': true}), 1, reason: 'lit by its row, or chosen');
+      expect(
+        opacity(const {'lit': true, 'hover': true}),
+        0,
+        reason: 'the hover ring stands for it',
+      );
+      expect(opacity(const {'hover': true}), 0);
+    });
+
     test('a feature id names its mark, never a group of the same source', () {
       expect(routeMarkIndex(routeMarkFeatureId(7)), 7);
       expect(routeMarkIndex('${routeMarkFeatureId(3)}'), 3);

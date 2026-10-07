@@ -86,7 +86,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
 
   void _onHover(RouteMapHover? hover) {
     setState(() => _tip = hover);
-    _focus.hover({?hover?.mark});
+    _focus.hover({?hover?.mark}, onMap: true);
   }
 
   void _onTap(String id, {Offset? at}) {
@@ -132,7 +132,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       padding: b.padding,
       vehicle: b.vehicle,
       marks: [for (final m in widget.markers) m.mark],
-      highlighted: focus.lit,
+      highlighted: focus.litOnMap,
       focus: flown == null || flown.isEmpty
           ? null
           : RouteMapFocus(

@@ -12,6 +12,7 @@ part 'route_mark_focus.g.dart';
 final class MarkFocus {
   const new({
     this.hovered = const {},
+    this.onMap = false,
     this.selected,
     this.flight,
     this.flightSerial = 0,
@@ -21,6 +22,9 @@ final class MarkFocus {
 
   /// The marks under the pointer, on the map or through a row.
   final Set<String> hovered;
+
+  /// [hovered] is a mark under the mouse on the map rather than a row.
+  final bool onMap;
 
   /// The mark last clicked or tapped.
   final String? selected;
@@ -34,13 +38,20 @@ final class MarkFocus {
   final String? reveal;
   final int revealSerial;
 
-  /// The marks drawn lit.
+  /// The marks whose rows are drawn lit.
   Set<String> get lit => {...hovered, ?selected};
+
+  /// The marks the map draws lit. One under the mouse already wears the
+  /// hover's ring, which the map draws itself and takes away the moment the
+  /// mouse leaves; lit as well, its lit ring would show beside it and stay
+  /// a frame after.
+  Set<String> get litOnMap => onMap ? {?selected} : lit;
 
   @override
   bool operator ==(Object other) =>
       other is MarkFocus &&
       setEquals(other.hovered, hovered) &&
+      other.onMap == onMap &&
       other.selected == selected &&
       listEquals(other.flight, flight) &&
       other.flightSerial == flightSerial &&
@@ -50,6 +61,7 @@ final class MarkFocus {
   @override
   int get hashCode => Object.hash(
     Object.hashAllUnordered(hovered),
+    onMap,
     selected,
     flight == null ? null : Object.hashAll(flight!),
     flightSerial,
@@ -64,17 +76,17 @@ class RouteMarkFocus extends _$RouteMarkFocus {
   @override
   MarkFocus build(RouteTarget target) => const MarkFocus();
 
-  /// The pointer came over [ids] (a mark, or the row of several), or left
-  /// them (empty).
-  void hover(Set<String> ids) {
-    if (setEquals(ids, state.hovered)) return;
-    state = _copy(hovered: ids);
+  /// The pointer came over [ids] (a mark on the map when [onMap], or the
+  /// row of several), or left them (empty).
+  void hover(Set<String> ids, {bool onMap = false}) {
+    if (setEquals(ids, state.hovered) && onMap == state.onMap) return;
+    state = _copy(hovered: ids, onMap: onMap);
   }
 
   /// The pointer left [ids]; another hover that came since stays.
   void leave(Set<String> ids) {
     if (!setEquals(ids, state.hovered)) return;
-    state = _copy(hovered: const {});
+    state = _copy(hovered: const {}, onMap: false);
   }
 
   /// A mark was clicked or tapped; null clears the choice.
@@ -100,6 +112,7 @@ class RouteMarkFocus extends _$RouteMarkFocus {
 
   MarkFocus _copy({
     Set<String>? hovered,
+    bool? onMap,
     String? selected,
     bool clearSelected = false,
     List<String>? flight,
@@ -108,6 +121,7 @@ class RouteMarkFocus extends _$RouteMarkFocus {
     int? revealSerial,
   }) => MarkFocus(
     hovered: hovered ?? state.hovered,
+    onMap: onMap ?? state.onMap,
     selected: clearSelected ? null : selected ?? state.selected,
     flight: flight ?? state.flight,
     flightSerial: flightSerial ?? state.flightSerial,

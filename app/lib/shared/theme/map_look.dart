@@ -146,6 +146,15 @@ abstract final class MapLook {
       _hex((dark ? Palette.minuit : Palette.creme).toARGB32());
   static const double dotOpacity = 0.95;
 
+  /// The mouse over a place, on the maps that have one (the browser, the
+  /// desktop): a ring of the selection's amber around the place's own
+  /// point, [hoverRingGap] clear of the dot or disc it circles, and its pin
+  /// grown by [hoverGrow]. The same look whatever part of the place the
+  /// mouse is on (`lunawayHits.hover` in `web/lunaway_maplibre.js`).
+  static const double hoverRingWidth = 2.5;
+  static const double hoverRingGap = 2.5;
+  static const double hoverGrow = 1.12;
+
   /// Slightly smaller pins when zoomed out, full size from zoom 12. [scale]
   /// converts the pin images to the engine's unit: 1 / ratio where an image
   /// pixel is a logical pixel (the web), device pixel ratio / ratio on

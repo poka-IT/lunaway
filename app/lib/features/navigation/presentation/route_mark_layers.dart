@@ -142,9 +142,17 @@ abstract final class RouteMarkStyle {
     0,
   ];
 
-  /// The lit ring, on through the feature state.
+  /// The lit ring, on through the feature state `lit`. Under the mouse
+  /// (`hover`, which the page's hover sets in the browser and on the
+  /// desktop) the hover's own ring stands for it: a mark never wears two.
   static const List<Object> haloOpacity = [
     'case',
+    [
+      'boolean',
+      ['feature-state', 'hover'],
+      false,
+    ],
+    0,
     [
       'boolean',
       ['feature-state', 'lit'],

@@ -9,6 +9,7 @@ import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/theme/map_look.dart';
 
 /// The pages that pick features themselves, each with the same block.
 const _pages = ['web/lunaway_maplibre.js', 'assets/map/lunaway_map.js'];
@@ -88,6 +89,49 @@ final List<_Case> _cases = [
       _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
     ],
     expected: (1, 0),
+  ),
+  (
+    name: "on a place's exact point, its pin is picked as on its head, not the dot under it",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinDotsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'just under the point, out of the dot, still the pin',
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinDotsLayer, [_here - const Offset(0, 9)], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinsLayer, [_here - const Offset(0, 9)], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "another place's dot under the pointer beats a pin whose tip is near",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(9, 0)], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinDotsLayer, [_here], {'kind': 'campsite', 'id': 'b'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "a point of interest's pin is in reach just under its point",
+    at: _here,
+    zoom: 15,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here - const Offset(0, 10)], {'kind': 'bakery', 'id': 'p'}),
+    ],
+    expected: (0, 0),
   ),
   (
     name: 'under two shapes, the selected pin wins over the pin it covers',
@@ -405,6 +449,161 @@ process.stdout.write(JSON.stringify(out));
         final e = _cases[i].expected;
         expect(decided[i], e == null ? null : [e.$1, e.$2], reason: _cases[i].name);
       }
+    }, skip: node ? false : 'needs node on the PATH (the CI has it)');
+
+    group('shows one look per place under the mouse', () {
+      // A place of the tiles at zoom 13, its point on screen at _here: the
+      // pin and the dot under its tip are the same feature of the same
+      // source, drawn by two layers.
+      const zoom = 13.0;
+      const place = {'kind': 'parking', 'night': 'allowed', 'id': 'a'};
+      Map<String, Object?> tileFeature(String layer) => {
+        'source': PlaceTiles.source,
+        'sourceLayer': PlaceTiles.pinsSourceLayer,
+        'layer': {
+          'id': layer,
+          'layout': {
+            if (layer == PlaceTiles.pinsLayer) 'icon-image': {'name': 'pin-parking-allowed'},
+          },
+        },
+      };
+      Map<String, Object?> candidate(
+        String layer,
+        Map<String, Object?> properties,
+        Map<String, Object?> feature, {
+        Offset at = _here,
+      }) => {
+        'layer': layer,
+        'properties': properties,
+        'points': [
+          [at.dx, at.dy],
+        ],
+        'coordinates': [
+          [1.5, 43.5],
+        ],
+        'feature': feature,
+      };
+      final pinAndDot = [
+        candidate(PlaceTiles.pinsLayer, place, tileFeature(PlaceTiles.pinsLayer)),
+        candidate(PlaceTiles.pinDotsLayer, place, tileFeature(PlaceTiles.pinDotsLayer)),
+      ];
+      final head = _here - Offset(0, mapHitShapes[PlaceTiles.pinsLayer]!.lift.at(zoom, place));
+      final dotRing =
+          mapHitShapes[PlaceTiles.pinDotsLayer]!.radius.at(zoom, place) + MapLook.hoverRingGap;
+
+      /// What the page's hover shows with the mouse at each point of [at]
+      /// over [candidates], as `lunawayHits.look` describes it.
+      Future<List<Map<String, Object?>?>> looks(
+        List<Offset> at,
+        List<Map<String, Object?>> candidates,
+      ) async {
+        final block = _block.firstMatch(File(_pages.first).readAsStringSync())!.group(0)!;
+        const script = r'''
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const hits = new Function(input.block + '\nreturn lunawayHits;')();
+const out = input.at.map((at) => {
+  const h = hits.nearest(at, input.candidates, input.zoom, input.tolerance);
+  if (!h) return null;
+  const c = input.candidates[h.index];
+  return hits.look({
+    layer: c.layer,
+    properties: c.properties,
+    point: c.points[h.pointIndex],
+    coordinates: c.coordinates[h.pointIndex],
+    shape: hits.shapeOf(c.layer, c.properties),
+    zoom: input.zoom,
+    inert: h.inert,
+    feature: c.feature
+  });
+});
+process.stdout.write(JSON.stringify(out));
+''';
+        final process = await Process.start('node', ['-e', script]);
+        process.stdin.write(
+          jsonEncode({
+            'block': block,
+            'zoom': zoom,
+            'tolerance': _mouse,
+            'candidates': candidates,
+            'at': [
+              for (final p in at) [p.dx, p.dy],
+            ],
+          }),
+        );
+        await process.stdin.close();
+        final output = await process.stdout.transform(utf8.decoder).join();
+        final errors = await process.stderr.transform(utf8.decoder).join();
+        expect(await process.exitCode, 0, reason: errors);
+        return [
+          for (final l in jsonDecode(output) as List<Object?>) (l as Map?)?.cast<String, Object?>(),
+        ];
+      }
+
+      test('the pin from its head and from its exact point: one ring around the point, the '
+          'pin grown', () async {
+        final [fromHead, fromPoint, fromBelow] = await looks([
+          head,
+          _here,
+          _here + const Offset(0, 8),
+        ], pinAndDot);
+        expect(fromHead, isNotNull);
+        expect(fromPoint, fromHead);
+        expect(fromBelow, fromHead);
+        expect([fromHead!['x'], fromHead['y']], [_here.dx, _here.dy], reason: 'on the point');
+        expect(fromHead['ring']! as num, closeTo(dotRing, 1e-9));
+        expect(fromHead['pin'], {
+          'image': 'pin-parking-allowed',
+          // Full size from zoom 12 (MapLook.pinSize).
+          'size': 1,
+          'opacity': 1,
+        });
+      });
+
+      test('a dot whose pin found no room: the same ring, nothing grows', () async {
+        final [look] = await looks([_here], [pinAndDot.last]);
+        final [pinLook] = await looks([_here], pinAndDot);
+        expect(look!['key'], isNot(pinLook!['key']), reason: 'a pin drawn later shows anew');
+        expect(
+          [look['x'], look['y'], look['ring'], look['pin']],
+          [pinLook['x'], pinLook['y'], pinLook['ring'], null],
+        );
+      });
+
+      test("a cluster's ring goes around its disc", () async {
+        const props = {'point_count': 50, 'cluster_id': 7};
+        final [look] = await looks(
+          [_here],
+          [
+            candidate(MapStyle.clustersLayer, props, {'source': MapStyle.placesSource, 'id': 7}),
+          ],
+        );
+        final r = mapHitShapes[MapStyle.clustersLayer]!.radius.at(zoom, props);
+        expect(look!['ring']! as num, closeTo(r + MapLook.hoverRingGap, 1e-9));
+        expect(look['pin'], isNull);
+      });
+
+      test('a route mark is told the mouse is on it, a group is not', () async {
+        final layer = RouteLayers.badgesOf(RouteLayers.marksSource);
+        final [mark, group] = await looks(
+          [_here, _here + const Offset(200, 0)],
+          [
+            candidate(
+              layer,
+              {'mark': 'event:0:1', 'kind': 'works', 'size': 1},
+              {'source': RouteLayers.marksSource, 'id': 1000000003},
+            ),
+            candidate(
+              layer,
+              {'point_count': 3, 'cluster_id': 9, 'size': 1},
+              {'source': RouteLayers.marksSource, 'id': 9},
+              at: _here + const Offset(200, 0),
+            ),
+          ],
+        );
+        expect(mark!['state'], {'source': RouteLayers.marksSource, 'id': 1000000003});
+        expect(mark['ring']! as num, closeTo(15.5 + MapLook.hoverRingGap, 1e-9));
+        expect(group!['state'], isNull);
+      });
     }, skip: node ? false : 'needs node on the PATH (the CI has it)');
   });
 }
