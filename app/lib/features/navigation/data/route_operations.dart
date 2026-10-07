@@ -68,15 +68,32 @@ fragment RoutingGraphFields on RoutingGraph {
 }
 ''';
 
+const _ferryFields = '''
+fragment FerryCrossingFields on FerryCrossing {
+  name
+  ports
+  fromLat
+  fromLon
+  toLat
+  toLon
+  fromCountry
+  toCountry
+  distanceFromStartM
+  distanceM
+  durationS
+}
+''';
+
 /// The route request, with the limits for the vehicle along each route when
-/// [speedLimits]: an API without them refuses the field, and gets the
-/// request without it.
-String _routeDocument({required bool speedLimits}) =>
+/// [speedLimits], and why there is no route and the ferry crossings when
+/// [reasons]: an API without them refuses the fields, and gets the request
+/// without them.
+String _routeDocument({required bool speedLimits, required bool reasons}) =>
     '''
 query Route(\$input: RouteInput!) {
   route(input: \$input) {
     status
-    osrmJson
+    osrmJson${reasons ? _reasonsSelection : ''}
     routes {
       index
       distanceM
@@ -85,7 +102,7 @@ query Route(\$input: RouteInput!) {
       hasFerry
       hasMotorway
       warnings { ...RouteWarningFields }
-      roadEvents { ...RoadEventWarningFields }${speedLimits ? '\n      speedLimits { fromM toM kmh source }' : ''}
+      roadEvents { ...RoadEventWarningFields }${speedLimits ? '\n      speedLimits { fromM toM kmh source }' : ''}${reasons ? '\n      notices { kind ferry { ...FerryCrossingFields } }' : ''}
     }
     blockers { ...RouteWarningFields }
     roadEventBlockers { ...RoadEventWarningFields }
@@ -103,14 +120,27 @@ query Route(\$input: RouteInput!) {
 }
 $_warningFields
 $_roadEventFields
-$_graphFields''';
+$_graphFields${reasons ? _ferryFields : ''}''';
+
+const _reasonsSelection = '''
+
+    noRouteReasons {
+      kind
+      stopIndex
+      limits { kind limit vehicleValue restriction { ...RouteWarningFields } }
+    }''';
 
 /// A route for the user's vehicle. One `route` per request: the API refuses
 /// two.
 final routeOperation = GraphQLOperation<RoutePlan>(
   name: 'Route',
-  document: _routeDocument(speedLimits: true),
-  older: OlderForm.selecting(_routeDocument(speedLimits: false)),
+  document: _routeDocument(speedLimits: true, reasons: true),
+  // The API before the reasons and the crossings (2026-10-07), then the
+  // one before the speed limits.
+  older: OlderForm.selecting(
+    _routeDocument(speedLimits: true, reasons: false),
+    older: OlderForm.selecting(_routeDocument(speedLimits: false, reasons: false)),
+  ),
   parse: (data) => routePlanFromJson(data['route'] as Map<String, dynamic>),
 );
 
@@ -143,16 +173,16 @@ Map<String, Object?> routeVariables({
   },
 };
 
-/// Whether routing works now and on which data.
-final routingInfoOperation = GraphQLOperation<RoutingInfo>(
-  name: 'Routing',
-  document: '''
+/// The routing information; with the countries and the longest trip when
+/// [countries], which an API before 2026-10-07 does not know.
+String _routingDocument({required bool countries}) =>
+    '''
 query Routing {
   routing {
     available
     graph { ...RoutingGraphFields }
     disclaimerKey
-    coveredArea { south west north east }
+    coveredArea { south west north east }${countries ? '\n    coveredCountries\n    roadEventReportCountries\n    maxTripKm' : ''}
     maxAlternatives
     vehicleBounds {
       heightM { min max }
@@ -162,7 +192,13 @@ query Routing {
     }
   }
 }
-$_graphFields''',
+$_graphFields''';
+
+/// Whether routing works now and on which data.
+final routingInfoOperation = GraphQLOperation<RoutingInfo>(
+  name: 'Routing',
+  document: _routingDocument(countries: true),
+  older: OlderForm.selecting(_routingDocument(countries: false)),
   parse: (data) => routingInfoFromJson(data['routing'] as Map<String, dynamic>),
 );
 
@@ -175,6 +211,9 @@ final class RoutingInfo {
     required this.maxAlternatives,
     required this.bounds,
     this.graph,
+    this.coveredCountries = const [],
+    this.roadEventReportCountries = const [],
+    this.maxTripKm,
   });
 
   final bool available;
@@ -183,6 +222,17 @@ final class RoutingInfo {
   final GeoBounds coveredArea;
   final int maxAlternatives;
   final VehicleBounds bounds;
+
+  /// The countries routes are computed in (ISO 3166-1 alpha-2); empty from
+  /// an API that does not tell them, which then decides alone.
+  final List<String> coveredCountries;
+
+  /// The countries where a road event may be reported; empty when unknown.
+  final List<String> roadEventReportCountries;
+
+  /// The longest trip accepted, kilometres in a straight line from stop to
+  /// stop; null when unknown.
+  final double? maxTripKm;
 }
 
 RoutingInfo routingInfoFromJson(Map<String, dynamic> json) {
@@ -204,6 +254,9 @@ RoutingInfo routingInfoFromJson(Map<String, dynamic> json) {
       east: (area['east'] as num).toDouble(),
     ),
     maxAlternatives: (json['maxAlternatives'] as num).toInt(),
+    coveredCountries: _codes(json['coveredCountries']),
+    roadEventReportCountries: _codes(json['roadEventReportCountries']),
+    maxTripKm: (json['maxTripKm'] as num?)?.toDouble(),
     bounds: VehicleBounds(
       height: range('heightM'),
       width: range('widthM'),
@@ -242,7 +295,13 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
             warnings: _warnings(r['warnings']),
             speedLimits: _speedLimits(r['speedLimits']),
             roadEvents: _roadEvents(r['roadEvents']),
+            ferries: _ferries(r['notices']),
           ),
+    ],
+    noRouteReasons: [
+      if (json['noRouteReasons'] case final List<dynamic> list)
+        for (final n in list)
+          if (n is Map<String, dynamic>) ?_noRouteReason(n),
     ],
     blockers: _warnings(json['blockers']),
     roadEventBlockers: _roadEvents(json['roadEventBlockers']),
@@ -280,6 +339,12 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
     disclaimerKey: json['disclaimerKey'] as String,
   );
 }
+
+List<String> _codes(Object? list) => [
+  if (list is List)
+    for (final c in list)
+      if (c is String) c,
+];
 
 RoutingGraphInfo _graph(Map<String, dynamic> g) => RoutingGraphInfo(
   id: g['id'] as String,
@@ -371,6 +436,62 @@ RouteRoadEvent? _roadEvent(Map<String, dynamic> w) {
     lengthM: (w['lengthM'] as num?)?.toDouble() ?? 0,
     position: LatLng(lat.toDouble(), lon.toDouble()),
     dataAt: dataAt is String ? DateTime.tryParse(dataAt) : null,
+  );
+}
+
+/// A reason of a kind this app does not know (a newer server) is left
+/// out; the screen then says what it says without reasons. A trip too long
+/// is the app's own reason, with figures the server does not send: from
+/// the server it would read as one without them.
+NoRouteReason? _noRouteReason(Map<String, dynamic> n) {
+  final kind = _enum(NoRouteReasonKind.values, n['kind']);
+  if (kind == null || kind == NoRouteReasonKind.tripTooLong) return null;
+  return NoRouteReason(
+    kind: kind,
+    stopIndex: (n['stopIndex'] as num?)?.toInt(),
+    limits: [
+      if (n['limits'] case final List<dynamic> list)
+        for (final l in list)
+          if (l is Map<String, dynamic>)
+            if (_enum(VehicleLimitKind.values, l['kind']) case final limitKind?)
+              BlockingLimit(
+                kind: limitKind,
+                limit: (l['limit'] as num?)?.toDouble(),
+                vehicleValue: (l['vehicleValue'] as num?)?.toDouble(),
+                restriction: l['restriction'] is Map<String, dynamic>
+                    ? _warning(l['restriction'] as Map<String, dynamic>)
+                    : null,
+              ),
+    ],
+  );
+}
+
+/// The crossings among a route's notices; a notice of a kind this app
+/// does not know is left out.
+List<FerryCrossing> _ferries(Object? notices) => [
+  if (notices is List)
+    for (final n in notices)
+      if (n is Map<String, dynamic> && n['kind'] == 'ROUTE_USES_FERRY')
+        if (n['ferry'] case final Map<String, dynamic> f) _ferry(f),
+];
+
+FerryCrossing _ferry(Map<String, dynamic> f) {
+  LatLng? at(Object? lat, Object? lon) =>
+      lat is num && lon is num ? LatLng(lat.toDouble(), lon.toDouble()) : null;
+  return FerryCrossing(
+    name: f['name'] as String?,
+    ports: [
+      if (f['ports'] case final List<dynamic> ports)
+        for (final p in ports)
+          if (p is String) p,
+    ],
+    from: at(f['fromLat'], f['fromLon']),
+    to: at(f['toLat'], f['toLon']),
+    fromCountry: f['fromCountry'] as String?,
+    toCountry: f['toCountry'] as String?,
+    distanceFromStartM: (f['distanceFromStartM'] as num?)?.toDouble() ?? 0,
+    distanceM: (f['distanceM'] as num?)?.toDouble() ?? 0,
+    durationS: (f['durationS'] as num?)?.toDouble() ?? 0,
   );
 }
 

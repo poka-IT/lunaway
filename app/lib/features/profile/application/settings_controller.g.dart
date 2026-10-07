@@ -48,7 +48,8 @@ final class SettingsRepositoryProvider
   }
 }
 
-String _$settingsRepositoryHash() => r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
+String _$settingsRepositoryHash() =>
+    r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
 
 /// The settings as read before the first frame, overridden in `main`, so the
 /// app never flashes a default language, theme or filter.
@@ -140,7 +141,7 @@ final class SettingsProvider extends $NotifierProvider<Settings, AppSettings> {
   }
 }
 
-String _$settingsHash() => r'3bfd3482e311ff4e19dfe84d400fc38fb43d983a';
+String _$settingsHash() => r'45bb3844930d5265a43fb1c3783fab97a6c3ae36';
 
 /// The user's settings: the state changes at once, the write follows.
 // keepAlive: the settings shape every screen for the whole run.
@@ -172,7 +173,8 @@ final placeFilterProvider = PlaceFilterProvider._();
 /// The user's place filter, a slice of the settings. Screens query with
 /// `effectiveFilterProvider`, which adds the vehicle's size.
 
-final class PlaceFilterProvider extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
+final class PlaceFilterProvider
+    extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
     with $Provider<PlaceFilter> {
   /// The user's place filter, a slice of the settings. Screens query with
   /// `effectiveFilterProvider`, which adds the vehicle's size.

@@ -49,8 +49,9 @@ const MAX_INPUT_POINTS: usize = 1_000;
 /// deltas hold fewer.
 const MAX_LINE_POINTS: usize = 20_000;
 /// Longest route, kilometres: the longest trip a route is given for
-/// (`routing_query::MAX_TRIP_M`, 4 500 km in a straight line) runs to about
-/// 6 000 km by road (Tarifa to Tromsø, 5 411 km, measured 2026-10-07). The
+/// (`routing_query::MAX_TRIP_M`, 3 000 km in a straight line) runs to about
+/// 4 000 km by road (5 411 km for Tarifa to Tromsø, 4 023 km straight, measured
+/// 2026-10-07, before the cap came down to 3 000 km). The
 /// search's work grows with the line's points, bounded apart.
 const MAX_ROUTE_KM: f64 = 7_000.0;
 /// How much of each end of the line the search drops, metres: the start

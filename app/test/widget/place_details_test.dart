@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
@@ -182,11 +184,42 @@ void main() {
 
   testWidgets('the formats menu copies degrees, minutes and seconds', (tester) async {
     await openPlace(tester, dayParking);
-    await tester.tap(find.byTooltip('Autres formats'));
+    await tester.tap(find.byTooltip('Choisir le format copié'));
     await settleShort(tester);
     await tester.tap(find.text('Degrés, minutes, secondes'));
     await settleShort(tester);
     expect(clipboard, ['45°45\'46.4"N 4°49\'54.1"E']);
+  });
+
+  testWidgets('a format picked in the menu stays the one "Copy" copies, and says so', (
+    tester,
+  ) async {
+    final app = await openPlace(tester, dayParking);
+    expect(find.textContaining('« Copier » copie'), findsNothing);
+    await tester.tap(find.byTooltip('Choisir le format copié'));
+    await settleShort(tester);
+    await tester.tap(find.text('Degrés, minutes, secondes'));
+    await settleShort(tester);
+    expect(app.settings.value.copyFormat, CoordinateFormat.dms, reason: 'kept on the device');
+    expect(find.text('« Copier » copie : Degrés, minutes, secondes'), findsOneWidget);
+
+    clipboard.clear();
+    await tester.tap(find.byTooltip('Copier en Degrés, minutes, secondes'));
+    await settleShort(tester);
+    // The action bar's "Copy" too.
+    await tester.tap(
+      find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
+    );
+    await settleShort(tester);
+    expect(clipboard, ['45°45\'46.4"N 4°49\'54.1"E', '45°45\'46.4"N 4°49\'54.1"E']);
+
+    // Picking decimal degrees again goes back to the default.
+    await tester.tap(find.byTooltip('Choisir le format copié'));
+    await settleShort(tester);
+    await tester.tap(find.text('Degrés décimaux'));
+    await settleShort(tester);
+    expect(find.textContaining('« Copier » copie'), findsNothing);
+    expect(find.byTooltip('Copier les coordonnées'), findsOneWidget);
   });
 
   testWidgets('a long press on directions offers the installed navigation apps', (tester) async {

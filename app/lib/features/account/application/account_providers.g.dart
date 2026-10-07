@@ -12,7 +12,8 @@ part of 'account_providers.dart';
 @ProviderFor(secretStore)
 final secretStoreProvider = SecretStoreProvider._();
 
-final class SecretStoreProvider extends $FunctionalProvider<SecretStore, SecretStore, SecretStore>
+final class SecretStoreProvider
+    extends $FunctionalProvider<SecretStore, SecretStore, SecretStore>
     with $Provider<SecretStore> {
   SecretStoreProvider._()
     : super(
@@ -52,7 +53,8 @@ String _$secretStoreHash() => r'c7f682ecf4d083d7d0e657b9395ba61bcffe0916';
 @ProviderFor(deviceKeys)
 final deviceKeysProvider = DeviceKeysProvider._();
 
-final class DeviceKeysProvider extends $FunctionalProvider<DeviceKeys, DeviceKeys, DeviceKeys>
+final class DeviceKeysProvider
+    extends $FunctionalProvider<DeviceKeys, DeviceKeys, DeviceKeys>
     with $Provider<DeviceKeys> {
   DeviceKeysProvider._()
     : super(
@@ -80,7 +82,10 @@ final class DeviceKeysProvider extends $FunctionalProvider<DeviceKeys, DeviceKey
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(DeviceKeys value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<DeviceKeys>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DeviceKeys>(value),
+    );
   }
 }
 
@@ -141,7 +146,8 @@ final accountControllerProvider = AccountControllerProvider._();
 /// renewed, or when it goes: the service says so, and this state follows.
 // keepAlive: the account shapes the profile, the place sheet and the
 // outbox for the whole run.
-final class AccountControllerProvider extends $NotifierProvider<AccountController, AccountState> {
+final class AccountControllerProvider
+    extends $NotifierProvider<AccountController, AccountState> {
   /// The account of this device and what can be done with it. The account
   /// changes underneath when a contribution makes it, when a session is
   /// renewed, or when it goes: the service says so, and this state follows.
@@ -174,7 +180,7 @@ final class AccountControllerProvider extends $NotifierProvider<AccountControlle
   }
 }
 
-String _$accountControllerHash() => r'45f985583da706f0b9fb1bf1ca42d717c8205811';
+String _$accountControllerHash() => r'3cc1cf7af9564c9536468965c00781db2d287192';
 
 /// The account of this device and what can be done with it. The account
 /// changes underneath when a contribution makes it, when a session is
@@ -209,7 +215,8 @@ final trustLevelProvider = TrustLevelProvider._();
 /// The level of the device's account; 0 without one (the level a new
 /// account starts at).
 
-final class TrustLevelProvider extends $FunctionalProvider<int, int, int> with $Provider<int> {
+final class TrustLevelProvider extends $FunctionalProvider<int, int, int>
+    with $Provider<int> {
   /// The level of the device's account; 0 without one (the level a new
   /// account starts at).
   TrustLevelProvider._()
@@ -228,7 +235,8 @@ final class TrustLevelProvider extends $FunctionalProvider<int, int, int> with $
 
   @$internal
   @override
-  $ProviderElement<int> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   int create(Ref ref) {
@@ -237,7 +245,10 @@ final class TrustLevelProvider extends $FunctionalProvider<int, int, int> with $
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(int value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<int>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
   }
 }
 
@@ -251,7 +262,12 @@ final accountDevicesProvider = AccountDevicesProvider._();
 /// The devices of the account, read online.
 
 final class AccountDevicesProvider
-    extends $FunctionalProvider<AsyncValue<List<Device>>, List<Device>, FutureOr<List<Device>>>
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Device>>,
+          List<Device>,
+          FutureOr<List<Device>>
+        >
     with $FutureModifier<List<Device>>, $FutureProvider<List<Device>> {
   /// The devices of the account, read online.
   AccountDevicesProvider._()
@@ -270,8 +286,9 @@ final class AccountDevicesProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<Device>> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<List<Device>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<Device>> create(Ref ref) {

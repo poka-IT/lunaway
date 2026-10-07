@@ -822,3 +822,141 @@ async fn a_report_while_a_feed_is_written_answers_unavailable_within_seconds(poo
     );
     feed.commit().await.unwrap();
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_phone_receives_an_event_three_days_ahead_only_once_it_enters_the_window(pool: PgPool) {
+    seed_graph(&pool).await;
+    read(&pool, "dir", chrono::Duration::minutes(5)).await;
+    let mut ahead = closure(
+        "ahead",
+        SourceGeometry::Lines(vec![under_stretch()]),
+        MatchQuality::Pending,
+    );
+    ahead.valid_from = Utc::now() + chrono::Duration::days(3);
+    ahead.valid_to = Some(Utc::now() + chrono::Duration::days(4));
+    let ahead = store(&pool, "dir", ahead, Some(vec![under_stretch()])).await;
+    let (url, _) = engine(vec![osrm(ROUTE_UNDER)]).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+
+    let body = gql(&app, None, DELTA, json!({})).await;
+    let d = &body["data"]["roadEvents"];
+    assert_eq!(d["full"], true, "{body}");
+    assert_eq!(
+        d["upserts"],
+        json!([]),
+        "a closure three days ahead is not in a phone's whole set: {body}"
+    );
+    let cursor = d["cursor"].as_str().unwrap().to_owned();
+
+    // Two days on, the poller's pass lets it into the window.
+    let done = events::lifecycle(
+        &pool,
+        Utc::now() + chrono::Duration::hours(49),
+        chrono::Duration::days(30),
+        chrono::Duration::days(7),
+        chrono::Duration::days(14),
+    )
+    .await
+    .unwrap();
+    assert_eq!(done.entered_window, 1);
+    tokio::time::sleep(Duration::from_millis(5_100)).await;
+    let body = gql(&app, None, DELTA, json!({"since": cursor})).await;
+    let d = &body["data"]["roadEvents"];
+    assert_eq!(d["full"], false, "{body}");
+    assert_eq!(
+        d["upserts"][0]["id"],
+        ahead.to_string(),
+        "the cursor the phone holds delivers it once it enters the window: {body}"
+    );
+    assert_eq!(d["upserts"].as_array().unwrap().len(), 1);
+    assert_eq!(d["removals"], json!([]));
+    let cursor = d["cursor"].as_str().unwrap().to_owned();
+
+    // Postponed by its source past the window: the phone drops it.
+    let mut postponed = closure(
+        "ahead",
+        SourceGeometry::Lines(vec![under_stretch()]),
+        MatchQuality::Pending,
+    );
+    postponed.external_version = "0000000002".to_owned();
+    postponed.valid_from = Utc::now() + chrono::Duration::days(5);
+    postponed.valid_to = Some(Utc::now() + chrono::Duration::days(6));
+    let mut w = events::begin_writer(&pool).await.unwrap();
+    events::upsert(&mut w, "dir", &[postponed], Utc::now(), Utc::now(), true)
+        .await
+        .unwrap();
+    w.commit().await.unwrap();
+    tokio::time::sleep(Duration::from_millis(5_100)).await;
+    let body = gql(&app, None, DELTA, json!({"since": cursor})).await;
+    let d = &body["data"]["roadEvents"];
+    assert_eq!(d["upserts"], json!([]), "{body}");
+    assert_eq!(
+        d["removals"],
+        json!([ahead.to_string()]),
+        "an event postponed past the window leaves the phones' sets"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_route_avoids_a_closure_in_force_when_it_arrives_whatever_the_phones_window(
+    pool: PgPool,
+) {
+    seed_graph(&pool).await;
+    read(&pool, "dir", chrono::Duration::minutes(5)).await;
+    // One closure 30 hours ahead, inside the phones' window; one three
+    // days ahead, outside it: the route reads both.
+    for (id, from) in [
+        ("tomorrow", chrono::Duration::hours(30)),
+        ("in-three-days", chrono::Duration::days(3)),
+    ] {
+        let mut c = closure(
+            id,
+            SourceGeometry::Lines(vec![under_stretch()]),
+            MatchQuality::Pending,
+        );
+        c.valid_from = Utc::now() + from;
+        c.valid_to = Some(Utc::now() + from + chrono::Duration::hours(4));
+        store(&pool, "dir", c, Some(vec![under_stretch()])).await;
+    }
+    let in_window: Vec<(String, bool)> =
+        sqlx::query_as("SELECT external_id, in_window FROM road_events ORDER BY valid_from")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        in_window,
+        [
+            ("tomorrow".to_owned(), true),
+            ("in-three-days".to_owned(), false)
+        ]
+    );
+    let (url, _) = engine(vec![
+        osrm(ROUTE_UNDER),
+        osrm(ROUTE_UNDER),
+        osrm(ROUTE_AROUND),
+        osrm(ROUTE_UNDER),
+        osrm(ROUTE_AROUND),
+    ])
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let body = gql(&app, None, ROUTE_QUERY, input(None)).await;
+    assert_eq!(
+        body["data"]["route"]["recalculations"], 0,
+        "neither closure is in force now: {body}"
+    );
+    for (id, depart) in [
+        ("tomorrow", chrono::Duration::hours(30)),
+        ("in-three-days", chrono::Duration::days(3)),
+    ] {
+        let at = Utc::now() + depart + chrono::Duration::minutes(5);
+        let body = gql(&app, None, ROUTE_QUERY, input(Some(at))).await;
+        let r = &body["data"]["route"];
+        assert_eq!(r["status"], "OK", "{body}");
+        assert_eq!(r["recalculations"], 1, "{body}");
+        assert_eq!(
+            r["avoidedRoadEvents"][0]["externalId"], id,
+            "the route checks every event at the vehicle's time of arrival, \
+             not only those the phones receive: {body}"
+        );
+    }
+}

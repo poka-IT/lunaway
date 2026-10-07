@@ -132,7 +132,7 @@ class PlaceActionBar extends ConsumerWidget {
       _ActionTile(
         icon: AppIcons.copy,
         label: t.place.copyShort,
-        onPressed: () => copyCoordinates(context, place.position),
+        onPressed: () => copyCoordinates(context, ref, place.position),
       ),
     ];
 

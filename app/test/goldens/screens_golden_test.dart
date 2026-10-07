@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -175,6 +176,26 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('images/profile_compact_dark.png'),
       );
+    }),
+  );
+
+  // With a mouse: the denser desktop look, a place open beside the list.
+  testWidgets(
+    'map with a place open, expanded, with a mouse',
+    skip: skip,
+    (tester) => _withShadows(() async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final app = await _pump(tester, _desktop, Brightness.light);
+        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        await settleShort(tester, const Duration(seconds: 2));
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('images/map_place_expanded_pointer.png'),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     }),
   );
 

@@ -382,5 +382,40 @@ mutation Edit($id: UUID!, $patch: PatchInput!, $key: String) {
       );
       expect(sent, hasLength(1));
     });
+
+    test('an API older still gets the next form, one release at a time', () async {
+      const newest = 'query R { route { status reasons limits } }';
+      const middle = 'query R { route { status limits } }';
+      const oldest = 'query R { route { status } }';
+      final chained = GraphQLOperation<Object?>(
+        name: 'R',
+        document: newest,
+        older: OlderForm.selecting(middle, older: OlderForm.selecting(oldest)),
+        parse: (data) => data,
+      );
+      // An API that knows neither field: each refusal names one.
+      final c = client(
+        (r) => switch ((jsonDecode(r.body) as Map<String, dynamic>)['query']) {
+          newest => json(refusal('Unknown field "reasons" on type "RouteResult".')),
+          middle => json(refusal('Unknown field "limits" on type "RouteResult".')),
+          _ => json('{"data":{"route":{"status":"OK"}}}'),
+        },
+      );
+      expect(await c.execute(chained), {
+        'route': {'status': 'OK'},
+      });
+      expect(sent, hasLength(3));
+      // An API that knows the middle form stops there.
+      sent.clear();
+      final knowsLimits = client(
+        (r) => (jsonDecode(r.body) as Map<String, dynamic>)['query'] == newest
+            ? json(refusal('Unknown field "reasons" on type "RouteResult".'))
+            : json('{"data":{"route":{"status":"OK","limits":1}}}'),
+      );
+      expect(await knowsLimits.execute(chained), {
+        'route': {'status': 'OK', 'limits': 1},
+      });
+      expect(sent, hasLength(2));
+    });
   });
 }

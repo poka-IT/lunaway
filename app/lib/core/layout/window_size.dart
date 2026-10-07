@@ -7,8 +7,9 @@ enum WindowSize {
   medium,
   expanded;
 
-  static WindowSize of(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+  static WindowSize of(BuildContext context) => ofWidth(MediaQuery.sizeOf(context).width);
+
+  static WindowSize ofWidth(double width) {
     if (width < 600) return compact;
     if (width < 840) return medium;
     return expanded;

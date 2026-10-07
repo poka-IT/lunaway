@@ -566,14 +566,18 @@ impl QueryRoot {
         crate::routing_query::routing_info(ctx).await
     }
 
-    /// The road events of France (closures, works, lane restrictions,
-    /// temporary vehicle limits, detours) changed since the cursor `since`
+    /// The road events of the countries the routing graph covers and a
+    /// feed serves (France, the Netherlands, Spain: closures, works, lane
+    /// restrictions, temporary vehicle limits, detours) in force or
+    /// starting within the next 48 hours, changed since the cursor `since`
     /// (null for the whole set), of `classes` (closures and vehicle limits
     /// by default), with `blockingOnly` (the default) only those that can
     /// block a route (placed on the graph, official or confirmed, for every
     /// vehicle), at most `first` (1000 by default, 2000 at most); `hasMore`
-    /// asks for the next page at once. An event leaving the selection comes
-    /// back in `removals`. No position is sent: a phone in guidance polls
+    /// asks for the next page at once. An event starting later comes in the
+    /// changes once it enters those 48 hours; one leaving the selection or
+    /// postponed past them comes back in `removals`. `route` reads every
+    /// event, whatever its start. No position is sent: a phone in guidance polls
     /// this every `pollIntervalSeconds` and checks its remaining route
     /// itself. A cursor of another copy of the database, or too old, gets
     /// the whole set again (`full`).

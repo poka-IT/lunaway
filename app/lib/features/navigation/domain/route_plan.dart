@@ -122,6 +122,117 @@ final class RouteWarning {
   int get hashCode => Object.hash(kind, severity, limit, distanceFromStartM, externalId);
 }
 
+/// Why a trip has no route (`NoRouteReasonKind` of the API, and one the
+/// app tells before asking).
+enum NoRouteReasonKind {
+  /// Every way out of the origin passes a limit the vehicle exceeds.
+  originUnreachable,
+
+  /// Every way to the destination passes a limit the vehicle exceeds.
+  destinationUnreachable,
+
+  /// Every way to the waypoint at the reason's stop passes such a limit.
+  waypointUnreachable,
+
+  /// Each stop can be reached, but no way between them suits the vehicle.
+  blockedOnTheWay,
+
+  /// No road joins the stop, whatever the vehicle (an island without a car
+  /// ferry).
+  notConnected,
+
+  /// The stop lies outside the countries routes are computed in.
+  outsideCoverage,
+
+  /// No road the vehicle may drive within 5 km of the stop.
+  noRoadNearby,
+
+  /// The trip is longer than the server accepts: told by the app from the
+  /// server's bound, without asking (the server refuses such a request).
+  tripTooLong,
+}
+
+/// What a blocking limit limits (`VehicleLimitKind`).
+enum VehicleLimitKind { height, width, length, weight, unpaved }
+
+/// A limit that keeps the vehicle out of a stop or a trip.
+@immutable
+final class BlockingLimit {
+  const new({required this.kind, this.limit, this.vehicleValue, this.restriction});
+
+  final VehicleLimitKind kind;
+
+  /// Metres or tonnes, when the restriction is known.
+  final double? limit;
+
+  /// The vehicle's figure it was compared with.
+  final double? vehicleValue;
+
+  /// The restriction that blocks, when known. Its distance from the start
+  /// counts along a route the server drew for its diagnosis, which the app
+  /// never receives: only its position, name and source mean something.
+  final RouteWarning? restriction;
+}
+
+/// One reason a trip has no route.
+@immutable
+final class NoRouteReason {
+  const new({required this.kind, this.stopIndex, this.limits = const [], this.tripKm, this.maxKm});
+
+  final NoRouteReasonKind kind;
+
+  /// The stop concerned: 0 the origin, then the waypoints in order, the
+  /// last the destination; null when the reason is the whole trip's.
+  final int? stopIndex;
+
+  /// The limits that keep the vehicle out; empty when the reason is not the
+  /// vehicle's, or when the server could not tell them.
+  final List<BlockingLimit> limits;
+
+  /// With [NoRouteReasonKind.tripTooLong]: the trip's length in a straight
+  /// line from stop to stop, and the longest the server accepts.
+  final double? tripKm;
+  final double? maxKm;
+}
+
+/// A ferry crossing of a route (`FerryCrossing`).
+@immutable
+final class FerryCrossing {
+  const new({
+    required this.distanceFromStartM,
+    required this.distanceM,
+    required this.durationS,
+    this.name,
+    this.ports = const [],
+    this.from,
+    this.to,
+    this.fromCountry,
+    this.toCountry,
+  });
+
+  /// The line's name as the map gives it (`Nice - Ajaccio`).
+  final String? name;
+
+  /// The two ports the name gives, in the name's order, which is not always
+  /// the crossing's.
+  final List<String> ports;
+
+  /// Where the boat is boarded and left.
+  final LatLng? from;
+  final LatLng? to;
+
+  /// ISO 3166-1 alpha-2 codes, in driving order.
+  final String? fromCountry;
+  final String? toCountry;
+
+  final double distanceFromStartM;
+
+  /// Metres and seconds on the boat, as the engine reckons them (the
+  /// timetable is not known).
+  final double distanceM;
+  final double durationS;
+}
+
 /// How a road event weighs on a route (`RoadEventSeverity`).
 enum RoadEventWeight {
   /// It stops the route: only among the events that stopped every route.
@@ -270,6 +381,7 @@ final class RouteOption {
     this.steps = const [],
     this.speedLimits,
     this.roadEvents = const [],
+    this.ferries = const [],
   });
 
   /// Its index in the OSRM answer; 0 is the recommended one.
@@ -295,6 +407,10 @@ final class RouteOption {
   /// in time): the guidance then reads the sign the map gives.
   final List<SpeedLimitSpan>? speedLimits;
 
+  /// Each ferry crossing, in driving order (`ROUTE_USES_FERRY` notices);
+  /// empty from an API that does not tell them, even when [hasFerry].
+  final List<FerryCrossing> ferries;
+
   GeoBounds? get bounds => GeoBounds.around(line);
 
   RouteOption withShape({required List<LatLng> line, required List<RouteStep> steps}) =>
@@ -310,6 +426,7 @@ final class RouteOption {
         steps: steps,
         speedLimits: speedLimits,
         roadEvents: roadEvents,
+        ferries: ferries,
       );
 }
 
@@ -361,9 +478,15 @@ final class RoutePlan {
     this.avoidedRoadEvents = const [],
     this.roadEventBlockers = const [],
     this.roadEventSources = const [],
+    this.noRouteReasons = const [],
   });
 
   final RouteStatus status;
+
+  /// With [RouteStatus.noRoute] or [RouteStatus.offNetwork]: why, one
+  /// reason per stop concerned or one for the trip; empty when the server
+  /// could not tell in time, or does not tell yet.
+  final List<NoRouteReason> noRouteReasons;
 
   /// The routes, recommended first.
   final List<RouteOption> routes;
@@ -409,5 +532,6 @@ final class RoutePlan {
     avoidedRoadEvents: avoidedRoadEvents,
     roadEventBlockers: roadEventBlockers,
     roadEventSources: roadEventSources,
+    noRouteReasons: noRouteReasons,
   );
 }

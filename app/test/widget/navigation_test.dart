@@ -8,6 +8,9 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/data/country_locator.dart';
+import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
@@ -15,6 +18,7 @@ import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
@@ -50,12 +54,19 @@ Future<(TestApp, FakeRouteService)> openPreview(
   RouteTarget target = utrillo,
   CountedNotificationAccess? notifications,
   FakeApi? api,
+  CountryLocator? countries,
+  RoutingInfo? routing,
+  AppLocale locale = AppLocale.fr,
 }) async {
-  final routes = FakeRouteService(answers ?? [routeFixture('utrillo_motorhome')]);
+  final routes = FakeRouteService(
+    answers ?? [routeFixture('utrillo_motorhome')],
+    routingInfo: routing,
+  );
   final app = await pumpLunaway(
     tester,
     size: size,
     api: api,
+    locale: locale,
     overrides: navigationOverrides(
       routes: routes,
       vehicle: vehicle,
@@ -63,6 +74,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
       engine: engine,
       settings: settings,
       notifications: notifications,
+      countries: countries,
     ),
   );
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
@@ -519,6 +531,8 @@ void main() {
       List<RoutePlan> more = const [],
       RoadEventsSource? events,
       FakeApi? api,
+      CountryLocator? countries,
+      FakeRouteService? routes,
     }) async {
       feed = FakeLocationFeed(position: plan.routes.first.line.first);
       voice = RecordingVoice(readiness: readiness);
@@ -528,11 +542,12 @@ void main() {
         api: api,
         brightness: brightness,
         overrides: navigationOverrides(
-          routes: FakeRouteService(answers.isEmpty ? [plan] : answers),
+          routes: routes ?? FakeRouteService(answers.isEmpty ? [plan] : answers),
           feed: feed,
           engine: LineEngine([plan, ...more]),
           voice: voice,
           events: events,
+          countries: countries,
         ),
       );
       final container = app.container(tester);
@@ -610,14 +625,48 @@ void main() {
       expect(map.vehicle, isNotNull);
     });
 
+    testWidgets('outside the countries that take reports, the button says where they are taken', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, api: api, countries: FakeCountries((_) => 'IT'));
+      await drive(tester, plan, toM: 100);
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await settleShort(tester);
+      expect(find.text('Vous roulez'), findsNothing);
+      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
+      expect(find.text('Pas de signalement ici'), findsOneWidget);
+      expect(
+        find.text(
+          'Lunaway accepte les signalements là où un flux officiel les recoupe : '
+          'Espagne, France, Pays-Bas.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Compris'));
+      await settleShort(tester);
+      expect(find.text('Pas de signalement ici'), findsNothing);
+      expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
+    });
+
     testWidgets('a report while the vehicle moves waits for a passenger, then goes with its spot', (
       tester,
     ) async {
       final api = FakeApi();
       final plan = routeFixture('limoges_drive');
-      await guide(tester, plan, api: api);
+      final routes = FakeRouteService([plan]);
+      await guide(tester, plan, api: api, routes: routes);
       await drive(tester, plan, toM: 100);
+      // Tapped twice while the network is slow to say where reports are
+      // taken: one question.
+      final slow = routes.infoGate = Completer<void>();
       await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump();
+      slow.complete();
+      routes.infoGate = null;
       await settleShort(tester);
       expect(find.text('Vous roulez'), findsOneWidget);
       await tester.tap(find.text('Annuler'));
@@ -933,6 +982,283 @@ void main() {
       await guide(tester, routeFixture('limoges_drive'), size: const Size(1100, 700));
       final map = tester.getTopLeft(find.byType(SchematicRouteMap));
       expect(map.dx, greaterThanOrEqualTo(380));
+    });
+  });
+
+  group('a trip without a route', () {
+    for (final (name, size) in [
+      ('phone', tallPhone),
+      ('tablet', const Size(700, 1600)),
+      ('desktop', const Size(1280, 1600)),
+    ]) {
+      testWidgets('on a $name, the destination out of reach names what keeps the vehicle out', (
+        tester,
+      ) async {
+        await openPreview(tester, answers: [routeFixture('toulouse_no_route')], size: size);
+        expect(
+          find.text('Destination inaccessible avec votre véhicule : hauteur limitée à 3,20 m'),
+          findsOneWidget,
+        );
+        expect(find.text('Votre véhicule : 3,30 m'), findsOneWidget);
+        expect(find.text('Chemin de Gabardie · IGN BD TOPO'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'Modifier le véhicule'), findsOneWidget);
+        expect(
+          find.widgetWithText(OutlinedButton, 'Voir les lieux autour de la destination'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('appui long sur la carte'), findsOneWidget);
+        expect(find.text("C'est parti !"), findsNothing);
+        expect(find.text('Ouvrir dans…'), findsNothing);
+        final blocker = SchematicRouteMap.last!.marks.singleWhere(
+          (m) => m.kind == RouteMarkKind.blocker,
+        );
+        expect(blocker.position, const LatLng(43.636884, 1.482296));
+      });
+    }
+
+    testWidgets('in English, a weight limit with the vehicle weight and the source', (
+      tester,
+    ) async {
+      await openPreview(tester, answers: [routeFixture('warsaw_no_route')], locale: AppLocale.en);
+      expect(
+        find.text('Destination out of reach for your vehicle: weight limit 1.5 t'),
+        findsOneWidget,
+      );
+      expect(find.text('Your vehicle: 3.5 t'), findsOneWidget);
+      expect(find.text('Wrzesińska · OpenStreetMap'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Edit the vehicle'), findsOneWidget);
+    });
+
+    testWidgets('an island without a car ferry, and a point at sea, each say so', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('porquerolles_no_route'), routeFixture('sea_off_network')],
+      );
+      expect(find.text('Aucune route ne mène à la destination'), findsOneWidget);
+      expect(find.textContaining('une île sans ferry pour les véhicules'), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, 'Modifier le véhicule'),
+        findsNothing,
+        reason: 'the vehicle is not the cause',
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'Voir les lieux autour de la destination'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Péages'));
+      await settleShort(tester);
+      expect(find.text("Destination trop loin d'une route"), findsOneWidget);
+      expect(find.textContaining('à moins de 5 km de ce point'), findsOneWidget);
+    });
+
+    testWidgets('a stop out of reach is taken out in one tap, and the route asked again', (
+      tester,
+    ) async {
+      final waypoint = routeFixture(
+        'toulouse_no_route',
+        edit: (answer) {
+          final reason = (answer['noRouteReasons'] as List<dynamic>).single as Map<String, dynamic>;
+          reason['kind'] = 'WAYPOINT_UNREACHABLE';
+        },
+      );
+      final (app, routes) = await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_motorhome'), waypoint, routeFixture('utrillo_motorhome')],
+      );
+      app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([
+        const RouteStop(position: LatLng(45.8335, 1.2610), label: 'Dépôt'),
+      ]);
+      await settleShort(tester);
+      expect(
+        find.text('Étape 1 inaccessible avec votre véhicule : hauteur limitée à 3,20 m'),
+        findsOneWidget,
+      );
+      expect(find.text('Dépôt'), findsWidgets);
+      await tester.ensureVisible(find.text("Retirer l'étape « Dépôt »"));
+      await tester.tap(find.text("Retirer l'étape « Dépôt »"));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(3));
+      expect(routes.requests.last.stops, isEmpty);
+      expect(find.text('Recommandé'), findsOneWidget);
+    });
+
+    testWidgets('unpaved roads avoided and a stop off them: one tap allows them', (tester) async {
+      final settings = MemoryRouteSettings(
+        const NavigationSettings(avoid: AvoidOptions(unpaved: true)),
+      );
+      final unpaved = routeFixture(
+        'toulouse_no_route',
+        edit: (answer) {
+          final reason = (answer['noRouteReasons'] as List<dynamic>).single as Map<String, dynamic>;
+          reason['limits'] = [
+            {'kind': 'UNPAVED', 'limit': null, 'vehicleValue': null, 'restriction': null},
+          ];
+          (answer['reroute'] as Map<String, dynamic>)['options'] = {
+            'avoidTolls': false,
+            'avoidMotorways': false,
+            'avoidFerries': false,
+            'avoidUnpaved': true,
+          };
+        },
+      );
+      final (_, routes) = await openPreview(
+        tester,
+        answers: [unpaved, routeFixture('utrillo_motorhome')],
+        settings: settings,
+      );
+      expect(
+        find.text('Destination inaccessible avec votre véhicule : route non revêtue'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Autoriser les routes non revêtues'));
+      await settleShort(tester);
+      expect(settings.value.avoid.unpaved, isFalse);
+      expect(routes.requests.last.avoid.unpaved, isFalse);
+    });
+
+    testWidgets('a destination outside the covered countries is told without asking', (
+      tester,
+    ) async {
+      const sarajevo = RouteTarget(destination: LatLng(43.86, 18.41), label: 'Sarajevo');
+      final (_, routes) = await openPreview(
+        tester,
+        target: sarajevo,
+        countries: FakeCountries((p) => p.lon > 15 ? 'BA' : 'FR'),
+      );
+      expect(routes.requests, isEmpty);
+      expect(find.text('Destination hors de la zone des itinéraires'), findsOneWidget);
+      expect(
+        find.textContaining('Lunaway calcule les itinéraires dans ces pays : Allemagne, Andorre'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Maroc'), findsOneWidget);
+      expect(find.text('Choisissez une destination dans un de ces pays.'), findsOneWidget);
+      expect(find.text("C'est parti !"), findsNothing);
+      expect(
+        find.text('Ouvrir dans…'),
+        findsOneWidget,
+        reason: 'where Lunaway computes nothing, the other apps are the way left',
+      );
+    });
+
+    testWidgets('a trip longer than the server takes is told without asking', (tester) async {
+      const nordkapp = RouteTarget(destination: LatLng(71.17, 25.78), label: 'Cap Nord');
+      final (_, routes) = await openPreview(
+        tester,
+        target: nordkapp,
+        routing: RoutingInfo(
+          available: true,
+          disclaimerKey: europeRouting.disclaimerKey,
+          coveredArea: europeRouting.coveredArea,
+          maxAlternatives: 2,
+          bounds: europeRouting.bounds,
+          coveredCountries: europeRouting.coveredCountries,
+          maxTripKm: 2000,
+        ),
+      );
+      expect(routes.requests, isEmpty);
+      expect(find.text('Trajet trop long'), findsOneWidget);
+      expect(find.textContaining('km au plus'), findsOneWidget);
+      expect(find.textContaining('faites le trajet en plusieurs fois'), findsOneWidget);
+    });
+
+    testWidgets('a request the server refuses no longer speaks of France alone', (tester) async {
+      await openPreview(tester, answers: [const RouteFailure(RouteFailureKind.refused)]);
+      expect(find.text("Pas d'itinéraire ici"), findsOneWidget);
+      expect(find.textContaining('la longueur du trajet'), findsOneWidget);
+      expect(find.textContaining('France'), findsNothing);
+    });
+
+    testWidgets('an API that names no country leaves the trip to the server', (tester) async {
+      const sarajevo = RouteTarget(destination: LatLng(43.86, 18.41), label: 'Sarajevo');
+      final (_, routes) = await openPreview(
+        tester,
+        target: sarajevo,
+        routing: olderRouting,
+        countries: FakeCountries((p) => p.lon > 15 ? 'BA' : 'FR'),
+      );
+      expect(routes.requests, hasLength(1));
+    });
+  });
+
+  group('a route with a ferry', () {
+    const elba = RouteTarget(destination: LatLng(42.8137, 10.3149), label: 'Portoferraio');
+
+    testWidgets('on a phone, each crossing shows its line, ports and country', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('elba_ferry')],
+        target: elba,
+        feed: FakeLocationFeed(position: const LatLng(42.9256, 10.5267)),
+      );
+      expect(find.text('Traversée en ferry'), findsOneWidget);
+      expect(find.text('Ferry Piombino - Portoferraio'), findsOneWidget);
+      expect(find.text('Ports : Piombino, Portoferraio'), findsOneWidget);
+      expect(find.text('Pays : Italie'), findsOneWidget);
+      expect(find.textContaining('27 km en mer'), findsOneWidget);
+      expect(
+        find.text(
+          "La destination ne peut pas être atteinte sans ferry : l'itinéraire en prend un, "
+          'même si vous évitez les ferries.',
+        ),
+        findsOneWidget,
+        reason: 'the route was asked without ferries',
+      );
+    });
+
+    testWidgets('on a desktop, the roadbook shows the crossing among the steps, where it begins', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('elba_ferry')],
+        target: elba,
+        size: const Size(1280, 3200),
+      );
+      await tester.ensureVisible(find.text('Voir les instructions'));
+      await tester.tap(find.text('Voir les instructions'));
+      await settleShort(tester);
+      final tiles = find.text('Ferry Piombino - Portoferraio');
+      expect(tiles, findsNWidgets(2));
+      final boarding = find.text('Prenez Piombino - Portoferraio Ferry.');
+      expect(
+        tester.getTopLeft(tiles.last).dy,
+        greaterThan(tester.getTopLeft(boarding).dy),
+        reason: 'under the step that boards it',
+      );
+      expect(
+        tester.getTopLeft(tiles.last).dy,
+        lessThan(tester.getTopLeft(find.text('Conduisez vers le nord-ouest.')).dy),
+        reason: 'before the step that lands',
+      );
+      expect(
+        tester.getTopLeft(tiles.last).dy,
+        greaterThan(
+          tester.getTopLeft(find.text('Conduisez vers le sud sur Via Alessandro Volta.')).dy,
+        ),
+      );
+    });
+
+    testWidgets('on a tablet in English, without ferries avoided, nothing more is said', (
+      tester,
+    ) async {
+      final plan = routeFixture(
+        'elba_ferry',
+        edit: (answer) =>
+            ((answer['reroute'] as Map<String, dynamic>)['options']
+                    as Map<String, dynamic>)['avoidFerries'] =
+                false,
+      );
+      await openPreview(
+        tester,
+        answers: [plan],
+        target: elba,
+        size: const Size(700, 1600),
+        locale: AppLocale.en,
+      );
+      expect(find.text('Ferry crossing'), findsOneWidget);
+      expect(find.text('Country: Italy'), findsOneWidget);
+      expect(find.textContaining('cannot be reached without a ferry'), findsNothing);
     });
   });
 
