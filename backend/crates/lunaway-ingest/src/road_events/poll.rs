@@ -321,13 +321,12 @@ fn state_json(state: &DirState) -> serde_json::Value {
 /// Records how a feed's read went, with the state it resumes from.
 async fn record(
     pool: &PgPool,
-    now: DateTime<Utc>,
+    at: DateTime<Utc>,
     id: &str,
     outcome: Result<(), IngestError>,
     state: &serde_json::Value,
     r: &mut SourceReport,
 ) -> Result<(), IngestError> {
-    let at = now;
     match outcome {
         Ok(()) => {
             let read = db::Read {
@@ -903,7 +902,15 @@ pub async fn poll(
         let outcome = poll_dir(pass, &mut state, last_full, &mut r).await;
         r.elapsed = started.elapsed();
         let state = state_json(&state);
-        record(pool, now, "dir", outcome, &state, &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dir",
+            outcome,
+            &state,
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dir".into(), r);
     }
     let dialog_tried = db::feed(pool, "dialog")
@@ -917,7 +924,15 @@ pub async fn poll(
         };
         let outcome = poll_dialog(pool, http, cache, config, now, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, now, "dialog", outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dialog",
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dialog".into(), r);
     }
     for feed in &config.local {
@@ -934,7 +949,15 @@ pub async fn poll(
         };
         let outcome = poll_local(pool, http, cache, config, feed, now, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, now, &feed.id, outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            &feed.id,
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert(feed.id.clone(), r);
     }
     let pass = Pass {
@@ -953,7 +976,15 @@ pub async fn poll(
         };
         let outcome = poll_dgt(pass, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, now, "dgt", outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dgt",
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dgt".into(), r);
     }
     // NDW's file is read by its own unit, which names it (`--only ndw`):
@@ -973,7 +1004,15 @@ pub async fn poll(
         let outcome = poll_ndw(pass, &mut state, &mut r).await;
         r.elapsed = started.elapsed();
         let state = serde_json::to_value(&state).unwrap_or_default();
-        record(pool, now, "ndw", outcome, &state, &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "ndw",
+            outcome,
+            &state,
+            &mut r,
+        )
+        .await?;
         out.sources.insert("ndw".into(), r);
     }
     if let Some(engine) = engine {

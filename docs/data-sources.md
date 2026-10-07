@@ -44,7 +44,13 @@ product owner, 2026-10-07:
   every such value is replaced by the next source's or dropped, with no
   alternative or description of theirs left, and a spot only `extcom`
   knows is left out entirely. Any export goes through that function; its
-  tests pin the rule.
+  tests pin the rule. No export exists yet: the one that is written calls
+  it for every place. The places' grouping is kept as the conflation made
+  it: two records of open sources joined only through an `extcom` record
+  stay one place in a dump, with open values only;
+- a region pack carries them and says so: its licence names the
+  exception and its attribution adds the agreement's
+  (`lunaway-api/src/packs.rs`, `pack_terms`).
 
 ## Hosts the importers call
 
