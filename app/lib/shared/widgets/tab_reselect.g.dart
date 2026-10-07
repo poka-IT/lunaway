@@ -18,7 +18,8 @@ final tabReselectProvider = TabReselectProvider._();
 /// The destination of the shell tapped while it was already the current
 /// one, counted so that a second tap on the same one is news again.
 // keepAlive: the shell writes it whether or not a screen listens yet.
-final class TabReselectProvider extends $NotifierProvider<TabReselect, ({int count, int tab})> {
+final class TabReselectProvider
+    extends $NotifierProvider<TabReselect, ({int count, int tab})> {
   /// The destination of the shell tapped while it was already the current
   /// one, counted so that a second tap on the same one is news again.
   // keepAlive: the shell writes it whether or not a screen listens yet.
@@ -60,7 +61,8 @@ abstract class _$TabReselect extends $Notifier<({int count, int tab})> {
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<({int count, int tab}), ({int count, int tab})>;
+    final ref =
+        this.ref as $Ref<({int count, int tab}), ({int count, int tab})>;
     final element =
         ref.element
             as $ClassProviderElement<
