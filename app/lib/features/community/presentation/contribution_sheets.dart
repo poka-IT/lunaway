@@ -475,6 +475,8 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
               DropdownMenuItem(value: v, child: Text(t.reviewVehicle(v))),
           ],
           onChanged: (v) => setState(() => _vehicle = v),
+          mouseCursor: WidgetStateMouseCursor.clickable,
+          dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
         ),
       ],
     );

@@ -291,6 +291,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                   children: [
                     for (final fuel in FuelType.values)
                       ChoiceChip(
+                        mouseCursor: WidgetStateMouseCursor.clickable,
                         label: Text(t.fuelType(fuel)),
                         selected: _draft.fuel == fuel,
                         // A second tap leaves the fuel unsaid.
@@ -383,6 +384,7 @@ class _TypeCard extends StatelessWidget {
           side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
         ),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           customBorder: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           ),

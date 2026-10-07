@@ -175,22 +175,27 @@ class _SpringSheetState extends State<SpringSheet> with SingleTickerProviderStat
               child: Column(
                 children: [
                   // The handle drags the sheet even where the content does not
-                  // scroll.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragStart: (_) => _extent.stop(),
-                    onVerticalDragUpdate: (d) => _dragBy(-d.delta.dy),
-                    onVerticalDragEnd: (d) => _release(-(d.primaryVelocity ?? 0)),
-                    child: SizedBox(
-                      height: 22,
-                      width: double.infinity,
-                      child: Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: scheme.outline.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
+                  // scroll. It moves the sheet's top edge up and down only,
+                  // so the mouse shows the vertical resize arrows: a grabbing
+                  // hand would promise the sheet moves freely.
+                  MouseRegion(
+                    cursor: SystemMouseCursors.resizeUpDown,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragStart: (_) => _extent.stop(),
+                      onVerticalDragUpdate: (d) => _dragBy(-d.delta.dy),
+                      onVerticalDragEnd: (d) => _release(-(d.primaryVelocity ?? 0)),
+                      child: SizedBox(
+                        height: 22,
+                        width: double.infinity,
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: scheme.outline.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
+                            ),
                           ),
                         ),
                       ),

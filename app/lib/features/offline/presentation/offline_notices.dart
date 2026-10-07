@@ -47,6 +47,7 @@ class OfflineMapNotice extends ConsumerWidget {
                   liveRegion: true,
                   child: FloatingSurface(
                     child: InkWell(
+                      mouseCursor: WidgetStateMouseCursor.clickable,
                       borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                       onTap: supported ? () => context.push(AppRoutes.offlineMaps) : null,
                       child: ConstrainedBox(

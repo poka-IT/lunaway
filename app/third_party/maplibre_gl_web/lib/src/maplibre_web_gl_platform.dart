@@ -662,13 +662,7 @@ class MapLibreMapController extends MapLibrePlatform
     List<String> layerIds,
     List<Object>? filter,
   ) async {
-    if (!_map.isStyleLoaded()) {
-      // Style is not loaded yet, return empty list
-      print(
-        'MapLibreMapController: queryRenderedFeatures, Style not loaded yet, returning empty list',
-      );
-      return [];
-    }
+    // No `isStyleLoaded()` guard: see queryRenderedFeaturesInRect.
 
     final options = <String, dynamic>{};
     if (layerIds.isNotEmpty) {
@@ -705,13 +699,10 @@ class MapLibreMapController extends MapLibrePlatform
     List<String> layerIds,
     String? filter,
   ) async {
-    if (!_map.isStyleLoaded()) {
-      // Style is not loaded yet, return empty list
-      print(
-        'MapLibreMapController: queryRenderedFeaturesInRect, Style not loaded yet, returning empty list',
-      );
-      return [];
-    }
+    // No `isStyleLoaded()` guard here: it is false while any source still
+    // loads a tile (or reparses GeoJSON just set), so every tap made then
+    // found nothing, as on empty map. maplibre-gl-js answers what is drawn
+    // at any time, and an empty list when there is no style at all.
 
     final options = <String, dynamic>{};
     if (layerIds.isNotEmpty) {

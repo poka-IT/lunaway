@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/presentation/web_map_controls.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -170,6 +175,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth + 3,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.alternativesSource,
@@ -180,6 +186,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.routeSource,
@@ -190,6 +197,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.casingWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.routeSource,
@@ -200,6 +208,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.lineWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addCircleLayer(
         RouteLayers.marksSource,
@@ -210,6 +219,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           circleStrokeColor: RouteLook.markStroke,
           circleStrokeWidth: RouteLook.markStrokeWidth,
         ),
+        enableInteraction: false,
       );
       await c.addSymbolLayer(
         RouteLayers.vehicleSource,
@@ -223,6 +233,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           iconAllowOverlap: true,
           iconIgnorePlacement: true,
         ),
+        enableInteraction: false,
       );
       if (!current()) return;
       _ready = true;
@@ -419,38 +430,79 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     );
   }
 
-  /// A mark first (a place, a station, a stop), then another route.
+  /// The nearest mark within reach (a place, a station, a stop), else
+  /// another route that passes within reach ([nearestHit]).
   Future<void> _onTap(math.Point<double> point) async {
     final c = _controller;
     if (c == null || !_ready) return;
-    const slop = 16.0;
+    // The engine's units per logical pixel: Android counts physical pixels.
+    final scale = mapQueryScale(
+      web: kIsWeb,
+      platform: defaultTargetPlatform,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    final tolerance = hitTolerance(webMapPointerKind());
     final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: slop * 2,
-      height: slop * 2,
+      width: tolerance * 2 * scale,
+      height: tolerance * 2 * scale,
     );
     final onMarkTap = _props.onMarkTap;
-    if (onMarkTap != null) {
-      final marks = await c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null);
-      for (final f in marks) {
-        final properties = (f as Map<Object?, Object?>)['properties'];
-        final id = properties is Map<Object?, Object?> ? properties['id'] : null;
-        if (id is String) {
-          onMarkTap(id);
-          return;
-        }
-      }
-    }
     final onLineTap = _props.onLineTap;
-    if (onLineTap == null) return;
-    final features = await c.queryRenderedFeaturesInRect(box, const [
-      RouteLayers.alternatives,
-      RouteLayers.alternativesCasing,
-    ], null);
-    if (features.isEmpty) return;
-    final properties = (features.first as Map<Object?, Object?>)['properties'];
-    final index = properties is Map<Object?, Object?> ? properties['index'] : null;
-    if (index is num) onLineTap(index.toInt());
+    final (marks, lines) = await (
+      onMarkTap == null
+          ? Future.value(const <Object?>[])
+          : c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null),
+      onLineTap == null
+          ? Future.value(const <Object?>[])
+          : c.queryRenderedFeaturesInRect(box, const [
+              RouteLayers.alternatives,
+              RouteLayers.alternativesCasing,
+            ], null),
+    ).wait;
+    final features = [
+      for (final f in marks)
+        if (f is Map) (RouteLayers.marks, f),
+      for (final f in lines)
+        if (f is Map) (RouteLayers.alternatives, f),
+    ];
+    if (features.isEmpty || !mounted) return;
+    final positions = [
+      for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
+    ];
+    // Projected by the engine: while guiding, the map turns and tilts.
+    final flat = [for (final p in positions) ...p];
+    final projected = flat.isEmpty
+        ? const <math.Point<num>>[]
+        : await c.toScreenLocationBatch([for (final p in flat) gl.LatLng(p.lat, p.lon)]);
+    if (!mounted) return;
+    var next = 0;
+    final candidates = [
+      for (var i = 0; i < features.length; i++)
+        HitCandidate(
+          layer: features[i].$1,
+          properties: (features[i].$2['properties'] as Map<Object?, Object?>?) ?? const {},
+          points: [
+            for (final _ in positions[i])
+              if (projected[next++] case final s) Offset(s.x.toDouble(), s.y.toDouble()) / scale,
+          ],
+        ),
+    ];
+    final hit = nearestHit(
+      Offset(point.x, point.y) / scale,
+      candidates,
+      shapes: routeHitShapes,
+      zoom: 0,
+      tolerance: tolerance,
+    );
+    if (hit == null) return;
+    final properties = candidates[hit.index].properties;
+    switch ((properties['id'], properties['index'])) {
+      case (final String id, _):
+        onMarkTap?.call(id);
+      case (_, final num index):
+        onLineTap?.call(index.toInt());
+    }
   }
 
   @override
@@ -492,16 +544,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
     );
-    return LayoutBuilder(
-      builder: (context, box) {
-        final size = box.biggest;
-        if (size != _size) {
-          _size = size;
-          // The follow camera's insets follow the map's height.
-          if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
-        }
-        return map;
-      },
+    return WebMapPointer(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final size = box.biggest;
+          if (size != _size) {
+            _size = size;
+            // The follow camera's insets follow the map's height.
+            if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
+          }
+          return map;
+        },
+      ),
     );
   }
 }

@@ -200,6 +200,7 @@ class _Vehicle extends ConsumerWidget {
               ),
             )
           : InkWell(
+              mouseCursor: WidgetStateMouseCursor.clickable,
               onTap: () => showVehicleEditor(context),
               child: Padding(
                 padding: const EdgeInsets.all(Space.l),

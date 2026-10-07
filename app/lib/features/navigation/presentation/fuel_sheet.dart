@@ -89,6 +89,7 @@ class _FuelSheetState extends ConsumerState<FuelSheet> {
                     Padding(
                       padding: const EdgeInsets.only(right: Space.s),
                       child: ChoiceChip(
+                        mouseCursor: WidgetStateMouseCursor.clickable,
                         label: Text(t.fuelType(f)),
                         selected: f == fuel,
                         onSelected: (_) => setState(() => _fuel = f),

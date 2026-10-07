@@ -170,6 +170,7 @@ class _AddPhotoTile extends StatelessWidget {
           side: BorderSide(color: scheme.outlineVariant, width: 1.5),
         ),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           customBorder: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           ),
@@ -342,7 +343,7 @@ class _Thumb extends StatelessWidget {
               ),
               Material(
                 type: MaterialType.transparency,
-                child: InkWell(onTap: onTap),
+                child: InkWell(mouseCursor: WidgetStateMouseCursor.clickable, onTap: onTap),
               ),
             ],
           ),
