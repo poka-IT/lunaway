@@ -164,6 +164,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   Future<void> _applyInPlace(StyleDiff diff, {required bool dark}) async {
     final c = _controller;
     if (c == null || !_ready) return;
+    final clock = Stopwatch()..start();
     await Future.wait([
       for (final MapEntry(key: layer, value: paint) in diff.paint.entries)
         _quietly(() => c.setLayerProperties(layer, RawLayerProperties(paint))),
@@ -174,6 +175,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       pixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
     await Future.wait([for (final e in icons.entries) _quietly(() => c.addImage(e.key, e.value))]);
+    _log.info('theme turned in place in ${clock.elapsedMilliseconds} ms');
   }
 
   void _forgetSent() {
@@ -231,6 +233,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (c == null || !mounted) return;
     if (kIsWeb) _stopWebLongPress ??= listenWebMapLongPress(_onWebLongPress);
     final load = ++_styleLoads;
+    final clock = Stopwatch()..start();
     _ready = false;
     _forgetSent();
     // A newer style load takes over: this one stops at its next step.
@@ -380,6 +383,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       }
       if (!current()) return;
       _ready = true;
+      _log.info('style set up in ${clock.elapsedMilliseconds} ms');
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
