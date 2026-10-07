@@ -64,6 +64,7 @@
 			request>headers>If-Modified-Since delete
 			request>headers>If-Unmodified-Since delete
 			resp_headers>Set-Cookie delete
+			resp_headers>Location delete
 			resp_headers>Etag delete
 			resp_headers>Last-Modified delete
 			resp_headers>Content-Length delete
@@ -119,6 +120,10 @@
 			request>headers>If-Modified-Since delete
 			request>headers>If-Unmodified-Since delete
 			resp_headers>Set-Cookie delete
+			# A redirect names its target: the photo proxy of the external
+			# community source answers with the file of the photo asked
+			# (/media/photos/<hash>.webp), which names its place.
+			resp_headers>Location delete
 			resp_headers>Etag delete
 			resp_headers>Last-Modified delete
 			resp_headers>Content-Length delete

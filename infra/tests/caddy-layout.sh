@@ -163,7 +163,10 @@ fi
 # A stand-in for the API on its port: it reads the whole body (the
 # placeholder does), so the body limits in front of it act as they do in
 # production, and it names itself in a header. With X-Test-Big it sends a
-# 96 MiB answer instead, as the API sends a long route.
+# 96 MiB answer instead, as the API sends a long route. A read of an
+# external photo answers as the API's proxy does once it has the file: a
+# redirect to it under /media/.
+EXT_FILE="/media/photos/fe/ed/feedface00000000000000000000000000000000000000000000000000000000.webp"
 cat >> "$SCRATCH/Caddyfile" <<EOF
 
 http://:$API_LISTEN {
@@ -173,6 +176,13 @@ http://:$API_LISTEN {
 		root * $W/big
 		rewrite * /answer.bin
 		file_server
+	}
+	@ext_read {
+		path /external-photos/*
+		method GET HEAD
+	}
+	handle @ext_read {
+		redir * $EXT_FILE 302
 	}
 	handle {
 		respond "{http.request.body}" 200
@@ -479,9 +489,10 @@ sent "places by POST" POST "$A/places/tiles.json" 405 --data-binary '{}'
 sent "places with a body over 1 KiB" GET "$A/places/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
 # The photo proxy of the external community source: reads only, to the API.
 EXT_PHOTO="/external-photos/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
-sent "external photo routed to the API" GET "$A$EXT_PHOTO/thumb" 200
-sent "external photo, large, routed to the API" GET "$A$EXT_PHOTO/large" 200
-sent "external photo by HEAD" HEAD "$A$EXT_PHOTO/thumb" 200 -I
+sent "external photo routed to the API" GET "$A$EXT_PHOTO/thumb" 302
+sent "external photo, large, routed to the API" GET "$A$EXT_PHOTO/large" 302
+sent "external photo by HEAD" HEAD "$A$EXT_PHOTO/thumb" 302 -I
+check "external photo redirects to its file" "$A$EXT_PHOTO/thumb" 302 "location: $EXT_FILE"
 sent "external photo preflight routed" OPTIONS "$A$EXT_PHOTO/thumb" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
 sent "external photo by POST" POST "$A$EXT_PHOTO/thumb" 405 --data-binary '{}'
 sent "external photo by PUT" PUT "$A$EXT_PHOTO/thumb" 405 --data-binary '{}'
@@ -729,6 +740,8 @@ grep -qiE 'segur|berlin' <<<"$access_log" && leaks="$leaks geocoded-text"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 # A photo of the external community source asked through the proxy.
 grep -q '0199a1b2' <<<"$access_log" && leaks="$leaks external-photo"
+# Nor the file its redirect names.
+grep -q 'feedface' <<<"$access_log" && leaks="$leaks external-photo-redirect"
 grep -q '"uri":"/external-photos/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-external-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
 grep -q 'fr-bre' <<<"$access_log" && leaks="$leaks pack-region"
