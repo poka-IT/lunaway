@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n                  WHERE p.taken_down_at IS NULL\n        )\n        SELECT c.id, c.source_id, s.name AS source_label, c.relation, c.distance_m, c.page_url,\n               c.title, c.author, c.publisher, c.source_updated_on, c.licence, c.licence_url,\n               c.taken_at, c.path, c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id IN (SELECT id FROM family) AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'item' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))\n                  OR h.scope = 'source'))\n        ORDER BY CASE c.relation WHEN 'linked' THEN 0 WHEN 'facing' THEN 1 ELSE 2 END,\n                 c.rank, c.id\n        LIMIT $2\n        ",
+  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n                  WHERE p.taken_down_at IS NULL\n        )\n        SELECT c.id, c.source_id, s.name AS source_label, c.relation, c.distance_m, c.page_url,\n               c.title, c.author, c.publisher, c.source_updated_on, c.licence, c.licence_url,\n               c.taken_at, c.path, c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id IN (SELECT id FROM family) AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))\n                  OR h.scope = 'source'))\n        ORDER BY CASE c.relation WHEN 'linked' THEN 0 WHEN 'facing' THEN 1 ELSE 2 END,\n                 c.rank, c.id\n        LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
@@ -241,5 +241,5 @@
       false
     ]
   },
-  "hash": "2ad11b670b8b5dc09f64c27157a3207313dbe30db8fd9acd6499a80d42e4a66c"
+  "hash": "34928e0bf976d8b73bf4304574ef1c6a411dacea71c173b277015d1ee15f916b"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n                  WHERE p.taken_down_at IS NULL\n        )\n        SELECT c.id, c.source_id, s.name AS source_label, c.rating, c.text AS \"text!\", c.lang,\n               c.author, c.written_at, c.page_url, c.licence, c.licence_url\n        FROM content_reviews c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id IN (SELECT id FROM family) AND c.text IS NOT NULL\n          AND w.hidden_at IS NULL\n          AND ($2::uuid IS NULL OR c.id < $2)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'item' AND h.key = c.external_id)\n                  OR (h.scope = 'author' AND h.key = c.author_key)\n                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))\n                  OR h.scope = 'source'))\n        ORDER BY c.id DESC\n        LIMIT $3\n        ",
+  "query": "\n        WITH RECURSIVE family(id) AS (\n            SELECT $1::uuid\n            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id\n                  WHERE p.taken_down_at IS NULL\n        )\n        SELECT c.id, c.source_id, s.name AS source_label, c.rating, c.text AS \"text!\", c.lang,\n               c.author, c.written_at, c.page_url, c.licence, c.licence_url\n        FROM content_reviews c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id IN (SELECT id FROM family) AND c.text IS NOT NULL\n          AND w.hidden_at IS NULL\n          AND ($2::uuid IS NULL OR c.id < $2)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'review' AND h.key = c.external_id)\n                  OR (h.scope = 'author' AND h.key = c.author_key)\n                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))\n                  OR h.scope = 'source'))\n        ORDER BY c.id DESC\n        LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -146,5 +146,5 @@
       false
     ]
   },
-  "hash": "f5f31bcb6c87180afa5425ea72adb16febe676e9cb6502d680f7c60d746e4b84"
+  "hash": "1f4968d5ce2d3371aa9966736f57622d0011e73283eeee910f806bfffe11600f"
 }

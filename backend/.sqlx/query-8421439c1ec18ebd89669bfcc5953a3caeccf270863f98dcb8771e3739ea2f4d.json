@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT source_id AS \"source_id!\", external_id AS \"external_id!\"\n                FROM (\n                    SELECT source_id, external_id FROM content_reviews WHERE id = $1\n                    UNION ALL\n                    SELECT source_id, external_id FROM external_reviews WHERE id = $1\n                ) i\n                LIMIT 1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "external_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "8421439c1ec18ebd89669bfcc5953a3caeccf270863f98dcb8771e3739ea2f4d"
+}
