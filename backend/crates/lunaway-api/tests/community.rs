@@ -1109,6 +1109,94 @@ async fn a_recovery_code_brings_the_account_to_a_new_device_and_can_delete_it(po
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_account_reads_the_date_of_its_recovery_code_on_every_device(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let date = "{ myAccount { recoveryCodeCreatedAt } }";
+    let (token, id) = sign_in(&app, &Device::new(1)).await;
+    let none = gql(&app, Some(&token), date, json!({})).await;
+    assert!(
+        ok(&none)["myAccount"]["recoveryCodeCreatedAt"].is_null(),
+        "an account that never made a card has no date"
+    );
+
+    let made = gql(
+        &app,
+        Some(&token),
+        "mutation { createRecoveryCode { code } }",
+        json!({}),
+    )
+    .await;
+    let code_text = ok(&made)["createRecoveryCode"]["code"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // Back a year, so the replacement below shows as a move of the date.
+    sqlx::query!(
+        "UPDATE recovery_codes SET created_at = '2025-10-07T08:00:00Z' WHERE account_id = $1",
+        id
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let first = gql(&app, Some(&token), date, json!({})).await;
+    assert_eq!(
+        ok(&first)["myAccount"]["recoveryCodeCreatedAt"],
+        "2025-10-07T08:00:00+00:00"
+    );
+
+    // Another account sees only its own: none.
+    let (stranger, _) = sign_in(&app, &Device::new(2)).await;
+    let theirs = gql(&app, Some(&stranger), date, json!({})).await;
+    assert!(ok(&theirs)["myAccount"]["recoveryCodeCreatedAt"].is_null());
+    let anonymous = gql(&app, None, date, json!({})).await;
+    assert_eq!(code(&anonymous), "UNAUTHENTICATED");
+
+    // The card brings the account to a new phone, which reads the same date.
+    let phone = Device::new(9);
+    let (nonce, message) = challenge(&app).await;
+    let recovered = gql(
+        &app,
+        None,
+        r"mutation($code: String!, $jwk: String!, $nonce: String!, $sig: String!) {
+            recoverAccount(code: $code, publicKeyJwk: $jwk, nonce: $nonce, signature: $sig) {
+              token account { recoveryCodeCreatedAt }
+            }
+          }",
+        json!({"code": code_text, "jwk": phone.jwk(), "nonce": nonce, "sig": phone.sign(&message)}),
+    )
+    .await;
+    let r = &ok(&recovered)["recoverAccount"];
+    assert_eq!(
+        r["account"]["recoveryCodeCreatedAt"], "2025-10-07T08:00:00+00:00",
+        "every device of the account reads the date of the same card"
+    );
+
+    // A new card moves the date.
+    let again = gql(
+        &app,
+        Some(&token),
+        "mutation { createRecoveryCode { code } }",
+        json!({}),
+    )
+    .await;
+    ok(&again);
+    let moved = gql(&app, Some(&token), date, json!({})).await;
+    let at: chrono::DateTime<chrono::Utc> = ok(&moved)["myAccount"]["recoveryCodeCreatedAt"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        at > "2026-01-01T00:00:00Z"
+            .parse::<chrono::DateTime<chrono::Utc>>()
+            .unwrap(),
+        "the date is the new card's: {at}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn deleting_an_account_keeps_its_published_reviews_without_author(pool: PgPool) {
     seeded(&pool).await;
     let media = tempfile::tempdir().unwrap();

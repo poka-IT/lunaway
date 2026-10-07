@@ -57,6 +57,28 @@ extension PoiLabels on Translations {
     .motorhomeShop => _t.poi.kind.motorhomeShop,
   };
 
+  /// What the machines of a [PoiKind.vendingChoices] kind sell, as the
+  /// vending chip's menu lists it ("Pizza").
+  String poiVendingSells(PoiKind k) => switch (k) {
+    .vendingPizza => _t.poi.vendingSells.pizza,
+    .vendingBread => _t.poi.vendingSells.bread,
+    .vendingFarmProducts => _t.poi.vendingSells.farmProducts,
+    .vendingEggsMilk => _t.poi.vendingSells.eggsMilk,
+    .vendingIce => _t.poi.vendingSells.ice,
+    _ => poiKind(k),
+  };
+
+  /// The vending chip's label while it shows one kind alone ("Pizza
+  /// vending machines").
+  String poiVendingChip(PoiKind k) => switch (k) {
+    .vendingPizza => _t.poi.vendingChip.pizza,
+    .vendingBread => _t.poi.vendingChip.bread,
+    .vendingFarmProducts => _t.poi.vendingChip.farmProducts,
+    .vendingEggsMilk => _t.poi.vendingChip.eggsMilk,
+    .vendingIce => _t.poi.vendingChip.ice,
+    _ => poiCategory(k.category),
+  };
+
   /// The name, else the kind ("Pizza vending machine").
   String poiTitle(String? name, PoiKind kind) =>
       name != null && name.trim().isNotEmpty ? name : poiKind(kind);

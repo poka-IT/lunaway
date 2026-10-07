@@ -1211,7 +1211,9 @@ pub const BUFFER: i32 = 64;
 
 /// The vector tile `z/x/y` of the layer, as MVT bytes (empty when the tile
 /// holds nothing): every live point from [`POINT_MIN_ZOOM`], in the layer
-/// `pois`, at most `max_features`; clusters below it, in `poi_clusters`.
+/// `pois`, at most `max_features`; clusters below it, in `poi_clusters`,
+/// and the food vending machines again per kind, in
+/// `poi_vending_clusters`.
 ///
 /// Callers bound `z`, `x` and `y`; the query bounds its own time with the
 /// pool's statement timeout.
@@ -1291,9 +1293,28 @@ pub async fn tile(
         features AS (
             SELECT c.category, c.count, ST_AsMVTGeom(c.c, b.merc, $5, 0, true) AS geom
             FROM cells c, bounds b
+        ),
+        -- The vending machines once more, per kind, in a layer of their own:
+        -- a map filtering on what the machines sell (pizza) draws clusters
+        -- where those machines stand, and a map that knows only
+        -- `poi_clusters` gets the same counts as before. `vending_other` is
+        -- left out: no filter picks it, the category's clusters count it.
+        vending_cells AS (
+            SELECT p.kind, count(*)::int AS count,
+                   ST_Centroid(ST_Collect(ST_Transform(p.geom::geometry, 3857))) AS c
+            FROM pois p, bounds b
+            WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
+              AND p.category = 'vending' AND p.kind <> 'vending_other'
+            GROUP BY p.kind, ST_SnapToGrid(ST_Transform(p.geom::geometry, 3857), $4)
+        ),
+        vending_features AS (
+            SELECT v.kind, v.count, ST_AsMVTGeom(v.c, b.merc, $5, 0, true) AS geom
+            FROM vending_cells v, bounds b
         )
-        SELECT coalesce(ST_AsMVT(features, 'poi_clusters', $5, 'geom'), ''::bytea) AS "mvt!"
-        FROM features
+        SELECT coalesce((SELECT ST_AsMVT(features, 'poi_clusters', $5, 'geom') FROM features),
+                        ''::bytea)
+            || coalesce((SELECT ST_AsMVT(vending_features, 'poi_vending_clusters', $5, 'geom')
+                         FROM vending_features), ''::bytea) AS "mvt!"
         "#,
         z,
         x,

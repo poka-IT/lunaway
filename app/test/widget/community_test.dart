@@ -320,6 +320,106 @@ void main() {
       expect(find.text(t.account.recoveryNone), findsNothing);
     });
 
+    group('the date of the card comes from the server', () {
+      Future<void> seeCard(WidgetTester tester) => tester.scrollUntilVisible(
+        find.text(t.recovery.title),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      testWidgets('a card made on another device shows here with its date, and is kept', (
+        tester,
+      ) async {
+        final api = FakeApi()..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '1 sept. 2026')), findsOneWidget);
+        expect(
+          await app.secrets.read('recovery_card'),
+          DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+          reason: 'offline later, the device still knows the card',
+        );
+      });
+
+      testWidgets('the server corrects the date this device kept', (tester) async {
+        final api = FakeApi()..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '1 sept. 2026')), findsOneWidget);
+      });
+
+      testWidgets('an account without a code says so for the account, not for the device', (
+        tester,
+      ) async {
+        await openProfile(tester, FakeApi(), AppRoutes.profile);
+        await tester.scrollUntilVisible(
+          find.text(t.account.recoveryNoneAccount),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(t.account.recoveryNone), findsNothing);
+      });
+
+      testWidgets('a read sent before a new card does not bring back the old card date', (
+        tester,
+      ) async {
+        final old = DateTime.utc(2026, 9, 1, 12);
+        final api = FakeApi()..recoveryCodeCreatedAt = old;
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        final service = app.container(tester).read(accountServiceProvider);
+        api
+          ..hold = Completer<void>()
+          ..held = {'MyAccount'};
+        final reading = service.refresh();
+        await tester.pump();
+        await service.createRecoveryCode();
+        // The read was answered before the new card, with the old date.
+        api.recoveryCodeCreatedAt = old;
+        api.hold!.complete();
+        final read = await reading;
+        expect(read.recoveryCode, isNull, reason: 'the answer predates the new card');
+        expect(await app.secrets.read('recovery_card'), testNow.toUtc().toIso8601String());
+      });
+
+      testWidgets('offline, the date this device kept shows', (tester) async {
+        final api = FakeApi()
+          ..offline = true
+          ..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '2 oct. 2026')), findsOneWidget);
+        expect(api.operations, isNot(contains('MyAccount')), reason: 'nothing reached the API');
+      });
+
+      testWidgets('an API older than the date is asked without it, and the device date holds', (
+        tester,
+      ) async {
+        final api = FakeApi()
+          ..older = true
+          ..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(api.olderRefusals, contains('MyAccount'));
+        expect(api.operations, contains('MyAccount'), reason: 'its older form went through');
+        expect(find.text(t.account.recoveryMade(date: '2 oct. 2026')), findsOneWidget);
+      });
+    });
+
     testWidgets('a new card first says it replaces the one made before, whose code stops working', (
       tester,
     ) async {

@@ -73,6 +73,8 @@ List<(String, Size, void Function(Canvas))> _images() => [
       ),
   for (final category in PoiCategory.values)
     (PoiMapStyle.dotImageId(category), poiDotSize, (c) => paintPoiDot(c, category)),
+  for (final kind in PoiKind.vendingChoices)
+    (PoiMapStyle.vendingDotImageId(kind), poiDotSize, (c) => paintPoiVendingDot(c, kind)),
 ];
 
 /// Packs every image in rows on one sheet at [ratio]; returns the PNG and

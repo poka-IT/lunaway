@@ -880,6 +880,7 @@
     },
     "orInstead": "Or $requirement",
     "recoveryNone": "No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.",
+    "recoveryNoneAccount": "No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.",
     "recoveryCreate": "Make my recovery card",
     "recoveryMade": "Made on $date",
     "recoveryRemake": "Make again",
@@ -1319,6 +1320,22 @@
     },
     "chipsLabel": "Shops and services around",
     "openNow": "Open now",
+    "vendingSells": {
+      "pizza": "Pizza",
+      "bread": "Bread",
+      "farmProducts": "Farm produce",
+      "eggsMilk": "Eggs and milk",
+      "ice": "Ice"
+    },
+    "vendingAll": "All food vending machines",
+    "vendingMenu": "What the machines sell",
+    "vendingChip": {
+      "pizza": "Pizza vending machines",
+      "bread": "Bread vending machines",
+      "farmProducts": "Farm produce vending machines",
+      "eggsMilk": "Egg and milk vending machines",
+      "ice": "Ice vending machines"
+    },
     "alwaysOpen": "Open day and night",
     "hoursUnknown": "Opening hours unknown",
     "maybeClosed": "Closed according to the official register of health facilities (FINESS).",

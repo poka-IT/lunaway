@@ -192,7 +192,10 @@ void main() {
         ..older = true
         ..revokeAll();
       await expectLater(service.refresh(), throwsA(isA<AccountLostException>()));
-      expect(api.olderRefusals, ['SignIn'], reason: 'the new form first, refused');
+      expect(api.olderRefusals, [
+        'MyAccount',
+        'SignIn',
+      ], reason: 'the new forms first, refused: the read with the recovery date, then the sign-in');
       expect(api.last('SignIn')!.containsKey('createIfUnknown'), isFalse);
       expect(api.strangersDeleted, 1, reason: 'the account the older API made at once deleted');
       expect(await keys.load(), isNull);
