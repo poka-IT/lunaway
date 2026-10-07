@@ -138,7 +138,15 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       onLongPress: b.onLongPress,
       onMarkTap: _onTap,
       onMarkHover: _onHover,
-      onEmptyTap: _close,
+      // A tap beside an open callout closes it, nothing more (bareTapAt):
+      // the next one may open the point under it.
+      onEmptyTap: (at, zoom) {
+        if (_callout != null) {
+          _close();
+          return;
+        }
+        b.onEmptyTap?.call(at, zoom);
+      },
       onCameraMove: _close,
     );
     final t = context.t;

@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
@@ -168,6 +169,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'clusterSource': MapStyle.placesSource,
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
+    'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
     'tappable': [
       ...MapStyle.tappableLayers,
       if (tiles != null) ...PlaceTiles.tappable,
@@ -451,7 +453,13 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         final features = event['features'];
         if (features is List<Object?>) _props.onPoisInView?.call(decodeProbe(features));
       case 'empty':
-        _props.onEmptyTap?.call();
+        if ((event['lat'], event['lon'], event['zoom'])
+            case (final num lat, final num lon, final num zoom)
+            when lat.abs() <= 90 && lon.isFinite) {
+          // GL JS gives longitudes past 180 on the world's repeated copies.
+          final wrapped = (lon + 180) % 360 - 180;
+          _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
+        }
       case 'longpress':
         _props.onLongPress(
           LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
@@ -541,6 +549,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });
     }
+  }
+
+  @override
+  Future<({LatLng center, double zoom})?> camera() async {
+    final v = await _call('return window.lunaway.viewport();');
+    if (v is! Map) return null;
+    final (lat, lon, zoom) = (v['lat'], v['lon'], v['zoom']);
+    if (lat is! num || lon is! num || zoom is! num) return null;
+    return (center: LatLng(lat.toDouble(), (lon + 180) % 360 - 180), zoom: zoom.toDouble());
   }
 
   @override

@@ -94,9 +94,9 @@ void main() {
       await settleShort(tester);
       expect(find.text('Aire du Naveix'), findsOneWidget);
       // 309 s instead of 191 s: two minutes more.
-      expect(find.text('Ajouter une étape · +2 min'), findsOneWidget);
+      expect(find.text('Ajouter comme étape · +2 min'), findsOneWidget);
       expect(routes.requests.last.stops, [const LatLng(45.8462, 1.2828)]);
-      await tester.tap(find.text('Ajouter une étape · +2 min'));
+      await tester.tap(find.text('Ajouter comme étape · +2 min'));
       await settleShort(tester);
       expect(find.text('Étapes'), findsOneWidget);
       expect(find.byTooltip("Retirer l'étape"), findsOneWidget);
@@ -117,7 +117,7 @@ void main() {
       );
       SchematicRouteMap.last!.onMarkTap!('place:aire-naveix');
       await settleShort(tester);
-      await tester.tap(find.text('Ajouter une étape · +2 min'));
+      await tester.tap(find.text('Ajouter comme étape · +2 min'));
       await settleShort(tester);
       expect(find.text('Étapes'), findsOneWidget);
       expect(routes.requests, hasLength(2), reason: 'the preview, then the detour; no third');
@@ -194,12 +194,12 @@ void main() {
       await preview(tester);
       SchematicRouteMap.last!.onLongPress!(const LatLng(45.84, 1.27));
       await settleShort(tester);
-      expect(find.text('Point de la carte'), findsOneWidget);
+      expect(find.text('Point sur la carte'), findsOneWidget);
       expect(find.text('Voir la fiche'), findsNothing, reason: 'a bare point has no card');
       await tester.tap(find.text('Y aller directement'));
       await settleShort(tester);
       expect(routes.requests.last.destination, const LatLng(45.84, 1.27));
-      expect(find.text('Vers ce point'), findsOneWidget, reason: 'the preview of the point');
+      expect(find.text('Point sur la carte'), findsOneWidget, reason: 'the preview of the point');
       expect(find.text('Vers Aire de la rue Utrillo'), findsNothing);
     });
 
@@ -407,7 +407,7 @@ void main() {
       expect(routes.requests, hasLength(1), reason: 'the card prices the stop');
       // The card stays open while the vehicle drives on 500 m.
       await drive(tester, plan, toM: 800);
-      await tester.tap(find.textContaining('Ajouter une étape'));
+      await tester.tap(find.textContaining('Ajouter comme étape'));
       await settleShort(tester);
       expect(routes.requests, hasLength(2), reason: 'priced again, then that route taken');
       expect(routes.requests.last.origin.distanceTo(track.at(800)), lessThan(15));
@@ -509,7 +509,7 @@ void main() {
       // the answer waits while the vehicle passes the pause.
       await drive(tester, plan, toM: 700);
       routes.gate = Completer<void>();
-      await tester.tap(find.textContaining('Ajouter une étape'));
+      await tester.tap(find.textContaining('Ajouter comme étape'));
       await tester.pump();
       await drive(tester, plan, toM: 900);
       expect(stops(), isEmpty, reason: 'the pause is behind');

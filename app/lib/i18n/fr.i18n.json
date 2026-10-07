@@ -145,8 +145,12 @@
       "one": "lieu le plus proche du centre",
       "other": "lieux les plus proches du centre"
     },
-    "pointTitle": "Point choisi",
-    "pointHint": "Ses coordonnées et l'itinéraire jusqu'à lui",
+    "pointTitle": "Ici",
+    "pointHint": "Point sur la carte",
+    "directionsHere": "Itinéraire jusqu'ici",
+    "copyCoordinates": "Copier les coordonnées",
+    "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
+    "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
     "downloading": "Téléchargement des lieux de France",
     "downloadingCount(param=n)": {
       "one": "$count lieu reçu",
@@ -388,7 +392,7 @@
   "navigation": {
     "preview": {
       "titleTo": "Vers $name",
-      "titlePoint": "Vers ce point",
+      "titlePoint": "Point sur la carte",
       "computing": "Calcul d'un itinéraire pour votre véhicule",
       "start": "C'est parti !",
       "recommended": "Recommandé",
@@ -421,15 +425,15 @@
     },
     "stops": {
       "title": "Étapes",
-      "add": "Ajouter une étape",
-      "addCost": "Ajouter une étape · +$minutes min",
-      "addFree": "Ajouter une étape · sans détour",
-      "quoting": "Ajouter une étape · calcul du détour",
+      "add": "Ajouter comme étape",
+      "addCost": "Ajouter comme étape · +$minutes min",
+      "addFree": "Ajouter comme étape · sans détour",
+      "quoting": "Ajouter comme étape · calcul du détour",
       "noRoute": "Pas d'itinéraire par ce point pour votre véhicule.",
       "full": "Cinq étapes au plus.",
       "goDirectly": "Y aller directement",
       "openCard": "Voir la fiche",
-      "point": "Point de la carte",
+      "point": "Point sur la carte",
       "remove": "Retirer l'étape",
       "reorder": "Glisser pour changer l'ordre",
       "added": "Étape ajoutée",
@@ -544,7 +548,7 @@
       "removeStopNamed": "Retirer l'étape « $name »",
       "placesAround": "Voir les lieux autour de la destination",
       "moveDestination": "Ou choisissez une autre arrivée : appui long sur la carte, puis « Y aller directement ».",
-      "moveStop": "Pour une autre étape : appui long sur la carte, puis « Ajouter une étape ».",
+      "moveStop": "Pour une autre étape : touchez la carte de près, ou appui long, puis « Ajouter comme étape ».",
       "moveOrigin": "Le départ est votre position : rejoignez une route que votre véhicule peut prendre, puis réessayez.",
       "pickInside": "Choisissez une destination dans un de ces pays.",
       "shorter": "Choisissez une destination plus proche, ou faites le trajet en plusieurs fois."
@@ -1136,6 +1140,14 @@
     "queued": "Pas de réseau : envoi dès qu'il revient",
     "refused": "Pas envoyé. $reason"
   },
+  "placement": {
+    "title": "Placez le lieu",
+    "hint": "Déplacez la carte : la croix marque l'endroit exact.",
+    "confirm": "Valider cet emplacement",
+    "duplicate": "Il y a déjà « $name » à $distance : est-ce le même endroit ?",
+    "same": "Oui, ouvrir sa fiche",
+    "notSame": "Non, c'est un autre lieu"
+  },
   "contribute": {
     "yourRating": "Votre note",
     "rateHint": "Touchez une étoile pour noter",
@@ -1167,9 +1179,8 @@
     "toVerifyBody": "Lieu ajouté par la communauté, en attente de deux confirmations. Vous le connaissez ? Confirmez-le.",
     "issuesTitle": "Signalements des 30 derniers jours",
     "issueCount": "$kind ($count)",
-    "addPlace": "Ajouter un lieu",
-    "addPlaceHere": "Ajouter un lieu ici",
-    "addPlaceHint": "Un appui long sur la carte déplace le point."
+    "addPlaceHere": "Créer un lieu ici",
+    "addPlaceHint": "L'endroit choisi sous la croix."
   },
   "confirmSheet": {
     "title": "Toujours là ?",

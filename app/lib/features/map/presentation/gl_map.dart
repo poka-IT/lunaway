@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/domain/style_diff.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
@@ -103,6 +104,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   LunaMapProps get _props => widget.props;
 
+  /// Counts the taps and presses: a bare tap that waits (a finger in the
+  /// browser) gives way to any that came after it.
+  int _taps = 0;
+
   @override
   void dispose() {
     _stopWebLongPress?.call();
@@ -150,6 +155,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   Future<void> _onWebLongPress(double x, double y) async {
+    _taps++;
     final c = _controller;
     if (c == null || !mounted) return;
     final position = await c.toLatLng(math.Point(x, y));
@@ -545,15 +551,19 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// A tap at [point] (in the engine's units) on [at]: the nearest feature
   /// within reach decides ([nearestHit]), whatever the size it is drawn.
   Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
+    final seq = ++_taps;
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
     final scale = _queryScale;
     final tolerance = hitTolerance(webMapPointerKind());
-    // Every shape whose edge lies within the tolerance crosses this square.
+    // Every shape whose edge lies within the wider reach of a free point
+    // (FreeTap) crosses this square; the selection's own tolerance is
+    // applied below.
+    final reach = tolerance * FreeTap.wider;
     final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: tolerance * 2 * scale,
-      height: tolerance * 2 * scale,
+      width: reach * 2 * scale,
+      height: reach * 2 * scale,
     );
     // Only the layers this style holds: GL JS answers nothing at all to a
     // query that names a missing one.
@@ -592,15 +602,26 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ),
       );
     }
-    final hit = nearestHit(
-      tapped,
-      candidates,
-      shapes: mapHitShapes,
-      zoom: zoom,
+    final hit = hitAroundTap(
+      (t) => nearestHit(tapped, candidates, shapes: mapHitShapes, zoom: zoom, tolerance: t),
       tolerance: tolerance,
+      zoom: zoom,
     );
     if (hit == null) {
-      _props.onEmptyTap?.call();
+      final onEmptyTap = _props.onEmptyTap;
+      if (onEmptyTap == null) return;
+      // On a touch screen GL JS keeps the second tap of a double tap for its
+      // zoom: the first one is dropped once the camera zooms.
+      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null) {
+        final stands = await touchTapStands(
+          camera: this.camera,
+          center: LatLng(camera.target.latitude, camera.target.longitude),
+          zoom: zoom,
+          superseded: () => _taps != seq,
+        );
+        if (!stands) return;
+      }
+      if (mounted) onEmptyTap(reference, zoom);
       return;
     }
     // The marker of a long-pressed point: its details are already open.
@@ -751,6 +772,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(target.lat, target.lon), z),
       duration: Motion.of(context, Motion.camera),
     );
+  }
+
+  @override
+  Future<({LatLng center, double zoom})?> camera() async {
+    final camera = await _controller?.queryCameraPosition();
+    if (camera == null) return null;
+    return (center: LatLng(camera.target.latitude, camera.target.longitude), zoom: camera.zoom);
   }
 
   @override

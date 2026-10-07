@@ -74,6 +74,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$muted$fr muted = _Translations$muted$fr._(_root);
 	@override late final _Translations$mine$fr mine = _Translations$mine$fr._(_root);
 	@override late final _Translations$outbox$fr outbox = _Translations$outbox$fr._(_root);
+	@override late final _Translations$placement$fr placement = _Translations$placement$fr._(_root);
 	@override late final _Translations$contribute$fr contribute = _Translations$contribute$fr._(_root);
 	@override late final _Translations$confirmSheet$fr confirmSheet = _Translations$confirmSheet$fr._(_root);
 	@override late final _Translations$issueSheet$fr issueSheet = _Translations$issueSheet$fr._(_root);
@@ -304,8 +305,12 @@ class _Translations$map$fr extends Translations$map$en {
 		one: 'lieu le plus proche du centre',
 		other: 'lieux les plus proches du centre',
 	);
-	@override String get pointTitle => 'Point choisi';
-	@override String get pointHint => 'Ses coordonnées et l\'itinéraire jusqu\'à lui';
+	@override String get pointTitle => 'Ici';
+	@override String get pointHint => 'Point sur la carte';
+	@override String get directionsHere => 'Itinéraire jusqu\'ici';
+	@override String get copyCoordinates => 'Copier les coordonnées';
+	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
+	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
 	@override String get downloading => 'Téléchargement des lieux de France';
 	@override String downloadingCount({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${count} lieu reçu',
@@ -998,6 +1003,21 @@ class _Translations$outbox$fr extends Translations$outbox$en {
 	@override String refused({required Object reason}) => 'Pas envoyé. ${reason}';
 }
 
+// Path: placement
+class _Translations$placement$fr extends Translations$placement$en {
+	_Translations$placement$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Placez le lieu';
+	@override String get hint => 'Déplacez la carte : la croix marque l\'endroit exact.';
+	@override String get confirm => 'Valider cet emplacement';
+	@override String duplicate({required Object name, required Object distance}) => 'Il y a déjà « ${name} » à ${distance} : est-ce le même endroit ?';
+	@override String get same => 'Oui, ouvrir sa fiche';
+	@override String get notSame => 'Non, c\'est un autre lieu';
+}
+
 // Path: contribute
 class _Translations$contribute$fr extends Translations$contribute$en {
 	_Translations$contribute$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -1035,9 +1055,8 @@ class _Translations$contribute$fr extends Translations$contribute$en {
 	@override String get toVerifyBody => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous le connaissez ? Confirmez-le.';
 	@override String get issuesTitle => 'Signalements des 30 derniers jours';
 	@override String issueCount({required Object kind, required Object count}) => '${kind} (${count})';
-	@override String get addPlace => 'Ajouter un lieu';
-	@override String get addPlaceHere => 'Ajouter un lieu ici';
-	@override String get addPlaceHint => 'Un appui long sur la carte déplace le point.';
+	@override String get addPlaceHere => 'Créer un lieu ici';
+	@override String get addPlaceHint => 'L\'endroit choisi sous la croix.';
 }
 
 // Path: confirmSheet
@@ -1537,7 +1556,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 
 	// Translations
 	@override String titleTo({required Object name}) => 'Vers ${name}';
-	@override String get titlePoint => 'Vers ce point';
+	@override String get titlePoint => 'Point sur la carte';
 	@override String get computing => 'Calcul d\'un itinéraire pour votre véhicule';
 	@override String get start => 'C\'est parti !';
 	@override String get recommended => 'Recommandé';
@@ -1577,15 +1596,15 @@ class _Translations$navigation$stops$fr extends Translations$navigation$stops$en
 
 	// Translations
 	@override String get title => 'Étapes';
-	@override String get add => 'Ajouter une étape';
-	@override String addCost({required Object minutes}) => 'Ajouter une étape · +${minutes} min';
-	@override String get addFree => 'Ajouter une étape · sans détour';
-	@override String get quoting => 'Ajouter une étape · calcul du détour';
+	@override String get add => 'Ajouter comme étape';
+	@override String addCost({required Object minutes}) => 'Ajouter comme étape · +${minutes} min';
+	@override String get addFree => 'Ajouter comme étape · sans détour';
+	@override String get quoting => 'Ajouter comme étape · calcul du détour';
 	@override String get noRoute => 'Pas d\'itinéraire par ce point pour votre véhicule.';
 	@override String get full => 'Cinq étapes au plus.';
 	@override String get goDirectly => 'Y aller directement';
 	@override String get openCard => 'Voir la fiche';
-	@override String get point => 'Point de la carte';
+	@override String get point => 'Point sur la carte';
 	@override String get remove => 'Retirer l\'étape';
 	@override String get reorder => 'Glisser pour changer l\'ordre';
 	@override String get added => 'Étape ajoutée';
@@ -1701,7 +1720,7 @@ class _Translations$navigation$noRoute$fr extends Translations$navigation$noRout
 	@override String removeStopNamed({required Object name}) => 'Retirer l\'étape « ${name} »';
 	@override String get placesAround => 'Voir les lieux autour de la destination';
 	@override String get moveDestination => 'Ou choisissez une autre arrivée : appui long sur la carte, puis « Y aller directement ».';
-	@override String get moveStop => 'Pour une autre étape : appui long sur la carte, puis « Ajouter une étape ».';
+	@override String get moveStop => 'Pour une autre étape : touchez la carte de près, ou appui long, puis « Ajouter comme étape ».';
 	@override String get moveOrigin => 'Le départ est votre position : rejoignez une route que votre véhicule peut prendre, puis réessayez.';
 	@override String get pickInside => 'Choisissez une destination dans un de ces pays.';
 	@override String get shorter => 'Choisissez une destination plus proche, ou faites le trajet en plusieurs fois.';
@@ -2535,8 +2554,12 @@ extension on TranslationsFr {
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu ici', other: 'lieux ici', ), 
 			'map.nearestYouLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche de vous', other: 'lieux les plus proches de vous', ), 
 			'map.nearestCentreLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'lieu le plus proche du centre', other: 'lieux les plus proches du centre', ), 
-			'map.pointTitle' => 'Point choisi',
-			'map.pointHint' => 'Ses coordonnées et l\'itinéraire jusqu\'à lui',
+			'map.pointTitle' => 'Ici',
+			'map.pointHint' => 'Point sur la carte',
+			'map.directionsHere' => 'Itinéraire jusqu\'ici',
+			'map.copyCoordinates' => 'Copier les coordonnées',
+			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
+			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
 			'map.downloading' => 'Téléchargement des lieux de France',
 			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu reçu', other: '${count} lieux reçus', ), 
 			'map.noData' => 'Aucun lieu sur cet appareil pour l\'instant',
@@ -2726,7 +2749,7 @@ extension on TranslationsFr {
 			'directions.openStreetMap' => 'OpenStreetMap (navigateur)',
 			'directions.none' => 'Aucune application de navigation trouvée sur cet appareil.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'Vers ${name}',
-			'navigation.preview.titlePoint' => 'Vers ce point',
+			'navigation.preview.titlePoint' => 'Point sur la carte',
 			'navigation.preview.computing' => 'Calcul d\'un itinéraire pour votre véhicule',
 			'navigation.preview.start' => 'C\'est parti !',
 			'navigation.preview.recommended' => 'Recommandé',
@@ -2754,15 +2777,15 @@ extension on TranslationsFr {
 			'navigation.preview.otherApps' => 'Ouvrir dans…',
 			'navigation.preview.back' => 'Retour',
 			'navigation.stops.title' => 'Étapes',
-			'navigation.stops.add' => 'Ajouter une étape',
-			'navigation.stops.addCost' => ({required Object minutes}) => 'Ajouter une étape · +${minutes} min',
-			'navigation.stops.addFree' => 'Ajouter une étape · sans détour',
-			'navigation.stops.quoting' => 'Ajouter une étape · calcul du détour',
+			'navigation.stops.add' => 'Ajouter comme étape',
+			'navigation.stops.addCost' => ({required Object minutes}) => 'Ajouter comme étape · +${minutes} min',
+			'navigation.stops.addFree' => 'Ajouter comme étape · sans détour',
+			'navigation.stops.quoting' => 'Ajouter comme étape · calcul du détour',
 			'navigation.stops.noRoute' => 'Pas d\'itinéraire par ce point pour votre véhicule.',
 			'navigation.stops.full' => 'Cinq étapes au plus.',
 			'navigation.stops.goDirectly' => 'Y aller directement',
 			'navigation.stops.openCard' => 'Voir la fiche',
-			'navigation.stops.point' => 'Point de la carte',
+			'navigation.stops.point' => 'Point sur la carte',
 			'navigation.stops.remove' => 'Retirer l\'étape',
 			'navigation.stops.reorder' => 'Glisser pour changer l\'ordre',
 			'navigation.stops.added' => 'Étape ajoutée',
@@ -2867,7 +2890,7 @@ extension on TranslationsFr {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Retirer l\'étape « ${name} »',
 			'navigation.noRoute.placesAround' => 'Voir les lieux autour de la destination',
 			'navigation.noRoute.moveDestination' => 'Ou choisissez une autre arrivée : appui long sur la carte, puis « Y aller directement ».',
-			'navigation.noRoute.moveStop' => 'Pour une autre étape : appui long sur la carte, puis « Ajouter une étape ».',
+			'navigation.noRoute.moveStop' => 'Pour une autre étape : touchez la carte de près, ou appui long, puis « Ajouter comme étape ».',
 			'navigation.noRoute.moveOrigin' => 'Le départ est votre position : rejoignez une route que votre véhicule peut prendre, puis réessayez.',
 			'navigation.noRoute.pickInside' => 'Choisissez une destination dans un de ces pays.',
 			'navigation.noRoute.shorter' => 'Choisissez une destination plus proche, ou faites le trajet en plusieurs fois.',
@@ -2937,12 +2960,12 @@ extension on TranslationsFr {
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
 			'navigation.marks.groupLegend' => 'Repères proches regroupés : rapprochez-vous pour les séparer',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
+			_ => null,
+		} ?? switch (path) {
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
 			'navigation.marks.stop' => ({required Object n}) => 'Étape ${n}',
 			'navigation.marks.origin' => 'Point de départ',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.marks.nearRoute' => 'Près du trajet',
 			'navigation.marks.avoided' => 'L\'itinéraire passe à côté',
 			'navigation.marks.blocking' => 'Bloque chaque itinéraire',
@@ -3349,6 +3372,12 @@ extension on TranslationsFr {
 			'outbox.sent' => 'Merci, c\'est envoyé',
 			'outbox.queued' => 'Pas de réseau : envoi dès qu\'il revient',
 			'outbox.refused' => ({required Object reason}) => 'Pas envoyé. ${reason}',
+			'placement.title' => 'Placez le lieu',
+			'placement.hint' => 'Déplacez la carte : la croix marque l\'endroit exact.',
+			'placement.confirm' => 'Valider cet emplacement',
+			'placement.duplicate' => ({required Object name, required Object distance}) => 'Il y a déjà « ${name} » à ${distance} : est-ce le même endroit ?',
+			'placement.same' => 'Oui, ouvrir sa fiche',
+			'placement.notSame' => 'Non, c\'est un autre lieu',
 			'contribute.yourRating' => 'Votre note',
 			'contribute.rateHint' => 'Touchez une étoile pour noter',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Noter ${n} étoile', other: 'Noter ${n} étoiles', ), 
@@ -3376,9 +3405,8 @@ extension on TranslationsFr {
 			'contribute.toVerifyBody' => 'Lieu ajouté par la communauté, en attente de deux confirmations. Vous le connaissez ? Confirmez-le.',
 			'contribute.issuesTitle' => 'Signalements des 30 derniers jours',
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
-			'contribute.addPlace' => 'Ajouter un lieu',
-			'contribute.addPlaceHere' => 'Ajouter un lieu ici',
-			'contribute.addPlaceHint' => 'Un appui long sur la carte déplace le point.',
+			'contribute.addPlaceHere' => 'Créer un lieu ici',
+			'contribute.addPlaceHint' => 'L\'endroit choisi sous la croix.',
 			'confirmSheet.title' => 'Toujours là ?',
 			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.',
 			'confirmSheet.stillOk' => 'Oui, comme décrit',
@@ -3446,6 +3474,8 @@ extension on TranslationsFr {
 			'gate.meanwhile' => 'En attendant, vous pouvez noter les lieux, confirmer qu\'ils sont toujours là ou signaler un problème.',
 			'photoFlow.title' => 'Ajouter une photo',
 			'photoFlow.camera' => 'Prendre une photo',
+			_ => null,
+		} ?? switch (path) {
 			'photoFlow.gallery' => 'Choisir dans la galerie',
 			'photoFlow.preparing' => 'Préparation de la photo',
 			'photoFlow.licence' => 'Publiée sous licence CC BY 4.0, avec votre pseudonyme. Évitez les visages et les plaques d\'immatriculation.',
@@ -3455,8 +3485,6 @@ extension on TranslationsFr {
 			'photoFlow.sending' => ({required Object percent}) => 'Envoi ${percent} %',
 			'photoFlow.pending' => 'Photo en attente d\'envoi',
 			'placeForm.addTitle' => 'Ajouter un lieu',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.editTitle' => 'Modifier le lieu',
 			'placeForm.proposeTitle' => 'Proposer une modification',
 			'placeForm.position' => 'Position sur la carte',

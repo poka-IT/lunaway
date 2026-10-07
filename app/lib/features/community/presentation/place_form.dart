@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +15,8 @@ import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
+import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -23,16 +27,33 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 
-/// Adds a place at [position]: the level first (2), then the form.
+/// Adds a place near [position]: the level first (2), then the spot set to
+/// the metre under a crosshair, then, when a place already stands within
+/// [duplicateRadiusM], whether it is the same one, and the form.
 Future<void> startAddPlace(BuildContext context, WidgetRef ref, LatLng position) async {
   final t = context.t;
   if (!await passesGate(context, ref, level: TrustLevels.addPlace, title: t.gate.addPlace)) {
     return;
   }
   if (!context.mounted) return;
+  final placement = await pickPlacement(context, position);
+  if (placement == null || !context.mounted) return;
+  final spot = placement.position;
+  final local = await localPlacesAround(ref, spot);
+  if (!context.mounted) return;
+  final twin = nearestPlace([...placement.around, ...local], spot);
+  if (twin != null) {
+    final same = await askSamePlace(context, twin.place, twin.metres);
+    if (same == null || !context.mounted) return;
+    if (same) {
+      ref.read(selectionProvider.notifier).select(PlaceSelection(twin.place.id, hint: twin.place));
+      unawaited(ref.read(mapControllerProvider)?.moveTo(twin.place.position));
+      return;
+    }
+  }
   await showFormSheet<void>(
     context,
-    builder: (context, scroll) => PlaceForm(position: position, scrollController: scroll),
+    builder: (context, scroll) => PlaceForm(position: spot, scrollController: scroll),
   );
 }
 

@@ -1,6 +1,7 @@
 @Tags(['golden'])
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
@@ -212,6 +214,34 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('images/map_point_compact.png'),
+      );
+    }),
+  );
+
+  testWidgets(
+    'a new place is set under the crosshair, compact',
+    skip: skip,
+    (tester) => _withShadows(() async {
+      await _pump(tester, _phone, Brightness.light);
+      unawaited(pickPlacement(tester.element(find.byType(Scaffold).first), lakeArea.position));
+      await settleShort(tester);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('images/placement_compact.png'),
+      );
+    }),
+  );
+
+  testWidgets(
+    'a place within 50 m is asked about before the form, compact',
+    skip: skip,
+    (tester) => _withShadows(() async {
+      await _pump(tester, _phone, Brightness.light);
+      unawaited(askSamePlace(tester.element(find.byType(Scaffold).first), lakeArea.summary, 30));
+      await settleShort(tester);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('images/placement_duplicate_compact.png'),
       );
     }),
   );

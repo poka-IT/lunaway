@@ -287,8 +287,9 @@ final class RouteMapProps {
   /// engine with a mouse reports it.
   final ValueChanged<RouteMapHover?>? onMarkHover;
 
-  /// A tap on neither a mark nor another route.
-  final VoidCallback? onEmptyTap;
+  /// A tap with no mark and no route within reach (`hitAroundTap`), at
+  /// that point, with the map's zoom then.
+  final void Function(LatLng at, double zoom)? onEmptyTap;
 
   /// The camera started moving: what is pinned over the map is out of place.
   final VoidCallback? onCameraMove;

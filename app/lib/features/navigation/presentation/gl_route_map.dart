@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
@@ -39,6 +40,10 @@ class GlRouteMap extends StatefulWidget {
 class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateMixin {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
+
+  /// Counts the taps and presses: a bare tap that waits (a finger in the
+  /// browser) gives way to any that came after it.
+  int _taps = 0;
   int _styleLoads = 0;
 
   // One update runs at a time and sends the latest state: at a fix a
@@ -616,35 +621,44 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
   );
 
-  /// What a tap at [point] (engine units) picks: the nearest badge or
-  /// other route within reach ([nearestHit], [routeHitShapes]), its layer,
-  /// its properties and where it stands in logical pixels.
-  Future<({String layer, Map<Object?, Object?> properties, LatLng? at, Offset? screen})?> _pick(
-    gl.MapLibreMapController c,
-    math.Point<double> point,
-  ) async {
+  /// The nearest badge or other route within reach of a tap ([nearestHit],
+  /// [routeHitShapes]), and at street level one the tap just missed
+  /// ([hitAroundTap]): a group zooms in until it opens, a mark reports
+  /// itself, another route is chosen. Nothing in reach is a tap on bare map
+  /// at [at]. Every mark is a target: none is a sign that opens nothing.
+  Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
+    final seq = ++_taps;
+    final c = _controller;
+    if (c == null || !_ready || !mounted) return;
     final scale = _queryScale;
     final tolerance = hitTolerance(webMapPointerKind());
+    // Wide enough for the reach of a free point (FreeTap); the selection's
+    // own tolerance is applied below.
+    final reach = tolerance * FreeTap.wider;
     final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: tolerance * 2 * scale,
-      height: tolerance * 2 * scale,
+      width: reach * 2 * scale,
+      height: reach * 2 * scale,
     );
     final layers = [
-      if (_props.onMarkTap != null) ...RouteLayers.badges,
+      ...RouteLayers.badges,
       if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
     ];
     // One query per layer: the engines do not all say which layer a
     // feature was drawn by.
-    final answers = await Future.wait([
-      for (final layer in layers) c.queryRenderedFeaturesInRect(box, [layer], null),
-    ]);
+    final (answers, camera) = await (
+      Future.wait([
+        for (final layer in layers) c.queryRenderedFeaturesInRect(box, [layer], null),
+      ]),
+      c.queryCameraPosition(),
+    ).wait;
+    if (!mounted) return;
+    final zoom = camera?.zoom;
     final features = [
       for (final (i, found) in answers.indexed)
         for (final f in found)
           if (f is Map) (layers[i], f),
     ];
-    if (features.isEmpty || !mounted) return null;
     final positions = [
       for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
     ];
@@ -653,7 +667,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final projected = flat.isEmpty
         ? const <math.Point<num>>[]
         : await c.toScreenLocationBatch([for (final p in flat) gl.LatLng(p.lat, p.lon)]);
-    if (!mounted) return null;
+    if (!mounted) return;
     var next = 0;
     final candidates = [
       for (var i = 0; i < features.length; i++)
@@ -666,46 +680,49 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           ],
         ),
     ];
-    final hit = nearestHit(
-      Offset(point.x, point.y) / scale,
-      candidates,
-      shapes: routeHitShapes,
-      zoom: 0,
+    final tapped = Offset(point.x, point.y) / scale;
+    final hit = hitAroundTap(
+      (t) => nearestHit(tapped, candidates, shapes: routeHitShapes, zoom: 0, tolerance: t),
       tolerance: tolerance,
+      zoom: zoom,
     );
-    if (hit == null) return null;
-    final chosen = candidates[hit.index];
-    final at = positions[hit.index];
-    return (
-      layer: chosen.layer,
-      properties: chosen.properties,
-      at: at.isEmpty ? null : at[hit.pointIndex],
-      screen: chosen.points.isEmpty ? null : chosen.points[hit.pointIndex],
-    );
-  }
-
-  /// The nearest target within reach: a group zooms in until it opens, a
-  /// mark reports itself, another route is chosen; nothing says so.
-  Future<void> _onTap(math.Point<double> point) async {
-    final c = _controller;
-    if (c == null || !_ready || !mounted) return;
-    final hit = await _pick(c, point);
-    if (!mounted) return;
     if (hit == null) {
-      _props.onEmptyTap?.call();
+      final onEmptyTap = _props.onEmptyTap;
+      if (onEmptyTap == null) return;
+      // On a touch screen GL JS keeps the second tap of a double tap for its
+      // zoom: the first one is dropped once the camera zooms.
+      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null && zoom != null) {
+        final stands = await touchTapStands(
+          camera: () async {
+            final now = await c.queryCameraPosition();
+            if (now == null) return null;
+            return (center: LatLng(now.target.latitude, now.target.longitude), zoom: now.zoom);
+          },
+          center: LatLng(camera.target.latitude, camera.target.longitude),
+          zoom: zoom,
+          superseded: () => _taps != seq,
+        );
+        if (!stands) return;
+      }
+      // Without a zoom no point opens (bareTapAt), but a callout still
+      // closes.
+      if (mounted) onEmptyTap(LatLng(at.latitude, at.longitude), zoom ?? 0);
       return;
     }
-    final p = hit.properties;
+    final chosen = candidates[hit.index];
+    final p = chosen.properties;
     if (p['cluster_id'] case final num cluster) {
       final source = RouteLayers.markSources.firstWhere(
-        (s) => RouteLayers.badgesOf(s) == hit.layer,
+        (s) => RouteLayers.badgesOf(s) == chosen.layer,
         orElse: () => RouteLayers.marksSource,
       );
+      final where = positions[hit.index];
       try {
-        final zoom = await c.getClusterExpansionZoom(source, cluster.toInt());
-        if (hit.at case final at? when mounted) {
+        final open = await c.getClusterExpansionZoom(source, cluster.toInt());
+        if (where.isNotEmpty && mounted) {
+          final centre = where[hit.pointIndex];
           await c.animateCamera(
-            gl.CameraUpdate.newLatLngZoom(gl.LatLng(at.lat, at.lon), zoom + 0.3),
+            gl.CameraUpdate.newLatLngZoom(gl.LatLng(centre.lat, centre.lon), open + 0.3),
             duration: Motion.of(context, Motion.camera),
           );
         }
@@ -716,8 +733,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       return;
     }
     if (p['mark'] case final String id) {
-      final scale = _queryScale;
-      _props.onMarkTap?.call(id, at: hit.screen ?? Offset(point.x / scale, point.y / scale));
+      final screen = chosen.points.isEmpty ? tapped : chosen.points[hit.pointIndex];
+      _props.onMarkTap?.call(id, at: screen);
       return;
     }
     if (p['index'] case final num index) _props.onLineTap?.call(index.toInt());
@@ -773,7 +790,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
-          : (point, _) => _onTap(point),
+          : _onTap,
       // Told once a move starts, not at each of its frames.
       onCameraMove: p.onCameraMove == null
           ? null
@@ -785,7 +802,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       onCameraIdle: () => _moving = false,
       onMapLongClick: p.onLongPress == null
           ? null
-          : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
+          : (_, at) {
+              _taps++;
+              p.onLongPress!(LatLng(at.latitude, at.longitude));
+            },
     );
     return WebMapPointer(
       child: LayoutBuilder(

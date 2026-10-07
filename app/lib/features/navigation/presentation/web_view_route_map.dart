@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -148,6 +149,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   /// (lunawayHits.pick, by routeHitShapes): a mark reports itself, a group
   /// zooms in; the cards beside the map pick the route.
   static Map<String, Object?> _spec({required bool dark}) => {
+    'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
     'tappable': [...RouteLayers.badges],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
@@ -228,8 +230,6 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         if (event['id'] case final String id) {
           _props.onMarkTap?.call(id, at: _pointOf(event));
         }
-      case 'empty':
-        _props.onEmptyTap?.call();
       case 'movestart':
         _props.onCameraMove?.call();
       case 'hover':
@@ -247,6 +247,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
             when lat.abs() <= 90 && lon.isFinite) {
           final wrapped = (lon + 180) % 360 - 180;
           _props.onLongPress?.call(LatLng(lat.toDouble(), wrapped.toDouble()));
+        }
+      case 'empty':
+        if ((event['lat'], event['lon'], event['zoom'])
+            case (final num lat, final num lon, final num zoom)
+            when lat.abs() <= 90 && lon.isFinite) {
+          final wrapped = (lon + 180) % 360 - 180;
+          _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
         }
       case 'link':
         if (Uri.tryParse('${event['url']}') case final url?) {
