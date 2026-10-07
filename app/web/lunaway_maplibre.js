@@ -63,6 +63,18 @@
     map.on('render', onRender);
   }
 
+  // Counts the tiles of the places that failed to load (MapLibre reports
+  // neither a 404 nor an empty tile as an error). The list beside the map
+  // reads the tiles in view from the zoom of the names; when one failed,
+  // the app asks the API instead (PlaceTileErrors in lib/core/web/).
+  function countTileErrors(map) {
+    map.on('error', function (e) {
+      if (e && e.sourceId === 'lw-place-tiles') {
+        window.lunawayPlaceTileErrors = (window.lunawayPlaceTileErrors || 0) + 1;
+      }
+    });
+  }
+
   // The app's pin images (places, points of interest) load when a layer
   // first draws one, from the app's assets, decoded by the browser off the
   // page's thread: no image is fetched or decoded before it is seen, and the
@@ -97,6 +109,7 @@
         super(options);
         markPlacesDrawn(this);
         loadMissingPins(this);
+        countTileErrors(this);
       }
 
       setStyle(style, options) {

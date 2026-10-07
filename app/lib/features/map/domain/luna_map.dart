@@ -139,8 +139,14 @@ final class LunaMapProps {
 
   /// The places of the tiles inside the view, reported when the map rests
   /// at the zoom of the pins: the list beside the map shows them, and the
-  /// points of interest leave room for them.
-  final void Function(List<PlaceSummary> places, GeoBounds bounds)? onPlacesInView;
+  /// points of interest leave room for them. `failed` when a tile of the
+  /// places failed to load since the previous report: the places are then
+  /// those of the tiles that came, maybe none.
+  final void Function(List<PlaceSummary> places, GeoBounds bounds, {bool failed})? onPlacesInView;
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);
+
+/// The room the first view's fit (`LunaMapProps.fitInitial`) leaves around
+/// the region, inside the map's padding.
+const double fitInitialMargin = 16;

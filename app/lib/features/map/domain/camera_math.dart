@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter/painting.dart';
 import 'package:lunaway/core/geo/geo.dart';
 
@@ -72,3 +73,14 @@ double screenYOf(LatLng point, GeoBounds visible, double height) {
   final span = math.max(mercatorY(visible.south) - top, 1e-12);
   return (mercatorY(point.lat) - top) / span * height;
 }
+
+/// How many of the map engine's screen units make one logical pixel, for
+/// the rectangles the app hands to the engine's feature queries. MapLibre
+/// Android counts the physical pixels of its view (the points of its taps
+/// come in them too); MapLibre iOS counts points and MapLibre GL JS CSS
+/// pixels, both logical.
+double mapQueryScale({
+  required bool web,
+  required TargetPlatform platform,
+  required double devicePixelRatio,
+}) => !web && platform == TargetPlatform.android ? devicePixelRatio : 1;

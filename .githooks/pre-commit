@@ -34,8 +34,13 @@ whole_files() {
   done
 }
 
-# Generated files are left as their generator wrote them.
-dart_files=$(printf '%s\n' "$staged" | grep '\.dart$' | grep -vE '\.(g|freezed)\.dart$' || true)
+# Generated files are left as their generator wrote them, and third-party
+# code as its project published it (tool/harness/vendored.txt): formatted to
+# our page width, a vendored package would no longer diff against upstream.
+dart_files=$(printf '%s\n' "$staged" | grep '\.dart$' | grep -vE '\.(g|freezed)\.dart$' \
+  | awk -v list=tool/harness/vendored.txt '
+    BEGIN { while ((getline line < list) > 0) if (line !~ /^#/ && line != "") v[++n] = line }
+    { for (i = 1; i <= n; i++) if (index($0, v[i]) == 1) next; print }' || true)
 if [ -z "$DART" ]; then
   [ -n "$dart_files" ] && warn "pre-commit: no dart toolchain on PATH (fvm or dart); format, translation and structure gates skipped, the CI will run them."
 else

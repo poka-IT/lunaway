@@ -344,6 +344,12 @@ class _Dock extends StatelessWidget {
   }
 }
 
+/// The width of the rail, before the safe area on its side: [dense] for the
+/// desktop look (a mouse), narrower with shorter pills. The web page's first
+/// map leaves the same room (`premapDefaults`).
+double railWidth({required bool extended, required bool dense}) =>
+    extended ? (dense ? 200.0 : 232.0) : (dense ? 76.0 : 92.0);
+
 /// The navigation of the wide layouts: the brand at the top, the
 /// destinations as amber-lit pills, labels under the icons (medium, or a
 /// desktop rail folded by the user) or beside them (expanded). On a desktop
@@ -374,7 +380,7 @@ class _Rail extends StatelessWidget {
     final text = theme.textTheme;
     // The desktop look (a mouse): a narrower rail with shorter pills.
     final dense = theme.visualDensity.vertical < 0;
-    final width = extended ? (dense ? 200.0 : 232.0) : (dense ? 76.0 : 92.0);
+    final width = railWidth(extended: extended, dense: dense);
     return Container(
       // A phone on its side puts its camera cut-out on the left: the rail
       // grows by it, so its labels keep their room.

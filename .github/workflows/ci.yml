@@ -271,7 +271,17 @@ jobs:
         run: flutter pub get
       - name: build (the flags of infra/deploy-web.sh)
         working-directory: app
-        run: flutter build web --release --no-pub --base-href /app/ --no-web-resources-cdn
+        run: flutter build web --release --wasm --no-pub --base-href /app/ --no-web-resources-cdn
+      # What infra/deploy-web.sh does next, without the Brotli copies: a
+      # build whose startup files no longer read as the tool expects fails
+      # here rather than in a browser.
+      - name: fingerprint and service worker (the steps of infra/deploy-web.sh)
+        working-directory: app
+        run: |
+          python3 tool/web/fingerprint.py build/web
+          python3 tool/web/service_worker.py build/web
+          grep -q 'main.dart.[0-9a-f]\{12\}.wasm' build/web/flutter_bootstrap.*.js
+          grep -q 'main.dart.[0-9a-f]\{12\}.js' build/web/flutter_bootstrap.*.js
       # lib/src/load_web.dart loads lunaway_nav/lunaway_nav.js, then
       # lunaway_nav_bg.wasm, and finds the module on `window` only if the
       # glue declares it with `var` (build_web.sh rewrites it).

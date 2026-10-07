@@ -71,6 +71,14 @@ dev_dependencies:
   unorm_dart: ^0.3.3
   very_good_analysis: ^11.0.0
 
+dependency_overrides:
+  # maplibre_gl's web plugin, patched so the map works in the WebAssembly
+  # build (dart2wasm) as in the JavaScript one. What changed and why: the
+  # header of its pubspec.yaml. Back to the pub.dev release once one carries
+  # the fixes.
+  maplibre_gl_web:
+    path: third_party/maplibre_gl_web
+
 hooks:
   user_defines:
     # package:sqlite3 downloads a prebuilt SQLite from GitHub during the
