@@ -86,7 +86,7 @@ final class PreviewZonesProvider
   }
 }
 
-String _$previewZonesHash() => r'd5cdcdb71ddb2526b06ffc1bef0b418cfb59bedb';
+String _$previewZonesHash() => r'2dcc635ada2f215d29c5ace9a95991ec2e7f79c8';
 
 /// The danger zones the preview draws on [route], read from [origin], where
 /// the device is: under the strictest rule of the countries around it, at
