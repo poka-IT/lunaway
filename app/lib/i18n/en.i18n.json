@@ -723,11 +723,12 @@
       "demoDrive": "Simulated drive: a demonstration without GPS",
       "places": {
         "button": "Places on the map",
+        "buttonHidden": "Places on the map: hidden",
         "title": "Places on the map",
         "show": "Show places and services",
         "which": "Which ones",
         "mapFilters": "As on the map",
-        "mapFiltersHint": "The places of your filters, and the services of the chip turned on on the map.",
+        "mapFiltersHint": "The places of your filters, and the services of the chip chosen on the map.",
         "nights": "Overnight spots",
         "fuel": "Fuel",
         "water": "Water and dump"

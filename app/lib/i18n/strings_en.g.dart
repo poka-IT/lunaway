@@ -5239,6 +5239,9 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Places on the map'
 	String get button => 'Places on the map';
 
+	/// en: 'Places on the map: hidden'
+	String get buttonHidden => 'Places on the map: hidden';
+
 	/// en: 'Places on the map'
 	String get title => 'Places on the map';
 
@@ -5251,8 +5254,8 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'As on the map'
 	String get mapFilters => 'As on the map';
 
-	/// en: 'The places of your filters, and the services of the chip turned on on the map.'
-	String get mapFiltersHint => 'The places of your filters, and the services of the chip turned on on the map.';
+	/// en: 'The places of your filters, and the services of the chip chosen on the map.'
+	String get mapFiltersHint => 'The places of your filters, and the services of the chip chosen on the map.';
 
 	/// en: 'Overnight spots'
 	String get nights => 'Overnight spots';
@@ -5861,11 +5864,12 @@ extension on Translations {
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
 			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.guidance.places.button' => 'Places on the map',
+			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
 			'navigation.guidance.places.title' => 'Places on the map',
 			'navigation.guidance.places.show' => 'Show places and services',
 			'navigation.guidance.places.which' => 'Which ones',
 			'navigation.guidance.places.mapFilters' => 'As on the map',
-			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip turned on on the map.',
+			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip chosen on the map.',
 			'navigation.guidance.places.nights' => 'Overnight spots',
 			'navigation.guidance.places.fuel' => 'Fuel',
 			'navigation.guidance.places.water' => 'Water and dump',
@@ -6297,9 +6301,9 @@ extension on Translations {
 			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
 			'reportSheet.muteAuthor' => 'Hide this author',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Hide ${name}?',
-			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',
 			'reportSheet.muted' => ({required Object name}) => '${name} is hidden',
 			'reportSheet.deletePhoto' => 'Delete my photo',
 			'reportSheet.deletePhotoTitle' => 'Delete this photo?',

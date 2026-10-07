@@ -139,17 +139,15 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         ? const <String, Uint8List>{}
         : await PinSprites.load(PinSprites.ratioFor(ratio));
     if (!mounted) return;
-    final start = switch (_props.camera) {
-      FitCamera(:final bounds) => bounds.center,
-      FollowCamera(:final position) => position,
-      FreeCamera() => _props.vehicle?.position ?? const LatLng(46.6, 2.4),
-    };
+    final start = initialCamera(_props);
     await _call('return window.lunaway.init(options);', {
       'options': {
         'style': _styleArgument(_props.style),
-        'lat': start.lat,
-        'lon': start.lon,
-        'zoom': 11,
+        'lat': start.target.lat,
+        'lon': start.target.lon,
+        'zoom': start.zoom,
+        'bearing': start.bearing,
+        'pitch': start.tilt,
         // The vehicle's arrow and the badges of the marks, drawn at the
         // screen's density.
         'pixelRatio': ratio,
@@ -280,6 +278,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentVehicle = null;
         _sentFollowPadding = null;
         _sentGuiding = null;
+        // A new page follows nothing yet: no gesture holds it.
         _heldByUser = false;
         // The spec the page holds carries the places as they were sent.
         _sentPlaces = _specPlaces;
@@ -295,22 +294,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       case 'movestart':
         _props.onCameraMove?.call();
       case 'gesture':
-        if (_props.camera is FollowCamera) _heldByUser = true;
+        _heldByUser = true;
         _props.onGesture?.call();
       case 'touch':
         _props.onTouch?.call(event['down'] == true);
       case 'rest':
-        final (x, y) = (event['x'], event['y']);
-        final (width, height) = (event['width'], event['height']);
-        _props.onRest?.call(
-          FreeView(
-            size: width is num && height is num ? Size(width.toDouble(), height.toDouble()) : _size,
-            vehicle: x is num && y is num ? Offset(x.toDouble(), y.toDouble()) : null,
-            zoom: (event['zoom'] as num?)?.toDouble() ?? 0,
-            bearing: (event['bearing'] as num?)?.toDouble() ?? 0,
-            tilt: (event['pitch'] as num?)?.toDouble() ?? 0,
-          ),
-        );
+        _props.onRest?.call(freeViewOfPage(event, size: _size));
       case 'place':
         final place = placeFromTile(
           event['properties'] as Map<Object?, Object?>?,
@@ -378,12 +367,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   @override
   void didUpdateWidget(WebViewRouteMap old) {
     super.didUpdateWidget(old);
-    // The places came or went: their sources are in the spec.
-    final placesChanged = (_props.places == null) != (_specPlaces == null);
-    if (_ready && (_props.style != _style || _props.dark != old.props.dark || placesChanged)) {
+    // The places came: their sources go into the spec. Gone, their layers
+    // are hidden (_sync), the sources kept for their return.
+    final placesCame = _props.places != null && _specPlaces == null;
+    if (_ready && (_props.style != _style || _props.dark != old.props.dark || placesCame)) {
       _setStyle();
       return;
     }
+    _heldByUser = heldAfter(held: _heldByUser, before: old.props.camera, after: _props.camera);
     _schedule();
   }
 
@@ -401,11 +392,11 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       await _call('return window.lunawayRoute.guiding(on);', {'on': p.guiding});
     }
     final places = p.places;
-    if (places != null && places != _sentPlaces) {
+    if (places != _sentPlaces && _specPlaces != null) {
       _sentPlaces = places;
       for (final (id, filter) in [
-        (RoutePlaceLayers.placePins, places.placeFilter),
-        (RoutePlaceLayers.poiPins, places.poiFilter),
+        (RoutePlaceLayers.placePins, places?.placeFilter),
+        (RoutePlaceLayers.poiPins, places?.poiFilter),
       ]) {
         await _call('return window.lunaway.setLayer(id, filter, visible);', {
           'id': id,
@@ -458,13 +449,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       }
     }
     final camera = p.camera;
-    final sent = _sentCamera;
-    if (camera is FollowCamera && camera != sent) {
-      if (sent is! FollowCamera) _heldByUser = false;
-      _sentCamera = camera;
-      // A gesture stopped following in the page: the screen's free camera
-      // is on its way, the user's view stays meanwhile.
-      if (_heldByUser) return;
+    // A gesture that stopped following in the page keeps the user's view
+    // until the screen asks again to follow (cameraStep, heldAfter).
+    final step = cameraStep(sent: _sentCamera, next: camera, heldByUser: _heldByUser);
+    if (step == CameraStep.none) return;
+    _sentCamera = camera;
+    if (camera is FollowCamera) {
       final padding = followInsets(_size, p.padding);
       _sentFollowPadding = padding;
       await _call('return window.lunawayRoute.follow(options);', {
@@ -477,23 +467,23 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
             'right': padding.right,
           },
           'ease': _reduced ? 0 : camera.ease.inMilliseconds,
+          'enter': step == CameraStep.enterFollow,
         },
       });
+      return;
     }
-    if (camera is FreeCamera && sent is! FreeCamera) {
-      _sentCamera = camera;
+    if (step == CameraStep.free) {
       _sentFollowPadding = null;
       await _call('return window.lunawayRoute.free();');
+      return;
     }
-    if (camera != _sentCamera && camera is FitCamera) {
-      _heldByUser = false;
+    if (camera is FitCamera) {
       // Whether the page follows is its own state: a resize clears
       // _sentCamera while it still does.
-      if (_sentFollowPadding != null || sent is FreeCamera) {
+      if (step == CameraStep.overview || _sentFollowPadding != null) {
         _sentFollowPadding = null;
         await _call('return window.lunawayRoute.overview();');
       }
-      _sentCamera = camera;
       final pad = p.padding;
       await _call('return window.lunaway.fitBounds(s, w, n, e, padding);', {
         's': camera.bounds.south,

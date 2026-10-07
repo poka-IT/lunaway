@@ -46,6 +46,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/measured.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -135,20 +136,31 @@ class _NoGuidance extends StatelessWidget {
   );
 }
 
-class _Portrait extends StatelessWidget {
+class _Portrait extends StatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
+  State<_Portrait> createState() => _PortraitState();
+}
+
+class _PortraitState extends State<_Portrait> {
+  /// The bottom bar's height as it was laid out: large text makes it taller,
+  /// and the map buttons, "Recentrer" and the vehicle stay above it.
+  double _bar = 140;
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
+    final above = _bar + Space.s;
     return Stack(
       children: [
         Positioned.fill(
           child: _GuidanceMap(
             session: session,
-            padding: const EdgeInsets.only(top: 220, bottom: 140),
+            padding: EdgeInsets.only(top: 220, bottom: _bar),
           ),
         ),
         Positioned(
@@ -172,16 +184,30 @@ class _Portrait extends StatelessWidget {
         if (!arrived)
           Positioned(
             right: Space.s,
-            bottom: 150,
+            bottom: above,
             child: _MapButtons(session: session),
           ),
+        // Centred in what the buttons' column leaves, so large text never
+        // pushes it under them.
         if (!arrived)
-          const Positioned(left: 0, right: 0, bottom: 150, child: Center(child: _RecenterButton())),
+          Positioned(
+            left: 0,
+            right: _buttonsColumn,
+            bottom: above,
+            child: const Center(child: _RecenterButton()),
+          ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+          child: arrived
+              ? _ArrivalCard(session: session)
+              : ReportsHeight(
+                  onHeight: (height) {
+                    if (mounted && height != _bar) setState(() => _bar = height);
+                  },
+                  child: _BottomBar(session: session),
+                ),
         ),
       ],
     );
@@ -204,15 +230,28 @@ class _Landscape extends StatelessWidget {
             right: false,
             child: Padding(
               padding: const EdgeInsets.all(Space.s),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!arrived) _ManeuverBanner(session: session),
-                  Expanded(
-                    child: SingleChildScrollView(child: _Notices(session: session)),
+              // A phone on its side with large text has less height than the
+              // banner and the bar together: the panel then scrolls whole
+              // rather than overflow. With room, the notices fill the middle.
+              child: LayoutBuilder(
+                builder: (context, box) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: box.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!arrived) _ManeuverBanner(session: session),
+                          Expanded(child: _Notices(session: session)),
+                          if (arrived)
+                            _ArrivalCard(session: session)
+                          else
+                            _BottomBar(session: session),
+                        ],
+                      ),
+                    ),
                   ),
-                  if (arrived) _ArrivalCard(session: session) else _BottomBar(session: session),
-                ],
+                ),
               ),
             ),
           ),
@@ -229,12 +268,19 @@ class _Landscape extends StatelessWidget {
                   bottom: Space.l,
                   child: _MapButtons(session: session),
                 ),
+              // At the top left of the map, which nothing covers on this
+              // side: the right edge is the buttons' column, and a narrow map
+              // has no room beside it.
               if (!arrived)
                 const Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: Space.l,
-                  child: Center(child: _RecenterButton()),
+                  left: Space.s,
+                  right: _buttonsColumn,
+                  top: Space.s,
+                  child: SafeArea(
+                    left: false,
+                    bottom: false,
+                    child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
+                  ),
                 ),
             ],
           ),
@@ -273,7 +319,7 @@ class _GuidanceMap extends ConsumerWidget {
     final view = ref.watch(guidanceCameraProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     final camera = switch (view.mode) {
-      GuidanceCameraMode.free => const FreeCamera(),
+      GuidanceCameraMode.free => FreeCamera(view: view.rest),
       GuidanceCameraMode.overview => FitCamera(whole),
       GuidanceCameraMode.follow when vehicle == null => FitCamera(whole),
       GuidanceCameraMode.follow => FollowCamera(
@@ -384,6 +430,7 @@ class _GuidanceMap extends ConsumerWidget {
         // into it.
         onRest: (rest) {
           if (ref.read(guidanceCameraProvider).mode != GuidanceCameraMode.free) return;
+          cameraModes.rested(rest);
           final now = ref.read(guidanceControllerProvider);
           if (magnetHolds(
             rest,
@@ -400,7 +447,12 @@ class _GuidanceMap extends ConsumerWidget {
   }
 }
 
-/// Back behind the vehicle, shown as soon as the map was moved away from it.
+/// The room the map buttons' column takes from the right edge of the map.
+const double _buttonsColumn = Space.s + 56 + Space.s;
+
+/// Back behind the vehicle, shown as soon as the map was moved away from it:
+/// its icon and its word, or the icon alone (the word in its tooltip) where
+/// the map is too narrow for both.
 class _RecenterButton extends ConsumerWidget {
   const new();
 
@@ -408,32 +460,63 @@ class _RecenterButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
     final scheme = Theme.of(context).colorScheme;
-    return AnimatedSwitcher(
-      duration: Motion.of(context, Motion.short),
-      switchInCurve: Motion.enter,
-      switchOutCurve: Motion.exit,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
-          child: child,
-        ),
-      ),
-      child: free
-          ? FilledButton.icon(
-              key: const ValueKey('recenter'),
-              onPressed: () => ref.read(guidanceCameraProvider.notifier).recenter(),
-              icon: const Icon(AppIcons.locateActive),
-              label: Text(context.t.navigation.guidance.recenter),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 56),
-                padding: const EdgeInsets.symmetric(horizontal: Space.l),
-                elevation: 3,
-                backgroundColor: scheme.primary,
-                foregroundColor: scheme.onPrimary,
-              ),
-            )
-          : const SizedBox.shrink(key: ValueKey('following')),
+    final label = context.t.navigation.guidance.recenter;
+    void recenter() => ref.read(guidanceCameraProvider.notifier).recenter();
+    return LayoutBuilder(
+      builder: (context, box) {
+        // The word's width as the button draws it, with the icon and the
+        // padding around them.
+        final words = TextPainter(
+          text: TextSpan(text: label, style: Theme.of(context).textTheme.labelLarge),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+          maxLines: 1,
+        )..layout();
+        final wide = box.maxWidth >= words.width + 24 + Space.s + 2 * Space.m + Space.s;
+        words.dispose();
+        final colors = (background: scheme.primary, foreground: scheme.onPrimary);
+        final shown = !free
+            ? const SizedBox.shrink(key: ValueKey('following'))
+            : wide
+            ? FilledButton.icon(
+                key: const ValueKey('recenter'),
+                onPressed: recenter,
+                icon: const Icon(AppIcons.locateActive),
+                label: Text(label),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 56),
+                  padding: const EdgeInsets.symmetric(horizontal: Space.m),
+                  elevation: 3,
+                  backgroundColor: colors.background,
+                  foregroundColor: colors.foreground,
+                ),
+              )
+            : IconButton.filled(
+                key: const ValueKey('recenter-icon'),
+                tooltip: label,
+                onPressed: recenter,
+                icon: const Icon(AppIcons.locateActive),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(56, 56),
+                  elevation: 3,
+                  backgroundColor: colors.background,
+                  foregroundColor: colors.foreground,
+                ),
+              );
+        return AnimatedSwitcher(
+          duration: Motion.of(context, Motion.short),
+          switchInCurve: Motion.enter,
+          switchOutCurve: Motion.exit,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
+              child: child,
+            ),
+          ),
+          child: shown,
+        );
+      },
     );
   }
 }
@@ -500,7 +583,9 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
       );
     case OpenCardChoice():
       if (point.placeId case final id? when pageContext.mounted) {
-        unawaited(showPlaceCard(pageContext, id));
+        // The place's own card holds the map as its short card did.
+        final release = container.read(guidanceCameraProvider.notifier).hold();
+        unawaited(showPlaceCard(pageContext, id).whenComplete(release));
       }
     case null:
   }
@@ -1020,7 +1105,10 @@ class _MapButtons extends ConsumerWidget {
         ),
         const SizedBox(height: Space.s),
         IconButton(
-          tooltip: t.navigation.guidance.places.button,
+          // The tooltip is also what a screen reader says: it tells the state.
+          tooltip: placesShown
+              ? t.navigation.guidance.places.button
+              : t.navigation.guidance.places.buttonHidden,
           style: style,
           onPressed: () => unawaited(showGuidancePlacesSheet(context)),
           icon: Icon(placesShown ? AppIcons.point : AppIcons.address),

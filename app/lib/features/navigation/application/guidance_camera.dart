@@ -23,7 +23,7 @@ enum GuidanceCameraMode {
 /// The guidance map's camera, and how the last return to following eases in.
 @immutable
 final class GuidanceView {
-  const new({this.mode = GuidanceCameraMode.follow, this.ease = FreeMap.recenterEase});
+  const new({this.mode = GuidanceCameraMode.follow, this.ease = FreeMap.recenterEase, this.rest});
 
   final GuidanceCameraMode mode;
 
@@ -31,12 +31,16 @@ final class GuidanceView {
   /// a view already close; longer from anywhere else.
   final Duration ease;
 
-  @override
-  bool operator ==(Object other) =>
-      other is GuidanceView && other.mode == mode && other.ease == ease;
+  /// Where the free map last rested: a map made anew in the other layout
+  /// (the phone turned) opens there.
+  final FreeView? rest;
 
   @override
-  int get hashCode => Object.hash(mode, ease);
+  bool operator ==(Object other) =>
+      other is GuidanceView && other.mode == mode && other.ease == ease && other.rest == rest;
+
+  @override
+  int get hashCode => Object.hash(mode, ease, rest);
 }
 
 /// The guidance map's camera mode: following by default; free as soon as
@@ -78,6 +82,13 @@ class GuidanceCamera extends _$GuidanceCamera {
       state = GuidanceView(mode: GuidanceCameraMode.free, ease: state.ease);
     }
     _arm();
+  }
+
+  /// The free map came to rest at [view].
+  void rested(FreeView view) {
+    if (state.mode == GuidanceCameraMode.free) {
+      state = GuidanceView(mode: GuidanceCameraMode.free, ease: state.ease, rest: view);
+    }
   }
 
   /// "Recentrer", or the return after a while.

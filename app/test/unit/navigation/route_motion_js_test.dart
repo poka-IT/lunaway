@@ -87,7 +87,7 @@ const out = {};
   const r = rig();
   r.run.guiding(true);
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: { top: 400 }, ease: 0 });
+  r.run.follow({ zoom: 17, padding: { top: 400 }, ease: 0, enter: true });
   r.frames(3);
   const last = r.map.jumps[r.map.jumps.length - 1];
   out.follows = { pitch: last.c.pitch, bearing: last.c.bearing, zoom: last.c.zoom, own: last.own.lunawayMotion === true, padding: last.c.padding.top };
@@ -97,7 +97,7 @@ const out = {};
 {
   const r = rig();
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: {}, ease: 450 });
+  r.run.follow({ zoom: 17, padding: {}, ease: 450, enter: true });
   r.frames(1, 100);
   const early = r.map.jumps[r.map.jumps.length - 1].c;
   r.frames(10, 100);
@@ -111,7 +111,7 @@ const out = {};
   const r = rig();
   r.run.guiding(true);
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: {}, ease: 0 });
+  r.run.follow({ zoom: 17, padding: {}, ease: 0, enter: true });
   r.frames(2);
   r.map.fire('movestart', { lunawayMotion: true });
   r.map.fire('movestart', {});
@@ -147,7 +147,7 @@ const out = {};
   const r = rig();
   r.run.guiding(true);
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: {}, ease: 0 });
+  r.run.follow({ zoom: 17, padding: {}, ease: 0, enter: true });
   r.frames(2);
   r.map.press(1);
   const held = r.map.jumps.length;
@@ -175,11 +175,15 @@ const out = {};
   const r = rig();
   r.run.guiding(true);
   r.run.vehicle('v', 45, 1, 90, true);
-  r.run.follow({ zoom: 17, padding: { top: 300 }, ease: 0 });
+  r.run.follow({ zoom: 17, padding: { top: 300 }, ease: 0, enter: true });
   r.frames(2);
   r.map.fire('movestart', { originalEvent: {} });
+  // A fix that comes before the app heard of the gesture: still free.
+  r.run.follow({ zoom: 17, padding: { top: 300 }, ease: 0 });
+  r.frames(5);
+  out.lateFix = { following: r.run.following(), pitch: r.map.camera.pitch };
   r.run.free();
-  r.run.follow({ zoom: 17, padding: { top: 300 }, ease: 450 });
+  r.run.follow({ zoom: 17, padding: { top: 300 }, ease: 450, enter: true });
   r.frames(40);
   out.refollow = { following: r.run.following(), pitch: r.map.camera.pitch };
   r.run.overview();
@@ -276,6 +280,8 @@ void main() {
       expect(last['y'], closeTo(499, 1e-6));
       expect(last['width'], 400);
       expect(last['pitch'], 55);
+      expect(last['lat'], 45, reason: 'where the camera looks, for a map made anew');
+      expect(last['lon'], 1);
     }, skip: skip);
 
     test('a finger down holds the camera; a tap that lifts is no gesture', () {
@@ -288,6 +294,10 @@ void main() {
 
     test("the preview's map tells nothing of gestures", () {
       expect(seen['preview'], 0);
+    }, skip: skip);
+
+    test('a fix that comes after a gesture, before the app heard of it, does not follow', () {
+      expect(seen['lateFix'], {'following': false, 'pitch': 55});
     }, skip: skip);
 
     test('follows again from where the user left it; the whole route is flat', () {

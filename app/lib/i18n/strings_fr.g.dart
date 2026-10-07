@@ -2477,6 +2477,7 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 
 	// Translations
 	@override String get button => 'Lieux sur la carte';
+	@override String get buttonHidden => 'Lieux sur la carte : masqués';
 	@override String get title => 'Lieux sur la carte';
 	@override String get show => 'Montrer les lieux et services';
 	@override String get which => 'Lesquels';
@@ -3084,6 +3085,7 @@ extension on TranslationsFr {
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',
 			'navigation.guidance.demoDrive' => 'Trajet simulé : démonstration sans GPS',
 			'navigation.guidance.places.button' => 'Lieux sur la carte',
+			'navigation.guidance.places.buttonHidden' => 'Lieux sur la carte : masqués',
 			'navigation.guidance.places.title' => 'Lieux sur la carte',
 			'navigation.guidance.places.show' => 'Montrer les lieux et services',
 			'navigation.guidance.places.which' => 'Lesquels',
@@ -3520,9 +3522,9 @@ extension on TranslationsFr {
 			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
 			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
-			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',
 			'reportSheet.muted' => ({required Object name}) => '${name} est masqué',
 			'reportSheet.deletePhoto' => 'Supprimer ma photo',
 			'reportSheet.deletePhotoTitle' => 'Supprimer cette photo ?',

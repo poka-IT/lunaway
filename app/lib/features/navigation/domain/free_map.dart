@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show Offset, Size;
 
 import 'package:flutter/painting.dart' show EdgeInsets;
+import 'package:lunaway/core/geo/geo.dart';
 
 /// How the guidance map behaves once the user moves it: free to pan, zoom,
 /// turn and tilt, and back behind the vehicle on "Recentrer", when the user
@@ -78,10 +79,15 @@ final class FreeView {
     required this.zoom,
     required this.bearing,
     required this.tilt,
+    this.center,
   });
 
   /// The map's size, logical pixels.
   final Size size;
+
+  /// Where the camera looks; a map made again in the other layout (the
+  /// phone turned) opens there.
+  final LatLng? center;
 
   /// Where the vehicle is drawn, logical pixels from the map's top left;
   /// null when it is not known (no fix yet).

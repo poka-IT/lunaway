@@ -62,6 +62,7 @@ void main() {
     // device's places along the route.
     bool online = true,
     List<PlaceSummary> nearRoute = const [],
+    double textScale = 1,
   }) async {
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
     voice = RecordingVoice();
@@ -70,6 +71,7 @@ void main() {
       tester,
       size: size,
       locale: locale,
+      textScale: textScale,
       settings: AppSettings(filter: filter),
       online: online ? FakeOnlinePlaces(const []) : null,
       overrides: navigationOverrides(
@@ -154,9 +156,15 @@ void main() {
         bearing: course,
         tilt: followTiltDeg,
       );
-      map().onRest!(rest(anchor + const Offset(0, -200)));
+      final far = rest(anchor + const Offset(0, -200));
+      map().onRest!(far);
       await settleShort(tester);
       expect(map().camera, isA<FreeCamera>(), reason: 'the vehicle far from its place');
+      expect(
+        (map().camera as FreeCamera).view,
+        far,
+        reason: 'a map made anew (the phone turned) opens where the user left it',
+      );
       map().onRest!(rest(anchor + const Offset(20, 25), zoom: followZoom(10) + 2));
       await settleShort(tester);
       expect(map().camera, isA<FreeCamera>(), reason: 'two levels closer');
@@ -238,12 +246,17 @@ void main() {
       expect(map().places!.placeFilter, isNull);
       expect(map().places!.poiFilter, isNull);
       expect(settings.value.guidancePlaces.shown, isFalse);
+      expect(
+        find.byTooltip('Lieux sur la carte : masqués'),
+        findsOneWidget,
+        reason: 'the button says the state to a screen reader',
+      );
       // The next guidance starts with the same choice.
       final kept = settings;
       await tester.pumpWidget(const SizedBox());
       await guide(tester, plan, store: kept);
       expect(map().places!.placeFilter, isNull);
-      await tester.tap(find.byTooltip('Lieux sur la carte'));
+      await tester.tap(find.byTooltip('Lieux sur la carte : masqués'));
       await settleShort(tester);
       await tester.tap(find.text('Montrer les lieux et services'));
       await settleShort(tester);
@@ -295,6 +308,23 @@ void main() {
       expect(find.text('Nouvelle destination'), findsOneWidget);
     });
 
+    testWidgets("the place's own card holds the map too", (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, answers: [plan, plan]);
+      await drive(tester, plan, toM: 100);
+      await gesture(tester);
+      map().onPlaceTap!(_aire);
+      await settleShort(tester);
+      await tester.tap(find.text('Voir la fiche'));
+      await settleShort(tester);
+      await tester.pump(const Duration(seconds: 20));
+      expect(map().camera, isA<FreeCamera>(), reason: 'the details are read');
+      await tester.tapAt(const Offset(200, 20));
+      await settleShort(tester);
+      await tester.pump(const Duration(seconds: 13));
+      expect(map().camera, isA<FollowCamera>());
+    });
+
     testWidgets('a point opens the same card, with its source: add it as a stop', (tester) async {
       final plan = routeFixture('limoges_drive');
       final app = await guide(tester, plan, answers: [plan, plan]);
@@ -330,31 +360,50 @@ void main() {
   });
 
   group('every layout', () {
-    for (final (name, size) in [
-      ('a phone', phone),
-      ('a phone on its side', const Size(860, 400)),
-      ('a tablet', tablet),
-      ('a desktop', desktop),
+    for (final (name, size, text) in [
+      ('a phone', phone, 1.0),
+      ('a small phone, large text', const Size(360, 640), 1.3),
+      ('a phone on its side', const Size(860, 400), 1.0),
+      ('a small phone on its side, large text', const Size(640, 360), 1.3),
+      ('a tablet', tablet, 1.0),
+      ('a desktop', desktop, 1.0),
     ]) {
       testWidgets('on $name, "Recentrer" and the places button stand clear of the others', (
         tester,
       ) async {
         final plan = routeFixture('limoges_drive');
-        await guide(tester, plan, size: size);
+        await guide(tester, plan, size: size, textScale: text);
         await drive(tester, plan, toM: 100);
         await gesture(tester);
-        final recenter = tester.getRect(
-          find.ancestor(of: find.text('Recentrer'), matching: find.byType(FilledButton)),
+        // The word and the icon, or the icon alone on a narrow map.
+        final button = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
         );
+        expect(button, findsOneWidget);
+        expect(
+          find.text('Recentrer').evaluate().length + find.byTooltip('Recentrer').evaluate().length,
+          1,
+          reason: 'its word, on it or in its tooltip',
+        );
+        final recenter = tester.getRect(button);
         final places = tester.getRect(find.byTooltip('Lieux sur la carte'));
-        for (final tip in ['Tout le trajet', 'Signaler un problème sur la route', 'Terminer']) {
+        for (final tip in [
+          'Activer la voix',
+          'Couper la voix',
+          'Carburant le moins cher sur la route',
+          'Tout le trajet',
+          'Signaler un problème sur la route',
+          'Terminer',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
           final other = tester.getRect(find.byTooltip(tip));
           expect(recenter.overlaps(other), isFalse, reason: tip);
           expect(places.overlaps(other), isFalse, reason: tip);
         }
         expect(recenter.overlaps(places), isFalse);
         expect(recenter.height, greaterThanOrEqualTo(48));
-        await tester.tap(find.text('Recentrer'));
+        expect(recenter.width, greaterThanOrEqualTo(48));
+        await tester.tap(button);
         await settleShort(tester);
         expect(map().camera, isA<FollowCamera>());
       });

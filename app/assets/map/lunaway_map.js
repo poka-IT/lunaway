@@ -607,6 +607,8 @@
         style: options.style,
         center: [options.lon, options.lat],
         zoom: options.zoom,
+        bearing: options.bearing || 0,
+        pitch: options.pitch || 0,
         attributionControl: false,
         // Turned and tilted only on the guidance's map, which enables both
         // (route_motion.js); the mouse tilts with the turn then.

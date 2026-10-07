@@ -182,6 +182,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentPlaces = null;
     }
     if (old.props.guiding != _props.guiding) _page?.guiding(on: _props.guiding);
+    _heldByUser = heldAfter(held: _heldByUser, before: old.props.camera, after: _props.camera);
     _schedule();
   }
 
@@ -465,7 +466,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         current: () => mounted && _ready,
         below: RouteLayers.alternativesCasing,
       );
-      if (first && mounted) await _addPinImages(c, () => mounted && _ready);
+      // Not awaited: the images decode on Android's main thread, and the
+      // vehicle and camera of this pass must not wait for them.
+      if (first && mounted) unawaited(_addPinImages(c, () => mounted && _ready));
       return;
     }
     for (final (id, filter) in [
@@ -670,22 +673,29 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   Future<void> _syncCamera(gl.MapLibreMapController c, PageRouteMotion? page) async {
     final camera = _props.camera;
-    final sent = _sentCamera;
-    switch (camera) {
-      case FollowCamera():
-        final entering = sent is! FollowCamera;
-        if (entering) _heldByUser = false;
-        _sentCamera = camera;
-        // A gesture stopped following: the screen's free camera is on its
-        // way, the user's view stays meanwhile.
-        if (_heldByUser) return;
-        final insets = followInsets(_size, _props.padding);
-        final ease = Motion.reduced(context) ? Duration.zero : camera.ease;
+    final insets = followInsets(_size, _props.padding);
+    // A gesture that stopped following keeps the user's view until the
+    // screen asks again to follow (cameraStep, heldAfter).
+    var step = cameraStep(sent: _sentCamera, next: camera, heldByUser: _heldByUser);
+    // The same camera on a map of another size: following moves its centre.
+    if (step == CameraStep.none &&
+        camera is FollowCamera &&
+        !_heldByUser &&
+        insets != _followTarget) {
+      step = CameraStep.follow;
+    }
+    if (step == CameraStep.none) return;
+    _sentCamera = camera;
+    switch (step) {
+      case CameraStep.none:
+        return;
+      case CameraStep.enterFollow || CameraStep.follow:
+        final follow = camera as FollowCamera;
+        final entering = step == CameraStep.enterFollow;
+        final ease = Motion.reduced(context) ? Duration.zero : follow.ease;
         if (page != null) {
-          if (entering || camera != sent || insets != _sentInsets) {
-            _sentInsets = insets;
-            page.follow(zoom: camera.zoom, padding: insets, ease: ease);
-          }
+          _followTarget = insets;
+          page.follow(zoom: follow.zoom, padding: insets, ease: ease, enter: entering);
           return;
         }
         if (entering) {
@@ -703,16 +713,11 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           await c.updateContentInsets(insets);
         }
         _startTicker();
-      case FreeCamera():
-        if (sent is FreeCamera) return;
-        _sentCamera = camera;
+      case CameraStep.free:
         _entryFrom = null;
         page?.free();
-      case FitCamera():
-        if (camera == sent) return;
-        _sentCamera = camera;
-        _heldByUser = false;
-        if (sent is FollowCamera || sent is FreeCamera) {
+      case CameraStep.overview || CameraStep.fit:
+        if (step == CameraStep.overview) {
           _entryFrom = null;
           // The overview reads north up and flat, as the preview does: the
           // bounds below keep whatever tilt and bearing the map had.
@@ -730,6 +735,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             }
           }
         }
+        _followTarget = EdgeInsets.zero;
         _shownZoom = null;
         await _moveCamera(c, camera);
     }
@@ -768,7 +774,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         vehicleCollection(VehiclePuck(position: position, course: course)),
       ),
     ];
-    if (camera is FollowCamera && !_heldByUser) {
+    // The camera waits while a finger is down: MapLibre drops a gesture it
+    // has begun when the camera moves under it.
+    if (camera is FollowCamera && !_heldByUser && !_pressed) {
       final wanted = camera.zoom;
       final shownZoom = _shownZoom;
       var zoom = shownZoom == null ? wanted : easeZoom(shownZoom, wanted, dt);
@@ -798,7 +806,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           zoom = from.zoom + (zoom - from.zoom) * k;
           bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
           tilt = from.tilt + (followTiltDeg - from.tilt) * k;
-          calls.add(c.updateContentInsets(EdgeInsets.lerp(_entryInsets, _followTarget, k)!));
+          final insets = EdgeInsets.lerp(_entryInsets, _followTarget, k)!;
+          // Kept: a gesture that cuts the entry leaves the map with these.
+          _sentInsets = insets;
+          calls.add(c.updateContentInsets(insets));
         }
       }
       calls.add(
@@ -846,7 +857,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// A gesture of the user (a phone's pointers, or the page's report):
   /// following stops at once.
   void _onGesture() {
-    if (_props.camera is FollowCamera) _heldByUser = true;
+    _heldByUser = true;
     _entryFrom = null;
     _gestured = true;
     _props.onGesture?.call();
@@ -875,6 +886,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     onRest(
       FreeView(
         size: _size,
+        center: LatLng(camera.target.latitude, camera.target.longitude),
         vehicle: screen == null ? null : Offset(screen.x.toDouble(), screen.y.toDouble()) / scale,
         zoom: camera.zoom,
         bearing: camera.bearing,
@@ -893,17 +905,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       case 'touch':
         _props.onTouch?.call(event['down'] == true);
       case 'rest':
-        final (x, y) = (event['x'], event['y']);
-        final (width, height) = (event['width'], event['height']);
-        _props.onRest?.call(
-          FreeView(
-            size: width is num && height is num ? Size(width.toDouble(), height.toDouble()) : _size,
-            vehicle: x is num && y is num ? Offset(x.toDouble(), y.toDouble()) : null,
-            zoom: (event['zoom'] as num?)?.toDouble() ?? 0,
-            bearing: (event['bearing'] as num?)?.toDouble() ?? 0,
-            tilt: (event['pitch'] as num?)?.toDouble() ?? 0,
-          ),
-        );
+        _props.onRest?.call(freeViewOfPage(event, size: _size));
       case 'longpress':
         if ((event['lat'], event['lon']) case (final num lat, final num lon)
             when lat.abs() <= 90 && lon.isFinite) {
@@ -1080,18 +1082,15 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final p = _props;
     final camera = p.camera;
-    final start = switch (camera) {
-      FitCamera(:final bounds) => bounds.center,
-      FollowCamera(:final position) => position,
-      FreeCamera() => p.vehicle?.position ?? const LatLng(46.6, 2.4),
-    };
+    final start = initialCamera(p);
     final following = camera is FollowCamera;
     final map = gl.MapLibreMap(
       styleString: p.style,
       initialCameraPosition: gl.CameraPosition(
-        target: gl.LatLng(start.lat, start.lon),
-        zoom: following ? camera.zoom : 12,
-        tilt: following ? followTiltDeg : 0,
+        target: gl.LatLng(start.target.lat, start.target.lon),
+        zoom: start.zoom,
+        tilt: start.tilt,
+        bearing: start.bearing,
       ),
       // In the browser the camera is read when needed (queryCameraPosition):
       // tracked, it would call the app at every frame of the page's motion.

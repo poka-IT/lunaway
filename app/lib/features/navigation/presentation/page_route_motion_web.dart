@@ -36,19 +36,24 @@ final class _PageRouteMotion implements contract.PageRouteMotion {
   void clear() => _run.clear();
 
   @override
-  void follow({required double zoom, required EdgeInsets padding, required Duration ease}) =>
-      _run.follow(
-        {
-          'zoom': zoom,
-          'padding': {
-            'top': padding.top,
-            'bottom': padding.bottom,
-            'left': padding.left,
-            'right': padding.right,
-          },
-          'ease': ease.inMilliseconds,
-        }.jsify()!,
-      );
+  void follow({
+    required double zoom,
+    required EdgeInsets padding,
+    required Duration ease,
+    required bool enter,
+  }) => _run.follow(
+    {
+      'zoom': zoom,
+      'padding': {
+        'top': padding.top,
+        'bottom': padding.bottom,
+        'left': padding.left,
+        'right': padding.right,
+      },
+      'ease': ease.inMilliseconds,
+      'enter': enter,
+    }.jsify()!,
+  );
 
   @override
   void free() => _run.free();

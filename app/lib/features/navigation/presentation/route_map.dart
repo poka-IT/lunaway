@@ -229,13 +229,103 @@ final class FollowCamera extends RouteCamera {
 /// Where the user left it: the camera stays as the last gesture put it,
 /// the vehicle still glides on the map.
 final class FreeCamera extends RouteCamera {
-  const new();
+  const new({this.view});
+
+  /// Where the camera last rested, for a map made anew (the phone turned
+  /// and the other layout built its own map); a map that exists keeps its
+  /// camera whatever this says, so it takes no part in equality.
+  final FreeView? view;
 
   @override
   bool operator ==(Object other) => other is FreeCamera;
 
   @override
   int get hashCode => (FreeCamera).hashCode;
+}
+
+/// What an engine does with the camera the screen asks for after the one
+/// it sent ([cameraStep]): a user's gesture that stopped following keeps
+/// the map where the user puts it until the screen asks again to follow.
+enum CameraStep {
+  /// Nothing to send.
+  none,
+
+  /// Into following, easing from the view the map has.
+  enterFollow,
+
+  /// Following still: a new fix, a new zoom.
+  follow,
+
+  /// Following stops where the camera is.
+  free,
+
+  /// Flat and north up, then the whole route.
+  overview,
+
+  /// The bounds of a fitting camera.
+  fit,
+}
+
+CameraStep cameraStep({
+  required RouteCamera? sent,
+  required RouteCamera next,
+  required bool heldByUser,
+}) => switch (next) {
+  FollowCamera() when heldByUser => CameraStep.none,
+  FollowCamera() when sent is! FollowCamera => CameraStep.enterFollow,
+  FollowCamera() => next == sent ? CameraStep.none : CameraStep.follow,
+  FreeCamera() => sent is FreeCamera ? CameraStep.none : CameraStep.free,
+  FitCamera() when next == sent => CameraStep.none,
+  FitCamera() => sent is FollowCamera || sent is FreeCamera ? CameraStep.overview : CameraStep.fit,
+};
+
+/// Whether a user's gesture still holds the camera once the screen asks
+/// for [after] instead of [before]: a new request to follow ("Recentrer",
+/// the magnet, the return after a while) lets it go; a gesture after that
+/// request holds it again.
+bool heldAfter({required bool held, required RouteCamera before, required RouteCamera after}) =>
+    held && !(after is FollowCamera && before is! FollowCamera);
+
+/// The page's report of a camera the user moved and left
+/// (`lunawayRouteMotion`, `rest`), the map's own [size] when it says none.
+FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
+  double number(String key) => (event[key] as num?)?.toDouble() ?? 0;
+  final (x, y) = (event['x'], event['y']);
+  final (width, height) = (event['width'], event['height']);
+  return FreeView(
+    size: width is num && height is num ? Size(width.toDouble(), height.toDouble()) : size,
+    center: switch ((event['lat'], event['lon'])) {
+      (final num lat, final num lon) => LatLng(lat.toDouble(), lon.toDouble()),
+      _ => null,
+    },
+    vehicle: x is num && y is num ? Offset(x.toDouble(), y.toDouble()) : null,
+    zoom: number('zoom'),
+    bearing: number('bearing'),
+    tilt: number('pitch'),
+  );
+}
+
+/// The camera a map made anew opens on: the vehicle's, the user's last
+/// rest, or the middle of the route.
+({LatLng target, double zoom, double tilt, double bearing}) initialCamera(RouteMapProps p) {
+  final camera = p.camera;
+  final route = [for (final l in p.lines) ...l.points];
+  final middle = GeoBounds.around(route)?.center ?? const LatLng(0, 0);
+  return switch (camera) {
+    FitCamera(:final bounds) => (target: bounds.center, zoom: 12, tilt: 0, bearing: 0),
+    FollowCamera(:final position) => (
+      target: position,
+      zoom: camera.zoom,
+      tilt: followTiltDeg,
+      bearing: camera.course ?? 0,
+    ),
+    FreeCamera(:final view) => (
+      target: view?.center ?? p.vehicle?.position ?? middle,
+      zoom: view?.zoom ?? followZoom(null),
+      tilt: view?.tilt ?? followTiltDeg,
+      bearing: view?.bearing ?? p.vehicle?.course ?? 0,
+    ),
+  };
 }
 
 /// The vehicle on the map: its position on the route and its course.

@@ -180,8 +180,11 @@
         var shown = at(now());
         var point = shown ? map.project([shown.lon, shown.lat]) : null;
         var canvas = map.getCanvas();
+        var center = map.getCenter();
         emit({
           type: 'rest',
+          lat: center.lat,
+          lon: center.lng,
           x: point ? point.x : null,
           y: point ? point.y : null,
           zoom: map.getZoom(),
@@ -327,10 +330,13 @@
           lastTarget = null;
           return true;
         },
-        // Following: { zoom, padding, ease (ms, the way in) }. From another
-        // view, the camera eases from it into the driver's.
+        // Following: { zoom, padding, ease (ms, the way in), enter }. From
+        // another view, the camera eases from it into the driver's. Only
+        // `enter` starts following: a fix that comes after a gesture
+        // stopped it, before the app heard of the gesture, changes nothing.
         follow: function (next) {
           if (!next) return run.free();
+          if (!follow && !next.enter) return true;
           var pad = padding(next.padding);
           if (!follow) {
             var c = map.getCenter();

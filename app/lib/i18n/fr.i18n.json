@@ -723,6 +723,7 @@
       "demoDrive": "Trajet simulé : démonstration sans GPS",
       "places": {
         "button": "Lieux sur la carte",
+        "buttonHidden": "Lieux sur la carte : masqués",
         "title": "Lieux sur la carte",
         "show": "Montrer les lieux et services",
         "which": "Lesquels",
