@@ -12,6 +12,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 extension NavigationAppLabels on NavigationApp {
   String label(Translations t) => switch (this) {
@@ -104,8 +105,8 @@ Future<NavigationPick?> showNavigationAppChooser(
   BuildContext context,
   List<NavigationApp> apps, {
   NavigationApp? selected,
-}) => showModalBottomSheet<NavigationPick>(
-  context: context,
+}) => showSheet<NavigationPick>(
+  context,
   // Above the dock and the panels: the shell holds the branches.
   useRootNavigator: true,
   useSafeArea: true,

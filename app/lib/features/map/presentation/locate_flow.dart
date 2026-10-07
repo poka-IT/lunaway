@@ -7,6 +7,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 /// Shows the device position on the map, asking for it the considerate way:
 /// an explanation before the system prompt the first time, the way to the
@@ -129,8 +130,8 @@ Future<bool> _explain(
   required String action,
   String? dismiss,
 }) async {
-  final taken = await showModalBottomSheet<bool>(
-    context: context,
+  final taken = await showSheet<bool>(
+    context,
     // Above the dock and the panels: the shell holds the branches.
     useRootNavigator: true,
     useSafeArea: true,

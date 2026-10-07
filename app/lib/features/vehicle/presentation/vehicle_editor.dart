@@ -14,6 +14,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
 /// Why the editor opens, which changes its first sentence.
@@ -24,8 +25,8 @@ enum VehicleEditorReason { profile, heightFilter }
 Future<Vehicle?> showVehicleEditor(
   BuildContext context, {
   VehicleEditorReason reason = VehicleEditorReason.profile,
-}) => showModalBottomSheet<Vehicle>(
-  context: context,
+}) => showSheet<Vehicle>(
+  context,
   // Above the dock and the panels: the shell holds the branches.
   useRootNavigator: true,
   isScrollControlled: true,

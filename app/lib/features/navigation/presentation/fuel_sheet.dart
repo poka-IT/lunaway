@@ -14,6 +14,7 @@ import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 /// The stations along [line] from [fromM], cheapest first with the detour
 /// counted; one tap on "Ajouter" makes the station a stop through [onAdd].
@@ -22,10 +23,9 @@ Future<void> showFuelSheet(
   required List<LatLng> line,
   required double fromM,
   required Future<void> Function(FuelOffer offer) onAdd,
-}) => showModalBottomSheet<void>(
-  context: context,
+}) => showSheet<void>(
+  context,
   isScrollControlled: true,
-  showDragHandle: true,
   builder: (context) => FuelSheet(line: line, fromM: fromM, onAdd: onAdd),
 );
 

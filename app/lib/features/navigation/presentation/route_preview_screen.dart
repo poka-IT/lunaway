@@ -44,6 +44,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -1056,8 +1057,8 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
 /// The disclaimer before the first guidance; true once the user read it.
 Future<bool> showDisclaimer(BuildContext context) async {
   final t = context.t;
-  final accepted = await showModalBottomSheet<bool>(
-    context: context,
+  final accepted = await showSheet<bool>(
+    context,
     useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,

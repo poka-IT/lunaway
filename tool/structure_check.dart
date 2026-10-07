@@ -148,6 +148,16 @@ final _rules = <_Rule>[
     (s) => _grep(s, RegExp(r'(?<![\w.$])print\('), where: (x) => x.dart && !x.generated),
   ),
   _Rule(
+    'sheet-handle',
+    "A modal sheet opened bare gets Material's handle, which keeps the arrow under the mouse and ignores a click.",
+    'Open it with showSheet (app/lib/shared/widgets/modal_sheet.dart), which draws the app\'s handle.',
+    (s) => _grep(
+      s,
+      RegExp(r'\bshowModalBottomSheet\b|\bshowDragHandle:\s*true'),
+      where: (x) => x.dart && !x.generated && x.path != 'app/lib/shared/widgets/modal_sheet.dart',
+    ),
+  ),
+  _Rule(
     'allowed-hosts',
     'Every host the app may talk to (app/lib, app/web, app/assets/map, app/packages) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',

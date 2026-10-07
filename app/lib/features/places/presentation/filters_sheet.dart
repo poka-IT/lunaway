@@ -14,21 +14,22 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 
 /// Opens the filters: a sheet on a phone, a dialog on a wider screen. The
 /// draft applies only on the button, which says how many places it keeps.
 Future<void> showFiltersSheet(BuildContext context) {
   if (WindowSize.of(context) == .compact) {
-    return showModalBottomSheet<void>(
-      context: context,
+    return showSheet<void>(
+      context,
       // Above the dock and the panels: the shell holds the branches.
       useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       // The panel draws its own handle inside its header: no empty band
       // above the title.
-      showDragHandle: false,
+      handle: false,
       builder: (context) => const FractionallySizedBox(heightFactor: 0.92, child: FiltersPanel()),
     );
   }

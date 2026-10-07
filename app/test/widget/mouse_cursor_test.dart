@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
@@ -198,6 +200,37 @@ void main() {
         await settleShort(tester);
         expect(find.byType(VehicleEditor), findsOneWidget);
         await expectCursors(tester, atLeast: 8);
+      });
+    });
+
+    testWidgets("a sheet's handle shows the pointing hand, and a click on it closes the sheet", (
+      tester,
+    ) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(tester, size: tallPhone);
+        await go(tester, app, AppRoutes.profile);
+        await tester.tap(find.text(t.vehicle.add));
+        await settleShort(tester);
+        final handle = find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.bySemanticsLabel(
+            MaterialLocalizations.of(tester.element(find.byType(VehicleEditor)))
+                .modalBarrierDismissLabel,
+          ),
+        );
+        expect(handle, findsOneWidget);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(handle));
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.click,
+        );
+        await mouse.down(tester.getCenter(handle));
+        await mouse.up();
+        await mouse.removePointer();
+        await settleShort(tester);
+        expect(find.byType(VehicleEditor), findsNothing);
       });
     });
   });
