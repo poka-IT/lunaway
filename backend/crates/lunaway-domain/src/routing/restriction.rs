@@ -183,6 +183,20 @@ impl RestrictionSource {
             Self::Community => 15.0,
         }
     }
+
+    /// How far, in metres, a line of this source may lie from a route that
+    /// drives it. An OpenStreetMap way is drawn through the nodes the
+    /// router's shapes are made of, so a route that drives it runs on it
+    /// ([`super::corridor::ON_GRAPH_M`]); the [`Self::tolerance_m`] of
+    /// metres would also take for the route a branch that leaves one of
+    /// its nodes at a small angle. The other sources draw their own lines.
+    #[must_use]
+    pub const fn line_tolerance_m(self) -> f64 {
+        match self {
+            Self::Osm => super::corridor::ON_GRAPH_M,
+            other => other.tolerance_m(),
+        }
+    }
 }
 
 /// How sure the figure is.
