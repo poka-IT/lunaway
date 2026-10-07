@@ -644,8 +644,11 @@ fn the_feed_merges_with_osm_without_joining_neighbours() {
          {merge_recall:.4}, merged or reviewed {found:.4}, duplicates reviewed {}/{}",
         m.records, m.spots, m.duplicates_reviewed, m.duplicates
     );
+    // Measured 0.982 on this population since a missing name leaves the
+    // mean: 9 merge edges between two spots of a town, 8 of them refused
+    // by the grouping, 1 place of 911 holding two spots.
     assert!(
-        merge_precision >= 0.99,
+        merge_precision >= 0.97,
         "a merge joins two different spots too often: {merge_precision}"
     );
     assert!(
@@ -654,11 +657,10 @@ fn the_feed_merges_with_osm_without_joining_neighbours() {
         m.places_wrong,
         m.places
     );
-    // Measured 0.498 on this population: an unnamed OSM car park beside a
-    // named spot of the feed goes to review by design (a missing name is
-    // neither for nor against), and that is most of the rest.
+    // Measured 0.870 (0.498 while a missing name counted 0.5 and capped an
+    // unnamed car park beside a named pin at review).
     assert!(
-        merge_recall >= 0.45,
+        merge_recall >= 0.8,
         "too few of the same spots merge: {merge_recall}"
     );
     assert!(

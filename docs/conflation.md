@@ -26,7 +26,9 @@ Spanish and Italian ones, such as `am`, `del`, `di`, `parkplatz`,
 name them in those languages, they raised the share of same-spot pairs
 that merge from 0.38 to 0.50, for one merge of two different spots in 280,
 which the grouping refused: no place held two spots,
-`backend/crates/lunaway-domain/tests/extcom_synthetic.rs`).
+`backend/crates/lunaway-domain/tests/extcom_synthetic.rs`; with the missing
+name made neutral (section 2), 0.87, for 9 merges of two different spots,
+of which the grouping refused 8: 1 place in 911 held two spots).
 The normalised name is the core words joined by spaces; it is empty for a
 name made of generic words only ("Camping municipal").
 
@@ -57,7 +59,11 @@ code.
    flat near the spot, where sources disagree by a few metres for no reason,
    steep towards the radius.
 2. **Name.** If either record has no name (or a name that folds to nothing),
-   `name = nameUnknown` (0.5): neither for nor against. Otherwise compare the
+   the name is absent: it is reported as `nameUnknown` (0.5) in the
+   components and left out of the base, so it counts neither for nor
+   against, and distance, kind and shared identifiers decide (two unnamed
+   car parks 80 m apart stay distinct: past the car park radius the
+   distance is 0). Otherwise compare the
    core words of both, or the full folded names when either core is empty.
    `name = max(trigram, containment)`:
    - `trigram` is PostgreSQL `pg_trgm` similarity: each word padded with two
@@ -72,7 +78,8 @@ code.
 4. **Municipality.** When both records have a municipality code, 1 if equal
    and 0 if not; otherwise the same with the postcode; otherwise absent.
 5. **Base**: the weighted mean of distance (`weights.distance`), name
-   (`weights.name`) and, when present, municipality
+   (`weights.name`) when both records have one, and, when present,
+   municipality
    (`weights.municipality`), divided by the sum of the weights used.
    `score = base * kind`.
 6. **Identifiers**, in this order:

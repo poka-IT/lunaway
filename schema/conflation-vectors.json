@@ -1058,9 +1058,9 @@
     },
     {
       "id": "unnamed-pair",
-      "why": "Two unnamed car parks at the same point: the name is unknown (0.5), review at most.",
-      "expected": "review",
-      "score": 0.761,
+      "why": "Two unnamed car parks at the same point: a missing name is neutral and leaves the mean, so distance and kind decide: merge.",
+      "expected": "merge",
+      "score": 0.993,
       "a": {
         "source": "osm",
         "kind": "parking",
@@ -1227,9 +1227,9 @@
     },
     {
       "id": "extcom-pin-40m-from-unnamed-osm-car-park",
-      "why": "The same pin beside a car park OSM maps without a name goes to review: a missing name is neither for nor against, and a town has car parks 50 m apart.",
-      "expected": "review",
-      "score": 0.7062,
+      "why": "The same pin beside a car park OSM maps without a name merges: a missing name neither counts for nor against, and the pin is within the car park's radius once its 20 m are credited.",
+      "expected": "merge",
+      "score": 0.8894,
       "a": {
         "source": "osm",
         "kind": "parking",
@@ -1396,6 +1396,26 @@
         "lat": 43.484278,
         "lon": -1.5586,
         "accuracyM": 20
+      }
+    },
+    {
+      "id": "unnamed-car-parks-80m-apart",
+      "why": "Two unnamed car parks 80 m apart stay two spots: with no name to weigh, the distance alone is past the car park radius.",
+      "expected": "distinct",
+      "score": 0.0,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": null,
+        "lat": 48.8566,
+        "lon": 2.3522
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": null,
+        "lat": 48.8573186,
+        "lon": 2.3522
       }
     }
   ]

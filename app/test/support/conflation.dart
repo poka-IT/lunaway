@@ -260,8 +260,11 @@ abstract final class Conflation {
     final kind = kindCompatibility(a.kind, b.kind);
     final municipality = _same(a.cityCode, b.cityCode) ?? _same(a.postcode, b.postcode);
 
-    var weighted = weightDistance * distance + weightName * name;
-    var weights = weightDistance + weightName;
+    // A missing name is neutral: it leaves the mean, as an unknown
+    // municipality does.
+    final named = a.folded != null && b.folded != null;
+    var weighted = weightDistance * distance + (named ? weightName * name : 0);
+    var weights = weightDistance + (named ? weightName : 0);
     if (municipality != null) {
       weighted += weightMunicipality * (municipality ? 1 : 0);
       weights += weightMunicipality;
