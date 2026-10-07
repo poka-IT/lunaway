@@ -72,31 +72,22 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   /// the route is framed clear of it.
   Size? _legend;
 
-  /// The last fit sent: the legend closed, the camera stays where it is.
-  FitCamera? _fit;
+  final _fit = LegendFit();
 
   /// The map's size, once laid out.
   Size _size = Size.zero;
 
   /// The camera the map gets: the screen's, a fit kept clear of the legend
-  /// open by itself on a map of [size]. Closing the legend leaves the
-  /// camera alone; only new bounds, or the legend open by itself, fit
-  /// again.
-  RouteCamera _camera(RouteCamera camera, Size size) {
-    if (camera is! FitCamera) return camera;
-    final legend = size.isEmpty ? null : _legend;
-    final kept = _fit;
-    if (legend == null && kept != null && kept.bounds == camera.bounds) return kept;
-    final room = legend == null
-        ? EdgeInsets.zero
-        : legendRoom(
-            bounds: camera.bounds,
-            map: size,
-            padding: widget.base.padding,
-            legend: legend,
-          );
-    return _fit = FitCamera(camera.bounds, room: camera.room + room);
-  }
+  /// open by itself on a map of [size] ([LegendFit]).
+  RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) =>
+      camera is FitCamera
+      ? _fit.fit(
+          camera,
+          map: size,
+          padding: widget.base.padding,
+          legend: size.isEmpty || !legendShown ? null : _legend,
+        )
+      : camera;
 
   late Map<String, RouteMarker> _byId = _index(widget.markers);
 
@@ -157,15 +148,20 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
     final b = widget.base;
     final flight = focus.flight;
     final flown = flight == null ? null : [for (final id in flight) ?_byId[id]];
+    final marks = [for (final m in widget.markers) m.mark];
     final props = RouteMapProps(
       style: b.style,
       dark: b.dark,
       lines: b.lines,
-      camera: _camera(b.camera, _size),
+      camera: _camera(
+        b.camera,
+        _size,
+        legendShown: legendRows(marks).isNotEmpty || b.zones.isNotEmpty,
+      ),
       padding: b.padding,
       vehicle: b.vehicle,
       zones: b.zones,
-      marks: [for (final m in widget.markers) m.mark],
+      marks: marks,
       highlighted: focus.litOnMap,
       focus: flown == null || flown.isEmpty
           ? null
@@ -380,6 +376,33 @@ class MarkTip extends StatelessWidget {
   }
 }
 
+/// The preview's fit, kept clear of the legend open by itself. The room is
+/// set once for a set of bounds, at their fit or at the legend's first size
+/// if the fit came first: a legend that grows (the zones known later),
+/// shrinks or closes, or another route chosen, leaves the camera where the
+/// user has it. Only new bounds fit again.
+final class LegendFit {
+  FitCamera? _fit;
+  bool _roomed = false;
+
+  /// The fit to send for [camera] on a map of [map] whose panels cover
+  /// [padding], the legend [legend] in size when it stands open by itself.
+  FitCamera fit(
+    FitCamera camera, {
+    required Size map,
+    required EdgeInsets padding,
+    required Size? legend,
+  }) {
+    final kept = _fit;
+    if (kept != null && kept.bounds == camera.bounds && (_roomed || legend == null)) return kept;
+    _roomed = legend != null;
+    final room = legend == null
+        ? EdgeInsets.zero
+        : legendRoom(bounds: camera.bounds, map: map, padding: padding, legend: legend);
+    return _fit = FitCamera(camera.bounds, room: camera.room + room);
+  }
+}
+
 /// The room a fitted route keeps clear of the legend of [legend]'s size,
 /// open in the top right corner of a map of [map] whose panels cover
 /// [padding]: beside it or below it, whichever leaves the route the larger
@@ -577,7 +600,10 @@ class _ZoneLegendLine extends StatelessWidget {
       child: Row(
         children: [
           ExcludeSemantics(
-            child: CustomPaint(size: Size(side, side), painter: _ZoneSwatch(scale)),
+            child: CustomPaint(
+              size: Size(side, side),
+              painter: _ZoneSwatch(scale, dark: Theme.of(context).brightness == Brightness.dark),
+            ),
           ),
           const SizedBox(width: Space.s),
           Expanded(
@@ -593,9 +619,10 @@ class _ZoneLegendLine extends StatelessWidget {
 }
 
 class _ZoneSwatch extends CustomPainter {
-  new(this.scale);
+  new(this.scale, {required this.dark});
 
   final double scale;
+  final bool dark;
 
   Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
 
@@ -611,12 +638,12 @@ class _ZoneSwatch extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
     stroke(RouteLook.zone, RouteLook.zoneWidth * scale, opacity: RouteLook.zoneOpacity);
-    stroke(RouteLook.casing(dark: false), RouteLook.casingWidth * scale);
-    stroke(RouteLook.line(dark: false), RouteLook.lineWidth * scale);
+    stroke(RouteLook.casing(dark: dark), RouteLook.casingWidth * scale);
+    stroke(RouteLook.line(dark: dark), RouteLook.lineWidth * scale);
   }
 
   @override
-  bool shouldRepaint(_ZoneSwatch old) => old.scale != scale;
+  bool shouldRepaint(_ZoneSwatch old) => old.scale != scale || old.dark != dark;
 }
 
 /// A row of the preview's list tied to its marks on the map: the pointer

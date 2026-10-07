@@ -11,10 +11,12 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -62,6 +64,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
   CountedNotificationAccess? notifications,
   FakeApi? api,
   CountryLocator? countries,
+  EnforcementFeed? enforcement,
   RoutingInfo? routing,
   AppLocale locale = AppLocale.fr,
 }) async {
@@ -82,11 +85,35 @@ Future<(TestApp, FakeRouteService)> openPreview(
       settings: settings,
       notifications: notifications,
       countries: countries,
+      enforcement: enforcement,
     ),
   );
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
   await settleShort(tester);
   return (app, routes);
+}
+
+/// Speed camera data held back until [gate] completes: the zones come
+/// after the route's first fit, as on a first poll over the network.
+final class _GatedEnforcement implements EnforcementFeed {
+  new(this.zone);
+
+  final EnforcementItem zone;
+  final gate = Completer<void>();
+
+  static const _rules = EnforcementRules(version: 1, countries: {'FR': EnforcementMode.zones});
+
+  @override
+  Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {
+    await gate.future;
+    return (
+      rules: _rules,
+      items: [zone],
+      sources: const <EnforcementSource>[],
+      pollInterval: const Duration(hours: 6),
+      polledAt: now,
+    );
+  }
 }
 
 void main() {
@@ -1636,6 +1663,41 @@ void main() {
       });
     }
 
+    testWidgets('the room of the legend is set once: zones known later and another route chosen '
+        'leave the camera where it is', (tester) async {
+      final plan = routeFixture('utrillo_van');
+      final track = LineTrack(plan.routes.first);
+      final zones = _GatedEnforcement(
+        EnforcementItem(
+          id: 'zone',
+          kind: EnforcementKind.zone,
+          category: 'FIXED',
+          country: 'FR',
+          line: [for (var m = 60.0; m <= 220; m += 20) track.at(m)],
+        ),
+      );
+      await openPreview(
+        tester,
+        answers: [plan],
+        size: const Size(360, 700),
+        settings: MemoryRouteSettings(),
+        countries: FakeCountries((_) => 'FR'),
+        enforcement: zones,
+      );
+      final fitted = SchematicRouteMap.last!.camera as FitCamera;
+      expect(fitted.room, isNot(EdgeInsets.zero));
+      Finder legendRow(String text) =>
+          find.descendant(of: find.byType(MarkLegend), matching: find.text(text));
+      expect(legendRow('Zone de danger'), findsNothing, reason: 'not known yet');
+      zones.gate.complete();
+      await settleShort(tester);
+      expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
+      expect(SchematicRouteMap.last!.camera, fitted, reason: 'no new fit for it');
+      SchematicRouteMap.last!.onLineTap!(plan.routes.last.index);
+      await settleShort(tester);
+      expect(SchematicRouteMap.last!.camera, fitted, reason: 'another route, the same camera');
+    });
+
     testWidgets('a legend seen before leaves the whole map to the route', (tester) async {
       await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
       expect((SchematicRouteMap.last!.camera as FitCamera).room, EdgeInsets.zero);
@@ -1654,6 +1716,35 @@ void main() {
         legendRoom(bounds: tall, map: map, padding: EdgeInsets.zero, legend: legend),
         const EdgeInsets.only(right: 280 + Space.s),
       );
+    });
+
+    test('the room is set once for a set of bounds, at the legend first size; new bounds fit '
+        'again', () {
+      const map = Size(360, 700);
+      const padding = EdgeInsets.only(bottom: 336);
+      const bounds = GeoBounds(south: 45.80, west: 1.20, north: 45.90, east: 1.35);
+      final fit = LegendFit();
+      const camera = FitCamera(bounds);
+      final first = fit.fit(camera, map: map, padding: padding, legend: null);
+      expect(first.room, EdgeInsets.zero, reason: 'the legend not laid out yet');
+      final roomed = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 120));
+      expect(roomed.room, isNot(EdgeInsets.zero), reason: 'its first size frames the route again');
+      for (final legend in [const Size(220, 160), const Size(220, 90), null]) {
+        expect(
+          fit.fit(camera, map: map, padding: padding, legend: legend),
+          same(roomed),
+          reason: 'legend $legend: the camera stays',
+        );
+      }
+      const other = GeoBounds(south: 45.70, west: 1.10, north: 45.95, east: 1.50);
+      final next = fit.fit(
+        const FitCamera(other),
+        map: map,
+        padding: padding,
+        legend: const Size(220, 160),
+      );
+      expect(next.bounds, other);
+      expect(next.room, isNot(roomed.room), reason: 'new bounds, the legend as it is now');
     });
 
     testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {
