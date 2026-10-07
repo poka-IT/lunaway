@@ -234,6 +234,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
+  /// The engine's screen units per logical pixel, for its feature queries.
+  double get _queryScale => mapQueryScale(
+    web: kIsWeb,
+    platform: defaultTargetPlatform,
+    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+  );
+
   gl.SymbolLayerProperties _selectionLayer(double size) => gl.SymbolLayerProperties(
     iconImage: const ['get', 'icon'],
     iconSize: size,
@@ -264,16 +271,26 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     bool current() => mounted && load == _styleLoads;
     final dark = _props.dark;
     try {
-      // In the browser the page adds the pins as they are first drawn
-      // (web/lunaway_maplibre.js): two hundred images fetched and decoded in
-      // Dart held the first view of the map back.
-      if (!kIsWeb) {
-        final images = await PinSprites.load(_ratio);
-        // The images go in together: the engine queues each call, and one at
-        // a time waits a round trip for each of the hundred pins.
-        if (!current()) return;
-        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
+      // The camera first: the tiles the map asks for from here are those of
+      // the view the user will see.
+      if (_fitPending) {
+        final size = mounted ? context.size : null;
+        if (size != null) {
+          _fitPending = false;
+          final camera = cameraForBounds(
+            GeoBounds.metropolitanFrance,
+            size,
+            _props.padding + const EdgeInsets.all(fitInitialMargin),
+          );
+          await c.moveCamera(
+            gl.CameraUpdate.newLatLngZoom(
+              gl.LatLng(camera.center.lat, camera.center.lon),
+              camera.zoom,
+            ),
+          );
+        }
       }
+      if (!current()) return;
       // The one call an older setup had in flight may already have added a
       // layer or a source to this style: each is removed before it is added.
       Future<void> fresh(Future<void> Function() add, {String? layer, String? source}) async {
@@ -387,23 +404,19 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (_props.pois != null) {
         await _poi.installSelection(c, pinScale: _pinScale, current: current);
       }
-      if (!current()) return;
-      if (_fitPending) {
-        final size = mounted ? context.size : null;
-        if (size != null) {
-          _fitPending = false;
-          final camera = cameraForBounds(
-            GeoBounds.metropolitanFrance,
-            size,
-            _props.padding + const EdgeInsets.all(fitInitialMargin),
-          );
-          await c.moveCamera(
-            gl.CameraUpdate.newLatLngZoom(
-              gl.LatLng(camera.center.lat, camera.center.lon),
-              camera.zoom,
-            ),
-          );
-        }
+      // The pin images last, once every source is in and its tiles are on
+      // their way: the plugin decodes each image on Android's main thread,
+      // which is also Flutter's UI thread, for about half a second on the
+      // emulator (two hundred images), and the first view of France shows
+      // only dots, which need no image. A symbol layer added before its
+      // image draws it once it comes. In the browser the page adds the pins as they are first drawn
+      // (web/lunaway_maplibre.js).
+      if (!kIsWeb) {
+        final images = await PinSprites.load(_ratio);
+        // The images go in together: the engine queues each call, and one at
+        // a time waits a round trip for each of the hundred pins.
+        if (!current()) return;
+        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
       }
       if (!current()) return;
       _ready = true;
@@ -518,9 +531,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   Future<void> _onTap(math.Point<double> point) async {
     final c = _controller;
-    if (c == null || !_ready) return;
-    // A finger is wider than a pin: look in a square around the tap.
-    const slop = 14.0;
+    if (c == null || !_ready || !mounted) return;
+    // A finger is wider than a pin: look in a square around the tap, of 14
+    // logical pixels each way. The tap's point is in the engine's units.
+    final slop = 14.0 * _queryScale;
     final features = await c.queryRenderedFeaturesInRect(
       Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
       [
@@ -635,8 +649,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   Future<void> _reportPlacesDrawn(gl.MapLibreMapController c) async {
     final size = mounted ? context.size : null;
     if (size == null) return;
+    // The whole view, in the engine's units: a rectangle in logical pixels
+    // covers only the top left part of an Android map, where a zoomed-in
+    // view often has no place.
+    final view = Offset.zero & size * _queryScale;
     try {
-      final drawn = await c.queryRenderedFeaturesInRect(Offset.zero & size, [
+      final drawn = await c.queryRenderedFeaturesInRect(view, [
         if (_tiles.installed) ...PlaceTiles.tappable,
         MapStyle.placesLayer,
         MapStyle.clustersLayer,
