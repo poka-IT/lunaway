@@ -19,7 +19,7 @@ description: The Lunaway project, the open sources of its data and their attribu
 </nav>
 <article class="prose">
 <h2 id="project">The project</h2>
-<p>Lunaway helps you find where to stop with a motorhome or a van: service areas, car parks, campsites, farm stays, spots in nature, water and dump points. France is covered in detail, and the app is designed for the whole world, in French and English.</p>
+<p>Lunaway helps you find where to stop with a motorhome or a van: service areas, car parks, campsites, farm stays, spots in nature, water and dump points. The places cover France and twenty other European countries, and the app speaks French and English.</p>
 <p>The app is free, with no ads and no trackers, and we sell no data. It is published by AxiomTeam, and its code is free software.</p>
 <p>It is made of a Flutter app (Android and web today, iPhone and computers next), an API written in Rust on PostgreSQL and PostGIS, and servers of our own, at Hetzner in Germany, which also serve the basemap. Each place gathers what several sources say about the same spot, and keeps, for each piece of information, the source that supplied it.</p>
 
@@ -29,13 +29,18 @@ description: The Lunaway project, the open sources of its data and their attribu
 <table>
 <thead><tr><th scope="col">Source</th><th scope="col">What it brings</th><th scope="col">Licence and attribution</th></tr></thead>
 <tbody>
-<tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></td><td>motorhome areas, campsites, dump stations, drinking water, toilets, LPG, height limits</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, "©&nbsp;OpenStreetMap contributors"</td></tr>
+<tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></td><td>motorhome areas, campsites, dump stations, drinking water, toilets, LPG, height limits; the shops and services around places; the roads and their limits for routes; speed cameras, with their direction and limit</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, "©&nbsp;OpenStreetMap contributors"</td></tr>
 <tr><td>Atout France, classified tourist accommodation (data.gouv.fr)</td><td>classified campsites and their star rating</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte</a>, "Atout France"</td></tr>
 <tr><td>Base Adresse Nationale (Géoplateforme)</td><td>the position of the classified campsites, computed from their address</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte 2.0</a>, "Base Adresse Nationale"</td></tr>
 <tr><td>Contours administratifs (data.gouv.fr)</td><td>the name of each place's municipality, for offline search</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>, "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)"</td></tr>
-<tr><td>IGN, BD TOPO</td><td>the height, weight, width and length limits of roads, for the motorhome directions in preparation</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte 2.0</a>, "IGN, BD TOPO" with the date of the edition used</td></tr>
+<tr><td>IGN, BD TOPO</td><td>the height, weight, width and length limits of French roads, for motorhome routes</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte 2.0</a>, "IGN, BD TOPO" with the date of the edition used</td></tr>
 <tr><td><a href="https://protomaps.com">Protomaps</a> basemap</td><td>the roads, water, terrain and names of the map, built from OpenStreetMap and Natural Earth, copied and served by our server tiles.lunaway.net</td><td>Produced Work under the ODbL, "©&nbsp;OpenStreetMap"; Noto Sans fonts (OFL&nbsp;1.1), map icons (MIT)</td></tr>
-<tr><td>Lunaway community</td><td>new places and edits; reviews, ratings and photos</td><td>places: ODbL&nbsp;1.0, "Lunaway contributors"; reviews and photos: <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>, credited to their author</td></tr>
+<tr><td>Fuel prices (data.gouv.fr)</td><td>the prices and shortages of French stations</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte 2.0</a>, "Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)"</td></tr>
+<tr><td>La Poste (data.laposte.fr)</td><td>the opening hours of post offices</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, "La Poste, calendrier d'ouverture des bureaux de poste"</td></tr>
+<tr><td>FINESS (data.gouv.fr)</td><td>the closures of health facilities around places</td><td><a href="https://www.data.gouv.fr/pages/legal/licences/etalab-2.0">Licence Ouverte 2.0</a>, "FINESS, Agence du numérique en santé"</td></tr>
+<tr><td>Road events</td><td>roadworks and closures taken into account in routes: DIR and Bison Futé, DiaLog traffic orders, French cities and departments (Paris, Lyon, Toulouse, Bordeaux, Rennes, Aix-Marseille, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), NDW in the Netherlands, DGT in Spain</td><td>Licence Ouverte 2.0, ODbL, CC0 or CC&nbsp;BY depending on the source; the app names each source with the time of its data</td></tr>
+<tr><td>Speed cameras and danger zones</td><td>the official list of the French Sécurité routière (shown as danger zones only), and the public lists of Poland, Luxembourg, Catalonia and Norway</td><td>France: reuse under the French Code des relations entre le public et l'administration, with the list's source and date; Poland and Luxembourg: CC0; Catalonia: the Generalitat's open licence; Norway: NLOD</td></tr>
+<tr><td>Lunaway community</td><td>new places, vending machines and edits; reviews, ratings and photos</td><td>places: ODbL&nbsp;1.0, "Lunaway contributors"; reviews, ratings and photos: <a href="https://creativecommons.org/licenses/by/4.0/">CC&nbsp;BY&nbsp;4.0</a>, credited to their author</td></tr>
 </tbody>
 </table>
 </section>

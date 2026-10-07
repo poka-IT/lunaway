@@ -1,36 +1,50 @@
-Lunaway est une carte des lieux où s'arrêter en camping-car ou en van : aires de camping-car, aires de services, parkings, campings, accueil à la ferme, lieux en pleine nature.
+Lunaway est une carte des lieux où s'arrêter en camping-car ou en van : aires de camping-car, aires de services, parkings, campings, accueil à la ferme, lieux en pleine nature. Elle couvre la France et vingt autres pays d'Europe.
 
 L'application est gratuite, sans publicité et sans traqueur. Son code est libre (licence AGPL) et la base des lieux est ouverte (licence ODbL).
 
 TROUVER UN LIEU
 • Carte et liste des lieux, fiche détaillée de chaque lieu
 • La nuit sur chaque fiche : autorisée, tolérée, de jour seulement ou interdite
-• Filtres : type de lieu, nuit possible, services (eau, vidange, électricité, toilettes, douches, poubelles, laverie, wi-fi, GPL)
+• Filtres : type de lieu, nuit possible, gratuit, services (eau, vidange, électricité, toilettes, douches, poubelles, laverie, wi-fi)
 • « Mon véhicule passe » : masque les lieux limités sous la hauteur de votre véhicule
 • Recherche par nom de lieu ou par commune
 • Horaires, prix, services, contact et sources sur la fiche
-• Coordonnées GPS copiées en un geste, en cinq formats
-• Itinéraire vers le lieu dans l'application de navigation de votre choix, partage d'une fiche
+• Coordonnées GPS copiées en un geste, en cinq formats, partage d'une fiche
+
+AUTOUR DE VOUS
+• Courses, distributeurs, eau et vidange, carburant et énergie, santé, services : les points utiles sur la carte et autour de chaque lieu, avec leurs horaires et s'ils sont ouverts
+• Prix des carburants des stations françaises, avec l'heure de la mise à jour, les ruptures et l'évolution des prix ; liste du carburant le moins cher autour de vous
+• Recherche d'un commerce ou d'un service par son nom
+
+ITINÉRAIRE POUR VOTRE VÉHICULE
+• En France, itinéraire calculé pour la hauteur, la largeur, la longueur et le poids de votre véhicule et de sa remorque : les ponts trop bas et les routes interdites à votre gabarit sont écartés
+• Guidage pas à pas et à la voix, recalcul si vous quittez l'itinéraire, jusqu'à cinq étapes
+• Travaux et fermetures publiés par les gestionnaires de routes, mis à jour pendant le trajet ; l'itinéraire contourne les fermetures
+• Limite de vitesse pour votre véhicule, et zones de danger en France (jamais la position d'un radar), affichées pendant le guidage seulement ; alertes sonores désactivées par défaut
+• Stations sur le trajet, classées avec le détour et votre consommation
+• Options : éviter les péages, les autoroutes, les ferries et les routes non revêtues
+• Ou bien l'itinéraire dans l'application de navigation de votre choix
+Les hauteurs et les limites viennent de données ouvertes et peuvent manquer : la signalisation sur place reste la référence.
 
 SANS RÉSEAU
-Les lieux de France métropolitaine sont copiés sur le téléphone et se mettent à jour quand la connexion revient. La liste, la recherche, les fiches et vos favoris marchent sans réseau. Le fond de carte, les photos et les avis demandent une connexion.
+Choisissez les régions à garder : leurs lieux sont copiés sur l'appareil et se mettent à jour quand la connexion revient. La liste, la recherche, les fiches et vos favoris marchent sans réseau. Le fond de carte se télécharge aussi par région. Les photos et les avis demandent une connexion la première fois.
 
 PARTICIPER
 • Notes, avis et photos
-• « Toujours là ? » : dites si le lieu correspond encore à sa fiche ; la date de la dernière confirmation s'affiche pour les suivants
+• « Toujours là ? » : dites si un lieu, un commerce ou un service correspond encore à sa fiche
 • Signalez un problème (nuit interdite, service en panne, accès impossible, danger), proposez une modification, ajoutez un lieu
-• Les possibilités s'ouvrent pas à pas : un nouveau compte peut noter et confirmer, puis écrire des avis et ajouter des photos, puis ajouter des lieux
+• Les possibilités s'ouvrent pas à pas : noter et confirmer d'abord, puis avis et photos, puis nouveaux lieux
 • Signalez un contenu à la modération, masquez un auteur
 
 UN COMPTE SANS E-MAIL
-Consulter la carte ne demande pas de compte. Il se crée à votre première contribution, sans e-mail ni mot de passe : une clé gardée sur votre téléphone, et un pseudonyme que vous pouvez changer. Une carte de secours permet de retrouver le compte sur un autre appareil. Chaque contribution, comme le compte entier, se supprime depuis l'application.
+Consulter la carte et calculer un itinéraire ne demandent pas de compte. Il se crée à votre première contribution, sans e-mail ni mot de passe : une clé gardée sur votre appareil, et un pseudonyme que vous pouvez changer. Une carte de secours permet de retrouver le compte sur un autre appareil. Chaque contribution, comme le compte entier, se supprime depuis l'application.
 
 FAVORIS ET VÉHICULE
-• Favoris rangés en listes, gardés sur le téléphone, et avec votre compte si vous le choisissez
-• Profil du véhicule : type, remorque, hauteur, largeur, longueur, poids
+• Favoris rangés en listes, gardés sur l'appareil, et avec votre compte si vous en avez un
+• Profil du véhicule : type, remorque, hauteur, largeur, longueur, poids, carburant, consommation
 
 AFFICHAGE
 Thème clair le jour et sombre après le coucher du soleil, ou au choix. En français et en anglais. Mise en page pour le téléphone et pour la tablette.
 
 SOURCES
-Les lieux viennent de données ouvertes et des contributions de la communauté Lunaway. Chaque fiche affiche ses sources et leur licence. La couverture est aujourd'hui la France métropolitaine.
+Données ouvertes et contributions de la communauté Lunaway. Chaque fiche affiche ses sources et leur licence.

@@ -4,7 +4,7 @@ Who reads this: whoever ships the iOS app. The listing lives in
 `fastlane/metadata/ios/` (`docs/store-listing.md`), the screenshots plan in
 `docs/screenshots.md`, the release order in `docs/release.md`.
 
-State on 2026-10-06: the project builds unsigned in CI
+State on 2026-10-07 (`main` at 93ba876): the project builds unsigned in CI
 (`.github/workflows/ci.yml`, job `ios`, `flutter build ios --release
 --no-codesign`); no Apple Developer team is set (`DEVELOPMENT_TEAM` absent
 from `app/ios/Runner.xcodeproj/project.pbxproj`) and this Mac has no
@@ -15,7 +15,7 @@ maintainer's Apple account, gathered in "What only the maintainer does".
 |---|---|---|
 | Bundle id | `legal.p2p.lunaway` | `project.pbxproj` (`PRODUCT_BUNDLE_IDENTIFIER`) |
 | Display name | Lunaway | `app/ios/Runner/Info.plist` (`CFBundleDisplayName`) |
-| Version, build | `CFBundleShortVersionString` = pubspec name (`0.1.0`), `CFBundleVersion` = pubspec build number (`1`) | `Info.plist`, `app/pubspec.yaml` |
+| Version, build | `CFBundleShortVersionString` = pubspec name (`0.1.0`), `CFBundleVersion` = pubspec build number (`2`) | `Info.plist`, `app/pubspec.yaml` (`version: 0.1.0+2`) |
 | Minimum iOS | 15.0 | `IPHONEOS_DEPLOYMENT_TARGET` |
 | Devices | iPhone and iPad | `TARGETED_DEVICE_FAMILY = "1,2"` |
 | Languages | French (primary), English | `CFBundleLocalizations`, `app/lib/i18n/` |
@@ -49,12 +49,13 @@ maintainer's Apple account, gathered in "What only the maintainer does".
   (`app/lib/features/profile/presentation/profile_screen.dart`).
 - **Purpose strings.** Location when in use, camera, photo library and
   photo library additions, in English in `Info.plist` and in
-  `en.lproj`/`fr.lproj/InfoPlist.strings`. The camera and photo strings
-  were uncommitted on 2026-10-06: they must be in the tagged commit.
+  `en.lproj`/`fr.lproj/InfoPlist.strings` (texts in "App Privacy" below).
 - **Background modes, 2.5.4.** `location` and `audio`, for the in-app
   guidance only (`Info.plist`, `UIBackgroundModes`): it starts in the
   foreground with "When In Use", shows the blue indicator while it runs
-  and stops both at the arrival or the end. See "If guidance ships".
+  (`app/lib/features/navigation/data/location_feed.dart`,
+  `showBackgroundLocationIndicator: true`) and stops both at the arrival
+  or the end. See "Guidance" below.
 - **Metadata, 2.3.** No other app or brand named in the name, subtitle,
   keywords or images (`docs/store-listing.md`).
 
@@ -63,43 +64,78 @@ maintainer's Apple account, gathered in "What only the maintainer does".
 Derived from the Data safety inventory in `docs/play-store.md`, with
 Apple's definitions (developer.apple.com/app-store/app-privacy-details,
 read 2026-10-06): data is "collected" when it leaves the device and stays
-accessible longer than needed to serve the request in real time.
+accessible longer than needed to serve the request in real time. Checked
+against `main` at 93ba876 on 2026-10-07.
 
 | Answer | Data types | Purpose |
 |---|---|---|
 | Data used to track you | none | |
 | Data linked to you | Identifiers: User ID (account id and pseudonym, a "screen name"), Device ID (the public key generated per device) | App Functionality |
-| | User Content: Photos or Videos; Other User Content (ratings, reviews, confirmations, problem and content reports, new places and edits, favourite lists, mutes) | App Functionality |
+| | User Content: Photos or Videos; Other User Content (ratings, reviews, "Still there?" confirmations of places and answers about shops and services, problem and content reports, new places, vending machines and edits, favourite lists, mutes) | App Functionality |
 | | Usage Data: Product Interaction (days of use, last-use dates of sessions and devices, which feed the trust level) | App Functionality (Apple's definition includes fraud prevention and security) |
-| | Location: Precise Location (the position of a new place, kept with the account; after "locate me" the map centre is the device's own position, `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`) | App Functionality |
+| | Location: Precise Location (the position of a new place or vending machine, kept with the account; after "locate me", or when the map opens on the user, the map centre is the device's own position: `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`) | App Functionality |
 | Data not linked to you | none | |
 
-Not collected, with the reason: Coarse Location (map tiles show an area
-but nothing is kept; the list of the cheapest fuel sends the position or
-the map centre rounded to 0.05 degree, the route's fuel search the route
-ahead, neither stored nor logged), Contact Info (no e-mail, phone or real
-name is asked), Search History (the search of places runs on the device;
-the search of shops and services sends the text and the map centre
-rounded to 0.05 degree, which the server neither stores nor logs),
-Diagnostics and crash data (none), Browsing History. The speed camera data
-of the guidance is asked by country, without any position. The optional-disclosure exemption is not
-used: reviews, photos and new places are part of the app's main use.
+Not collected, with the reason:
 
-When a feature ships, revisit the label with the table "When a feature
-ships" of `docs/play-store.md`. Directions send the position but keep
-nothing, so under Apple's definition they add no type; road event reports
-fall under Precise Location, already declared.
+- Coarse Location: processed for the request only. The cheapest fuel
+  list sends the position or the map centre rounded to 0.05 degree
+  (`app/lib/features/poi/application/fuel_feed_providers.dart`), the fuel
+  layer the visible area widened to a 0.05 degree grid
+  (`poi_providers.dart`); nothing is stored, the access log keeps no query
+  content (`infra/caddy/Caddyfile`, `access_log`).
+- Precise Location for routes: the start of each route, the reroutes of a
+  guidance and the route line sent for its fuel stations reach the server
+  and are used for that request only; nothing is stored, the API logs no
+  position (`backend/crates/lunaway-api/src/lib.rs`, request span) and the
+  routing engine's journal holds none (14 days of `journalctl -u valhalla`
+  read on 2026-10-07: no coordinate, no request body). Under Apple's
+  definition this adds no type.
+- Search History: the search of places runs on the device; the search of
+  shops and services sends the text and the map centre rounded to 0.05
+  degree, neither stored nor logged.
+- Contact Info (no e-mail, phone or real name is asked), Diagnostics and
+  crash data (none), Browsing History (none).
+- Speed cameras and road events: asked by country and by cursor, without
+  any position.
 
-The location purpose string said "It stays on your device", which a new
-place set at the device's position contradicts. From version 0.1.0+2
-(`app/ios/Runner/Info.plist`, `en.lproj` and `fr.lproj/InfoPlist.strings`)
-it reads:
+The optional-disclosure exemption is not used: reviews, photos and new
+places are part of the app's main use. Road event reports
+(`reportRoadEvent`) exist in the API but no screen of the app sends one at
+93ba876; when the app sends them, they fall under Precise Location,
+already declared, kept 14 days.
 
-- en: "Lunaway shows your position on the map and sorts the places around
-  you. It leaves your device only if you add a place where you stand."
-- fr : « Lunaway affiche votre position sur la carte et trie les lieux
-  autour de vous. Elle ne quitte votre appareil que si vous ajoutez un
-  lieu là où vous êtes. »
+Location purpose strings (`app/ios/Runner/Info.plist`,
+`app/ios/Runner/en.lproj/InfoPlist.strings`, `fr.lproj/InfoPlist.strings`;
+the same two keys, `NSLocationWhenInUseUsageDescription` and
+`NSLocationUsageDescription`):
+
+- en: "Lunaway shows your position on the map, sorts the places around
+  you and guides you along a route you start, also with the screen off
+  while it guides. Your position goes to Lunaway's server to compute a
+  route, which keeps nothing of it; rounded to about 5 km, to look for the
+  cheapest fuel around you; and when you add a place where you stand."
+- fr : « Lunaway affiche votre position sur la carte, trie les lieux
+  autour de vous et vous guide sur l'itinéraire que vous lancez, écran
+  éteint compris pendant le guidage. Votre position part vers le serveur
+  de Lunaway pour calculer un itinéraire, qui n'en garde rien ; arrondie à
+  environ 5 km, pour chercher le carburant le moins cher autour de vous ;
+  et quand vous ajoutez un lieu là où vous êtes. »
+
+macOS (`app/macos/Runner/Info.plist` and its two `InfoPlist.strings`) has
+no guidance (the guidance library loads on Android and iOS only,
+`app/lib/features/navigation/data/ferrostar_engine.dart`): "computes
+routes from where you are" / « calcule les itinéraires depuis l'endroit
+où vous êtes » in place of the guidance clause, the rest the same. The
+other strings:
+
+- camera: "Lunaway uses the camera when you take a photo of a place, or
+  of your recovery card to read its code."
+- photo library: "Lunaway opens your photos when you choose one to add to
+  a place, or the image of your recovery card."
+- photo library additions: "Lunaway saves the image of your recovery card
+  to your photos when you choose Save Image." (the share sheet's "Save
+  Image", `recovery_screens.dart`)
 
 ## Privacy manifest
 
@@ -183,9 +219,9 @@ Decision for the maintainer, who answers in App Store Connect:
    Apple's OS: file the French encryption declaration (ANSSI) and upload
    it in App Store Connect; `ITSAppUsesNonExemptEncryption` is then true.
 
-For option 1, `app/ios/Runner/Info.plist` declares it after the
-`CFBundleVersion` entry (from version 0.1.0+2; option 2 means
-turning it to `<true/>`):
+Option 1 is in the code: `app/ios/Runner/Info.plist` and
+`app/macos/Runner/Info.plist` declare it after the `CFBundleVersion`
+entry (option 2 means turning both to `<true/>`):
 
 ```xml
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -212,16 +248,19 @@ page says "Lunaway is meant for adults" and Play declares an audience of
 18 and over; the App Store rating describes content, not audience, so the
 two do not conflict. Made for Kids: no.
 
-Content rights: the app shows third-party content (open data under ODbL
-and Licence Ouverte, user content under ODbL and CC BY 4.0) and has the
-rights to it: answer yes to "contains third-party content" and confirm the
-rights.
+Content rights: the app shows third-party content (open data under ODbL,
+Licence Ouverte, CC0, CC BY, NLOD and the Generalitat's open licence, the
+French speed camera list reused under the CRPA, `docs/data-sources.md`;
+user content under ODbL and CC BY 4.0) and has the rights to it: answer
+yes to "contains third-party content" and confirm the rights.
 
 ## Review notes and demo account
 
-`fastlane/metadata/ios/review_information/notes.txt` (English, 2 kB):
-what the app is, account creation, trust levels, the demo account steps,
-deletion path, moderation, location and camera use, production servers.
+`fastlane/metadata/ios/review_information/notes.txt` (English, under
+4000 characters): what the app is, account creation, trust levels, the
+demo account steps, deletion path, moderation, location (routes, guidance
+in the background, the rounded fuel search, new places), speed cameras
+and limits, camera and photos, production servers.
 
 The demo account:
 
@@ -241,54 +280,32 @@ Contact fields (first name, last name, phone, e-mail) are the maintainer's
 and stay out of the repository except `email_address.txt`
 (contact@lunaway.net).
 
-## If guidance ships
+## Guidance
 
-In-app guidance (the `route` query, `docs/store-listing.md`) needs, on iOS:
+In-app guidance ships in 0.1.0+2 (`app/lib/features/navigation/`), on
+iPhone and iPad only (`ferrostar_engine.dart`).
 
-- `Info.plist`:
-
-```xml
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-		<string>audio</string>
-	</array>
-```
-
-- No "Always" authorization: guidance starts in the foreground with "When
-  In Use", sets `allowsBackgroundLocationUpdates` and
-  `showsBackgroundLocationIndicator` on its location manager, and stops
-  both when the route ends. The audio session uses the playback category
-  with ducking for spoken instructions only.
-- The location purpose string, in `Info.plist` and both
-  `InfoPlist.strings`, changes to say that a route's start goes to our
-  server: "Lunaway shows your position on the map, sorts the places around
-  you and guides you along a route you start. Your position goes to
-  Lunaway's server to compute a route, which keeps nothing of it, and when
-  you add a place where you stand." / « Lunaway affiche votre position sur
-  la carte, trie les lieux autour de vous et vous guide sur l'itinéraire
-  que vous lancez. Votre position part vers le serveur de Lunaway pour
-  calculer un itinéraire, qui n'en garde rien, et quand vous ajoutez un
-  lieu là où vous êtes. »
-- Review notes, added paragraph: "Background location and audio are used
-  only during guidance that the user starts toward a place: the app
-  follows the vehicle, speaks the instructions and the warnings (a bridge
-  lower than the vehicle), and stops both when the route ends or is
-  cancelled. The blue location indicator shows meanwhile. To try it, open
-  a place, tap Directions, choose Lunaway, then Start." Adjust the labels
-  to the shipped app.
-- Data safety and privacy label: `docs/play-store.md`, "When a feature
-  ships".
-- Speed cameras and limits, review notes: "During guidance only, the app
-  shows the speed limit for the vehicle and, where the law of the country
-  the vehicle is in allows it, danger zones (France: a stretch of road
-  without the camera's position or type) or fixed cameras (countries that
-  allow their positions). Nothing shows outside guidance, nor in
-  Switzerland, Germany while driving, Morocco or a country not reviewed
-  (`docs/speed-cameras.md`). No police check is reported. Spoken alerts are
-  off by default." Guideline 1.4.4 asks an app never to encourage
-  excessive speed: the excess shows as a warning only, and no feature
-  ranks speeds.
+- `Info.plist`, `UIBackgroundModes`: `location` and `audio`.
+- No "Always" authorization and no
+  `NSLocationAlwaysAndWhenInUseUsageDescription`: guidance starts in the
+  foreground with "When In Use", the location settings ask for
+  `automotiveNavigation` and the background indicator
+  (`location_feed.dart`, `AppleSettings`), and the feed stops at the
+  arrival or the end. The audio session uses ducking for spoken
+  instructions only (`LunawayNavPlugin.swift`); only voices installed on
+  the device speak.
+- Review notes: the paragraphs on location and on speed cameras in
+  `notes.txt`. Guideline 1.4.4 asks an app never to encourage excessive
+  speed: the excess shows as a warning only, no feature ranks speeds, and
+  the spoken alerts are off by default
+  (`app/lib/features/navigation/domain/driving_aids.dart`).
+- What the app shows of speed cameras, during guidance only and nowhere
+  else: France, danger zones only (a stretch of road, never a camera's
+  position or type); the countries that allow camera positions, the
+  camera with its limit; nothing in Switzerland, in Germany while
+  driving, in Morocco or in a country the table does not name
+  (`docs/speed-cameras.md`). No police check is ever reported.
+- Data safety and privacy label: covered above (no new type).
 
 ## What only the maintainer does
 

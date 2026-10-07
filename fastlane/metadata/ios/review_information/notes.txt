@@ -1,15 +1,21 @@
-Lunaway is a free map of places to stop with a motorhome or a van, in metropolitan France. It has no ads, no tracking and no in-app purchase.
+Lunaway is a free map of places to stop with a motorhome or a van, in France and twenty other European countries, with directions and turn-by-turn guidance for the vehicle's size in France. It has no ads, no tracking and no in-app purchase.
 
-Browsing needs no account. An account is created, without e-mail or password, the first time the user contributes (a rating, a "Still there?" confirmation, a review, a photo, a problem report, a report to the moderators, muting an author, a new place) or chooses to sync favourites. It rests on a key pair kept on the device; a recovery code brings it back on another device.
+Browsing and directions need no account. An account is created, without e-mail or password, the first time the user contributes (a rating, a "Still there?" confirmation, a review, a photo, a problem report, a report to the moderators, muting an author, a new place) or chooses to sync favourites. It rests on a key pair kept on the device; a recovery code brings it back on another device.
 
 Trust levels: a new account can rate places, confirm them, report problems and sync favourites. Reviews and photos need level 1, and adding a new place needs level 2. To review these features, sign in to the level 2 demo account:
 1. Open the Profile tab and tap "Recover my account".
 2. Type the recovery code given in the Sign-In Information (password field), then tap "Recover the account".
 
-Account deletion (guideline 5.1.1(v)): Profile, "Your account", "Delete my account", tick "I understand this is final", then "Delete the account". The same deletion is available on https://lunaway.net/account/delete with the recovery code.
+Account deletion (guideline 5.1.1(v)): Profile, "Your account", "Delete my account", "Continue", tick "I understand this is final", then "Delete the account". The same deletion is available on https://lunaway.net/account/delete with the recovery code.
 
 User-generated content (guideline 1.2): texts pass automatic rules (links, contact details, repetition, a word list) and wait for a moderator when they trip them; every review, photo and place has an action to report it to the moderators; a review or photo reported by three trusted accounts is hidden until a moderator decides; users can mute an author from a review or a photo; contact: contact@lunaway.net.
 
-Location is read only while the app is in use, to show the user on the map and sort places by distance. It reaches our servers only as the position of a new place, which the user sets on the map and confirms. The camera and the photo library open only when the user adds a photo to a place or reads the recovery card from a photo.
+Location is asked "When In Use" only. It shows the user on the map and sorts places by distance. It reaches our server as the start of a route, which the server does not store; rounded to about 5 km for the list of the cheapest fuel around the user; and as the position of a new place, which the user sets on the map and confirms.
+
+Background location and audio (guideline 2.5.4) are used only during guidance that the user starts toward a place: the app follows the vehicle, speaks the instructions and the warnings (a bridge lower than the vehicle), and stops both when the route ends or is cancelled. The blue location indicator shows meanwhile. To try it, open a place in France, tap Directions, choose Lunaway, then Start.
+
+Speed limits and speed cameras: during guidance only, the app shows the speed limit for the vehicle and, where the law of the country the vehicle is in allows it, danger zones (France: a stretch of road, never a camera's position or type) or fixed cameras (countries that allow their positions). Nothing shows outside guidance, nor in Switzerland, in Germany while driving, in Morocco or in a country not reviewed. No police check is reported. Spoken alerts are off by default, and an excess shows as a warning only (guideline 1.4.4).
+
+The camera and the photo library open only when the user adds a photo to a place or reads the recovery card from a photo.
 
 The app talks only to our own servers (api.lunaway.net, tiles.lunaway.net), which the review uses in production.

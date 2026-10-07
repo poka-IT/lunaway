@@ -31,43 +31,65 @@ Store has no caption rule; the same images serve both.
 
 ## The story, in order
 
-Eight scenes for the build of 2026-10-06, then two that replace scenes 4
-and 5 when directions and the "around me" layer ship. Captions sit in the
-top band; the French text follows the app's own words.
+The scenes are those of `app/integration_test/store_tour_test.dart`, as
+the app's pass 7 left it on 2026-10-07 (fourteen scenes; 93ba876 has the
+first ten). The tour stands on the lake shore at Annecy, opens the page of
+a motorhome area on the lake (Aire de Camping Car Doussard,
+`01a10f0e-2a68-7650-bd10-132ddc5c7e20`), computes a route for a
+low-profile motorhome on diesel, then drives a simulated position on the
+N201 at Chambéry into a danger zone of the French list. It prints
+`SHOT <tag>-<nn>-<scene>` in this order: 01, 02, 03, 04, 05, 11, 06, 12,
+07, 08, 13, 09, 10, 14. Captions sit in the top band; the French text
+follows the app's own words.
 
-| # | Scene | What the frame shows | Caption fr | Caption en |
+| # | Scene (`SHOT` name) | What the frame shows | Caption fr | Caption en |
 |---|---|---|---|---|
-| 1 | Map | phone layout, light theme, a region with clustered and single pins (Annecy and its lake at zoom 11), quick filters visible, the user's dot | Aires, parkings et campings sur une carte | Motorhome areas, car parks and campsites on one map |
-| 2 | Place page | an aire with "Nuit autorisée" and its moon, services, hours, price, coordinates row | La nuit indiquée sur chaque fiche | The overnight status on every page |
-| 3 | Filters | the filters sheet: kinds, "Nuit possible", services, "Mon véhicule passe" set to the vehicle's height | Filtrez par service, nuit et hauteur | Filter by service, overnight and height |
-| 4 | Coordinates | the copy menu with the five formats open, the toast "Copié" | Coordonnées GPS copiées en un geste | GPS coordinates in one tap |
-| 5 | Favourites | two or three named lists, one open with its places and distances | Vos lieux rangés en listes | Your places, in lists |
-| 6 | Without a network | the list and a search result, system airplane icon in the status bar | Liste, recherche et fiches sans réseau | List, search and pages without a network |
-| 7 | Community | a place page scrolled to its photos, reviews and "Toujours là ?" | Avis, photos et confirmations de la communauté | Reviews, photos and confirmations from the community |
-| 8 | Account | Profile: pseudonym, trust level, recovery card, delete account | Un compte sans e-mail, une carte de secours | An account without e-mail, a recovery card |
-| 9 | Night (App Store only) | scene 1 in the dark theme | Thème sombre après le coucher du soleil | Dark theme after sunset |
-| 10 | Vehicle (App Store only) | the vehicle editor with type, trailer and dimensions | Le profil de votre véhicule | Your vehicle's profile |
+| 1 | `01-map` | the map around the lake shore with the user's dot (Android), the chips under the search, the places nearby | Aires, parkings et campings sur une carte | Motorhome areas, car parks and campsites on one map |
+| 2 | `02-place` | the area's page: its overnight card, actions | La nuit indiquée sur chaque fiche | The overnight status on every page |
+| 3 | `03-place-around` | the same page further down: what is around, the coordinates | Commerces, services et coordonnées du lieu | Shops, services and coordinates |
+| 4 | `04-filters` | the filters sheet | Filtrez par type, nuit, services et hauteur | Filter by kind, overnight, services and height |
+| 5 | `05-route` | the route preview for the low-profile motorhome, alternatives, Fuel button | Un itinéraire pour votre gabarit | A route that fits your vehicle |
+| 6 | `06-fuel` | "Moins cher autour de moi", diesel prices | Le carburant le moins cher autour de vous | The cheapest fuel around you |
+| 7 | `07-favorites` | four real places of the area and a trip list ("Alpes 2027" / "Alps 2027") | Vos lieux rangés en listes | Your places, in lists |
+| 8 | `08-offline` | the offline maps | Cartes hors ligne par région | Offline maps by region |
+| 9 | `09-profile` | the profile without an account | Réglages, véhicule, compte sans e-mail | Settings, vehicle, an account without e-mail |
+| 10 | `10-vehicle` | the vehicle editor | Le profil de votre véhicule | Your vehicle's profile |
+| 11 | `11-fuel-route` | fuel along the route: price, detour, price with the detour, Add | Les stations sur le trajet, détour compris | Stations along the route, detour included |
+| 12 | `12-fuel-trend` | a station's page: the diesel prices of the last days | L'évolution des prix d'une station | A station's price trend |
+| 13 | `13-regions` | "Quels lieux garder sur cet appareil ?", regions of France | Choisissez les régions à garder | Choose the regions to keep |
+| 14 | `14-guidance` | guidance: "Zone de danger dans 360 m" with the list's source and date, the 70 limit beside the speed | Un guidage qui prévient, zones de danger en France | Guidance that warns you, danger zones in France |
 
-When the feature ships, in place of scene 4 and 5:
+Play takes 8 phone images: 1, 2, 5, 14, 11, 4, 13, 7 is the order that
+puts the shipped novelties first. The App Store takes ten: the same, then
+6 and 10. Tablets take 1, 2, 4, 5 and 11 in the expanded layout.
 
-| # | Scene | What the frame shows | Caption fr | Caption en |
-|---|---|---|---|---|
-| 4 | Directions | the route preview for a 3.30 m vehicle with the warning of a low bridge ("pont 3,20 m"), avoided; route summary | Un itinéraire qui évite les ponts trop bas | A route that avoids bridges too low |
-| 5 | Around me | the "around me" chips on a place page, water, groceries and fuel with open or closed and LPG price | Eau, courses, carburant : ce qui est ouvert autour | Water, groceries, fuel: what is open nearby |
+The final images are in `plan/screenshots/final/` (maintainer's copy,
+index in its `README.md`): `android-phone/` (fr light, fr dark, en
+light), `android-tablet/` (fr light), `ios/` (fr light, 1320x2868, no
+blue dot: the simulator's permission prompt cannot be closed by a test),
+`web/`. The site (`tool/site/build.py`, `SHOTS`, `SCREENS`,
+`SHOT_SOURCES`) reads scenes 1, 2, 5, 14 and 4 from `android-phone/` in
+light, fr and en.
 
-Tablets take scenes 1, 2, 3, 5, 7 and 8 (Play) and 1, 2, 3, 5, 6, 7, 8 and
-9 (iPad), in the medium and expanded layouts, where list and place page
-sit beside the map.
+**Brands in the frames.** Scenes 3, 6, 11 and 12 show shop and fuel
+station names and a station's website as the data gives them (read on
+the fr light set on 2026-10-07). The Play rule above forbids a
+third-party brand in listing images: leave these scenes out of the Play
+and App Store sets, or blur the names, before upload.
+
+The tour sends no contribution: a review or photo shown on a page is
+already on the place; check it is ours (the demo account's) or crop it
+out.
 
 ## Content of the frames
 
 - **Real data from production** (`capture.py --api`), never the demo mode:
   demo places carry "(démo)" in their names
   (`app/lib/features/places/data/demo/demo_places.dart`).
-- **Community content from our own account.** The reviews, photos and
-  confirmation in scenes 2 and 7 are written by the store demo account
-  (`lunaway-admin accounts create-demo --level 2`, `docs/deploy.md`) on the
-  chosen place, with photos we took. No other user's pseudonym, text or
+- **Community content.** The tour writes none; a review or photo shown in
+  scenes 2 and 3 must be the store demo account's
+  (`lunaway-admin accounts create-demo --level 2`, `docs/deploy.md`), with
+  photos we took, or be cropped out. No other user's pseudonym, text or
   photo appears in an image.
 - **Position.** The simulated position is a public spot near the chosen
   place (the lake shore at Annecy), never a home.
@@ -94,20 +116,14 @@ sit beside the map.
 Goal: one command per store and locale writes the final images where
 fastlane reads them, with exact sizes and no manual retouching.
 
-1. **Tour.** A new integration test,
-   `app/integration_test/store_tour_test.dart`, modelled on
-   `screens_tour_test.dart`, prints `SHOT <nn>-<scene>` for the scenes
-   above, in order. It reads `--dart-define=LUNAWAY_STORE_SCENES=1,2,3,...`
-   to run a subset, `LUNAWAY_STORE_PLACE=<uuid>` for the place of scenes 2
-   and 7, and the existing locale and theme defines. It sets the vehicle
-   profile, the theme of each scene and the favourite lists before the
-   first shot, and recovers the demo account with
-   `LUNAWAY_TOUR_RECOVERY_CODE` (as `community_tour_test.dart` does) for
-   scenes 7 and 8. Scene 6 needs the network off: on Android, `capture.py`
-   runs `adb shell cmd connectivity airplane-mode enable` when the test
-   prints `NETWORK off`, and enables it back after the next shot; on iOS
-   the simulator has no switch, so the tour shows the cached list and
-   search and only the status bar is not overridden.
+1. **Tour.** `app/integration_test/store_tour_test.dart` exists: it
+   prints `SHOT <tag>-<nn>-<scene>` for the scenes above,
+   reads `LUNAWAY_TOUR_LOCALE`, `LUNAWAY_TOUR_THEME` and `LUNAWAY_TOUR_TAG`,
+   sets the vehicle, the filters and the favourite lists, asks the host
+   for the location permission (`GRANT LOCATION`), runs without an
+   account, and puts the device's vehicle, filters, language and theme
+   back at the end. Not built yet: a subset of scenes, the network cut for
+   an offline scene, the demo account.
 2. **Devices**, added to `capture.py` as named profiles (`--profile`):
 
    | Profile | Device | Screen for the run |

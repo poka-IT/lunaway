@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. To compute a route, your position goes to Lunaway's server, which keeps nothing of it; to look for fuel along the route, an approximate position. It also goes there when you add a place where you stand.</string>
+	<string>Lunaway shows your position on the map, sorts the places around you and computes routes from where you are. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleLocalizations</key>
@@ -29,6 +29,11 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- The app's encryption is HTTPS to its own hosts and the signature
+	     of its sign-in: exempt (docs/app-store.md, "Export compliance").
+	     Declared here so App Store Connect asks nothing at each build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>

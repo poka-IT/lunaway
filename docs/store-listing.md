@@ -12,8 +12,8 @@ lives in two fastlane layouts:
 
 - **Describe what the build ships, nothing more.** Each claim in the
   current text has its source in the table below; a feature that is not in
-  the tagged build stays out, even if the backend serves it. The variants
-  for features to come are at the end of this file.
+  the tagged build stays out, even if the backend serves it. The change
+  to make when routing covers Europe is at the end of this file.
 - No superlative, no comparison with other apps, no third-party brand or
   app name in text or images (Play metadata policy, answer/9898842; App
   Store guideline 2.3.7 for keywords). Data sources are named "données
@@ -36,129 +36,55 @@ lives in two fastlane layouts:
 
 ## Sources of the current text
 
-Read on 2026-10-06 in the working tree (the account and community code
-was not yet committed).
+Read on 2026-10-07 against `main` at 93ba876 and the production API
+(`plan/research/37-alignement-publication.md` holds the commands).
 
 | Claim | Source |
 |---|---|
 | Place kinds named in the first line | `app/lib/i18n/fr.i18n.json` (`kinds`), `app/lib/features/places/domain/taxonomy.dart` |
+| France and twenty other European countries | `Query.regions` in production on 2026-10-07: 34 regions in 21 countries (13 French regions plus "France, hors commune", and AT, BE, CH, CZ, DE, DK, ES, FI, GB, GR, HR, IE, IT, LU, NL, NO, PL, PT, SE, SI) |
 | Overnight status on every page | `app/lib/features/places/presentation/place_details.dart` |
-| Filters: kind, overnight, nine services, "My vehicle fits" (height) | `app/lib/features/places/domain/place_filter.dart`, `app/lib/features/places/presentation/filters_sheet.dart` |
+| Filters: kind, overnight, free, eight services, "My vehicle fits" (height) | `app/lib/features/places/domain/place_filter.dart` (`Amenity.offered`, `freeOnly`), `filters_sheet.dart`; LPG is no longer a filter |
 | Search by name or town, on the device | `app/lib/features/places/data/drift_places_repository.dart` |
 | Hours, prices, services, contact, sources | `app/lib/features/places/presentation/place_details.dart` |
-| Coordinates in five formats | `app/lib/core/geo/coordinate_format.dart` |
-| Directions in another app, share | `app/lib/core/navigation_apps.dart`, `app/lib/features/places/presentation/place_actions.dart` |
-| Places of metropolitan France copied to the device; basemap, photos and reviews need a connection | `app/lib/features/places/data/sync/sync_service.dart`, `app/lib/core/geo/geo.dart`; i18n `place.extrasOffline`; no offline basemap in `app/lib` |
-| Ratings, reviews, photos, "Still there?", problem reports, edits, new places, content reports, mute | `app/lib/features/community/` |
+| Coordinates in five formats, share | `app/lib/core/geo/coordinate_format.dart`, `app/lib/features/places/presentation/place_actions.dart` |
+| Shops and services in six categories, open now, around each place, search by name | `app/lib/i18n/fr.i18n.json` (`poi.category`), `app/lib/features/poi/` (`NearbyPois`, `SearchPois`) |
+| Fuel prices of French stations, shortages, trend, cheapest around | `app/lib/features/poi/application/fuel_feed_providers.dart` (`FuelNearby`, `FuelTrend`), `backend/migrations/20261006090200_points_of_interest.sql` (`prix-carburants`) |
+| Route for the vehicle and trailer, in France | `app/lib/features/navigation/data/route_operations.dart`; `Query.routing` in production on 2026-10-07: graph `20261006T0847Z-fr`, covered area 41.0 to 51.6 N, 5.8 W to 10.0 E |
+| Voice guidance, reroute, five stops, avoid options | `app/lib/features/navigation/application/guidance_controller.dart`, `domain/route_settings.dart` (`voice` on by default, `avoid`), `maxWaypoints` 5 |
+| Roadworks and closures updated during the trip, route around closures | `app/lib/features/navigation/data/road_events_api.dart` (every 3 minutes), `route_operations.dart` (`avoidedRoadEvents`) |
+| Speed limit, danger zones in France, sounds off by default | `app/lib/features/navigation/domain/enforcement.dart`, `domain/driving_aids.dart`, `docs/speed-cameras.md` |
+| Stations along the route with detour and consumption | `app/lib/features/navigation/data/fuel_along_route.dart` |
+| Directions in another app | `app/lib/core/navigation_apps.dart` |
+| Regions kept offline, offline basemap by region | `app/lib/features/regions/`, `app/lib/features/offline/` (phones and tablets; web and desktop show a hint) |
+| Ratings, reviews, photos, "Still there?" for places and for shops and services, problem reports, edits, new places, content reports, mute | `app/lib/features/community/`, `app/lib/features/poi/presentation/poi_details.dart` (`ConfirmPoi`) |
 | Features open by trust level | `app/lib/features/account/domain/account.dart`, `backend/crates/lunaway-domain/src/community/trust.rs` |
-| Account without e-mail, recovery card, deletion in the app | `app/lib/features/account/` |
-| Favourite lists, synced on choice | `app/lib/features/favorites/` |
+| Account without e-mail, made at the first contribution, recovery card, deletion in the app | `app/lib/features/account/` |
+| Favourite lists, kept with the account once there is one | `app/lib/features/favorites/application/favorites_providers.dart` |
 | Vehicle profile fields | `app/lib/core/database/user_schema.drift` (`vehicles`) |
 | Theme by sunset, light, dark; French and English; phone and tablet layouts | `app/lib/features/profile/presentation/profile_screen.dart`, `app/lib/shared/adaptive_shell.dart` |
-| No ads, no trackers | `tool/allowed_hosts.txt`, `app/pubspec.yaml` (no such SDK) |
+| No ads, no trackers | `tool/allowed_hosts.txt`, `app/pubspec.lock` (no such SDK) |
 | AGPL code, ODbL places | `LICENSE`, `backend/migrations/20261006005548_accounts_and_contributions.sql` (`community` source) |
 
-Left out on purpose, as not shipped in the app on 2026-10-06: in-app
-navigation and roadworks, the "around me" layer and fuel prices (served by
-the backend since 69f9c98, shown nowhere in the app), low-emission zones
-(not built anywhere), visit history (no table), offline basemap, a
-DATAtourisme import (not built). LPG appears only as a service of a place
-and a filter.
+Left out on purpose, as not shipped on 2026-10-07: routes outside France
+(the production graph is the French one; the European graph is built
+weekly by `infra/routing/europe-build.sh` and the text changes the week it
+serves), road event reports by users (`reportRoadEvent` exists in the API,
+no screen sends it), low-emission zones (not built), visit history (no
+table), a DATAtourisme import (not built). LPG appears as a service of a
+place, a fuel of the vehicle and a price of the fuel feed.
 
-## Variants for features to come
+## When the routing graph covers Europe
 
-Pick the paragraph when the tagged build ships the feature, check its
-claims against the code of that build, and update the Data safety
-inventory (`docs/play-store.md`) and the App Store label
-(`docs/app-store.md`) in the same change: directions and "around me" send
-the device position.
+Replace "En France, itinéraire calculé..." by "Itinéraire calculé..." and
+"En France, itinéraire et guidage..." by "Itinéraire et guidage..." in
+the descriptions and release notes, and "in France" likewise in English,
+once `Query.routing.graph.id` in production no longer ends in `-fr`.
+Danger zones stay "en France" / "in France": elsewhere the app shows what
+each country's law allows (`docs/speed-cameras.md`), and the listing does
+not list them country by country.
 
-### Directions computed for the vehicle (`route` query)
+## Keywords
 
-Two levels, depending on what the app ships.
-
-Route preview with warnings, no guidance (fr, new section before
-"PARTICIPER"):
-
-```
-ITINÉRAIRE POUR VOTRE VÉHICULE
-• Itinéraire calculé pour la hauteur, la largeur, la longueur et le poids de votre véhicule : les ponts trop bas et les routes interdites à votre gabarit sont écartés
-• Alertes sur le trajet, par exemple un pont à 3,20 m, avec la date des données
-• Options : éviter les péages, les autoroutes, les ferries et les routes non revêtues
-Les hauteurs et les limites viennent de données ouvertes et peuvent manquer : la signalisation sur place reste la référence. Le départ, l'arrivée et les dimensions du véhicule partent vers notre serveur pour le calcul, sans être enregistrés.
-```
-
-```
-DIRECTIONS FOR YOUR VEHICLE
-• A route computed for your vehicle's height, width, length and weight: bridges too low and roads closed to your size are left out
-• Warnings along the way, such as a 3.20 m bridge, with the date of the data
-• Options: avoid tolls, motorways, ferries and unpaved roads
-Heights and limits come from open data and can be missing: the signs on the road come first. The start, the destination and the vehicle's dimensions go to our server for the computation and are not stored.
-```
-
-With turn-by-turn guidance and voice, add one bullet (only if the build
-speaks and follows the vehicle):
-
-```
-• Guidage pas à pas et à la voix, recalcul si vous quittez l'itinéraire
-• Turn-by-turn and voice guidance, recomputed when you leave the route
-```
-
-Short description (Play, 80 characters at most), if directions ship:
-
-```
-Aires, parkings et campings, et itinéraires adaptés au gabarit du véhicule
-Motorhome areas, car parks, campsites, and routes that fit your vehicle
-```
-
-Remove "Itinéraire vers le lieu dans l'application de navigation de votre
-choix" only if the app stops offering other apps.
-
-### Roadworks and closures (`road_events`, not served on 2026-10-06)
-
-Only together with directions, and only for the networks the build reads
-(on 2026-10-06 the design covers the national roads run by the DIR and the
-DiaLog orders, `plan/research/20-travaux-temps-reel.md`):
-
-```
-• Fermetures et chantiers publiés pour le réseau routier national pris en compte dans l'itinéraire
-• Closures and roadworks published for the national road network taken into account in the route
-```
-
-Do not write "temps réel" / "real time" unless the build refreshes them
-during guidance.
-
-### "Around me" layer and fuel prices
-
-```
-AUTOUR DE VOUS
-• Courses, distributeurs, eau et vidange, carburant et énergie, santé, services : les points utiles autour d'un lieu, avec leurs horaires et s'ils sont ouverts
-• Prix des carburants et du GPL des stations françaises, avec la date de mise à jour et les ruptures signalées
-```
-
-```
-AROUND YOU
-• Groceries, vending machines, water and dump points, fuel and energy, health, services: the useful points around a place, with their hours and whether they are open
-• Fuel and LPG prices of French stations, with the time of the last update and reported shortages
-```
-
-The six category names are those of `backend/crates/lunaway-domain/src/poi.rs`;
-use the labels the app shows.
-
-### Offline basemap (if regional packs ship)
-
-```
-Téléchargez aussi le fond de carte d'une région avant de partir : la carte s'affiche alors sans réseau.
-You can also download the basemap of a region before you leave: the map then shows without a network.
-```
-
-### Low-emission zones
-
-Not built. No wording until a build shows them.
-
-## Keywords to add with the variants
-
-App Store, within the 100 bytes: `itinéraire,gabarit,hauteur,pont` (fr),
-`route,height,bridge,clearance` (en) for directions; `GPL,carburant,
-distributeur` (fr), `fuel,LPG,vending` (en) for "around me". Drop
-weaker words to stay within the limit.
+App Store, within the 100 bytes, checked with `python3` (bytes of
+`keywords.txt`): fr 91, en 98 on 2026-10-07.

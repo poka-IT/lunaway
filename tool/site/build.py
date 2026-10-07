@@ -4,7 +4,8 @@
 
 Assets come from files already in the repository: the fonts the app derives
 (app/assets/fonts, app/tool/fonts/build.sh), the brand (brand/), the app's web
-icons (app/web) and the current phone screenshots (plan/screenshots/android).
+icons (app/web) and the final phone screenshots of the release
+(plan/screenshots/final/android-phone).
 Fonts, the stylesheet, the script and the lockup get a content hash in their
 name, which the Caddy site caches for a year; pages, screenshots and icons
 keep stable names (five-minute cache). Pages are assembled from the
@@ -33,9 +34,9 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(REPO, "infra", "web", "site")
 SRC = os.path.join(HERE, "src")
 FONTS = os.path.join(REPO, "app", "assets", "fonts")
-SHOTS = os.path.join(REPO, "plan", "screenshots", "android")
+SHOTS = os.path.join(REPO, "plan", "screenshots", "final", "android-phone")
 SITE = "https://lunaway.net"
-DATE = "2026-10-06"
+DATE = "2026-10-07"
 
 UNICODES = (
     list(range(0x20, 0x7F)) + list(range(0xA0, 0x100))
@@ -46,13 +47,13 @@ UNICODES = (
 # Screenshots: (number, name in the site, source screen). The landing shows
 # the first two in its hero and the next three in its strip.
 SCREENS = [
-    (1, "map", "map-region"),
-    (2, "place", "place"),
-    (3, "night", "place-details"),
-    (4, "coordinates", "point"),
-    (5, "filters", "filters"),
+    (1, "map", "01-map"),
+    (2, "place", "02-place"),
+    (3, "route", "05-route"),
+    (4, "guidance", "14-guidance"),
+    (5, "filters", "04-filters"),
 ]
-SHOT_SOURCES = {"fr": "fr-1080x1920-light-{}.png", "en": "en-1080x1920-dark-{}.png"}
+SHOT_SOURCES = {"fr": "fr-1080x1920-light-{}.png", "en": "en-1080x1920-light-{}.png"}
 
 # Phosphor (MIT) glyphs used inline, by code point of the regular weight
 # (app/lib/shared/theme/phosphor_glyphs.dart).

@@ -1,36 +1,50 @@
-Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in nature.
+Lunaway is a map of places to stop with a motorhome or a van: motorhome areas, service areas, car parks, campsites, farm stays, spots in nature. It covers France and twenty other European countries.
 
 The app is free, with no ads and no trackers. Its code is free software (AGPL licence) and the places database is open data (ODbL licence).
 
 FIND A PLACE
 • Map and list of places, a detailed page for each place
 • The night on every page: allowed, tolerated, daytime only or not allowed
-• Filters: type of place, overnight possible, services (water, dump station, electricity, toilets, showers, bins, laundry, wi-fi, LPG)
+• Filters: type of place, overnight possible, free, services (water, dump station, electricity, toilets, showers, bins, laundry, wi-fi)
 • "My vehicle fits": hides the places limited below your vehicle's height
 • Search by place name or by town
 • Opening hours, prices, services, contact and sources on the page
-• GPS coordinates copied in one tap, in five formats
-• Directions to the place in the navigation app of your choice, share a place
+• GPS coordinates copied in one tap, in five formats, share a place
+
+AROUND YOU
+• Groceries, vending machines, water and dump points, fuel and energy, health, services: the useful points on the map and around each place, with their hours and whether they are open
+• Fuel prices of French stations, with the time of the last update, shortages and the price trend; a list of the cheapest fuel around you
+• Search for a shop or a service by its name
+
+DIRECTIONS FOR YOUR VEHICLE
+• In France, a route computed for the height, width, length and weight of your vehicle and its trailer: bridges too low and roads closed to your size are left out
+• Turn-by-turn and voice guidance, recomputed when you leave the route, up to five stops
+• Roadworks and closures published by the road authorities, updated during the trip; the route goes around closures
+• The speed limit for your vehicle, and danger zones in France (never a camera's position), shown during guidance only; spoken alerts off by default
+• Stations along the route, ranked with the detour and your consumption
+• Options: avoid tolls, motorways, ferries and unpaved roads
+• Or directions in the navigation app of your choice
+Heights and limits come from open data and can be missing: the signs on the road come first.
 
 WITHOUT A NETWORK
-The places of metropolitan France are copied to the device and update when the connection comes back. The list, the search, the place pages and your favourites work without a network. The basemap, photos and reviews need a connection.
+Choose the regions to keep: their places are copied to the device and update when the connection comes back. The list, the search, the place pages and your favourites work without a network. The basemap downloads by region too. Photos and reviews need a connection the first time.
 
 TAKE PART
 • Ratings, reviews and photos
-• "Still there?": say whether the place still matches its page; the date of the last confirmation shows for the next travellers
+• "Still there?": say whether a place, a shop or a service still matches its page
 • Report a problem (overnight now banned, broken service, no access, danger), suggest a change, add a place
-• Features open step by step: a new account can rate and confirm, then write reviews and add photos, then add places
+• Features open step by step: rating and confirming first, then reviews and photos, then new places
 • Report content to the moderators, mute an author
 
 AN ACCOUNT WITHOUT E-MAIL
-Browsing the map needs no account. One is made at your first contribution, with no e-mail and no password: a key kept on your device, and a pseudonym you can change. A recovery card brings the account back on another device. Each contribution, and the whole account, can be deleted from the app.
+Browsing the map and computing a route need no account. One is made at your first contribution, with no e-mail and no password: a key kept on your device, and a pseudonym you can change. A recovery card brings the account back on another device. Each contribution, and the whole account, can be deleted from the app.
 
 FAVOURITES AND VEHICLE
-• Favourites in lists, kept on the device, and with your account if you choose
-• Vehicle profile: type, trailer, height, width, length, weight
+• Favourites in lists, kept on the device, and with your account if you have one
+• Vehicle profile: type, trailer, height, width, length, weight, fuel, consumption
 
 DISPLAY
 Light theme by day and dark after sunset, or your choice. In English and French. Layouts for iPhone and iPad.
 
 SOURCES
-Places come from open data and from the contributions of the Lunaway community. Every page shows its sources and their licence. Coverage today is metropolitan France.
+Open data and contributions from the Lunaway community. Every page shows its sources and their licence.
