@@ -71,8 +71,16 @@ final class FakeRouteService implements RouteService {
   new(this.answers, {this.routingInfo});
 
   final List<Object> answers;
-  final RoutingInfo? routingInfo;
+  RoutingInfo? routingInfo;
   final List<RouteRequest> requests = [];
+
+  /// How many times the routing information was asked; [infoFailure],
+  /// when set, is thrown instead of answering.
+  int infoCalls = 0;
+  Exception? infoFailure;
+
+  /// Holds the routing information back until completed: a slow network.
+  Completer<void>? infoGate;
 
   /// Holds the answers back until completed, for the loading states.
   Completer<void>? gate;
@@ -88,16 +96,68 @@ final class FakeRouteService implements RouteService {
   }
 
   @override
-  Future<RoutingInfo> info() async =>
-      routingInfo ??
-      const RoutingInfo(
-        available: true,
-        disclaimerKey: 'routing.disclaimer.v1',
-        coveredArea: GeoBounds(south: 41, west: -5.8, north: 51.6, east: 10),
-        maxAlternatives: 2,
-        bounds: VehicleBounds(),
-      );
+  Future<RoutingInfo> info() async {
+    infoCalls++;
+    if (infoGate case final gate?) await gate.future;
+    if (infoFailure case final failure?) throw failure;
+    return routingInfo ?? europeRouting;
+  }
 }
+
+/// The routing information of the API since 2026-10-07: Europe and
+/// Morocco, reports where an official feed runs, 4 500 km at most.
+const europeRouting = RoutingInfo(
+  available: true,
+  disclaimerKey: 'routing.disclaimer.v1',
+  coveredArea: GeoBounds(south: 20.4, west: -31.6, north: 81.05, east: 35.53),
+  maxAlternatives: 2,
+  bounds: VehicleBounds(),
+  coveredCountries: [
+    'AD',
+    'AT',
+    'AX',
+    'BE',
+    'CH',
+    'CZ',
+    'DE',
+    'DK',
+    'EH',
+    'ES',
+    'FI',
+    'FR',
+    'GB',
+    'GI',
+    'GR',
+    'HR',
+    'IE',
+    'IT',
+    'LI',
+    'LU',
+    'MA',
+    'MC',
+    'NL',
+    'NO',
+    'PL',
+    'PT',
+    'SE',
+    'SI',
+    'SJ',
+    'SM',
+    'VA',
+  ],
+  roadEventReportCountries: ['ES', 'FR', 'GI', 'MC', 'NL'],
+  maxTripKm: 4500,
+);
+
+/// The routing information of an API before 2026-10-07: no countries, no
+/// longest trip.
+const olderRouting = RoutingInfo(
+  available: true,
+  disclaimerKey: 'routing.disclaimer.v1',
+  coveredArea: GeoBounds(south: 41, west: -5.8, north: 51.6, east: 10),
+  maxAlternatives: 2,
+  bounds: VehicleBounds(),
+);
 
 /// A position the test sets, and fixes it sends one by one.
 final class FakeLocationFeed implements LocationFeed {

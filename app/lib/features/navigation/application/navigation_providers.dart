@@ -2,8 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
+import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/ferrostar_engine.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
@@ -17,6 +19,7 @@ import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/domain/trip_check.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/application/places_providers.dart' show noRetry;
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -173,6 +176,8 @@ final class RoutePreview {
     this.plan,
     this.selected = 0,
     this.stops = const [],
+    this.unreachable = const [],
+    this.coveredCountries = const [],
   });
 
   final VehicleCheck vehicle;
@@ -189,10 +194,30 @@ final class RoutePreview {
   /// The stops the plan was computed with.
   final List<RouteStop> stops;
 
+  /// Why there is no route, told on the device before asking (a stop
+  /// outside the covered countries, a trip too long): no request was
+  /// sent, and [plan] is null.
+  final List<NoRouteReason> unreachable;
+
+  /// The countries routes are computed in, to name them when a stop lies
+  /// outside; empty when the API did not say.
+  final List<String> coveredCountries;
+
   RouteOption? get route => plan?.routes.where((r) => r.index == selected).firstOrNull;
 
-  RoutePreview select(int index) =>
-      RoutePreview(vehicle: vehicle, origin: origin, plan: plan, selected: index, stops: stops);
+  /// Why the trip has no route, from the device or from the server.
+  List<NoRouteReason> get noRouteReasons =>
+      unreachable.isNotEmpty ? unreachable : plan?.noRouteReasons ?? const [];
+
+  RoutePreview select(int index) => RoutePreview(
+    vehicle: vehicle,
+    origin: origin,
+    plan: plan,
+    selected: index,
+    stops: stops,
+    unreachable: unreachable,
+    coveredCountries: coveredCountries,
+  );
 }
 
 /// The start of the preview's route: the device position, else the one the
@@ -230,28 +255,62 @@ class RoutePreviewController extends _$RoutePreviewController {
     final originFuture = ref.watch(previewOriginProvider.future);
     final language = RouteLanguage.of(ref.watch(routeLanguageCodeProvider));
     final stops = ref.watch(routeStopsControllerProvider(target));
+    final service = ref.watch(routeServiceProvider);
+    // Asked at once, beside the vehicle and the position; a failure or a
+    // slow answer leaves the server to decide alone.
+    final infoFuture = service
+        .info()
+        .timeout(const Duration(seconds: 4))
+        .then<RoutingInfo?>((i) => i, onError: (Object _) => null);
     final check = checkVehicle(await vehicleFuture);
     final avoid = await avoidFuture;
     final start = await originFuture;
     if (!check.ready || start == null) return RoutePreview(vehicle: check, origin: start);
-    final plan = await ref
-        .read(routeServiceProvider)
-        .route(
-          _request(
-            origin: start,
-            vehicle: check.profile!,
-            avoid: avoid,
-            language: language,
-            stops: stops,
-          ),
-        );
+    final info = await infoFuture;
+    final covered = info?.coveredCountries ?? const <String>[];
+    final locator = await _locator();
+    final unreachable = checkTrip(
+      stops: [start, for (final s in stops) s.position, target.destination],
+      covered: covered,
+      maxTripKm: info?.maxTripKm,
+      countries: locator.around,
+    );
+    if (unreachable.isNotEmpty) {
+      return RoutePreview(
+        vehicle: check,
+        origin: start,
+        stops: stops,
+        unreachable: unreachable,
+        coveredCountries: covered,
+      );
+    }
+    final plan = await service.route(
+      _request(
+        origin: start,
+        vehicle: check.profile!,
+        avoid: avoid,
+        language: language,
+        stops: stops,
+      ),
+    );
     return RoutePreview(
       vehicle: check,
       origin: start,
       plan: plan,
       selected: plan.routes.firstOrNull?.index ?? 0,
       stops: stops,
+      coveredCountries: covered,
     );
+  }
+
+  /// The device's reading of countries; none where the guidance library
+  /// did not load, and the server then decides.
+  Future<CountryLocator> _locator() async {
+    try {
+      return await ref.read(countryLocatorProvider.future);
+    } on Object {
+      return const NoCountryLocator();
+    }
   }
 
   RouteRequest _request({

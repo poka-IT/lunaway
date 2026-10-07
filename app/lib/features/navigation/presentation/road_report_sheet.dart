@@ -1,12 +1,17 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
+import 'package:lunaway/features/navigation/domain/trip_check.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -48,15 +53,61 @@ Future<bool> clearedToReport(BuildContext context, {required bool moving}) async
 
 /// Asks what is seen on the road at [position] (taken when the user first
 /// tapped, the vehicle going on meanwhile), then sends it through the
-/// outbox: at once with the network, later without.
+/// outbox: at once with the network, later without. Where the server takes
+/// no report, it says so and where it does, rather than a form the server
+/// would refuse.
 Future<void> reportOnRoad(
   BuildContext context, {
   required LatLng position,
   double? headingDeg,
   bool moving = false,
 }) async {
+  // A second tap while the first one is under way opens nothing more.
+  final navigator = Navigator.of(context, rootNavigator: true);
+  if (_reporting[navigator] ?? false) return;
+  _reporting[navigator] = true;
+  try {
+    await _reportOnRoad(context, position: position, headingDeg: headingDeg, moving: moving);
+  } finally {
+    _reporting[navigator] = null;
+  }
+}
+
+/// The app's navigators with a report under way.
+final _reporting = Expando<bool>('road report under way');
+
+Future<void> _reportOnRoad(
+  BuildContext context, {
+  required LatLng position,
+  required double? headingDeg,
+  required bool moving,
+}) async {
   // The page's context outlives the sheet, for the message after it.
   final page = Navigator.of(context, rootNavigator: true).context;
+  final accepted = await _reportCountriesIfOutside(
+    ProviderScope.containerOf(context, listen: false),
+    position,
+  );
+  if (!context.mounted) return;
+  if (accepted != null) {
+    // A list of countries to read: a dialog, which stays until it is read.
+    final t = context.t;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.roadReport.notHereTitle),
+        content: Text(t.roadReport.notHere(countries: t.countryList(accepted))),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+            child: Text(t.common.ok),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
   if (!await clearedToReport(context, moving: moving) || !page.mounted) return;
   final report = await showFormSheet<RoadReport>(
     page,
@@ -71,6 +122,30 @@ Future<void> reportOnRoad(
     payload: {'input': report.toInput()},
     sentText: page.t.roadReport.sent,
   );
+}
+
+/// The countries road reports are accepted in, when [position] lies outside
+/// them for sure; null when it may be reported there, or when the device
+/// cannot tell (no country known, no answer from the API): the server then
+/// decides.
+Future<List<String>?> _reportCountriesIfOutside(
+  ProviderContainer container,
+  LatLng position,
+) async {
+  try {
+    final info = await container
+        .read(routeServiceProvider)
+        .info()
+        // Kept short: the user waits on a tap. Without an answer by then
+        // the server decides.
+        .timeout(const Duration(milliseconds: 1500));
+    final accepted = info.roadEventReportCountries;
+    if (accepted.isEmpty) return null;
+    final locator = await container.read(countryLocatorProvider.future);
+    return knownOutside(locator.around(position), accepted) ? accepted : null;
+  } on Object {
+    return null;
+  }
 }
 
 /// "Still there" about a community report: the same report again, which

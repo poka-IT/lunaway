@@ -31,7 +31,7 @@ FILES = {
 ICONS = {
     "regular": """
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowSquareOut arrowsVertical
-        baby bank barricade basket bicycle binoculars bookmarkSimple bookmarksSimple bread
+        baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
         buildings calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
         chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
         cloudArrowDown cloudArrowUp cloudCheck cloudSlash code compass copy crosshair deviceMobile

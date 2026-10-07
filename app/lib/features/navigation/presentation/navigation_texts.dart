@@ -98,6 +98,168 @@ extension NavigationTexts on Translations {
     RestrictionSource.dialog => _t.navigation.warning.dialog,
   };
 
+  /// What keeps the vehicle out, mid-sentence: "pont à 3,20 m", "poids
+  /// limité à 1,5 t", "route non revêtue".
+  String blockingLimit(BlockingLimit l) {
+    final value = l.limit;
+    if (value == null) {
+      return switch (l.kind) {
+        VehicleLimitKind.height => _t.navigation.noRoute.limit.heightUnknown,
+        VehicleLimitKind.width => _t.navigation.noRoute.limit.widthUnknown,
+        VehicleLimitKind.length => _t.navigation.noRoute.limit.lengthUnknown,
+        VehicleLimitKind.weight => _t.navigation.noRoute.limit.weightUnknown,
+        VehicleLimitKind.unpaved => _t.navigation.noRoute.limit.unpaved,
+      };
+    }
+    final limit = blockingFigure(l.kind, value);
+    return switch (l.kind) {
+      VehicleLimitKind.height => switch (l.restriction?.place) {
+        RestrictionPlace.underpass => _t.navigation.noRoute.limit.underpass(limit: limit),
+        RestrictionPlace.tunnel => _t.navigation.noRoute.limit.tunnel(limit: limit),
+        RestrictionPlace.buildingPassage => _t.navigation.noRoute.limit.buildingPassage(
+          limit: limit,
+        ),
+        RestrictionPlace.bridge => _t.navigation.noRoute.limit.bridge(limit: limit),
+        RestrictionPlace.barrier => _t.navigation.noRoute.limit.barrier(limit: limit),
+        RestrictionPlace.road || null => _t.navigation.noRoute.limit.height(limit: limit),
+      },
+      VehicleLimitKind.width => _t.navigation.noRoute.limit.width(limit: limit),
+      VehicleLimitKind.length => _t.navigation.noRoute.limit.length(limit: limit),
+      VehicleLimitKind.weight => _t.navigation.noRoute.limit.weight(limit: limit),
+      VehicleLimitKind.unpaved => _t.navigation.noRoute.limit.unpaved,
+    };
+  }
+
+  /// A blocking figure in its own unit: tonnes for a weight, metres else.
+  String blockingFigure(VehicleLimitKind kind, double value) =>
+      kind == VehicleLimitKind.weight ? tonnes(value) : metres(value);
+
+  /// The headline of a reason a trip has no route, naming the stop: the
+  /// origin is stop 0, the destination [lastStop], the waypoints between.
+  String noRouteTitle(NoRouteReason r, {required int lastStop}) {
+    final at = r.stopIndex;
+    final origin = at == 0;
+    final destination = at == null || at >= lastStop;
+    final n = '${at ?? 0}';
+    final limits = r.limits.map(blockingLimit).join(', ');
+    final by = limits.isNotEmpty;
+    return switch (r.kind) {
+      NoRouteReasonKind.originUnreachable =>
+        by
+            ? _t.navigation.noRoute.originUnreachableBy(limit: limits)
+            : _t.navigation.noRoute.originUnreachable,
+      NoRouteReasonKind.destinationUnreachable =>
+        by
+            ? _t.navigation.noRoute.destinationUnreachableBy(limit: limits)
+            : _t.navigation.noRoute.destinationUnreachable,
+      NoRouteReasonKind.waypointUnreachable =>
+        by
+            ? _t.navigation.noRoute.waypointUnreachableBy(n: n, limit: limits)
+            : _t.navigation.noRoute.waypointUnreachable(n: n),
+      NoRouteReasonKind.blockedOnTheWay =>
+        by
+            ? _t.navigation.noRoute.blockedOnTheWayBy(limit: limits)
+            : _t.navigation.noRoute.blockedOnTheWay,
+      NoRouteReasonKind.notConnected =>
+        at == null
+            ? _t.navigation.noRoute.notConnectedTrip
+            : origin
+            ? _t.navigation.noRoute.notConnectedOrigin
+            : destination
+            ? _t.navigation.noRoute.notConnectedDestination
+            : _t.navigation.noRoute.notConnectedWaypoint(n: n),
+      NoRouteReasonKind.outsideCoverage =>
+        origin
+            ? _t.navigation.noRoute.outsideOrigin
+            : destination
+            ? _t.navigation.noRoute.outsideDestination
+            : _t.navigation.noRoute.outsideWaypoint(n: n),
+      NoRouteReasonKind.noRoadNearby =>
+        origin
+            ? _t.navigation.noRoute.noRoadOrigin
+            : destination
+            ? _t.navigation.noRoute.noRoadDestination
+            : _t.navigation.noRoute.noRoadWaypoint(n: n),
+      NoRouteReasonKind.tripTooLong => _t.navigation.noRoute.tooLong,
+    };
+  }
+
+  /// A country's name from its ISO 3166-1 alpha-2 code; the code itself
+  /// for one this app has no name for.
+  String countryName(String code) => switch (code.toUpperCase()) {
+    'AD' => _t.countries.ad,
+    'AT' => _t.countries.at,
+    'AX' => _t.countries.ax,
+    'BE' => _t.countries.be,
+    'CH' => _t.countries.ch,
+    'CZ' => _t.countries.cz,
+    'DE' => _t.countries.de,
+    'DK' => _t.countries.dk,
+    'EH' => _t.countries.eh,
+    'ES' => _t.countries.es,
+    'FI' => _t.countries.fi,
+    'FR' => _t.countries.fr,
+    'GB' => _t.countries.gb,
+    'GI' => _t.countries.gi,
+    'GR' => _t.countries.gr,
+    'HR' => _t.countries.hr,
+    'IE' => _t.countries.ie,
+    'IT' => _t.countries.it,
+    'LI' => _t.countries.li,
+    'LU' => _t.countries.lu,
+    'MA' => _t.countries.ma,
+    'MC' => _t.countries.mc,
+    'NL' => _t.countries.nl,
+    'NO' => _t.countries.no,
+    'PL' => _t.countries.pl,
+    'PT' => _t.countries.pt,
+    'SE' => _t.countries.se,
+    'SI' => _t.countries.si,
+    'SJ' => _t.countries.sj,
+    'SM' => _t.countries.sm,
+    'VA' => _t.countries.va,
+    final other => other,
+  };
+
+  /// Countries by name, in the reader's alphabetical order. The
+  /// territories inside or beside a listed country (Åland, Svalbard,
+  /// Gibraltar, Monaco, San Marino, the Vatican) are left out: a list read
+  /// at arm's length names the countries a trip is planned by.
+  String countryList(Iterable<String> codes) {
+    final names =
+        codes
+            .where((c) => !_withinAnother.contains(c.toUpperCase()))
+            .map(countryName)
+            .toSet()
+            .toList()
+          ..sort((a, b) => _fold(a).compareTo(_fold(b)));
+    return names.join(', ');
+  }
+
+  /// "Ferry Nice - Ajaccio", or "Ferry" for a line without a name.
+  String ferryTitle(FerryCrossing f) => switch (f.name) {
+    final name? when name.trim().isNotEmpty => _t.navigation.ferry.named(name: name.trim()),
+    _ => _t.navigation.ferry.unnamed,
+  };
+
+  /// The ports and countries of a crossing, each line when known.
+  List<String> ferryDetails(FerryCrossing f, DistanceUnits units) {
+    final from = f.fromCountry;
+    final to = f.toCountry;
+    return [
+      if (f.ports.isNotEmpty) _t.navigation.ferry.ports(ports: f.ports.join(', ')),
+      if (from != null && to != null && from != to)
+        _t.navigation.ferry.countries(from: countryName(from), to: countryName(to))
+      else if (from ?? to case final one?)
+        _t.navigation.ferry.country(country: countryName(one)),
+      _t.navigation.ferry.where(
+        distance: routeDistance(f.distanceFromStartM, units),
+        sea: routeDistance(f.distanceM, units),
+        duration: routeDuration(f.durationS),
+      ),
+    ];
+  }
+
   /// A distance as spoken: rounded the way a driver counts ("500 metres",
   /// "2 kilometres", "1.5 kilometres").
   String spokenDistance(double metres, DistanceUnits units) {
@@ -330,3 +492,17 @@ final class TranslatedWording implements GuidanceWording {
     };
   }
 }
+
+/// A name without its accents, for sorting: "Åland" among the A, "Équateur"
+/// among the E.
+String _fold(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp('[àáâäå]'), 'a')
+    .replaceAll(RegExp('[éèêë]'), 'e')
+    .replaceAll(RegExp('[îï]'), 'i')
+    .replaceAll(RegExp('[ôö]'), 'o')
+    .replaceAll(RegExp('[ùûü]'), 'u')
+    .replaceAll('ç', 'c');
+
+/// Territories named with the country they lie in or beside.
+const _withinAnother = {'AX', 'SJ', 'GI', 'MC', 'SM', 'VA'};

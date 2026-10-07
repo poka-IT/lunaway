@@ -69,19 +69,38 @@ final class GraphQLClient {
   ]) async {
     try {
       return await _execute(operation, operation.document, variables, headers);
-    } on GraphQLResponseException catch (e) {
-      final older = operation.older;
-      if (older == null ||
-          !older.usable(variables) ||
-          !e.errors.any(
-            (error) => error.unknownInput || (older.withoutFields && error.unknownField),
-          )) {
-        rethrow;
+    } on GraphQLResponseException catch (e, stack) {
+      var refusal = e;
+      var trace = stack;
+      // Each refusal of an unknown field or argument tries the next older
+      // form, until one passes or none is left.
+      var next = operation.older;
+      while (next != null && _callsFor(next, refusal, variables)) {
+        final form = next;
+        _log.info('${operation.name}: the API does not know all of it yet, sent in an older form');
+        try {
+          return await _execute(operation, form.document, form.variables(variables), headers);
+        } on GraphQLResponseException catch (again, stack) {
+          refusal = again;
+          trace = stack;
+          next = form.older;
+        }
       }
-      _log.info('${operation.name}: the API does not know all of it yet, sent in its older form');
-      return await _execute(operation, older.document, older.variables(variables), headers);
+      Error.throwWithStackTrace(refusal, trace);
     }
   }
+
+  /// Whether [refusal] is one [form] answers: an argument, or a field
+  /// when the form leaves fields out, that the API does not know.
+  static bool _callsFor(
+    OlderForm form,
+    GraphQLResponseException refusal,
+    Map<String, Object?> variables,
+  ) =>
+      form.usable(variables) &&
+      refusal.errors.any(
+        (error) => error.unknownInput || (form.withoutFields && error.unknownField),
+      );
 
   Future<T> _execute<T>(
     GraphQLOperation<T> operation,
