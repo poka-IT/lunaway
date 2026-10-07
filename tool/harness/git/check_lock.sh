@@ -4,8 +4,10 @@
 #   - app/pubspec.lock never resolves a package from a local path outside
 #     the repository: such a source comes from a gitignored
 #     pubspec_overrides.yaml and the CI cannot resolve it. The app's own
-#     packages, committed under app/packages/ (lunaway_nav), are the one
-#     exception: a relative path into that directory resolves on every
+#     packages, committed under app/packages/ (lunaway_nav), and the
+#     third-party packages committed under app/third_party/ (each recorded in
+#     tool/harness/vendored.txt, which this check does not read) are the
+#     exceptions: a relative path into either directory resolves on every
 #     clone;
 #   - backend/Cargo.lock and the lockfile of the app's guidance crate
 #     (app/packages/lunaway_nav/rust/Cargo.lock) never resolve a crate from
@@ -33,13 +35,13 @@ lock_at() {
 if pub=$(lock_at "$1" app/pubspec.lock); then
   # Package entries sit at two spaces of indent, their `source:` at four and
   # a path's description at six. A path counts as in the repository when it
-  # is relative, under packages/ and never climbs (`..`).
+  # is relative, under packages/ or third_party/ and never climbs (`..`).
   local_pkgs=$(printf '%s\n' "$pub" | awk '
     /^  [^ ]/ { pkg = $1; sub(":", "", pkg); path = ""; relative = 0 }
     /^      path: / { path = $2; gsub("\"", "", path) }
     /^      relative: true$/ { relative = 1 }
     /^    source: path$/ {
-      inside = relative && path ~ /^packages\// && path !~ /(^|\/)\.\.(\/|$)/
+      inside = relative && path ~ /^(packages|third_party)\// && path !~ /(^|\/)\.\.(\/|$)/
       if (!inside) print pkg
     }
   ')
@@ -47,7 +49,7 @@ if pub=$(lock_at "$1" app/pubspec.lock); then
     echo "BLOCKED: app/pubspec.lock resolves these packages from a local path:" >&2
     printf '%s\n' "$local_pkgs" | sed 's/^/  /' >&2
     echo "That entry comes from a pubspec_overrides.yaml and must not be committed;" >&2
-    echo "a package of the app itself lives under app/packages/." >&2
+    echo "a package of the app itself lives under app/packages/, a vendored one under app/third_party/." >&2
     fail=1
   fi
 fi

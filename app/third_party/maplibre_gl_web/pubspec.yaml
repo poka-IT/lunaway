@@ -1,0 +1,55 @@
+# maplibre_gl_web 0.27.1 from pub.dev (github.com/maplibre/flutter-maplibre-gl,
+# BSD-3-Clause, LICENSE beside this file), patched for dart2wasm and wired by
+# dependency_overrides in app/pubspec.yaml. Under dart2wasm a Dart List or Map
+# is not a JavaScript value, a missing JavaScript property is not a String,
+# and a double is never an int; dart2js passes the first two and accepts a
+# whole double as an int, so three spots that only worked there failed:
+#   - lib/src/ui/map.dart setFilter: the filter went to MapLibre GL JS as a
+#     Dart List; it is now converted with jsify (and may be null, which
+#     clears it, in lib/src/interop/ui/map_interop.dart).
+#   - lib/src/ui/map.dart querySourceFeatures: the parameters went as a Dart
+#     Map and the result was read with dynamic calls on JavaScript objects;
+#     the parameters are now converted and the result wrapped in Feature,
+#     as queryRenderedFeatures does. Such a feature has no `source`, so
+#     Feature.source (lib/src/geo/geojson.dart and its interop) is nullable:
+#     reading it as a String threw under dart2wasm.
+#   - lib/src/convert.dart: the logo, compass and attribution margins (a
+#     Point of doubles from the app) and the location engine's maximum age
+#     and timeout were passed or cast to int; they are now converted with
+#     toInt. A double there failed the creation of the map.
+# Also: `resolution: workspace` and the dev_dependencies of the upstream
+# repository are dropped, as is analysis_options.yaml, which included a file
+# of that repository. Drop this copy and the override once a release carries
+# these fixes. No test in CI covers them (the plugin only loads in a browser,
+# and the app's tests run on the VM): after any change here or to
+# maplibre_gl, build with --wasm and walk the map in a browser again (places
+# listed at zoom 12, a tap on a pin, a theme switch).
+name: maplibre_gl_web
+description: Web platform implementation of maplibre_gl. This package is only intended to be used by the maplibre_gl package.
+version: 0.27.1
+repository: https://github.com/maplibre/flutter-maplibre-gl
+issue_tracker: https://github.com/maplibre/flutter-maplibre-gl/issues
+
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: '>=3.29.0'
+
+flutter:
+  plugin:
+    platforms:
+      web:
+        pluginClass: MapLibreMapPlugin
+        fileName: maplibre_gl_web.dart
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  image: ^4.8.0
+  maplibre_gl_platform_interface: ^0.27.1
+  meta: ^1.16.0
+  web: ^1.1.1
+
+platforms:
+  web:

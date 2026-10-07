@@ -10,6 +10,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Third-party code kept as published (tool/harness/vendored.txt).
+    - third_party/**
   language:
     strict-casts: true
     strict-inference: true
