@@ -322,15 +322,19 @@ wrote it. Lunaway ranks reviews by what it saw itself, which no author
 sets:
 
 - whether the key has a review shown on the place now;
-- the key's age: `content_review_keys` records, per key (the SHA-256 of
-  the key as one line of PEM, the form the API serves), when a review it signed was first kept, on any
-  place. A key absent from it is new, and so is a key one of whose
-  reviews stands hidden by the reports, a moderator or the operator
-  (`content_review_strikes`): a hide names one signature, and the author
-  could sign the same text again under another. The strike lasts as long
-  as the hide: a moderator who keeps the review gives the key its age
-  back. A hidden review's row stays while its hide stands, never shown,
-  so the moderator and the operator still find it;
+- the key's age: `content_review_keys` records, per key (the SHA-256
+  of the key as one line of PEM, the form the API serves), when a review
+  it signed was first kept, on any place. A key absent from it is new,
+  and so is a key one of whose reviews stands hidden by the reports, a
+  moderator or the operator (`content_review_strikes`): a hide names one
+  signature, and the author could sign the same text again under
+  another. The strike lasts as long as the hide: a moderator who keeps
+  the review gives the key its age back. A review the reports hid stays
+  stored, never shown, until the moderator decides, so the moderator
+  finds it even once its author signed it anew; a moderator's or the
+  operator's hide is final, and the review goes with its source. Showing
+  again with `lunaway content hide --show` therefore needs the review
+  still at its source;
 - when Lunaway first read the review (`content_review_sightings`).
 
 A review that would add a key to a place is a new pair, whatever the
@@ -344,7 +348,7 @@ key's age. Each weekly run chooses the reviews of each place
 4. then the new pairs: keys kept before first, the oldest first, then new
    keys, each group in the order Lunaway first read the reviews; at most
    2 new pairs per place, 3 new places per key and 50 new pairs per run
-   over every place;
+   over every place, 20 of which only new keys may take;
 5. ten reviews per place at most.
 
 The review's date and the number of places a key reviews give no rank:
@@ -354,7 +358,11 @@ pairs fill only free ones, two per place and fifty in all per week, where
 the reports and the operator's hides reach them. A key that reviews every
 place on the map reaches three more of them a week, aged or not, and its
 reviews wait in the order they were read, behind those read before them.
-A legitimate reviewer of a place that already shows ten reviews waits
+The weekly room is shared by the whole map: a thousand reviews of spam
+read before a real one hold that one back about twenty weeks, unless the
+reports or the operator clear them first. Keys aged on purpose take at
+most thirty pairs a week, so first-time reviewers always have twenty. A
+legitimate reviewer of a place that already shows ten reviews waits
 until one goes, and a place gains its first reviews two a week. The keys
 of the reviews already shown when the rule arrived, or stored by a
 release older than it, start known, dated from the last run that fetched
@@ -372,7 +380,11 @@ token, never from the copy the API lays out beside it
 (`content::mangrove`, skip reason `Unverified`). On 2026-10-07 the 968
 reviews of the API's first page all verified; the copies differed from
 the signed tokens only in layout (line breaks of `kid`, an empty image
-label).
+label). A key must be an uncompressed point, so one key has one
+identity. Half of those signatures had a high `s`, so both forms are
+accepted: anyone can derive a second valid signature of someone else's
+review, which reaches Lunaway as a new pair, under the caps, of a key
+struck while the first copy stands hidden.
 
 ### Hosts the content worker calls
 

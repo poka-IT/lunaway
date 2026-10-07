@@ -557,6 +557,83 @@ async fn a_key_ranks_as_new_while_a_hide_of_its_review_stands(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_rejected_review_leaves_with_its_source_and_its_key_stays_struck(pool: PgPool) {
+    let a = place(&pool, "A", 47.0, 2.0).await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let key = "d".repeat(64);
+    let review = NewReview {
+        place_id: a,
+        external_id: "sig".into(),
+        rating: Some(1),
+        text: Some("Arnaque.".into()),
+        lang: None,
+        author: Some("X".into()),
+        author_key: Some(key.clone()),
+        written_at: Utc::now(),
+        page_url: "https://mangrove.reviews/list?signature=sig".into(),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: None,
+    };
+    content::replace_reviews(&ingest, "mangrove", &[review], Utc::now())
+        .await
+        .unwrap();
+    let id = content::reviews_of_place(&app, a, 20, None)
+        .await
+        .unwrap()
+        .nodes[0]
+        .id;
+    for n in 1..=3 {
+        let r = account(&app, n).await;
+        report(&app, r, ReportTarget::ExternalReview, id).await;
+    }
+    let stored = |pool: PgPool| async move {
+        sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM content_reviews"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    };
+    content::record_review_strikes(&ingest, "mangrove")
+        .await
+        .unwrap();
+    content::replace_reviews(&ingest, "mangrove", &[], Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(
+        stored(pool.clone()).await,
+        1,
+        "a review the reports hid waits for the moderator, even gone from its source"
+    );
+    moderation::decide(
+        &app,
+        open_entry(&pool, id).await,
+        Decision::Reject,
+        Some("insulte"),
+    )
+    .await
+    .unwrap();
+    content::record_review_strikes(&ingest, "mangrove")
+        .await
+        .unwrap();
+    content::replace_reviews(&ingest, "mangrove", &[], Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(
+        stored(pool.clone()).await,
+        0,
+        "once rejected, a review gone from its source goes from Lunaway"
+    );
+    assert!(
+        !content::review_keys(&ingest, "mangrove")
+            .await
+            .unwrap()
+            .contains_key(&key),
+        "the rejection's hide stands, so the key stays struck"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn reviews_are_replaced_as_a_whole_and_an_author_stays_hidden(pool: PgPool) {
     let a = place(&pool, "A", 47.0, 2.0).await;
     let key = "ab".repeat(32);

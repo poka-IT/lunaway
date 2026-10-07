@@ -230,7 +230,7 @@ pub struct SourceReport {
     pub new_keys: usize,
     /// Reviews: reviews that would reach a new place, held for a later run
     /// by the caps on new pairs, though their place had room.
-    pub held_new_keys: usize,
+    pub held_new_pairs: usize,
     /// Reviews: strikes recorded this run against keys whose review is
     /// hidden; such a key ranks as new while the hide stands.
     pub struck_keys: usize,
@@ -1485,7 +1485,7 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
         .filter_map(|(i, r)| keep.next_if_eq(&i).map(|_| r))
         .collect();
     report.new_keys = picked.new_keys;
-    report.held_new_keys = picked.deferred;
+    report.held_new_pairs = picked.deferred;
     let places: BTreeSet<Uuid> = matched.iter().map(|r| r.place_id).collect();
     report.places = places.len();
     report.with_content = places.len();

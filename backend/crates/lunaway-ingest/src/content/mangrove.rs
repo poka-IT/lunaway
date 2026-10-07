@@ -176,7 +176,11 @@ fn verified_payload(
         .filter(|c| !c.is_whitespace())
         .collect();
     let der = STANDARD.decode(&pem).ok()?;
-    let point = der.strip_prefix(SPKI_P256_PREFIX.as_slice())?;
+    // Uncompressed only, as the prefix's length says: a compressed copy of
+    // the same key would give its holder a second identity.
+    let point = der
+        .strip_prefix(SPKI_P256_PREFIX.as_slice())
+        .filter(|p| p.len() == 65 && p.first() == Some(&0x04))?;
     let key = VerifyingKey::from_sec1_bytes(point).ok()?;
     let sig = Signature::from_slice(&BASE64URL.decode(sig).ok()?).ok()?;
     key.verify(format!("{header}.{payload}").as_bytes(), &sig)

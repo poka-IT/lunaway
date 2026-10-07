@@ -33,18 +33,24 @@ pub struct ReviewCaps {
     pub new_places_per_key: usize,
     /// New pairs a run lets in at most, every place together.
     pub new_per_run: usize,
+    /// Of them, those only new keys may take: keys aged on purpose cannot
+    /// hold the whole of each week's room and lock first-time reviewers
+    /// out.
+    pub new_per_run_for_new_keys: usize,
 }
 
 /// The caps of the weekly Mangrove run. The whole of Mangrove held 10 803
 /// reviews on 2026-10-07, every subject together: fifty reviews a week
 /// reaching new places on Lunaway's map is above what reviewers write
 /// there, and far below what a script makes; three new places a week per
-/// key is a trip's stops, the rest of them come the week after.
+/// key is a trip's stops, the rest of them come the week after; twenty of
+/// the fifty wait for first-time reviewers.
 pub const MANGROVE_CAPS: ReviewCaps = ReviewCaps {
     per_place: 10,
     new_per_place: 2,
     new_places_per_key: 3,
     new_per_run: 50,
+    new_per_run_for_new_keys: 20,
 };
 
 /// A review offered to a place, as the choice weighs it.
@@ -117,6 +123,7 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
     let mut new_on_place: BTreeMap<P, usize> = BTreeMap::new();
     let mut new_places_of_key: BTreeMap<&str, usize> = BTreeMap::new();
     let mut new_keys: BTreeSet<&str> = BTreeSet::new();
+    let mut known_new_pairs = 0;
     let mut picked = Picked::default();
     for i in order {
         let o = &offers[i];
@@ -129,15 +136,23 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
             let key_new = o
                 .key
                 .map_or(0, |k| new_places_of_key.get(k).copied().unwrap_or_default());
+            let known_key = o.key_since.is_some();
+            let room_for_known = caps
+                .new_per_run
+                .saturating_sub(caps.new_per_run_for_new_keys);
             if *place_new >= caps.new_per_place
                 || key_new >= caps.new_places_per_key
                 || picked.new_pairs >= caps.new_per_run
+                || (known_key && known_new_pairs >= room_for_known)
             {
                 picked.deferred += 1;
                 continue;
             }
             *place_new += 1;
             picked.new_pairs += 1;
+            if known_key {
+                known_new_pairs += 1;
+            }
             match (o.key, o.key_since) {
                 (Some(k), since) => {
                     *new_places_of_key.entry(k).or_default() += 1;
@@ -300,6 +315,31 @@ mod tests {
         );
         assert_eq!(picked.new_pairs, 4);
         assert_eq!(picked.deferred, 16);
+    }
+
+    #[test]
+    fn keys_aged_on_purpose_leave_room_for_first_time_reviewers() {
+        // Twenty aged keys each reach three new places, read before a
+        // first-time reviewer: they take thirty pairs, not fifty.
+        let mut offers = Vec::new();
+        for (k, key) in KEYS.iter().enumerate() {
+            for p in 0..3 {
+                let place = u16::try_from(k * 3 + p).unwrap();
+                offers.push(offer(place, key, 1, Some(0)));
+            }
+        }
+        offers.push(offer(900, "first-timer", 9, None));
+        let picked = pick_reviews(&offers, MANGROVE_CAPS);
+        assert_eq!(
+            picked.new_pairs, 31,
+            "thirty pairs for keys kept before, the reserved room for the new one"
+        );
+        assert!(
+            picked
+                .kept
+                .iter()
+                .any(|&i| offers[i].key == Some("first-timer"))
+        );
     }
 
     #[test]

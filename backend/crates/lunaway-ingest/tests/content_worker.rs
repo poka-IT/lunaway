@@ -422,7 +422,7 @@ async fn fresh_mangrove_keys_cannot_push_the_reviews_shown_off_a_place(pool: PgP
          in the order they were read, whatever date they claim"
     );
     assert_eq!(r.new_keys, 2);
-    assert_eq!(r.held_new_keys, 8, "the others wait for a later run");
+    assert_eq!(r.held_new_pairs, 8, "the others wait for a later run");
     let known: i64 =
         sqlx::query_scalar("SELECT count(*) FROM content_review_keys WHERE source_id = 'mangrove'")
             .fetch_one(&pool)

@@ -740,12 +740,13 @@ pub async fn sight_reviews(
 }
 
 /// Replaces every review of `source` with `reviews`, the whole of what the
-/// source holds (a review gone from it goes from Lunaway), in one
-/// transaction, and records the keys of the reviews kept. A hidden review
-/// stays while its hide stands, never shown: a moderator who keeps it, or
-/// the operator who shows it again, still finds it by its id once its
-/// author signed it anew, and lifting that hide lifts the strike on its
-/// key (`review_keys`).
+/// source holds, in one transaction, and records the keys of the reviews
+/// kept. A review gone from the source goes from Lunaway, except one the
+/// reports hid while a moderator has not decided: never shown, it stays
+/// until the decision, so the moderator still finds it by its id once its
+/// author signed it anew, and keeping it lifts the strike on its key
+/// (`review_keys`). A moderator's or the operator's hide is final and
+/// needs no row: the strike and the hide stand without it.
 ///
 /// # Errors
 ///
@@ -764,7 +765,8 @@ pub async fn replace_reviews(
         WHERE r.source_id = $1 AND NOT (r.external_id = ANY($2))
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
-              WHERE h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id)
+              WHERE h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id
+                AND h.origin = 'reports')
         "#,
         source,
         &keep,
