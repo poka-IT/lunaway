@@ -168,10 +168,12 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   together): a stop outside every cut is answered `NO_ROUTE`
   (`OUTSIDE_COVERAGE`) without asking the engine. `Query.routing` gives the
   countries (`coveredCountries`) and a box around them.
-- **Length.** 4 500 km at most in a straight line from stop to stop, the
-  engine's `auto` limit raised to match; one alternative at most beyond
-  2 000 km, none beyond 3 000 km, so that the engine's answer stays within
-  16 MB and the route sent within 11 MB.
+- **Length.** 3 000 km at most in a straight line from stop to stop, the
+  engine's `auto` limit set to match (`infra/routing/valhalla.json`, tied by a
+  test): 8 of 10 trips between 2 645 and 4 166 km took 7 to 15 s on the
+  production server on 2026-10-07. One alternative at most beyond 2 000 km,
+  so that the engine's answer stays within 16 MB and the route sent within
+  11 MB.
 - **Stops.** A stop is snapped to the nearest road the vehicle may drive,
   never onto a ferry line (`search_filter.exclude_ferry`), except the
   vehicle's own position during a recalculation (it may be on board).

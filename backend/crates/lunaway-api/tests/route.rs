@@ -485,7 +485,7 @@ async fn a_bad_request_costs_the_engine_nothing(pool: PgPool) {
     let mut alternatives = input(3.3);
     alternatives["input"]["alternatives"] = json!(3);
     for (what, variables) in [
-        ("a trip longer than 4 500 km", far),
+        ("a trip longer than 3 000 km", far),
         ("a height in centimetres", tall),
         ("six waypoints", waypoints),
         ("three alternatives", alternatives),
