@@ -210,6 +210,18 @@ async fn a_town_the_places_show_is_not_an_address_again(pool: PgPool) {
         ["Avenue de Mimizan"],
         "Mimizan is among the towns of the places already"
     );
+    let alone = gql(
+        &app,
+        "{ searchAll(text: \"mimizan\") { addresses { name } addressesComplete } }",
+        json!({}),
+    )
+    .await;
+    assert_eq!(
+        names(&alone["data"]["searchAll"]["addresses"]),
+        ["Mimizan", "Avenue de Mimizan"],
+        "without places asked, no place is searched and no town left out: \
+         the device leaves out its own"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

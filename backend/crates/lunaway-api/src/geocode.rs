@@ -42,6 +42,8 @@ const MAX_TEXT_CHARS: usize = 200;
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 /// The pause after a 429 without a readable `Retry-After`.
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(5);
+/// How long an idle connection to a geocoder is kept for the next search.
+const POOL_IDLE: Duration = Duration::from_secs(5);
 /// Photon matches asked per match wanted: its French matches are dropped
 /// when the BAN answers for France, and the rest must still fill the list.
 const PHOTON_OVERSAMPLE: usize = 3;
@@ -169,6 +171,11 @@ impl Geocoder {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(config.timeout)
             .timeout(config.timeout)
+            // Three of 240 searches on production failed before any answer,
+            // with no line in Caddy's log (2026-10-07): the cause is not
+            // known. Idle connections are kept briefly, and `get` sends a
+            // request that failed so once more.
+            .pool_idle_timeout(POOL_IDLE)
             .build()
             .inspect_err(|error| {
                 tracing::error!(%error, "no HTTP client: addresses are not searched");
@@ -370,11 +377,18 @@ impl Geocoder {
         url: reqwest::Url,
     ) -> Result<(u16, Vec<u8>, Option<Duration>), GeocodeError> {
         let call = async {
-            let mut response = http
-                .get(url)
-                .send()
-                .await
-                .map_err(|e| GeocodeError::Unreachable(e.without_url()))?;
+            // A GET that failed before any answer is sent again once, on a
+            // fresh connection: the pooled one may have been closing.
+            let mut response = match http.get(url.clone()).send().await {
+                Ok(response) => response,
+                Err(error) if (error.is_request() || error.is_connect()) && !error.is_timeout() => {
+                    http.get(url)
+                        .send()
+                        .await
+                        .map_err(|e| GeocodeError::Unreachable(e.without_url()))?
+                }
+                Err(error) => return Err(GeocodeError::Unreachable(error.without_url())),
+            };
             let status = response.status().as_u16();
             let retry_after = response
                 .headers()
@@ -677,6 +691,45 @@ mod tests {
             sendable(&"é".repeat(300)).map(|t| t.chars().count()),
             Some(200)
         );
+    }
+
+    #[tokio::test]
+    async fn a_connection_closed_before_any_answer_is_tried_again_once() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let body = fixture("ban_housenumber.json");
+        tokio::spawn(async move {
+            // The first connection reads the request and closes, as a
+            // pooled connection the other end was closing.
+            let (mut first, _) = listener.accept().await.unwrap();
+            let mut buf = [0_u8; 4096];
+            let _ = first.read(&mut buf).await;
+            drop(first);
+            let (mut second, _) = listener.accept().await.unwrap();
+            let _ = second.read(&mut buf).await;
+            let head = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                body.len()
+            );
+            second.write_all(head.as_bytes()).await.unwrap();
+            second.write_all(&body).await.unwrap();
+        });
+        let geocoder = Geocoder::new(&GeocodeConfig {
+            ban_url: Some(base),
+            timeout: Duration::from_secs(2),
+            ..GeocodeConfig::default()
+        });
+        let lookup = geocoder
+            .lookup(Ask {
+                text: "20 avenue de segur 75007 paris",
+                near: None,
+                max: 5,
+                language: None,
+            })
+            .await;
+        assert!(lookup.complete, "the second connection answered");
+        assert_eq!(lookup.matches[0].name, "20 Avenue de Ségur");
     }
 
     #[test]

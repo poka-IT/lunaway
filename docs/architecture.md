@@ -249,8 +249,10 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   so that the engine's answer stays within 16 MB and the route sent within
   11 MB.
 - **Stops.** A stop is snapped to the nearest road the vehicle may drive,
-  never onto a ferry line (`search_filter.exclude_ferry`), except the
-  vehicle's own position during a recalculation (it may be on board).
+  never onto a ferry line nor into a tunnel (`search_filter.exclude_ferry`
+  and `exclude_tunnel`: a point on a city square fell into the car park
+  under it), except the vehicle's own position during a recalculation (it
+  may be on board, or in the tunnel).
 - **No route.** When the engine finds none, `routing::diagnose` asks it a
   few short questions, each stop against reference points on main roads at
   least 30 km away, for the real vehicle, the smallest one, and each limit

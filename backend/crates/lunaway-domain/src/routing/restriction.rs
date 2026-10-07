@@ -103,6 +103,35 @@ impl RestrictionKind {
             None => "",
         }
     }
+
+    /// The `:conditional` keys of [`Self::osm_keys`], in the same order:
+    /// where a mapper writes an exception to the limit, such as the local
+    /// access of a "sauf desserte" plate (`none @ destination`).
+    #[must_use]
+    pub const fn conditional_keys(self) -> &'static [&'static str] {
+        match self {
+            Self::MaxHeight => &["maxheight:conditional", "maxheight:physical:conditional"],
+            Self::MaxWidth => &["maxwidth:conditional", "maxwidth:physical:conditional"],
+            Self::MaxLength => &["maxlength:conditional"],
+            Self::MaxWeight => &["maxweight:conditional", "maxweightrating:conditional"],
+            Self::MaxAxleLoad => &["maxaxleload:conditional"],
+            Self::MotorhomeBan | Self::TrailerBan | Self::CaravanBan | Self::MaxWeightGoods => &[],
+        }
+    }
+
+    /// Whether a limit of this kind can spare the traffic going to a place
+    /// beyond it. A weight, length, width or axle limit is a traffic order:
+    /// the order may let local access through (IISR 4th part, art. 49-1, a
+    /// type B sign "complété par un panonceau M9z d'indications diverses
+    /// pour autoriser la desserte locale"). A clearance is a structure, and
+    /// a ban is not a figure.
+    #[must_use]
+    pub const fn spares_local_access(self) -> bool {
+        matches!(
+            self,
+            Self::MaxWidth | Self::MaxLength | Self::MaxWeight | Self::MaxAxleLoad
+        )
+    }
 }
 
 /// Where a restriction comes from.
@@ -256,6 +285,12 @@ pub struct Restriction {
     pub certainty: Certainty,
     /// What the place is.
     pub feature: RestrictionFeature,
+    /// Whether the limit spares the traffic going to a place beyond it
+    /// ("sauf desserte", `maxweight:conditional=none @ destination`): a
+    /// vehicle above it may drive it at the start or the end of a trip,
+    /// never through. Only a kind that [`RestrictionKind::spares_local_access`]
+    /// carries it.
+    pub except_destination: bool,
 }
 
 /// How a restriction weighs on a route.
@@ -435,6 +470,35 @@ mod tests {
             source: RestrictionSource::Osm,
             certainty: Certainty::Known,
             feature: RestrictionFeature::Underpass,
+            except_destination: false,
+        }
+    }
+
+    #[test]
+    fn only_traffic_orders_spare_local_access() {
+        let sparing: Vec<RestrictionKind> = RestrictionKind::ALL
+            .into_iter()
+            .filter(|k| k.spares_local_access())
+            .collect();
+        assert_eq!(
+            sparing,
+            [
+                RestrictionKind::MaxWidth,
+                RestrictionKind::MaxLength,
+                RestrictionKind::MaxWeight,
+                RestrictionKind::MaxAxleLoad
+            ],
+            "a bridge's clearance spares nobody, whatever a plate says"
+        );
+        for k in RestrictionKind::ALL {
+            assert_eq!(
+                k.conditional_keys().len(),
+                k.osm_keys().len(),
+                "{k:?}: one conditional key per key"
+            );
+            for (key, cond) in k.osm_keys().iter().zip(k.conditional_keys()) {
+                assert_eq!(*cond, format!("{key}:conditional"));
+            }
         }
     }
 

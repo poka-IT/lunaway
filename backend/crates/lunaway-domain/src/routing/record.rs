@@ -44,6 +44,11 @@ pub struct RestrictionRecord {
     pub shape: String,
     /// The date of the data.
     pub observed_at: DateTime<Utc>,
+    /// Whether the limit spares the traffic going to a place beyond it
+    /// ([`super::Restriction::except_destination`]). Absent from the
+    /// bundles built before it existed, which read as `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub except_destination: bool,
 }
 
 /// Why a record was refused.
@@ -108,7 +113,14 @@ impl RestrictionRecord {
         };
         let dispute_fits = (self.certainty == Certainty::Disputed)
             == (self.other_value.is_some() && self.other_source.is_some());
-        if !(limit_fits && dispute_fits && figure(self.limit) && figure(self.other_value)) {
+        let exception_fits =
+            !self.except_destination || (self.kind.spares_local_access() && self.limit.is_some());
+        if !(limit_fits
+            && dispute_fits
+            && exception_fits
+            && figure(self.limit)
+            && figure(self.other_value))
+        {
             return Err(InvalidRecord::Limit {
                 external_id: id(),
                 kind: self.kind,
@@ -143,6 +155,7 @@ mod tests {
             observed_at: DateTime::parse_from_rfc3339("2026-10-05T20:20:43Z")
                 .unwrap()
                 .with_timezone(&Utc),
+            except_destination: false,
         }
     }
 
@@ -211,5 +224,46 @@ mod tests {
             ..record()
         };
         assert!(matches!(no_shape.check(), Err(InvalidRecord::Shape { .. })));
+        let spared_clearance = RestrictionRecord {
+            except_destination: true,
+            ..record()
+        };
+        assert!(
+            spared_clearance.check().is_err(),
+            "no plate lets a vehicle under a bridge too low for it"
+        );
+        let spared_weight = RestrictionRecord {
+            kind: RestrictionKind::MaxWeight,
+            limit: Some(3.5),
+            except_destination: true,
+            ..record()
+        };
+        assert!(spared_weight.check().is_ok());
+    }
+
+    #[test]
+    fn the_local_access_exception_travels_only_when_set() {
+        let plain = serde_json::to_string(&record()).unwrap();
+        assert!(
+            !plain.contains("except_destination"),
+            "a bundle without exceptions keeps its old lines: {plain}"
+        );
+        let old: RestrictionRecord = serde_json::from_str(&plain).unwrap();
+        assert!(
+            !old.except_destination,
+            "an older bundle reads as no exception"
+        );
+        let spared = RestrictionRecord {
+            kind: RestrictionKind::MaxWeight,
+            limit: Some(3.5),
+            except_destination: true,
+            ..record()
+        };
+        let line = serde_json::to_string(&spared).unwrap();
+        assert!(line.contains(r#""except_destination":true"#), "{line}");
+        assert_eq!(
+            serde_json::from_str::<RestrictionRecord>(&line).unwrap(),
+            spared
+        );
     }
 }

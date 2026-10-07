@@ -146,6 +146,7 @@ fn restriction(
         other_source: None,
         shape: polyline::encode(&points),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 21, 35).unwrap(),
+        except_destination: false,
     };
     (record, points)
 }
@@ -456,8 +457,8 @@ async fn stops_are_snapped_off_ferry_lines(pool: PgPool) {
         for l in b["locations"].as_array().unwrap() {
             assert_eq!(
                 l["search_filter"],
-                json!({"exclude_ferry": true}),
-                "every stop is snapped to a road"
+                json!({"exclude_ferry": true, "exclude_tunnel": true}),
+                "every stop is snapped to a road in the open"
             );
         }
     }

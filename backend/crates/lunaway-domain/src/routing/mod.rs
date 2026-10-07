@@ -29,8 +29,8 @@ pub mod tags;
 pub mod vehicle;
 
 pub use corridor::{
-    Hit, Projection, RouteLine, exclusion_ring, heading, match_route, match_route_directed,
-    turn_between,
+    Hit, Projection, RouteLine, exclusion_ring, heading, local_access_runs, match_route,
+    match_route_directed, turn_between,
 };
 pub use record::{InvalidRecord, RestrictionRecord};
 pub use restriction::{

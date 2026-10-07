@@ -610,6 +610,7 @@ fn permanent_order(order: &Node, fetched_at: DateTime<Utc>, out: &mut Permanent)
                     other_source: None,
                     shape: polyline::encode(points),
                     observed_at: fetched_at,
+                    except_destination: false,
                 };
                 match record.check() {
                     Ok(p) => out.records.push((record, p)),

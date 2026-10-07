@@ -593,6 +593,7 @@ mod tests {
             source: RestrictionSource::Osm,
             certainty: Certainty::Unknown,
             feature: RestrictionFeature::Barrier,
+            except_destination: false,
         };
         let kept = |met| Kept {
             at: tarifa,

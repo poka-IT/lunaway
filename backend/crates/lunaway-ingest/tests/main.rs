@@ -16,4 +16,5 @@ mod poi_joins;
 mod poi_osm;
 mod road_events_parse;
 mod road_events_poll;
+mod routing_prepare;
 mod store;

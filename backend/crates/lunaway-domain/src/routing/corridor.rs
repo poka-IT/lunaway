@@ -162,6 +162,13 @@ impl RouteLine {
         self.stops.iter().any(|stop| (s - stop).abs() <= tolerance)
     }
 
+    /// Distances from the start where the route stops: its start, each
+    /// waypoint ([`Self::with_legs`]), its end.
+    #[must_use]
+    pub fn stops(&self) -> &[f64] {
+        &self.stops
+    }
+
     /// The shape, in driving order.
     #[must_use]
     pub fn points(&self) -> &[Position] {
@@ -519,6 +526,54 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
     hits
 }
 
+/// Largest distance, metres, between a stop and the first stretch of a run
+/// of local access: the route starts on the limited road itself (the
+/// engine grants the right only from the stop's own edge), and the hit of
+/// that road starts a few sample steps from the stop.
+pub const LOCAL_ACCESS_STOP_M: f64 = 20.0;
+
+/// Largest gap, metres, between two stretches of one run of local access:
+/// the junctions, squares and stretches a zone's mappers leave without the
+/// sign between two that carry it, or a street of a higher limit the
+/// vehicle meets no limit on. The D937 at Route du Boutariq leaves 264 m
+/// without it between the entry of its 3.5 t "sauf desserte" and the
+/// street beyond (ways 116697288 and 174017049, read 2026-10-07).
+pub const LOCAL_ACCESS_LINK_M: f64 = 500.0;
+
+/// The parts of a route where limits that spare local access let it
+/// through: the runs of `spans` (`(start_m, end_m)` along the route) that
+/// join up, each within [`LOCAL_ACCESS_LINK_M`] of the next, and reach a
+/// stop within [`LOCAL_ACCESS_STOP_M`]. A run that reaches no stop is
+/// through traffic.
+///
+/// The engine is more lenient (Valhalla 3.9.0,
+/// `DynamicCost::EvaluateRestrictions` and
+/// `BidirectionalAStar::SetOrigin`): a trip that starts or ends on a limit
+/// marked `except_destination` keeps the right across every road without a
+/// limit, gains it on any marked limit the vehicle is under, and loses it
+/// on the first road whose limits carry no mark for this kind. So a trip
+/// ending in one zone may cross another anywhere on the way. The check
+/// stops that at the link gap: what it blocks, the engine is asked again
+/// around.
+#[must_use]
+pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    let mut sorted: Vec<(f64, f64)> = spans.iter().map(|(a, b)| (a.min(*b), a.max(*b))).collect();
+    sorted.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let mut runs: Vec<(f64, f64)> = Vec::new();
+    for (a, b) in sorted {
+        match runs.last_mut() {
+            Some(run) if a <= run.1 + LOCAL_ACCESS_LINK_M => run.1 = run.1.max(b),
+            _ => runs.push((a, b)),
+        }
+    }
+    runs.retain(|(a, b)| {
+        stops
+            .iter()
+            .any(|s| *s >= a - LOCAL_ACCESS_STOP_M && *s <= b + LOCAL_ACCESS_STOP_M)
+    });
+    runs
+}
+
 /// A ring around `center` of about `radius_m`, for the router's
 /// `exclude_polygons`: an octagon, closed (the last point repeats the
 /// first).
@@ -542,6 +597,51 @@ pub fn exclusion_ring(center: Position, radius_m: f64) -> Vec<Position> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_access_runs_from_a_stop_and_never_across_a_town() {
+        // A 10 km trip: stops at 0 and 10 000 m.
+        let stops = [0.0, 10_000.0];
+        // The last two streets before the destination, end to end, and a
+        // "sauf desserte" street crossed at 4 km.
+        let spans = [(9_700.0, 9_850.0), (9_858.0, 10_000.0), (4_000.0, 4_200.0)];
+        let runs = local_access_runs(&stops, &spans);
+        assert_eq!(
+            runs,
+            vec![(9_700.0, 10_000.0)],
+            "the streets reaching the destination are local access, the one crossed at 4 km is not"
+        );
+        // A run that stops short of the destination left a road without the
+        // plate under the stop: the engine gives no right from there.
+        assert!(local_access_runs(&stops, &[(9_700.0, 9_900.0)]).is_empty());
+        // From the start too, and around a waypoint.
+        assert_eq!(
+            local_access_runs(&stops, &[(5.0, 300.0)]),
+            vec![(5.0, 300.0)]
+        );
+        assert_eq!(
+            local_access_runs(&[0.0, 5_000.0, 10_000.0], &[(4_900.0, 5_100.0)]),
+            vec![(4_900.0, 5_100.0)]
+        );
+        assert!(local_access_runs(&stops, &[]).is_empty());
+    }
+
+    #[test]
+    fn a_short_street_without_the_sign_keeps_a_zone_whole() {
+        let stops = [0.0, 10_000.0];
+        // The entry of the zone, 264 m left untagged as on the D937, then
+        // the destination's street: one run, as the engine drove it.
+        assert_eq!(
+            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_664.0, 10_000.0)]),
+            vec![(9_000.0, 10_000.0)]
+        );
+        // 700 m of other streets between them: the first is another zone,
+        // crossed on the way.
+        assert_eq!(
+            local_access_runs(&stops, &[(8_000.0, 8_600.0), (9_300.0, 10_000.0)]),
+            vec![(9_300.0, 10_000.0)]
+        );
+    }
 
     #[test]
     fn the_marks_of_old_queries_never_hide_a_segment() {

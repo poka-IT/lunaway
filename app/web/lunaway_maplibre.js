@@ -24,7 +24,7 @@
   // shapes the app's (test/unit/map_hits_test.dart, UPDATE_MAP_HITS=1
   // rewrites them).
   var lunawayHits = (function () {
-    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-anchors-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":1},"lw-route-marks-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":2},"lw-route-minor-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":3},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-place-pins":{"r":{"by":"zoom","stops":[[6.0,7.5168],[12.0,10.44]]},"y":{"by":"zoom","stops":[[6.0,10.749023999999999],[12.0,14.9292]]},"p":4},"lw-route-poi-pins":{"r":8.814,"y":13.884,"p":5}}} /* END HIT SHAPES */;
+    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5,"grow":1.12,"ms":160,"enter":[0.215,0.61,0.355,1.0],"exit":[0.55,0.055,0.675,0.19]},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-anchors-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":1,"state":"mark"},"lw-route-marks-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":2,"state":"mark"},"lw-route-minor-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":3,"state":"mark"},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-place-pins":{"r":{"by":"zoom","stops":[[6.0,7.5168],[12.0,10.44]]},"y":{"by":"zoom","stops":[[6.0,10.749023999999999],[12.0,14.9292]]},"p":4,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.5184],[12.0,0.72]]}},"lw-route-poi-pins":{"r":8.814,"y":13.884,"p":5,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":0.78}}} /* END HIT SHAPES */;
     var EPSILON = 1e-6;
 
     // What last pressed on the page: a finger asks for a wider target.
@@ -58,8 +58,19 @@
       return HITS.shapes[layer];
     }
 
+    // How far `at` lies outside the disc of radius r around (x, y); zero
+    // inside.
+    function outside(at, x, y, r) {
+      var dx = at[0] - x;
+      var dy = at[1] - y;
+      return Math.max(0, Math.sqrt(dx * dx + dy * dy) - r);
+    }
+
     // Candidates topmost first: {layer, properties, points: [[x, y], ...]}.
-    // A tie goes to the lower priority, then to the one drawn on top.
+    // A tie goes to the lower priority, then to the one drawn on top. A
+    // pin's target is its head and the dot at its tip (`a`), drawn by
+    // another layer from the same feature: on the exact point, the pin and
+    // its dot tie, and the pin wins.
     // `signs`: a shape that needs a property (a route mark's id) is picked
     // without it too, to tell a tap on a sign of the route from bare map.
     function nearest(at, candidates, zoom, tolerance, signs) {
@@ -77,11 +88,12 @@
           if (!c.points.length) continue;
           var r = value(shape.r, zoom, props);
           var lift = value(shape.y, zoom, props);
+          var anchor = shape.a === undefined ? -1 : value(shape.a, zoom, props);
           distance = Infinity;
           for (var j = 0; j < c.points.length; j++) {
-            var dx = at[0] - c.points[j][0];
-            var dy = at[1] - (c.points[j][1] - lift);
-            var d = Math.max(0, Math.sqrt(dx * dx + dy * dy) - r);
+            var p = c.points[j];
+            var d = outside(at, p[0], p[1] - lift, r);
+            if (anchor >= 0) d = Math.min(d, outside(at, p[0], p[1], anchor));
             if (d < distance) {
               distance = d;
               point = j;
@@ -162,14 +174,54 @@
       };
     }
 
-    var EMPTY = { type: 'FeatureCollection', features: [] };
+    // What the hover shows of the feature a pick chose: one look per
+    // feature, whichever part of it the mouse is on (a pin's head, the dot
+    // at its tip). `key` names the feature by its source and id, never by
+    // the layer that drew the part picked. `x`, `y`: the feature's own point
+    // on screen, the centre of a ring of radius `ring` clear of the dot or
+    // the disc drawn there (a pin's tip, a cluster). `pin`: the image the
+    // pin is drawn with and its size, which the hover grows. `state`: the
+    // feature to tell, through its feature state, that the mouse is on it.
+    // Null where nothing is shown (a line, an inert marker).
+    function look(hit) {
+      if (!hit || hit.inert || !hit.point || !hit.shape || hit.shape.line) return null;
+      var shape = hit.shape;
+      var props = hit.properties || {};
+      var f = hit.feature || {};
+      var out = {
+        key: [f.source, f.sourceLayer, f.id, props.id, props.cluster_id, props.mark,
+          hit.coordinates ? hit.coordinates.join(',') : ''].join('|'),
+        x: hit.point[0],
+        y: hit.point[1],
+        ring: value(shape.ring !== undefined ? shape.ring : shape.a !== undefined ? shape.a : shape.r,
+          hit.zoom, props) + HITS.ring.gap,
+        pin: null,
+        state: null
+      };
+      var layer = f.layer || {};
+      var image = (layer.layout || {})['icon-image'];
+      var name = image && typeof image === 'object' ? image.name : image;
+      var opacity = (layer.paint || {})['icon-opacity'];
+      // A pin drawn faded (a point closed now) keeps its look: a copy over
+      // it would add up to a darker pin.
+      var faded = typeof opacity === 'number' && opacity < 1;
+      if (shape.icon !== undefined && typeof name === 'string' && name && !faded) {
+        out.pin = { image: name, size: value(shape.icon, hit.zoom, props) };
+        out.key += '|' + name;
+      }
+      if (shape.state && props[shape.state] !== undefined && f.id !== undefined && f.id !== null && f.source) {
+        out.state = { source: f.source, id: f.id };
+      }
+      return out;
+    }
 
     // The pointing finger over what a click would pick, the closed hand
-    // while the map is dragged, and a ring around the shape under the
-    // mouse. One query per animation frame at most, and only while the
-    // mouse moves. `options.gate`: whether the map is the one under the
-    // mouse (the app's maps, under the app's own surfaces); `options.layers`
-    // a function giving the layers to pick from.
+    // while the map is dragged, and the look of the feature under the
+    // mouse (look). One query per animation frame at most, while the mouse
+    // moves or once the map settles after a change. `options.gate`: whether
+    // the map is the one under the mouse (the app's maps, under the app's
+    // own surfaces); `options.layers` a function giving the layers to pick
+    // from.
     function hover(map, options) {
       options = options || {};
       var container = map.getCanvasContainer();
@@ -177,56 +229,141 @@
       var frame = 0;
       var moving = false;
       var shownKey = null;
+      var shown = null;
+      var stale = false;
+      var root = null;
+      var less = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
-      function ring(hit) {
-        var source = map.getSource('lw-hover');
-        if (!source) {
-          if (!hit) return;
-          try {
-            map.addSource('lw-hover', { type: 'geojson', data: EMPTY });
-            map.addLayer({
-              id: 'lw-hover',
-              type: 'circle',
-              source: 'lw-hover',
-              paint: {
-                'circle-radius': ['get', 'r'],
-                'circle-color': 'rgba(0,0,0,0)',
-                'circle-stroke-width': HITS.ring.width,
-                'circle-stroke-color': HITS.ring.color
-              }
-            });
-          } catch (e) {
-            // The style is loading: the next move draws it.
-            return;
-          }
-          source = map.getSource('lw-hover');
-        }
-        if (!hit || !hit.point || hit.shape.line) {
-          source.setData(EMPTY);
-          return;
-        }
-        // Each new ring repaints the map, which then reports itself idle
-        // again: the readers of an idle map skip a camera they already read.
-        var props = hit.properties;
-        var lift = value(hit.shape.y, hit.zoom, props);
-        var centre = map.unproject([hit.point[0], hit.point[1] - lift]);
-        source.setData({
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            properties: { r: value(hit.shape.r, hit.zoom, props) + HITS.ring.gap },
-            geometry: { type: 'Point', coordinates: [centre.lng, centre.lat] }
-          }]
-        });
+      function still() {
+        return !!(less && less.matches);
       }
 
-      function show(hit) {
-        var key = hit ? hit.layer + '|' + (hit.properties.id || hit.properties.cluster_id || '') + '|' +
-          (hit.coordinates ? hit.coordinates.join(',') : '') : null;
-        if (key === shownKey) return;
+      // The looks are elements over the map's canvas, as MapLibre's markers
+      // are: the browser draws and eases them, and the map spends no frame
+      // on a hover.
+      function layer() {
+        if (!root || root.parentNode !== container) {
+          root = document.createElement('div');
+          root.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none';
+          container.appendChild(root);
+        }
+        return root;
+      }
+
+      // The pin's image as the map holds it, drawn at the size the map draws
+      // it, standing on its tip as the pin does.
+      function pinCopy(pin) {
+        var image = map.getImage ? map.getImage(pin.image) : null;
+        var data = image && image.data;
+        if (!data || !data.width || !data.height || image.sdf) return null;
+        var canvas = document.createElement('canvas');
+        canvas.width = data.width;
+        canvas.height = data.height;
+        var context = canvas.getContext('2d');
+        if (!context) return null;
+        context.putImageData(new ImageData(new Uint8ClampedArray(data.data), data.width, data.height), 0, 0);
+        var w = data.width / (image.pixelRatio || 1) * pin.size;
+        var h = data.height / (image.pixelRatio || 1) * pin.size;
+        canvas.style.cssText = 'position:absolute;left:' + (-w / 2) + 'px;top:' + (-h) + 'px;width:' + w +
+          'px;height:' + h + 'px;transform-origin:50% 100%;transform:scale(1)';
+        return canvas;
+      }
+
+      // Eases the parts of a look in (`on`) or back out to the map's own
+      // drawing: the ring fades in as it closes on the point, the pin grows
+      // from the size the map draws it at, and both go back the same way.
+      function ease(parts, on) {
+        var g = HITS.ring;
+        var timing = g.ms + 'ms cubic-bezier(' + (on ? g.enter : g.exit).join(',') + ')';
+        var transition = still() ? 'none' : 'opacity ' + timing + ',transform ' + timing;
+        if (parts.ring) {
+          parts.ring.style.transition = transition;
+          parts.ring.style.opacity = on ? '1' : '0';
+          parts.ring.style.transform = on ? 'scale(1)' : 'scale(0.8)';
+        }
+        if (parts.pin) {
+          parts.pin.style.transition = still() ? 'none' : 'transform ' + timing;
+          parts.pin.style.transform = 'scale(' + (on ? g.grow : 1) + ')';
+        }
+      }
+
+      function draw(l) {
+        var g = HITS.ring;
+        var el = document.createElement('div');
+        el.style.cssText = 'position:absolute;left:0;top:0;transform:translate(' + l.x + 'px,' + l.y + 'px)';
+        var ring = null;
+        if (l.ring > 0) {
+          // The ring's inside edge at `ring`, as a circle's stroke is drawn.
+          var outer = l.ring + g.width;
+          ring = document.createElement('div');
+          ring.style.cssText = 'position:absolute;box-sizing:border-box;border-radius:50%;left:' + (-outer) +
+            'px;top:' + (-outer) + 'px;width:' + 2 * outer + 'px;height:' + 2 * outer + 'px;border:' +
+            g.width + 'px solid ' + g.color + ';opacity:0;transform:scale(0.8)';
+          el.appendChild(ring);
+        }
+        var pin = l.pin ? pinCopy(l.pin) : null;
+        if (pin) el.appendChild(pin);
+        layer().appendChild(el);
+        var parts = { el: el, ring: ring, pin: pin };
+        // The starting look applies before the eased one.
+        if (!still()) void el.offsetWidth;
+        ease(parts, true);
+        return parts;
+      }
+
+      // A look that goes eases out, then leaves; `now` when the map moves,
+      // which the elements would not follow.
+      function undraw(parts, now) {
+        if (now || still()) {
+          parts.el.remove();
+          return;
+        }
+        ease(parts, false);
+        setTimeout(function () { parts.el.remove(); }, HITS.ring.ms + 50);
+      }
+
+      // A route mark is told the mouse is on it: its lit ring gives way to
+      // the hover's (RouteMarkStyle.haloOpacity).
+      function tell(l, on) {
+        if (!l || !l.state || !map.getSource(l.state.source)) return;
+        try {
+          map.setFeatureState(l.state, { hover: on });
+        } catch (e) {
+          // The source went with a style change: nothing left to tell.
+        }
+      }
+
+      // The same feature after a click: its copy comes back, grown from what
+      // the map draws now.
+      function regrow(s, l) {
+        var pin = pinCopy(l.pin);
+        if (!pin) return;
+        s.parts.el.appendChild(pin);
+        s.parts.pin = pin;
+        if (!still()) void pin.offsetWidth;
+        ease({ pin: pin }, true);
+      }
+
+      function show(hit, now) {
+        var l = look(hit);
+        var key = l ? l.key : hit ? hit.layer + '|' + JSON.stringify(hit.properties) : null;
+        if (key === shownKey) {
+          if (stale && shown && l && l.pin && !shown.parts.pin) regrow(shown, l);
+          stale = false;
+          return;
+        }
+        stale = false;
         shownKey = key;
         container.classList.toggle('lw-hit', !!hit);
-        ring(hit);
+        if (shown) {
+          tell(shown.look, false);
+          undraw(shown.parts, now);
+          shown = null;
+        }
+        if (l) {
+          tell(l, true);
+          shown = { look: l, parts: draw(l) };
+        }
         // What the mouse is over, for whoever listens on the page (the
         // route map's tooltip: listenWebMapHover in
         // lib/features/map/presentation/web_map_controls_web.dart).
@@ -277,24 +414,39 @@
       });
       map.on('movestart', function () {
         moving = true;
-        show(null);
+        show(null, true);
+        // A look still easing out stays where the map was.
+        if (root) root.textContent = '';
       });
       map.on('moveend', function () {
         moving = false;
         if (last) later();
       });
+      // A click may change what the map draws under the look (the pin it
+      // selects, drawn anew): the copy of the old drawing goes at once,
+      // the ring stays, and the next pick grows the copy again from what
+      // the map then draws.
+      map.on('mousedown', function () {
+        if (!shown || !shown.parts.pin) return;
+        shown.parts.pin.remove();
+        shown.parts.pin = null;
+        stale = true;
+      });
+      // The map settled after drawing something new (a selection, tiles, a
+      // theme): one pick, for the look of what is now under the mouse. The
+      // looks draw nothing on the map, so a still mouse costs nothing more.
+      map.on('idle', function () {
+        if (last && !moving) later();
+      });
       map.on('dragstart', function () { container.classList.add('lw-dragging'); });
       map.on('dragend', function () { container.classList.remove('lw-dragging'); });
-      // A new style may drop the ring's layer (loaded whole, or diffed
-      // without it on the desktop page): it comes back at the next hover.
-      map.on('styledata', function () {
-        if (!map.getLayer('lw-hover')) shownKey = null;
-      });
     }
 
     return {
       nearest: nearest,
       pick: pick,
+      look: look,
+      shapeOf: shapeOf,
       hover: hover,
       pointerType: function () { return lastPointer; }
     };
