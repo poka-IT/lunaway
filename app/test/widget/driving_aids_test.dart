@@ -10,6 +10,7 @@ import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -348,6 +349,35 @@ void main() {
     testWidgets('read from Germany at rest, the preview shows the zones of France', (tester) async {
       await preview(tester, 'DE');
       expect(SchematicRouteMap.last!.zones, hasLength(1));
+    });
+
+    testWidgets('a preview opened during a guidance follows the vehicle across a border', (
+      tester,
+    ) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final start = route.line.first;
+      final border = LineTrack(route).at(300).distanceTo(start);
+      // France for the first 300 m, then Germany, where nothing shows while
+      // driving; the preview was opened in France.
+      final app = await guide(
+        tester,
+        plan,
+        country: (p) => p.distanceTo(start) > border ? 'DE' : 'FR',
+        items: [cited(_zoneOn(route, 1000, 1500))],
+        sources: [listed],
+      );
+      await drive(tester, _drive(route, fromM: 0, toM: 100));
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      // The preview's map, the one on screen over the guidance.
+      List<RouteSpan> shown() =>
+          tester.widget<SchematicRouteMap>(find.byType(SchematicRouteMap)).props.zones;
+      expect(shown(), hasLength(1), reason: 'in France, driving');
+      await drive(tester, _drive(route, fromM: 350, toM: 420));
+      expect(shown(), isEmpty, reason: 'in Germany, while driving');
     });
 
     for (final off in ['CH', 'MA']) {

@@ -806,6 +806,9 @@ class GuidanceController extends _$GuidanceController {
         phase: _offRouteNow(snap, fix) ? GuidancePhase.offRoute : GuidancePhase.navigating,
         reroutes: state!.reroutes + 1,
         alert: () => ReroutedAlert(reason: reason, extra: extra, until: alertUntil),
+        // The zones were measured along the old route; the next fix
+        // measures them along this one.
+        aids: state!.aids.withZones(const []),
       );
       landed = true;
     } on RouteFailure catch (f) {

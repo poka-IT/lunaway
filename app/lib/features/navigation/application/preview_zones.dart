@@ -18,26 +18,34 @@ const PreviewZones noPreviewZones = (spans: [], sources: []);
 
 /// The danger zones the preview draws on [route], read from [origin], where
 /// the device is: under the strictest rule of the countries around it, at
-/// rest (a preview is read before setting off; while a guidance runs, the
-/// rule while driving), only zones, only where the zone's own country
-/// allows them. None where no country is known at the device, the
-/// strictest reading. The route's countries leave the device, as at the
-/// start of a guidance; a position never does (docs/speed-cameras.md).
+/// rest (a preview is read before setting off), only zones, only where the
+/// zone's own country allows them. None where no country is known at the
+/// device, the strictest reading. While a guidance runs, the vehicle's rule
+/// while driving, which follows it across a border at once. The route's
+/// countries leave the device, as at the start of a guidance; a position
+/// never does (docs/speed-cameras.md).
 @riverpod
 Future<PreviewZones> previewZones(Ref ref, RouteOption route, LatLng origin) async {
   final locatorFuture = ref.watch(countryLocatorProvider.future);
-  final driving = ref.watch(guidanceControllerProvider.select((s) => s != null));
+  final driving = ref.watch(guidanceControllerProvider.select((s) => s?.aids.mode));
   final feed = ref.watch(enforcementFeedProvider);
   final now = ref.watch(clockProvider)();
   final locator = await locatorFuture;
-  final here = locator.around(origin).near;
-  if (here.isEmpty || route.line.length < 2) return noPreviewZones;
+  final near = locator.around(origin).near;
+  if (driving == null && near.isEmpty) return noPreviewZones;
+  if (driving != null && !driving.showsWhileDriving) return noPreviewZones;
+  if (route.line.length < 2) return noPreviewZones;
   final countries = countriesAlong(locator, route.line);
   if (countries.isEmpty) return noPreviewZones;
   final data = await feed.refresh(countries, now);
   final rules = data.rules ?? locator.builtIn;
   final onRoute = EnforcementIndex(data.items).onRoute(route.line);
-  final spans = zoneSpans(onRoute, here: rules.strictestOf(here), rules: rules, driving: driving);
+  final spans = zoneSpans(
+    onRoute,
+    here: driving ?? rules.strictestOf(near),
+    rules: rules,
+    driving: driving != null,
+  );
   if (spans.isEmpty) return noPreviewZones;
   final cited = {
     for (final r in onRoute)

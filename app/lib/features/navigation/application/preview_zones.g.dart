@@ -10,22 +10,24 @@ part of 'preview_zones.dart';
 // ignore_for_file: type=lint, type=warning
 /// The danger zones the preview draws on [route], read from [origin], where
 /// the device is: under the strictest rule of the countries around it, at
-/// rest (a preview is read before setting off; while a guidance runs, the
-/// rule while driving), only zones, only where the zone's own country
-/// allows them. None where no country is known at the device, the
-/// strictest reading. The route's countries leave the device, as at the
-/// start of a guidance; a position never does (docs/speed-cameras.md).
+/// rest (a preview is read before setting off), only zones, only where the
+/// zone's own country allows them. None where no country is known at the
+/// device, the strictest reading. While a guidance runs, the vehicle's rule
+/// while driving, which follows it across a border at once. The route's
+/// countries leave the device, as at the start of a guidance; a position
+/// never does (docs/speed-cameras.md).
 
 @ProviderFor(previewZones)
 final previewZonesProvider = PreviewZonesFamily._();
 
 /// The danger zones the preview draws on [route], read from [origin], where
 /// the device is: under the strictest rule of the countries around it, at
-/// rest (a preview is read before setting off; while a guidance runs, the
-/// rule while driving), only zones, only where the zone's own country
-/// allows them. None where no country is known at the device, the
-/// strictest reading. The route's countries leave the device, as at the
-/// start of a guidance; a position never does (docs/speed-cameras.md).
+/// rest (a preview is read before setting off), only zones, only where the
+/// zone's own country allows them. None where no country is known at the
+/// device, the strictest reading. While a guidance runs, the vehicle's rule
+/// while driving, which follows it across a border at once. The route's
+/// countries leave the device, as at the start of a guidance; a position
+/// never does (docs/speed-cameras.md).
 
 final class PreviewZonesProvider
     extends
@@ -37,11 +39,12 @@ final class PreviewZonesProvider
     with $FutureModifier<PreviewZones>, $FutureProvider<PreviewZones> {
   /// The danger zones the preview draws on [route], read from [origin], where
   /// the device is: under the strictest rule of the countries around it, at
-  /// rest (a preview is read before setting off; while a guidance runs, the
-  /// rule while driving), only zones, only where the zone's own country
-  /// allows them. None where no country is known at the device, the
-  /// strictest reading. The route's countries leave the device, as at the
-  /// start of a guidance; a position never does (docs/speed-cameras.md).
+  /// rest (a preview is read before setting off), only zones, only where the
+  /// zone's own country allows them. None where no country is known at the
+  /// device, the strictest reading. While a guidance runs, the vehicle's rule
+  /// while driving, which follows it across a border at once. The route's
+  /// countries leave the device, as at the start of a guidance; a position
+  /// never does (docs/speed-cameras.md).
   PreviewZonesProvider._({
     required PreviewZonesFamily super.from,
     required (RouteOption, LatLng) super.argument,
@@ -86,15 +89,16 @@ final class PreviewZonesProvider
   }
 }
 
-String _$previewZonesHash() => r'2dcc635ada2f215d29c5ace9a95991ec2e7f79c8';
+String _$previewZonesHash() => r'15f07059fe949f3b3589d7ea0b95bc65cd3269f3';
 
 /// The danger zones the preview draws on [route], read from [origin], where
 /// the device is: under the strictest rule of the countries around it, at
-/// rest (a preview is read before setting off; while a guidance runs, the
-/// rule while driving), only zones, only where the zone's own country
-/// allows them. None where no country is known at the device, the
-/// strictest reading. The route's countries leave the device, as at the
-/// start of a guidance; a position never does (docs/speed-cameras.md).
+/// rest (a preview is read before setting off), only zones, only where the
+/// zone's own country allows them. None where no country is known at the
+/// device, the strictest reading. While a guidance runs, the vehicle's rule
+/// while driving, which follows it across a border at once. The route's
+/// countries leave the device, as at the start of a guidance; a position
+/// never does (docs/speed-cameras.md).
 
 final class PreviewZonesFamily extends $Family
     with
@@ -113,11 +117,12 @@ final class PreviewZonesFamily extends $Family
 
   /// The danger zones the preview draws on [route], read from [origin], where
   /// the device is: under the strictest rule of the countries around it, at
-  /// rest (a preview is read before setting off; while a guidance runs, the
-  /// rule while driving), only zones, only where the zone's own country
-  /// allows them. None where no country is known at the device, the
-  /// strictest reading. The route's countries leave the device, as at the
-  /// start of a guidance; a position never does (docs/speed-cameras.md).
+  /// rest (a preview is read before setting off), only zones, only where the
+  /// zone's own country allows them. None where no country is known at the
+  /// device, the strictest reading. While a guidance runs, the vehicle's rule
+  /// while driving, which follows it across a border at once. The route's
+  /// countries leave the device, as at the start of a guidance; a position
+  /// never does (docs/speed-cameras.md).
 
   PreviewZonesProvider call(RouteOption route, LatLng origin) =>
       PreviewZonesProvider._(argument: (route, origin), from: this);

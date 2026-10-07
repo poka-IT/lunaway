@@ -432,7 +432,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       });
     }
     if (_sentZones case (final lines, final zones)
-        when identical(lines, p.lines) && listEquals(zones, p.zones)) {
+        when listEquals(lines, p.lines) && listEquals(zones, p.zones)) {
       // Sent already.
     } else {
       _sentZones = (p.lines, p.zones);

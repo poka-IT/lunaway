@@ -111,6 +111,19 @@ final class DrivingAids {
 
   static const none = DrivingAids();
 
+  /// The same aids with other [zones]: none while a new route waits for
+  /// its first fix, as those were measured on the old one.
+  DrivingAids withZones(List<RouteSpan> zones) => DrivingAids(
+    limit: limit,
+    overSpeed: overSpeed,
+    alert: alert,
+    mode: mode,
+    country: country,
+    words: words,
+    wordKind: wordKind,
+    zones: zones,
+  );
+
   /// The limit to show; null where none is known or the user turned it
   /// off.
   final ShownLimit? limit;
