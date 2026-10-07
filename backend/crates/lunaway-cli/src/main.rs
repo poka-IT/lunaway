@@ -10,6 +10,11 @@
 //! lunaway ingest fuel [--refresh]
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
+//! lunaway ingest extcom --file <path|url> [--refresh]
+//! lunaway extcom status|hide|show [--note TEXT]
+//! lunaway extcom purge [--yes] [--note TEXT]
+//! lunaway extcom purge-media [--yes]
+//! lunaway extcom erase-author <author-id> [--yes]
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
@@ -86,6 +91,7 @@
 //! (the fetch looked truncated) exits with an error after its report, so a
 //! timer or a script sees it.
 
+mod extcom;
 mod extracts;
 mod packs;
 
@@ -239,6 +245,13 @@ enum Command {
     Enforcement {
         #[command(subcommand)]
         action: Enforcement,
+    },
+    /// The switch of the external community source: hide, show or purge
+    /// everything it brought (with the import role; `purge-media` with the
+    /// API's).
+    Extcom {
+        #[command(subcommand)]
+        action: extcom::Extcom,
     },
 }
 
@@ -665,6 +678,78 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// The external community source: a partner's feed received under a
+    /// written agreement (`docs/feeds.md`), JSON Lines, gzip accepted. A
+    /// feed without an agreement in force is refused; a stopped run
+    /// resumes after the last batch it stored.
+    Extcom {
+        /// The feed: a file, or the `https://` URL the partner gave.
+        #[arg(long)]
+        file: String,
+        /// Downloads a URL again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+        /// The reference of the signed agreement, set at deploy time: the
+        /// feed must name it, and every row stores it as its licence.
+        #[arg(long, env = "LUNAWAY_EXTCOM_AGREEMENT_REF", hide_env_values = true)]
+        agreement_ref: Option<String>,
+        /// The hosts photos may be downloaded from, comma separated.
+        #[arg(
+            long,
+            env = "LUNAWAY_EXTCOM_PHOTO_HOSTS",
+            value_delimiter = ',',
+            hide_env_values = true
+        )]
+        photo_hosts: Vec<String>,
+    },
+}
+
+/// Prints what an import of the external community feed did.
+fn print_extcom(r: &lunaway_ingest::extcom::Report) {
+    println!(
+        "agreement {}, feed {}{}{}",
+        r.agreement,
+        &r.feed_sha256[..r.feed_sha256.len().min(16)],
+        if r.cached { ", from the cache" } else { "" },
+        if r.resumed_after > 0 {
+            format!(", resumed after line {}", r.resumed_after)
+        } else {
+            String::new()
+        }
+    );
+    println!(
+        "lines: {}, places: {}, dropped: {:?}, reviews dropped: {}, photos dropped: {}",
+        r.lines, r.places, r.dropped, r.reviews_dropped, r.photos_dropped
+    );
+    if !r.unmapped.is_empty() {
+        println!(
+            "codes no table maps (add them to lunaway_ingest::extcom): {:?}",
+            r.unmapped
+        );
+    }
+    println!(
+        "{} feed; records: {} inserted, {} changed, {} unchanged; {} marked deleted, {} retired; \
+         licences set: {}",
+        if r.complete { "complete" } else { "delta" },
+        r.records.inserted,
+        r.records.changed,
+        r.records.unchanged,
+        r.marked_deleted,
+        r.retired,
+        r.licences_set
+    );
+    let f = &r.forgotten;
+    println!(
+        "forgotten with the retired spots: {} records emptied, {} reviews, {} ratings, {} \
+         photos; skipped of erased authors: {}",
+        f.records, f.reviews, f.ratings, f.photos, r.erased_skipped
+    );
+    let x = &r.extras;
+    println!(
+        "reviews: {} written, {} removed; rating summaries: {} written; photos: {} written, {} \
+         retired",
+        x.reviews_written, x.reviews_removed, x.ratings_written, x.photos_written, x.photos_retired
+    );
 }
 
 /// Prints what a store of joined rows did.
@@ -1018,6 +1103,40 @@ async fn main() -> anyhow::Result<()> {
                     );
                     println!("places whose commune changed: {}", r.places_changed);
                 }
+                Source::Extcom {
+                    file,
+                    refresh,
+                    agreement_ref,
+                    photo_hosts,
+                } => {
+                    let reference = agreement_ref.context(
+                        "LUNAWAY_EXTCOM_AGREEMENT_REF is not set: a feed is imported only under \
+                         the agreement the server is configured with",
+                    )?;
+                    let hosts: Vec<String> = photo_hosts
+                        .into_iter()
+                        .filter(|h| !h.trim().is_empty())
+                        .collect();
+                    let terms = lunaway_domain::extcom::Terms::new(&reference, &hosts)
+                        .context("LUNAWAY_EXTCOM_AGREEMENT_REF or LUNAWAY_EXTCOM_PHOTO_HOSTS")?;
+                    let options = lunaway_ingest::extcom::Options {
+                        terms,
+                        limits: lunaway_ingest::extcom::Limits::default(),
+                        refresh,
+                        today: chrono::Utc::now().date_naive(),
+                    };
+                    let r = lunaway_ingest::extcom::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &lunaway_ingest::extcom::Input::parse(&file),
+                        &options,
+                    )
+                    .await
+                    .context("extcom import failed")?;
+                    print_extcom(&r);
+                    check_retirement(if r.retire_refused { &["extcom"] } else { &[] })?;
+                }
                 Source::AtoutFrance { refresh } => {
                     let r = run::atout_france(
                         &pool,
@@ -1313,6 +1432,10 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Enforcement { action } => enforcement(&pool, action).await?,
+        Command::Extcom { action } => {
+            let media = lunaway_media::MediaStore::new(cli.media_dir);
+            extcom::run(&pool, &media, &cache.root().join("extcom"), action).await?;
+        }
         Command::Routing { .. } => unreachable!("handled before connecting"),
     }
     Ok(())

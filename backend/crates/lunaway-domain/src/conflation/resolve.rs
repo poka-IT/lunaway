@@ -79,40 +79,55 @@ coded_field! {
 ///   commercial names.
 /// - The community: what changes and what only a visitor knows (whether a
 ///   night is tolerated, the state of the services, the price).
+/// - The external community source (`extcom`): a partner's community,
+///   years of visits per spot. It ranks high on what visitors report
+///   (overnight status, services, prices, activities, descriptions), just
+///   below Lunaway's own users, whose contributions go through Lunaway's
+///   moderation and are the most recent word; it ranks low on what a
+///   visitor's phone measures badly or a free-text form mangles: the
+///   position (a pin dropped on a phone, behind OpenStreetMap's mapped
+///   geometry and Lunaway's reviewed pins), the vehicle limits (read off a
+///   sign from memory, where OpenStreetMap maps the sign), the kind (the
+///   partner's categories are coarser than the taxonomy), the address and
+///   the opening periods (free text, converted), and the stars (not an
+///   official classification).
 #[must_use]
 pub fn trust_prior(source: &SourceId, field: Field) -> f64 {
     let osm = *source == SourceId::OSM;
     let atout = *source == SourceId::ATOUT_FRANCE;
     let community = *source == SourceId::COMMUNITY;
-    let pick = |o: f64, a: f64, c: f64| {
+    let extcom = *source == SourceId::EXTCOM;
+    let pick = |o: f64, a: f64, c: f64, x: f64| {
         if osm {
             o
         } else if atout {
             a
         } else if community {
             c
+        } else if extcom {
+            x
         } else {
             0.5
         }
     };
     match field {
-        Field::Name => pick(0.7, 0.6, 0.8),
-        Field::Kind => pick(0.8, 0.9, 0.85),
-        Field::Position => pick(0.9, 0.4, 0.7),
-        Field::Overnight => pick(0.6, 0.7, 1.0),
-        Field::Services => pick(0.8, 0.1, 0.9),
-        Field::Activities => pick(0.7, 0.1, 0.9),
-        Field::Description => pick(0.6, 0.5, 0.8),
-        Field::Address => pick(0.7, 0.9, 0.6),
-        Field::PriceParking | Field::PriceServices => pick(0.6, 0.5, 0.9),
+        Field::Name => pick(0.7, 0.6, 0.8, 0.65),
+        Field::Kind => pick(0.8, 0.9, 0.85, 0.6),
+        Field::Position => pick(0.9, 0.4, 0.7, 0.65),
+        Field::Overnight => pick(0.6, 0.7, 1.0, 0.95),
+        Field::Services => pick(0.8, 0.1, 0.9, 0.85),
+        Field::Activities => pick(0.7, 0.1, 0.9, 0.8),
+        Field::Description => pick(0.6, 0.5, 0.8, 0.75),
+        Field::Address => pick(0.7, 0.9, 0.6, 0.5),
+        Field::PriceParking | Field::PriceServices => pick(0.6, 0.5, 0.9, 0.85),
         Field::MaxHeight | Field::MaxLength | Field::MaxWidth | Field::MaxWeight => {
-            pick(0.9, 0.1, 0.8)
+            pick(0.9, 0.1, 0.8, 0.5)
         }
-        Field::Capacity => pick(0.7, 0.9, 0.6),
-        Field::OpeningHours => pick(0.8, 0.3, 0.7),
-        Field::Website => pick(0.7, 0.8, 0.6),
-        Field::Phone => pick(0.8, 0.5, 0.7),
-        Field::Stars => pick(0.5, 1.0, 0.3),
+        Field::Capacity => pick(0.7, 0.9, 0.6, 0.5),
+        Field::OpeningHours => pick(0.8, 0.3, 0.7, 0.5),
+        Field::Website => pick(0.7, 0.8, 0.6, 0.5),
+        Field::Phone => pick(0.8, 0.5, 0.7, 0.5),
+        Field::Stars => pick(0.5, 1.0, 0.3, 0.2),
     }
 }
 
@@ -891,10 +906,80 @@ mod tests {
                 &SourceId::OSM,
                 &SourceId::ATOUT_FRANCE,
                 &SourceId::COMMUNITY,
+                &SourceId::EXTCOM,
                 &other,
             ] {
                 assert!((0.0..=1.0).contains(&trust_prior(s, *f)));
             }
+        }
+    }
+
+    fn extcom_spot() -> NormalizedRecord {
+        let mut r =
+            NormalizedRecord::new(PlaceKind::Parking, Position::new(47.4035, -0.5608).unwrap());
+        r.name = Some("Parking du lac, calme la nuit".into());
+        r.overnight = OvernightStatus::Tolerated;
+        r.services = [Service::DrinkingWater, Service::WasteBin].into();
+        r.price_parking_eur = Some(0.0);
+        r.max_height_m = Some(2.5);
+        r
+    }
+
+    #[test]
+    fn the_external_community_leads_on_what_visitors_report_and_osm_on_what_it_maps() {
+        let mut o =
+            NormalizedRecord::new(PlaceKind::Parking, Position::new(47.4031, -0.5612).unwrap());
+        o.name = Some("Parking du Lac".into());
+        o.overnight = OvernightStatus::Allowed;
+        o.services = [Service::Toilets].into();
+        o.max_height_m = Some(2.2);
+        let x = extcom_spot();
+        let contributions = [
+            Contribution {
+                source: &SourceId::OSM,
+                external_id: "way/1",
+                fetched_at: at(5),
+                external_url: None,
+                record: &o,
+            },
+            Contribution {
+                source: &SourceId::EXTCOM,
+                external_id: "spot-1",
+                fetched_at: at(6),
+                external_url: None,
+                record: &x,
+            },
+        ];
+        let place = resolve(&contributions).unwrap();
+        let c = &place.content;
+        assert_eq!(
+            c.overnight,
+            OvernightStatus::Tolerated,
+            "visitors know whether a night is tolerated better than a map"
+        );
+        assert_eq!(
+            c.services,
+            vec![Service::DrinkingWater, Service::WasteBin],
+            "the services visitors report win over the mapped ones"
+        );
+        assert_eq!(c.price_parking_eur, Some(0.0));
+        assert_eq!(c.position, o.position, "OSM's mapped geometry wins");
+        assert_eq!(
+            c.max_height_m,
+            Some(2.2),
+            "a limit mapped from the sign wins over one remembered by a visitor"
+        );
+        assert_eq!(c.name.as_deref(), Some("Parking du Lac"));
+    }
+
+    #[test]
+    fn lunaway_users_outrank_the_external_community_on_every_field_they_share() {
+        for f in Field::ALL {
+            assert!(
+                trust_prior(&SourceId::COMMUNITY, *f) >= trust_prior(&SourceId::EXTCOM, *f),
+                "{f:?}: a Lunaway contribution, moderated here and more recent, must not lose \
+                 to a partner's copy"
+            );
         }
     }
 

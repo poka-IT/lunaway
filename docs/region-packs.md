@@ -106,7 +106,7 @@ An SQLite database, compressed with gzip, holding two tables.
 | `cursor` | the `since` cursor that continues the feed after the pack (the manifest gives the same) |
 | `places` | how many places |
 | `generatedAt` | when it was built (RFC 3339) |
-| `licence`, `attribution` | ODbL 1.0, and what the about page credits |
+| `licence`, `attribution` | ODbL 1.0, and what the about page credits; a pack holding values of the external community source says they are licensed under its agreement, with its attribution (`docs/data-sources.md`, "Licences of the places database") |
 
 `places`, one row per live place of the region, every value as the GraphQL
 API writes it for `Place` (enum values in capitals, dates in RFC 3339, lists

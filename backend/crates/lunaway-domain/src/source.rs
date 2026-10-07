@@ -47,6 +47,10 @@ impl SourceId {
     pub const CAT_SCT_RADARS: Self = Self(Cow::Borrowed("cat-sct-radars"));
     /// Norway's fixed speed cameras (NVDB, object type 162).
     pub const NO_NVDB_ATK: Self = Self(Cow::Borrowed("no-nvdb-atk"));
+    /// The external community source: a partner's places, reviews and
+    /// photos, received as a feed under a written agreement
+    /// (`docs/feeds.md`), shown as "Source communautaire externe".
+    pub const EXTCOM: Self = Self(Cow::Borrowed("extcom"));
 
     /// A source id, if `id` follows the format.
     ///
@@ -112,6 +116,7 @@ mod tests {
             SourceId::LU_PCH_RADARS,
             SourceId::CAT_SCT_RADARS,
             SourceId::NO_NVDB_ATK,
+            SourceId::EXTCOM,
         ] {
             assert_eq!(
                 SourceId::new(id.as_str()).unwrap(),

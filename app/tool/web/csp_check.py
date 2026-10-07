@@ -1,6 +1,7 @@
 """Loads the web build in a headless browser under the production headers and
 fails on anything the Content-Security-Policy refuses.
 
+    sh packages/lunaway_nav/tool/build_web.sh
     fvm flutter build web --release --base-href /app/ --no-web-resources-cdn \\
         --dart-define=LUNAWAY_API_URL=http://127.0.0.1:18793
     python3 tool/web/csp_check.py --api https://api.lunaway.net/graphql --out ../plan/screenshots/web-csp

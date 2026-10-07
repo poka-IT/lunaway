@@ -37,6 +37,11 @@ mod retention;
 #[path = "conflate/feed.rs"]
 mod feed;
 
+// The external community source merges like any source, and its switch
+// takes it off every place.
+#[path = "conflate/extcom.rs"]
+mod extcom;
+
 /// The takedown secret of the tests.
 fn test_key() -> lunaway_domain::takedown::TakedownKey {
     lunaway_domain::takedown::TakedownKey::new(&[42; 32]).unwrap()

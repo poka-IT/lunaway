@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO external_reviews AS e\n            (id, source_id, record_id, external_id, author_id, author, written_at, lang, rating,\n             body, vehicle, licence, fetched_at)\n        SELECT u.id, $1, $2, u.external_id, u.author_id, u.author, u.written_at, u.lang,\n               u.rating, u.body, u.vehicle, $3, $4\n        FROM UNNEST($5::uuid[], $6::text[], $13::text[], $7::text[], $8::timestamptz[],\n                    $9::text[], $10::int2[], $11::text[], $12::text[])\n             AS u(id, external_id, author_id, author, written_at, lang, rating, body, vehicle)\n        ON CONFLICT (source_id, external_id) DO UPDATE SET\n            record_id = EXCLUDED.record_id, author_id = EXCLUDED.author_id,\n            author = EXCLUDED.author, written_at = EXCLUDED.written_at, lang = EXCLUDED.lang,\n            rating = EXCLUDED.rating, body = EXCLUDED.body, vehicle = EXCLUDED.vehicle,\n            licence = EXCLUDED.licence, fetched_at = EXCLUDED.fetched_at, changed_at = now()\n        WHERE (e.record_id, e.author_id, e.author, e.written_at, e.lang, e.rating, e.body,\n               e.vehicle, e.licence)\n              IS DISTINCT FROM\n              (EXCLUDED.record_id, EXCLUDED.author_id, EXCLUDED.author, EXCLUDED.written_at,\n               EXCLUDED.lang, EXCLUDED.rating, EXCLUDED.body, EXCLUDED.vehicle,\n               EXCLUDED.licence)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "UuidArray",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray",
+        "Int2Array",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d3706aaddb79a50889afd0a6c72affc93c0171d52a4c366321b5f12101bd0e3"
+}

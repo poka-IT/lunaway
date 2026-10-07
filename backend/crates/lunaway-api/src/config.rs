@@ -29,6 +29,56 @@ pub struct ApiConfig {
     pub tiles: TilesConfig,
     /// What is kept of the accounts deleted, and of the contributions sent.
     pub keeping: KeepingConfig,
+    /// The proxy that downloads a partner's photos.
+    pub external_photos: ExternalPhotosConfig,
+}
+
+/// The photo proxy of the external community source
+/// (`GET /external-photos/{id}/{size}`): how hard it may use the partner's
+/// photo host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExternalPhotosConfig {
+    /// Downloads at once (`LUNAWAY_EXTERNAL_PHOTO_FETCHES`, 2): the
+    /// partner's host is asked politely, and each download is then
+    /// decoded by one of the media workers.
+    pub fetches_at_once: usize,
+    /// Longest download, redirects included
+    /// (`LUNAWAY_EXTERNAL_PHOTO_TIMEOUT_MS`, 20 s).
+    pub timeout: Duration,
+    /// Downloads per UTC day, all clients together
+    /// (`LUNAWAY_EXTERNAL_PHOTO_DAILY`, 5000): at about 300 kB stored per
+    /// photo, 1.5 GB a day at most.
+    pub downloads_per_day: u32,
+}
+
+impl Default for ExternalPhotosConfig {
+    fn default() -> Self {
+        Self {
+            fetches_at_once: 2,
+            timeout: Duration::from_secs(20),
+            downloads_per_day: 5_000,
+        }
+    }
+}
+
+impl ExternalPhotosConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        Self {
+            fetches_at_once: lookup("LUNAWAY_EXTERNAL_PHOTO_FETCHES")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| (1..=16).contains(n))
+                .unwrap_or(d.fetches_at_once),
+            timeout: lookup("LUNAWAY_EXTERNAL_PHOTO_TIMEOUT_MS")
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|ms| (1_000..=120_000).contains(ms))
+                .map_or(d.timeout, Duration::from_millis),
+            downloads_per_day: lookup("LUNAWAY_EXTERNAL_PHOTO_DAILY")
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| (1..=1_000_000).contains(n))
+                .unwrap_or(d.downloads_per_day),
+        }
+    }
 }
 
 impl Default for ApiConfig {
@@ -44,6 +94,7 @@ impl Default for ApiConfig {
             routing: RoutingConfig::default(),
             tiles: TilesConfig::default(),
             keeping: KeepingConfig::default(),
+            external_photos: ExternalPhotosConfig::default(),
         }
     }
 }
@@ -685,6 +736,7 @@ impl ApiConfig {
             routing: RoutingConfig::from_lookup(&lookup),
             tiles: TilesConfig::from_lookup(&lookup),
             keeping: KeepingConfig::from_lookup(&lookup),
+            external_photos: ExternalPhotosConfig::from_lookup(&lookup),
         }
     }
 

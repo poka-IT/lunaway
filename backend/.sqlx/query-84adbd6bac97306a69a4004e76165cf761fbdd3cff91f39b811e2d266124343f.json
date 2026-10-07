@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO source_agreements AS g\n            (source_id, reference, grantor, grantee, signed_on, valid_until, scope, attribution,\n             licence_url, photo_hosts, first_seen_at, last_seen_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)\n        ON CONFLICT (source_id, reference) DO UPDATE SET\n            grantor = EXCLUDED.grantor, grantee = EXCLUDED.grantee,\n            signed_on = EXCLUDED.signed_on, valid_until = EXCLUDED.valid_until,\n            scope = EXCLUDED.scope, attribution = EXCLUDED.attribution,\n            licence_url = EXCLUDED.licence_url, photo_hosts = EXCLUDED.photo_hosts,\n            last_seen_at = greatest(g.last_seen_at, EXCLUDED.last_seen_at)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Date",
+        "Date",
+        "TextArray",
+        "Text",
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "84adbd6bac97306a69a4004e76165cf761fbdd3cff91f39b811e2d266124343f"
+}

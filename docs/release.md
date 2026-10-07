@@ -147,7 +147,7 @@ only iOS check.
 ### Web
 
 ```bash
-infra/deploy-web.sh app --build     # fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
+infra/deploy-web.sh app --build     # build_web.sh, fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
 ```
 
 Built from the main tree by the script: run it from the release worktree,

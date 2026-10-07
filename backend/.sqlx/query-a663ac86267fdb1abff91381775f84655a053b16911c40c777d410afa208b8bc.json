@@ -1,70 +1,70 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, licence, licence_url, attribution, url FROM sources ORDER BY id",
+  "query": "\n        SELECT id AS \"id!\", name AS \"name!\", licence AS \"licence!\",\n               licence_url AS \"licence_url!\", attribution AS \"attribution!\", url AS \"url!\"\n        FROM source_terms WHERE hidden_at IS NULL ORDER BY id\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "name",
+        "name": "name!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "name"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "licence",
+        "name": "licence!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "licence"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "licence_url",
+        "name": "licence_url!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "licence_url"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "attribution",
+        "name": "attribution!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "attribution"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "url",
+        "name": "url!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "sources",
+            "table": "source_terms",
             "name": "url"
           }
         }
@@ -74,13 +74,13 @@
       "Left": []
     },
     "nullable": [
-      false,
-      false,
-      false,
-      false,
-      false,
-      false
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "69bc587a7b2d99c644cdd46ecde1b39e4f5335fe52b6c07719cc339b4b37c689"
+  "hash": "a663ac86267fdb1abff91381775f84655a053b16911c40c777d410afa208b8bc"
 }

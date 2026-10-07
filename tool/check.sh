@@ -131,11 +131,10 @@ else
     run "cargo fmt guidance" in_nav cargo fmt -- --check
   fi
   run "clippy guidance" in_nav cargo clippy --locked --all-targets -- -D warnings
-  # The browser runs the same crate compiled to WebAssembly, committed in
-  # app/web/lunaway_nav/: it must still compile, and the committed build
-  # must come from the crate as it is (tool/build_web.sh rebuilds it).
+  # The browser runs the same crate compiled to WebAssembly, built from
+  # source before each web build (app/packages/lunaway_nav/tool/build_web.sh,
+  # the CI's `web` job): it must still compile for that target.
   run "clippy guidance web" in_nav cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
-  run "guidance web build" sh app/packages/lunaway_nav/tool/build_web.sh --check
   if command -v cargo-deny >/dev/null 2>&1; then
     run "cargo deny guidance" cargo deny --manifest-path app/packages/lunaway_nav/rust/Cargo.toml \
       --config backend/deny.toml --log-level error check bans licenses sources advisories

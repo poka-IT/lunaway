@@ -176,6 +176,29 @@ const LICENCE: &str = "ODbL-1.0";
 const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors and the sources \
                            each place lists (docs/data-sources.md)";
 
+/// The licence and attribution of a pack whose places list `sources`: the
+/// ODbL, and, when a place carries values of a source an agreement keeps
+/// out of the open licence (`extcom`), the exception said in so many words
+/// with that source's attribution (`docs/data-sources.md`, "Licences of
+/// the places database"). A pack is a file anyone may copy: it must not
+/// label the partner's values as open data.
+fn pack_terms<'a>(sources: impl IntoIterator<Item = &'a PlaceSourceRow>) -> (String, String) {
+    let withheld = sources
+        .into_iter()
+        .find(|s| !lunaway_domain::conflation::public_dump::in_public_dump(&s.source_id));
+    match withheld {
+        None => (LICENCE.to_owned(), ATTRIBUTION.to_owned()),
+        Some(s) => (
+            format!(
+                "{LICENCE}, except the values whose provenance is `{}` ({}), licensed under its \
+                 written agreement ({}) and excluded from any public dump",
+                s.source_id, s.source_name, s.licence
+            ),
+            format!("{ATTRIBUTION}; {}", s.attribution),
+        ),
+    }
+}
+
 /// What can stop a build.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -509,6 +532,7 @@ async fn build_locked(
                 sources.entry(row.place_id).or_default().push(row);
             }
         }
+        let (licence, attribution) = pack_terms(sources.values().flatten());
         // The cover photos' URLs come from the API's configuration, the
         // rest from the snapshot.
         let schema = Schema::build(PackRoot, EmptyMutation, EmptySubscription)
@@ -525,8 +549,8 @@ async fn build_locked(
             ("cursor", cursor.clone()),
             ("places", extent.places.to_string()),
             ("generatedAt", generated_at.to_rfc3339()),
-            ("licence", LICENCE.to_owned()),
-            ("attribution", ATTRIBUTION.to_owned()),
+            ("licence", licence),
+            ("attribution", attribution),
         ];
         let work_dir = work.clone();
         let (mut writer, raw_file) = blocking(move || {
@@ -868,6 +892,54 @@ async fn remove_older(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn row(
+        source: lunaway_domain::SourceId,
+        name: &str,
+        licence: &str,
+        attribution: &str,
+    ) -> PlaceSourceRow {
+        PlaceSourceRow {
+            place_id: Uuid::nil(),
+            source_id: source,
+            source_name: name.into(),
+            licence: licence.into(),
+            attribution: attribution.into(),
+            source_url: "https://lunaway.net".into(),
+            external_id: "1".into(),
+            external_url: None,
+            fetched_at: Utc::now(),
+            match_score: None,
+        }
+    }
+
+    #[test]
+    fn a_pack_carrying_partner_values_says_they_are_not_odbl() {
+        let osm = row(
+            lunaway_domain::SourceId::OSM,
+            "OpenStreetMap",
+            "ODbL 1.0",
+            "© OpenStreetMap contributors",
+        );
+        assert_eq!(
+            pack_terms([&osm]),
+            (LICENCE.to_owned(), ATTRIBUTION.to_owned()),
+            "a pack of open sources only is ODbL, as before"
+        );
+        let partner = row(
+            lunaway_domain::SourceId::EXTCOM,
+            "Source communautaire externe",
+            "EXTCOM-REF-1",
+            "Source communautaire externe, avec l'accord du partenaire",
+        );
+        let (licence, attribution) = pack_terms([&osm, &partner]);
+        assert!(licence.starts_with("ODbL-1.0, except the values whose provenance is `extcom`"));
+        assert!(
+            licence.contains("EXTCOM-REF-1"),
+            "the agreement the values come under is named"
+        );
+        assert!(attribution.ends_with("Source communautaire externe, avec l'accord du partenaire"));
+    }
 
     #[test]
     fn a_region_s_files_are_told_from_those_of_regions_its_code_starts() {
