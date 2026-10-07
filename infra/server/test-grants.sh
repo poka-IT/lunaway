@@ -49,6 +49,12 @@ spatial_ref_sys SELECT"
 # The account and contribution tables the API writes (migration
 # 20261006005548): every row privilege, and nothing on the catalogue but
 # SELECT.
+#
+# The open content and the partner's reviews, ratings and photos
+# (migrations 20261007180000 to 20261008110200) are the import role's to
+# write. The API reads them; it writes no hide (content_hides SELECT only):
+# it hides a reported item and lifts the reports' hide through
+# content_hide_reported and content_unhide_reported.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
   favorite_items place_submissions"
@@ -102,6 +108,15 @@ confirmation_tallies SELECT
 confirmation_tallies INSERT
 confirmation_tallies UPDATE
 confirmation_tallies DELETE
+content_photos SELECT
+content_descriptions SELECT
+content_reviews SELECT
+content_hides SELECT
+external_ratings SELECT
+external_photos DELETE
+source_agreements SELECT
+source_switches SELECT
+source_terms SELECT
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -207,6 +222,47 @@ source_reads INSERT
 source_reads UPDATE
 place_takedowns SELECT
 place_takedowns INSERT
+content_photos SELECT
+content_photos INSERT
+content_photos UPDATE
+content_photos DELETE
+content_descriptions SELECT
+content_descriptions INSERT
+content_descriptions UPDATE
+content_descriptions DELETE
+content_reviews SELECT
+content_reviews INSERT
+content_reviews UPDATE
+content_reviews DELETE
+content_checks SELECT
+content_checks INSERT
+content_checks UPDATE
+content_checks DELETE
+content_hides SELECT
+content_hides INSERT
+content_hides DELETE
+content_review_keys SELECT
+content_review_keys INSERT
+external_reviews SELECT
+external_reviews INSERT
+external_reviews UPDATE
+external_reviews DELETE
+external_ratings SELECT
+external_ratings INSERT
+external_ratings UPDATE
+external_ratings DELETE
+external_photos SELECT
+external_photos INSERT
+external_photos UPDATE
+source_agreements SELECT
+source_agreements INSERT
+source_agreements UPDATE
+source_erasures SELECT
+source_erasures INSERT
+source_switches SELECT
+source_switches INSERT
+source_switches UPDATE
+source_terms SELECT
 EOF
 )"
 
