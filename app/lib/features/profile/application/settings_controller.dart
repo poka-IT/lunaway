@@ -53,6 +53,9 @@ class Settings extends _$Settings {
   Future<void> setCopyFormat(CoordinateFormat format) =>
       _update(state.copyWith(copyFormat: format));
 
+  /// Remembers that the hint on tapping the map was shown.
+  Future<void> setMapTapHintShown() => _update(state.copyWith(mapTapHintShown: true));
+
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;
     state = next;

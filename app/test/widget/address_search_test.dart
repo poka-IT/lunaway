@@ -81,7 +81,11 @@ void main() {
       expect(app.map.lastProps!.markedPoint, _segur.position, reason: 'a pin marks it');
       expect(find.text('20 Avenue de Ségur'), findsWidgets, reason: 'the details name it');
       expect(find.text('Source : Base Adresse Nationale, IGN Géoplateforme'), findsOneWidget);
-      expect(find.text('Itinéraire'), findsWidgets, reason: 'the way there, as for any point');
+      expect(
+        find.textContaining('Itinéraire'),
+        findsWidgets,
+        reason: 'the way there, as for any point',
+      );
 
       await tester.ensureVisible(find.text('Les lieux autour'));
       await tester.tap(find.text('Les lieux autour'));

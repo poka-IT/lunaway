@@ -224,14 +224,6 @@ void main() {
       expect(host.restChecks, isNotEmpty);
     });
 
-    testWidgets('adding a place from afar brings the map down to the street first', (tester) async {
-      final app = await pumpLunaway(tester);
-      await tester.tap(find.byTooltip('Ajouter un lieu'));
-      await settleShort(tester);
-      expect(find.text('Point choisi'), findsOneWidget);
-      expect(app.map.moves.last, (center: app.map.viewport.center, zoom: 15.0));
-    });
-
     testWidgets('with a place open, Android is told the app handles back', (tester) async {
       final handlesBack = <bool>[];
       recordAppExits(tester, handlesBack: handlesBack);
@@ -283,7 +275,7 @@ void main() {
       final app = await pumpLunaway(tester);
       await tester.longPress(find.byKey(const ValueKey('fake-map')));
       await settleShort(tester);
-      expect(find.text('Point choisi'), findsOneWidget);
+      expect(find.text('Ici'), findsOneWidget);
       expect(find.text('45.762900, 4.831697'), findsOneWidget);
       expect(app.map.lastProps!.markedPoint, dayParking.position);
       expect(app.map.moves.last.center, dayParking.position, reason: 'the point stays in view');

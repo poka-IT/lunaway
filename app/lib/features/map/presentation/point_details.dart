@@ -14,9 +14,11 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
-/// A point the user long-pressed on the map, or an address the search
-/// found: its coordinates to copy, the way there, and for an address the
-/// places around it and the source to credit.
+/// The card of a bare point of the map, tapped at street level or held at
+/// any zoom, or of an address the search found: "Here" or the address with
+/// its source, what can be done there, its coordinates. Compact: the way
+/// there and the copy sit in the action bar, the new place right under the
+/// title; an address offers the places around it first.
 class PointDetails extends StatelessWidget {
   const new({
     required this.position,
@@ -112,10 +114,11 @@ class PointDetails extends StatelessWidget {
           ),
           const SizedBox(height: Space.l),
         ],
-        // A point on the map is where a missing place goes: the second
-        // gesture of adding one (the first was the long press).
+        // A point on the map is where a missing place goes: the placement
+        // and the form follow.
         Consumer(
-          // Outlined: the route below stays the one primary action.
+          // Outlined: the route in the action bar stays the one primary
+          // action.
           builder: (context, ref, _) => OutlinedButton.icon(
             onPressed: () => startAddPlace(context, ref, position),
             icon: const Icon(AppIcons.addPlace),
@@ -124,9 +127,9 @@ class PointDetails extends StatelessWidget {
           ),
         ),
         const SizedBox(height: Space.l),
-        VendingQuickAdd(position: position),
-        const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
+        const SizedBox(height: Space.l),
+        VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
         // What is seen on the road there: a closure, works, a low bridge.
         OutlinedButton.icon(
@@ -141,7 +144,7 @@ class PointDetails extends StatelessWidget {
     return Column(
       children: [
         Expanded(child: body),
-        PointActionBar(position: position),
+        PointActionBar(position: position, here: true),
       ],
     );
   }
@@ -149,10 +152,14 @@ class PointDetails extends StatelessWidget {
 
 /// The actions of a point: the route there, and its coordinates to copy.
 class PointActionBar extends ConsumerWidget {
-  const new({required this.position, this.floating = false, super.key});
+  const new({required this.position, this.floating = false, this.here = false, super.key});
 
   final LatLng position;
   final bool floating;
+
+  /// A bare point of the map rather than a shop or a service: the buttons
+  /// say "here".
+  final bool here;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -167,7 +174,11 @@ class PointActionBar extends ConsumerWidget {
               onPressed: () => openDirections(context, position),
               onLongPress: () => openInOtherApp(context, ref, position, choose: true),
               icon: const Icon(AppIcons.directions),
-              label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
+              label: Text(
+                here ? t.map.directionsHere : t.place.directions,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+              ),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
             ),
           ),
@@ -176,7 +187,11 @@ class PointActionBar extends ConsumerWidget {
             child: OutlinedButton.icon(
               onPressed: () => copyCoordinates(context, ref, position),
               icon: const Icon(AppIcons.copy),
-              label: Text(t.place.copyShort, maxLines: 2, textAlign: TextAlign.center),
+              label: Text(
+                here ? t.map.copyCoordinates : t.place.copyShort,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+              ),
               style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),
             ),
           ),

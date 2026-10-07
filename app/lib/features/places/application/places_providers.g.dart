@@ -1442,7 +1442,7 @@ final class AddressSearchProvider
   }
 }
 
-String _$addressSearchHash() => r'ca94d3d2e05a37f9dd2a5533fbf2995be714d8e6';
+String _$addressSearchHash() => r'6b51277b64d03facf0282ac54ddd4886aaf21695';
 
 /// The addresses under the places of the map's search: those the API
 /// gave with its places, else, for a device that searched its own places,

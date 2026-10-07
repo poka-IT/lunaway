@@ -44,6 +44,11 @@ abstract interface class LunaMapController {
   /// Marks [position] as the user's, a position the app read itself (the
   /// browser's, on the web), with its radius of uncertainty in metres.
   Future<void> showPosition(LatLng position, {double? accuracy});
+
+  /// The camera now, read from the engine even while the map still glides
+  /// after a fling or zooms after a double tap (the viewport is only
+  /// reported at rest); null when the engine cannot tell.
+  Future<({LatLng center, double zoom})?> camera();
 }
 
 /// The map widget contract: data in, gestures out. A screen builds it
@@ -105,9 +110,10 @@ final class LunaMapProps {
   final ValueChanged<LatLng> onLongPress;
   final ValueChanged<MapViewport> onViewportChanged;
 
-  /// A tap where there is no pin, no cluster and no marker: closes what the
-  /// map had open, as in every map app.
-  final VoidCallback? onEmptyTap;
+  /// A tap where there is no pin, no cluster and no marker within reach
+  /// (`hitAroundTap`), at that point, with the map's zoom then. The screen
+  /// decides (`bareTapAt`): close what is open, or open the point.
+  final void Function(LatLng at, double zoom)? onEmptyTap;
   final ValueChanged<LunaMapController> onMapReady;
 
   /// Space covered by floating panels, so camera moves centre on what the

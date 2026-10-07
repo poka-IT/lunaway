@@ -60,7 +60,9 @@
 
     // Candidates topmost first: {layer, properties, points: [[x, y], ...]}.
     // A tie goes to the lower priority, then to the one drawn on top.
-    function nearest(at, candidates, zoom, tolerance) {
+    // `signs`: a shape that needs a property (a route mark's id) is picked
+    // without it too, to tell a tap on a sign of the route from bare map.
+    function nearest(at, candidates, zoom, tolerance, signs) {
       var best = null;
       var bestPriority = 0;
       for (var i = 0; i < candidates.length; i++) {
@@ -68,7 +70,7 @@
         var props = c.properties || {};
         var shape = shapeOf(c.layer, props);
         if (!shape) continue;
-        if (shape.needs && (props[shape.needs] === undefined || props[shape.needs] === null)) continue;
+        if (!signs && shape.needs && (props[shape.needs] === undefined || props[shape.needs] === null)) continue;
         var distance = tolerance;
         var point = 0;
         if (!shape.line) {
@@ -111,10 +113,14 @@
 
     // What a click at `point` (screen pixels) on `map` picks: the feature,
     // its layer, the point of it picked (one of a MultiPoint) in degrees
-    // and on screen, and its shape; null for none.
+    // and on screen, and its shape; null for none. `options.wider`: the
+    // tolerance times this (the reach before a tap counts as bare map,
+    // FreeTap in lib/features/map/domain/map_taps.dart); `options.signs`:
+    // see nearest.
     function pick(map, point, options) {
       options = options || {};
-      var tolerance = HITS.tolerance[options.pointer || lastPointer] || HITS.tolerance.mouse;
+      var tolerance = (HITS.tolerance[options.pointer || lastPointer] || HITS.tolerance.mouse) *
+        (options.wider || 1);
       var layers = layersOf(map, options.layers);
       if (!layers.length) return null;
       var box = [[point.x - tolerance, point.y - tolerance], [point.x + tolerance, point.y + tolerance]];
@@ -141,7 +147,7 @@
         return { layer: f.layer.id, properties: f.properties || {}, points: points, coordinates: kept, feature: f };
       });
       var zoom = map.getZoom();
-      var hit = nearest([point.x, point.y], candidates, zoom, tolerance);
+      var hit = nearest([point.x, point.y], candidates, zoom, tolerance, !!options.signs);
       if (!hit) return null;
       var chosen = candidates[hit.index];
       return {

@@ -151,10 +151,11 @@ void main() {
       const point = LatLng(45.7629, 4.831697);
       app.container(tester).read(selectionProvider.notifier).select(const PointSelection(point));
       await settleShort(tester);
-      await tester.tap(find.text('Itinéraire').last);
+      await tester.tap(find.text("Itinéraire jusqu'ici").last);
       await settleShort(tester);
       expect(routes.requests.single.destination, point);
-      expect(find.text('Vers ce point'), findsOneWidget);
+      expect(find.text('Point sur la carte'), findsOneWidget);
+      expect(find.text('45.762900, 4.831697'), findsOneWidget, reason: 'which point it is');
     });
   });
 
