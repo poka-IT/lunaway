@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
@@ -13,10 +14,11 @@ import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('route_map');
 
-/// The route preview on macOS and Windows: the desktop map page
+/// The route map on macOS and Windows: the desktop map page
 /// (`assets/map/map.html` and its MapLibre GL JS) given the route layers
-/// instead of the places. Guidance does not run on the desktop, so the
-/// camera only frames the route.
+/// instead of the places. While guiding, `assets/map/route_motion.js`
+/// glides the vehicle between fixes and rides the camera with it, as
+/// the maplibre_gl route map does on the other platforms.
 ///
 /// As for the main map, the web view holds the app's bridge, so it holds
 /// nothing but the map page.
@@ -38,6 +40,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   List<RouteMapLine>? _sentLines;
   List<RouteMapMark>? _sentMarks;
   RouteCamera? _sentCamera;
+  VehiclePuck? _sentVehicle;
+  EdgeInsets? _sentFollowPadding;
+  Size _size = Size.zero;
 
   RouteMapProps get _props => widget.props;
 
@@ -103,6 +108,10 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   Future<void> _init() async {
     _style = _props.style;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    final reduced = Motion.reduced(context);
+    final arrow = base64Encode(await vehicleArrowPng(ratio));
+    if (!mounted) return;
     final start = switch (_props.camera) {
       FitCamera(:final bounds) => bounds.center,
       FollowCamera(:final position) => position,
@@ -113,10 +122,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'lat': start.lat,
         'lon': start.lon,
         'zoom': 11,
-        'pixelRatio': 1,
-        'images': <String, String>{},
+        // The route map's one image, the vehicle's arrow, drawn at the
+        // screen's density.
+        'pixelRatio': ratio,
+        'images': {RouteLayers.vehicleImage: arrow},
         'spec': _spec(dark: _props.dark),
-        'reducedMotion': Motion.reduced(context),
+        'reducedMotion': reduced,
       },
     });
   }
@@ -132,6 +143,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.marksSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
+      {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
     ],
     'layers': [
       _line(
@@ -164,6 +176,19 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         ['has', 'id'],
       ]),
       _marks(RouteLayers.tappableMarks, const ['has', 'id']),
+      {
+        'id': RouteLayers.vehicle,
+        'type': 'symbol',
+        'source': RouteLayers.vehicleSource,
+        'layout': {
+          'icon-image': RouteLayers.vehicleImage,
+          'icon-rotate': ['get', 'course'],
+          'icon-rotation-alignment': 'map',
+          'icon-pitch-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+      },
     ],
   };
 
@@ -197,6 +222,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentLines = null;
         _sentMarks = null;
         _sentCamera = null;
+        _sentVehicle = null;
+        _sentFollowPadding = null;
         if (_style != null && _props.style != _style) {
           _setStyle();
         } else {
@@ -265,8 +292,42 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'data': routeMarksCollection(p.marks),
       });
     }
+    final vehicle = p.vehicle;
+    if (!identical(vehicle, _sentVehicle) && vehicle != null) {
+      final first = _sentVehicle == null;
+      _sentVehicle = vehicle;
+      await _call('return window.lunawayRoute.vehicle(id, lat, lon, course, jump);', {
+        'id': RouteLayers.vehicleSource,
+        'lat': vehicle.position.lat,
+        'lon': vehicle.position.lon,
+        'course': vehicle.course,
+        'jump': first || _reduced,
+      });
+    }
     final camera = p.camera;
+    if (camera is FollowCamera && camera != _sentCamera) {
+      _sentCamera = camera;
+      final pad = p.padding;
+      final free = math.max(0, _size.height - pad.top - pad.bottom);
+      final padding = EdgeInsets.fromLTRB(pad.left, pad.top + free * 0.45, pad.right, pad.bottom);
+      _sentFollowPadding = padding;
+      await _call('return window.lunawayRoute.follow(options);', {
+        'options': {
+          'zoom': camera.zoom,
+          'padding': {
+            'top': padding.top,
+            'bottom': padding.bottom,
+            'left': padding.left,
+            'right': padding.right,
+          },
+        },
+      });
+    }
     if (camera != _sentCamera && camera is FitCamera) {
+      if (_sentCamera is FollowCamera) {
+        _sentFollowPadding = null;
+        await _call('return window.lunawayRoute.follow(null);');
+      }
       _sentCamera = camera;
       final pad = p.padding;
       await _call('return window.lunaway.fitBounds(s, w, n, e, padding);', {
@@ -290,6 +351,20 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     super.dispose();
   }
 
+  bool get _reduced => mounted && Motion.reduced(context);
+
   @override
-  Widget build(BuildContext context) => _view.build(context);
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      if (box.biggest != _size) {
+        _size = box.biggest;
+        // The follow camera's padding follows the map's height.
+        if (_sentFollowPadding != null) {
+          _sentCamera = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
+        }
+      }
+      return _view.build(context);
+    },
+  );
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:meta/meta.dart';
@@ -27,6 +29,40 @@ final class Fix {
 
   @override
   String toString() => 'Fix(${position.lat}, ${position.lon}, ±$accuracyM m)';
+}
+
+/// [fix] with the speed and course it lacks worked out from [previous]: a
+/// browser on a computer, and some phones' browsers, give neither. Over a
+/// gap of 0.2 to 10 s, the distance covered gives the speed, and a move
+/// longer than the fixes' own uncertainty gives the course; a fix that has
+/// them keeps its own.
+Fix withMotion(Fix fix, Fix? previous) {
+  if (previous == null || (fix.speedMps != null && fix.courseDeg != null)) return fix;
+  final seconds = fix.at.difference(previous.at).inMilliseconds / 1000;
+  if (seconds < 0.2 || seconds > 10) return fix;
+  final moved = previous.position.distanceTo(fix.position);
+  final speed = fix.speedMps ?? moved / seconds;
+  final course =
+      fix.courseDeg ??
+      (moved > math.max(5, math.min(fix.accuracyM, 30)) && speed > 0.5
+          ? _bearing(previous.position, fix.position)
+          : null);
+  return Fix(
+    position: fix.position,
+    accuracyM: fix.accuracyM,
+    at: fix.at,
+    courseDeg: course,
+    speedMps: speed,
+  );
+}
+
+double _bearing(LatLng a, LatLng b) {
+  final la = a.lat * math.pi / 180;
+  final lb = b.lat * math.pi / 180;
+  final dl = (b.lon - a.lon) * math.pi / 180;
+  final y = math.sin(dl) * math.cos(lb);
+  final x = math.cos(la) * math.sin(lb) - math.sin(la) * math.cos(lb) * math.cos(dl);
+  return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
 }
 
 /// What the banner shows: the next maneuver.

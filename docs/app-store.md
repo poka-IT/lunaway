@@ -122,11 +122,10 @@ the same two keys, `NSLocationWhenInUseUsageDescription` and
   environ 5 km, pour chercher le carburant le moins cher autour de vous ;
   et quand vous ajoutez un lieu là où vous êtes. »
 
-macOS (`app/macos/Runner/Info.plist` and its two `InfoPlist.strings`) has
-no guidance (the guidance library loads on Android and iOS only,
-`app/lib/features/navigation/data/ferrostar_engine.dart`): "computes
-routes from where you are" / « calcule les itinéraires depuis l'endroit
-où vous êtes » in place of the guidance clause, the rest the same. The
+macOS (`app/macos/Runner/Info.plist` and its two `InfoPlist.strings`)
+guides too, with the window open (no background mode on the Mac): "guides
+you along a route you start" / « vous guide sur l'itinéraire que vous
+lancez », without the clause about the screen off, the rest the same. The
 other strings:
 
 - camera: "Lunaway uses the camera when you take a photo of a place, or

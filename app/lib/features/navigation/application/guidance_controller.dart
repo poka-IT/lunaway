@@ -9,6 +9,7 @@ import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
@@ -590,10 +591,13 @@ class GuidanceController extends _$GuidanceController {
     final words = _words;
     if (words == null) return;
     unawaited(_fixes?.cancel());
-    _fixes = ref
-        .read(locationFeedProvider)
-        .guidance(words.notice)
-        .listen(_onFix, onError: _onPositionError);
+    final s = state;
+    final feed = ref.read(demoDriveProvider) && s != null
+        // The demonstration drives the route at 50 km/h, its clock the
+        // wall's, so the arrival time reads true.
+        ? SimulatedFeed(path: s.route.line, speedMps: 13.9, start: DateTime.now())
+        : ref.read(locationFeedProvider);
+    _fixes = feed.guidance(words.notice).listen(_onFix, onError: _onPositionError);
   }
 
   @visibleForTesting

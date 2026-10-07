@@ -57,6 +57,10 @@ dev_dependencies:
   drift_dev: ^2.35.1
   # A clock the tests drive, for the retry timers (already in flutter_test).
   fake_async: ^1.3.3
+  # Runs the integration tests in a browser (flutter drive -d web-server,
+  # test_driver/integration_test.dart), where flutter test cannot.
+  flutter_driver:
+    sdk: flutter
   flutter_test:
     sdk: flutter
   gql: ^1.0.1

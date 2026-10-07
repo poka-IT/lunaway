@@ -224,6 +224,11 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: tests
         run: cargo test --locked
+      - name: clippy for the browser (WebAssembly)
+        run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
+      - name: the committed web build comes from this crate
+        working-directory: .
+        run: sh app/packages/lunaway_nav/tool/build_web.sh --check
       - name: licences, sources, advisories
         # cargo-deny itself: in `cargo deny --config`, cargo reads the flag.
         run: cargo-deny --log-level error --config ../../../../backend/deny.toml check bans licenses sources advisories

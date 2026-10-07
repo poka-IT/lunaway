@@ -1,7 +1,9 @@
 # The backend's toolchain (backend/rust-toolchain.toml): the crate builds the
 # backend's domain crate, and the build hook (native_toolchain_rust) needs an
-# exact version. The targets are the phones the guidance runs on: Android
-# (arm64, arm, x86_64 for the emulator) and iOS (devices and both simulators).
+# exact version. The targets are the devices the guidance runs on: Android
+# (arm64, arm, x86_64 for the emulator), iOS (devices and both simulators),
+# macOS (both chips, for the universal app), Windows, and the browser
+# (WebAssembly, built by tool/build_web.sh).
 [toolchain]
 channel = "1.99.0"
 components = ["rustfmt", "clippy"]
@@ -13,4 +15,9 @@ targets = [
   "aarch64-apple-ios",
   "aarch64-apple-ios-sim",
   "x86_64-apple-ios",
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+  "wasm32-unknown-unknown",
 ]

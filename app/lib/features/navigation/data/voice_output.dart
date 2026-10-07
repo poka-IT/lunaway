@@ -116,7 +116,29 @@ nav.PlatformVoiceInfo? pickVoice(List<nav.PlatformVoiceInfo> voices, {required S
   return usable.first;
 }
 
-/// No voice: desktop, web, and tests.
+/// The index of the voice to speak [language] with among [voices]: local
+/// ones only, the exact [preferred] tag first (fr-FR before fr-CA), then the
+/// browser's default. Null when none speaks the language on the device.
+int? pickBrowserVoice(
+  List<({String lang, bool local, bool isDefault})> voices, {
+  required String language,
+  required String preferred,
+}) {
+  int? best;
+  var bestScore = -1;
+  for (final (i, v) in voices.indexed) {
+    final tag = v.lang.replaceAll('_', '-').toLowerCase();
+    if (!v.local || !(tag == language || tag.startsWith('$language-'))) continue;
+    final score = (tag == preferred.toLowerCase() ? 2 : 0) + (v.isDefault ? 1 : 0);
+    if (score > bestScore) {
+      best = i;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/// No voice: Windows, and tests.
 final class SilentVoice implements VoiceOutput {
   const new();
 

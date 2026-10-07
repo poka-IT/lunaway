@@ -39,6 +39,7 @@ Builds:
       - app/windows
       - app/web/sqlite3.wasm
       - app/web/drift_worker.js
+      - app/web/lunaway_nav
     prebuild:
       - export PUB_CACHE=$(pwd)/.pub-cache
       - $$flutter$$/bin/flutter config --no-analytics
