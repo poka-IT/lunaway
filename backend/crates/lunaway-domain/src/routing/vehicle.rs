@@ -74,12 +74,17 @@ pub mod bounds {
     pub const TRAILER_SIZE_M: RangeInclusive<f64> = 0.5..=4.5;
     /// Longest vehicle and trailer together, metres.
     pub const COMBINATION_LENGTH_M: f64 = 25.0;
+    /// The highest speed the user drives at, km/h. Below 50 the vehicle
+    /// would not belong on a motorway; above 130 no French road allows
+    /// more, and the engine's own speeds stay below its default ceiling.
+    pub const CRUISE_SPEED_KPH: RangeInclusive<f64> = 50.0..=130.0;
 }
 
 /// Mass above which a motorhome is limited to 110 km/h on motorways
 /// (Code de la route, art. R413-8-1: passenger vehicles of 3.5 to 12 t).
 pub const HEAVY_ABOVE_T: f64 = 3.5;
-/// Top speed given to the router for a motorhome over [`HEAVY_ABOVE_T`].
+/// Top speed given to the router for a motorhome over [`HEAVY_ABOVE_T`]
+/// that tows nothing.
 pub const HEAVY_TOP_SPEED_KPH: u32 = 110;
 /// Trailer mass above which a B9i sign (`caravan=no`) applies.
 pub const CARAVAN_SIGN_ABOVE_T: f64 = 0.25;
@@ -105,6 +110,18 @@ pub enum InvalidVehicle {
         min: f64,
         /// Greatest value accepted.
         max: f64,
+    },
+    /// A speed is not a whole number of km/h within its bounds.
+    #[error("{field} must be between {min} and {max} km/h, got {value}")]
+    SpeedOutOfRange {
+        /// The field, as the API names it.
+        field: &'static str,
+        /// The value received.
+        value: i64,
+        /// Least value accepted.
+        min: u32,
+        /// Greatest value accepted.
+        max: u32,
     },
     /// The vehicle and its trailer together are longer than any legal
     /// combination.
@@ -208,6 +225,7 @@ pub struct VehicleProfile {
     weight_t: f64,
     axle_load_t: Option<f64>,
     trailer: Option<Trailer>,
+    cruise_speed_kph: Option<u32>,
 }
 
 /// The raw values of a profile, before validation.
@@ -227,6 +245,31 @@ pub struct VehicleInput {
     pub axle_load_t: Option<f64>,
     /// The trailer, when towing.
     pub trailer: Option<Trailer>,
+    /// The highest speed the user drives at, km/h, when they set one.
+    pub cruise_speed_kph: Option<i64>,
+}
+
+/// A speed in km/h within `range`.
+fn check_speed(
+    field: &'static str,
+    value: i64,
+    range: &RangeInclusive<f64>,
+) -> Result<u32, InvalidVehicle> {
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the bounds are small positive whole numbers"
+    )]
+    let (min, max) = (*range.start() as u32, *range.end() as u32);
+    u32::try_from(value)
+        .ok()
+        .filter(|v| (min..=max).contains(v))
+        .ok_or(InvalidVehicle::SpeedOutOfRange {
+            field,
+            value,
+            min,
+            max,
+        })
 }
 
 impl VehicleProfile {
@@ -247,6 +290,10 @@ impl VehicleProfile {
                 .map(|a| check("axleLoadT", a, &bounds::AXLE_LOAD_T))
                 .transpose()?,
             trailer: input.trailer,
+            cruise_speed_kph: input
+                .cruise_speed_kph
+                .map(|v| check_speed("cruiseSpeedKph", v, &bounds::CRUISE_SPEED_KPH))
+                .transpose()?,
         };
         let length = profile.routing().length_m;
         if length > bounds::COMBINATION_LENGTH_M {
@@ -300,6 +347,12 @@ impl VehicleProfile {
         self.trailer
     }
 
+    /// The highest speed the user drives at, km/h, when they set one.
+    #[must_use]
+    pub const fn cruise_speed_kph(&self) -> Option<u32> {
+        self.cruise_speed_kph
+    }
+
     /// The dimensions a route must respect.
     #[must_use]
     pub fn routing(&self) -> RoutingDimensions {
@@ -327,8 +380,36 @@ pub struct RoutingDimensions {
     /// banned by `trailer=no`, one over [`CARAVAN_SIGN_ABOVE_T`] by
     /// `caravan=no` too.
     pub trailer_weight_t: Option<f64>,
-    /// Speed the router must not assume above, km/h.
+    /// Speed the router must not assume above, km/h: the lower of the
+    /// user's cruising speed and [`legal_top_speed_kph`].
     pub top_speed_kph: Option<u32>,
+}
+
+/// The highest speed the law allows the vehicle anywhere, km/h: its
+/// ceiling on a French motorway (`crate::speed::vehicle_ceiling_kmh`,
+/// R413-8 and R413-8-1), none for a light vehicle whose train stays at or
+/// under 3.5 t. A motorhome over [`HEAVY_ABOVE_T`] that tows nothing gets
+/// [`HEAVY_TOP_SPEED_KPH`]; a train above 3.5 t, or a vehicle above 12 t,
+/// gets 90. The router applies it in every country, as the French rule is
+/// the one the data was checked against.
+#[must_use]
+pub fn legal_top_speed_kph(weight_t: f64, trailer_weight_t: Option<f64>) -> Option<u32> {
+    let motorway = crate::speed::Stretch {
+        class: crate::speed::RoadClass::Motorway,
+        link: false,
+        posted_kmh: None,
+        oneway: true,
+        density: 0,
+    };
+    crate::speed::vehicle_ceiling_kmh(
+        "FR",
+        &motorway,
+        crate::speed::Vehicle {
+            weight_t,
+            trailer_weight_t,
+        },
+    )
+    .map(u32::from)
 }
 
 /// The dimensions of `profile` as a route must respect them.
@@ -346,10 +427,15 @@ pub fn routing_dimensions(profile: &VehicleProfile) -> RoutingDimensions {
         weight_t: profile.weight_t + trailer.map_or(0.0, Trailer::weight_t),
         axle_load_t: profile.axle_load_t,
         trailer_weight_t: trailer.map(Trailer::weight_t),
-        // The vehicle's own mass decides (R413-8-1); the speed of a light
-        // motorhome towing a heavy trailer is not settled here
-        // (plan/research/15-navigation-backend.md, open items).
-        top_speed_kph: (profile.weight_t > HEAVY_ABOVE_T).then_some(HEAVY_TOP_SPEED_KPH),
+        // The user's speed lowers the time estimates and may change the
+        // route chosen; it never lifts the legal ceiling.
+        top_speed_kph: match (
+            legal_top_speed_kph(profile.weight_t, trailer.map(Trailer::weight_t)),
+            profile.cruise_speed_kph,
+        ) {
+            (Some(legal), Some(cruise)) => Some(legal.min(cruise)),
+            (legal, cruise) => legal.or(cruise),
+        },
     }
 }
 
@@ -494,6 +580,7 @@ mod tests {
             weight_t: 3.5,
             axle_load_t: None,
             trailer: None,
+            cruise_speed_kph: None,
         }
     }
 
@@ -579,7 +666,93 @@ mod tests {
             ..input()
         })
         .unwrap();
-        assert_eq!(heavy.routing().top_speed_kph, Some(110), "R413-8-1");
+        assert_eq!(
+            heavy.routing().top_speed_kph,
+            Some(HEAVY_TOP_SPEED_KPH),
+            "R413-8-1"
+        );
+    }
+
+    fn top_speed(weight_t: f64, trailer_t: Option<f64>, cruise: Option<i64>) -> Option<u32> {
+        VehicleProfile::new(VehicleInput {
+            weight_t,
+            trailer: trailer_t.map(|t| Trailer::new(4.0, t, None, None).unwrap()),
+            cruise_speed_kph: cruise,
+            ..input()
+        })
+        .unwrap()
+        .routing()
+        .top_speed_kph
+    }
+
+    #[test]
+    fn the_cruising_speed_lowers_the_top_speed_and_never_lifts_the_legal_one() {
+        assert_eq!(
+            top_speed(3.5, None, Some(90)),
+            Some(90),
+            "a light motorhome"
+        );
+        assert_eq!(top_speed(3.5, None, Some(130)), Some(130));
+        assert_eq!(top_speed(4.5, None, Some(100)), Some(100));
+        assert_eq!(
+            top_speed(4.5, None, Some(130)),
+            Some(110),
+            "130 asked by a motorhome over 3.5 t is still 110 (R413-8-1)"
+        );
+        assert_eq!(top_speed(4.5, None, None), Some(110));
+        assert_eq!(top_speed(3.5, None, None), None, "no speed set, no cap");
+    }
+
+    #[test]
+    fn a_train_over_three_and_a_half_tonnes_is_capped_at_90() {
+        assert_eq!(
+            top_speed(3.5, Some(1.5), None),
+            Some(90),
+            "R413-8 counts the train: 5 t"
+        );
+        assert_eq!(top_speed(3.5, Some(1.5), Some(110)), Some(90));
+        assert_eq!(top_speed(3.5, Some(1.5), Some(80)), Some(80));
+        assert_eq!(
+            top_speed(4.5, Some(1.0), None),
+            Some(90),
+            "the stricter rule"
+        );
+        assert_eq!(
+            top_speed(2.5, Some(0.75), None),
+            None,
+            "a train of 3.25 t keeps a car's limits"
+        );
+        assert_eq!(top_speed(13.0, None, None), Some(90), "over 12 t");
+    }
+
+    #[test]
+    fn a_cruising_speed_out_of_its_bounds_is_refused() {
+        for bad in [0, -90, 49, 131, 1_000, i64::MAX] {
+            let p = VehicleProfile::new(VehicleInput {
+                cruise_speed_kph: Some(bad),
+                ..input()
+            });
+            assert!(
+                matches!(
+                    p,
+                    Err(InvalidVehicle::SpeedOutOfRange {
+                        field: "cruiseSpeedKph",
+                        min: 50,
+                        max: 130,
+                        ..
+                    })
+                ),
+                "{bad}: {p:?}"
+            );
+        }
+        for good in [50, 90, 130] {
+            let p = VehicleProfile::new(VehicleInput {
+                cruise_speed_kph: Some(good),
+                ..input()
+            })
+            .unwrap();
+            assert_eq!(p.cruise_speed_kph(), u32::try_from(good).ok());
+        }
     }
 
     #[test]
@@ -593,6 +766,7 @@ mod tests {
                 weight_t: preset.weight_t,
                 axle_load_t: None,
                 trailer: None,
+                cruise_speed_kph: None,
             });
             assert!(p.is_ok(), "{preset:?}: {p:?}");
             assert!(!preset.source.is_empty());

@@ -3665,13 +3665,6 @@ type RerouteParameters {
 	"""
 	language: RouteLanguage!
 	"""
-	The speed the engine assumed at most, km/h: the lower of
-	`vehicle.cruiseSpeedKph` and the vehicle's legal ceiling on a
-	motorway (110 for a motorhome over 3.5 t, 90 for a train over
-	3.5 t). Null when neither applies.
-	"""
-	topSpeedKph: Int
-	"""
 	The engine's costing options the route was computed with, as JSON:
 	for display and support, not to call the engine directly (it is not
 	reachable from outside).
@@ -5427,10 +5420,6 @@ type VehicleBounds {
 	Trailer mass, tonnes.
 	"""
 	trailerWeightT: Bounds!
-	"""
-	Cruising speed, km/h.
-	"""
-	cruiseSpeedKph: Bounds!
 }
 
 """
@@ -5524,8 +5513,7 @@ type VehiclePreset {
 The vehicle, as on its registration document. The bounds refuse typing
 errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
 mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
-0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
-130 km/h.
+0.5 to 40 t, an axle load of 0.5 to 13 t.
 """
 type VehicleProfile {
 	"""
@@ -5557,22 +5545,13 @@ type VehicleProfile {
 	The trailer, when towing.
 	"""
 	trailer: Trailer
-	"""
-	The highest speed the driver keeps to, km/h, when they set one (many
-	drive a motorhome at 90 to 100 on a motorway open at 130). The
-	travel times and the choice of route assume it wherever the road
-	allows more; it never lifts the vehicle's legal ceiling, and the
-	speed limits of the route stay the road's.
-	"""
-	cruiseSpeedKph: Int
 }
 
 """
 The vehicle, as on its registration document. The bounds refuse typing
 errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
 mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
-0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
-130 km/h.
+0.5 to 40 t, an axle load of 0.5 to 13 t.
 """
 input VehicleProfileInput {
 	"""
@@ -5604,14 +5583,6 @@ input VehicleProfileInput {
 	The trailer, when towing.
 	"""
 	trailer: TrailerInput
-	"""
-	The highest speed the driver keeps to, km/h, when they set one (many
-	drive a motorhome at 90 to 100 on a motorway open at 130). The
-	travel times and the choice of route assume it wherever the road
-	allows more; it never lifts the vehicle's legal ceiling, and the
-	speed limits of the route stay the road's.
-	"""
-	cruiseSpeedKph: Int
 }
 
 """

@@ -456,11 +456,20 @@ final class RoutingGraphInfo {
 /// them: what a recalculation sends again.
 @immutable
 final class AppliedRequest {
-  const new({required this.vehicle, required this.avoid, required this.language});
+  const new({required this.vehicle, required this.avoid, required this.language, this.topSpeedKph});
 
   final VehicleProfile vehicle;
   final AvoidOptions avoid;
   final RouteLanguage language;
+
+  /// The speed the times assume at most, km/h: the driver's cruising speed
+  /// lowered to the vehicle's legal ceiling. Null when neither applies, or
+  /// from an API that does not tell.
+  final int? topSpeedKph;
+
+  /// The speed to tell with the times: only when the driver set one, as
+  /// the legal ceiling alone is no choice of theirs.
+  int? get cruiseShownKph => vehicle.cruiseSpeedKph == null ? null : topSpeedKph;
 }
 
 /// The answer to a route request.

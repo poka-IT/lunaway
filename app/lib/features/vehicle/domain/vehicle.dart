@@ -88,6 +88,7 @@ final class Vehicle {
     this.fuel,
     this.consumptionL100,
     this.lpgHeating = false,
+    this.cruiseSpeedKph,
   });
 
   /// A vehicle of [type] with its typical dimensions.
@@ -120,6 +121,14 @@ final class Vehicle {
   /// runs on.
   final bool lpgHeating;
 
+  /// The highest speed the driver keeps to, km/h; null for the router's
+  /// usual speeds. Many motorhomes cruise at 90 to 100 on a motorway open
+  /// at 130, and the travel times follow this.
+  final int? cruiseSpeedKph;
+
+  /// The cruising speeds the editor offers: 80 to 130 km/h by 5.
+  static const List<int> cruiseSpeeds = [80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130];
+
   /// The limits the forms accept: wide enough for every motorhome on the
   /// road, narrow enough to catch a typo (29 for 2.9).
   static const ({double max, double min}) heightRange = (min: 1.5, max: 4.5);
@@ -138,6 +147,7 @@ final class Vehicle {
     FuelType? Function()? fuel,
     double? Function()? consumptionL100,
     bool? lpgHeating,
+    int? Function()? cruiseSpeedKph,
   }) => Vehicle(
     type: type ?? this.type,
     towing: towing ?? this.towing,
@@ -148,6 +158,7 @@ final class Vehicle {
     fuel: fuel == null ? this.fuel : fuel(),
     consumptionL100: consumptionL100 == null ? this.consumptionL100 : consumptionL100(),
     lpgHeating: lpgHeating ?? this.lpgHeating,
+    cruiseSpeedKph: cruiseSpeedKph == null ? this.cruiseSpeedKph : cruiseSpeedKph(),
   );
 
   @override
@@ -161,7 +172,8 @@ final class Vehicle {
       other.weightT == weightT &&
       other.fuel == fuel &&
       other.consumptionL100 == consumptionL100 &&
-      other.lpgHeating == lpgHeating;
+      other.lpgHeating == lpgHeating &&
+      other.cruiseSpeedKph == cruiseSpeedKph;
 
   @override
   int get hashCode => Object.hash(
@@ -174,5 +186,6 @@ final class Vehicle {
     fuel,
     consumptionL100,
     lpgHeating,
+    cruiseSpeedKph,
   );
 }

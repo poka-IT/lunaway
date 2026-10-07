@@ -250,6 +250,31 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                   inRange(Vehicle.weightRange, 't'),
                 ),
                 const SizedBox(height: Space.xl),
+                Text(t.vehicle.cruiseTitle, style: theme.textTheme.titleLarge),
+                const SizedBox(height: Space.xs),
+                Text(
+                  t.vehicle.cruiseHint,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: Space.m),
+                DropdownButtonFormField<int?>(
+                  initialValue: _draft.cruiseSpeedKph,
+                  decoration: InputDecoration(
+                    labelText: t.vehicle.cruiseTitle,
+                    prefixIcon: const Icon(AppIcons.hours),
+                  ),
+                  items: [
+                    DropdownMenuItem(child: Text(t.vehicle.cruiseNone)),
+                    for (final kmh in Vehicle.cruiseSpeeds)
+                      DropdownMenuItem(
+                        value: kmh,
+                        child: Text(t.vehicle.cruiseValue(kmh: kmh)),
+                      ),
+                  ],
+                  onChanged: (kmh) =>
+                      setState(() => _draft = _draft.copyWith(cruiseSpeedKph: () => kmh)),
+                ),
+                const SizedBox(height: Space.xl),
                 Text(t.vehicle.fuelTitle, style: theme.textTheme.titleLarge),
                 const SizedBox(height: Space.xs),
                 Text(

@@ -656,6 +656,32 @@ mod tests {
     }
 
     #[test]
+    fn the_detours_are_timed_at_the_driver_s_cruising_speed() {
+        let vehicle =
+            |weight_t: f64, cruise: Option<i32>| crate::routing_types::VehicleProfileInput {
+                kind: crate::routing_types::GqlVehicleType::Overcab,
+                height_m: 3.3,
+                width_m: 2.3,
+                length_m: 7.4,
+                weight_t,
+                axle_load_t: None,
+                trailer: None,
+                cruise_speed_kph: cruise,
+            };
+        let top = |weight_t, cruise| {
+            let mut i = input();
+            i.vehicle = Some(vehicle(weight_t, cruise));
+            search(&i).unwrap().costing["auto"]["top_speed"].clone()
+        };
+        assert_eq!(top(3.5, Some(90)), json!(90));
+        assert_eq!(top(4.5, Some(120)), json!(110), "never above the legal cap");
+        assert_eq!(top(3.5, None), Value::Null);
+        let mut bad = input();
+        bad.vehicle = Some(vehicle(3.5, Some(300)));
+        assert!(message(search(&bad)).contains("cruiseSpeedKph"));
+    }
+
+    #[test]
     fn a_line_is_read_and_measured_before_its_corridor_is_built() {
         assert!(line_of(&input()).is_ok());
         let mut broken = input();

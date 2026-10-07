@@ -640,6 +640,22 @@ class _Routes extends ConsumerWidget {
           onTap: () => ref.read(routePreviewControllerProvider(target).notifier).select(r.index),
         ),
       ],
+      // The times depend on the driver's own speed: say which.
+      if (plan.applied.cruiseShownKph case final kmh?) ...[
+        const SizedBox(height: Space.s),
+        Row(
+          children: [
+            Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: Space.s),
+            Expanded(
+              child: Text(
+                context.t.navigation.preview.cruise(kmh: kmh),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ],
     ],
   );
 }

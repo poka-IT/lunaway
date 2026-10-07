@@ -100,7 +100,8 @@ pub struct TrailerInput {
 /// The vehicle, as on its registration document. The bounds refuse typing
 /// errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
 /// mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
-/// 0.5 to 40 t, an axle load of 0.5 to 13 t.
+/// 0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
+/// 130 km/h.
 #[derive(InputObject, SimpleObject, Debug, Clone, Copy)]
 #[graphql(input_name = "VehicleProfileInput", name = "VehicleProfile")]
 pub struct VehicleProfileInput {
@@ -119,6 +120,12 @@ pub struct VehicleProfileInput {
     pub axle_load_t: Option<f64>,
     /// The trailer, when towing.
     pub trailer: Option<TrailerInput>,
+    /// The highest speed the driver keeps to, km/h, when they set one (many
+    /// drive a motorhome at 90 to 100 on a motorway open at 130). The
+    /// travel times and the choice of route assume it wherever the road
+    /// allows more; it never lifts the vehicle's legal ceiling, and the
+    /// speed limits of the route stay the road's.
+    pub cruise_speed_kph: Option<i32>,
 }
 
 /// What to avoid. Tolls, motorways and ferries are avoided when another way
@@ -781,6 +788,11 @@ pub struct RerouteParameters {
     pub options: RouteOptions,
     /// The language.
     pub language: RouteLanguage,
+    /// The speed the engine assumed at most, km/h: the lower of
+    /// `vehicle.cruiseSpeedKph` and the vehicle's legal ceiling on a
+    /// motorway (110 for a motorhome over 3.5 t, 90 for a train over
+    /// 3.5 t). Null when neither applies.
+    pub top_speed_kph: Option<i32>,
     /// The engine's costing options the route was computed with, as JSON:
     /// for display and support, not to call the engine directly (it is not
     /// reachable from outside).
@@ -903,6 +915,8 @@ pub struct VehicleBounds {
     pub trailer_length_m: Bounds,
     /// Trailer mass, tonnes.
     pub trailer_weight_t: Bounds,
+    /// Cruising speed, km/h.
+    pub cruise_speed_kph: Bounds,
 }
 
 impl VehicleBounds {
@@ -916,6 +930,7 @@ impl VehicleBounds {
             axle_load_t: bounds::AXLE_LOAD_T.into(),
             trailer_length_m: bounds::TRAILER_LENGTH_M.into(),
             trailer_weight_t: bounds::TRAILER_WEIGHT_T.into(),
+            cruise_speed_kph: bounds::CRUISE_SPEED_KPH.into(),
         }
     }
 }

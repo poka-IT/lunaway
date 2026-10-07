@@ -1236,6 +1236,17 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     $customConstraints: 'NOT NULL DEFAULT FALSE',
     defaultValue: const CustomExpression('FALSE'),
   );
+  static const VerificationMeta _cruiseSpeedKphMeta = const VerificationMeta(
+    'cruiseSpeedKph',
+  );
+  late final GeneratedColumn<int> cruiseSpeedKph = GeneratedColumn<int>(
+    'cruise_speed_kph',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1249,6 +1260,7 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
     fuel,
     consumptionL100,
     lpgHeating,
+    cruiseSpeedKph,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1332,6 +1344,15 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
         lpgHeating.isAcceptableOrUnknown(data['lpg_heating']!, _lpgHeatingMeta),
       );
     }
+    if (data.containsKey('cruise_speed_kph')) {
+      context.handle(
+        _cruiseSpeedKphMeta,
+        cruiseSpeedKph.isAcceptableOrUnknown(
+          data['cruise_speed_kph']!,
+          _cruiseSpeedKphMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1385,6 +1406,10 @@ class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}lpg_heating'],
       )!,
+      cruiseSpeedKph: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cruise_speed_kph'],
+      ),
     );
   }
 
@@ -1412,6 +1437,10 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
   final String? fuel;
   final double? consumptionL100;
   final bool lpgHeating;
+
+  /// The highest speed the driver keeps to, km/h; null for the router's
+  /// usual speeds (added in version 4).
+  final int? cruiseSpeedKph;
   const VehicleRow({
     required this.id,
     required this.type,
@@ -1424,6 +1453,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     this.fuel,
     this.consumptionL100,
     required this.lpgHeating,
+    this.cruiseSpeedKph,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1451,6 +1481,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       map['consumption_l100'] = Variable<double>(consumptionL100);
     }
     map['lpg_heating'] = Variable<bool>(lpgHeating);
+    if (!nullToAbsent || cruiseSpeedKph != null) {
+      map['cruise_speed_kph'] = Variable<int>(cruiseSpeedKph);
+    }
     return map;
   }
 
@@ -1477,6 +1510,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           ? const Value.absent()
           : Value(consumptionL100),
       lpgHeating: Value(lpgHeating),
+      cruiseSpeedKph: cruiseSpeedKph == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cruiseSpeedKph),
     );
   }
 
@@ -1497,6 +1533,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       fuel: serializer.fromJson<String?>(json['fuel']),
       consumptionL100: serializer.fromJson<double?>(json['consumption_l100']),
       lpgHeating: serializer.fromJson<bool>(json['lpg_heating']),
+      cruiseSpeedKph: serializer.fromJson<int?>(json['cruise_speed_kph']),
     );
   }
   @override
@@ -1514,6 +1551,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       'fuel': serializer.toJson<String?>(fuel),
       'consumption_l100': serializer.toJson<double?>(consumptionL100),
       'lpg_heating': serializer.toJson<bool>(lpgHeating),
+      'cruise_speed_kph': serializer.toJson<int?>(cruiseSpeedKph),
     };
   }
 
@@ -1529,6 +1567,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     Value<String?> fuel = const Value.absent(),
     Value<double?> consumptionL100 = const Value.absent(),
     bool? lpgHeating,
+    Value<int?> cruiseSpeedKph = const Value.absent(),
   }) => VehicleRow(
     id: id ?? this.id,
     type: type ?? this.type,
@@ -1543,6 +1582,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
         ? consumptionL100.value
         : this.consumptionL100,
     lpgHeating: lpgHeating ?? this.lpgHeating,
+    cruiseSpeedKph: cruiseSpeedKph.present
+        ? cruiseSpeedKph.value
+        : this.cruiseSpeedKph,
   );
   VehicleRow copyWithCompanion(VehiclesCompanion data) {
     return VehicleRow(
@@ -1561,6 +1603,9 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
       lpgHeating: data.lpgHeating.present
           ? data.lpgHeating.value
           : this.lpgHeating,
+      cruiseSpeedKph: data.cruiseSpeedKph.present
+          ? data.cruiseSpeedKph.value
+          : this.cruiseSpeedKph,
     );
   }
 
@@ -1577,7 +1622,8 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('fuel: $fuel, ')
           ..write('consumptionL100: $consumptionL100, ')
-          ..write('lpgHeating: $lpgHeating')
+          ..write('lpgHeating: $lpgHeating, ')
+          ..write('cruiseSpeedKph: $cruiseSpeedKph')
           ..write(')'))
         .toString();
   }
@@ -1595,6 +1641,7 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
     fuel,
     consumptionL100,
     lpgHeating,
+    cruiseSpeedKph,
   );
   @override
   bool operator ==(Object other) =>
@@ -1610,7 +1657,8 @@ class VehicleRow extends DataClass implements Insertable<VehicleRow> {
           other.updatedAt == this.updatedAt &&
           other.fuel == this.fuel &&
           other.consumptionL100 == this.consumptionL100 &&
-          other.lpgHeating == this.lpgHeating);
+          other.lpgHeating == this.lpgHeating &&
+          other.cruiseSpeedKph == this.cruiseSpeedKph);
 }
 
 class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
@@ -1625,6 +1673,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
   final Value<String?> fuel;
   final Value<double?> consumptionL100;
   final Value<bool> lpgHeating;
+  final Value<int?> cruiseSpeedKph;
   const VehiclesCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
@@ -1637,6 +1686,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     this.fuel = const Value.absent(),
     this.consumptionL100 = const Value.absent(),
     this.lpgHeating = const Value.absent(),
+    this.cruiseSpeedKph = const Value.absent(),
   });
   VehiclesCompanion.insert({
     this.id = const Value.absent(),
@@ -1650,6 +1700,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     this.fuel = const Value.absent(),
     this.consumptionL100 = const Value.absent(),
     this.lpgHeating = const Value.absent(),
+    this.cruiseSpeedKph = const Value.absent(),
   }) : type = Value(type),
        updatedAt = Value(updatedAt);
   static Insertable<VehicleRow> custom({
@@ -1664,6 +1715,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     Expression<String>? fuel,
     Expression<double>? consumptionL100,
     Expression<bool>? lpgHeating,
+    Expression<int>? cruiseSpeedKph,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1677,6 +1729,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
       if (fuel != null) 'fuel': fuel,
       if (consumptionL100 != null) 'consumption_l100': consumptionL100,
       if (lpgHeating != null) 'lpg_heating': lpgHeating,
+      if (cruiseSpeedKph != null) 'cruise_speed_kph': cruiseSpeedKph,
     });
   }
 
@@ -1692,6 +1745,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     Value<String?>? fuel,
     Value<double?>? consumptionL100,
     Value<bool>? lpgHeating,
+    Value<int?>? cruiseSpeedKph,
   }) {
     return VehiclesCompanion(
       id: id ?? this.id,
@@ -1705,6 +1759,7 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
       fuel: fuel ?? this.fuel,
       consumptionL100: consumptionL100 ?? this.consumptionL100,
       lpgHeating: lpgHeating ?? this.lpgHeating,
+      cruiseSpeedKph: cruiseSpeedKph ?? this.cruiseSpeedKph,
     );
   }
 
@@ -1744,6 +1799,9 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
     if (lpgHeating.present) {
       map['lpg_heating'] = Variable<bool>(lpgHeating.value);
     }
+    if (cruiseSpeedKph.present) {
+      map['cruise_speed_kph'] = Variable<int>(cruiseSpeedKph.value);
+    }
     return map;
   }
 
@@ -1760,7 +1818,8 @@ class VehiclesCompanion extends UpdateCompanion<VehicleRow> {
           ..write('updatedAt: $updatedAt, ')
           ..write('fuel: $fuel, ')
           ..write('consumptionL100: $consumptionL100, ')
-          ..write('lpgHeating: $lpgHeating')
+          ..write('lpgHeating: $lpgHeating, ')
+          ..write('cruiseSpeedKph: $cruiseSpeedKph')
           ..write(')'))
         .toString();
   }

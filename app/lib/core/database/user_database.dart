@@ -27,9 +27,9 @@ final class UserDatabase extends _$UserDatabase {
   // Version 1 is the first shipped schema: earlier ones never left a
   // developer's device, so they get no migration. Version 2 adds the
   // account's favourites sync and the outbox of contributions, version 3
-  // the vehicle's fuel.
+  // the vehicle's fuel, version 4 its cruising speed.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -46,6 +46,9 @@ final class UserDatabase extends _$UserDatabase {
         for (final column in [vehicles.fuel, vehicles.consumptionL100, vehicles.lpgHeating]) {
           await m.addColumn(vehicles, column);
         }
+      }
+      if (from < 4) {
+        await m.addColumn(vehicles, vehicles.cruiseSpeedKph);
       }
     },
     beforeOpen: (details) async {

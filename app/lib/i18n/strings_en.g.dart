@@ -1308,6 +1308,18 @@ class Translations$vehicle$en {
 
 	/// en: 'LPG prices also show on the stations.'
 	String get lpgHeatingHint => 'LPG prices also show on the stations.';
+
+	/// en: 'Top cruising speed'
+	String get cruiseTitle => 'Top cruising speed';
+
+	/// en: 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.'
+	String get cruiseHint => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.';
+
+	/// en: 'No limit'
+	String get cruiseNone => 'No limit';
+
+	/// en: '$kmh km/h'
+	String cruiseValue({required Object kmh}) => '${kmh} km/h';
 }
 
 // Path: profile
@@ -3283,6 +3295,9 @@ class Translations$navigation$preview$en {
 
 	/// en: 'Edit'
 	String get editVehicle => 'Edit';
+
+	/// en: 'Timed at $kmh km/h max'
+	String cruise({required Object kmh}) => 'Timed at ${kmh} km/h max';
 
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
@@ -5351,6 +5366,7 @@ extension on Translations {
 			'navigation.preview.vehicle' => 'Your vehicle',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
+			'navigation.preview.cruise' => ({required Object kmh}) => 'Timed at ${kmh} km/h max',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -5552,9 +5568,9 @@ extension on Translations {
 			'navigation.guidance.avoidedClosures' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Route planned around a closure', other: 'Route planned around ${n} closures', ), 
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
-			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
@@ -5682,6 +5698,10 @@ extension on Translations {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Heating on LPG',
 			'vehicle.lpgHeatingHint' => 'LPG prices also show on the stations.',
+			'vehicle.cruiseTitle' => 'Top cruising speed',
+			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
+			'vehicle.cruiseNone' => 'No limit',
+			'vehicle.cruiseValue' => ({required Object kmh}) => '${kmh} km/h',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6062,13 +6082,13 @@ extension on Translations {
 			'placeForm.phone' => 'Phone',
 			'placeForm.photo' => 'Photo (optional)',
 			'placeForm.photoReady' => 'Photo ready',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.removePhoto' => 'Remove the photo',
 			'placeForm.toVerify' => 'The place will show as “to verify” until two other travellers confirm it.',
 			'placeForm.licence' => 'Places are published under the ODbL, credited to the Lunaway contributors.',
 			'placeForm.moderated' => 'A website or a phone number goes through a moderator before it is published.',
 			'placeForm.direct' => 'Your level applies the change at once.',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.proposal' => 'A moderator will review your suggestion before it applies.',
 			'placeForm.submitAdd' => 'Add the place',
 			'placeForm.submitEdit' => 'Save the change',

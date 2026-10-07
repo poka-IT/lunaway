@@ -39,5 +39,6 @@ pub use restriction::{
 };
 pub use vehicle::{
     InvalidVehicle, PRESETS, RoutingDimensions, TRAILER_PRESETS, Trailer, TrailerKind,
-    TrailerPreset, VehicleInput, VehicleKind, VehiclePreset, VehicleProfile, routing_dimensions,
+    TrailerPreset, VehicleInput, VehicleKind, VehiclePreset, VehicleProfile, legal_top_speed_kph,
+    routing_dimensions,
 };
