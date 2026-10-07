@@ -403,11 +403,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 - **Web start**: the page loads MapLibre GL JS with itself and draws a first
   map (`web/premap.js`) from the view, theme and filters the app kept in
   `localStorage`, its places before its basemap, while the Flutter engine
-  downloads; the app's map takes
-  its camera and replaces it once it has drawn the same view. Pin images
-  load when a layer first draws them. A service worker written for each
-  build (`app/tool/web/service_worker.py`) serves a second visit from the
-  browser's cache.
+  downloads; the app's map takes its camera and replaces it once it has
+  drawn the same view. Pin images load when a layer first draws them. A
+  service worker written for each build (`app/tool/web/service_worker.py`)
+  serves a second visit from the browser's cache.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
 - **Coordinates in one gesture**: every place shows its coordinates with a

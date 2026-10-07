@@ -11,12 +11,8 @@
   function register() {
     navigator.serviceWorker.register('lunaway_sw.js').catch(function () {});
   }
-  var armed = false;
-  function later() {
-    if (armed) return;
-    armed = true;
-    setTimeout(register, 5000);
-  }
+  function later() { setTimeout(register, 5000); }
+  // This script loads async: the engine may have drawn its view already.
   if (document.querySelector('flutter-view')) {
     later();
   } else {
