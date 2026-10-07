@@ -194,8 +194,17 @@ else
   echo "    no settings: the external community feed is not imported until the maintainer installs them (docs/deploy.md)"
   extcom=0
 fi
+# The inbox, its write-only account and its tmpfiles rule come from the
+# producer's private deployment (docs/deploy.md, "The external community
+# feed"): checked here, never made, so a change there shows up at the next
+# run of this step.
 if [ -d /srv/data/extcom-inbox ]; then
-  echo "    inbox: $(find /srv/data/extcom-inbox -maxdepth 1 -type f -name 'extcom-*.jsonl.gz' | wc -l) feed(s) in /srv/data/extcom-inbox"
+  inbox_mode="$(stat -c '%U:%G %a' /srv/data/extcom-inbox)"
+  echo "    inbox: $(find /srv/data/extcom-inbox -maxdepth 1 -type f -name 'extcom-*.jsonl.gz' | wc -l) feed(s) in /srv/data/extcom-inbox ($inbox_mode)"
+  [ "$inbox_mode" = "extcom-drop:lunaway-ingest 2750" ] \
+    || echo "    WARNING: /srv/data/extcom-inbox is $inbox_mode, not extcom-drop:lunaway-ingest 2750"
+  grep -qsE '^d /srv/data/extcom-inbox 2750 extcom-drop lunaway-ingest [0-9]+d$' /etc/tmpfiles.d/extcom-inbox.conf \
+    || echo "    WARNING: no tmpfiles rule removes the inbox's old feeds (/etc/tmpfiles.d/extcom-inbox.conf)"
 else
   echo "    no /srv/data/extcom-inbox yet: the producer's deployment makes it, with its write-only account"
 fi
@@ -321,8 +330,12 @@ fi
 # The removal of the retired photos' files, whenever the release's CLI has
 # the command, settings or not: a purge after the agreement ends needs it
 # too. Asked as the API's user, never as root.
-if [ -x /opt/lunaway/current/lunaway ] \
-  && runuser -u lunaway-api -- /opt/lunaway/current/lunaway extcom --help 2>/dev/null | grep -q 'purge-media'; then
+# The help in a variable: grep -q in a pipe may close it early, and the
+# pipeline would then fail under pipefail.
+extcom_help=""
+[ -x /opt/lunaway/current/lunaway ] \
+  && extcom_help="$(runuser -u lunaway-api -- /opt/lunaway/current/lunaway extcom --help 2>/dev/null || true)"
+if [[ "$extcom_help" == *purge-media* ]]; then
   systemctl enable --quiet --now lunaway-extcom-purge-media.timer
   log "retired photo files of the external community source: daily, next $(systemctl show lunaway-extcom-purge-media.timer -p NextElapseUSecRealtime --value)"
 else

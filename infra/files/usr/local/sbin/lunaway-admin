@@ -27,16 +27,18 @@
 #   sudo lunaway-admin road-events poll|match|stats|dialog-permanent [...]
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
-#       private ranges; `ingest extcom` also with the agreement's settings
-#       (/etc/lunaway/extcom.env)
+#       private ranges; `ingest extcom` with the agreement's settings
+#       (/etc/lunaway/extcom.env), loopback only unless the feed is an
+#       https URL, after any running import of the same feed
 #   sudo lunaway-admin extcom status|hide|show [--note TEXT]
 #   sudo lunaway-admin extcom purge [--yes] [--note TEXT]
-#   printf '%s' '<author-id>' | sudo lunaway-admin extcom erase-author - [--yes]
+#   sudo lunaway-admin extcom erase-author - [--yes]
 #       the external community source's switch, purge and erasures
 #       (docs/feeds.md): as the imports, the import cache writable (the
-#       feeds it keeps are removed), loopback only. The id of an author to
-#       erase comes on standard input, never on the command line, which
-#       sudo writes to the journal
+#       feeds it keeps are removed), loopback only, after any running
+#       import of its feed. The id of an author to erase is read from
+#       standard input (typed without echo), never from the command line,
+#       which sudo writes to the journal
 #   sudo lunaway-admin extcom purge-media [--yes]
 #       as the API: the files of the source's retired photos
 #   sudo lunaway-admin conflate [--full]
@@ -100,19 +102,15 @@ as_api() {
     "$cli" "$@"
 }
 as_ingest() {
-  # The external community feed's import, and it alone, gets the
-  # agreement's settings.
-  local extra=()
+  # The external community feed: its own sandbox (as_extcom).
   if [ "${1:-}" = ingest ] && [ "${2:-}" = extcom ]; then
-    [ -f /etc/lunaway/extcom.env ] \
-      || { echo "no /etc/lunaway/extcom.env: the agreement's settings are not installed (docs/deploy.md, \"Private settings\")" >&2; exit 1; }
-    extra=(-p EnvironmentFile=/etc/lunaway/extcom.env)
+    as_extcom "$@"
+    return
   fi
   systemd-run "${sandbox[@]}" \
     -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
     -p MemoryHigh=2560M -p MemoryMax=3G \
     -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
-    ${extra[@]+"${extra[@]}"} \
     -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
     -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
     -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
@@ -135,18 +133,39 @@ as_takedown() {
     -p IPAddressDeny=any -p IPAddressAllow=localhost \
     "$cli" "$@"
 }
-# The external community source's switch, purge and erasures: the import
-# role, its cache writable (a purge or an erasure removes the feeds it
-# keeps there), no outbound network.
+# The external community source: its import, switch, purge and erasures,
+# as the imports, the import cache writable (a purge or an erasure removes
+# the feeds it keeps there), and no outbound network but for an import
+# from an https URL. Each one but `status` holds the lock the import unit
+# holds (/srv/data/ingest/extcom.lock): an erasure or a purge run during
+# an import would be undone by the import's later batches, which read the
+# erased authors once, at their start. `ingest extcom` alone gets the
+# agreement's settings.
 as_extcom() {
+  local run=("$cli" "$@") extra=() net=(-p IPAddressDeny=any)
+  if [ "${2:-}" != status ]; then
+    if [ -f /srv/data/ingest/extcom.lock ] && ! flock -n /srv/data/ingest/extcom.lock true; then
+      echo "an import of the external community feed runs: waiting for it (30 minutes at most)" >&2
+    fi
+    run=(/usr/bin/flock -w 1800 /srv/data/ingest/extcom.lock "${run[@]}")
+  fi
+  if [ "${1:-}" = ingest ]; then
+    [ -f /etc/lunaway/extcom.env ] \
+      || { echo "no /etc/lunaway/extcom.env: the agreement's settings are not installed (docs/deploy.md, \"Private settings\")" >&2; exit 1; }
+    extra=(-p EnvironmentFile=/etc/lunaway/extcom.env)
+    case " $* " in
+      *" https://"*) net=(-p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10") ;;
+    esac
+  fi
   systemd-run "${sandbox[@]}" \
     -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
     -p MemoryHigh=768M -p MemoryMax=1G \
     -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+    ${extra[@]+"${extra[@]}"} \
     -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
     -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
-    -p IPAddressDeny=any -p IPAddressAllow=localhost \
-    "$cli" "$@"
+    "${net[@]}" -p IPAddressAllow=localhost \
+    "${run[@]}"
 }
 # The packs come out 0640 lunaway-ingest:caddy, like the unit's
 # (/srv/data/packs is setgid caddy).
@@ -235,13 +254,14 @@ take_down() {
 }
 
 # erase-author: the id of an author of the external community source who
-# asked to be erased, read from standard input ("-"). sudo writes the whole
-# command line to the journal, which keeps it for weeks: the id must not
-# outlive the erasure there. The unit's description names the command only.
+# asked to be erased, read from standard input ("-"), without echo when it
+# is a terminal. sudo writes the whole command line to the journal, and a
+# shell keeps its history: the id must outlive the erasure in neither. The
+# unit's description names the command only.
 erase_author() {
   local id="" yes=()
   if [ "${1:-}" != - ]; then
-    echo "extcom erase-author takes the author's id on standard input: printf '%s' '<id>' | sudo lunaway-admin extcom erase-author - [--yes] (a command line goes to the journal)" >&2
+    echo "extcom erase-author takes the author's id on standard input: sudo lunaway-admin extcom erase-author - [--yes], then paste the id (never on a command line: sudo logs it, the shell keeps it)" >&2
     exit 2
   fi
   shift
@@ -251,12 +271,18 @@ erase_author() {
       *) echo "extcom erase-author: unknown argument $1" >&2; exit 2 ;;
     esac
   done
-  IFS= read -r id || true
+  if [ -t 0 ]; then
+    IFS= read -rs -p "author id (not echoed): " id || true
+    echo >&2
+  else
+    IFS= read -r id || true
+  fi
   if [ -z "$id" ] || [ "$(printf '%s' "$id" | wc -c)" -gt 128 ]; then
-    echo "extcom erase-author: the author's id on standard input holds 1 to 128 bytes" >&2
+    echo "extcom erase-author: the author's id holds 1 to 128 bytes" >&2
     exit 2
   fi
-  as_extcom extcom erase-author "$id" ${yes[@]+"${yes[@]}"}
+  # After "--", an id that starts with a dash is not read as an option.
+  as_extcom extcom erase-author ${yes[@]+"${yes[@]}"} -- "$id"
 }
 
 # replay-takedowns: after a restore, the takedown journal applied again
@@ -334,7 +360,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,65p' "$0" >&2
+    sed -n '2,67p' "$0" >&2
     exit 2
     ;;
 esac
