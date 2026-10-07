@@ -12,6 +12,7 @@ mod poi;
 mod regions;
 mod road_events;
 mod route;
+mod route_reasons;
 // Every test of it is ignored; infra/routing/e2e.sh runs them on the build
 // server with `-E 'test(/^route_e2e::/)' --run-ignored only`.
 mod route_e2e;

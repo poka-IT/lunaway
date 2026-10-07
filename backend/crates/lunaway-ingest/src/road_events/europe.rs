@@ -8,9 +8,10 @@
 //! - the DGT's incidents: Spanish closures, lane measures and limits on
 //!   sections from one point to another, with their road names.
 //!
-//! The routing graph covers France only, so these events are not matched
-//! to it (`road_event_sources.routed`); they are kept with their source
-//! geometry, ready for the day it covers them, and shown as they are.
+//! The routing graph covers both countries since `20261006T2326Z-eu`:
+//! their lines are matched to it like the French ones
+//! (`road_event_sources.routed`), and the detour routes are shown with
+//! their own lines, never placed on it.
 //!
 //! Both feeds write a record per measure (`situationRecord`) with an id, a
 //! version and a validity; a complete snapshot each time, so a record

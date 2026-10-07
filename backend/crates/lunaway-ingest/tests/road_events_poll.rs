@@ -380,20 +380,32 @@ impl Engine for Picky {
     }
 }
 
-/// [`Straight`], counting the requests with a point outside France.
+/// [`Straight`], counting the requests with a point in the Netherlands and
+/// in Spain.
 #[derive(Default)]
 struct Abroad {
-    asked: std::sync::atomic::AtomicUsize,
+    dutch: std::sync::atomic::AtomicUsize,
+    spanish: std::sync::atomic::AtomicUsize,
 }
 
 impl Engine for Abroad {
     async fn route(&self, body: &Value) -> Result<Option<Value>, MatchError> {
-        let abroad = body["locations"].as_array().unwrap().iter().any(|l| {
-            let p = Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap();
-            !lunaway_domain::routing::is_covered(p)
-        });
-        if abroad {
-            self.asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let points: Vec<Position> = body["locations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| Position::new(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()).unwrap())
+            .collect();
+        let within = |path: &str| {
+            let region = lunaway_domain::routing::coverage::region(path).unwrap();
+            points.iter().any(|p| region.contains(*p))
+        };
+        if within("europe/netherlands") {
+            self.dutch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+        if within("europe/spain") {
+            self.spanish
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
         Straight.route(body).await
     }
@@ -627,7 +639,7 @@ async fn sections_are_placed_on_their_road_in_their_direction(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn the_dutch_and_spanish_feeds_are_read_and_kept_off_the_french_graph(pool: PgPool) {
+async fn the_dutch_and_spanish_feeds_are_read_and_placed_on_the_europe_graph(pool: PgPool) {
     let (f, addr) = feeds().await;
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::new(dir.path());
@@ -674,15 +686,15 @@ async fn the_dutch_and_spanish_feeds_are_read_and_kept_off_the_french_graph(pool
         "the file is kept compressed"
     );
 
-    graph(&pool, "20261006T0300Z-fr").await;
+    graph(&pool, "20261006T2326Z-eu").await;
     let watch = Abroad::default();
-    matching::match_pending(&pool, &watch, 1_000, Duration::from_secs(30))
+    matching::match_pending(&pool, &watch, 10_000, Duration::from_secs(60))
         .await
         .unwrap();
-    assert_eq!(
-        watch.asked.load(std::sync::atomic::Ordering::SeqCst),
-        0,
-        "the graph covers France only: no Dutch or Spanish line is asked of it"
+    assert!(
+        watch.dutch.load(std::sync::atomic::Ordering::SeqCst) > 0
+            && watch.spanish.load(std::sync::atomic::Ordering::SeqCst) > 0,
+        "the graph covers the Netherlands and Spain: their lines are placed on it"
     );
     let waiting: i64 = sqlx::query_scalar!(
         r#"SELECT count(*) AS "n!" FROM road_events
@@ -691,7 +703,19 @@ async fn the_dutch_and_spanish_feeds_are_read_and_kept_off_the_french_graph(pool
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert!(waiting > 0, "they wait for a graph that covers them");
+    assert_eq!(waiting, 0, "every line was asked of the engine");
+    let detours = sqlx::query!(
+        r#"SELECT count(*) AS "all!", count(matched_graph_id) AS "asked!" FROM road_events
+           WHERE source = 'ndw' AND class = 'detour'"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(detours.all > 0, "the fixture holds detours");
+    assert_eq!(
+        detours.asked, 0,
+        "a detour is shown with its route, never placed on the graph"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

@@ -5,7 +5,7 @@ use async_graphql::{Context, Result};
 use lunaway_db::routing as db;
 use lunaway_domain::{
     Position,
-    routing::{InvalidVehicle, Trailer, VehicleInput, VehicleProfile, covered_area, is_covered},
+    routing::{InvalidVehicle, Trailer, VehicleInput, VehicleProfile, coverage},
 };
 
 use crate::{
@@ -14,14 +14,15 @@ use crate::{
     quota::{Action, Subject},
     road_event_types::{RoadEvent, RoadEventSourceStatus},
     routing::{
-        MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest,
+        MAX_ATTEMPTS, NoRoute, Outcome, RouteError, RouteRequest, Routed,
         events::Freshness,
         valhalla::{Avoid, EngineError, Stop},
     },
     routing_types::{
-        CoveredArea, DISCLAIMER_KEY, RerouteParameters, RouteInput, RouteOptions, RoutePointInput,
-        RouteResult, RouteStatus, RouteSummary, RouteWarning, RoutingGraph, RoutingInfo,
-        SpeedLimitSpan, VehicleBounds, VehicleProfileInput, presets, road_event_warning,
+        CoveredArea, DISCLAIMER_KEY, NoRouteReason, NoRouteReasonKind, RerouteParameters,
+        RouteInput, RouteOptions, RoutePointInput, RouteResult, RouteStatus, RouteSummary,
+        RouteWarning, RoutingGraph, RoutingInfo, SpeedLimitSpan, VehicleBounds,
+        VehicleProfileInput, presets, road_event_warning,
     },
     schema::{RouteOnce, db as db_share, state},
 };
@@ -35,11 +36,18 @@ fn speed_vehicle(v: &VehicleProfile) -> lunaway_domain::speed::Vehicle {
     }
 }
 
-/// Longest trip accepted, straight line from stop to stop, metres: the
-/// engine refuses more than its `auto` limit (2 500 km in
-/// `infra/routing/valhalla.json`), and such a refusal is the client's
-/// request, not the server's failure.
-const MAX_TRIP_M: f64 = 2_500_000.0;
+/// Longest trip accepted, straight line from stop to stop, metres: Lille
+/// to the south of Morocco (Dakhla, 3 415 km) and Andalusia to the North
+/// Cape (4 166 km) fit. The engine refuses more than its `auto` limit
+/// (`infra/routing/valhalla.json`, at least this, a test reads it), and
+/// such a refusal is the client's request, not the server's failure.
+/// Measured on 2026-10-07 (`plan/research/40-backend-routage-europe.md`,
+/// part 3): the engine takes at most 1.06 s for the ten longest trips on a
+/// server faster than the backend (2.3 to 2.85 times, calibrated on shorter
+/// trips), and their corridor queries up to 2.7 s on the backend itself;
+/// [`crate::routing::valhalla::alternates_for`] keeps the answer's size
+/// within bounds.
+pub(crate) const MAX_TRIP_M: f64 = 4_500_000.0;
 /// Waypoints accepted between the origin and the destination.
 pub(crate) const MAX_WAYPOINTS: usize = 5;
 /// Alternatives accepted besides the best route.
@@ -50,11 +58,6 @@ const MAX_DEPART_AHEAD_DAYS: i64 = 14;
 
 fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
     let at = Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("{name}: {e}")))?;
-    if !is_covered(at) {
-        return Err(invalid_input(format!(
-            "{name} is outside the area routes are computed in (metropolitan France and Corsica)"
-        )));
-    }
     let heading = match p.heading_deg {
         None => None,
         Some(h) if h.is_finite() && (0.0..=360.0).contains(&h) => {
@@ -128,7 +131,7 @@ fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
     }
     stops.push(stop("destination", input.destination)?);
     let trip: f64 = stops.windows(2).map(|w| w[0].at.distance_m(w[1].at)).sum();
-    if trip > MAX_TRIP_M {
+    if !trip.is_finite() || trip > MAX_TRIP_M {
         return Err(invalid_input(format!(
             "the stops are {:.0} km apart in a straight line, more than the {:.0} km a route may cover",
             trip / 1_000.0,
@@ -168,13 +171,29 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             .unwrap_or(ClientKey::Unknown),
     );
     let st = state(ctx);
-    st.quotas
-        .take(Action::Route, client)
-        .map_err(|wait| quota_spent("routes", wait))?;
+    // A stop where the graph has no road: the engine is not asked, and the
+    // quota not taken.
+    let outside: Vec<usize> = request
+        .stops
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| !coverage::covers(s.at))
+        .map(|(i, _)| i)
+        .collect();
+    let charged = outside.is_empty();
+    if charged {
+        st.quotas
+            .take(Action::Route, client)
+            .map_err(|wait| quota_spent("routes", wait))?;
+    }
     // A route the server could not compute does not count against the
     // client: a driver recalculating every 10 s while the engine is busy
     // would otherwise spend the quota on nothing.
-    let refund = || st.quotas.give_back(Action::Route, client);
+    let refund = || {
+        if charged {
+            st.quotas.give_back(Action::Route, client);
+        }
+    };
     let (pool, _permit) = db_share(ctx).await?;
     let graph = match db::active_graph(pool).await {
         Ok(Some(g)) => g,
@@ -198,17 +217,33 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
     };
     let now = chrono::Utc::now();
     let fresh = Freshness::of(&sources, now);
-    let outcome = match st.routing.route(pool, &graph.id, &request, &fresh).await {
+    let routed = if charged {
+        st.routing.route(pool, &graph.id, &request, &fresh).await
+    } else {
+        Routed {
+            result: Ok(Outcome::NoRoute(NoRoute::OutsideCoverage(outside))),
+            engine_answered: false,
+        }
+    };
+    // Once the engine has answered, the work was done: a failure after it
+    // (a recalculation out of time, the engine gone silent) is not given
+    // back, or a trip made slow on purpose would cost its client nothing.
+    let refund_unworked = || {
+        if !routed.engine_answered {
+            refund();
+        }
+    };
+    let outcome = match routed.result {
         Ok(o) => o,
         Err(RouteError::Busy) => {
-            refund();
+            refund_unworked();
             return Err(rate_limited_error(
                 "the routing engine is busy; try again in a moment",
                 std::time::Duration::from_secs(2),
             ));
         }
         Err(RouteError::NotSetUp) => {
-            refund();
+            refund_unworked();
             return Err(unavailable("routing"));
         }
         // The engine refused the request itself (a limit of its own): the
@@ -222,18 +257,18 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             ));
         }
         Err(RouteError::Engine(e)) => {
-            refund();
+            refund_unworked();
             log_chain(&e);
             return Err(unavailable("routing"));
         }
         Err(RouteError::Deadline) => {
-            refund();
+            refund_unworked();
             tracing::warn!("a route ran out of time");
             return Err(unavailable("routing"));
         }
         Err(e @ RouteError::TooLarge) => return Err(invalid_input(e.to_string())),
         Err(e) => {
-            refund();
+            refund_unworked();
             return Err(internal(&e));
         }
     };
@@ -251,8 +286,10 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         .iter()
         .map(|s| RoadEventSourceStatus::of(s, now))
         .collect();
+    let last_stop = request.stops.len().saturating_sub(1);
     let base = |status, recalculations: usize| RouteResult {
         status,
+        no_route_reasons: Vec::new(),
         osrm_json: None,
         routes: Vec::new(),
         blockers: Vec::new(),
@@ -302,8 +339,29 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             avoided_road_events: avoided.iter().map(|e| RoadEvent::of(e, now)).collect(),
             ..base(RouteStatus::Ok, recalculations)
         },
-        Outcome::NoRoute(NoRoute::Unreachable) => base(RouteStatus::NoRoute, 0),
-        Outcome::NoRoute(NoRoute::OffNetwork) => base(RouteStatus::OffNetwork, 0),
+        Outcome::NoRoute(NoRoute::Unreachable(reasons)) => RouteResult {
+            no_route_reasons: reasons
+                .iter()
+                .map(|r| NoRouteReason::of(r, last_stop))
+                .collect(),
+            ..base(RouteStatus::NoRoute, 0)
+        },
+        Outcome::NoRoute(NoRoute::OffNetwork(stops)) => RouteResult {
+            no_route_reasons: NoRouteReason::at_stops(
+                NoRouteReasonKind::NoRoadNearby,
+                &stops,
+                last_stop,
+            ),
+            ..base(RouteStatus::OffNetwork, 0)
+        },
+        Outcome::NoRoute(NoRoute::OutsideCoverage(stops)) => RouteResult {
+            no_route_reasons: NoRouteReason::at_stops(
+                NoRouteReasonKind::OutsideCoverage,
+                &stops,
+                last_stop,
+            ),
+            ..base(RouteStatus::NoRoute, 0)
+        },
         Outcome::NoSafeRoute {
             blockers,
             event_blockers,
@@ -336,7 +394,7 @@ pub(crate) async fn routing_info(ctx: &Context<'_>) -> Result<RoutingInfo> {
     let (pool, _permit) = db_share(ctx).await?;
     let graph = db::active_graph(pool).await.map_err(|e| internal(&e))?;
     let available = graph.is_some() && state(ctx).routing.alive_cached().await;
-    let area = covered_area();
+    let area = coverage::bounding_box();
     let (vehicle_presets, trailer_presets) = presets();
     Ok(RoutingInfo {
         available,
@@ -348,6 +406,15 @@ pub(crate) async fn routing_info(ctx: &Context<'_>) -> Result<RoutingInfo> {
             north: area.north(),
             east: area.east(),
         },
+        covered_countries: coverage::countries()
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        road_event_report_countries: lunaway_domain::road_events::community::report_countries()
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        max_trip_km: MAX_TRIP_M / 1_000.0,
         max_waypoints: i32::try_from(MAX_WAYPOINTS).unwrap_or(0),
         max_alternatives: MAX_ALTERNATIVES,
         vehicle_bounds: VehicleBounds::current(),
@@ -390,6 +457,20 @@ mod tests {
         }
     }
 
+    #[test]
+    fn the_engine_accepts_every_trip_the_api_does() {
+        // The configuration the backend serves the engine with.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../../../../infra/routing/valhalla.json")).unwrap();
+        let engine = config["service_limits"]["auto"]["max_distance"]
+            .as_f64()
+            .unwrap();
+        assert!(
+            MAX_TRIP_M <= engine,
+            "a trip the API accepts and the engine refuses fails as INVALID_INPUT"
+        );
+    }
+
     fn message(r: Result<(RouteRequest, RouteOptions)>) -> String {
         r.err().map(|e| e.message).unwrap_or_default()
     }
@@ -397,13 +478,32 @@ mod tests {
     #[test]
     fn a_request_outside_its_bounds_is_refused_before_anything_is_spent() {
         assert!(request(&input()).is_ok());
-        let mut far = input();
-        far.destination = RoutePointInput {
+        let mut berlin = input();
+        berlin.destination = RoutePointInput {
             lat: 52.52,
             lon: 13.40,
             heading_deg: None,
         };
-        assert!(message(request(&far)).contains("outside the area"));
+        assert!(
+            request(&berlin).is_ok(),
+            "Berlin is 1 000 km away, in the graph"
+        );
+        let mut far = input();
+        far.origin = RoutePointInput {
+            lat: 27.75,
+            lon: -18.0,
+            heading_deg: None,
+        };
+        far.destination = RoutePointInput {
+            lat: 70.98,
+            lon: 25.97,
+            heading_deg: None,
+        };
+        assert!(
+            message(request(&far)).contains("more than the 4500 km"),
+            "El Hierro to the North Cape: {}",
+            message(request(&far))
+        );
         let mut many = input();
         many.waypoints = Some(vec![input().origin; 6]);
         assert!(message(request(&many)).contains("at most 5 waypoints"));

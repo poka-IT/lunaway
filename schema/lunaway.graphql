@@ -215,6 +215,32 @@ input BBoxInput {
 }
 
 """
+A limit that keeps the vehicle out, with the restriction behind it
+when our data has it.
+"""
+type BlockingLimit {
+	"""
+	What it limits.
+	"""
+	kind: VehicleLimitKind!
+	"""
+	The limit's figure, metres or tonnes, when the restriction is known.
+	"""
+	limit: Float
+	"""
+	The vehicle's figure it was compared with.
+	"""
+	vehicleValue: Float
+	"""
+	The restriction that blocks, when known: its place (`lat`, `lon`),
+	source, name and identifier, to report a wrong value. Its distance
+	and geometry index count along a route the engine drew for the
+	diagnosis, which the app does not receive.
+	"""
+	restriction: RouteWarning
+}
+
+"""
 A range of accepted values.
 """
 type Bounds {
@@ -362,7 +388,9 @@ enum ContributionStatus {
 }
 
 """
-The area routes are computed in.
+A box around the area routes are computed in. A point inside may still
+lie outside it (`RoutingInfo.coveredCountries`): the route then answers
+`NO_ROUTE` with the reason `OUTSIDE_COVERAGE`.
 """
 type CoveredArea {
 	"""
@@ -748,6 +776,62 @@ input FavoriteListInput {
 	Its places.
 	"""
 	placeIds: [UUID!]!
+}
+
+"""
+A ferry crossing of a route.
+"""
+type FerryCrossing {
+	"""
+	The ferry line's name, as OpenStreetMap maps it (`Nice - Ajaccio`).
+	"""
+	name: String
+	"""
+	The two ports its name gives, in the name's order (not always the
+	crossing's); empty when the name does not give them.
+	"""
+	ports: [String!]!
+	"""
+	Where the boat is boarded, latitude.
+	"""
+	fromLat: Float
+	"""
+	Where the boat is boarded, longitude.
+	"""
+	fromLon: Float
+	"""
+	Where it is left, latitude.
+	"""
+	toLat: Float
+	"""
+	Where it is left, longitude.
+	"""
+	toLon: Float
+	"""
+	Country where it is boarded (ISO 3166-1 alpha-2).
+	"""
+	fromCountry: String
+	"""
+	Country where it is left.
+	"""
+	toCountry: String
+	"""
+	Distance from the start of the route to the boarding, metres.
+	"""
+	distanceFromStartM: Float!
+	"""
+	Metres on the boat.
+	"""
+	distanceM: Float!
+	"""
+	Seconds on the boat, as the engine reckons (the timetable is not
+	known).
+	"""
+	durationS: Float!
+	"""
+	Index of the route's shape point where it starts.
+	"""
+	geometryIndex: Int
 }
 
 """
@@ -1452,7 +1536,8 @@ type Mutation {
 	addVendingMachine(input: NewVendingMachineInput!): PlaceSubmission!
 	"""
 	Reports what is seen on the road: a closed road, works, a narrow
-	passage, a low clearance with its height. Level 0; 30 a day per
+	passage, a low clearance with its height, in the countries of
+	`routing.roadEventReportCountries`. Level 0; 30 a day per
 	account, 100 per client address. One account's report warns the
 	others. Two reports of the same thing at the same spot (within
 	100 m, heading the same way, a measured figure within 0.2 m) from
@@ -1689,6 +1774,66 @@ type NextLevel {
 	for level 1).
 	"""
 	instead: LevelRequirement
+}
+
+"""
+One reason a trip has no route.
+"""
+type NoRouteReason {
+	"""
+	What keeps the trip from a route.
+	"""
+	kind: NoRouteReasonKind!
+	"""
+	The stop concerned: 0 the origin, then the waypoints in order, the
+	last the destination. Null when the reason is not one stop's.
+	"""
+	stopIndex: Int
+	"""
+	The limits that keep the vehicle out; empty when the reason is not
+	the vehicle's, or when they could not be told.
+	"""
+	limits: [BlockingLimit!]!
+}
+
+"""
+Why a trip has no route (`RouteResult.noRouteReasons`).
+"""
+enum NoRouteReasonKind {
+	"""
+	The vehicle cannot reach the origin, or leave it: every way passes
+	a limit it exceeds (`limits` says which).
+	"""
+	ORIGIN_UNREACHABLE
+	"""
+	The vehicle cannot reach the destination: every way passes a limit
+	it exceeds.
+	"""
+	DESTINATION_UNREACHABLE
+	"""
+	The vehicle cannot reach the waypoint at `stopIndex`.
+	"""
+	WAYPOINT_UNREACHABLE
+	"""
+	Each stop can be reached, but no way between them was found for the
+	vehicle: `limits` names those our data finds on the small vehicle's
+	way, empty when unknown (always on a trip over 1 000 km).
+	"""
+	BLOCKED_ON_THE_WAY
+	"""
+	No road joins the stop at `stopIndex`, or the stops when it is null,
+	whatever the vehicle (an island without a car ferry).
+	"""
+	NOT_CONNECTED
+	"""
+	The stop lies outside the area routing covers
+	(`RoutingInfo.coveredCountries`).
+	"""
+	OUTSIDE_COVERAGE
+	"""
+	No road the vehicle may drive within 5 km of the stop.
+	"""
+	NO_ROAD_NEARBY
 }
 
 """
@@ -4114,7 +4259,8 @@ input RouteInput {
 	options: RouteOptionsInput
 	"""
 	Alternatives wanted besides the best route, 0 to 2; only without
-	waypoints.
+	waypoints, one at most beyond 2 000 km in a straight line, none
+	beyond 3 000 km (the answer's size).
 	"""
 	alternatives: Int! = 0
 	"""
@@ -4140,6 +4286,32 @@ enum RouteLanguage {
 	English.
 	"""
 	EN
+}
+
+"""
+Something the app should tell about a route.
+"""
+type RouteNotice {
+	"""
+	What.
+	"""
+	kind: RouteNoticeKind!
+	"""
+	The crossing, for `ROUTE_USES_FERRY`.
+	"""
+	ferry: FerryCrossing
+}
+
+"""
+What the app should tell about a route besides its restrictions and
+road events.
+"""
+enum RouteNoticeKind {
+	"""
+	The route takes a ferry (`ferry`): avoiding ferries is a
+	preference, and the route still crosses when no road leads there.
+	"""
+	ROUTE_USES_FERRY
 }
 
 """
@@ -4216,6 +4388,12 @@ type RouteResult {
 	"""
 	status: RouteStatus!
 	"""
+	When `status` is `NO_ROUTE` or `OFF_NETWORK`: why, one reason per
+	stop concerned, or one for the trip. Empty when the cause could not
+	be told in time.
+	"""
+	noRouteReasons: [NoRouteReason!]!
+	"""
 	The engine's answer in the OSRM format (as Valhalla writes it with
 	`format: osrm`, banner and voice instructions, polyline6 geometry),
 	with only the routes the vehicle may drive: what Ferrostar's OSRM
@@ -4275,11 +4453,13 @@ enum RouteStatus {
 	"""
 	OK
 	"""
-	The engine found no road between the points.
+	No route between the points: `noRouteReasons` says why (a stop the
+	vehicle cannot reach, a stop outside the area routing covers, no
+	road at all).
 	"""
 	NO_ROUTE
 	"""
-	A point is too far from any road.
+	A point is too far from any road: `noRouteReasons` names it.
 	"""
 	OFF_NETWORK
 	"""
@@ -4317,6 +4497,11 @@ type RouteSummary {
 	Whether it uses a motorway.
 	"""
 	hasMotorway: Boolean!
+	"""
+	What to tell besides the restrictions and road events: each ferry
+	crossing (`ROUTE_USES_FERRY`), in driving order.
+	"""
+	notices: [RouteNotice!]!
 	"""
 	Restrictions the vehicle passes with little margin (under 0.30 m of
 	height, 0.20 m of width) or whose figure is unknown, in driving
@@ -4492,9 +4677,23 @@ type RoutingInfo {
 	"""
 	disclaimerKey: String!
 	"""
-	The area routes are computed in.
+	A box around the area routes are computed in.
 	"""
 	coveredArea: CoveredArea!
+	"""
+	The countries routes are computed in (ISO 3166-1 alpha-2), sorted.
+	"""
+	coveredCountries: [String!]!
+	"""
+	The countries where road events may be reported (ISO 3166-1
+	alpha-2): those with an official feed of road events.
+	"""
+	roadEventReportCountries: [String!]!
+	"""
+	Longest trip accepted, kilometres in a straight line from stop to
+	stop.
+	"""
+	maxTripKm: Float!
 	"""
 	Waypoints accepted at most.
 	"""
@@ -4923,6 +5122,32 @@ enum VehicleKind {
 	Anything else.
 	"""
 	OTHER
+}
+
+"""
+A limit that keeps the vehicle out.
+"""
+enum VehicleLimitKind {
+	"""
+	Its height.
+	"""
+	HEIGHT
+	"""
+	Its width.
+	"""
+	WIDTH
+	"""
+	Its length.
+	"""
+	LENGTH
+	"""
+	Its weight.
+	"""
+	WEIGHT
+	"""
+	The only roads are unpaved, which the trip avoids.
+	"""
+	UNPAVED
 }
 
 """

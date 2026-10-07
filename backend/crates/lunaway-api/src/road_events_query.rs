@@ -1,5 +1,6 @@
 //! `Query.roadEvents`: the changes of the road events since a cursor, for
-//! a phone in guidance to keep France's closures and temporary limits and
+//! a phone in guidance to keep the closures and temporary limits of the
+//! feeds the routing graph covers (France, the Netherlands, Spain) and
 //! check its remaining route itself, every three minutes, without sending
 //! its position; and `Query.roadEventSources`: each feed's freshness.
 //!

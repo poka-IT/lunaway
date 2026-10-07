@@ -48,8 +48,11 @@ const MAX_INPUT_POINTS: usize = 1_000;
 /// Most points a polyline may decode to: 48 000 characters of six-decimal
 /// deltas hold fewer.
 const MAX_LINE_POINTS: usize = 20_000;
-/// Longest route, kilometres: the engine's own limit for a route.
-const MAX_ROUTE_KM: f64 = 2_500.0;
+/// Longest route, kilometres: the longest trip a route is given for
+/// (`routing_query::MAX_TRIP_M`, 4 500 km in a straight line) runs to about
+/// 6 000 km by road (Tarifa to Tromsø, 5 411 km, measured 2026-10-07). The
+/// search's work grows with the line's points, bounded apart.
+const MAX_ROUTE_KM: f64 = 7_000.0;
 /// How much of each end of the line the search drops, metres: the start
 /// is the device's position when a preview searches from it.
 pub(crate) const END_CUT_M: f64 = 2_000.0;
@@ -658,9 +661,11 @@ mod tests {
         broken.polyline = Some("~".to_owned());
         assert!(message(line_of(&broken)).contains("polyline"));
         let mut across = input();
+        // El Hierro to the North Cape and back to Lisbon: 9 900 km.
         across.polyline = Some(polyline::encode(&[
-            Position::new(36.0, -9.0).unwrap(),
-            Position::new(60.0, 25.0).unwrap(),
+            Position::new(27.7, -18.0).unwrap(),
+            Position::new(71.0, 26.0).unwrap(),
+            Position::new(38.7, -9.1).unwrap(),
         ]));
         assert!(message(line_of(&across)).contains("km long"));
         // Back and forth across the antimeridian: 2.2 km a segment, but

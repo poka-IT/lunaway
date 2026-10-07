@@ -20,7 +20,47 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{Confidence, EventClass, VehicleLimits};
-use crate::{Position, UnknownCode, routing::turn_between, taxonomy::coded_enum};
+use crate::{
+    Position, UnknownCode,
+    routing::{coverage, turn_between},
+    taxonomy::coded_enum,
+};
+
+/// Where users may report what they meet on the road: the extracts of the
+/// routing graph (`routing::coverage`) of the countries with an official
+/// feed of road events (France, the Netherlands, Spain with the Canary
+/// Islands). There a report sits beside what the authorities publish, on a
+/// road a route can be sent around; elsewhere a single report would be the
+/// only word on a road, with no feed to set it against.
+pub const REPORT_AREA: &[&str] = &[
+    "europe/france",
+    "europe/netherlands",
+    "europe/spain",
+    "africa/canary-islands",
+];
+
+/// Whether a report may be made at `p` ([`REPORT_AREA`]).
+#[must_use]
+pub fn in_report_area(p: Position) -> bool {
+    REPORT_AREA
+        .iter()
+        .filter_map(|path| coverage::region(path))
+        .any(|r| r.contains(p))
+}
+
+/// The countries of [`REPORT_AREA`] (ISO 3166-1 alpha-2), sorted, each
+/// once.
+#[must_use]
+pub fn report_countries() -> Vec<&'static str> {
+    let mut all: Vec<&str> = coverage::COUNTRIES
+        .iter()
+        .filter(|(path, _)| REPORT_AREA.contains(path))
+        .flat_map(|(_, codes)| codes.iter().copied())
+        .collect();
+    all.sort_unstable();
+    all.dedup();
+    all
+}
 
 /// How close two reports must be to be of the same spot, metres: a phone's
 /// position is within a few tens of metres, and a closed stretch is longer.
@@ -522,6 +562,30 @@ mod tests {
         );
         let own = [report(1, ReportKind::Closure, 0), cleared(1, 5, false)];
         assert_eq!(summarize(&own), None, "the only reporter takes it back");
+    }
+
+    #[test]
+    fn reports_are_taken_where_an_official_feed_runs_beside_them() {
+        let at = |lat, lon| Position::new(lat, lon).unwrap();
+        for path in REPORT_AREA {
+            assert!(
+                coverage::region(path).is_some(),
+                "{path}: a report must lie on the routing graph"
+            );
+        }
+        assert!(in_report_area(at(45.8472, 1.2848)), "Limoges");
+        assert!(in_report_area(at(52.37, 4.90)), "Amsterdam");
+        assert!(in_report_area(at(40.42, -3.70)), "Madrid");
+        assert!(in_report_area(at(28.12, -15.43)), "Las Palmas");
+        assert!(
+            !in_report_area(at(52.52, 13.40)),
+            "Berlin: no feed of road events"
+        );
+        assert!(
+            !in_report_area(at(44.8, 20.46)),
+            "Belgrade: outside the graph"
+        );
+        assert_eq!(report_countries(), ["ES", "FR", "GI", "MC", "NL"]);
     }
 
     #[test]

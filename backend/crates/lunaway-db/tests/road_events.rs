@@ -1119,6 +1119,24 @@ async fn a_report_waits_three_seconds_for_the_feeds_then_gives_up(pool: PgPool) 
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_phones_feed_leaves_out_the_feeds_the_graph_does_not_cover(pool: PgPool) {
+    let routed = || async {
+        sqlx::query_scalar::<_, bool>(
+            "SELECT bool_and(routed) FROM road_event_sources WHERE id IN ('ndw', 'dgt')",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    assert!(
+        routed().await,
+        "the Europe graph covers the Netherlands and Spain: their feeds are routed"
+    );
+    // A feed the graph would not cover, as the Spanish one was on the
+    // France graph.
+    sqlx::query("UPDATE road_event_sources SET routed = false WHERE id = 'dgt'")
+        .execute(&pool)
+        .await
+        .unwrap();
     store(&pool, "dir", &[event("fr-1", "0000000001")], t0(), true).await;
     store(&pool, "dgt", &[event("es-1", "0000000001")], t0(), true).await;
     let head = db::feed_head(&pool).await.unwrap();
@@ -1130,7 +1148,7 @@ async fn the_phones_feed_leaves_out_the_feeds_the_graph_does_not_cover(pool: PgP
                 .unwrap()
         ),
         ["dir"],
-        "a Spanish closure cannot be on a route the French graph computes"
+        "a closure off the graph cannot be on a route it computes"
     );
     assert_eq!(
         ids(db::changed_since(&pool, 0, head.revision, 100)

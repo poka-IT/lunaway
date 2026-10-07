@@ -532,7 +532,9 @@ pub struct Limits {
     /// Largest request body, bytes (`LUNAWAY_MAX_BODY_BYTES`).
     pub max_body_bytes: usize,
     /// Largest response before compression, bytes
-    /// (`LUNAWAY_MAX_RESPONSE_BYTES`): a full sync page is 2.3 MB.
+    /// (`LUNAWAY_MAX_RESPONSE_BYTES`): a full sync page is 2.3 MB, a route
+    /// of the longest trip accepted up to 12 MB (its engine answer of
+    /// `routing::MAX_OSRM_BYTES` as a JSON string, and its summaries).
     pub max_response_bytes: usize,
     /// Requests served at once; more wait for a slot
     /// (`LUNAWAY_MAX_CONCURRENT_REQUESTS`).
@@ -571,7 +573,7 @@ impl Default for Limits {
     fn default() -> Self {
         Self {
             max_body_bytes: 64 * 1024,
-            max_response_bytes: 8 * 1024 * 1024,
+            max_response_bytes: 16 * 1024 * 1024,
             max_concurrent_requests: 64,
             queue_wait: Duration::from_secs(2),
             max_cost_in_flight: 400_000,

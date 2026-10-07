@@ -9,9 +9,18 @@ use serde_json::{Value, json};
 
 /// Largest answer read from the engine: three routes across France with
 /// their instructions and annotations weigh about 4.5 MB (Lille to Nice,
-/// measured 2026-10-06 on the France graph). Parsed, an answer takes several
-/// times its size, and four are in flight at once under the API's 1 GB.
+/// measured 2026-10-06 on the France graph), a route weighs at most 2.3 kB
+/// per kilometre of the straight line between its stops (Europe graph,
+/// 20 long trips, 2026-10-07), and [`alternates_for`] keeps the routes
+/// asked within this. Parsed, an answer takes several times its size, and
+/// four are in flight at once under the API's 1.5 GB.
 pub(crate) const MAX_ANSWER_BYTES: usize = 16 * 1024 * 1024;
+/// Straight-line length of a trip above which one alternative at most is
+/// asked, metres: three routes of 2 000 km weigh up to 14 MB.
+const ONE_ALTERNATE_ABOVE_M: f64 = 2_000_000.0;
+/// Straight-line length above which no alternative is asked, metres: two
+/// routes of 3 000 km weigh up to 14 MB, one of 4 500 km up to 10.4 MB.
+const NO_ALTERNATE_ABOVE_M: f64 = 3_000_000.0;
 /// How far, in metres, the engine may look for a road around a point: a
 /// point farther from any road is not a place a motorhome can be routed to,
 /// and the default (35 km) snapped a point in the Bay of Biscay onto a
@@ -47,6 +56,70 @@ pub(crate) struct Avoid {
     pub(crate) unpaved: bool,
 }
 
+/// The alternatives asked of the engine for a trip of `trip_m` metres in a
+/// straight line from stop to stop, when `wanted` are: fewer on long trips,
+/// so that the answer stays within [`MAX_ANSWER_BYTES`].
+pub(crate) fn alternates_for(wanted: u8, trip_m: f64) -> u8 {
+    if trip_m > NO_ALTERNATE_ABOVE_M {
+        0
+    } else if trip_m > ONE_ALTERNATE_ABOVE_M {
+        wanted.min(1)
+    } else {
+        wanted
+    }
+}
+
+/// A limit the engine applies to the vehicle, which a route that cannot
+/// be found may be blamed on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum Constraint {
+    /// The vehicle's height.
+    Height,
+    /// Its width.
+    Width,
+    /// Its length.
+    Length,
+    /// Its weight.
+    Weight,
+    /// Unpaved roads, when the user excluded them.
+    Unpaved,
+}
+
+impl Constraint {
+    /// Every constraint, in the order they are tried.
+    pub(crate) const ALL: [Self; 5] = [
+        Self::Height,
+        Self::Weight,
+        Self::Width,
+        Self::Length,
+        Self::Unpaved,
+    ];
+}
+
+/// The engine's options as [`costing_options`], with the constraints
+/// `relaxed` lifted: a dimension takes the smallest value a vehicle profile
+/// accepts (`vehicle::bounds`), unpaved roads are allowed. A route found
+/// with a constraint lifted, and not without, is blocked by it.
+pub(crate) fn relaxed_costing(
+    dims: &RoutingDimensions,
+    avoid: Avoid,
+    relaxed: &[Constraint],
+) -> Value {
+    use lunaway_domain::routing::vehicle::bounds;
+    let mut d = *dims;
+    let mut a = avoid;
+    for c in relaxed {
+        match c {
+            Constraint::Height => d.height_m = *bounds::HEIGHT_M.start(),
+            Constraint::Width => d.width_m = *bounds::WIDTH_M.start(),
+            Constraint::Length => d.length_m = *bounds::LENGTH_M.start(),
+            Constraint::Weight => d.weight_t = *bounds::WEIGHT_T.start(),
+            Constraint::Unpaved => a.unpaved = false,
+        }
+    }
+    costing_options(&d, a)
+}
+
 /// The engine's options for the vehicle and what to avoid: the `auto`
 /// costing with the four dimensions always sent (its defaults are those of
 /// a small car), `top_speed` above 3.5 t, and avoidance as preferences
@@ -78,6 +151,29 @@ pub(crate) fn costing_options(dims: &RoutingDimensions, avoid: Avoid) -> Value {
     json!({ "auto": auto })
 }
 
+/// A stop as the engine takes it. A stop is snapped to the nearest road
+/// the vehicle may drive, never onto a ferry line: a point picked on the
+/// map near a port or in a lagoon would otherwise start or end the trip on
+/// the boat (Venice, measured 2026-10-07). The vehicle's own position, the
+/// stop sent with a heading, keeps the ferry: a driver recalculating on
+/// board is on the boat, and the nearest road may be the port left behind.
+fn location(s: &Stop) -> Value {
+    let mut l = json!({
+        "lat": s.at.lat(),
+        "lon": s.at.lon(),
+        "type": "break",
+        "search_cutoff": SEARCH_CUTOFF_M,
+    });
+    match s.heading {
+        Some(h) => {
+            l["heading"] = h.into();
+            l["heading_tolerance"] = HEADING_TOLERANCE_DEG.into();
+        }
+        None => l["search_filter"] = json!({"exclude_ferry": true}),
+    }
+    l
+}
+
 /// The body of a route request: OSRM output with banner and voice
 /// instructions, the shape attributes Ferrostar reads, and the exclusion
 /// rings of the check.
@@ -88,22 +184,7 @@ pub(crate) fn route_body(
     alternates: u8,
     exclusions: &[Vec<Position>],
 ) -> Value {
-    let locations: Vec<Value> = stops
-        .iter()
-        .map(|s| {
-            let mut l = json!({
-                "lat": s.at.lat(),
-                "lon": s.at.lon(),
-                "type": "break",
-                "search_cutoff": SEARCH_CUTOFF_M,
-            });
-            if let Some(h) = s.heading {
-                l["heading"] = h.into();
-                l["heading_tolerance"] = HEADING_TOLERANCE_DEG.into();
-            }
-            l
-        })
-        .collect();
+    let locations: Vec<Value> = stops.iter().map(location).collect();
     let mut body = json!({
         "locations": locations,
         "costing": "auto",
@@ -139,6 +220,20 @@ pub(crate) fn route_body(
             .into();
     }
     body
+}
+
+/// The body of a probe of the diagnosis of a trip without a route: the
+/// route through `stops` with `costing`, its shape and legs only (no
+/// instructions, no alternative).
+pub(crate) fn probe_body(stops: &[Stop], costing: &Value) -> Value {
+    json!({
+        "locations": stops.iter().map(location).collect::<Vec<_>>(),
+        "costing": "auto",
+        "costing_options": costing,
+        "format": "osrm",
+        "shape_format": "polyline6",
+        "directions_type": "none",
+    })
 }
 
 /// What the engine said.
@@ -497,6 +592,52 @@ mod tests {
     }
 
     #[test]
+    fn long_trips_ask_fewer_alternatives() {
+        assert_eq!(alternates_for(2, 1_500_000.0), 2);
+        assert_eq!(alternates_for(2, 2_500_000.0), 1);
+        assert_eq!(alternates_for(0, 2_500_000.0), 0);
+        assert_eq!(alternates_for(2, 3_400_000.0), 0);
+        // The heaviest route measured, 2.3 kB per kilometre of straight
+        // line, times the routes asked, at each threshold.
+        let worst = |routes: f64, m: f64| routes * 2.3 * m;
+        let max = MAX_ANSWER_BYTES as f64;
+        assert!(worst(3.0, ONE_ALTERNATE_ABOVE_M) < max);
+        assert!(worst(2.0, NO_ALTERNATE_ABOVE_M) < max);
+        assert!(worst(1.0, crate::routing_query::MAX_TRIP_M) < max);
+    }
+
+    #[test]
+    fn a_lifted_limit_takes_the_smallest_vehicle_s_figure() {
+        let avoid = Avoid {
+            unpaved: true,
+            ..Avoid::default()
+        };
+        let c = relaxed_costing(&dims(3.5, None), avoid, &[Constraint::Height]);
+        assert_eq!(c["auto"]["height"], 1.5);
+        assert_eq!(c["auto"]["weight"], 3.5, "the others stay");
+        assert_eq!(c["auto"]["exclude_unpaved"], true);
+        let c = relaxed_costing(&dims(3.5, None), avoid, &Constraint::ALL);
+        assert_eq!(
+            c,
+            json!({"auto": {"height": 1.5, "width": 1.5, "length": 3.0, "weight": 0.5}}),
+            "the smallest vehicle a profile accepts, unpaved roads allowed"
+        );
+    }
+
+    #[test]
+    fn a_probe_asks_for_the_shape_only() {
+        let a = Stop {
+            at: Position::new(45.84719, 1.28476).unwrap(),
+            heading: None,
+        };
+        let body = probe_body(&[a, a], &json!({"auto": {}}));
+        assert_eq!(body["directions_type"], "none");
+        assert!(body.get("alternates").is_none());
+        assert!(body.get("voice_instructions").is_none());
+        assert_eq!(body["locations"][1]["search_filter"]["exclude_ferry"], true);
+    }
+
+    #[test]
     fn a_matrix_reads_a_row_per_source_and_a_cell_per_target() {
         let p = |lat: f64| MatrixPoint {
             at: Position::new(lat, 1.0).unwrap(),
@@ -551,6 +692,15 @@ mod tests {
         assert_eq!(body["alternates"], 2);
         assert_eq!(body["locations"][0]["heading"], 90);
         assert_eq!(body["locations"][0]["search_cutoff"], 5_000);
+        assert!(
+            body["locations"][0].get("search_filter").is_none(),
+            "the vehicle's own position may be on the boat"
+        );
+        assert_eq!(
+            body["locations"][1]["search_filter"],
+            json!({"exclude_ferry": true}),
+            "a stop picked on the map is snapped to a road, never a ferry line"
+        );
         assert_eq!(
             body["exclude_polygons"][0][0],
             json!([1.28476, 45.84719]),

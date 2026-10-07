@@ -992,9 +992,12 @@ fn matched_lines(text: Option<&str>) -> Vec<Vec<Position>> {
 
 /// The live events made of lines that wait for a match, were matched on
 /// another graph than `graph_id`, or were refused by the engine and are
-/// due to be asked again: the waiting ones first, closures first. Only the
-/// feeds whose area the graph covers (`road_event_sources.routed`): a
-/// Dutch line asked of a French graph would only fail.
+/// due to be asked again: the waiting ones first, closures first, then
+/// those in force before those to come (the Dutch feed plans two weeks of
+/// works). Only the feeds whose area the graph covers
+/// (`road_event_sources.routed`). A line an importer stored unmatched
+/// without asking the engine (a Dutch detour, shown with its own route) is
+/// never asked: the matcher always records the graph it tried.
 ///
 /// # Errors
 ///
@@ -1016,9 +1019,10 @@ pub async fn match_tasks(
           AND source IN (SELECT id FROM road_event_sources WHERE routed)
           AND (match_quality = 'pending'
                OR (match_quality IN ('matched', 'unmatched')
-                   AND matched_graph_id IS DISTINCT FROM $1)
+                   AND matched_graph_id IS NOT NULL AND matched_graph_id <> $1)
                OR (match_quality = 'unmatched' AND match_retry_at <= now()))
-        ORDER BY match_quality = 'pending' DESC, class = 'closure' DESC, first_seen_at
+        ORDER BY match_quality = 'pending' DESC, class = 'closure' DESC,
+            coalesce(valid_from, first_seen_at) > now(), first_seen_at
         LIMIT $2
         "#,
         graph_id,

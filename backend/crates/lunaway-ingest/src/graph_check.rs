@@ -9,7 +9,11 @@
 //! Maurice Utrillo in Limoges, the 3.5 t bridge of Rue du Pas Redon in
 //! Ussel (`maxweightrating` only), the `motorhome=no` of Route de
 //! Grandchamp, an `hgv=no` road a motorhome may take, the 3.4 m porch of
-//! Rue Braille (an IGN height), and a long trip.
+//! Rue Braille (an IGN height), and a long trip; and, since the graph
+//! covers Europe (`plan/research/35-routage-europe-prod.md`, 3.5), trips
+//! across borders and outside France: Spain, Portugal, Italy, Morocco by
+//! the Tarifa ferry, Hamburg to Copenhagen, a 1.5 t street in Warsaw, the
+//! 2.1 m passage before Venice's car ferry.
 
 use std::time::Duration;
 

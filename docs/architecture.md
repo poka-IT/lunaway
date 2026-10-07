@@ -154,6 +154,47 @@ vending machines, water, fuel, health, services).
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
   the worker writes as a point of the `community` source, ODbL).
 
+## Routing
+
+`Query.route` asks the Valhalla engine on loopback for routes and checks
+each one against every restriction we know (`lunaway-api/src/routing`).
+
+- **Area.** The graph is built from the Geofabrik extracts of
+  `infra/routing/europe-extracts.txt` (23 European extracts with the
+  microstates inside them, the Canary Islands, Morocco). Their cuts
+  (Geofabrik's, drawn from OpenStreetMap boundaries, ODbL) are embedded
+  (`lunaway-domain/data/routing-coverage.poly`, read by
+  `lunaway_domain::routing::coverage`, whose tests hold the two lists
+  together): a stop outside every cut is answered `NO_ROUTE`
+  (`OUTSIDE_COVERAGE`) without asking the engine. `Query.routing` gives the
+  countries (`coveredCountries`) and a box around them.
+- **Length.** 4 500 km at most in a straight line from stop to stop, the
+  engine's `auto` limit raised to match; one alternative at most beyond
+  2 000 km, none beyond 3 000 km, so that the engine's answer stays within
+  16 MB and the route sent within 11 MB.
+- **Stops.** A stop is snapped to the nearest road the vehicle may drive,
+  never onto a ferry line (`search_filter.exclude_ferry`), except the
+  vehicle's own position during a recalculation (it may be on board).
+- **No route.** When the engine finds none, `routing::diagnose` asks it a
+  few short questions, each stop against reference points on main roads at
+  least 30 km away, for the real vehicle, the smallest one, and each limit
+  lifted: `noRouteReasons` names the stop the vehicle cannot reach and the
+  limit (height, width, length, weight, unpaved roads), with the blocking
+  restriction from our data when we have it; or a stop far from any road,
+  or stops no road joins. One diagnosis at a time on the server, inside the
+  route's engine slot, within six seconds and the route's own deadline;
+  unexplained otherwise. A route the engine answered is charged to the
+  client's quota even when a later step fails.
+- **Check.** Each route is checked against the restrictions and road
+  events of its corridor; a recalculation or an alternative queries only
+  the stretches no earlier query of the request covered, and a long
+  stretch is read in two halves at once (two pool connections at most per
+  route).
+- **Ferries.** Avoiding ferries is a preference of the engine; a route
+  that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
+  (`routing::ferries`: the line's name and ports, where it is boarded and
+  left).
+
 ## Road events
 
 Closures, works, lane restrictions, temporary vehicle limits and detours,
@@ -163,7 +204,8 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
 
 - **Sources.** The DIR's DATEX II feed of the national roads (an hourly
   aggregate and increments a few minutes apart), DiaLog's traffic orders,
-  city and département datasets, and the users' reports
+  city and département datasets, the Dutch (NDW) and Spanish (DGT)
+  national feeds, and the users' reports
   (`docs/data-sources.md`, "Road events"). `lunaway road-events poll`
   reads each feed when it is due, every three minutes, resumed from its
   cursor (`road_event_sources.state`, stored in the transaction of each
@@ -192,14 +234,15 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
   limit the vehicle exceeds is a blocker, computed around with 3 m rings
   on the road the route used; the rest warns with the age of its data.
 - **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
-  of the events that can block, France-wide, without the phone's position
-  (only the sources on the routing graph, `road_event_sources.routed`: the
-  Dutch and Spanish events are stored but not handed out while the graph
-  covers France only);
+  of the events that can block, in every country with a feed, without the
+  phone's position (only the sources on the routing graph,
+  `road_event_sources.routed`, all of them since the graph covers Europe);
   the phone checks its remaining route itself and asks for a new route
   when a blocker appears ahead (the contract is in
   `plan/research/21-backend-travaux.md`, part 5).
-- **Community.** `reportRoadEvent`: one account warns the others; two
+- **Community.** `reportRoadEvent`, in France, the Netherlands and Spain
+  (`road_events::community::REPORT_AREA`: where an official feed runs
+  beside the reports): one account warns the others; two
   accounts of level 1 or more at the same spot within two hours, agreeing
   on a measured figure within 0.2 m, block; a moderator is told. A
   confirmed event lives from its last confirming pair, so one account

@@ -44,8 +44,9 @@ const CACHE_KEY: &str = "ign-bdtopo/troncons-restreints.geojson.gz";
 const EDITION_KEY: &str = "ign-bdtopo/edition.txt";
 /// Largest capabilities document accepted (5.3 MB on 2026-10-06).
 const MAX_CAPABILITIES_BYTES: usize = 32 * 1024 * 1024;
-/// Share of sections outside the routing area above which the answer is
-/// refused: a swapped axis order or another layer, not France.
+/// Share of sections outside France (Geofabrik's cut, as the routing graph
+/// reads it) above which the answer is refused: a swapped axis order or
+/// another layer.
 const MAX_OUTSIDE_SHARE: f64 = 0.05;
 
 /// One restricted road section.
@@ -222,12 +223,15 @@ pub fn edition(capabilities: &str) -> Option<NaiveDate> {
         .find_map(|word| NaiveDate::parse_from_str(word, "%Y-%m-%d").ok())
 }
 
-/// Refuses sections that mostly fall outside the routing area.
+/// Refuses sections that mostly fall outside France.
 fn check_area(sections: &[IgnSection]) -> Result<(), IngestError> {
-    let area = lunaway_domain::routing::covered_area();
     let outside = sections
         .iter()
-        .filter(|s| s.geometry.first().is_none_or(|p| !area.contains(*p)))
+        .filter(|s| {
+            s.geometry
+                .first()
+                .is_none_or(|p| !lunaway_domain::routing::coverage::in_france(*p))
+        })
         .count();
     #[allow(
         clippy::cast_precision_loss,

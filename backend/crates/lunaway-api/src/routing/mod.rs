@@ -15,12 +15,17 @@
 //! Road events (closures, works, temporary limits) are checked the same
 //! way ([`events`]), at the time the vehicle gets to each: a closure active
 //! then, or a limit the vehicle exceeds, is a blocker too.
+//!
+//! When the engine finds no route at all, [`diagnose`] asks it why; each
+//! route says which ferries it takes ([`ferries`]).
 
+pub(crate) mod diagnose;
 pub(crate) mod events;
+pub(crate) mod ferries;
 pub(crate) mod limits;
 pub(crate) mod valhalla;
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 use lunaway_db::{PgPool, road_events::EventRow, routing as db};
@@ -35,7 +40,9 @@ use serde_json::Value;
 use tokio::sync::Semaphore;
 
 use self::{
+    diagnose::Unreachable,
     events::{EventHit, Freshness, Timing},
+    ferries::Ferry,
     valhalla::{Answer, Avoid, Engine, EngineError, Stop},
 };
 use crate::config::RoutingConfig;
@@ -64,11 +71,33 @@ const LIMITS_DEADLINE: Duration = Duration::from_secs(3);
 const RING_M: f64 = 5.0;
 /// How far from a route the database looks for restrictions, metres: the
 /// widest tolerance of a source (`RestrictionSource::tolerance_m`).
-const CORRIDOR_M: f64 = 15.0;
+pub(crate) const CORRIDOR_M: f64 = 15.0;
+/// How close to a stretch already queried a sample of a later route must
+/// lie for that stretch's corridor queries to cover it, metres.
+const COVERED_M: f64 = 1.0;
+/// Spacing of the samples of a later route compared with the stretches
+/// already queried, metres: every point of the route lies within half of
+/// it of a sample.
+const SAMPLE_M: f64 = 20.0;
+/// How much farther than the check needs the corridor queries reach,
+/// metres: a point of a later route within [`SAMPLE_M`] / 2 of a sample
+/// within [`COVERED_M`] of a queried stretch lies within this of it, so
+/// what the queries of that stretch found holds everything near the point.
+const QUERY_MARGIN_M: f64 = SAMPLE_M / 2.0 + COVERED_M;
+/// Most shape points of one corridor query of the restrictions: a longer
+/// stretch is split in two halves asked at once. One query over a route of
+/// 5 400 km took 2.3 s on the backend (2026-10-07).
+const QUERY_POINTS: usize = 35_000;
+/// Margin kept on the route's deadline when its diagnosis takes the rest:
+/// the answer, unexplained if need be, still leaves before the deadline.
+const DIAGNOSIS_MARGIN: Duration = Duration::from_secs(1);
 /// Largest OSRM answer passed to the app: alternatives are dropped, last
 /// first, until the routes fit, so the GraphQL answer stays under the API's
-/// response limit (8 MB by default).
-pub(crate) const MAX_OSRM_BYTES: usize = 6 * 1024 * 1024;
+/// response limit (16 MB by default). The longest trip accepted gives one
+/// route of up to 10.4 MB (2.3 kB per kilometre of straight line, measured
+/// on the Europe graph on 2026-10-07; Seville to the North Cape, 4 166 km,
+/// 7.1 MB).
+pub(crate) const MAX_OSRM_BYTES: usize = 11 * 1024 * 1024;
 
 /// What the app asked for.
 #[derive(Debug, Clone)]
@@ -86,6 +115,16 @@ pub(crate) struct RouteRequest {
     /// When the trip starts: road events count at the time the vehicle
     /// reaches them.
     pub(crate) depart_at: DateTime<Utc>,
+}
+
+impl RouteRequest {
+    /// The trip's length in a straight line from stop to stop, metres.
+    pub(crate) fn straight_m(&self) -> f64 {
+        self.stops
+            .windows(2)
+            .map(|w| w[0].at.distance_m(w[1].at))
+            .sum()
+    }
 }
 
 /// A restriction met along a route, and what it means for the vehicle.
@@ -114,6 +153,8 @@ pub(crate) struct CheckedRoute {
     pub(crate) has_ferry: bool,
     /// Whether it uses a motorway.
     pub(crate) has_motorway: bool,
+    /// Its ferry crossings, in driving order.
+    pub(crate) ferries: Vec<Ferry>,
     /// The restrictions the vehicle passes with little margin, or whose
     /// figure is unknown, in driving order.
     pub(crate) warnings: Vec<Met>,
@@ -122,12 +163,17 @@ pub(crate) struct CheckedRoute {
 }
 
 /// Why no route came back.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum NoRoute {
-    /// The engine found no road between the points.
-    Unreachable,
-    /// A point is too far from any road.
-    OffNetwork,
+    /// The engine found no road between the points, for the reasons its
+    /// diagnosis gave (none when it could not tell in time).
+    Unreachable(Vec<Unreachable>),
+    /// A point is too far from any road: the stops that do not snap (none
+    /// when the engine could not tell).
+    OffNetwork(Vec<usize>),
+    /// These stops lie outside the area the graph covers; the engine was
+    /// not asked.
+    OutsideCoverage(Vec<usize>),
 }
 
 /// What a route request gave.
@@ -190,11 +236,24 @@ pub(crate) enum RouteError {
     Blocking(#[source] tokio::task::JoinError),
 }
 
+/// What a route request gave, and whether the engine answered for it.
+pub(crate) struct Routed {
+    /// The outcome, or why there is none.
+    pub(crate) result: Result<Outcome, RouteError>,
+    /// Whether the engine answered at least once: the work was done, and a
+    /// failure after it is not given back to the client's quota.
+    pub(crate) engine_answered: bool,
+}
+
 /// The engine and its share of the server.
 pub(crate) struct Routing {
     engine: Option<Engine>,
     /// Engine calls in flight, all clients together.
     slots: Semaphore,
+    /// Diagnoses of a trip without a route running at once: one. Each holds
+    /// its request's engine slot for several short calls; a second one
+    /// meanwhile answers unexplained rather than take a second slot.
+    diagnoses: Semaphore,
     queue_wait: Duration,
     /// The last answer of the engine's status, and when it was read.
     status: std::sync::Mutex<Option<(std::time::Instant, bool)>>,
@@ -215,6 +274,7 @@ impl Routing {
         Self {
             engine,
             slots: Semaphore::new(config.concurrency.max(1)),
+            diagnoses: Semaphore::new(1),
             queue_wait: config.queue_wait,
             status: std::sync::Mutex::new(None),
         }
@@ -374,15 +434,81 @@ impl Routing {
         graph_id: &str,
         request: &RouteRequest,
         fresh: &Freshness,
-    ) -> Result<Outcome, RouteError> {
+    ) -> Routed {
         // One deadline for everything a route does: waits for an engine
         // slot, engine calls, corridor queries, the matching.
-        tokio::time::timeout(
-            ROUTE_DEADLINE,
-            self.route_within(pool, graph_id, request, fresh),
+        let deadline = tokio::time::Instant::now() + ROUTE_DEADLINE;
+        let answered = std::sync::atomic::AtomicBool::new(false);
+        let result = tokio::time::timeout_at(
+            deadline,
+            self.route_within(pool, graph_id, request, fresh, deadline, &answered),
         )
         .await
-        .map_err(|_| RouteError::Deadline)?
+        .map_err(|_| RouteError::Deadline)
+        .and_then(|r| r);
+        Routed {
+            result,
+            engine_answered: answered.load(std::sync::atomic::Ordering::Relaxed),
+        }
+    }
+
+    /// The reasons a trip has no route, within what is left of the route's
+    /// `deadline` and [`diagnose::DIAGNOSIS_DEADLINE`]; none when another
+    /// diagnosis runs, when time runs out or when the engine fails.
+    async fn explain(
+        &self,
+        engine: &Engine,
+        pool: &PgPool,
+        graph_id: &str,
+        request: &RouteRequest,
+        deadline: tokio::time::Instant,
+    ) -> Vec<Unreachable> {
+        let Ok(_one) = self.diagnoses.try_acquire() else {
+            tracing::info!("another trip is being explained: this one is answered unexplained");
+            return Vec::new();
+        };
+        let budget = deadline
+            .saturating_duration_since(tokio::time::Instant::now())
+            .saturating_sub(DIAGNOSIS_MARGIN)
+            .min(diagnose::DIAGNOSIS_DEADLINE);
+        match tokio::time::timeout(budget, diagnose::diagnose(engine, pool, graph_id, request))
+            .await
+        {
+            Ok(Ok(r)) => r,
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "a trip without a route could not be explained");
+                Vec::new()
+            }
+            Err(_) => {
+                tracing::warn!("explaining a trip without a route ran out of time");
+                Vec::new()
+            }
+        }
+    }
+
+    /// The stops that do not snap to a road, within what is left of the
+    /// route's `deadline`; none when time runs out or the engine fails.
+    async fn off_network(
+        engine: &Engine,
+        request: &RouteRequest,
+        costing: &Value,
+        deadline: tokio::time::Instant,
+    ) -> Vec<usize> {
+        let budget = deadline
+            .saturating_duration_since(tokio::time::Instant::now())
+            .saturating_sub(DIAGNOSIS_MARGIN)
+            .min(diagnose::DIAGNOSIS_DEADLINE);
+        match tokio::time::timeout(budget, diagnose::off_network(engine, request, costing)).await {
+            Ok(Ok(stops)) => stops,
+            Ok(Err(error)) => {
+                tracing::warn!(%error, "the stops off the network could not be named");
+                Vec::new()
+            }
+            Err(_) => {
+                tracing::warn!("naming the stops off the network ran out of time");
+                Vec::new()
+            }
+        }
     }
 
     #[allow(
@@ -395,6 +521,8 @@ impl Routing {
         graph_id: &str,
         request: &RouteRequest,
         fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        answered: &std::sync::atomic::AtomicBool,
     ) -> Result<Outcome, RouteError> {
         let engine = self.engine.as_ref().ok_or(RouteError::NotSetUp)?;
         let dims = request.vehicle.routing();
@@ -405,14 +533,16 @@ impl Routing {
         let mut event_blockers: Vec<EventHit> = Vec::new();
         let mut avoided: Vec<Arc<EventRow>> = Vec::new();
         let mut snapped: Option<Vec<f64>> = None;
+        let mut known = Known::default();
         let mut calls = 0;
+        let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
         for attempt in 0..MAX_ATTEMPTS {
             calls = attempt + 1;
             let body = valhalla::route_body(
                 &request.stops,
                 &costing,
                 request.language,
-                request.alternatives,
+                alternates,
                 &exclusions,
             );
             // The slot is held until the answer is checked and trimmed: the
@@ -421,13 +551,22 @@ impl Routing {
                 .await
                 .map_err(|_| RouteError::Busy)?
                 .map_err(|_| RouteError::Busy)?;
-            let osrm = match engine.route(&body).await? {
+            let answer = engine.route(&body).await?;
+            // From here the engine has worked for this client: a later
+            // failure of the server is not given back (a trip made slow on
+            // purpose would otherwise cost nothing).
+            answered.store(true, std::sync::atomic::Ordering::Relaxed);
+            let osrm = match answer {
                 Answer::Routes(v) => v,
                 Answer::NoSegment if attempt == 0 => {
-                    return Ok(Outcome::NoRoute(NoRoute::OffNetwork));
+                    let stops = Self::off_network(engine, request, &costing, deadline).await;
+                    return Ok(Outcome::NoRoute(NoRoute::OffNetwork(stops)));
                 }
                 Answer::NoRoute if attempt == 0 => {
-                    return Ok(Outcome::NoRoute(NoRoute::Unreachable));
+                    let reasons = self
+                        .explain(engine, pool, graph_id, request, deadline)
+                        .await;
+                    return Ok(Outcome::NoRoute(NoRoute::Unreachable(reasons)));
                 }
                 // The exclusions closed the last way through, or the road a
                 // stop lies on: the blockers of the previous attempt are why.
@@ -463,8 +602,16 @@ impl Routing {
             // for each route: 1.3 ms for a 650 km route (measured, test
             // `copying_a_long_route_costs_little`).
             let osrm = Arc::new(osrm);
-            let checked =
-                check_routes(pool, graph_id, &osrm, &dims, request.depart_at, fresh).await?;
+            let checked = check_routes(
+                pool,
+                graph_id,
+                &osrm,
+                &dims,
+                request.depart_at,
+                fresh,
+                &mut known,
+            )
+            .await?;
             // The checks are over and dropped their shares: no copy.
             let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
@@ -566,6 +713,118 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
 /// it, the road events that block it.
 type Checked = (CheckedRoute, Vec<Met>, Vec<EventHit>);
 
+/// What the corridor queries of one route request found so far: the
+/// stretches they read, and the restrictions and road events near them. A
+/// route computed again runs where the previous one ran but around a ring
+/// of a few metres, and an alternative shares most of the best route: only
+/// what no query covered is asked again. It holds a few lines and a few
+/// thousand rows for the request's life, under its engine slot.
+#[derive(Default)]
+struct Known {
+    /// The stretches queried, each exactly as it was: a stretch only
+    /// covered by an earlier one is not among them, so the margin is never
+    /// spent twice.
+    queried: Vec<Arc<RouteLine>>,
+    restrictions: HashMap<uuid::Uuid, db::NearRestriction>,
+    events: HashMap<uuid::Uuid, Arc<EventRow>>,
+}
+
+/// Whether the segment from `a` to `b` is covered: samples every
+/// [`SAMPLE_M`] along it, its ends included, each within [`COVERED_M`] of
+/// a queried stretch. A segment that cuts across between two covered ends
+/// (a chord of a bend, a short link between two known roads) has a sample
+/// off them.
+fn covered(a: Position, b: Position, queried: &[Arc<RouteLine>]) -> bool {
+    let near = |p: Position| queried.iter().any(|l| l.project(p, COVERED_M).is_some());
+    let length = a.distance_m(b);
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a count of samples along one segment of a route, positive and small"
+    )]
+    let steps = (length / SAMPLE_M).ceil().max(1.0) as u32;
+    (0..=steps).all(|k| {
+        let t = f64::from(k) / f64::from(steps);
+        Position::new(
+            a.lat() + (b.lat() - a.lat()) * t,
+            a.lon() + (b.lon() - a.lon()) * t,
+        )
+        .is_ok_and(near)
+    })
+}
+
+/// The stretches of `points` that the `queried` stretches do not cover,
+/// as ranges of indices: the segments [`covered`] refuses, joined when
+/// they touch.
+fn uncovered(points: &[Position], queried: &[Arc<RouteLine>]) -> Vec<std::ops::Range<usize>> {
+    if queried.is_empty() {
+        return std::iter::once(0..points.len()).collect();
+    }
+    let mut runs: Vec<std::ops::Range<usize>> = Vec::new();
+    for (i, w) in points.windows(2).enumerate() {
+        if covered(w[0], w[1], queried) {
+            continue;
+        }
+        match runs.last_mut() {
+            Some(last) if last.end > i => last.end = i + 2,
+            _ => runs.push(i..i + 2),
+        }
+    }
+    runs
+}
+
+/// Queries the corridor of each stretch of `points` that `known` does not
+/// cover, and adds what it finds.
+async fn query_corridors(
+    pool: &PgPool,
+    graph_id: &str,
+    points: Arc<Vec<Position>>,
+    known: &mut Known,
+) -> Result<(), RouteError> {
+    let queried = known.queried.clone();
+    let shared = Arc::clone(&points);
+    // Sampling a long route every few metres: off the async threads.
+    let runs = tokio::task::spawn_blocking(move || uncovered(&shared, &queried))
+        .await
+        .map_err(RouteError::Blocking)?;
+    for run in runs {
+        let stretch = &points[run];
+        let Some(line) = RouteLine::new(stretch.to_vec()) else {
+            continue;
+        };
+        let within = CORRIDOR_M + QUERY_MARGIN_M;
+        let events = lunaway_db::road_events::events_near(
+            pool,
+            stretch,
+            events::CORRIDOR_M + QUERY_MARGIN_M,
+            events::WIDE_M + QUERY_MARGIN_M,
+        );
+        // Two pool connections at most for a route: the halves of a long
+        // stretch together, then its events; a shorter one with its events.
+        let (restrictions, events) = if stretch.len() > QUERY_POINTS {
+            let mid = stretch.len() / 2;
+            let (a, b) = tokio::try_join!(
+                db::restrictions_near(pool, graph_id, &stretch[..=mid], within),
+                db::restrictions_near(pool, graph_id, &stretch[mid..], within),
+            )?;
+            (a.into_iter().chain(b).collect::<Vec<_>>(), events.await?)
+        } else {
+            tokio::try_join!(
+                db::restrictions_near(pool, graph_id, stretch, within),
+                events
+            )?
+        };
+        for r in restrictions {
+            known.restrictions.entry(r.id).or_insert(r);
+        }
+        for e in events {
+            known.events.entry(e.id).or_insert_with(|| Arc::new(e));
+        }
+        known.queried.push(Arc::new(line));
+    }
+    Ok(())
+}
+
 /// Each route of `osrm`, with its warnings and its blockers.
 async fn check_routes(
     pool: &PgPool,
@@ -574,6 +833,7 @@ async fn check_routes(
     dims: &RoutingDimensions,
     depart_at: DateTime<Utc>,
     fresh: &Freshness,
+    known: &mut Known,
 ) -> Result<Vec<Checked>, RouteError> {
     let routes = osrm
         .get("routes")
@@ -594,13 +854,12 @@ async fn check_routes(
             }
             continue;
         }
-        let near = db::restrictions_near(pool, graph_id, &points, CORRIDOR_M).await?;
-        let near_events: Vec<Arc<EventRow>> =
-            lunaway_db::road_events::events_near(pool, &points, events::CORRIDOR_M, events::WIDE_M)
-                .await?
-                .into_iter()
-                .map(Arc::new)
-                .collect();
+        let points = Arc::new(points);
+        query_corridors(pool, graph_id, Arc::clone(&points), known).await?;
+        // Everything known near this request's routes: the check keeps what
+        // this route meets.
+        let near: Vec<db::NearRestriction> = known.restrictions.values().cloned().collect();
+        let near_events: Vec<Arc<EventRow>> = known.events.values().cloned().collect();
         let legs: Vec<f64> = route
             .get("legs")
             .and_then(Value::as_array)
@@ -619,6 +878,7 @@ async fn check_routes(
         let ((warnings, blocking), (events, event_blocking)) =
             tokio::task::spawn_blocking(move || {
                 let route_value = &shared["routes"][index];
+                let points = Arc::try_unwrap(points).unwrap_or_else(|p| (*p).clone());
                 let line = RouteLine::new(points)
                     .ok_or(RouteError::Malformed("a route of one point"))?
                     .with_legs(&legs);
@@ -647,6 +907,7 @@ async fn check_routes(
                 has_toll,
                 has_ferry,
                 has_motorway,
+                ferries: ferries::crossings(route),
                 warnings,
                 events,
             },
@@ -660,7 +921,7 @@ async fn check_routes(
 /// The restrictions `near` a route that it drives through, weighed against
 /// the vehicle: (warnings, blockers), each in driving order. Fails closed: a
 /// severity this code does not know blocks.
-fn match_restrictions(
+pub(crate) fn match_restrictions(
     line: &RouteLine,
     near: Vec<db::NearRestriction>,
     dims: &RoutingDimensions,
@@ -949,6 +1210,59 @@ mod tests {
             !served || distance <= 60_000.0,
             "sources_to_targets is served with max_matrix_distance {distance}"
         );
+    }
+
+    #[test]
+    fn a_route_computed_again_is_queried_only_where_it_is_new() {
+        let p = |lon: f64| Position::new(45.0, lon).unwrap();
+        let first: Vec<Position> = (0..100).map(|i| p(1.0 + f64::from(i) * 0.001)).collect();
+        let lines = vec![Arc::new(RouteLine::new(first.clone()).unwrap())];
+        let all = uncovered(&first, &[]);
+        assert!(all.len() == 1 && all[0] == (0..100), "nothing known yet");
+        assert!(uncovered(&first, &lines).is_empty(), "the same route");
+        // The same route around a ring between its 40th and 45th points.
+        let mut again = first.clone();
+        for q in &mut again[40..45] {
+            *q = Position::new(45.0005, q.lon()).unwrap();
+        }
+        let detour = uncovered(&again, &lines);
+        assert!(
+            detour.len() == 1 && detour[0] == (39..46),
+            "the detour, with the points that join it to the known line: {detour:?}"
+        );
+    }
+
+    #[test]
+    fn a_chord_between_two_known_points_is_queried() {
+        // The first route turns a corner, X to Z to Y; the second goes
+        // straight from X to Y, both ends on the first one, no point
+        // between: a bridge on that street must not be missed.
+        let x = Position::new(45.0, 1.0).unwrap();
+        let z = Position::new(45.0, 1.01).unwrap();
+        let y = Position::new(45.01, 1.01).unwrap();
+        let first = vec![Arc::new(RouteLine::new(vec![x, z, y]).unwrap())];
+        let chord = uncovered(&[x, y], &first);
+        assert!(chord.len() == 1 && chord[0] == (0..2), "{chord:?}");
+        // Along the first route, however far apart its points.
+        assert!(uncovered(&[x, z, y], &first).is_empty());
+    }
+
+    #[test]
+    fn the_longest_route_fits_the_api_s_answer() {
+        // The OSRM answer travels as a JSON string, its quotes escaped, with
+        // the summaries beside it: Seville to the North Cape, an engine
+        // answer of 6.4 MB, gave a response of 7.05 MB (2026-10-07), a tenth
+        // more; the speed limits of a long route add a few hundred kB.
+        #[allow(clippy::cast_precision_loss, reason = "sizes of a few megabytes")]
+        let escaped = MAX_OSRM_BYTES as f64 * 1.1 + 1_000_000.0;
+        #[allow(clippy::cast_precision_loss, reason = "sizes of a few megabytes")]
+        let limit = crate::config::Limits::default().max_response_bytes as f64;
+        assert!(
+            escaped < limit,
+            "a route the API keeps must fit the response it is sent in"
+        );
+        // The routes kept come out of the engine's answer.
+        const { assert!(MAX_OSRM_BYTES < valhalla::MAX_ANSWER_BYTES) };
     }
 
     #[test]

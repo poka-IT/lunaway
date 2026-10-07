@@ -23,7 +23,7 @@ use lunaway_domain::{
         Carriageway, Confidence, EndReason, EventClass, EventDirection, MatchQuality, Schedule,
         SourceGeometry, VehicleLimits, road,
     },
-    routing::is_covered,
+    routing::coverage::in_france,
 };
 use serde_json::Value;
 
@@ -716,8 +716,8 @@ fn bordeaux_works(p: &serde_json::Map<String, Value>) -> Result<Mapped, &'static
 /// France: some feeds write their pairs the other way round
 /// (`plan/research/20-travaux-temps-reel.md`, 4.2).
 fn france(a: f64, b: f64) -> Option<Position> {
-    let lon_lat = Position::new(b, a).ok().filter(|p| is_covered(*p));
-    lon_lat.or_else(|| Position::new(a, b).ok().filter(|p| is_covered(*p)))
+    let lon_lat = Position::new(b, a).ok().filter(|p| in_france(*p));
+    lon_lat.or_else(|| Position::new(a, b).ok().filter(|p| in_france(*p)))
 }
 
 fn line_of(c: &Value) -> Vec<Position> {
@@ -1022,6 +1022,6 @@ mod tests {
         assert!((lyon.lat() - 45.87).abs() < 1e-9);
         let swapped = france(45.87, 4.84).unwrap();
         assert!((swapped.lat() - 45.87).abs() < 1e-9);
-        assert!(france(13.4, 52.5).is_none(), "Berlin is not covered");
+        assert!(france(13.4, 52.5).is_none(), "Berlin is not in France");
     }
 }

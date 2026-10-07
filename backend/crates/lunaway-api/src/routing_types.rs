@@ -19,7 +19,10 @@ use crate::{
     road_event_types::{RoadEvent, RoadEventSourceStatus, RoadEventWarning},
     routing::{
         CheckedRoute, Met,
+        diagnose::{Limit, Place, Unreachable},
         events::{EventHit, Freshness},
+        ferries::Ferry,
+        valhalla::Constraint,
     },
 };
 
@@ -195,7 +198,8 @@ pub struct RouteInput {
     /// What to avoid.
     pub options: Option<RouteOptionsInput>,
     /// Alternatives wanted besides the best route, 0 to 2; only without
-    /// waypoints.
+    /// waypoints, one at most beyond 2 000 km in a straight line, none
+    /// beyond 3 000 km (the answer's size).
     #[graphql(default = 0)]
     pub alternatives: i32,
     /// The language of the instructions.
@@ -211,13 +215,218 @@ pub struct RouteInput {
 pub enum RouteStatus {
     /// At least one route the vehicle may drive.
     Ok,
-    /// The engine found no road between the points.
+    /// No route between the points: `noRouteReasons` says why (a stop the
+    /// vehicle cannot reach, a stop outside the area routing covers, no
+    /// road at all).
     NoRoute,
-    /// A point is too far from any road.
+    /// A point is too far from any road: `noRouteReasons` names it.
     OffNetwork,
     /// Roads exist, but each meets a limit the vehicle exceeds:
     /// `blockers` says which, and where.
     NoSafeRoute,
+}
+
+/// Why a trip has no route (`RouteResult.noRouteReasons`).
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum NoRouteReasonKind {
+    /// The vehicle cannot reach the origin, or leave it: every way passes
+    /// a limit it exceeds (`limits` says which).
+    OriginUnreachable,
+    /// The vehicle cannot reach the destination: every way passes a limit
+    /// it exceeds.
+    DestinationUnreachable,
+    /// The vehicle cannot reach the waypoint at `stopIndex`.
+    WaypointUnreachable,
+    /// Each stop can be reached, but no way between them was found for the
+    /// vehicle: `limits` names those our data finds on the small vehicle's
+    /// way, empty when unknown (always on a trip over 1 000 km).
+    BlockedOnTheWay,
+    /// No road joins the stop at `stopIndex`, or the stops when it is null,
+    /// whatever the vehicle (an island without a car ferry).
+    NotConnected,
+    /// The stop lies outside the area routing covers
+    /// (`RoutingInfo.coveredCountries`).
+    OutsideCoverage,
+    /// No road the vehicle may drive within 5 km of the stop.
+    NoRoadNearby,
+}
+
+/// A limit that keeps the vehicle out.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum VehicleLimitKind {
+    /// Its height.
+    Height,
+    /// Its width.
+    Width,
+    /// Its length.
+    Length,
+    /// Its weight.
+    Weight,
+    /// The only roads are unpaved, which the trip avoids.
+    Unpaved,
+}
+
+impl From<Constraint> for VehicleLimitKind {
+    fn from(c: Constraint) -> Self {
+        match c {
+            Constraint::Height => Self::Height,
+            Constraint::Width => Self::Width,
+            Constraint::Length => Self::Length,
+            Constraint::Weight => Self::Weight,
+            Constraint::Unpaved => Self::Unpaved,
+        }
+    }
+}
+
+/// A limit that keeps the vehicle out, with the restriction behind it
+/// when our data has it.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct BlockingLimit {
+    /// What it limits.
+    pub kind: VehicleLimitKind,
+    /// The limit's figure, metres or tonnes, when the restriction is known.
+    pub limit: Option<f64>,
+    /// The vehicle's figure it was compared with.
+    pub vehicle_value: Option<f64>,
+    /// The restriction that blocks, when known: its place (`lat`, `lon`),
+    /// source, name and identifier, to report a wrong value. Its distance
+    /// and geometry index count along a route the engine drew for the
+    /// diagnosis, which the app does not receive.
+    pub restriction: Option<RouteWarning>,
+}
+
+impl From<&Limit> for BlockingLimit {
+    fn from(l: &Limit) -> Self {
+        let restriction = l.blocker.as_ref().map(RouteWarning::from);
+        Self {
+            kind: l.constraint.into(),
+            limit: restriction.as_ref().and_then(|r| r.limit),
+            vehicle_value: l.vehicle_value,
+            restriction,
+        }
+    }
+}
+
+/// One reason a trip has no route.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct NoRouteReason {
+    /// What keeps the trip from a route.
+    pub kind: NoRouteReasonKind,
+    /// The stop concerned: 0 the origin, then the waypoints in order, the
+    /// last the destination. Null when the reason is not one stop's.
+    pub stop_index: Option<i32>,
+    /// The limits that keep the vehicle out; empty when the reason is not
+    /// the vehicle's, or when they could not be told.
+    pub limits: Vec<BlockingLimit>,
+}
+
+impl NoRouteReason {
+    /// A reason of the engine's diagnosis, `last` the index of the
+    /// destination.
+    pub(crate) fn of(u: &Unreachable, last: usize) -> Self {
+        let (kind, stop) = match u.place {
+            Place::Stop(0) => (NoRouteReasonKind::OriginUnreachable, Some(0)),
+            Place::Stop(i) if i == last => (NoRouteReasonKind::DestinationUnreachable, Some(i)),
+            Place::Stop(i) => (NoRouteReasonKind::WaypointUnreachable, Some(i)),
+            Place::OnTheWay => (NoRouteReasonKind::BlockedOnTheWay, None),
+            Place::NotConnected(stop) => (NoRouteReasonKind::NotConnected, stop),
+        };
+        Self {
+            kind,
+            stop_index: stop.and_then(|i| i32::try_from(i).ok()),
+            limits: u.limits.iter().map(BlockingLimit::from).collect(),
+        }
+    }
+
+    /// The reason `kind` for each of `stops`; one without a stop when the
+    /// stops are not known.
+    pub(crate) fn at_stops(kind: NoRouteReasonKind, stops: &[usize], last: usize) -> Vec<Self> {
+        if stops.is_empty() {
+            return vec![Self {
+                kind,
+                stop_index: None,
+                limits: Vec::new(),
+            }];
+        }
+        stops
+            .iter()
+            .filter(|i| **i <= last)
+            .map(|i| Self {
+                kind,
+                stop_index: i32::try_from(*i).ok(),
+                limits: Vec::new(),
+            })
+            .collect()
+    }
+}
+
+/// What the app should tell about a route besides its restrictions and
+/// road events.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum RouteNoticeKind {
+    /// The route takes a ferry (`ferry`): avoiding ferries is a
+    /// preference, and the route still crosses when no road leads there.
+    RouteUsesFerry,
+}
+
+/// A ferry crossing of a route.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct FerryCrossing {
+    /// The ferry line's name, as OpenStreetMap maps it (`Nice - Ajaccio`).
+    pub name: Option<String>,
+    /// The two ports its name gives, in the name's order (not always the
+    /// crossing's); empty when the name does not give them.
+    pub ports: Vec<String>,
+    /// Where the boat is boarded, latitude.
+    pub from_lat: Option<f64>,
+    /// Where the boat is boarded, longitude.
+    pub from_lon: Option<f64>,
+    /// Where it is left, latitude.
+    pub to_lat: Option<f64>,
+    /// Where it is left, longitude.
+    pub to_lon: Option<f64>,
+    /// Country where it is boarded (ISO 3166-1 alpha-2).
+    pub from_country: Option<String>,
+    /// Country where it is left.
+    pub to_country: Option<String>,
+    /// Distance from the start of the route to the boarding, metres.
+    pub distance_from_start_m: f64,
+    /// Metres on the boat.
+    pub distance_m: f64,
+    /// Seconds on the boat, as the engine reckons (the timetable is not
+    /// known).
+    pub duration_s: f64,
+    /// Index of the route's shape point where it starts.
+    pub geometry_index: Option<i32>,
+}
+
+impl From<&Ferry> for FerryCrossing {
+    fn from(f: &Ferry) -> Self {
+        let round = |m: f64| (m * 10.0).round() / 10.0;
+        Self {
+            name: f.name.clone(),
+            ports: f.ports.clone(),
+            from_lat: f.from.map(|p| p.lat()),
+            from_lon: f.from.map(|p| p.lon()),
+            to_lat: f.to.map(|p| p.lat()),
+            to_lon: f.to.map(|p| p.lon()),
+            from_country: f.from_country.clone(),
+            to_country: f.to_country.clone(),
+            distance_from_start_m: round(f.start_m),
+            distance_m: round(f.distance_m),
+            duration_s: f.duration_s.round(),
+            geometry_index: f.geometry_index.and_then(|i| i32::try_from(i).ok()),
+        }
+    }
+}
+
+/// Something the app should tell about a route.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct RouteNotice {
+    /// What.
+    pub kind: RouteNoticeKind,
+    /// The crossing, for `ROUTE_USES_FERRY`.
+    pub ferry: Option<FerryCrossing>,
 }
 
 /// What a restriction means for the vehicle.
@@ -402,6 +611,9 @@ pub struct RouteSummary {
     pub has_ferry: bool,
     /// Whether it uses a motorway.
     pub has_motorway: bool,
+    /// What to tell besides the restrictions and road events: each ferry
+    /// crossing (`ROUTE_USES_FERRY`), in driving order.
+    pub notices: Vec<RouteNotice>,
     /// Restrictions the vehicle passes with little margin (under 0.30 m of
     /// height, 0.20 m of width) or whose figure is unknown, in driving
     /// order.
@@ -485,6 +697,14 @@ impl RouteSummary {
             has_toll: r.has_toll,
             has_ferry: r.has_ferry,
             has_motorway: r.has_motorway,
+            notices: r
+                .ferries
+                .iter()
+                .map(|f| RouteNotice {
+                    kind: RouteNoticeKind::RouteUsesFerry,
+                    ferry: Some(f.into()),
+                })
+                .collect(),
             warnings: r.warnings.iter().map(RouteWarning::from).collect(),
             road_events: r
                 .events
@@ -578,6 +798,10 @@ pub const DISCLAIMER_KEY: &str = "routing.disclaimer.v1";
 pub struct RouteResult {
     /// How it ended.
     pub status: RouteStatus,
+    /// When `status` is `NO_ROUTE` or `OFF_NETWORK`: why, one reason per
+    /// stop concerned, or one for the trip. Empty when the cause could not
+    /// be told in time.
+    pub no_route_reasons: Vec<NoRouteReason>,
     /// The engine's answer in the OSRM format (as Valhalla writes it with
     /// `format: osrm`, banner and voice instructions, polyline6 geometry),
     /// with only the routes the vehicle may drive: what Ferrostar's OSRM
@@ -696,7 +920,9 @@ impl VehicleBounds {
     }
 }
 
-/// The area routes are computed in.
+/// A box around the area routes are computed in. A point inside may still
+/// lie outside it (`RoutingInfo.coveredCountries`): the route then answers
+/// `NO_ROUTE` with the reason `OUTSIDE_COVERAGE`.
 #[derive(SimpleObject, Debug, Clone, Copy)]
 pub struct CoveredArea {
     /// Southern edge.
@@ -720,8 +946,16 @@ pub struct RoutingInfo {
     pub graph: Option<RoutingGraph>,
     /// The disclaimer's translation key.
     pub disclaimer_key: String,
-    /// The area routes are computed in.
+    /// A box around the area routes are computed in.
     pub covered_area: CoveredArea,
+    /// The countries routes are computed in (ISO 3166-1 alpha-2), sorted.
+    pub covered_countries: Vec<String>,
+    /// The countries where road events may be reported (ISO 3166-1
+    /// alpha-2): those with an official feed of road events.
+    pub road_event_report_countries: Vec<String>,
+    /// Longest trip accepted, kilometres in a straight line from stop to
+    /// stop.
+    pub max_trip_km: f64,
     /// Waypoints accepted at most.
     pub max_waypoints: i32,
     /// Alternatives accepted at most.

@@ -973,7 +973,8 @@ impl MutationRoot {
     }
 
     /// Reports what is seen on the road: a closed road, works, a narrow
-    /// passage, a low clearance with its height. Level 0; 30 a day per
+    /// passage, a low clearance with its height, in the countries of
+    /// `routing.roadEventReportCountries`. Level 0; 30 a day per
     /// account, 100 per client address. One account's report warns the
     /// others. Two reports of the same thing at the same spot (within
     /// 100 m, heading the same way, a measured figure within 0.2 m) from
@@ -994,9 +995,10 @@ impl MutationRoot {
         auth::require_level(ctx, &viewer, Level::Basic).await?;
         let at = Position::new(input.lat, input.lon)
             .map_err(|e| invalid_input(format!("position: {e}")))?;
-        if !lunaway_domain::routing::is_covered(at) {
+        if !lunaway_domain::road_events::community::in_report_area(at) {
             return Err(invalid_input(
-                "the position is outside the area routes are computed in",
+                "the position is outside the area road events may be reported in \
+                 (routing.roadEventReportCountries)",
             ));
         }
         let heading_deg = input

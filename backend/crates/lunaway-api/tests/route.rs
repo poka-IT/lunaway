@@ -474,8 +474,10 @@ async fn a_bad_request_costs_the_engine_nothing(pool: PgPool) {
     seed(&pool).await;
     let (url, asked) = engine(vec![(200, osrm(&[ROUTE_AROUND]))], Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    // El Hierro to the North Cape, 5 300 km in a straight line.
     let mut far = input(3.3);
-    far["input"]["destination"] = json!({"lat": 52.52, "lon": 13.40});
+    far["input"]["origin"] = json!({"lat": 27.75, "lon": -18.0});
+    far["input"]["destination"] = json!({"lat": 70.98, "lon": 25.97});
     let mut tall = input(3.3);
     tall["input"]["vehicle"]["heightM"] = json!(330.0);
     let mut waypoints = input(3.3);
@@ -483,7 +485,7 @@ async fn a_bad_request_costs_the_engine_nothing(pool: PgPool) {
     let mut alternatives = input(3.3);
     alternatives["input"]["alternatives"] = json!(3);
     for (what, variables) in [
-        ("Berlin", far),
+        ("a trip longer than 4 500 km", far),
         ("a height in centimetres", tall),
         ("six waypoints", waypoints),
         ("three alternatives", alternatives),
