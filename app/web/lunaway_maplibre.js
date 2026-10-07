@@ -63,6 +63,32 @@
     map.on('render', onRender);
   }
 
+  // The app's pin images (places, points of interest) load when a layer
+  // first draws one, from the app's assets, decoded by the browser off the
+  // page's thread: no image is fetched or decoded before it is seen, and the
+  // country view at launch draws dots, which need none. The density matches
+  // PinSprites.ratioFor in lib/shared/map/sprites.dart.
+  var pinRatio = (window.devicePixelRatio || 1) > 2.05 ? 3 : 2;
+  function loadMissingPins(map) {
+    var asked = {};
+    map.on('styleimagemissing', function (e) {
+      var id = e.id;
+      if (asked[id] || !/^(pin|poi)-[A-Za-z0-9-]+$/.test(id)) return;
+      asked[id] = true;
+      var src = new URL('assets/assets/map/pins/' + pinRatio + 'x/' + id + '.png', document.baseURI).href;
+      fetch(src)
+        .then(function (r) { return r.ok ? r.blob() : Promise.reject(r.status); })
+        .then(function (blob) { return createImageBitmap(blob); })
+        .then(function (bitmap) {
+          if (!map.hasImage(id)) map.addImage(id, bitmap, { pixelRatio: pinRatio });
+        })
+        .catch(function () { asked[id] = false; });
+    });
+  }
+
+  // The page's first map (premap.js) loads its pins the same way.
+  window.lunawayLoadMissingPins = loadMissingPins;
+
   var url = new URL('maplibre-gl/maplibre-gl.mjs', document.baseURI).href;
   import(url).then(function (lib) {
     var Base = lib.Map;
@@ -70,6 +96,7 @@
       constructor(options) {
         super(options);
         markPlacesDrawn(this);
+        loadMissingPins(this);
       }
 
       setStyle(style, options) {

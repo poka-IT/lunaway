@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -17,6 +20,7 @@ import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
+import 'package:lunaway/features/map/presentation/premap_spec.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -270,6 +274,33 @@ class _Map extends ConsumerWidget {
     );
     final viewport = ref.read(viewportProvider);
     final left = ref.read(initialViewProvider);
+    // On the web the page's first map may still be on screen, where the user
+    // may have moved it: the app's map opens on that camera.
+    final premap = kIsWeb ? Premap.camera() : null;
+    final language = Localizations.localeOf(context).languageCode;
+    final filter = ref.watch(effectiveFilterProvider);
+    void remember(MapViewport v) {
+      if (!kIsWeb) return;
+      Premap.remember(
+        jsonEncode(
+          premapState(
+            basemapBase: ref.read(appConfigProvider).basemapBase,
+            placesTileJson: ref.read(placeTileJsonUrlProvider),
+            dark: dark,
+            language: language,
+            center: v.center,
+            zoom: v.zoom,
+            filter: filter,
+          ),
+        ),
+      );
+    }
+
+    // A theme, a language or a filter changed: the next visit's first map
+    // follows.
+    if (kIsWeb && viewport != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => remember(viewport));
+    }
     // Online the places come from the tiles: the device's own places are
     // neither read nor turned into GeoJSON.
     final fromTiles = ref.watch(placesFromTilesProvider);
@@ -297,14 +328,11 @@ class _Map extends ConsumerWidget {
         dark: dark,
         // This run's last camera, else where the previous run left the map,
         // else France.
-        initialCenter: viewport?.center ?? left?.center ?? initialMapCenter,
-        initialZoom: viewport?.zoom ?? left?.zoom ?? initialMapZoom,
+        initialCenter: premap?.center ?? viewport?.center ?? left?.center ?? initialMapCenter,
+        initialZoom: premap?.zoom ?? viewport?.zoom ?? left?.zoom ?? initialMapZoom,
         places: places,
         placeTiles: fromTiles
-            ? PlaceTilesView(
-                tileJsonUrl: ref.watch(placeTileJsonUrlProvider),
-                filter: ref.watch(effectiveFilterProvider),
-              )
+            ? PlaceTilesView(tileJsonUrl: ref.watch(placeTileJsonUrlProvider), filter: filter)
             : null,
         selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
@@ -322,6 +350,7 @@ class _Map extends ConsumerWidget {
         },
         onViewportChanged: (v) {
           ref.read(viewportProvider.notifier).update(v);
+          remember(v);
           unawaited(
             ref
                 .read(lastViewStoreProvider)
@@ -341,7 +370,7 @@ class _Map extends ConsumerWidget {
         // this run or the one before. A map made again before its fit (a
         // theme or language change in the first seconds) still fits: the
         // camera it reported is only the first one.
-        fitInitial: viewport == null ? left == null : isFirstCamera(viewport),
+        fitInitial: premap == null && (viewport == null ? left == null : isFirstCamera(viewport)),
         pois: pois,
         onPoiTap: (feature) {
           select.select(PoiSelection(feature));

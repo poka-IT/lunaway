@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
@@ -80,12 +81,34 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
 
+  /// On the web, the page's first map stays on screen until this one has
+  /// drawn its view (`web/premap.js`).
+  bool _premapShown = kIsWeb;
+  Timer? _premapLater;
+
   LunaMapProps get _props => widget.props;
 
   @override
   void dispose() {
     _stopWebLongPress?.call();
+    _premapLater?.cancel();
     super.dispose();
+  }
+
+  /// Takes the camera the page's first map shows (the user may have moved
+  /// it) and lets that map fade out: this one has drawn the same view.
+  Future<void> _handOverPremap() async {
+    if (!_premapShown) return;
+    _premapShown = false;
+    _premapLater?.cancel();
+    final c = _controller;
+    final camera = Premap.camera();
+    if (c != null && camera != null) {
+      await c.moveCamera(
+        gl.CameraUpdate.newLatLngZoom(gl.LatLng(camera.center.lat, camera.center.lon), camera.zoom),
+      );
+    }
+    Premap.handOver();
   }
 
   Future<void> _onWebLongPress(double x, double y) async {
@@ -168,12 +191,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
 
   double get _pinScale {
+    // In the browser the page adds each pin when a layer first draws it, at
+    // its density (web/lunaway_maplibre.js): its size is the logical one.
+    if (kIsWeb) return 1;
     // Both native plugins read an image pixel as a physical one: Android
     // directly, iOS through the UIImage it makes at the screen's scale.
     final native =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS);
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
     return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
@@ -206,11 +231,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     bool current() => mounted && load == _styleLoads;
     final dark = _props.dark;
     try {
-      final images = await PinSprites.load(_ratio);
-      // The images go in together: the engine queues each call, and one at a
-      // time waits a round trip for each of the hundred pins.
-      if (!current()) return;
-      await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
+      // In the browser the page adds the pins as they are first drawn
+      // (web/lunaway_maplibre.js): two hundred images fetched and decoded in
+      // Dart held the first view of the map back.
+      if (!kIsWeb) {
+        final images = await PinSprites.load(_ratio);
+        // The images go in together: the engine queues each call, and one at
+        // a time waits a round trip for each of the hundred pins.
+        if (!current()) return;
+        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
+      }
       // The one call an older setup had in flight may already have added a
       // layer or a source to this style: each is removed before it is added.
       Future<void> fresh(Future<void> Function() add, {String? layer, String? source}) async {
@@ -349,6 +379,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       _sentPoint = null;
       _sentDark = dark;
       _scheduleSync();
+      // The first idle hands the page's first map over; a map whose tiles
+      // keep it busy does it after a while all the same.
+      if (_premapShown) {
+        _premapLater ??= Timer(const Duration(seconds: 3), () => unawaited(_handOverPremap()));
+      }
       // The first camera rests without a move: report it, so the list beside
       // the map follows from the start.
       await _onCameraIdle();
@@ -518,6 +553,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   Future<void> _onMapIdle() async {
     final c = _controller;
     if (c == null || !_ready) return;
+    if (_premapShown) await _handOverPremap();
     final camera = await c.queryCameraPosition();
     if (camera == null || !mounted) return;
     final key = (camera.target.latitude, camera.target.longitude, camera.zoom);

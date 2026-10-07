@@ -29,6 +29,11 @@ fi
 if [ "$kind" = app ] && ! grep -q '<base href="/app/">' "$dir/index.html"; then
   die "$dir/index.html has no <base href=\"/app/\">; build with --base-href /app/"
 fi
+if [ "$kind" = app ]; then
+  # The service worker that serves a second visit from the browser's cache
+  # names every file of this build, so it is written after the build.
+  python3 "$LUNAWAY_REPO_DIR/app/tool/web/service_worker.py" "$dir" || die "the service worker was not written"
+fi
 
 commit="$(git -C "$LUNAWAY_REPO_DIR" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 release="$(date -u +%Y%m%dT%H%M%SZ)-$commit"

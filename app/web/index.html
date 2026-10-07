@@ -65,18 +65,32 @@
     }
     #splash img { width: 110px; height: 134px; }
     #splash.done { opacity: 0; pointer-events: none; }
+    /* The first map (premap.js), over the loading screen and the app until
+       the app's own map has drawn the same view. */
+    #premap {
+      position: fixed; inset: 0; z-index: 20;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease-out;
+    }
+    #premap.shown { opacity: 1; pointer-events: auto; }
+    #premap.done { opacity: 0; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="splash" aria-hidden="true">
     <div class="disc"><img src="icons/lunaway-mark.svg" alt=""></div>
   </div>
+  <div id="premap" aria-hidden="true"></div>
   <!-- No inline script or event handler attribute in this file: the
        Content-Security-Policy of /app/ (script-src 'self') refuses them.
-       splash.js removes the loading screen; flutter_bootstrap.js (built from
-       web/flutter_bootstrap.js) starts the app with our own font host. -->
+       splash.js removes the loading screen; lunaway_maplibre.js loads the
+       map's library; premap.js draws the first map while the app starts;
+       flutter_bootstrap.js (built from web/flutter_bootstrap.js) starts the
+       app with our own font host. -->
   <script src="splash.js"></script>
   <script src="lunaway_maplibre.js" async></script>
+  <script src="premap.js" async></script>
+  <script src="sw_register.js" async></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

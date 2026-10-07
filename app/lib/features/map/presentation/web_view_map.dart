@@ -13,8 +13,8 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
-import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/features/map/presentation/place_tile_layers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
@@ -210,7 +210,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       // The points of interest under the places, the quiet ones under the
       // basemap's labels.
       if (pois != null) ..._poiLayers(pois, style, dark: dark),
-      if (tiles != null) ..._placeTileLayers(tiles, dark: dark),
+      if (tiles != null) ...placeTileStyleLayers(tiles, dark: dark),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -279,59 +279,6 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         },
     ],
   };
-
-  /// The places' layers as [GlPlaceTiles] draws them on maplibre_gl, in
-  /// the GL JS syntax.
-  static List<Map<String, Object?>> _placeTileLayers(PlaceTilesView view, {required bool dark}) {
-    final filter = placeTileFilter(view.filter);
-    final dotPaint = {
-      'circle-color': placeTileDotColor(MapLook.familyColor),
-      'circle-radius': MapLook.dotRadius,
-      'circle-stroke-width': MapLook.dotStrokeWidth,
-      'circle-stroke-color': MapLook.dotStroke(dark: dark),
-      'circle-opacity': MapLook.dotOpacity,
-    };
-    final dotLayout = {'circle-sort-key': placeTileRank()};
-    return [
-      {
-        'id': PlaceTiles.dotsLayer,
-        'type': 'circle',
-        'source': PlaceTiles.source,
-        'source-layer': PlaceTiles.dotsSourceLayer,
-        'maxzoom': PlaceTiles.pinZoom,
-        'filter': filter,
-        'layout': dotLayout,
-        'paint': dotPaint,
-      },
-      {
-        'id': PlaceTiles.pinDotsLayer,
-        'type': 'circle',
-        'source': PlaceTiles.source,
-        'source-layer': PlaceTiles.pinsSourceLayer,
-        'minzoom': PlaceTiles.pinZoom,
-        'filter': filter,
-        'layout': dotLayout,
-        'paint': dotPaint,
-      },
-      {
-        'id': PlaceTiles.pinsLayer,
-        'type': 'symbol',
-        'source': PlaceTiles.source,
-        'source-layer': PlaceTiles.pinsSourceLayer,
-        'minzoom': PlaceTiles.pinZoom,
-        'filter': filter,
-        'layout': {
-          'icon-image': placeTilePinImage(),
-          'icon-size': MapLook.pinSize(1),
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': false,
-          'icon-ignore-placement': false,
-          'icon-padding': 0,
-          'symbol-sort-key': placeTileRank(placement: true),
-        },
-      },
-    ];
-  }
 
   /// The points' layers as [PoiMapStyle] draws them on maplibre_gl, in the
   /// GL JS syntax.
