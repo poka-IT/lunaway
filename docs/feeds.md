@@ -64,7 +64,7 @@ the feed says are in `backend/crates/lunaway-domain/src/extcom.rs`.
 | `agreement.grantor` | yes | who granted the rights (one line, at most 200 characters) |
 | `agreement.grantee` | yes | who received them |
 | `agreement.signed_on` | yes | the day it was signed (`YYYY-MM-DD`); a date after the day of the import refuses the feed |
-| `agreement.valid_until` | no | its last day; a date before the day of the import refuses the feed |
+| `agreement.valid_until` | no | its last day; a date before the day of the import refuses the feed. What was imported before stays stored and served after that day (below, "After the agreement ends") |
 | `agreement.scope` | yes | what it covers, among `places`, `reviews`, `photos`; reviews or photos outside the scope are not stored |
 | `agreement.attribution` | yes | the text shown with the data, at most 300 characters |
 | `agreement.licence_url` | no | an `https` URL of public terms, if any |
@@ -248,6 +248,23 @@ never guessed; the partner's categories are mapped by adding rows.
   source's (`docs/conflation.md`): a spot of the feed and the same spot in
   OpenStreetMap become one place, each field taken from the source trusted
   most for it.
+
+## After the agreement ends
+
+After termination, the agreement (art. 11.4, as the maintainer's
+coordinator summarised it on 2026-10-07) keeps a perpetual right to store
+and show the data extracted before the end date, under the same mention.
+So the API keeps serving what is stored, with the same label and
+attribution, and the importer keeps refusing any feed whose agreement is
+out of date. Erasures the partner forwards still apply (`erase-author`).
+`hide` and `purge` stay available for a decision to stop showing it.
+
+## Licence of the values
+
+The values of this source are licensed under the agreement, not the ODbL:
+the app's features carry them (tiles, cards, change feed, packs), a
+published dump of the database never does
+(`docs/data-sources.md`, "Licences of the places database").
 
 ## Erasure of one author
 
