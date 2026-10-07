@@ -25,7 +25,11 @@ pub(crate) mod ferries;
 pub(crate) mod limits;
 pub(crate) mod valhalla;
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use chrono::{DateTime, Utc};
 use lunaway_db::{PgPool, road_events::EventRow, routing as db};
@@ -257,7 +261,8 @@ pub(crate) struct Spent {
     pub(crate) queue: Duration,
     /// Route calls of the engine, all attempts together.
     pub(crate) engine: Duration,
-    /// How many.
+    /// Route calls made to the engine: the first, and one per
+    /// recalculation around blockers.
     pub(crate) engine_calls: u32,
     /// Corridor queries of the database.
     pub(crate) corridor: Duration,
@@ -757,8 +762,27 @@ struct Known {
     /// covered by an earlier one is not among them, so the margin is never
     /// spent twice.
     queried: Vec<Arc<RouteLine>>,
+    /// The segments of those stretches, as their ends' exact coordinates:
+    /// an alternative or a route computed again repeats most of the shape
+    /// points of the routes before it, and a segment found here is covered
+    /// without sampling it against every stretch.
+    segments: Arc<HashSet<Segment>>,
     restrictions: HashMap<uuid::Uuid, db::NearRestriction>,
     events: HashMap<uuid::Uuid, Arc<EventRow>>,
+}
+
+/// A segment of a shape by its ends' coordinates, bit for bit: the engine
+/// writes every route of an answer, and of a later answer, at the same
+/// precision, so a road two routes share has the same points in both.
+type Segment = [u64; 4];
+
+fn segment(a: Position, b: Position) -> Segment {
+    [
+        a.lat().to_bits(),
+        a.lon().to_bits(),
+        b.lat().to_bits(),
+        b.lon().to_bits(),
+    ]
 }
 
 /// Whether the segment from `a` to `b` is covered: samples every
@@ -787,14 +811,22 @@ fn covered(a: Position, b: Position, queried: &[Arc<RouteLine>]) -> bool {
 
 /// The stretches of `points` that the `queried` stretches do not cover,
 /// as ranges of indices: the segments [`covered`] refuses, joined when
-/// they touch.
-fn uncovered(points: &[Position], queried: &[Arc<RouteLine>]) -> Vec<std::ops::Range<usize>> {
+/// they touch. A segment of a queried stretch, either way round, is covered
+/// as it is: every sample of it lies on that stretch.
+fn uncovered(
+    points: &[Position],
+    queried: &[Arc<RouteLine>],
+    segments: &HashSet<Segment>,
+) -> Vec<std::ops::Range<usize>> {
     if queried.is_empty() {
         return std::iter::once(0..points.len()).collect();
     }
     let mut runs: Vec<std::ops::Range<usize>> = Vec::new();
     for (i, w) in points.windows(2).enumerate() {
-        if covered(w[0], w[1], queried) {
+        if segments.contains(&segment(w[0], w[1]))
+            || segments.contains(&segment(w[1], w[0]))
+            || covered(w[0], w[1], queried)
+        {
             continue;
         }
         match runs.last_mut() {
@@ -814,9 +846,10 @@ async fn query_corridors(
     known: &mut Known,
 ) -> Result<(), RouteError> {
     let queried = known.queried.clone();
+    let segments = Arc::clone(&known.segments);
     let shared = Arc::clone(&points);
     // Sampling a long route every few metres: off the async threads.
-    let runs = tokio::task::spawn_blocking(move || uncovered(&shared, &queried))
+    let runs = tokio::task::spawn_blocking(move || uncovered(&shared, &queried, &segments))
         .await
         .map_err(RouteError::Blocking)?;
     for run in runs {
@@ -853,6 +886,8 @@ async fn query_corridors(
             known.events.entry(e.id).or_insert_with(|| Arc::new(e));
         }
         known.queried.push(Arc::new(line));
+        // The task above has ended and dropped its share: no copy.
+        Arc::make_mut(&mut known.segments).extend(stretch.windows(2).map(|w| segment(w[0], w[1])));
     }
     Ok(())
 }
@@ -1248,24 +1283,46 @@ mod tests {
         );
     }
 
+    /// The segments of the stretches queried, as `query_corridors` keeps
+    /// them.
+    fn segments_of(points: &[&[Position]]) -> HashSet<Segment> {
+        points
+            .iter()
+            .flat_map(|p| p.windows(2).map(|w| segment(w[0], w[1])))
+            .collect()
+    }
+
     #[test]
     fn a_route_computed_again_is_queried_only_where_it_is_new() {
         let p = |lon: f64| Position::new(45.0, lon).unwrap();
         let first: Vec<Position> = (0..100).map(|i| p(1.0 + f64::from(i) * 0.001)).collect();
         let lines = vec![Arc::new(RouteLine::new(first.clone()).unwrap())];
-        let all = uncovered(&first, &[]);
-        assert!(all.len() == 1 && all[0] == (0..100), "nothing known yet");
-        assert!(uncovered(&first, &lines).is_empty(), "the same route");
-        // The same route around a ring between its 40th and 45th points.
-        let mut again = first.clone();
-        for q in &mut again[40..45] {
-            *q = Position::new(45.0005, q.lon()).unwrap();
+        let known = segments_of(&[&first]);
+        // The same answers with the segments known as without: they only
+        // spare the sampling.
+        for segments in [HashSet::new(), known] {
+            let all = uncovered(&first, &[], &segments);
+            assert!(all.len() == 1 && all[0] == (0..100), "nothing known yet");
+            assert!(
+                uncovered(&first, &lines, &segments).is_empty(),
+                "the same route"
+            );
+            let back: Vec<Position> = first.iter().rev().copied().collect();
+            assert!(
+                uncovered(&back, &lines, &segments).is_empty(),
+                "the same road the other way"
+            );
+            // The same route around a ring between its 40th and 45th points.
+            let mut again = first.clone();
+            for q in &mut again[40..45] {
+                *q = Position::new(45.0005, q.lon()).unwrap();
+            }
+            let detour = uncovered(&again, &lines, &segments);
+            assert!(
+                detour.len() == 1 && detour[0] == (39..46),
+                "the detour, with the points that join it to the known line: {detour:?}"
+            );
         }
-        let detour = uncovered(&again, &lines);
-        assert!(
-            detour.len() == 1 && detour[0] == (39..46),
-            "the detour, with the points that join it to the known line: {detour:?}"
-        );
     }
 
     #[test]
@@ -1277,10 +1334,11 @@ mod tests {
         let z = Position::new(45.0, 1.01).unwrap();
         let y = Position::new(45.01, 1.01).unwrap();
         let first = vec![Arc::new(RouteLine::new(vec![x, z, y]).unwrap())];
-        let chord = uncovered(&[x, y], &first);
+        let segments = segments_of(&[&[x, z, y]]);
+        let chord = uncovered(&[x, y], &first, &segments);
         assert!(chord.len() == 1 && chord[0] == (0..2), "{chord:?}");
         // Along the first route, however far apart its points.
-        assert!(uncovered(&[x, z, y], &first).is_empty());
+        assert!(uncovered(&[x, z, y], &first, &segments).is_empty());
     }
 
     #[test]
