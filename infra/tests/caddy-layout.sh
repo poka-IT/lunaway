@@ -436,6 +436,13 @@ sent "poi tile by HEAD" HEAD "$A/poi/3/13/4149/2815.mvt" 200 -I
 sent "poi preflight routed" OPTIONS "$A/poi/3/13/4149/2815.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
 sent "poi by POST" POST "$A/poi/tiles.json" 405 --data-binary '{}'
 sent "poi with a body over 1 KiB" GET "$A/poi/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
+# The tiles of the places: the same contract.
+sent "places tile routed to the API" GET "$A/places/7/12/2075/1409.mvt" 200
+sent "places TileJSON routed to the API" GET "$A/places/tiles.json" 200
+sent "places tile by HEAD" HEAD "$A/places/7/12/2075/1409.mvt" 200 -I
+sent "places preflight routed" OPTIONS "$A/places/7/12/2075/1409.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
+sent "places by POST" POST "$A/places/tiles.json" 405 --data-binary '{}'
+sent "places with a body over 1 KiB" GET "$A/places/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
 sent "places pack by POST" POST "$A/packs/places/$PLACES_PACK" 405 --data-binary '{}'
 sent "places pack by HEAD" HEAD "$A/packs/places/$PLACES_PACK" 200 -I
 if curl -sS -D - -o /dev/null -X PUT --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/packs/places/$PLACES_PACK" \
@@ -450,6 +457,13 @@ if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0
   echo "ok   poi by DELETE says what it allows: GET, HEAD, OPTIONS"
 else
   echo "FAIL poi by DELETE: no Allow: GET, HEAD, OPTIONS"
+  failures=$((failures + 1))
+fi
+if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/places/tiles.json" \
+  | grep -qi '^allow: GET, HEAD, OPTIONS'; then
+  echo "ok   places by DELETE says what it allows: GET, HEAD, OPTIONS"
+else
+  echo "FAIL places by DELETE: no Allow: GET, HEAD, OPTIONS"
   failures=$((failures + 1))
 fi
 check "photo type" http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp 200 "content-type: image/webp"
@@ -617,6 +631,9 @@ grep -qE '"uri":"[^"]*(8345|5678)' <<<"$access_log" && leaks="$leaks coordinates
 # The tiles of the points of interest, requested above through the API.
 grep -qE '"uri":"[^"]*(4149|2815)' <<<"$access_log" && leaks="$leaks poi-coordinates"
 grep -q '"uri":"/poi/3/13/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-poi-line"
+# The tiles of the places, the same way.
+grep -qE '"uri":"[^"]*(2075|1409)' <<<"$access_log" && leaks="$leaks places-coordinates"
+grep -q '"uri":"/places/7/12/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-places-line"
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
@@ -637,7 +654,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt, /places/7/12/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

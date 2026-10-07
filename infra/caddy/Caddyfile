@@ -330,10 +330,10 @@
 	}
 }
 
-# The API: /health, /graphql, /upload and /poi/ proxied to lunaway-api,
-# /media/ and /packs/places/ served from the data volume, everything else
-# 404. The API serves JSON and vector tiles only, so its CSP allows nothing
-# at all.
+# The API: /health, /graphql, /upload, /poi/ and /places/ proxied to
+# lunaway-api, /media/ and /packs/places/ served from the data volume,
+# everything else 404. The API serves JSON and vector tiles only, so its CSP
+# allows nothing at all.
 (api) {
 	import access_log
 	encode zstd gzip
@@ -375,6 +375,21 @@
 	# method 405. The access log keeps the zoom only (the .mvt mask of
 	# access_log).
 	handle /poi/* {
+		@read method GET HEAD OPTIONS
+		@other not method GET HEAD OPTIONS
+		request_body {
+			max_size 1KiB
+		}
+		header @other Allow "GET, HEAD, OPTIONS"
+		respond @other 405
+		reverse_proxy @read 127.0.0.1:8484
+	}
+	# The map tiles of the places: GET /places/tiles.json and
+	# /places/{version}/{z}/{x}/{y}.mvt, the same contract as /poi/ above
+	# (the API sets the cache headers, the ETag, the compression and the
+	# CORS headers; reads only, 1 KiB of body at most, 405 otherwise). The
+	# access log keeps the zoom only, by the same .mvt mask.
+	handle /places/* {
 		@read method GET HEAD OPTIONS
 		@other not method GET HEAD OPTIONS
 		request_body {
