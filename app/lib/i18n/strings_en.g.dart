@@ -110,6 +110,12 @@ class Translations$nav$en {
 
 	/// en: 'Profile'
 	String get profile => 'Profile';
+
+	/// en: 'Fold the menu'
+	String get fold => 'Fold the menu';
+
+	/// en: 'Unfold the menu'
+	String get unfold => 'Unfold the menu';
 }
 
 // Path: common
@@ -629,6 +635,15 @@ class Translations$location$en {
 
 	/// en: 'This device does not give its position.'
 	String get unsupported => 'This device does not give its position.';
+
+	/// en: 'The browser blocks your position'
+	String get browserDeniedTitle => 'The browser blocks your position';
+
+	/// en: 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.'
+	String get browserDenied => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.';
+
+	/// en: 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.'
+	String get browserNoFix => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.';
 }
 
 // Path: search
@@ -832,11 +847,17 @@ class Translations$place$en {
 	/// en: 'Copy'
 	String get copyShort => 'Copy';
 
+	/// en: 'Copy as $format'
+	String copyAs({required Object format}) => 'Copy as ${format}';
+
+	/// en: '"Copy" copies: $format'
+	String copiesAs({required Object format}) => '"Copy" copies: ${format}';
+
 	/// en: 'Copied: $text'
 	String copied({required Object text}) => 'Copied: ${text}';
 
-	/// en: 'Other formats'
-	String get otherFormats => 'Other formats';
+	/// en: 'Choose the format to copy'
+	String get otherFormats => 'Choose the format to copy';
 
 	/// en: 'Decimal degrees'
 	String get formatDecimal => 'Decimal degrees';
@@ -1005,11 +1026,11 @@ class Translations$directions$en {
 
 	// Translations
 
-	/// en: 'Directions with'
-	String get title => 'Directions with';
+	/// en: 'Open in'
+	String get title => 'Open in';
 
-	/// en: 'Choose who guides you. Only Lunaway's guidance knows your vehicle's size.'
-	String get hint => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.';
+	/// en: 'These apps do not know your vehicle's size.'
+	String get hint => 'These apps do not know your vehicle\'s size.';
 
 	/// en: 'Always use this app'
 	String get remember => 'Always use this app';
@@ -1017,11 +1038,11 @@ class Translations$directions$en {
 	/// en: 'You can change it in Profile'
 	String get rememberHint => 'You can change it in Profile';
 
-	/// en: 'Directions'
-	String get settingTitle => 'Directions';
+	/// en: 'Open in another app'
+	String get settingTitle => 'Open in another app';
 
-	/// en: 'Who guides you when you tap Directions'
-	String get settingHint => 'Who guides you when you tap Directions';
+	/// en: 'The app that "Open in" starts from a route'
+	String get settingHint => 'The app that "Open in" starts from a route';
 
 	/// en: 'Ask each time'
 	String get askEachTime => 'Ask each time';
@@ -1046,6 +1067,9 @@ class Translations$directions$en {
 
 	/// en: 'OpenStreetMap (browser)'
 	String get openStreetMap => 'OpenStreetMap (browser)';
+
+	/// en: 'No navigation app found on this device.'
+	String get none => 'No navigation app found on this device.';
 }
 
 // Path: navigation
@@ -1055,7 +1079,6 @@ class Translations$navigation$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
-	late final Translations$navigation$entry$en entry = Translations$navigation$entry$en.internal(_root);
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
@@ -1498,8 +1521,8 @@ class Translations$account$en {
 	/// en: 'Or $requirement'
 	String orInstead({required Object requirement}) => 'Or ${requirement}';
 
-	/// en: 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.'
-	String get recoveryNone => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.';
+	/// en: 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.'
+	String get recoveryNone => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.';
 
 	/// en: 'Make my recovery card'
 	String get recoveryCreate => 'Make my recovery card';
@@ -1582,11 +1605,23 @@ class Translations$recovery$en {
 	/// en: 'Recovery card'
 	String get title => 'Recovery card';
 
-	/// en: 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.'
-	String get intro => 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.';
+	/// en: 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.'
+	String get intro => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.';
 
-	/// en: 'A new card replaces the previous one, which stops working.'
-	String get replaces => 'A new card replaces the previous one, which stops working.';
+	/// en: 'A new card replaces the previous one: the old code will stop working.'
+	String get replaces => 'A new card replaces the previous one: the old code will stop working.';
+
+	/// en: 'Replace the card of $date?'
+	String replaceTitle({required Object date}) => 'Replace the card of ${date}?';
+
+	/// en: 'The new card will have another code. The code of the card of $date stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.'
+	String replaceBody({required Object date}) => 'The new card will have another code. The code of the card of ${date} stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.';
+
+	/// en: 'Keep the old one'
+	String get replaceKeep => 'Keep the old one';
+
+	/// en: 'Make a new card'
+	String get replaceConfirm => 'Make a new card';
 
 	/// en: 'Make the card'
 	String get make => 'Make the card';
@@ -3139,27 +3174,6 @@ class Translations$hours$months$en {
 	String get dec => 'Dec';
 }
 
-// Path: navigation.entry
-class Translations$navigation$entry$en {
-	Translations$navigation$entry$en.internal(this._root);
-
-	final Translations _root; // ignore: unused_field
-
-	// Translations
-
-	/// en: 'Lunaway guidance'
-	String get lunaway => 'Lunaway guidance';
-
-	/// en: 'A route computed for your vehicle's size'
-	String get lunawayHint => 'A route computed for your vehicle\'s size';
-
-	/// en: 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.'
-	String get vehicleMissing => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.';
-
-	/// en: 'Other apps'
-	String get others => 'Other apps';
-}
-
 // Path: navigation.preview
 class Translations$navigation$preview$en {
 	Translations$navigation$preview$en.internal(this._root);
@@ -3177,11 +3191,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Computing a route for your vehicle'
 	String get computing => 'Computing a route for your vehicle';
 
-	/// en: 'Start'
-	String get start => 'Start';
-
-	/// en: 'Turn-by-turn guidance starts from a phone.'
-	String get phoneOnly => 'Turn-by-turn guidance starts from a phone.';
+	/// en: 'Let's go!'
+	String get start => 'Let\'s go!';
 
 	/// en: 'Recommended'
 	String get recommended => 'Recommended';
@@ -3252,8 +3263,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
 	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
 
-	/// en: 'Open in another app'
-	String get otherApps => 'Open in another app';
+	/// en: 'Open in…'
+	String get otherApps => 'Open in…';
 
 	/// en: 'Back'
 	String get back => 'Back';
@@ -3928,6 +3939,9 @@ class Translations$navigation$guidance$en {
 
 	/// en: '$source, list of $date'
 	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
+
+	/// en: 'Simulated drive: a demonstration without GPS'
+	String get demoDrive => 'Simulated drive: a demonstration without GPS';
 }
 
 // Path: navigation.voice
@@ -4451,8 +4465,8 @@ class Translations$poi$category$en {
 	/// en: 'Groceries'
 	String get groceries => 'Groceries';
 
-	/// en: 'Vending machines'
-	String get vending => 'Vending machines';
+	/// en: 'Food vending machines'
+	String get vending => 'Food vending machines';
 
 	/// en: 'Water and dump'
 	String get water => 'Water and dump';
@@ -4926,6 +4940,8 @@ extension on Translations {
 			'nav.map' => 'Map',
 			'nav.favorites' => 'Favourites',
 			'nav.profile' => 'Profile',
+			'nav.fold' => 'Fold the menu',
+			'nav.unfold' => 'Unfold the menu',
 			'common.close' => 'Close',
 			'common.cancel' => 'Cancel',
 			'common.retry' => 'Try again',
@@ -5058,6 +5074,9 @@ extension on Translations {
 			'location.notAllowed' => 'Position not allowed. The map works without it.',
 			'location.noFix' => 'Your position cannot be found yet. Try again in the open or in a moment.',
 			'location.unsupported' => 'This device does not give its position.',
+			'location.browserDeniedTitle' => 'The browser blocks your position',
+			'location.browserDenied' => 'The browser refuses your position to Lunaway. To allow it, click the icon left of the site\'s address (a padlock or sliders), set Location to Allow, then click the position button again.',
+			'location.browserNoFix' => 'The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it.',
 			'search.towns' => 'Towns',
 			'search.places' => 'Places',
 			'search.noResult' => ({required Object query}) => 'No place or town matches "${query}".',
@@ -5112,8 +5131,10 @@ extension on Translations {
 			'place.coordinates' => 'Coordinates',
 			'place.copy' => 'Copy the coordinates',
 			'place.copyShort' => 'Copy',
+			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
+			'place.copiesAs' => ({required Object format}) => '"Copy" copies: ${format}',
 			'place.copied' => ({required Object text}) => 'Copied: ${text}',
-			'place.otherFormats' => 'Other formats',
+			'place.otherFormats' => 'Choose the format to copy',
 			'place.formatDecimal' => 'Decimal degrees',
 			'place.formatDms' => 'Degrees, minutes, seconds',
 			'place.formatGeo' => 'geo: link',
@@ -5189,12 +5210,12 @@ extension on Translations {
 			'hours.dayOfMonth' => ({required Object month, required Object day}) => '${month} ${day}',
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
-			'directions.title' => 'Directions with',
-			'directions.hint' => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.',
+			'directions.title' => 'Open in',
+			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
 			'directions.rememberHint' => 'You can change it in Profile',
-			'directions.settingTitle' => 'Directions',
-			'directions.settingHint' => 'Who guides you when you tap Directions',
+			'directions.settingTitle' => 'Open in another app',
+			'directions.settingHint' => 'The app that "Open in" starts from a route',
 			'directions.askEachTime' => 'Ask each time',
 			'directions.appleMaps' => 'Apple Maps',
 			'directions.googleMaps' => 'Google Maps',
@@ -5203,15 +5224,11 @@ extension on Translations {
 			'directions.organicMaps' => 'Organic Maps',
 			'directions.magicEarth' => 'Magic Earth',
 			'directions.openStreetMap' => 'OpenStreetMap (browser)',
-			'navigation.entry.lunaway' => 'Lunaway guidance',
-			'navigation.entry.lunawayHint' => 'A route computed for your vehicle\'s size',
-			'navigation.entry.vehicleMissing' => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.',
-			'navigation.entry.others' => 'Other apps',
+			'directions.none' => 'No navigation app found on this device.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
 			'navigation.preview.titlePoint' => 'To this point',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
-			'navigation.preview.start' => 'Start',
-			'navigation.preview.phoneOnly' => 'Turn-by-turn guidance starts from a phone.',
+			'navigation.preview.start' => 'Let\'s go!',
 			'navigation.preview.recommended' => 'Recommended',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternative ${n}',
 			'navigation.preview.toll' => 'Toll',
@@ -5234,7 +5251,7 @@ extension on Translations {
 			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, ${date} edition',
 			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
-			'navigation.preview.otherApps' => 'Open in another app',
+			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.stops.title' => 'Stops',
 			'navigation.stops.add' => 'Add a stop',
@@ -5431,11 +5448,11 @@ extension on Translations {
 			'navigation.guidance.end' => 'End',
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.speed' => 'Speed',
 			'navigation.guidance.limit' => 'Limit',
 			'navigation.guidance.noVoice' => ({required Object language}) => 'No ${language} voice on this device: instructions on screen only.',
@@ -5456,6 +5473,7 @@ extension on Translations {
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
+			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -5628,7 +5646,7 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
-			'account.recoveryNone' => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.',
+			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
@@ -5651,8 +5669,12 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
-			'recovery.intro' => 'A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.',
-			'recovery.replaces' => 'A new card replaces the previous one, which stops working.',
+			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
+			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
+			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
+			'recovery.replaceBody' => ({required Object date}) => 'The new card will have another code. The code of the card of ${date} stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.',
+			'recovery.replaceKeep' => 'Keep the old one',
+			'recovery.replaceConfirm' => 'Make a new card',
 			'recovery.make' => 'Make the card',
 			'recovery.codeLabel' => 'Your recovery code',
 			'recovery.shownOnce' => 'This code shows only once. Write it down, or save the image, before closing.',
@@ -5940,6 +5962,8 @@ extension on Translations {
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
+			_ => null,
+		} ?? switch (path) {
 			'favoritesSync.local' => 'On this device only',
 			'favoritesSync.action' => 'Sync',
 			'favoritesSync.syncing' => 'Syncing',
@@ -5948,10 +5972,8 @@ extension on Translations {
 			'favoritesSync.title' => 'Sync your favourites?',
 			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
 			'favoritesSync.confirm' => 'Make the account and sync',
-			_ => null,
-		} ?? switch (path) {
 			'poi.category.groceries' => 'Groceries',
-			'poi.category.vending' => 'Vending machines',
+			'poi.category.vending' => 'Food vending machines',
 			'poi.category.water' => 'Water and dump',
 			'poi.category.fuel' => 'Fuel and energy',
 			'poi.category.health' => 'Health',

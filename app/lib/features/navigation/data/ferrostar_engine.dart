@@ -7,23 +7,36 @@ import 'package:lunaway_nav/lunaway_nav.dart' as nav;
 
 final _log = Logger('guidance');
 
-/// Loads the guidance library: built into the app on Android and iOS by the
-/// lunaway_nav build hook; [library] points at one built for a desktop
-/// host, for tests. Null where there is none (desktop, a failed load).
+/// Loads the guidance library: bundled into the app on Android, iOS, macOS
+/// and Windows by the lunaway_nav build hook, the WebAssembly build of the
+/// same crate in a browser; [library] points at one built for a desktop
+/// host, for tests. Null where there is none (Linux, a failed load).
 Future<GuidanceEngine?> loadFerrostarEngine({nav.ExternalLibrary? library}) async {
-  final phone =
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
-  if (library == null && !phone) return null;
+  if (library == null && !guidanceBuilt) return null;
   try {
-    await nav.RustLib.init(externalLibrary: library);
+    if (library != null) {
+      await nav.RustLib.init(externalLibrary: library);
+    } else {
+      await nav.loadGuidanceLibrary();
+    }
     return const FerrostarEngine();
   } on Object catch (e, st) {
     _log.warning('the guidance library did not load', e, st);
     return null;
   }
 }
+
+/// Whether this build carries the guidance library: every platform the app
+/// ships on.
+bool get guidanceBuilt =>
+    kIsWeb ||
+    switch (defaultTargetPlatform) {
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.macOS ||
+      TargetPlatform.windows => true,
+      _ => false,
+    };
 
 /// [GuidanceEngine] over Ferrostar's core, through lunaway_nav.
 final class FerrostarEngine implements GuidanceEngine {

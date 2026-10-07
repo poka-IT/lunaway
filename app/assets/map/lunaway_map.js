@@ -292,6 +292,8 @@
       }
       return true;
     },
-    viewport: function () { return viewport(); }
+    viewport: function () { return viewport(); },
+    // The map itself, for the guidance's motion (route_motion.js).
+    map: function () { return map; }
   };
 })();

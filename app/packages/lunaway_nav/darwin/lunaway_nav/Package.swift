@@ -1,5 +1,5 @@
 // swift-tools-version: 5.9
-// The iOS side of lunaway_nav: the spoken instructions. The Rust engine is
+// The iOS and macOS side of lunaway_nav: the spoken instructions. The Rust engine is
 // not built here but by the package's build hook (hook/build.dart).
 
 import PackageDescription
@@ -7,7 +7,8 @@ import PackageDescription
 let package = Package(
     name: "lunaway_nav",
     platforms: [
-        .iOS("15.0")
+        .iOS("15.0"),
+        .macOS("12.0"),
     ],
     products: [
         .library(name: "lunaway-nav", targets: ["lunaway_nav"])

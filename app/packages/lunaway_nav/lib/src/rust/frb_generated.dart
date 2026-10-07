@@ -65,7 +65,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1834818909;
+  int get rustContentHash => -1756458853;
 
   static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
     stem: 'lunaway_nav',
@@ -101,8 +101,6 @@ abstract class RustLibApi extends BaseApi {
   GuidanceSettings crateApiEngineDefaultGuidanceSettings();
 
   EmbeddedRules crateApiCountryEmbeddedRules();
-
-  Future<GuidanceSettings> crateApiEngineGuidanceSettingsDefault();
 
   RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_Guidance;
 
@@ -314,25 +312,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiCountryEmbeddedRulesConstMeta =>
       const TaskConstMeta(debugName: "embedded_rules", argNames: []);
-
-  @override
-  Future<GuidanceSettings> crateApiEngineGuidanceSettingsDefault() {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9, port: port_);
-        },
-        codec: SseCodec(decodeSuccessData: sse_decode_guidance_settings, decodeErrorData: null),
-        constMeta: kCrateApiEngineGuidanceSettingsDefaultConstMeta,
-        argValues: [],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiEngineGuidanceSettingsDefaultConstMeta =>
-      const TaskConstMeta(debugName: "guidance_settings_default", argNames: []);
 
   RustArcIncrementStrongCountFnType get rust_arc_increment_strong_count_Guidance => wire
       .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerGuidance;

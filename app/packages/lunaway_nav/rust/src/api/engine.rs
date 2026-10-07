@@ -43,6 +43,11 @@ pub struct GuidanceSettings {
 }
 
 impl Default for GuidanceSettings {
+    // Not bridged: the bridge would expose it as an asynchronous call, the
+    // one kind that starts flutter_rust_bridge's worker pool, whose start
+    // evaluates code the web app's CSP refuses. Dart reads the same values
+    // through the synchronous `default_guidance_settings`.
+    #[frb(ignore)]
     fn default() -> Self {
         Self {
             // Ferrostar's own apps use 50 m; streets in a French town centre

@@ -84,8 +84,9 @@ final class StoredAccount {
 
   final Account account;
 
-  /// When a recovery card was made or used on this device; null when the
-  /// device never saw one (the server does not say whether a code exists).
+  /// When a recovery card was last made or used on this device; null when
+  /// the device never saw one (the server does not say whether a code
+  /// exists).
   final DateTime? recoveryCardAt;
 }
 
@@ -367,21 +368,23 @@ final class AccountService {
     return account;
   }
 
-  /// A new recovery code, replacing any earlier one. It is shown once; the
-  /// device keeps only the date, to say a card exists.
-  Future<String> createRecoveryCode() async {
+  /// A new recovery code, shown once, and the date the device remembers it
+  /// by (never the code). From this moment the server holds the new code's
+  /// hash only, and the earlier card stops working: the date is written at
+  /// once, so the profile says a card exists however the user leaves its
+  /// page.
+  Future<(String, DateTime)> createRecoveryCode() async {
     final code = await run(createRecoveryCodeOperation, fresh: true);
-    // The earlier card stopped working: until the new one is kept, the
-    // device holds none.
-    await secrets.delete(_recoverySlot);
-    return code;
+    final at = clock();
+    try {
+      await secrets.write(_recoverySlot, at.toUtc().toIso8601String());
+    } on Object catch (e) {
+      // The old card is already dead: the new code is shown whatever the
+      // storage says, the date is what is lost.
+      _log.warning('the date of the recovery card was not kept: $e');
+    }
+    return (code, at);
   }
-
-  /// The user has the card in hand: from now on the device says a card
-  /// exists. Written only then, so a card closed before it was kept is not
-  /// counted.
-  Future<void> recoveryCardKept() =>
-      secrets.write(_recoverySlot, clock().toUtc().toIso8601String());
 
   /// Attaches a new key of this device to the account of [code] and signs
   /// in with it; with [revokeOthers], every other device of the account is

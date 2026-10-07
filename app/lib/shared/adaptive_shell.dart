@@ -9,6 +9,7 @@ import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -171,6 +172,7 @@ class AdaptiveShell extends ConsumerWidget {
     // On wide screens a message floats centred, above the panes' action
     // bars at their foot.
     final width = MediaQuery.sizeOf(context).width;
+    final folded = ref.watch(settingsProvider.select((s) => s.railCollapsed));
     return backToMap(
       _Messages(
         reserved: 0,
@@ -182,7 +184,10 @@ class AdaptiveShell extends ConsumerWidget {
                 destinations: destinations,
                 selected: shell.currentIndex,
                 onSelected: (i) => _go(ref, i),
-                extended: size == .expanded,
+                extended: size == .expanded && !folded,
+                onFold: size == .expanded
+                    ? () => ref.read(settingsProvider.notifier).setRailCollapsed(collapsed: !folded)
+                    : null,
               ),
               Expanded(child: shell),
             ],
@@ -340,14 +345,16 @@ class _Dock extends StatelessWidget {
 }
 
 /// The navigation of the wide layouts: the brand at the top, the
-/// destinations as amber-lit pills, labels under the icons (medium) or
-/// beside them (expanded).
+/// destinations as amber-lit pills, labels under the icons (medium, or a
+/// desktop rail folded by the user) or beside them (expanded). On a desktop
+/// a button at its foot folds it to its icons and back ([onFold]).
 class _Rail extends StatelessWidget {
   const new({
     required this.destinations,
     required this.selected,
     required this.onSelected,
     required this.extended,
+    this.onFold,
   });
 
   final List<_Destination> destinations;
@@ -355,14 +362,23 @@ class _Rail extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final bool extended;
 
+  /// Folds an extended rail, unfolds a folded one; null where the window
+  /// leaves no choice (medium).
+  final VoidCallback? onFold;
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
+    final t = context.t;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final text = theme.textTheme;
+    // The desktop look (a mouse): a narrower rail with shorter pills.
+    final dense = theme.visualDensity.vertical < 0;
+    final width = extended ? (dense ? 200.0 : 232.0) : (dense ? 76.0 : 92.0);
     return Container(
       // A phone on its side puts its camera cut-out on the left: the rail
       // grows by it, so its labels keep their room.
-      width: (extended ? 232 : 92) + MediaQuery.paddingOf(context).left,
+      width: width + MediaQuery.paddingOf(context).left,
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLow,
         border: Border(right: BorderSide(color: scheme.outlineVariant)),
@@ -373,14 +389,21 @@ class _Rail extends StatelessWidget {
           crossAxisAlignment: extended ? CrossAxisAlignment.start : CrossAxisAlignment.center,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(extended ? Space.xl : 0, Space.xl, 0, Space.xxl),
-              child: extended ? const BrandLockup(height: 34) : const BrandMark(height: 38),
+              padding: EdgeInsets.fromLTRB(
+                extended ? Space.xl : 0,
+                dense ? Space.l : Space.xl,
+                0,
+                dense ? Space.xl : Space.xxl,
+              ),
+              child: extended
+                  ? BrandLockup(height: dense ? 28 : 34)
+                  : BrandMark(height: dense ? 32 : 38),
             ),
             for (final (i, d) in destinations.indexed)
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: extended ? Space.m : Space.s,
-                  vertical: Space.xxs,
+                  vertical: dense ? Space.hair : Space.xxs,
                 ),
                 child: Semantics(
                   selected: i == selected,
@@ -397,8 +420,8 @@ class _Rail extends StatelessWidget {
                       child: extended
                           ? AnimatedContainer(
                               duration: Motion.of(context, Motion.medium),
-                              height: 52,
-                              padding: const EdgeInsets.symmetric(horizontal: Space.l),
+                              height: controlHeight(context, 52),
+                              padding: EdgeInsets.symmetric(horizontal: dense ? Space.m : Space.l),
                               decoration: BoxDecoration(
                                 color: i == selected ? scheme.primary : Colors.transparent,
                                 borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
@@ -407,6 +430,7 @@ class _Rail extends StatelessWidget {
                                 children: [
                                   Icon(
                                     i == selected ? d.selectedIcon : d.icon,
+                                    size: dense ? 22 : 24,
                                     color: i == selected
                                         ? scheme.onPrimary
                                         : scheme.onSurfaceVariant,
@@ -431,14 +455,15 @@ class _Rail extends StatelessWidget {
                                 children: [
                                   AnimatedContainer(
                                     duration: Motion.of(context, Motion.medium),
-                                    width: 60,
-                                    height: 34,
+                                    width: dense ? 52 : 60,
+                                    height: dense ? 30 : 34,
                                     decoration: BoxDecoration(
                                       color: i == selected ? scheme.primary : Colors.transparent,
                                       borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                                     ),
                                     child: Icon(
                                       i == selected ? d.selectedIcon : d.icon,
+                                      size: dense ? 22 : 24,
                                       color: i == selected
                                           ? scheme.onPrimary
                                           : scheme.onSurfaceVariant,
@@ -458,6 +483,21 @@ class _Rail extends StatelessWidget {
                   ),
                 ),
               ),
+            if (onFold != null) ...[
+              const Spacer(),
+              Padding(
+                padding: EdgeInsets.fromLTRB(extended ? Space.m : 0, 0, 0, Space.m),
+                child: IconButton(
+                  tooltip: extended ? t.nav.fold : t.nav.unfold,
+                  onPressed: onFold,
+                  // The caret points where the rail goes: left to fold it.
+                  icon: Transform.flip(
+                    flipX: extended,
+                    child: Icon(AppIcons.chevron, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

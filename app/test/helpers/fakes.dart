@@ -366,6 +366,12 @@ base class FakeMap implements LunaMapController {
   @override
   Future<LatLng?> locateUser() async => userPosition;
 
+  /// The positions the app marked itself (the browser's, on the web).
+  final List<LatLng> shown = [];
+
+  @override
+  Future<void> showPosition(LatLng position, {double? accuracy}) async => shown.add(position);
+
   /// The props of the first build: the camera the map is made with.
   LunaMapProps? firstProps;
 

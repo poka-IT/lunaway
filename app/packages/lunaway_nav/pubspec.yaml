@@ -2,9 +2,9 @@ name: lunaway_nav
 description: >-
   Turn-by-turn guidance for the Lunaway app: Ferrostar's navigation core and
   the server's corridor rule, in Rust (rust/), bridged by flutter_rust_bridge
-  and built by the package's build hook (hook/build.dart) for Android and iOS;
-  and the spoken instructions, through the platform's own speech engine
-  (android/, ios/).
+  and built by the package's build hook (hook/build.dart) for Android, iOS,
+  macOS and Windows, and by tool/build_web.sh for the browser; and the spoken
+  instructions, through the platform's own speech engine (android/, darwin/).
 publish_to: none
 version: 0.1.0
 
@@ -23,6 +23,7 @@ dependencies:
   flutter_rust_bridge_hooks: 2.13.0
   hooks: ^2.2.0
   meta: ^1.17.0
+  web: ^1.1.1
 
 flutter:
   plugin:
@@ -32,3 +33,7 @@ flutter:
         pluginClass: LunawayNavPlugin
       ios:
         pluginClass: LunawayNavPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: LunawayNavPlugin
+        sharedDarwinSource: true

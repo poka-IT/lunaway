@@ -34,6 +34,13 @@ thiserror = "2.0.21"
 # once a backtrace release builds against it: `cargo update -p libc`, then
 # an iOS simulator build.
 
+# On the web (wasm32), uuid and getrandom (through Ferrostar) need a source
+# of randomness: the browser's crypto.getRandomValues, what Ferrostar's own
+# web build picks (its `wasm_js` feature). Nothing changes for the phones.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
+uuid = { version = "1.27.0", default-features = false, features = ["js"] }
+
 [lints.rust]
 # The generated bridge (src/frb_generated.rs) is FFI glue and needs unsafe;
 # it is the only module allowed to.

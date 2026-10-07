@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/location/browser_location.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -12,6 +13,8 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// settings after a refusal for good, a word when location is off on the
 /// device, and a distinct message when no position comes in time.
 Future<void> locateUser(BuildContext context, WidgetRef ref) async {
+  final browser = ref.read(browserLocationProvider);
+  if (browser != null) return await _locateInBrowser(context, ref, browser);
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (!await ensureLocationAccess(context, ref) || !context.mounted) return;
@@ -24,6 +27,34 @@ Future<void> locateUser(BuildContext context, WidgetRef ref) async {
   }
   ref.read(userLocationProvider.notifier).update(position);
   await controller?.moveTo(position, zoom: 12);
+}
+
+/// The web: the browser asks the user itself, and some browsers show that
+/// prompt only during a click, so the request leaves before anything is
+/// awaited. A refusal says where the browser keeps the setting; the site
+/// cannot open it.
+Future<void> _locateInBrowser(BuildContext context, WidgetRef ref, BrowserLocation browser) async {
+  final request = browser.locate();
+  final t = context.t;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final fix = await request;
+  if (!context.mounted) return;
+  switch (fix) {
+    case BrowserPosition(:final position, :final accuracy):
+      ref.read(userLocationProvider.notifier).update(position);
+      final controller = ref.read(mapControllerProvider);
+      await controller?.showPosition(position, accuracy: accuracy);
+      await controller?.moveTo(position, zoom: 12);
+    case BrowserDenied():
+      await _explain(
+        context,
+        title: t.location.browserDeniedTitle,
+        body: t.location.browserDenied,
+        action: t.common.ok,
+      );
+    case BrowserNoFix():
+      showMessage(messenger, t.location.browserNoFix);
+  }
 }
 
 /// Whether the app may read the position, asking for it the considerate

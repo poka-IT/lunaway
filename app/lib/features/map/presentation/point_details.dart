@@ -129,8 +129,8 @@ class PointActionBar extends ConsumerWidget {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: () => openDirections(context, ref, position),
-              onLongPress: () => openDirections(context, ref, position, choose: true),
+              onPressed: () => openDirections(context, position),
+              onLongPress: () => openInOtherApp(context, ref, position, choose: true),
               icon: const Icon(AppIcons.directions),
               label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
               style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
@@ -139,7 +139,7 @@ class PointActionBar extends ConsumerWidget {
           const SizedBox(width: Space.s),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => copyCoordinates(context, position),
+              onPressed: () => copyCoordinates(context, ref, position),
               icon: const Icon(AppIcons.copy),
               label: Text(t.place.copyShort, maxLines: 2, textAlign: TextAlign.center),
               style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),

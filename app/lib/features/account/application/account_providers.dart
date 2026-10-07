@@ -178,22 +178,13 @@ class AccountController extends _$AccountController {
     await ref.read(accountServiceProvider).rename(pseudonym);
   }
 
-  /// A new recovery code, to show once. The earlier card stops working.
+  /// A new recovery code, to show once. The earlier card stops working;
+  /// the profile shows the new card's date from now on.
   Future<String> createRecoveryCode() async {
-    final code = await ref.read(accountServiceProvider).createRecoveryCode();
+    final (code, at) = await ref.read(accountServiceProvider).createRecoveryCode();
     final current = state;
-    if (ref.mounted && current is SignedIn) {
-      state = SignedIn(account: current.account, muted: current.muted);
-    }
+    if (ref.mounted && current is SignedIn) state = current.copyWith(recoveryCardAt: at);
     return code;
-  }
-
-  /// The user has kept the card just made.
-  Future<void> recoveryCardKept() async {
-    await ref.read(accountServiceProvider).recoveryCardKept();
-    if (!ref.mounted) return;
-    final current = state;
-    if (current is SignedIn) state = current.copyWith(recoveryCardAt: ref.read(clockProvider)());
   }
 
   Future<Account> recover(String code, {required bool revokeOthers}) async {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
@@ -23,6 +24,8 @@ final class AppSettings {
     this.filter = PlaceFilter.none,
     this.theme = ThemePreference.auto,
     this.navigationApp,
+    this.railCollapsed = false,
+    this.copyFormat = CoordinateFormat.decimal,
   });
 
   /// Null: follow the device language.
@@ -37,16 +40,28 @@ final class AppSettings {
   /// until a first choice, which the chooser then offers to remember.
   final String? navigationApp;
 
+  /// The desktop rail shows its icons only, the labels folded away.
+  final bool railCollapsed;
+
+  /// What the "Copy" of a position copies: the last format picked from the
+  /// coordinates' menu, so a user who pastes into one tool every day picks
+  /// it once.
+  final CoordinateFormat copyFormat;
+
   AppSettings copyWith({
     String? Function()? localeCode,
     PlaceFilter? filter,
     ThemePreference? theme,
     String? Function()? navigationApp,
+    bool? railCollapsed,
+    CoordinateFormat? copyFormat,
   }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
     theme: theme ?? this.theme,
     navigationApp: navigationApp == null ? this.navigationApp : navigationApp(),
+    railCollapsed: railCollapsed ?? this.railCollapsed,
+    copyFormat: copyFormat ?? this.copyFormat,
   );
 
   @override
@@ -55,10 +70,13 @@ final class AppSettings {
       other.localeCode == localeCode &&
       other.filter == filter &&
       other.theme == theme &&
-      other.navigationApp == navigationApp;
+      other.navigationApp == navigationApp &&
+      other.railCollapsed == railCollapsed &&
+      other.copyFormat == copyFormat;
 
   @override
-  int get hashCode => Object.hash(localeCode, filter, theme, navigationApp);
+  int get hashCode =>
+      Object.hash(localeCode, filter, theme, navigationApp, railCollapsed, copyFormat);
 }
 
 /// Where the settings live between runs.
@@ -78,6 +96,8 @@ final class SettingsRepository implements SettingsStore {
   static const _filter = 'filter';
   static const _theme = 'theme';
   static const _navigation = 'navigation_app';
+  static const _rail = 'rail_collapsed';
+  static const _copyFormat = 'copy_format';
 
   @override
   Future<AppSettings> load() async {
@@ -88,6 +108,10 @@ final class SettingsRepository implements SettingsStore {
       filter: decodeFilter(values[_filter]),
       theme: ThemePreference.fromName(values[_theme]),
       navigationApp: values[_navigation],
+      railCollapsed: values[_rail] == 'true',
+      // A format an older or newer app wrote and this one lacks copies the
+      // default.
+      copyFormat: CoordinateFormat.values.asNameMap()[values[_copyFormat]] ?? .decimal,
     );
   }
 
@@ -97,6 +121,8 @@ final class SettingsRepository implements SettingsStore {
     await _putOrDelete(_navigation, settings.navigationApp);
     await _put(_filter, jsonEncode(encodeFilter(settings.filter)));
     await _put(_theme, settings.theme.name);
+    await _put(_rail, '${settings.railCollapsed}');
+    await _put(_copyFormat, settings.copyFormat.name);
   });
 
   Future<void> _putOrDelete(String id, String? value) async {

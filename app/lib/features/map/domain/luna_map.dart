@@ -39,6 +39,10 @@ abstract interface class LunaMapController {
   /// time. The location permission is the screen's business: it asks,
   /// with an explanation, before calling this.
   Future<LatLng?> locateUser();
+
+  /// Marks [position] as the user's, a position the app read itself (the
+  /// browser's, on the web), with its radius of uncertainty in metres.
+  Future<void> showPosition(LatLng position, {double? accuracy});
 }
 
 /// The map widget contract: data in, gestures out. A screen builds it

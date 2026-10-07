@@ -73,7 +73,8 @@ explains why, never by `--no-verify`.
 
 - **Sources are ingested by the server, never fetched by the app.** Every
   source goes through the ingestion workers: paced, resumable, cached, no
-  proxy or IP rotation; proprietary databases are never crawled. The app talks only to
+  proxy or IP rotation; a proprietary database is crawled only under a written
+  licence that allows it (the `extcom` feed). The app talks only to
   our hosts; third-party images come through the API's image proxy. Gate:
   `structure_check` rule `allowed-hosts`. Depth:
   `.claude/rules/data-sources.md`.

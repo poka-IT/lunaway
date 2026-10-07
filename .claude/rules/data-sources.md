@@ -17,9 +17,14 @@ data (OpenStreetMap, French public datasets, Wikidata) and, later, partner
 data under a written licence. The app never contacts a source directly: it
 talks to our API only. Gate: `structure_check` rule `allowed-hosts`.
 
-Proprietary databases (spots, reviews, photos) are never crawled nor
-imported: their reviews and photos belong to their authors, and every value
-Lunaway shows must be credited to its real source.
+A proprietary database (spots, reviews, photos) is crawled or imported only
+under a written licence from its producer that covers the reviews and photos
+of its contributors, kept by the maintainer outside the repository. The one
+such source is `extcom`, shown with the contractual mention "Source
+communautaire externe": its crawler lives in a private repository, the public
+one holds only the generic importer (`docs/feeds.md`). Its values never enter
+a public ODbL export (`docs/data-sources.md`). Every other value Lunaway shows
+is credited to its real source.
 
 A source is documented before any line of code: its licence or terms are read
 and quoted in `docs/data-sources.md`, with the maintainer's decision when the
