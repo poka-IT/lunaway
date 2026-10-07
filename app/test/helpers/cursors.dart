@@ -92,7 +92,8 @@ Set<Element> _fakeMap() => {
       return taps ? (kind: 'ink tap', accepted: click) : null;
     // A dropdown draws its own gesture detector, which the sweep skips as
     // the framework's: it is judged as a whole.
-    case DropdownButton(:final onChanged, :final items) when onChanged != null && items != null:
+    case DropdownButton(:final onChanged, :final items)
+        when onChanged != null && items != null && items.isNotEmpty:
       return (kind: 'dropdown', accepted: click);
     case TextField():
       final enabled = widget.enabled ?? widget.decoration?.enabled ?? true;
