@@ -189,7 +189,16 @@ impl ApiState {
         match self.routing.refresh_public(&self.pool, &seeds).await {
             Ok(done) => done,
             Err(error) => {
-                tracing::warn!(%error, "the restrictions kept ahead could not be computed again");
+                // The causes too (a statement out of time, an engine gone):
+                // the top error alone says only which layer failed.
+                let mut chain = error.to_string();
+                let mut cause = std::error::Error::source(&error);
+                while let Some(c) = cause {
+                    chain.push_str(": ");
+                    chain.push_str(&c.to_string());
+                    cause = c.source();
+                }
+                tracing::warn!(error = %chain, "the restrictions kept ahead could not be computed again");
                 None
             }
         }

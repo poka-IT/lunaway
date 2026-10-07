@@ -524,19 +524,24 @@ pub async fn restrictions_near(
 /// What the restrictions a route is checked against were made of at one
 /// time: the active graph, and the rows outside any graph (DiaLog's, the
 /// community's), which their importers replace without a new graph. Two
-/// equal versions hold the same rows.
+/// equal versions hold the same restrictions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestrictionsVersion {
     /// The active graph.
     pub graph_id: String,
     /// Rows outside any graph.
     pub outside_rows: i64,
-    /// The newest of them (ids are UUID v7, written in time order).
-    pub outside_newest: Option<Uuid>,
+    /// A digest of what they say (place, kind, figure, feature), none
+    /// without any: the same orders imported again under new ids give
+    /// the same digest.
+    pub outside_digest: Option<String>,
 }
 
 /// The restrictions' version ([`RestrictionsVersion`]); `None` without an
-/// active graph.
+/// active graph. Read through the index of `graph_id`: 0.17 s for the
+/// 17 594 rows outside the graphs in production (2026-10-07), where the
+/// newest id among them, by the primary key, took more than the API's 5 s
+/// statement limit behind the graph's rows.
 ///
 /// # Errors
 ///
@@ -546,8 +551,10 @@ pub async fn restrictions_version(pool: &PgPool) -> Result<Option<RestrictionsVe
         r#"
         SELECT g.id AS "graph_id!",
             (SELECT count(*) FROM route_restrictions WHERE graph_id IS NULL) AS "outside_rows!",
-            (SELECT id FROM route_restrictions WHERE graph_id IS NULL
-             ORDER BY id DESC LIMIT 1) AS outside_newest
+            (SELECT md5(string_agg(external_id || ' ' || kind || ' '
+                    || coalesce(limit_value::text, '') || ' ' || feature || ' '
+                    || md5(ST_AsBinary(geom)), ',' ORDER BY external_id, kind, id))
+             FROM route_restrictions WHERE graph_id IS NULL) AS outside_digest
         FROM routing_graphs g WHERE g.active
         "#
     )
@@ -556,7 +563,7 @@ pub async fn restrictions_version(pool: &PgPool) -> Result<Option<RestrictionsVe
     Ok(row.map(|r| RestrictionsVersion {
         graph_id: r.graph_id,
         outside_rows: r.outside_rows,
-        outside_newest: r.outside_newest,
+        outside_digest: r.outside_digest,
     }))
 }
 

@@ -525,7 +525,7 @@ async fn the_rows_a_ring_may_exclude_and_the_version_that_says_when_they_change(
         routing::RestrictionsVersion {
             graph_id: id.to_owned(),
             outside_rows: 0,
-            outside_newest: None,
+            outside_digest: None,
         }
     );
     let envelope = routing::Envelope {
@@ -568,13 +568,20 @@ async fn the_rows_a_ring_may_exclude_and_the_version_that_says_when_they_change(
             .contains(&dialog.0.external_id),
         "DiaLog's rows are read with the graph's"
     );
-    lunaway_db::road_events::replace_dialog_restrictions(&ingest, &[dialog])
+    lunaway_db::road_events::replace_dialog_restrictions(&ingest, std::slice::from_ref(&dialog))
+        .await
+        .unwrap();
+    assert_eq!(
+        routing::restrictions_version(&api).await.unwrap().unwrap(),
+        second,
+        "the same orders imported again under new ids: nothing to compute again"
+    );
+    let mut longer = dialog;
+    longer.0.limit = Some(6.5);
+    lunaway_db::road_events::replace_dialog_restrictions(&ingest, &[longer])
         .await
         .unwrap();
     let third = routing::restrictions_version(&api).await.unwrap().unwrap();
     assert_eq!(third.outside_rows, 1);
-    assert_ne!(
-        third, second,
-        "the same rows imported again are new rows, and a new version"
-    );
+    assert_ne!(third, second, "a figure changed: a new version");
 }

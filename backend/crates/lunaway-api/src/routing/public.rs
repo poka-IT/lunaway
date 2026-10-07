@@ -603,7 +603,7 @@ mod tests {
             version: db::RestrictionsVersion {
                 graph_id: g.to_owned(),
                 outside_rows: 0,
-                outside_newest: None,
+                outside_digest: None,
             },
             classes: vec![vec![kept(15)], vec![kept(15)], vec![kept(15)]],
         }));
