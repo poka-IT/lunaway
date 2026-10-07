@@ -175,6 +175,33 @@ void main() {
       expect((camera as FollowCamera).ease, FreeMap.snapEase);
     });
 
+    testWidgets('a nudge the magnet answers in the same frame is a new request to follow', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final before = (map().camera as FollowCamera).request;
+      final course = map().vehicle!.course!;
+      // The gesture and the rest before any frame: the screen never builds
+      // the free map, the engine must still hear a new request.
+      map().onGesture!();
+      map().onRest!(
+        FreeView(
+          size: phone,
+          vehicle: followAnchor(phone, map().padding) + const Offset(3, 3),
+          zoom: followZoom(10),
+          bearing: course,
+          tilt: followTiltDeg,
+        ),
+      );
+      await settleShort(tester);
+      final after = map().camera;
+      expect(after, isA<FollowCamera>());
+      expect((after as FollowCamera).request, greaterThan(before));
+      expect(after.ease, FreeMap.snapEase);
+    });
+
     testWidgets('after 12 s without a touch while driving the map follows again', (tester) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);

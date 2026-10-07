@@ -38,10 +38,6 @@ abstract final class RoutePlaceLayers {
   /// Room around the vehicle's arrow where no pin is drawn.
   static const vehicleClearance = 28.0;
 
-  /// The pins a little faded: the map's own colours stay readable under
-  /// them.
-  static const opacity = 0.9;
-
   static const double placeMinZoom = PlaceTiles.pinZoom;
   static const double poiMinZoom = PoiMapStyle.pointsMinZoom;
 
@@ -83,7 +79,6 @@ abstract final class RoutePlaceLayers {
       'minzoom': poiMinZoom,
       'filter': places.poiFilter ?? none,
       'layout': {...poiLayout(1), 'visibility': places.poiFilter == null ? 'none' : 'visible'},
-      'paint': {'icon-opacity': opacity},
     },
     {
       'id': placePins,
@@ -93,7 +88,6 @@ abstract final class RoutePlaceLayers {
       'minzoom': placeMinZoom,
       'filter': places.placeFilter ?? none,
       'layout': {...placeLayout(1), 'visibility': places.placeFilter == null ? 'none' : 'visible'},
-      'paint': {'icon-opacity': opacity},
     },
   ];
 

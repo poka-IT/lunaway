@@ -62,11 +62,25 @@ void main() {
     camera()
       ..moved()
       ..recenter();
-    expect(view(), const GuidanceView());
+    expect((view().mode, view().ease), (GuidanceCameraMode.follow, FreeMap.recenterEase));
     camera()
       ..moved()
       ..snap();
-    expect(view(), const GuidanceView(ease: FreeMap.snapEase));
+    expect((view().mode, view().ease), (GuidanceCameraMode.follow, FreeMap.snapEase));
+  });
+
+  test('each request to follow is a new one, even right after a gesture', () {
+    open();
+    final first = view().follows;
+    // A nudge the magnet brings back before the screen showed the map free.
+    camera()
+      ..moved()
+      ..snap();
+    expect(view().follows, first + 1);
+    camera()
+      ..moved()
+      ..recenter();
+    expect(view().follows, first + 2);
   });
 
   test('while driving, the map comes back after 12 s without a touch', () {
@@ -76,7 +90,7 @@ void main() {
       time.elapse(const Duration(seconds: 11));
       expect(view().mode, GuidanceCameraMode.free);
       time.elapse(const Duration(seconds: 1, milliseconds: 1));
-      expect(view(), const GuidanceView());
+      expect((view().mode, view().ease), (GuidanceCameraMode.follow, FreeMap.recenterEase));
     });
   });
 

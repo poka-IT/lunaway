@@ -201,7 +201,13 @@ final class FitCamera extends RouteCamera {
 /// ([followZoom]). The map glides the vehicle from fix to fix
 /// ([VehicleMotion]).
 final class FollowCamera extends RouteCamera {
-  const new({required this.position, this.course, this.speedMps, this.ease = FreeMap.recenterEase});
+  const new({
+    required this.position,
+    this.course,
+    this.speedMps,
+    this.ease = FreeMap.recenterEase,
+    this.request = 0,
+  });
 
   final LatLng position;
   final double? course;
@@ -212,6 +218,11 @@ final class FollowCamera extends RouteCamera {
   /// How long the way in takes, from the view the map had.
   final Duration ease;
 
+  /// Which request to follow this answers ("Recentrer", the magnet, the
+  /// return after a while): a new one starts following again even when
+  /// the screen never showed the map free in between.
+  final int request;
+
   double get zoom => followZoom(speedMps);
 
   @override
@@ -220,10 +231,11 @@ final class FollowCamera extends RouteCamera {
       other.position == position &&
       other.course == course &&
       other.speedMps == speedMps &&
-      other.ease == ease;
+      other.ease == ease &&
+      other.request == request;
 
   @override
-  int get hashCode => Object.hash(position, course, speedMps, ease);
+  int get hashCode => Object.hash(position, course, speedMps, ease, request);
 }
 
 /// Where the user left it: the camera stays as the last gesture put it,
@@ -272,7 +284,8 @@ CameraStep cameraStep({
   required bool heldByUser,
 }) => switch (next) {
   FollowCamera() when heldByUser => CameraStep.none,
-  FollowCamera() when sent is! FollowCamera => CameraStep.enterFollow,
+  FollowCamera() when sent is! FollowCamera || sent.request != next.request =>
+    CameraStep.enterFollow,
   FollowCamera() => next == sent ? CameraStep.none : CameraStep.follow,
   FreeCamera() => sent is FreeCamera ? CameraStep.none : CameraStep.free,
   FitCamera() when next == sent => CameraStep.none,
@@ -281,10 +294,12 @@ CameraStep cameraStep({
 
 /// Whether a user's gesture still holds the camera once the screen asks
 /// for [after] instead of [before]: a new request to follow ("Recentrer",
-/// the magnet, the return after a while) lets it go; a gesture after that
-/// request holds it again.
+/// the magnet, the return after a while) lets it go, even one that came in
+/// the same frame as the gesture; a gesture after that request holds it
+/// again.
 bool heldAfter({required bool held, required RouteCamera before, required RouteCamera after}) =>
-    held && !(after is FollowCamera && before is! FollowCamera);
+    held &&
+    !(after is FollowCamera && (before is! FollowCamera || before.request != after.request));
 
 /// The page's report of a camera the user moved and left
 /// (`lunawayRouteMotion`, `rest`), the map's own [size] when it says none.
@@ -310,6 +325,8 @@ FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
 ({LatLng target, double zoom, double tilt, double bearing}) initialCamera(RouteMapProps p) {
   final camera = p.camera;
   final route = [for (final l in p.lines) ...l.points];
+  // A map with neither a route nor a vehicle has nothing to show: it opens
+  // anywhere until one comes.
   final middle = GeoBounds.around(route)?.center ?? const LatLng(0, 0);
   return switch (camera) {
     FitCamera(:final bounds) => (target: bounds.center, zoom: 12, tilt: 0, bearing: 0),

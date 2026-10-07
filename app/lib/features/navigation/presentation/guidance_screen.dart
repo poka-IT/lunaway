@@ -237,6 +237,9 @@ class _Landscape extends StatelessWidget {
                 builder: (context, box) => SingleChildScrollView(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: box.maxHeight),
+                    // Measures its children: none of them may be a
+                    // LayoutBuilder or a scrolling list, which cannot say
+                    // their height before they are laid out.
                     child: IntrinsicHeight(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -327,6 +330,7 @@ class _GuidanceMap extends ConsumerWidget {
         course: vehicle.course,
         speedMps: session.lastFix?.speedMps,
         ease: view.ease,
+        request: view.follows,
       ),
     };
     final choice =
@@ -417,7 +421,8 @@ class _GuidanceMap extends ConsumerWidget {
             RoutePoint(
               position: poi.position,
               title: poi.name ?? context.t.poiKind(poi.kind),
-              subtitle: context.t.poiKind(poi.kind),
+              // A point without a name is titled by its kind already.
+              subtitle: poi.name == null ? null : context.t.poiKind(poi.kind),
               poiId: poi.id,
               credit: context.t.navigation.preview.attributionOsm,
             ),
@@ -466,8 +471,10 @@ class _RecenterButton extends ConsumerWidget {
       builder: (context, box) {
         // The word's width as the button draws it, with the icon and the
         // padding around them.
+        final theme = Theme.of(context);
+        final style = theme.filledButtonTheme.style?.textStyle?.resolve(const {});
         final words = TextPainter(
-          text: TextSpan(text: label, style: Theme.of(context).textTheme.labelLarge),
+          text: TextSpan(text: label, style: style ?? theme.textTheme.labelLarge),
           textScaler: MediaQuery.textScalerOf(context),
           textDirection: Directionality.of(context),
           maxLines: 1,

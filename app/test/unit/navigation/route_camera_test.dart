@@ -35,6 +35,23 @@ void main() {
       expect(cameraStep(sent: whole, next: whole, heldByUser: false), CameraStep.none);
     });
 
+    test('a request to follow in the same frame as the gesture still follows', () {
+      // The magnet answered a nudge before the screen built the free map:
+      // the engine sees one following camera after another.
+      const snapped = FollowCamera(
+        position: LatLng(45.841, 1.28),
+        course: 90,
+        speedMps: 10,
+        request: 1,
+      );
+      expect(heldAfter(held: true, before: follow, after: snapped), isFalse);
+      expect(cameraStep(sent: follow, next: snapped, heldByUser: false), CameraStep.enterFollow);
+      // Later fixes of that same request only follow on.
+      const later = FollowCamera(position: LatLng(45.842, 1.28), course: 90, request: 1);
+      expect(heldAfter(held: true, before: snapped, after: later), isTrue);
+      expect(cameraStep(sent: snapped, next: later, heldByUser: false), CameraStep.follow);
+    });
+
     test('a new request to follow lets a gesture go; a gesture after it holds again', () {
       // "Recentrer" after the screen freed the map.
       expect(heldAfter(held: true, before: free, after: follow), isFalse);
@@ -43,6 +60,29 @@ void main() {
       expect(heldAfter(held: true, before: follow, after: free), isTrue);
       expect(heldAfter(held: false, before: free, after: follow), isFalse);
     });
+  });
+
+  test("reads the page's report of a rest", () {
+    final view = freeViewOfPage(const {
+      'type': 'rest',
+      'x': 200.5,
+      'y': 530,
+      'lat': 45.84,
+      'lon': 1.28,
+      'zoom': 16.2,
+      'bearing': 30,
+      'pitch': 50,
+      'width': 412,
+      'height': 915,
+    }, size: const Size(1, 1));
+    expect(view.vehicle, const Offset(200.5, 530));
+    expect(view.center, const LatLng(45.84, 1.28));
+    expect((view.zoom, view.bearing, view.tilt), (16.2, 30, 50));
+    expect(view.size, const Size(412, 915));
+    final bare = freeViewOfPage(const {'type': 'rest'}, size: const Size(400, 800));
+    expect(bare.vehicle, isNull, reason: 'no vehicle drawn yet');
+    expect(bare.center, isNull);
+    expect(bare.size, const Size(400, 800), reason: "the map's own size");
   });
 
   group('a map made anew', () {

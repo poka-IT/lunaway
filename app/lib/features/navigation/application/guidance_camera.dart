@@ -23,7 +23,12 @@ enum GuidanceCameraMode {
 /// The guidance map's camera, and how the last return to following eases in.
 @immutable
 final class GuidanceView {
-  const new({this.mode = GuidanceCameraMode.follow, this.ease = FreeMap.recenterEase, this.rest});
+  const new({
+    this.mode = GuidanceCameraMode.follow,
+    this.ease = FreeMap.recenterEase,
+    this.rest,
+    this.follows = 0,
+  });
 
   final GuidanceCameraMode mode;
 
@@ -35,12 +40,21 @@ final class GuidanceView {
   /// (the phone turned) opens there.
   final FreeView? rest;
 
-  @override
-  bool operator ==(Object other) =>
-      other is GuidanceView && other.mode == mode && other.ease == ease && other.rest == rest;
+  /// How many times following was asked for: a map the user took in the
+  /// same frame as a new request (a nudge the magnet brings back at once)
+  /// still hears that request (`FollowCamera.request`).
+  final int follows;
 
   @override
-  int get hashCode => Object.hash(mode, ease, rest);
+  bool operator ==(Object other) =>
+      other is GuidanceView &&
+      other.mode == mode &&
+      other.ease == ease &&
+      other.rest == rest &&
+      other.follows == follows;
+
+  @override
+  int get hashCode => Object.hash(mode, ease, rest, follows);
 }
 
 /// The guidance map's camera mode: following by default; free as soon as
@@ -79,7 +93,7 @@ class GuidanceCamera extends _$GuidanceCamera {
   /// The user moved the map (a drag, a pinch, a turn, a tilt, the wheel).
   void moved() {
     if (state.mode != GuidanceCameraMode.free) {
-      state = GuidanceView(mode: GuidanceCameraMode.free, ease: state.ease);
+      state = GuidanceView(mode: GuidanceCameraMode.free, ease: state.ease, follows: state.follows);
     }
     _arm();
   }
@@ -87,7 +101,12 @@ class GuidanceCamera extends _$GuidanceCamera {
   /// The free map came to rest at [view].
   void rested(FreeView view) {
     if (state.mode == GuidanceCameraMode.free) {
-      state = GuidanceView(mode: GuidanceCameraMode.free, ease: state.ease, rest: view);
+      state = GuidanceView(
+        mode: GuidanceCameraMode.free,
+        ease: state.ease,
+        rest: view,
+        follows: state.follows,
+      );
     }
   }
 
@@ -103,7 +122,11 @@ class GuidanceCamera extends _$GuidanceCamera {
       recenter();
       return;
     }
-    state = GuidanceView(mode: GuidanceCameraMode.overview, ease: state.ease);
+    state = GuidanceView(
+      mode: GuidanceCameraMode.overview,
+      ease: state.ease,
+      follows: state.follows,
+    );
     _arm();
   }
 
@@ -131,8 +154,7 @@ class GuidanceCamera extends _$GuidanceCamera {
 
   void _follow(Duration ease) {
     _idle?.cancel();
-    final next = GuidanceView(ease: ease);
-    if (state != next) state = next;
+    state = GuidanceView(ease: ease, follows: state.follows + 1);
   }
 
   /// (Re)starts the countdown back to following, from now: only away from
