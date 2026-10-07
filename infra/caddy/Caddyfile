@@ -71,6 +71,7 @@
 			size delete
 			request>uri multi_regexp {
 				regexp "^/media/[^?]*" "/media/[photo]"
+				regexp "/external-photos/[^?]*" "/external-photos/[photo]"
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
 				regexp "/packs/[a-z0-9-]+\.pmtiles" "/packs/[pack].pmtiles"
 				regexp "/packs/places/[^?]*" "/packs/places/[pack]"
@@ -127,6 +128,11 @@
 				# A photo's file names the place it shows: every photo path
 				# is logged as one constant.
 				regexp "^/media/[^?]*" "/media/[photo]"
+				# So does a photo of the external community source asked
+				# through the API's proxy (its id names the photo). Not
+				# anchored, like the packs' mask below: //external-photos/
+				# goes too.
+				regexp "/external-photos/[^?]*" "/external-photos/[photo]"
 				# A tile address is a place on the map, often where the user
 				# is: the zoom stays, x and y go.
 				regexp "/([0-9]+)/[0-9]+/[0-9]+\.mvt" "/${1}/x/y.mvt"
@@ -330,9 +336,9 @@
 	}
 }
 
-# The API: /health, /graphql, /upload, /poi/ and /places/ proxied to
-# lunaway-api, /media/ and /packs/places/ served from the data volume,
-# everything else 404. The API serves JSON and vector tiles only, so its CSP
+# The API: /health, /graphql, /upload, /poi/, /places/ and /external-photos/
+# proxied to lunaway-api, /media/ and /packs/places/ served from the data
+# volume, everything else 404. The API serves JSON and vector tiles only, so its CSP
 # allows nothing at all.
 (api) {
 	import access_log
@@ -390,6 +396,24 @@
 	# CORS headers; reads only, 1 KiB of body at most, 405 otherwise). The
 	# access log keeps the zoom only, by the same .mvt mask.
 	handle /places/* {
+		@read method GET HEAD OPTIONS
+		@other not method GET HEAD OPTIONS
+		request_body {
+			max_size 1KiB
+		}
+		header @other Allow "GET, HEAD, OPTIONS"
+		respond @other 405
+		reverse_proxy @read 127.0.0.1:8484
+	}
+	# The photos of the external community source (docs/feeds.md): GET
+	# /external-photos/{id}/thumb or /large. The API downloads the
+	# partner's photo the first time it is asked, stores it under /media/,
+	# and answers a redirect to that file, or a JSON error with Retry-After
+	# while it cannot. The API sets the cache and CORS headers and answers
+	# the web app's preflight, as on /poi/. Reads only: GET, HEAD and
+	# OPTIONS, with a body of 1 KiB at most (the API reads none), 405
+	# otherwise. The access log names no photo (/external-photos/[photo]).
+	handle /external-photos/* {
 		@read method GET HEAD OPTIONS
 		@other not method GET HEAD OPTIONS
 		request_body {
@@ -465,7 +489,11 @@
 	# for a year (its name never changes content) and inert (the sandbox CSP
 	# stops an SVG or HTML file from running anything). A missing file or a
 	# directory falls through to the plain 404 below: no year-long cache on a
-	# miss, no listing.
+	# miss, no listing. The web app on https://lunaway.net reads a photo with
+	# fetch, which needs CORS: without the header every photo failed there
+	# (measured in Chromium on 2026-10-07, "No 'Access-Control-Allow-Origin'
+	# header is present"), the redirects of /external-photos/ included. A
+	# simple GET, so no preflight to answer.
 	@media_file {
 		path /media/*
 		file {
@@ -476,6 +504,7 @@
 		root * /srv/data
 		header Cache-Control "public, max-age=31536000, immutable"
 		header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; sandbox"
+		header Access-Control-Allow-Origin "https://lunaway.net"
 		file_server
 	}
 	handle {
