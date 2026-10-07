@@ -1,6 +1,7 @@
 import 'package:lunaway/features/account/domain/account.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
+import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
@@ -86,6 +87,14 @@ extension CommunityLabels on Translations {
     );
   }
 
+  /// What a road report says, as its tile names it.
+  String roadReportKind(RoadReportKind kind) => switch (kind) {
+    RoadReportKind.closure => _t.roadReport.kinds.closure,
+    RoadReportKind.works => _t.roadReport.kinds.works,
+    RoadReportKind.narrowPassage => _t.roadReport.kinds.narrowPassage,
+    RoadReportKind.lowClearance => _t.roadReport.kinds.lowClearance,
+  };
+
   /// A waiting contribution, in a line.
   String pendingLabel(PendingContribution e, {String? placeName}) {
     final p = e.payload;
@@ -114,6 +123,15 @@ extension CommunityLabels on Translations {
       .confirmPoi => p['stillThere'] == false ? _t.outbox.kind.poiGone : _t.outbox.kind.poiThere,
       .addVendingMachine => _t.outbox.kind.addVendingMachine,
       .deletePoiConfirmation => _t.outbox.kind.deletePoiConfirmation,
+      .reportRoadEvent => _t.outbox.kind.reportRoadEvent(
+        kind: switch (p['input']) {
+          {'kind': final String wire} when RoadReportKind.values.any((k) => k.wire == wire) =>
+            roadReportKind(RoadReportKind.values.firstWhere((k) => k.wire == wire)),
+          // A kind of a newer version, read by this one.
+          _ => _t.roadReport.kinds.other,
+        },
+      ),
+      .clearRoadEvent => _t.outbox.kind.clearRoadEvent,
     };
   }
 

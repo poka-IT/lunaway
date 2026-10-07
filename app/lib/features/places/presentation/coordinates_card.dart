@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/system_copy_preview.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -9,8 +10,9 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 
-/// Copies [format] of [position] and says what went to the clipboard, with a
-/// light touch the hand feels without looking.
+/// Copies [format] of [position] and says what went to the clipboard (unless
+/// the system shows it already), with a light touch the hand feels without
+/// looking.
 Future<void> copyCoordinates(
   BuildContext context,
   LatLng position, {
@@ -21,7 +23,7 @@ Future<void> copyCoordinates(
   final copied = context.t.place.copied(text: text);
   await Clipboard.setData(ClipboardData(text: text));
   Haptics.confirm();
-  showMessage(messenger, copied);
+  if (!await systemShowsCopies()) showMessage(messenger, copied);
 }
 
 /// The coordinates of a position with a one-tap copy, in the format map apps

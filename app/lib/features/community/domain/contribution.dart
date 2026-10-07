@@ -26,7 +26,14 @@ enum ContributionKind {
   addVendingMachine,
 
   /// One of the account's "still there?" answers about a point, removed.
-  deletePoiConfirmation;
+  deletePoiConfirmation,
+
+  /// What is seen on the road (a closure, works, a narrow passage, a low
+  /// clearance), or "still there" about a community report.
+  reportRoadEvent,
+
+  /// "It is over" about a community road report.
+  clearRoadEvent;
 
   static ContributionKind? fromName(String name) => values.where((k) => k.name == name).firstOrNull;
 
@@ -55,13 +62,15 @@ enum ContributionKind {
     confirm ||
     reportIssue ||
     addPlace ||
-    editPlace => true,
+    editPlace ||
+    reportRoadEvent ||
+    clearRoadEvent => true,
     photo || addVendingMachine => false,
   };
 
   /// It carries its outbox entry's id as `idempotencyKey`.
   bool get keyed => switch (this) {
-    confirm || reportIssue || addPlace || editPlace => true,
+    confirm || reportIssue || addPlace || editPlace || reportRoadEvent => true,
     _ => false,
   };
 
@@ -72,7 +81,9 @@ enum ContributionKind {
     deleteIssueReport ||
     deletePlaceSubmission ||
     deletePhoto ||
-    deletePoiConfirmation => true,
+    deletePoiConfirmation ||
+    // An event gone already is over.
+    clearRoadEvent => true,
     _ => false,
   };
 }

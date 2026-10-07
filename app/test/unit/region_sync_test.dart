@@ -200,6 +200,20 @@ void main() {
   ];
 
   group('the pack import', () {
+    test('the count of places on the device follows an import into an empty cache', () async {
+      final json = apiPlaces();
+      final pack = '${dir.path}/fr-ara-count.sqlite';
+      writePackDatabase(pack, json, region: 'FR-ARA', cursor: 'c9');
+      final counts = <int>[];
+      final watching = places.watchCount().listen(counts.add);
+      addTearDown(watching.cancel);
+      await pumpEventQueue();
+      expect(counts, [0]);
+      await store.importPack('FR-ARA', pack, cursor: 'c9');
+      await pumpEventQueue();
+      expect(counts.last, json.length);
+    });
+
     test('a place from a pack is the place the feed gives, field for field', () async {
       final json = apiPlaces();
       final pack = '${dir.path}/fr-ara.sqlite';

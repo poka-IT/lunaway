@@ -229,6 +229,27 @@ void main() {
     expect(await KeptRegionsStore(app.user).load(), {'FR-BRE', 'FR-NOR', 'FR', 'IT'});
   });
 
+  testWidgets('on a small phone the choice of regions stays in reach above the list', (
+    tester,
+  ) async {
+    final feed = _Quiet();
+    await pumpLunaway(
+      tester,
+      size: const Size(360, 640),
+      places: const [],
+      viewPadding: const FakeViewPadding(top: 24, bottom: 24),
+      regions: _catalog,
+      overrides: [
+        ...quietSync(feed),
+        syncControllerProvider.overrideWith(() => _Running('FR-BRE')),
+      ],
+    );
+    expect(find.text('Choisir les régions').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Choisir les régions'));
+    await settleShort(tester);
+    expect(find.text('Quels lieux garder sur cet appareil ?'), findsOneWidget);
+  });
+
   testWidgets('"Trouver ma région" asks for the position once and ticks the region there', (
     tester,
   ) async {

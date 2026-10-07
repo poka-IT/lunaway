@@ -16,3 +16,11 @@ abstract final class AppRoutes {
   /// The offline maps, under the profile.
   static const offlineMaps = '/profile/offline-maps';
 }
+
+/// The index of each top-level destination in the shell, the order of
+/// [AppRoutes]' first three paths.
+abstract final class AppTabs {
+  static const map = 0;
+  static const favorites = 1;
+  static const profile = 2;
+}

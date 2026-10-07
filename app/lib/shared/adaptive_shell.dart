@@ -16,6 +16,7 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
+import 'package:lunaway/shared/widgets/tab_reselect.dart';
 
 /// The height the phone's floating dock takes above the bottom inset,
 /// margins included. Screens read it through `MediaQuery.paddingOf`, which
@@ -56,8 +57,13 @@ class AdaptiveShell extends ConsumerWidget {
 
   final StatefulNavigationShell shell;
 
-  // Tapping the current destination again returns to its first page.
-  void _go(int index) => shell.goBranch(index, initialLocation: index == shell.currentIndex);
+  // Tapping the current destination again returns to its first page, and
+  // brings its list back to the top.
+  void _go(WidgetRef ref, int index) {
+    final again = index == shell.currentIndex;
+    shell.goBranch(index, initialLocation: again);
+    if (again) ref.read(tabReselectProvider.notifier).reselect(index);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -147,7 +153,7 @@ class AdaptiveShell extends ConsumerWidget {
                             child: _Dock(
                               destinations: destinations,
                               selected: shell.currentIndex,
-                              onSelected: _go,
+                              onSelected: (i) => _go(ref, i),
                             ),
                           ),
                         ),
@@ -175,7 +181,7 @@ class AdaptiveShell extends ConsumerWidget {
               _Rail(
                 destinations: destinations,
                 selected: shell.currentIndex,
-                onSelected: _go,
+                onSelected: (i) => _go(ref, i),
                 extended: size == .expanded,
               ),
               Expanded(child: shell),

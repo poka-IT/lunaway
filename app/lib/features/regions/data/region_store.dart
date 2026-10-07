@@ -185,6 +185,10 @@ final class DriftRegionStore implements RegionStore {
       });
     } finally {
       await _db.customStatement('DETACH DATABASE pack');
+      // The rows came in through SQL drift does not watch: the count of
+      // places, the map and the list read again (a first download over an
+      // empty device otherwise kept "no place here" over a full map).
+      _db.notifyUpdates({TableUpdate.onTable(_db.places)});
     }
   }
 

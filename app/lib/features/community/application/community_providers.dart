@@ -304,7 +304,10 @@ class OutboxRunner extends _$OutboxRunner {
           ContributionKind.reportContent ||
           ContributionKind.deletePlaceSubmission ||
           ContributionKind.addVendingMachine ||
-          ContributionKind.deletePoiConfirmation:
+          ContributionKind.deletePoiConfirmation ||
+          // The guidance reads the road events again on its own rhythm.
+          ContributionKind.reportRoadEvent ||
+          ContributionKind.clearRoadEvent:
         break;
       case ContributionKind.confirmPoi:
         // The page shows when the point was last said to be there: read it

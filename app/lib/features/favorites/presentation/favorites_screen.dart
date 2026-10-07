@@ -20,6 +20,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
+import 'package:lunaway/shared/widgets/tab_reselect.dart';
 
 final _log = Logger('favorites');
 
@@ -36,19 +37,22 @@ class FavoritesScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: switch (lists) {
-          AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
-            lists: lists,
-            selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
-          ),
-          AsyncError() => MessageView(
-            mood: SceneMood.error,
-            title: t.favorites.error,
-            action: t.common.retry,
-            onAction: () => ref.invalidate(favoriteListsProvider),
-          ),
-          _ => ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
-        },
+        child: ScrollsToTopOnReselect(
+          tab: AppTabs.favorites,
+          child: switch (lists) {
+            AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
+              lists: lists,
+              selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
+            ),
+            AsyncError() => MessageView(
+              mood: SceneMood.error,
+              title: t.favorites.error,
+              action: t.common.retry,
+              onAction: () => ref.invalidate(favoriteListsProvider),
+            ),
+            _ => ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
+          },
+        ),
       ),
     );
   }

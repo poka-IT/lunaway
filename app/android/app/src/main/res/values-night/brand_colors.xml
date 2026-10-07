@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- At night the splash is navy; the mark then sits on a cream disc, because
-     the navy of the pin would vanish into the navy background. -->
-<resources>
-    <color name="splash_background">#061F43</color>
-</resources>

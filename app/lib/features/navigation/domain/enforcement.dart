@@ -106,6 +106,17 @@ final class EnforcementItem {
   final int? limitKmh;
   final List<String> sourceIds;
 
+  /// Whether its own country's rule lets the device keep it at all: a zone
+  /// where zones or points are allowed, a camera's point only where points
+  /// are. A second guard behind the server, which sends nothing else.
+  bool keptUnder(EnforcementRules rules) {
+    final own = rules.modeOf(country);
+    return switch (kind) {
+      EnforcementKind.zone => own.showsWhileDriving,
+      EnforcementKind.camera => own == EnforcementMode.exact,
+    };
+  }
+
   /// Whether the guidance may show it while the vehicle is where [here]
   /// rules: a zone where zones or points are allowed, a camera where points
   /// are; and its own country's rule allows it too.
@@ -231,8 +242,75 @@ List<ItemOnRoute> itemsOnRoute(List<LatLng> line, Iterable<EnforcementItem> item
     if (bearing != null && _angle(bearing, n.headingDeg) > 60) continue;
     found.add(ItemOnRoute(item: item, startM: n.alongM, endM: n.alongM));
   }
-  return found..sort((a, b) => a.startM.compareTo(b.startM));
+  // Ties keep the order of [items]: Dart's sort is not stable.
+  final order = {for (final (i, f) in found.indexed) f: i};
+  return found..sort((a, b) {
+    final by = a.startM.compareTo(b.startM);
+    return by != 0 ? by : order[a]!.compareTo(order[b]!);
+  });
 }
+
+/// The items of a trip's countries, bucketed once by the coarse cells
+/// their points fall in, so a new route tests in full only the few hundred
+/// items near it. France alone holds about 2,600 zones and 110,000 points:
+/// matching them all against a long route took 35 ms on a desktop at each
+/// new route, against 7 to 8 ms through the index.
+final class EnforcementIndex {
+  new(List<EnforcementItem> items) : _items = items, _buckets = {} {
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      final points = item.line.isNotEmpty ? item.line : [?item.position];
+      final cells = <int>{for (final p in points) _key(_coarse(p.lon), _coarse(p.lat))};
+      for (final c in cells) {
+        (_buckets[c] ??= []).add(i);
+      }
+    }
+  }
+
+  final List<EnforcementItem> _items;
+  final Map<int, List<int>> _buckets;
+
+  /// About 2 km of latitude: smaller cells leave fewer items to test in
+  /// full, and past this size the gain stops (measured on the French list).
+  static const _size = 0.02;
+
+  /// Further than any tolerance of [itemsOnRoute] (30 m), so an item just
+  /// across a cell's edge from the route is still a candidate: 0.002 degree
+  /// of longitude is still 30 m at 82 degrees north.
+  static const _margin = 0.002;
+
+  static int _coarse(double degrees) => (degrees / _size).floor();
+
+  /// [itemsOnRoute] over the items near [line] only: the same result as
+  /// over all of them, in the same order.
+  List<ItemOnRoute> onRoute(List<LatLng> line) {
+    if (line.length < 2 || _buckets.isEmpty) return const [];
+    final near = <int>{};
+    final crossed = <int>{};
+    for (var i = 1; i < line.length; i++) {
+      final a = line[i - 1];
+      final b = line[i];
+      final south = _coarse(math.min(a.lat, b.lat) - _margin);
+      final north = _coarse(math.max(a.lat, b.lat) + _margin);
+      final west = _coarse(math.min(a.lon, b.lon) - _margin);
+      final east = _coarse(math.max(a.lon, b.lon) + _margin);
+      for (var y = south; y <= north; y++) {
+        for (var x = west; x <= east; x++) {
+          final key = _key(x, y);
+          if (crossed.add(key)) near.addAll(_buckets[key] ?? const <int>[]);
+        }
+      }
+    }
+    // In the order of the list, so items at the same distance keep the
+    // order a full pass gives them.
+    final candidates = near.toList()..sort();
+    return itemsOnRoute(line, [for (final i in candidates) _items[i]]);
+  }
+}
+
+/// One integer for a cell of a grid, cheaper to hash than a record: cells
+/// of 0.01 degree run to 36,000 across, well inside 2^16 either way.
+int _key(int x, int y) => (x + 0x8000) << 16 | (y + 0x8000);
 
 double _angle(double a, double b) {
   final d = ((a - b) % 360 + 360) % 360;
@@ -255,7 +333,7 @@ final class _SegmentIndex {
       final east = math.max(a.lon, b.lon);
       for (var y = _cell(south); y <= _cell(north); y++) {
         for (var x = _cell(west); x <= _cell(east); x++) {
-          (_cells[(x, y)] ??= []).add(i - 1);
+          (_cells[_key(x, y)] ??= []).add(i - 1);
         }
       }
     }
@@ -263,7 +341,7 @@ final class _SegmentIndex {
 
   final List<LatLng> line;
   final List<double> _starts = [];
-  final Map<(int, int), List<int>> _cells = {};
+  final Map<int, List<int>> _cells = {};
 
   static const _size = 0.01;
 
@@ -281,7 +359,7 @@ final class _SegmentIndex {
     final seen = <int>{};
     for (var y = cy - 1; y <= cy + 1; y++) {
       for (var x = cx - 1; x <= cx + 1; x++) {
-        for (final i in _cells[(x, y)] ?? const <int>[]) {
+        for (final i in _cells[_key(x, y)] ?? const <int>[]) {
           if (!seen.add(i)) continue;
           final a = line[i];
           final b = line[i + 1];

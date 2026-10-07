@@ -1,4 +1,5 @@
 import 'package:lunaway/features/community/domain/community.dart';
+import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -329,6 +330,30 @@ PoiConfirmation? poiConfirmationFromJson(Map<String, dynamic> json) {
   return null;
 }
 
+/// What is seen on the road, or "still there" about a community report:
+/// the event it supports, as the server now weighs it.
+final reportRoadEventOperation = GraphQLOperation<RoadReportResult>(
+  name: 'ReportRoadEvent',
+  document: r'''
+mutation ReportRoadEvent($input: RoadEventReportInput!, $idempotencyKey: String) {
+  reportRoadEvent(input: $input, idempotencyKey: $idempotencyKey) {
+    reportId
+    eventId
+    confidence
+    expiresAt
+  }
+}''',
+  parse: (data) => roadReportResultFromJson(data['reportRoadEvent'] as Map<String, dynamic>),
+);
+
+/// "It is over" about a community road report: `ENDED`, `WARNING` or
+/// `NOTED`.
+final clearRoadEventOperation = GraphQLOperation<String>(
+  name: 'ClearRoadEvent',
+  document: r'mutation ClearRoadEvent($eventId: UUID!) { clearRoadEvent(eventId: $eventId) }',
+  parse: (data) => '${data['clearRoadEvent']}',
+);
+
 /// Every contribution operation, for the contract test.
 final communityOperations = <GraphQLOperation<Object?>>[
   rateOperation,
@@ -348,5 +373,7 @@ final communityOperations = <GraphQLOperation<Object?>>[
   confirmPoiOperation,
   deletePoiConfirmationOperation,
   addVendingMachineOperation,
+  reportRoadEventOperation,
+  clearRoadEventOperation,
   myContributionsOperation,
 ];

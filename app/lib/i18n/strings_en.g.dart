@@ -90,6 +90,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$poi$en poi = Translations$poi$en.internal(_root);
 	late final Translations$offlineMaps$en offlineMaps = Translations$offlineMaps$en.internal(_root);
 	late final Translations$regions$en regions = Translations$regions$en.internal(_root);
+	late final Translations$roadReport$en roadReport = Translations$roadReport$en.internal(_root);
 }
 
 // Path: nav
@@ -595,8 +596,8 @@ class Translations$location$en {
 	/// en: 'Show your position?'
 	String get rationaleTitle => 'Show your position?';
 
-	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For fuel along the way, only an approximate position is sent.'
-	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway\'s server, which does not keep it. For fuel along the way, only an approximate position is sent.';
+	/// en: 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For the cheapest fuel around you, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.'
+	String get rationale => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway\'s server, which does not keep it. For the cheapest fuel around you, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.';
 
 	/// en: 'Continue'
 	String get allow => 'Continue';
@@ -1500,11 +1501,14 @@ class Translations$account$en {
 	/// en: 'Make my recovery card'
 	String get recoveryCreate => 'Make my recovery card';
 
-	/// en: 'Recovery card made on $date'
-	String recoveryMade({required Object date}) => 'Recovery card made on ${date}';
+	/// en: 'Made on $date'
+	String recoveryMade({required Object date}) => 'Made on ${date}';
 
-	/// en: 'Make a new card'
-	String get recoveryRemake => 'Make a new card';
+	/// en: 'Make again'
+	String get recoveryRemake => 'Make again';
+
+	/// en: 'Make a new recovery card'
+	String get recoveryRemakeHint => 'Make a new recovery card';
 
 	/// en: 'My contributions'
 	String get contributions => 'My contributions';
@@ -1724,8 +1728,8 @@ class Translations$deletion$en {
 	/// en: 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers' map.'
 	String get kept => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.';
 
-	/// en: 'The server's backups are cleared within 30 days.'
-	String get backups => 'The server\'s backups are cleared within 30 days.';
+	/// en: 'The server's backups are cleared in about 30 days.'
+	String get backups => 'The server\'s backups are cleared in about 30 days.';
 
 	/// en: 'On this device, your favourites stay; the account's key is erased.'
 	String get device => 'On this device, your favourites stay; the account\'s key is erased.';
@@ -2846,6 +2850,65 @@ class Translations$regions$en {
 
 	/// en: 'updated $when'
 	String updated({required Object when}) => 'updated ${when}';
+}
+
+// Path: roadReport
+class Translations$roadReport$en {
+	Translations$roadReport$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Report a problem on the road'
+	String get actionHint => 'Report a problem on the road';
+
+	/// en: 'What do you see on the road?'
+	String get title => 'What do you see on the road?';
+
+	/// en: 'Your report warns other travellers. When two trusted accounts report the same thing, routes avoid it. Police checks are not reported.'
+	String get intro => 'Your report warns other travellers. When two trusted accounts report the same thing, routes avoid it. Police checks are not reported.';
+
+	late final Translations$roadReport$kinds$en kinds = Translations$roadReport$kinds$en.internal(_root);
+
+	/// en: 'Signed height: $value'
+	String height({required Object value}) => 'Signed height: ${value}';
+
+	/// en: 'Report'
+	String get send => 'Report';
+
+	/// en: 'Thank you: other travellers are warned.'
+	String get sent => 'Thank you: other travellers are warned.';
+
+	/// en: 'You are driving'
+	String get movingTitle => 'You are driving';
+
+	/// en: 'Do not report while driving. A passenger can; otherwise stop first.'
+	String get movingBody => 'Do not report while driving. A passenger can; otherwise stop first.';
+
+	/// en: 'I'm a passenger'
+	String get passenger => 'I\'m a passenger';
+
+	/// en: 'Still there'
+	String get stillThere => 'Still there';
+
+	/// en: 'It's over'
+	String get over => 'It\'s over';
+
+	/// en: 'Thank you: noted.'
+	String get overSent => 'Thank you: noted.';
+
+	/// en: 'Report a problem here'
+	String get fromMap => 'Report a problem here';
+
+	/// en: '10 cm lower'
+	String get lower => '10 cm lower';
+
+	/// en: '10 cm higher'
+	String get higher => '10 cm higher';
+
+	/// en: 'You just passed: $what. Still there?'
+	String passed({required Object what}) => 'You just passed: ${what}. Still there?';
 }
 
 // Path: place.reviewVehicle
@@ -3980,6 +4043,12 @@ class Translations$outbox$kind$en {
 
 	/// en: 'Deletion of an answer about a shop or service'
 	String get deletePoiConfirmation => 'Deletion of an answer about a shop or service';
+
+	/// en: 'Road report: $kind'
+	String reportRoadEvent({required Object kind}) => 'Road report: ${kind}';
+
+	/// en: 'A road report said over'
+	String get clearRoadEvent => 'A road report said over';
 }
 
 // Path: outbox.error
@@ -4456,6 +4525,30 @@ class Translations$poi$trend$en {
 	);
 }
 
+// Path: roadReport.kinds
+class Translations$roadReport$kinds$en {
+	Translations$roadReport$kinds$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Road closed'
+	String get closure => 'Road closed';
+
+	/// en: 'Roadworks'
+	String get works => 'Roadworks';
+
+	/// en: 'Narrow passage'
+	String get narrowPassage => 'Narrow passage';
+
+	/// en: 'Low clearance'
+	String get lowClearance => 'Low clearance';
+
+	/// en: 'Road problem'
+	String get other => 'Road problem';
+}
+
 // Path: navigation.states.dimension
 class Translations$navigation$states$dimension$en {
 	Translations$navigation$states$dimension$en.internal(this._root);
@@ -4637,7 +4730,7 @@ extension on Translations {
 			'sync.resuming' => ({required Object count}) => 'Downloading: ${count} places',
 			'sync.resume' => 'Resume',
 			'location.rationaleTitle' => 'Show your position?',
-			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway\'s server, which does not keep it. For fuel along the way, only an approximate position is sent.',
+			'location.rationale' => 'Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway\'s server, which does not keep it. For the cheapest fuel around you, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.',
 			'location.allow' => 'Continue',
 			'location.notNow' => 'Not now',
 			'location.deniedTitle' => 'Position turned off for Lunaway',
@@ -5162,8 +5255,9 @@ extension on Translations {
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
 			'account.recoveryNone' => 'No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
-			'account.recoveryMade' => ({required Object date}) => 'Recovery card made on ${date}',
-			'account.recoveryRemake' => 'Make a new card',
+			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
+			'account.recoveryRemake' => 'Make again',
+			'account.recoveryRemakeHint' => 'Make a new recovery card',
 			'account.contributions' => 'My contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
 			'account.mutedAuthors' => 'Hidden authors',
@@ -5229,7 +5323,7 @@ extension on Translations {
 			'deletion.gone.pending' => 'Your proposals waiting for review',
 			'deletion.keptTitle' => 'What stays, without your name',
 			'deletion.kept' => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.',
-			'deletion.backups' => 'The server\'s backups are cleared within 30 days.',
+			'deletion.backups' => 'The server\'s backups are cleared in about 30 days.',
 			'deletion.device' => 'On this device, your favourites stay; the account\'s key is erased.',
 			'deletion.web' => 'You can also delete it on lunaway.net with your recovery code.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
@@ -5313,6 +5407,8 @@ extension on Translations {
 			'outbox.kind.poiGone' => 'Gone: a shop or service',
 			'outbox.kind.addVendingMachine' => 'New vending machine',
 			'outbox.kind.deletePoiConfirmation' => 'Deletion of an answer about a shop or service',
+			'outbox.kind.reportRoadEvent' => ({required Object kind}) => 'Road report: ${kind}',
+			'outbox.kind.clearRoadEvent' => 'A road report said over',
 			'outbox.waiting' => 'Waiting for the network',
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
@@ -5535,11 +5631,11 @@ extension on Translations {
 			'poi.thanksGone' => 'Thank you, noted: gone.',
 			'poi.fuelPrices' => 'Fuel prices',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
+			_ => null,
+		} ?? switch (path) {
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prices checked ${when}',
 			'poi.shortageTemporary' => 'Out of stock for now',
-			_ => null,
-		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'No longer sold',
 			'poi.selfService24h' => 'Pay at pump 24/7',
 			'poi.highway' => 'On a motorway',
@@ -5686,6 +5782,27 @@ extension on Translations {
 			'regions.waiting' => 'waiting for its download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
 			'regions.updated' => ({required Object when}) => 'updated ${when}',
+			'roadReport.actionHint' => 'Report a problem on the road',
+			'roadReport.title' => 'What do you see on the road?',
+			'roadReport.intro' => 'Your report warns other travellers. When two trusted accounts report the same thing, routes avoid it. Police checks are not reported.',
+			'roadReport.kinds.closure' => 'Road closed',
+			'roadReport.kinds.works' => 'Roadworks',
+			'roadReport.kinds.narrowPassage' => 'Narrow passage',
+			'roadReport.kinds.lowClearance' => 'Low clearance',
+			'roadReport.kinds.other' => 'Road problem',
+			'roadReport.height' => ({required Object value}) => 'Signed height: ${value}',
+			'roadReport.send' => 'Report',
+			'roadReport.sent' => 'Thank you: other travellers are warned.',
+			'roadReport.movingTitle' => 'You are driving',
+			'roadReport.movingBody' => 'Do not report while driving. A passenger can; otherwise stop first.',
+			'roadReport.passenger' => 'I\'m a passenger',
+			'roadReport.stillThere' => 'Still there',
+			'roadReport.over' => 'It\'s over',
+			'roadReport.overSent' => 'Thank you: noted.',
+			'roadReport.fromMap' => 'Report a problem here',
+			'roadReport.lower' => '10 cm lower',
+			'roadReport.higher' => '10 cm higher',
+			'roadReport.passed' => ({required Object what}) => 'You just passed: ${what}. Still there?',
 			_ => null,
 		};
 	}

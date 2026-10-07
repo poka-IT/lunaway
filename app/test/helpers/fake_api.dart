@@ -255,6 +255,8 @@ final class FakeApi {
     'ConfirmPoi',
     'DeletePoiConfirmation',
     'AddVendingMachine',
+    'ReportRoadEvent',
+    'ClearRoadEvent',
     'ReportContent',
     'AddPlace',
     'EditPlace',
@@ -498,6 +500,15 @@ final class FakeApi {
         }
         return {'addVendingMachine': _submission('POI', null)};
       }(),
+      'ReportRoadEvent' => {
+        'reportRoadEvent': {
+          'reportId': _next(),
+          'eventId': _next(),
+          'confidence': 'REPORTED',
+          'expiresAt': testNow.add(const Duration(days: 7)).toIso8601String(),
+        },
+      },
+      'ClearRoadEvent' => {'clearRoadEvent': 'ENDED'},
       'EditPlace' => {'editPlace': _submission('EDIT', v['placeId'])},
       'DeletePlaceSubmission' => {'deletePlaceSubmission': _remove(submissions, id())},
       'DeletePhoto' => {'deletePhoto': _remove(photos, id())},

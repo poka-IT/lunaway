@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -139,6 +139,8 @@ DatabaseConnection memoryDatabase() =>
 Future<TestApp> pumpLunaway(
   WidgetTester tester, {
   Size size = phone,
+  // The system's bars (status, gestures), in physical pixels.
+  FakeViewPadding? viewPadding,
   List<Place>? places,
   AppLocale locale = AppLocale.fr,
   AppSettings? settings,
@@ -154,6 +156,8 @@ Future<TestApp> pumpLunaway(
   AppConfig? config,
   FakeApi? api,
   bool signedIn = false,
+  // When the signed-in account's recovery card was made; none by default.
+  DateTime? recoveryCardAt,
   FakePoiSource? pois,
   MemoryPackFiles? packFiles,
   bool? reachable = true,
@@ -165,13 +169,27 @@ Future<TestApp> pumpLunaway(
   LocationAccess locationAccess = LocationAccess.granted,
   // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
+  // Whether the system shows what was copied (Android 13 and later).
+  bool systemShowsCopies = false,
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
+  if (viewPadding != null) {
+    tester.view.padding = viewPadding;
+    tester.view.viewPadding = viewPadding;
+  }
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  // The app's own channel to the system answers as Android would; unanswered,
+  // a call would never end in a test.
+  const system = MethodChannel('lunaway/system');
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    system,
+    (call) async => call.method == 'showsCopies' && systemShowsCopies,
+  );
+  addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(system, null));
   await LocaleSettings.setLocale(locale);
   final initial =
       settings ??
@@ -203,6 +221,9 @@ Future<TestApp> pumpLunaway(
   if (api != null) {
     addTearDown(() => expect(api.violations, isEmpty, reason: 'the API schema'));
     if (signedIn) await seedAccount(app.secrets, api);
+    if (signedIn && recoveryCardAt != null) {
+      await app.secrets.write('recovery_card', recoveryCardAt.toIso8601String());
+    }
   }
   // The in-memory databases are left to the garbage collector: closing one
   // waits for its queries, and a query the failed test left pending under

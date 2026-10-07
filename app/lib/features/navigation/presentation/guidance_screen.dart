@@ -13,10 +13,13 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
+import 'package:lunaway/features/navigation/domain/road_reports.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
@@ -409,6 +412,25 @@ Future<void> _said(
   );
 }
 
+/// Whether the vehicle drives: a report or an answer then asks for a
+/// passenger first.
+bool _moving(GuidanceSession session) => (session.lastFix?.speedMps ?? 0) > reportMovingMps;
+
+/// How far past a community report the guidance asks about it, metres:
+/// once the road was seen, while it is still in mind.
+const _askPassedWithinM = 600.0;
+
+/// The community report of the route just passed, within
+/// [_askPassedWithinM] behind the vehicle: only someone who has seen the
+/// road answers whether it is still there, and the answers move other
+/// people's routes. The route's own events only: one that appeared during
+/// the guidance has no place along this route to be passed.
+RouteRoadEvent? passedCommunityReport(RouteOption route, double along) =>
+    route.roadEvents.where((e) {
+      final behind = along - (e.distanceFromStartM + e.lengthM);
+      return e.event.source == communityRoadSource && behind >= 0 && behind <= _askPassedWithinM;
+    }).lastOrNull;
+
 /// The colours of the guidance's banner and bar: the brand's navy by day
 /// (the dock's), a deep navy at night where a cream panel would glare.
 ({Color surface, Color text}) _panelColors(BuildContext context) {
@@ -649,6 +671,33 @@ class _Notices extends ConsumerWidget {
               ),
           ].join('\n'),
         ),
+      // A community report just passed: still there, or over?
+      if (passedCommunityReport(session.route, along) case final passed?)
+        Builder(
+          builder: (context) {
+            // The page's context: the answer outlives a turn of the phone
+            // that rebuilds this notice in the other layout.
+            final page = Navigator.of(context, rootNavigator: true).context;
+            return _Notice(
+              icon: AppIcons.roadEvent(passed.event.eventClass),
+              text: t.roadReport.passed(
+                what: [?passed.event.road, t.roadEventWhat(passed.event.eventClass)].join(' · '),
+              ),
+              below: CommunityReportActions(
+                onStillThere: () => unawaited(
+                  confirmRoadReport(
+                    page,
+                    passed.event,
+                    at: passed.position,
+                    moving: _moving(session),
+                  ),
+                ),
+                onOver: () =>
+                    unawaited(clearRoadReport(page, passed.event, moving: _moving(session))),
+              ),
+            );
+          },
+        ),
       // At the start, the closures the route was planned around.
       if (alert == null && session.plan.avoidedRoadEvents.isNotEmpty && along < 1500)
         _Notice(
@@ -680,12 +729,15 @@ class _Notices extends ConsumerWidget {
 }
 
 class _Notice extends StatelessWidget {
-  const new({required this.icon, required this.text, this.strong = false, this.action});
+  const new({required this.icon, required this.text, this.strong = false, this.action, this.below});
 
   final IconData icon;
   final String text;
   final bool strong;
   final Widget? action;
+
+  /// Answers under the text (a community report's).
+  final Widget? below;
 
   @override
   Widget build(BuildContext context) {
@@ -701,14 +753,20 @@ class _Notice extends StatelessWidget {
         elevation: 2,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(icon, color: fg),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: fg)),
+              Row(
+                children: [
+                  Icon(icon, color: fg),
+                  const SizedBox(width: Space.m),
+                  Expanded(
+                    child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: fg)),
+                  ),
+                  ?action,
+                ],
               ),
-              ?action,
+              if (below case final below?) ...[const SizedBox(height: Space.s), below],
             ],
           ),
         ),
@@ -813,6 +871,31 @@ class _MapButtons extends ConsumerWidget {
             ),
           ),
           icon: const Icon(AppIcons.fuel),
+        ),
+        const SizedBox(height: Space.s),
+        // What is seen on the road, where the vehicle is now: a passenger
+        // reports while it moves, the driver once stopped.
+        IconButton(
+          tooltip: t.roadReport.actionHint,
+          style: style,
+          // No position yet: nothing to place a report at.
+          onPressed: session.lastFix == null
+              ? null
+              : () {
+                  final fix = session.lastFix;
+                  final snap = session.snapshot;
+                  final at = snap != null && !snap.offRoute ? snap.position : fix?.position;
+                  if (at == null) return;
+                  unawaited(
+                    reportOnRoad(
+                      context,
+                      position: at,
+                      headingDeg: fix?.courseDeg ?? snap?.courseDeg,
+                      moving: _moving(session),
+                    ),
+                  );
+                },
+          icon: const Icon(AppIcons.report),
         ),
         const SizedBox(height: Space.s),
         IconButton(

@@ -108,7 +108,7 @@ final class DrivingAidsEngine {
 
   final CountryLocator locator;
   EnforcementRules _rules;
-  List<EnforcementItem> _items = const [];
+  EnforcementIndex _index = EnforcementIndex(const []);
   Map<String, EnforcementSource> _sources = const {};
   List<LatLng>? _line;
   List<ItemOnRoute> _onRoute = const [];
@@ -127,7 +127,7 @@ final class DrivingAidsEngine {
     List<EnforcementSource> sources = const [],
   }) {
     _rules = rules ?? locator.builtIn;
-    _items = items;
+    _index = EnforcementIndex(items);
     _sources = {for (final s in sources) s.id: s};
     _line = null;
   }
@@ -181,7 +181,7 @@ final class DrivingAidsEngine {
     if (mode.showsWhileDriving) {
       if (!identical(_line, route.line)) {
         _line = route.line;
-        _onRoute = itemsOnRoute(route.line, _items);
+        _onRoute = _index.onRoute(route.line);
       }
       final reach = alertReachM(limit?.kmh);
       for (final r in _onRoute) {

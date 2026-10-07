@@ -182,6 +182,41 @@ void main() {
       );
       expect(itemsOnRoute(_road, [east, west, off]).map((f) => f.item.id), ['east']);
     });
+
+    test('the index finds what a full pass finds, across the edge of its cells too', () {
+      // A road a few metres south of the 45.84 parallel, the edge of the
+      // index's cells, and a zone of the same road drawn just north of it.
+      LatLng south(double m) => LatLng(45.83998, 1.2611 + m / 77650);
+      final road = [for (var m = 0.0; m <= 5000; m += 50) south(m)];
+      final across = EnforcementItem(
+        id: 'across',
+        kind: EnforcementKind.zone,
+        category: 'FIXED',
+        country: 'FR',
+        line: [for (var m = 1000.0; m <= 1500; m += 50) LatLng(45.84012, 1.2611 + m / 77650)],
+      );
+      final camera = EnforcementItem(
+        id: 'camera',
+        kind: EnforcementKind.camera,
+        category: 'FIXED',
+        country: 'ES',
+        position: south(3000),
+      );
+      final far = EnforcementItem(
+        id: 'far',
+        kind: EnforcementKind.zone,
+        category: 'FIXED',
+        country: 'FR',
+        line: [for (var m = 0.0; m <= 500; m += 50) LatLng(46.5, 1.2611 + m / 77650)],
+      );
+      final items = [far, camera, across];
+      final indexed = EnforcementIndex(items).onRoute(road);
+      expect(indexed.map((f) => f.item.id), ['across', 'camera']);
+      expect(
+        indexed.map((f) => (f.item.id, f.startM, f.endM)),
+        itemsOnRoute(road, items).map((f) => (f.item.id, f.startM, f.endM)),
+      );
+    });
   });
 
   group('the limit and the excess', () {
@@ -322,6 +357,7 @@ void main() {
           'reviewedOn': '2026-10-06',
           'countries': [
             {'country': 'FR', 'mode': 'ZONES'},
+            {'country': 'ES', 'mode': 'EXACT'},
             {'country': 'CH', 'mode': 'OFF'},
           ],
         },
@@ -444,6 +480,34 @@ void main() {
       expect((await EnforcementStore(db).items({'ES'})).map((i) => i.id), [
         'e',
       ], reason: 'a trip back to Spain offline still has its zones');
+    });
+
+    test('only what the rules of its country allow is written on the device', () async {
+      final client = serving([
+        page(
+          cursor: 'c1',
+          full: true,
+          upserts: [
+            zoneJson('fr-zone'),
+            {...zoneJson('fr-camera'), 'kind': 'CAMERA', 'line': null, 'lat': 45.8, 'lon': 1.3},
+            {...zoneJson('ch-zone'), 'country': 'CH'},
+            {
+              ...zoneJson('es-camera'),
+              'kind': 'CAMERA',
+              'country': 'ES',
+              'line': null,
+              'lat': 40.4,
+              'lon': -3.7,
+            },
+          ],
+        ),
+      ], []);
+      await EnforcementSync(
+        client: client,
+        store: EnforcementStore(db),
+      ).refresh({'FR', 'CH', 'ES'}, t0);
+      final kept = await EnforcementStore(db).items({'FR', 'CH', 'ES'});
+      expect(kept.map((i) => i.id), unorderedEquals(['fr-zone', 'es-camera']));
     });
 
     test('an API without the delta keeps nothing and asks no more', () async {

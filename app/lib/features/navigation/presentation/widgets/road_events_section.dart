@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
+import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
@@ -88,7 +89,11 @@ class RoadEventsSection extends ConsumerWidget {
               t.navigation.roadEvents.atDistance(
                 distance: t.routeDistance(e.distanceFromStartM, units),
               ),
-              sourceLine(e.event.source, e.dataAt),
+              // A community report is as old as its last report.
+              sourceLine(
+                e.event.source,
+                e.event.source == communityRoadSource ? e.event.updatedAt ?? e.dataAt : e.dataAt,
+              ),
             ].join(' · '),
           ),
         if (met.length > shown)

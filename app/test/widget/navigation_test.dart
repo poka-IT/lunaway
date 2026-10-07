@@ -24,6 +24,7 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
+import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
@@ -48,11 +49,13 @@ Future<(TestApp, FakeRouteService)> openPreview(
   MemoryRouteSettings? settings,
   RouteTarget target = utrillo,
   CountedNotificationAccess? notifications,
+  FakeApi? api,
 }) async {
   final routes = FakeRouteService(answers ?? [routeFixture('utrillo_motorhome')]);
   final app = await pumpLunaway(
     tester,
     size: size,
+    api: api,
     overrides: navigationOverrides(
       routes: routes,
       vehicle: vehicle,
@@ -208,6 +211,43 @@ void main() {
       final marks = SchematicRouteMap.last!.marks;
       expect(marks.where((m) => m.kind == RouteMarkKind.blocker), hasLength(2));
       expect(marks.where((m) => m.kind == RouteMarkKind.event), hasLength(4));
+    });
+
+    testWidgets("a link naming a place held here routes to its own spot, not the link's point", (
+      tester,
+    ) async {
+      final (app, routes) = await openPreview(tester);
+      unawaited(
+        app
+            .container(tester)
+            .read(routerProvider)
+            .push('/route?lat=45.9&lon=6.1&name=Lac&place=${lakeArea.id}'),
+      );
+      await settleShort(tester);
+      expect(routes.requests.last.destination, lakeArea.position);
+    });
+
+    testWidgets('a community report on the way shows its source and age, and asks nothing', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [
+          routeFixture(
+            'aix_marseille_closures',
+            edit: (route) {
+              final first = ((route['routes'] as List).first as Map)['roadEvents'] as List;
+              final event = (first.first as Map)['event'] as Map<String, dynamic>;
+              event['source'] = 'community';
+              event['sourceUpdatedAt'] = '2026-10-06T20:40:00Z';
+            },
+          ),
+        ],
+      );
+      expect(find.text('A51 · Voies réduites'), findsOneWidget);
+      // Nobody answers for a road not seen yet.
+      expect(find.text('Toujours là'), findsNothing);
+      expect(find.text("C'est fini"), findsNothing);
     });
 
     testWidgets('raised to the top, the sheet stops under the back button', (tester) async {
@@ -460,12 +500,14 @@ void main() {
       Size size = phone,
       List<RoutePlan> more = const [],
       RoadEventsSource? events,
+      FakeApi? api,
     }) async {
       feed = FakeLocationFeed(position: plan.routes.first.line.first);
       voice = RecordingVoice(readiness: readiness);
       final app = await pumpLunaway(
         tester,
         size: size,
+        api: api,
         brightness: brightness,
         overrides: navigationOverrides(
           routes: FakeRouteService(answers.isEmpty ? [plan] : answers),
@@ -515,6 +557,93 @@ void main() {
       expect(map.camera, isA<FollowCamera>());
       expect(map.vehicle, isNotNull);
     });
+
+    testWidgets('a report while the vehicle moves waits for a passenger, then goes with its spot', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, api: api);
+      await drive(tester, plan, toM: 100);
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await settleShort(tester);
+      expect(find.text('Vous roulez'), findsOneWidget);
+      await tester.tap(find.text('Annuler'));
+      await settleShort(tester);
+      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
+
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await settleShort(tester);
+      await tester.tap(find.text('Je suis passager'));
+      await settleShort(tester);
+      expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
+      final send = find.widgetWithText(FilledButton, 'Signaler');
+      expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'nothing chosen yet');
+      await tester.tap(find.text('Hauteur limitée'));
+      await settleShort(tester);
+      await tester.tap(find.byTooltip('Plus haut de 10 cm'));
+      await tester.pump();
+      expect(find.text('Hauteur indiquée : 3,10 m'), findsOneWidget);
+      await tester.tap(send);
+      await settleShort(tester);
+      final input = api.last('ReportRoadEvent')!['input']! as Map<String, dynamic>;
+      expect(input['kind'], 'LOW_CLEARANCE');
+      expect(input['valueM'], 3.1);
+      expect(input['headingDeg'], isA<int>(), reason: 'the course of the vehicle');
+      final at = LatLng(input['lat'] as double, input['lon'] as double);
+      expect(at.distanceTo(plan.routes.first.line.first), lessThan(150));
+      expect(find.text('Merci : les autres voyageurs sont prévenus.'), findsOneWidget);
+    });
+
+    testWidgets('a community report is asked about once passed, behind the passenger check', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final plan = routeFixture(
+        'aix_marseille_closures',
+        edit: (route) {
+          final first = ((route['routes'] as List).first as Map)['roadEvents'] as List;
+          ((first.first as Map)['event'] as Map<String, dynamic>)['source'] = 'community';
+        },
+      );
+      await guide(tester, plan, api: api);
+      await drive(tester, plan, toM: 1400);
+      expect(find.textContaining('A51 · Voies réduites dans'), findsOneWidget);
+      expect(find.text("C'est fini"), findsNothing, reason: 'not seen yet');
+      await drive(tester, plan, toM: 5100);
+      expect(
+        find.text('Vous venez de passer : A51 · Voies réduites. Toujours là ?'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text("C'est fini"));
+      await settleShort(tester);
+      // The drive's fixes go at about 10 m/s: a passenger answers.
+      await tester.tap(find.text('Je suis passager'));
+      await settleShort(tester);
+      expect(api.last('ClearRoadEvent')!['eventId'], isNotEmpty);
+      await drive(tester, plan, toM: 5700);
+      expect(find.textContaining('Vous venez de passer'), findsNothing, reason: 'long behind');
+    });
+
+    testWidgets(
+      'on a small phone the question about a passed report stays clear of the map buttons',
+      (tester) async {
+        final plan = routeFixture(
+          'aix_marseille_closures',
+          edit: (route) {
+            final first = ((route['routes'] as List).first as Map)['roadEvents'] as List;
+            ((first.first as Map)['event'] as Map<String, dynamic>)['source'] = 'community';
+          },
+        );
+        await guide(tester, plan, size: const Size(360, 640));
+        await drive(tester, plan, toM: 5100);
+        final answer = tester.getRect(find.text("C'est fini"));
+        for (final tip in ['Signaler un problème sur la route', 'Tout le trajet']) {
+          final button = tester.getRect(find.byTooltip(tip));
+          expect(answer.overlaps(button), isFalse, reason: tip);
+        }
+      },
+    );
 
     testWidgets('lanes show when the map has them', (tester) async {
       final plan = routeFixture('limoges_drive');

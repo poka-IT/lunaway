@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:logging/logging.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
@@ -21,10 +22,14 @@ import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:maplibre_gl/maplibre_gl.dart' show MapLibreJsSource, MapLibreMap;
+import 'package:maplibre_gl/maplibre_gl.dart' show MapLibreJsSource, MapLibreMap, setHttpHeaders;
 import 'package:package_info_plus/package_info_plus.dart';
 
-Future<void> main() async {
+Future<void> main() => runLunaway();
+
+/// Starts the app; [overrides] come after the app's own, for a tour on a
+/// device that drives a simulated position.
+Future<void> runLunaway({List<Override> overrides = const []}) async {
   WidgetsFlutterBinding.ensureInitialized();
   Logger.root.level = kReleaseMode ? Level.INFO : Level.FINE;
   Logger.root.onRecord.listen((r) {
@@ -84,6 +89,17 @@ Future<void> main() async {
     await LocaleSettings.setLocale(AppLocaleUtils.parse(locale));
   }
   final version = (await PackageInfo.fromPlatform()).version;
+  // The map engine's own requests (tiles, style, fonts) name the app as the
+  // app's other requests do, rather than the device's system and model.
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    try {
+      await setHttpHeaders({'User-Agent': AppConfig.userAgent(version)});
+    } on Object catch (error, stack) {
+      Logger('startup').warning('the map keeps its own User-Agent', error, stack);
+    }
+  }
 
   runApp(
     ProviderScope(
@@ -102,6 +118,7 @@ Future<void> main() async {
           httpClientProvider.overrideWithValue(
             demoApiClient(demoPlaces(), apiBase: config.apiBase),
           ),
+        ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),
     ),

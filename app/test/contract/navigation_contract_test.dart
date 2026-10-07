@@ -72,7 +72,9 @@ void main() {
     'aix_marseille_closures',
   ]) {
     // Recorded before the routes carried their speed limits: they answer
-    // the request without them.
+    // the request without them. The Aix-Marseille answer predates the
+    // events' heading, limits and dates too: those were added to it empty
+    // (its first-seen date is its validity start).
     test('the recorded answer $name matches the selection', () {
       final body = jsonDecode(
         File('test/fixtures/navigation/route_$name.json').readAsStringSync(),

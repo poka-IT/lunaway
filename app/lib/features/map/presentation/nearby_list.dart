@@ -92,7 +92,13 @@ class _EmptyList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final stored = ref.watch(placeCountProvider).value;
+    final count = ref.watch(placeCountProvider);
+    // A count that failed says nothing of a download: the list itself
+    // answered, empty, so it is the area or the filters.
+    if (count.hasError && !count.hasValue) {
+      return MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true);
+    }
+    final stored = count.value;
     // Not counted yet: no message rather than a wrong one.
     if (stored == null) return const SizedBox.shrink();
     if (stored == 0) {

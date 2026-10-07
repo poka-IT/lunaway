@@ -105,6 +105,23 @@ final class OutboxStore {
           kind,
         }, (e) => e.payload['id'] == payload['id'] && e.payload['target'] == payload['target']);
         if (duplicate.isNotEmpty) return duplicate.first;
+      case ContributionKind.reportRoadEvent:
+        // The same thing reported at the same spot while the first waits:
+        // one is enough.
+        final input = payload['input'];
+        final duplicate = waiting.where(
+          (e) =>
+              e.kind == kind &&
+              e.payload['input'] is Map &&
+              input is Map &&
+              _sameReport(e.payload['input']! as Map, input),
+        );
+        if (duplicate.isNotEmpty) return duplicate.first;
+      case ContributionKind.clearRoadEvent:
+        final duplicate = waiting.where(
+          (e) => e.kind == kind && e.payload['eventId'] == payload['eventId'],
+        );
+        if (duplicate.isNotEmpty) return duplicate.first;
       case ContributionKind.deleteReview ||
           ContributionKind.deleteConfirmation ||
           ContributionKind.reportIssue ||
@@ -324,4 +341,21 @@ final class OutboxStore {
       errorDetail: r.errorDetail,
     );
   }
+}
+
+/// Two road reports of one thing at one spot: the same kind and figure,
+/// within about 50 m, made the same way (within 45 degrees).
+bool _sameReport(Map<Object?, Object?> a, Map<Object?, Object?> b) {
+  double? n(Object? v) => (v as num?)?.toDouble();
+  final (la, lo, lb, lob) = (n(a['lat']), n(a['lon']), n(b['lat']), n(b['lon']));
+  if (la == null || lo == null || lb == null || lob == null) return false;
+  // The way it was made counts, as on the server: the same works seen
+  // from both directions are two reports.
+  final (ha, hb) = (n(a['headingDeg']), n(b['headingDeg']));
+  final sameWay = ha == null || hb == null || (((ha - hb) % 360 + 360) % 360 - 180).abs() >= 135;
+  return a['kind'] == b['kind'] &&
+      n(a['valueM']) == n(b['valueM']) &&
+      sameWay &&
+      (la - lb).abs() < 0.0005 &&
+      (lo - lob).abs() < 0.0007;
 }

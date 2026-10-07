@@ -201,7 +201,8 @@ final class EnforcementStore {
     }
   }
 
-  /// Writes [page] and the state after it in one transaction. A full
+  /// Writes [page] and the state after it in one transaction, the items
+  /// filtered by the page's rules ([EnforcementItem.keptUnder]). A full
   /// answer replaces the items of [countries] only: those of other
   /// countries, kept from earlier trips, serve a trip back there offline.
   /// [at] is when the data became whole, null while pages remain: a run cut
@@ -215,7 +216,9 @@ final class EnforcementStore {
           await (_db.delete(_db.enforcementItems)..where((i) => i.id.isIn(page.removals))).go();
         }
         await _db.batch((batch) {
-          for (final item in page.upserts) {
+          // Only what the rules of its country allow is written: zones for
+          // France, nothing for a country where the app shows nothing.
+          for (final item in page.upserts.where((i) => i.keptUnder(page.rules))) {
             batch.insert(_db.enforcementItems, _row(item), mode: InsertMode.insertOrReplace);
           }
         });

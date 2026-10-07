@@ -168,6 +168,18 @@ void main() {
     expect(find.text('Copié : 45.762900, 4.831697'), findsOneWidget);
   });
 
+  testWidgets('where Android shows the copied text itself, the app does not say it again', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester, size: const Size(1280, 2400), systemShowsCopies: true);
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+    await settleShort(tester);
+    await tester.tap(find.byTooltip('Copier les coordonnées'));
+    await settleShort(tester);
+    expect(clipboard, ['45.762900, 4.831697']);
+    expect(find.textContaining('Copié'), findsNothing);
+  });
+
   testWidgets('the formats menu copies degrees, minutes and seconds', (tester) async {
     await openPlace(tester, dayParking);
     await tester.tap(find.byTooltip('Autres formats'));

@@ -41,6 +41,10 @@ fragment RouteRoadEventFields on RoadEvent {
   match
   mayBlock
   position { lat lon }
+  headingDeg
+  limits { maxHeightM maxWidthM }
+  sourceUpdatedAt
+  firstSeenAt
 }
 fragment RoadEventWarningFields on RoadEventWarning {
   event { ...RouteRoadEventFields }

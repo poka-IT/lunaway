@@ -171,7 +171,7 @@
   },
   "location": {
     "rationaleTitle": "Show your position?",
-    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For fuel along the way, only an approximate position is sent.",
+    "rationale": "Lunaway uses it to centre the map on you, sort places by distance and guide you. For a route, your position is sent to Lunaway's server, which does not keep it. For the cheapest fuel around you, only a position rounded to about 5 km is sent. A road report goes with the spot where you make it.",
     "allow": "Continue",
     "notNow": "Not now",
     "deniedTitle": "Position turned off for Lunaway",
@@ -812,8 +812,9 @@
     "orInstead": "Or $requirement",
     "recoveryNone": "No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.",
     "recoveryCreate": "Make my recovery card",
-    "recoveryMade": "Recovery card made on $date",
-    "recoveryRemake": "Make a new card",
+    "recoveryMade": "Made on $date",
+    "recoveryRemake": "Make again",
+    "recoveryRemakeHint": "Make a new recovery card",
     "contributions": "My contributions",
     "pending(param=n)": {
       "one": "$n contribution waiting to be sent",
@@ -896,7 +897,7 @@
     },
     "keptTitle": "What stays, without your name",
     "kept": "Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers' map.",
-    "backups": "The server's backups are cleared within 30 days.",
+    "backups": "The server's backups are cleared in about 30 days.",
     "device": "On this device, your favourites stay; the account's key is erased.",
     "web": "You can also delete it on lunaway.net with your recovery code.",
     "webLink": "lunaway.net/account/delete",
@@ -996,7 +997,9 @@
       "poiThere": "Still there: a shop or service",
       "poiGone": "Gone: a shop or service",
       "addVendingMachine": "New vending machine",
-      "deletePoiConfirmation": "Deletion of an answer about a shop or service"
+      "deletePoiConfirmation": "Deletion of an answer about a shop or service",
+      "reportRoadEvent": "Road report: $kind",
+      "clearRoadEvent": "A road report said over"
     },
     "waiting": "Waiting for the network",
     "sending": "Sending",
@@ -1446,5 +1449,30 @@
     "waiting": "waiting for its download",
     "downloadingNamed": "Downloading the places: $name",
     "updated": "updated $when"
+  },
+  "roadReport": {
+    "actionHint": "Report a problem on the road",
+    "title": "What do you see on the road?",
+    "intro": "Your report warns other travellers. When two trusted accounts report the same thing, routes avoid it. Police checks are not reported.",
+    "kinds": {
+      "closure": "Road closed",
+      "works": "Roadworks",
+      "narrowPassage": "Narrow passage",
+      "lowClearance": "Low clearance",
+      "other": "Road problem"
+    },
+    "height": "Signed height: $value",
+    "send": "Report",
+    "sent": "Thank you: other travellers are warned.",
+    "movingTitle": "You are driving",
+    "movingBody": "Do not report while driving. A passenger can; otherwise stop first.",
+    "passenger": "I'm a passenger",
+    "stillThere": "Still there",
+    "over": "It's over",
+    "overSent": "Thank you: noted.",
+    "fromMap": "Report a problem here",
+    "lower": "10 cm lower",
+    "higher": "10 cm higher",
+    "passed": "You just passed: $what. Still there?"
   }
 }

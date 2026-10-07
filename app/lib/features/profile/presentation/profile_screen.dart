@@ -6,6 +6,7 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
@@ -29,6 +30,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
+import 'package:lunaway/shared/widgets/tab_reselect.dart';
 
 /// The account (when there is one), the user's vehicle, the data kept on
 /// the device, how the app looks and speaks, and where everything comes
@@ -105,7 +107,12 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           );
-    return Scaffold(body: SafeArea(bottom: false, child: body));
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ScrollsToTopOnReselect(tab: AppTabs.profile, child: body),
+      ),
+    );
   }
 
   static List<Widget> _spaced(List<Widget> sections) => [

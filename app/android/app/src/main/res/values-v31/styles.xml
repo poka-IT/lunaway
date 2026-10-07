@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12 and later draw the splash screen themselves: cream background
-     and the mark. NormalTheme still comes from values/styles.xml. -->
+<!-- Android 12 and later draw the splash screen themselves: navy background
+     and the mark on a cream disc, in every theme (values/brand_colors.xml).
+     NormalTheme still comes from values/styles.xml. -->
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">@color/splash_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
     </style>
 </resources>

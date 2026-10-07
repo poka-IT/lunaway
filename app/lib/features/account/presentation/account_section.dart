@@ -314,16 +314,26 @@ class _RecoveryCard extends StatelessWidget {
         ),
       );
     }
+    // The name on one line and the date under it: a single sentence beside
+    // the button wrapped on three lines on a phone.
     return ListTile(
       leading: Icon(AppIcons.recoveryCard, color: scheme.secondary),
-      title: Text(
+      title: Text(t.recovery.title),
+      subtitle: Text(
         t.account.recoveryMade(
           date: DateFormat.yMMMd(t.$meta.locale.languageCode).format(made.toLocal()),
         ),
       ),
-      trailing: TextButton(
-        onPressed: () => context.go(AppRoutes.recoveryCard),
-        child: Text(t.account.recoveryRemake),
+      // The short word on the button, its object for a screen reader.
+      trailing: Semantics(
+        label: t.account.recoveryRemakeHint,
+        excludeSemantics: true,
+        button: true,
+        onTap: () => context.go(AppRoutes.recoveryCard),
+        child: TextButton(
+          onPressed: () => context.go(AppRoutes.recoveryCard),
+          child: Text(t.account.recoveryRemake),
+        ),
       ),
     );
   }

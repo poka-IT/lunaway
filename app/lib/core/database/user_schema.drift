@@ -104,8 +104,9 @@ CREATE TABLE outbox (
 CREATE INDEX outbox_order ON outbox (state, created_at);
 
 -- The bytes of the photos waiting in the outbox, on the web only: native
--- builds keep them as files in the app's support directory, out of the
--- device backups that carry this database. Added in version 2.
+-- builds keep them as files in the app's support directory, a folder kept
+-- out of the device backups (this database, the user's favourites and
+-- waiting contributions, goes into them). Added in version 2.
 CREATE TABLE outbox_files (
   id TEXT NOT NULL PRIMARY KEY,
   bytes BLOB NOT NULL

@@ -171,7 +171,7 @@
   },
   "location": {
     "rationaleTitle": "Afficher votre position ?",
-    "rationale": "Lunaway s'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant sur le trajet, seule une position approchée est envoyée.",
+    "rationale": "Lunaway s'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant le moins cher autour de vous, seule une position arrondie à environ 5 km est envoyée. Un signalement sur la route part avec l'endroit où vous le faites.",
     "allow": "Continuer",
     "notNow": "Pas maintenant",
     "deniedTitle": "Position désactivée pour Lunaway",
@@ -812,8 +812,9 @@
     "orInstead": "Ou bien $requirement",
     "recoveryNone": "Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s'il est perdu, le compte l'est aussi.",
     "recoveryCreate": "Faire ma carte de secours",
-    "recoveryMade": "Carte de secours faite le $date",
-    "recoveryRemake": "Refaire la carte",
+    "recoveryMade": "Faite le $date",
+    "recoveryRemake": "Refaire",
+    "recoveryRemakeHint": "Refaire la carte de secours",
     "contributions": "Mes contributions",
     "pending(param=n)": {
       "one": "$n contribution en attente d'envoi",
@@ -896,7 +897,7 @@
     },
     "keptTitle": "Ce qui reste, sans votre nom",
     "kept": "Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.",
-    "backups": "Les sauvegardes du serveur s'effacent en 30 jours au plus.",
+    "backups": "Les sauvegardes du serveur s'effacent en 30 jours environ.",
     "device": "Sur cet appareil, vos favoris restent ; la clé du compte est effacée.",
     "web": "La suppression est aussi possible sur lunaway.net avec votre code de secours.",
     "webLink": "lunaway.net/account/delete",
@@ -996,7 +997,9 @@
       "poiThere": "Toujours là : un commerce ou service",
       "poiGone": "Plus là : un commerce ou service",
       "addVendingMachine": "Nouveau distributeur",
-      "deletePoiConfirmation": "Suppression d'une réponse sur un commerce ou service"
+      "deletePoiConfirmation": "Suppression d'une réponse sur un commerce ou service",
+      "reportRoadEvent": "Signalement sur la route : $kind",
+      "clearRoadEvent": "Fin d'un signalement sur la route"
     },
     "waiting": "En attente du réseau",
     "sending": "Envoi en cours",
@@ -1446,5 +1449,30 @@
     "waiting": "en attente de son téléchargement",
     "downloadingNamed": "Téléchargement des lieux : $name",
     "updated": "mis à jour $when"
+  },
+  "roadReport": {
+    "actionHint": "Signaler un problème sur la route",
+    "title": "Que voyez-vous sur la route ?",
+    "intro": "Votre signalement prévient les autres voyageurs. Quand deux comptes de confiance signalent la même chose, les itinéraires l'évitent. Les contrôles de police ne se signalent pas.",
+    "kinds": {
+      "closure": "Route fermée",
+      "works": "Travaux",
+      "narrowPassage": "Passage étroit",
+      "lowClearance": "Hauteur limitée",
+      "other": "Problème sur la route"
+    },
+    "height": "Hauteur indiquée : $value",
+    "send": "Signaler",
+    "sent": "Merci : les autres voyageurs sont prévenus.",
+    "movingTitle": "Vous roulez",
+    "movingBody": "Ne signalez rien en conduisant. Un passager peut le faire ; sinon, arrêtez-vous d'abord.",
+    "passenger": "Je suis passager",
+    "stillThere": "Toujours là",
+    "over": "C'est fini",
+    "overSent": "Merci : c'est noté.",
+    "fromMap": "Signaler un problème ici",
+    "lower": "Plus bas de 10 cm",
+    "higher": "Plus haut de 10 cm",
+    "passed": "Vous venez de passer : $what. Toujours là ?"
   }
 }

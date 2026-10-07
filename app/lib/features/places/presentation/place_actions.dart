@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -141,14 +142,32 @@ class PlaceActionBar extends ConsumerWidget {
       ),
     ];
 
-    // The row needs room for "Itinéraire" beside three labelled tiles; on a
-    // narrow phone or with large text it splits in two, so no label is cut.
+    // The row needs room for "Itinéraire" beside three labelled tiles, each
+    // as wide as the longest label so every label shows at its full size
+    // ("Enregistrer" is wider than the 68 dp an icon needs); on a narrow
+    // phone or with large text it splits in two, so no label is cut.
+    final theme = Theme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final widest = [
+      t.place.save,
+      t.place.saved,
+      t.place.share,
+      t.place.copyShort,
+    ].map((label) => _labelWidth(label, theme.textTheme.labelMedium, scaler)).reduce(math.max);
+    final tile = math.max<double>(68, widest + _ActionTile.inset * 2);
+    final buttonText = theme.filledButtonTheme.style?.textStyle?.resolve(const {});
+    // Its label, its icon and the gap between them, and the button's own
+    // padding: below that "Itinéraire" would wrap.
+    final directionsWidth =
+        _labelWidth(t.place.directions, buttonText ?? theme.textTheme.labelLarge, scaler) +
+        24 +
+        Space.s +
+        Space.m * 2;
     final bar = LayoutBuilder(
       builder: (context, constraints) {
-        const tile = 68.0;
         final inner = constraints.maxWidth - Space.m * 2;
-        final wide = MediaQuery.textScalerOf(context).scale(16) <= 20;
-        final stacked = !wide || inner < tile * 3 + Space.xs * 3 + 148;
+        final wide = scaler.scale(16) <= 20;
+        final stacked = !wide || inner < tile * 3 + Space.xs * 3 + directionsWidth;
         return Padding(
           padding: const EdgeInsets.all(Space.m),
           child: stacked
@@ -204,6 +223,19 @@ class PlaceActionBar extends ConsumerWidget {
   }
 }
 
+/// The width [label] takes on one line in [style] at the user's text size.
+double _labelWidth(String label, TextStyle? style, TextScaler scaler) {
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width.ceilToDouble();
+}
+
 /// A secondary action: its icon over a one-line label.
 class _ActionTile extends StatelessWidget {
   const new({
@@ -223,6 +255,9 @@ class _ActionTile extends StatelessWidget {
   final String? hint;
   final VoidCallback? onLongPress;
   final String? longPressLabel;
+
+  /// The room on either side of the label.
+  static const double inset = Space.hair;
 
   @override
   Widget build(BuildContext context) {
@@ -245,15 +280,16 @@ class _ActionTile extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.xxs, vertical: Space.xs),
+            padding: const EdgeInsets.symmetric(horizontal: inset, vertical: Space.xs),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, color: iconColor ?? theme.colorScheme.onSurface),
                 const SizedBox(height: Space.hair),
-                // One word or two: shrunk to fit rather than wrapped, so a
-                // long word at a large text size is never cut in the middle.
+                // The row is sized for the longest label; in the two-row
+                // layout a tile is a third of the width, and a label wider
+                // than that (large text) shrinks rather than wraps.
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(label, maxLines: 1, style: theme.textTheme.labelMedium),

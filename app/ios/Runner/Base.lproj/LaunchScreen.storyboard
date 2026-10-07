@@ -35,7 +35,7 @@
     <resources>
         <image name="LaunchImage" width="240" height="240"/>
         <namedColor name="LaunchBackground">
-            <color red="0.99215686274509807" green="0.94509803921568625" blue="0.85882352941176465" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.023529411764705882" green="0.12156862745098039" blue="0.2627450980392157" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
     </resources>
 </document>

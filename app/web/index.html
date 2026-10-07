@@ -35,26 +35,25 @@
   <title>Lunaway</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Loading screen: the mark on cream (on a cream disc over navy at night),
-       shown until Flutter draws its first frame. -->
+  <!-- Loading screen: the mark on a cream disc over navy, in every theme,
+       shown until Flutter draws its first frame. The app turns dark after
+       sunset whatever the system says: a cream screen then flashed before a
+       dark map, while navy before a light app by day does not dazzle. -->
   <style>
-    html, body { margin: 0; background: #FDF1DB; }
+    html, body { margin: 0; background: #061F43; }
     #splash {
       position: fixed; inset: 0; z-index: 10;
       display: flex; align-items: center; justify-content: center;
-      background: #FDF1DB;
+      background: #061F43;
       transition: opacity 0.3s ease-out;
     }
     #splash .disc {
       display: flex; align-items: center; justify-content: center;
       width: 160px; height: 160px; border-radius: 50%;
+      background: #FDF1DB;
     }
     #splash img { width: 110px; height: 134px; }
     #splash.done { opacity: 0; pointer-events: none; }
-    @media (prefers-color-scheme: dark) {
-      html, body, #splash { background: #061F43; }
-      #splash .disc { background: #FDF1DB; }
-    }
   </style>
 </head>
 <body>

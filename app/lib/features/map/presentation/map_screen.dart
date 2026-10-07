@@ -9,6 +9,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
@@ -35,6 +36,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
+import 'package:lunaway/shared/widgets/measured.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/spring_sheet.dart';
 
@@ -46,6 +48,10 @@ const double _overlayHeight = 56 + Space.s + Space.xxs + QuickFilters.height;
 
 /// The search pill alone, while a selection hides the chips on a phone.
 const double _searchHeight = 56 + Space.s;
+
+/// The room the first download's card needs on a phone with its picture;
+/// with less, it goes without, so its buttons stay above the list.
+const double _bannerWithPicture = 340;
 
 /// The map of places, in the three layouts: on a phone the map runs under the
 /// status bar with the list and the details in a spring sheet; on a tablet
@@ -234,10 +240,18 @@ bool get _pointerPlatform =>
 
 /// The map itself, fed from the providers.
 class _Map extends ConsumerWidget {
-  const new({this.padding = EdgeInsets.zero, this.attributionInset = EdgeInsets.zero});
+  const new({
+    this.padding = EdgeInsets.zero,
+    this.attributionInset = EdgeInsets.zero,
+    this.onPlaceTapped,
+  });
 
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
+
+  /// After a place's pin was tapped and selected: the camera stays where it
+  /// is, unlike a pick from a list, which moves it to the place.
+  final VoidCallback? onPlaceTapped;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -274,7 +288,10 @@ class _Map extends ConsumerWidget {
         places: places,
         selectedId: selection is PlaceSelection ? selection.id : null,
         markedPoint: selection is PointSelection ? selection.position : null,
-        onPlaceTap: (id) => select.select(PlaceSelection(id)),
+        onPlaceTap: (id) {
+          select.select(PlaceSelection(id));
+          onPlaceTapped?.call();
+        },
         onEmptyTap: () => select.select(null),
         onLongPress: (p) {
           select.select(PointSelection(p));
@@ -508,6 +525,47 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
   final _sheet = SpringSheetController();
   double? _rest;
 
+  /// The notices under the search (offline, an unfinished download): the
+  /// map keeps that room free too.
+  double _notices = 0;
+
+  /// The top of the map left free by the search, the chips and the notices.
+  double _top(MediaQueryData m) =>
+      m.padding.top + (widget.selection == null ? _overlayHeight : _searchHeight) + _notices;
+
+  void _noticesChanged(double height) {
+    if (!mounted || height == _notices) return;
+    setState(() => _notices = height);
+    _reveal();
+  }
+
+  /// Brings the selected place into the part of the map left free when the
+  /// sheet or a notice covers its pin: a tap near the bottom opens the sheet
+  /// over it, a notice appearing offline lands on it. Only after a tap on a
+  /// pin or a notice's change: a pick from the list, the search or the
+  /// favourites moves the camera itself, with its own zoom.
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selection = widget.selection;
+      final viewport = ref.read(viewportProvider);
+      if (selection is! PlaceSelection || viewport == null) return;
+      final place = ref
+          .read(mapPlacesProvider)
+          .value
+          ?.where((p) => p.id == selection.id)
+          .firstOrNull;
+      if (place == null) return;
+      final m = MediaQuery.of(context);
+      final y = screenYOf(place.position, viewport.bounds, m.size.height);
+      final bottom = m.size.height - (_rest ?? _detailsOpen(m));
+      // The pin stands above its point: its head needs this much room.
+      const pin = 52.0;
+      if (y - pin >= _top(m) && y <= bottom - Space.m) return;
+      unawaited(ref.read(mapControllerProvider)?.moveTo(place.position));
+    });
+  }
+
   @override
   void dispose() {
     _sheet.dispose();
@@ -552,7 +610,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     final rest = _rest ?? (selection == null ? _listPeek(m) : _detailsOpen(m));
     // While a sheet is open the chips give way: the map keeps the room above
     // the sheet for what was chosen.
-    final top = m.padding.top + (selection == null ? _overlayHeight : _searchHeight);
+    final top = _top(m);
     final clearance = MessageClearanceScope.maybeOf(context);
     return Stack(
       children: [
@@ -560,6 +618,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           child: _Map(
             padding: EdgeInsets.only(top: top, bottom: rest),
             attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
+            onPlaceTapped: _reveal,
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
@@ -570,7 +629,13 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           right: Space.m + 48 + Space.s,
           top: top,
           bottom: rest,
-          child: const Center(child: SingleChildScrollView(child: SyncBanner(compact: true))),
+          child: LayoutBuilder(
+            builder: (context, box) => Center(
+              child: SingleChildScrollView(
+                child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+              ),
+            ),
+          ),
         ),
         // The position button rides above the sheet, and steps aside when
         // the sheet rises over half the screen.
@@ -716,8 +781,18 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                           padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0),
                         ),
                 ),
-                if (!searching) const Center(child: IncompleteSyncNotice()),
-                if (!searching) const Center(child: OfflineMapNotice()),
+                ReportsHeight(
+                  onHeight: _noticesChanged,
+                  child: searching
+                      ? const SizedBox(width: double.infinity)
+                      : const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Center(child: IncompleteSyncNotice()),
+                            Center(child: OfflineMapNotice()),
+                          ],
+                        ),
+                ),
               ],
             ),
           ),

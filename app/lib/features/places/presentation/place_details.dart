@@ -30,6 +30,10 @@ import 'package:lunaway/shared/widgets/place_hero.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
+/// From this many characters a place's name drops to a smaller size in
+/// its header, so three or four lines hold it whole.
+const _longTitle = 32;
+
 /// Everything about one place, for the bottom sheet (compact) and the side
 /// panel (wider). The night comes first, as a moon: it is what a traveller
 /// looks for. With [actions], the action bar sits at the foot of the
@@ -305,11 +309,20 @@ class _Header extends ConsumerWidget {
             children: [
               Semantics(
                 header: true,
-                child: Text(
-                  t.placeTitle(name: place.name, kind: place.kind, city: city),
-                  style: theme.textTheme.headlineSmall,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                child: Builder(
+                  builder: (context) {
+                    final title = t.placeTitle(name: place.name, kind: place.kind, city: city);
+                    // A long name ("Aire de stationnement camping-cars de
+                    // Colmyr") ends with the word that tells it apart: a
+                    // smaller size keeps it whole rather than cut there.
+                    final long = title.characters.length > _longTitle;
+                    return Text(
+                      title,
+                      style: long ? theme.textTheme.titleLarge : theme.textTheme.headlineSmall,
+                      maxLines: long ? 4 : 3,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: Space.xxs),

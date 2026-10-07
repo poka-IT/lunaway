@@ -85,6 +85,18 @@ void main() {
   );
 
   test(
+    'from the start of a route, the line leaves 2 km away from where the device stands',
+    () async {
+      final source = ServerFuelStations(client(recorded), fallback: FakeFuelStations(const []));
+      await source.along(route: _route, fromM: 0, fuel: FuelType.diesel);
+      final input = (sent.single['variables'] as Map)['input'] as Map<String, dynamic>;
+      final line = decodePolyline(input['polyline'] as String);
+      expect(line, _route.sublist(2), reason: 'the second point is 1.75 km from the start');
+      expect(line.every((p) => p.distanceTo(_route.first) >= 2000), isTrue);
+    },
+  );
+
+  test(
     'a station is placed along the route, its detour measured or estimated, its sheet named',
     () async {
       final source = ServerFuelStations(client(recorded), fallback: FakeFuelStations(const []));
@@ -130,7 +142,8 @@ void main() {
       await source.along(route: _route, fromM: 0, fuel: FuelType.lpg);
       await source.along(route: _route, fromM: 500, fuel: FuelType.lpg);
       expect(sent, hasLength(1), reason: 'asked once');
-      expect(fallback.queries.map((q) => q.fromM), [0, 500]);
+      // 2 km ahead of the vehicle there too: no point where it stands.
+      expect(fallback.queries.map((q) => q.fromM), [2000, 2500]);
     },
   );
 
@@ -145,7 +158,8 @@ void main() {
     final polyline = ((sent.single['variables'] as Map)['input'] as Map)['polyline'] as String;
     expect(polyline.length, lessThanOrEqualTo(ServerFuelStations.maxPolyline));
     final back = decodePolyline(polyline);
-    expect(back.first, zigzag.first);
+    // 2 km in, past the stretch that would place the device.
+    expect(back.first.distanceTo(zigzag.first), closeTo(2000, 100));
     expect(back.last.lat, closeTo(zigzag.last.lat, 1e-6));
   });
 

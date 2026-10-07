@@ -59,3 +59,16 @@ LatLng centerForPadding(LatLng target, double zoom, EdgeInsets padding) {
   );
   return (center: centerForPadding(middle, zoom, padding), zoom: zoom);
 }
+
+/// Where [point] falls down a map of [height] pixels that shows [visible],
+/// from its top; Web Mercator, as the engines draw it.
+double screenYOf(LatLng point, GeoBounds visible, double height) {
+  double mercatorY(double lat) {
+    final s = math.sin(lat * math.pi / 180).clamp(-0.9999, 0.9999);
+    return 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi);
+  }
+
+  final top = mercatorY(visible.north);
+  final span = math.max(mercatorY(visible.south) - top, 1e-12);
+  return (mercatorY(point.lat) - top) / span * height;
+}

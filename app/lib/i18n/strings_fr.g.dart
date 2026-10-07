@@ -85,6 +85,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$poi$fr poi = _Translations$poi$fr._(_root);
 	@override late final _Translations$offlineMaps$fr offlineMaps = _Translations$offlineMaps$fr._(_root);
 	@override late final _Translations$regions$fr regions = _Translations$regions$fr._(_root);
+	@override late final _Translations$roadReport$fr roadReport = _Translations$roadReport$fr._(_root);
 }
 
 // Path: nav
@@ -341,7 +342,7 @@ class _Translations$location$fr extends Translations$location$en {
 
 	// Translations
 	@override String get rationaleTitle => 'Afficher votre position ?';
-	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant sur le trajet, seule une position approchée est envoyée.';
+	@override String get rationale => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant le moins cher autour de vous, seule une position arrondie à environ 5 km est envoyée. Un signalement sur la route part avec l\'endroit où vous le faites.';
 	@override String get allow => 'Continuer';
 	@override String get notNow => 'Pas maintenant';
 	@override String get deniedTitle => 'Position désactivée pour Lunaway';
@@ -756,8 +757,9 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String orInstead({required Object requirement}) => 'Ou bien ${requirement}';
 	@override String get recoveryNone => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.';
 	@override String get recoveryCreate => 'Faire ma carte de secours';
-	@override String recoveryMade({required Object date}) => 'Carte de secours faite le ${date}';
-	@override String get recoveryRemake => 'Refaire la carte';
+	@override String recoveryMade({required Object date}) => 'Faite le ${date}';
+	@override String get recoveryRemake => 'Refaire';
+	@override String get recoveryRemakeHint => 'Refaire la carte de secours';
 	@override String get contributions => 'Mes contributions';
 	@override String pending({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} contribution en attente d\'envoi',
@@ -855,7 +857,7 @@ class _Translations$deletion$fr extends Translations$deletion$en {
 	@override late final _Translations$deletion$gone$fr gone = _Translations$deletion$gone$fr._(_root);
 	@override String get keptTitle => 'Ce qui reste, sans votre nom';
 	@override String get kept => 'Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.';
-	@override String get backups => 'Les sauvegardes du serveur s\'effacent en 30 jours au plus.';
+	@override String get backups => 'Les sauvegardes du serveur s\'effacent en 30 jours environ.';
 	@override String get device => 'Sur cet appareil, vos favoris restent ; la clé du compte est effacée.';
 	@override String get web => 'La suppression est aussi possible sur lunaway.net avec votre code de secours.';
 	@override String get webLink => 'lunaway.net/account/delete';
@@ -1352,6 +1354,32 @@ class _Translations$regions$fr extends Translations$regions$en {
 	@override String get waiting => 'en attente de son téléchargement';
 	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
 	@override String updated({required Object when}) => 'mis à jour ${when}';
+}
+
+// Path: roadReport
+class _Translations$roadReport$fr extends Translations$roadReport$en {
+	_Translations$roadReport$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get actionHint => 'Signaler un problème sur la route';
+	@override String get title => 'Que voyez-vous sur la route ?';
+	@override String get intro => 'Votre signalement prévient les autres voyageurs. Quand deux comptes de confiance signalent la même chose, les itinéraires l\'évitent. Les contrôles de police ne se signalent pas.';
+	@override late final _Translations$roadReport$kinds$fr kinds = _Translations$roadReport$kinds$fr._(_root);
+	@override String height({required Object value}) => 'Hauteur indiquée : ${value}';
+	@override String get send => 'Signaler';
+	@override String get sent => 'Merci : les autres voyageurs sont prévenus.';
+	@override String get movingTitle => 'Vous roulez';
+	@override String get movingBody => 'Ne signalez rien en conduisant. Un passager peut le faire ; sinon, arrêtez-vous d\'abord.';
+	@override String get passenger => 'Je suis passager';
+	@override String get stillThere => 'Toujours là';
+	@override String get over => 'C\'est fini';
+	@override String get overSent => 'Merci : c\'est noté.';
+	@override String get fromMap => 'Signaler un problème ici';
+	@override String get lower => 'Plus bas de 10 cm';
+	@override String get higher => 'Plus haut de 10 cm';
+	@override String passed({required Object what}) => 'Vous venez de passer : ${what}. Toujours là ?';
 }
 
 // Path: place.reviewVehicle
@@ -1877,6 +1905,8 @@ class _Translations$outbox$kind$fr extends Translations$outbox$kind$en {
 	@override String get poiGone => 'Plus là : un commerce ou service';
 	@override String get addVendingMachine => 'Nouveau distributeur';
 	@override String get deletePoiConfirmation => 'Suppression d\'une réponse sur un commerce ou service';
+	@override String reportRoadEvent({required Object kind}) => 'Signalement sur la route : ${kind}';
+	@override String get clearRoadEvent => 'Fin d\'un signalement sur la route';
 }
 
 // Path: outbox.error
@@ -2117,6 +2147,20 @@ class _Translations$poi$trend$fr extends Translations$poi$trend$en {
 	);
 }
 
+// Path: roadReport.kinds
+class _Translations$roadReport$kinds$fr extends Translations$roadReport$kinds$en {
+	_Translations$roadReport$kinds$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get closure => 'Route fermée';
+	@override String get works => 'Travaux';
+	@override String get narrowPassage => 'Passage étroit';
+	@override String get lowClearance => 'Hauteur limitée';
+	@override String get other => 'Problème sur la route';
+}
+
 // Path: navigation.states.dimension
 class _Translations$navigation$states$dimension$fr extends Translations$navigation$states$dimension$en {
 	_Translations$navigation$states$dimension$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2278,7 +2322,7 @@ extension on TranslationsFr {
 			'sync.resuming' => ({required Object count}) => 'Téléchargement en cours : ${count} lieux',
 			'sync.resume' => 'Reprendre',
 			'location.rationaleTitle' => 'Afficher votre position ?',
-			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant sur le trajet, seule une position approchée est envoyée.',
+			'location.rationale' => 'Lunaway s\'en sert pour centrer la carte sur vous, trier les lieux par distance et vous guider. Pour un itinéraire, votre position est envoyée au serveur de Lunaway, qui ne la conserve pas. Pour le carburant le moins cher autour de vous, seule une position arrondie à environ 5 km est envoyée. Un signalement sur la route part avec l\'endroit où vous le faites.',
 			'location.allow' => 'Continuer',
 			'location.notNow' => 'Pas maintenant',
 			'location.deniedTitle' => 'Position désactivée pour Lunaway',
@@ -2803,8 +2847,9 @@ extension on TranslationsFr {
 			'account.orInstead' => ({required Object requirement}) => 'Ou bien ${requirement}',
 			'account.recoveryNone' => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryCreate' => 'Faire ma carte de secours',
-			'account.recoveryMade' => ({required Object date}) => 'Carte de secours faite le ${date}',
-			'account.recoveryRemake' => 'Refaire la carte',
+			'account.recoveryMade' => ({required Object date}) => 'Faite le ${date}',
+			'account.recoveryRemake' => 'Refaire',
+			'account.recoveryRemakeHint' => 'Refaire la carte de secours',
 			'account.contributions' => 'Mes contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
 			'account.mutedAuthors' => 'Auteurs masqués',
@@ -2870,7 +2915,7 @@ extension on TranslationsFr {
 			'deletion.gone.pending' => 'Vos propositions en attente de relecture',
 			'deletion.keptTitle' => 'Ce qui reste, sans votre nom',
 			'deletion.kept' => 'Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.',
-			'deletion.backups' => 'Les sauvegardes du serveur s\'effacent en 30 jours au plus.',
+			'deletion.backups' => 'Les sauvegardes du serveur s\'effacent en 30 jours environ.',
 			'deletion.device' => 'Sur cet appareil, vos favoris restent ; la clé du compte est effacée.',
 			'deletion.web' => 'La suppression est aussi possible sur lunaway.net avec votre code de secours.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
@@ -2954,6 +2999,8 @@ extension on TranslationsFr {
 			'outbox.kind.poiGone' => 'Plus là : un commerce ou service',
 			'outbox.kind.addVendingMachine' => 'Nouveau distributeur',
 			'outbox.kind.deletePoiConfirmation' => 'Suppression d\'une réponse sur un commerce ou service',
+			'outbox.kind.reportRoadEvent' => ({required Object kind}) => 'Signalement sur la route : ${kind}',
+			'outbox.kind.clearRoadEvent' => 'Fin d\'un signalement sur la route',
 			'outbox.waiting' => 'En attente du réseau',
 			'outbox.sending' => 'Envoi en cours',
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
@@ -3176,11 +3223,11 @@ extension on TranslationsFr {
 			'poi.thanksGone' => 'Merci, c\'est noté : n\'existe plus.',
 			'poi.fuelPrices' => 'Prix des carburants',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
+			_ => null,
+		} ?? switch (path) {
 			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prix relevés ${when}',
 			'poi.shortageTemporary' => 'En rupture pour l\'instant',
-			_ => null,
-		} ?? switch (path) {
 			'poi.shortageDefinitive' => 'N\'en vend plus',
 			'poi.selfService24h' => 'Paiement par carte 24 h/24',
 			'poi.highway' => 'Sur autoroute',
@@ -3327,6 +3374,27 @@ extension on TranslationsFr {
 			'regions.waiting' => 'en attente de son téléchargement',
 			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
 			'regions.updated' => ({required Object when}) => 'mis à jour ${when}',
+			'roadReport.actionHint' => 'Signaler un problème sur la route',
+			'roadReport.title' => 'Que voyez-vous sur la route ?',
+			'roadReport.intro' => 'Votre signalement prévient les autres voyageurs. Quand deux comptes de confiance signalent la même chose, les itinéraires l\'évitent. Les contrôles de police ne se signalent pas.',
+			'roadReport.kinds.closure' => 'Route fermée',
+			'roadReport.kinds.works' => 'Travaux',
+			'roadReport.kinds.narrowPassage' => 'Passage étroit',
+			'roadReport.kinds.lowClearance' => 'Hauteur limitée',
+			'roadReport.kinds.other' => 'Problème sur la route',
+			'roadReport.height' => ({required Object value}) => 'Hauteur indiquée : ${value}',
+			'roadReport.send' => 'Signaler',
+			'roadReport.sent' => 'Merci : les autres voyageurs sont prévenus.',
+			'roadReport.movingTitle' => 'Vous roulez',
+			'roadReport.movingBody' => 'Ne signalez rien en conduisant. Un passager peut le faire ; sinon, arrêtez-vous d\'abord.',
+			'roadReport.passenger' => 'Je suis passager',
+			'roadReport.stillThere' => 'Toujours là',
+			'roadReport.over' => 'C\'est fini',
+			'roadReport.overSent' => 'Merci : c\'est noté.',
+			'roadReport.fromMap' => 'Signaler un problème ici',
+			'roadReport.lower' => 'Plus bas de 10 cm',
+			'roadReport.higher' => 'Plus haut de 10 cm',
+			'roadReport.passed' => ({required Object what}) => 'Vous venez de passer : ${what}. Toujours là ?',
 			_ => null,
 		};
 	}

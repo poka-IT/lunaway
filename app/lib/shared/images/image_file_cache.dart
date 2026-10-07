@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
@@ -27,7 +29,16 @@ Future<Uint8List?> readCachedImage(String key) async {
   if (dir == null) return null;
   final file = File('${dir.path}/$key');
   try {
-    return file.existsSync() ? await file.readAsBytes() : null;
+    if (!file.existsSync()) return null;
+    final bytes = await file.readAsBytes();
+    // Seen again: its copy counts from now ([pruneCachedImages]). A date
+    // that cannot be written costs nothing of the photo read.
+    unawaited(
+      file.setLastModified(DateTime.now()).catchError((Object e) {
+        _log.fine('image date not refreshed: $e');
+      }),
+    );
+    return bytes;
   } on FileSystemException catch (e) {
     _log.fine('image cache read failed: $e');
     return null;
@@ -46,4 +57,37 @@ Future<void> writeCachedImage(String key, Uint8List bytes) async {
   } on FileSystemException catch (e) {
     _log.fine('image cache write failed: $e');
   }
+}
+
+/// How long a photo not seen again stays: like the pages it belongs to.
+const imagesKeep = Duration(days: 90);
+
+/// Removes the photos not shown for [imagesKeep]: each is a trace of a
+/// place the user looked at. [dir] for a test; the cache's folder
+/// otherwise. In an isolate of its own: a few thousand files are read at
+/// every start. Returns how many went.
+Future<int> pruneCachedImages(DateTime now, {Directory? dir}) async {
+  final folder = dir ?? await _dir();
+  if (folder == null) return 0;
+  final path = folder.path;
+  final cutoff = now.subtract(imagesKeep);
+  try {
+    return await Isolate.run(() => _prune(path, cutoff));
+  } on FileSystemException catch (e) {
+    _log.fine('image cache pruning stopped: $e');
+    return 0;
+  }
+}
+
+int _prune(String path, DateTime cutoff) {
+  final folder = Directory(path);
+  if (!folder.existsSync()) return 0;
+  var removed = 0;
+  for (final entry in folder.listSync()) {
+    if (entry is File && entry.lastModifiedSync().isBefore(cutoff)) {
+      entry.deleteSync();
+      removed++;
+    }
+  }
+  return removed;
 }

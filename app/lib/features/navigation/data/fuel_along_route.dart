@@ -40,15 +40,22 @@ query FuelAlongRoute($input: FuelAlongRouteInput!) {
 /// [FuelStationsSource] through the server's search along the route
 /// (`fuelAlongRoute`), and through [fallback] against an API without it.
 ///
-/// The line sent is the route ahead as the server drew it, from its first
-/// point past the vehicle: no position of the device goes with it. A line
-/// over the server's limit is simplified first (5 m, as its contract
+/// The line sent is the route ahead as the server drew it, from
+/// [privacyGapM] past the vehicle (the fallback's points too): the start of
+/// a route is where the device stands, so the device's position is not
+/// sent; the line starts 2 km ahead of it, on the road it drives. A station
+/// in that first stretch is not found; at road speed it is passed before
+/// the list is read, and "cheapest around me" covers where the user stands.
+/// A line over the server's limit is simplified first (5 m, as its contract
 /// suggests).
 final class ServerFuelStations implements FuelStationsSource {
   new(this._client, {required this.fallback});
 
   final GraphQLClient _client;
   final FuelStationsSource fallback;
+
+  /// How far past the vehicle the line sent starts, metres.
+  static const privacyGapM = 2000.0;
 
   /// The longest polyline the server takes, characters.
   static const maxPolyline = 48000;
@@ -69,9 +76,14 @@ final class ServerFuelStations implements FuelStationsSource {
     Map<String, Object?>? vehicle,
   }) async {
     if (_unknown) {
-      return await fallback.along(route: route, fromM: fromM, fuel: fuel, maxDetourM: maxDetourM);
+      return await fallback.along(
+        route: route,
+        fromM: fromM + privacyGapM,
+        fuel: fuel,
+        maxDetourM: maxDetourM,
+      );
     }
-    final (:line, :startM) = ahead(route, fromM);
+    final (:line, :startM) = ahead(route, fromM + privacyGapM);
     if (line.length < 2) return const [];
     var polyline = encodePolyline(line);
     for (final tolerance in [5.0, 25.0]) {
@@ -94,7 +106,12 @@ final class ServerFuelStations implements FuelStationsSource {
     } on GraphQLResponseException catch (e) {
       if (!e.errors.any((error) => error.unknownField)) rethrow;
       _unknown = true;
-      return await fallback.along(route: route, fromM: fromM, fuel: fuel, maxDetourM: maxDetourM);
+      return await fallback.along(
+        route: route,
+        fromM: fromM + privacyGapM,
+        fuel: fuel,
+        maxDetourM: maxDetourM,
+      );
     }
     return [for (final s in stations) ?_offer(s, startM: startM, fuel: fuel)];
   }

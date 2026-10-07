@@ -5,6 +5,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
+import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 
@@ -260,6 +261,22 @@ void main() {
     expect(find.text('Nouvelle liste'), findsNothing);
     expect(find.text('5 lieux ici'), findsOneWidget, reason: 'back on the map');
     expect(exits, isEmpty);
+  });
+
+  testWidgets('tapping the current tab again brings its page back to the top', (tester) async {
+    await pumpLunaway(tester);
+    await tester.tap(find.text('Profil').last);
+    await settleShort(tester);
+    final list = find
+        .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+        .first;
+    double offset() => tester.state<ScrollableState>(list).position.pixels;
+    await tester.drag(list, const Offset(0, -600));
+    await settleShort(tester);
+    expect(offset(), greaterThan(300), reason: 'scrolled down');
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+    expect(offset(), 0);
   });
 
   testWidgets('the destinations are named in the app language', (tester) async {

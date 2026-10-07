@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/poi/presentation/add_vending.dart';
@@ -91,6 +92,14 @@ class PointDetails extends StatelessWidget {
         VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
+        const SizedBox(height: Space.l),
+        // What is seen on the road there: a closure, works, a low bridge.
+        OutlinedButton.icon(
+          onPressed: () => reportOnRoad(context, position: position),
+          icon: const Icon(AppIcons.report),
+          label: Text(t.roadReport.fromMap),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        ),
       ],
     );
     if (!actions) return body;

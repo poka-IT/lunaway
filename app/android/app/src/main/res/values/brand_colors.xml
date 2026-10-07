@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Brand palette (brand/README.md). Launcher icons keep the cream plate in
-     every theme; the splash follows the system theme (values-night). -->
+     every theme. The splash is navy in every theme: the app turns dark after
+     sunset whatever the system says, and a cream splash then flashed before
+     a dark map. Navy before a light app by day does not dazzle. -->
 <resources>
     <color name="ic_launcher_background">#FDF1DB</color>
-    <color name="splash_background">#FDF1DB</color>
+    <color name="splash_background">#061F43</color>
+    <!-- The mark sits on a cream disc: its navy pin would vanish into the
+         navy background. -->
     <color name="splash_icon_background">#FDF1DB</color>
 </resources>

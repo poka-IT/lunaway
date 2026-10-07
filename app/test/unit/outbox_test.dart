@@ -211,6 +211,20 @@ void main() {
   });
   tearDown(() => db.close());
 
+  test('a road report waiting is not queued twice; the same spot seen the other way is', () async {
+    Future<void> report(int heading) => outbox.add(
+      ContributionKind.reportRoadEvent,
+      payload: {
+        'input': {'kind': 'WORKS', 'lat': 45.0, 'lon': 5.0, 'headingDeg': heading},
+      },
+    );
+    await report(90);
+    await report(100);
+    expect(await outbox.all(), hasLength(1), reason: 'the same way, within 45 degrees');
+    await report(270);
+    expect(await outbox.all(), hasLength(2), reason: 'the other carriageway');
+  });
+
   test('a contribution made offline waits, then goes once the network is back', () async {
     await outbox.add(
       ContributionKind.confirm,

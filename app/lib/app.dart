@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:lunaway/core/database/cache_pruning.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/account/data/card_file_io.dart'
     if (dart.library.js_interop) 'package:lunaway/features/account/data/card_file_web.dart';
@@ -11,8 +14,12 @@ import 'package:lunaway/features/favorites/application/favorites_providers.dart'
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/profile/application/appearance_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/images/image_file_cache_web.dart'
+    if (dart.library.io) 'package:lunaway/shared/images/image_file_cache.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
+
+final _log = Logger('app');
 
 class LunawayApp extends ConsumerStatefulWidget {
   const new({super.key});
@@ -41,6 +48,18 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
       ref.read(favoritesSyncControllerProvider.notifier).start();
       // A recovery card image left by a run that ended on the card page.
       unawaited(forgetCardFiles());
+      // The copies of pages and photos not opened for three months: traces
+      // of where the user looked, not needed any more.
+      final now = ref.read(clockProvider)();
+      unawaited(
+        pruneOpenedPages(
+          ref.read(cacheDatabaseProvider),
+          now,
+        ).then((_) => pruneCachedImages(now)).catchError((Object e) {
+          _log.info('the old copies were not pruned: $e');
+          return 0;
+        }),
+      );
     });
   }
 

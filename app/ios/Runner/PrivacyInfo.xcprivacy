@@ -64,7 +64,8 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- The position of a new place, set on the map by the user. -->
+		<!-- The position of a new place, set on the map by the user, and of
+		     a road report, where the user makes it (kept 14 days). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePreciseLocation</string>

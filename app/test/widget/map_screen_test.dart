@@ -14,6 +14,7 @@ import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -492,6 +493,19 @@ void main() {
   });
 
   group('empty device', () {
+    testWidgets('an empty list still says so when the count of stored places fails', (
+      tester,
+    ) async {
+      await pumpLunaway(
+        tester,
+        places: const [],
+        overrides: [
+          placeCountProvider.overrideWith((ref) => Stream<int>.error(StateError('disk'))),
+        ],
+      );
+      expect(find.text('Aucun lieu par ici avec ces filtres'), findsOneWidget);
+    });
+
     testWidgets('during the first download the list says the places are coming', (tester) async {
       await pumpLunaway(
         tester,
@@ -607,6 +621,56 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settleShort(tester);
       expect(find.text('Itinéraire'), findsNothing);
+    });
+  });
+
+  group('a place selected on a phone', () {
+    FakeMap mapOver(double north, double south) => FakeMap()
+      ..viewport = MapViewport(
+        bounds: GeoBounds(south: south, west: 6, north: north, east: 6.3),
+        center: LatLng((north + south) / 2, 6.15),
+        zoom: 11,
+      );
+
+    Future<FakeMap> select(WidgetTester tester, FakeMap map, {bool reachable = true}) async {
+      await pumpLunaway(tester, map: map, reachable: reachable);
+      map.moves.clear();
+      // A tap on its pin, which leaves the camera where it is.
+      map.lastProps!.onPlaceTap(lakeArea.id);
+      await settleShort(tester);
+      return map;
+    }
+
+    testWidgets('under the sheet that opens comes up into the map left free', (tester) async {
+      final map = await select(tester, mapOver(46, 45.8));
+      expect(map.moves.map((m) => m.center), [lakeArea.position]);
+    });
+
+    testWidgets('already clear of the sheet and the search stays where it is', (tester) async {
+      final map = await select(tester, mapOver(45.95, 45.65));
+      expect(map.moves, isEmpty);
+    });
+
+    testWidgets('from the list moves the map once, with the zoom the list asks for', (
+      tester,
+    ) async {
+      final map = FakeMap()
+        ..viewport = const MapViewport(
+          bounds: GeoBounds(south: 45.5, west: 5.7, north: 46.3, east: 6.6),
+          center: LatLng(45.9, 6.15),
+          zoom: 9,
+        );
+      await pumpLunaway(tester, map: map);
+      map.moves.clear();
+      await tester.tap(find.text(lakeArea.name!).first);
+      await settleShort(tester);
+      expect(map.moves, [(center: lakeArea.position, zoom: 12.0)]);
+    });
+
+    testWidgets('under the offline notice comes down below it', (tester) async {
+      final map = await select(tester, mapOver(45.95, 45.65), reachable: false);
+      expect(find.textContaining('Hors ligne'), findsOneWidget);
+      expect(map.moves.map((m) => m.center), [lakeArea.position]);
     });
   });
 }
