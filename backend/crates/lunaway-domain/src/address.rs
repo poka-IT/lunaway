@@ -117,11 +117,20 @@ const SAME_ADDRESS_M: f64 = 150.0;
 /// one address precisely ("6 Rue de Rome" for "6 rue du Dôme").
 const WEAK_SHARE: f64 = 0.75;
 
+/// A rating below this is no match at all, whatever the others: the BAN
+/// answers a text naming a street abroad with a French one of a remote
+/// likeness ("Neuhof Hinter Den Gaerten, Berling" rated 0.34 for "unter den
+/// linden 77 berlin"), while a text still being typed rates its right
+/// match low ("Boulevard du Port, Amiens" 0.42 for "bd du po amiens");
+/// measured on 2026-10-07. Wrong partial answers reach 0.39: the threshold
+/// trades some of them shown against right ones lost.
+const MIN_SCORE: f64 = 0.35;
+
 /// The list shown under the places: `matches` without the weak matches of
-/// a rated geocoder, without the towns already in `towns`, without the same
-/// address twice (the first kept), then nearest to `near` first (the order
-/// of the geocoders, each already biased towards `near`, when there is no
-/// point), at most `max`.
+/// a rated geocoder (under [`MIN_SCORE`], or far below its best), without
+/// the towns already in `towns`, without the same address twice (the first
+/// kept), then nearest to `near` first (the order of the geocoders, each
+/// already biased towards `near`, when there is no point), at most `max`.
 #[must_use]
 pub fn rank(
     matches: Vec<AddressMatch>,
@@ -146,8 +155,8 @@ pub fn rank(
             AddressSource::Ban => best_ban,
             AddressSource::Osm => best_osm,
         };
-        if let (Some(score), Some(top)) = (m.score, top)
-            && score < top * WEAK_SHARE
+        if let Some(score) = m.score
+            && (score < MIN_SCORE || top.is_some_and(|top| score < top * WEAK_SHARE))
         {
             continue;
         }
@@ -323,6 +332,22 @@ mod tests {
             ["Rue du Dôme", "Rue du Dôme"],
             "an unrated match is never judged weak"
         );
+    }
+
+    #[test]
+    fn a_rating_too_low_is_no_match_even_alone() {
+        let out = rank(
+            vec![street(
+                "Neuhof Hinter Den Gaerten",
+                at(49.25, 6.5),
+                AddressSource::Ban,
+                Some(0.34),
+            )],
+            &[],
+            None,
+            5,
+        );
+        assert!(out.is_empty(), "the best of nothing is still nothing");
     }
 
     #[test]
