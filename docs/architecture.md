@@ -396,7 +396,8 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   self-hosted Protomaps PMTiles. Linux users use the web app.
 - **Web start**: the page loads MapLibre GL JS with itself and draws a first
   map (`web/premap.js`) from the view, theme and filters the app kept in
-  `localStorage`, while the Flutter engine downloads; the app's map takes
+  `localStorage`, its places before its basemap, while the Flutter engine
+  downloads; the app's map takes
   its camera and replaces it once it has drawn the same view. Pin images
   load when a layer first draws them. A service worker written for each
   build (`app/tool/web/service_worker.py`) serves a second visit from the

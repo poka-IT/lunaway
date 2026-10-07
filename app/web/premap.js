@@ -77,6 +77,17 @@
       .split('__LUNAWAY_LANG__').join(lang);
   }
 
+  // The places first, the basemap once they are drawn (or after 1.5 s):
+  // the basemap's tiles of a country view weigh about five times the
+  // places' and, fetched together, take the mobile link from them.
+  var full = null;
+  var basemap = false;
+  function addBasemap() {
+    if (basemap || gone || !map) return;
+    basemap = true;
+    map.setStyle(full);
+  }
+
   function markPlacesDrawn() {
     var loaded = false;
     map.on('sourcedata', function onData(e) {
@@ -89,6 +100,7 @@
       if (!loaded) return;
       map.off('render', onRender);
       if (window.performance && performance.mark) performance.mark('lunaway-premap-places-drawn');
+      addBasemap();
     });
   }
 
@@ -139,7 +151,15 @@
       options.bounds = [[b[0], b[1]], [b[2], b[3]]];
       options.fitBoundsOptions = { padding: 24 };
     }
+    full = style;
+    options.style = Object.assign({}, style, {
+      sources: { 'lw-place-tiles': style.sources['lw-place-tiles'] },
+      layers: style.layers.filter(function (l) {
+        return l.type === 'background' || l.source === 'lw-place-tiles';
+      })
+    });
     map = new lib.Map(options);
+    setTimeout(addBasemap, 1500);
     if (window.lunawayLoadMissingPins) window.lunawayLoadMissingPins(map);
     markPlacesDrawn();
     map.once('style.load', function () { container.classList.add('shown'); });

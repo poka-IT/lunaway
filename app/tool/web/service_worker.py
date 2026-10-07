@@ -12,7 +12,7 @@ The worker keeps the files of one build in a cache named after the build
 (a digest of every file it serves), answers from it first, and fetches what
 it lacks once. Every file the app may need to start (its code, the CanvasKit
 of this browser, its fonts, styles and manifests) is fetched when the worker
-installs, after the first visit has drawn its map (web/sw_register.js), so a
+installs, after the app's first frame (web/sw_register.js), so a
 visit never starts one build's code with another build's engine or fonts.
 What is fetched when first asked (pin images, the licences page, the fallback
 fonts) does not depend on the build. A new build has a new worker: it
