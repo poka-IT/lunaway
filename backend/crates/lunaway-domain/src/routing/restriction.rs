@@ -305,6 +305,14 @@ pub struct Restriction {
     /// never through. Only a kind that [`RestrictionKind::spares_local_access`]
     /// carries it.
     pub except_destination: bool,
+    /// Whether this is a road enclosed behind such a zone rather than a
+    /// sign: one without a limit that only the zone leads to, given the
+    /// zone's limit and plate by the graph build so that the engine grants
+    /// a trip ending there the right (`plan/research/65-accroche-et-desserte.md`).
+    /// The check joins it to the zone's run of local access and never
+    /// warns of it: no sign stands there. Carries
+    /// [`Self::except_destination`].
+    pub enclosed: bool,
 }
 
 /// How a restriction weighs on a route.
@@ -485,6 +493,7 @@ mod tests {
             certainty: Certainty::Known,
             feature: RestrictionFeature::Underpass,
             except_destination: false,
+            enclosed: false,
         }
     }
 

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH pieces AS (\n            SELECT g AS line, g::geography AS piece,\n                $3::float8 * 1.05 / (110574.0 * cos(radians(least(89.0,\n                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS within_deg\n            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($2::text[]) AS s) t\n        )\n        SELECT DISTINCT ON (r.id)\n            r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,\n            r.name, r.except_destination, ST_AsGeoJSON(r.geom::geometry, 7) AS \"shape!\"\n        FROM pieces p\n        JOIN route_restrictions r\n            ON r.geom && _ST_Expand(p.piece, $3)\n            AND ST_DWithin(r.geom::geometry, p.line, p.within_deg)\n        WHERE r.graph_id = $1 OR r.graph_id IS NULL\n        ORDER BY r.id\n        ",
+  "query": "\n        SELECT id, source, external_id, kind, limit_value, certainty, feature, name,\n            except_destination, enclosed, ST_AsGeoJSON(geom::geometry, 7) AS \"shape!\"\n        FROM route_restrictions\n        WHERE (graph_id = $1 OR graph_id IS NULL)\n          AND NOT enclosed\n          AND (feature = 'barrier' OR (feature = 'road' AND kind <> 'max_height'))\n          AND ((kind = 'max_height' AND (limit_value IS NULL OR limit_value < $2))\n            OR (kind = 'max_width' AND limit_value < $3)\n            OR (kind = 'max_length' AND limit_value < $4)\n            OR (kind = 'max_weight' AND limit_value < $5)\n            OR kind = 'motorhome_ban')\n        ",
   "describe": {
     "columns": [
       {
@@ -104,6 +104,17 @@
       },
       {
         "ordinal": 9,
+        "name": "enclosed",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "enclosed"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
         "name": "shape!",
         "type_info": "Text",
         "origin": "Expression"
@@ -112,7 +123,9 @@
     "parameters": {
       "Left": [
         "Text",
-        "TextArray",
+        "Float8",
+        "Float8",
+        "Float8",
         "Float8"
       ]
     },
@@ -126,8 +139,9 @@
       false,
       true,
       false,
+      false,
       null
     ]
   },
-  "hash": "e0d53a62d4d323961ac34a898bc0a7e4f12d9a7b7037f6501c9007702edb23cf"
+  "hash": "cb671fefdf42871f2aa53d678fc3f34c2a31ddd94d7c0a08cf2f6a5eac56e067"
 }

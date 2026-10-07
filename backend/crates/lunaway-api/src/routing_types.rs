@@ -81,10 +81,12 @@ pub struct RoutePointInput {
     /// The vehicle's course, degrees from north (0 to 360), for the start
     /// of a recalculation: the route then leaves in that direction.
     pub heading_deg: Option<f64>,
-    /// Whether this is the vehicle's own position, for a recalculation
-    /// during guidance, with or without a course: the server never moves
-    /// it. Any other stop whose road the vehicle cannot reach may be moved
-    /// up to 150 m, to the nearest road it can (`RouteResult.movedStops`).
+    /// Whether this is the vehicle's own position (a recalculation during
+    /// guidance, with or without a course): the server never moves it. Any
+    /// other stop whose road the vehicle cannot reach may be moved up to
+    /// 150 m, to a road it can (`RouteResult.movedStops`). Absent, the
+    /// origin counts as the vehicle's position (an app before this field
+    /// sends none), a waypoint or the destination as a place.
     pub vehicle_position: Option<bool>,
 }
 
@@ -819,8 +821,8 @@ pub const DISCLAIMER_KEY: &str = "routing.disclaimer.v1";
 
 /// A stop the vehicle cannot reach where it was put (the road it lies on
 /// is closed to the vehicle: a car park under a square, a street too
-/// narrow), which the routes start or end at instead: the nearest road the
-/// vehicle can reach, up to 150 m away.
+/// narrow), which the routes start or end at instead: a road the vehicle
+/// can reach, up to 150 m away, never a motorway nor a trunk road.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct MovedStop {
     /// The stop: 0 the origin, then the waypoints in order, the last the

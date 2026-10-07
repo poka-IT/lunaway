@@ -577,16 +577,19 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
     hits
 }
 
-/// Largest distance, metres, along the route between a run of local access
-/// and the stop it serves, over roads without a limit of its kind: a
-/// campsite or an aire on a service road behind a "sauf desserte" street.
-/// Six campsites within 150 m of such a street in France lie 113 to 279 m
-/// beyond its end (production engine, 2026-10-07,
-/// `plan/research/65-accroche-et-desserte.md`). The graph build marks the
-/// roads enclosed behind a zone within this distance with the zone's limit
-/// and plate, so the engine grants the right from a stop there
-/// (`lunaway_ingest::local_access`).
-pub const LOCAL_ACCESS_REACH_M: f64 = 500.0;
+/// Largest distance, metres, between a stop and the first stretch of a run
+/// of local access: the route starts on the limited road itself, or on a
+/// road enclosed behind the zone that the graph build marked with its
+/// limit (an aire on a service road behind a "sauf desserte" street,
+/// [`super::Restriction::enclosed`]), and the hit of that road starts a few
+/// sample steps from the stop.
+pub const LOCAL_ACCESS_STOP_M: f64 = 20.0;
+
+/// How far behind a "sauf desserte" zone the graph build marks the roads
+/// enclosed by it, metres along the roads: six campsites within 150 m of
+/// such a street in France lie 113 to 279 m beyond its end (production
+/// engine, 2026-10-07, `plan/research/65-accroche-et-desserte.md`).
+pub const ENCLOSED_REACH_M: f64 = 500.0;
 
 /// Largest gap, metres, between two stretches of one run of local access:
 /// the junctions, squares and stretches a zone's mappers leave without the
@@ -599,8 +602,9 @@ pub const LOCAL_ACCESS_LINK_M: f64 = 500.0;
 /// The parts of a route where limits that spare local access let it
 /// through: the runs of `spans` (`(start_m, end_m)` along the route) that
 /// join up, each within [`LOCAL_ACCESS_LINK_M`] of the next, and reach a
-/// stop within [`LOCAL_ACCESS_REACH_M`]. A run that reaches no stop is
-/// through traffic.
+/// stop within [`LOCAL_ACCESS_STOP_M`]. A run that reaches no stop is
+/// through traffic. The spans of the roads enclosed behind a zone
+/// ([`super::Restriction::enclosed`]) join a run like the zone's own.
 ///
 /// The engine is more lenient (Valhalla 3.9.0,
 /// `DynamicCost::EvaluateRestrictions` and
@@ -627,7 +631,7 @@ pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)>
     runs.retain(|(a, b)| {
         stops
             .iter()
-            .any(|s| *s >= a - LOCAL_ACCESS_REACH_M && *s <= b + LOCAL_ACCESS_REACH_M)
+            .any(|s| *s >= a - LOCAL_ACCESS_STOP_M && *s <= b + LOCAL_ACCESS_STOP_M)
     });
     runs
 }
@@ -669,19 +673,16 @@ mod tests {
             vec![(9_700.0, 10_000.0)],
             "the streets reaching the destination are local access, the one crossed at 4 km is not"
         );
-        // A campsite on a service road 100 m beyond the end of the zone,
-        // as at Goult or the Calvaire aire: local access.
+        // A run that stops short of the destination left a road without the
+        // plate under the stop: the engine gives no right from there.
+        assert!(local_access_runs(&stops, &[(9_700.0, 9_900.0)]).is_empty());
+        // Unless that road is enclosed behind the zone, and the build gave
+        // it the zone's limit: its span joins the run (an aire on a service
+        // road 100 m beyond the street, as at Goult).
         assert_eq!(
-            local_access_runs(&stops, &[(9_700.0, 9_900.0)]),
-            vec![(9_700.0, 9_900.0)]
+            local_access_runs(&stops, &[(9_700.0, 9_900.0), (9_900.0, 10_000.0)]),
+            vec![(9_700.0, 10_000.0)]
         );
-        // 700 m short of the destination, the zone was crossed on the way
-        // to somewhere else.
-        assert!(
-            local_access_runs(&stops, &[(9_000.0, 9_300.0)]).is_empty(),
-            "a zone left 700 m before the stop is through traffic"
-        );
-        assert!(local_access_runs(&stops, &[(600.0, 900.0)]).is_empty());
         // From the start too, and around a waypoint.
         assert_eq!(
             local_access_runs(&stops, &[(5.0, 300.0)]),

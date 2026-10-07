@@ -77,7 +77,8 @@ async fn route(app: &Router, from: [f64; 2], to: [f64; 2], height_m: f64, weight
     let query = "query R($input: RouteInput!) { route(input: $input) {
         status osrmJson recalculations
         routes { distanceM warnings { kind severity limit externalId distanceFromStartM } }
-        blockers { kind severity limit externalId distanceFromStartM } } }";
+        blockers { kind severity limit externalId distanceFromStartM }
+        movedStops { stopIndex distanceM } } }";
     let variables = json!({"input": {
         "origin": {"lat": from[0], "lon": from[1]},
         "destination": {"lat": to[0], "lon": to[1]},
@@ -129,8 +130,22 @@ async fn a_height_bar_the_engine_ignores_stops_the_route(pool: PgPool) {
     let app = app(pool, &url, &file).await;
     // Rue de la Brégère, Limoges: a 1.9 m height bar (node 348192004)
     // on the only way to the destination; Valhalla 3.9.0 routes a 3.3 m
-    // vehicle under it.
+    // vehicle under it. The bar lies near the destination, which is then
+    // looked for within 150 m: either a road there the vehicle reaches, the
+    // move said, or no safe route naming the bar. Never a route under it.
     let r = route(&app, [45.8500, 1.2670], [45.85137, 1.26507], 3.3, 3.5).await;
+    if r["status"] == "OK" {
+        assert_eq!(r["movedStops"][0]["stopIndex"], 1, "{r}");
+        assert!(
+            r["routes"][0]["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|w| w["externalId"] != "node/348192004"),
+            "{r}"
+        );
+        return;
+    }
     assert_eq!(r["status"], "NO_SAFE_ROUTE", "{r}");
     assert_eq!(r["osrmJson"], Value::Null);
     let blockers = r["blockers"].as_array().unwrap();

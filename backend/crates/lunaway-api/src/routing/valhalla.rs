@@ -215,6 +215,10 @@ fn location(s: &Stop) -> Value {
     }
     if let Some(r) = s.radius_m {
         l["radius"] = r.into();
+        // Every road within the radius is a candidate and the search keeps
+        // the cheapest: never a motorway, a trunk road or a ramp.
+        l["search_filter"]["max_road_class"] = "primary".into();
+        l["search_filter"]["exclude_ramp"] = true.into();
     }
     l
 }
@@ -788,6 +792,11 @@ mod tests {
             body["locations"][1]["search_filter"]["exclude_tunnel"], true,
             "still never in a tunnel"
         );
+        assert_eq!(
+            body["locations"][1]["search_filter"]["max_road_class"], "primary",
+            "a stop moved never lands on a motorway or a trunk road"
+        );
+        assert!(body["locations"][1]["search_filter"]["exclude_ramp"] == true);
         let three = route_body(&[a, b, a], &json!({}), "en-US", 2, &[]);
         assert!(
             three.get("alternates").is_none(),

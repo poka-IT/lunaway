@@ -73,6 +73,7 @@ fn record(
         shape: polyline::encode(shape),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
         except_destination: false,
+        enclosed: false,
     };
     let points = r.check().unwrap();
     (r, points)

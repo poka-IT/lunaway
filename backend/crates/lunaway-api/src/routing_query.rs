@@ -56,7 +56,11 @@ pub(crate) const MAX_ALTERNATIVES: i32 = 2;
 /// ahead, but a route is computed on today's graph.
 const MAX_DEPART_AHEAD_DAYS: i64 = 14;
 
-fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
+/// The stop `name` of a request. `vehicle` says whether the point is the
+/// vehicle's own position when the client does not tell: the origin of an
+/// app that predates `vehiclePosition` may be, a waypoint or a destination
+/// never is.
+fn stop(name: &str, p: RoutePointInput, vehicle: bool) -> Result<Stop> {
     let at = Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("{name}: {e}")))?;
     let heading = match p.heading_deg {
         None => None,
@@ -77,7 +81,7 @@ fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
     };
     Ok(Stop {
         heading,
-        vehicle: p.vehicle_position.unwrap_or(false),
+        vehicle: p.vehicle_position.unwrap_or(vehicle),
         ..Stop::at(at)
     })
 }
@@ -130,11 +134,11 @@ fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
         )));
     }
     let mut stops = Vec::with_capacity(waypoints.len() + 2);
-    stops.push(stop("origin", input.origin)?);
+    stops.push(stop("origin", input.origin, true)?);
     for (i, w) in waypoints.iter().enumerate() {
-        stops.push(stop(&format!("waypoints[{i}]"), *w)?);
+        stops.push(stop(&format!("waypoints[{i}]"), *w, false)?);
     }
-    stops.push(stop("destination", input.destination)?);
+    stops.push(stop("destination", input.destination, false)?);
     let trip: f64 = stops.windows(2).map(|w| w[0].at.distance_m(w[1].at)).sum();
     if !trip.is_finite() || trip > MAX_TRIP_M {
         return Err(invalid_input(format!(

@@ -674,7 +674,13 @@ impl Routing {
         work: &mut Work,
     ) -> Option<Outcome> {
         work.retrying = true;
+        // A failure is being explained: no restriction excluded ahead, so
+        // that a trip left without a safe route by them is not asked again.
+        work.without_ahead = true;
         for radius in MOVE_RADII_M {
+            if tokio::time::Instant::now() + DIAGNOSIS_MARGIN >= deadline {
+                return None;
+            }
             let mut wider = request.clone();
             for &i in moving {
                 if let Some(s) = wider.stops.get_mut(i) {
@@ -1161,10 +1167,13 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
 /// (the narrow street a centre's point was snapped to). Never the
 /// vehicle's own position: a driver is where they are.
 fn stops_to_move(outcome: &Outcome, stops: &[Stop]) -> Vec<usize> {
+    // A "sauf desserte" limit is no reason: moved into its zone, the stop
+    // would become local access to a place the user did not pick.
     let near = |i: usize, m: &Met| {
-        stops.get(i).is_some_and(|s| {
-            s.movable() && distance_to(s.at, &m.restriction.geometry) <= MOVE_WITHIN_M
-        })
+        !m.restriction.restriction.except_destination
+            && stops.get(i).is_some_and(|s| {
+                s.movable() && distance_to(s.at, &m.restriction.geometry) <= MOVE_WITHIN_M
+            })
     };
     let mut out: Vec<usize> = match outcome {
         Outcome::NoRoute(NoRoute::Unreachable(reasons)) => reasons
@@ -1513,8 +1522,12 @@ async fn check_routes(
 /// warns where the route uses it to reach or leave a stop, and blocks where
 /// it crosses it: the route may drive the runs of such limits of one kind
 /// that reach a stop ([`local_access_runs`], stricter than the engine,
-/// which lets a trip ending in one zone cross another on the way). A limit
-/// met twice blocks at the place it is through traffic.
+/// which lets a trip ending in one zone cross another on the way). The
+/// roads enclosed behind a zone, which the graph build gave its limit
+/// (`Restriction::enclosed`), join those runs and are never told: an aire
+/// on a service road behind the zone is reached, no sign stands on the
+/// service road. A limit met twice blocks at the place it is through
+/// traffic.
 pub(crate) fn match_restrictions(
     line: &RouteLine,
     near: Vec<db::NearRestriction>,
@@ -1525,8 +1538,18 @@ pub(crate) fn match_restrictions(
     // Decided once every such limit of the route is known: a run of them
     // reaches a stop or not as a whole.
     let mut sparing: Vec<(Met, Vec<Hit>)> = Vec::new();
+    // The roads enclosed behind a zone, by kind: they join its runs, and are
+    // never told (no sign stands there).
+    let mut enclosed: Vec<(lunaway_domain::routing::RestrictionKind, Hit)> = Vec::new();
     for r in near {
         let hits = match_restriction(line, &r.geometry, r.restriction.source);
+        if hits.is_empty() {
+            continue;
+        }
+        if r.restriction.enclosed {
+            enclosed.extend(hits.into_iter().map(|h| (r.restriction.kind, h)));
+            continue;
+        }
         let Some(hit) = hits.first().copied() else {
             continue;
         };
@@ -1563,6 +1586,12 @@ pub(crate) fn match_restrictions(
         let spans: Vec<(f64, f64)> = group
             .iter()
             .flat_map(|(_, hits)| hits.iter().map(|h| (h.start_m, h.end_m)))
+            .chain(
+                enclosed
+                    .iter()
+                    .filter(|(k, _)| *k == kind)
+                    .map(|(_, h)| (h.start_m, h.end_m)),
+            )
             .collect();
         let runs = local_access_runs(line.stops(), &spans);
         let inside = |h: &Hit| runs.iter().any(|(a, b)| h.start_m >= *a && h.end_m <= *b);
@@ -1940,6 +1969,7 @@ mod tests {
                 certainty: Certainty::Known,
                 feature: RestrictionFeature::Road,
                 except_destination: true,
+                enclosed: false,
             },
             external_id: "way/1".to_owned(),
             name: None,
@@ -1989,6 +2019,7 @@ mod tests {
                     certainty: Certainty::Known,
                     feature: RestrictionFeature::Underpass,
                     except_destination: false,
+                    enclosed: false,
                 },
                 external_id: "way/130049566".to_owned(),
                 name: None,
@@ -2106,6 +2137,55 @@ mod tests {
             MOVE_RADII_M.windows(2).all(|w| w[0] < w[1]),
             "the nearest first"
         );
+    }
+
+    #[test]
+    fn a_road_enclosed_behind_a_zone_joins_its_run_and_is_never_told() {
+        use lunaway_domain::routing::{
+            Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        };
+        let at = |north: f64| Position::new(45.0 + north / 111_195.0, 1.0).unwrap();
+        // 600 m north to an aire: a 3.5 t "sauf desserte" street from 300 to
+        // 450 m, then a service road to the aire.
+        let line = RouteLine::new((0..=12).map(|i| at(f64::from(i) * 50.0)).collect()).unwrap();
+        let record = |id: &str, from: f64, to: f64, enclosed: bool| db::NearRestriction {
+            id: uuid::Uuid::now_v7(),
+            restriction: Restriction {
+                kind: RestrictionKind::MaxWeight,
+                limit: Some(3.5),
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Road,
+                except_destination: true,
+                enclosed,
+            },
+            external_id: id.to_owned(),
+            name: None,
+            geometry: vec![at(from), at(to)],
+        };
+        let dims = RoutingDimensions {
+            height_m: 3.0,
+            width_m: 2.3,
+            length_m: 7.0,
+            weight_t: 4.5,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+        };
+        let street = record("way/1", 300.0, 450.0, false);
+        let aire = record("way/2", 450.0, 600.0, true);
+        let (warnings, blocking) = match_restrictions(&line, vec![street.clone(), aire], &dims);
+        assert!(blocking.is_empty(), "{blocking:?}");
+        let told: Vec<&str> = warnings
+            .iter()
+            .map(|w| w.restriction.external_id.as_str())
+            .collect();
+        assert_eq!(told, ["way/1"], "the street, never the service road");
+        // Without the enclosed road, the street stops 150 m short of the
+        // stop: through traffic.
+        let (warnings, blocking) = match_restrictions(&line, vec![street], &dims);
+        assert!(warnings.is_empty());
+        assert_eq!(blocking.len(), 1);
     }
 
     #[test]

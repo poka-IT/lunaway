@@ -100,8 +100,9 @@ fn extract(dir: &std::path::Path) -> std::path::PathBuf {
 
 /// An aire behind the "sauf desserte" street of [`extract`]: a service
 /// road leaving its last node, 111 m long, then a track going 556 m
-/// farther; and a residential street from its first node to the primary
-/// road, open to everyone.
+/// farther; a residential street from its first node to a tertiary road
+/// 111 m south, open to everyone; and a service road from its middle node
+/// that a 7.5 t street without the plate also leads into.
 fn extract_with_aire(dir: &std::path::Path) -> std::path::PathBuf {
     let mut s = Strings(vec![String::new()]);
     let mut nodes = Vec::new();
@@ -109,6 +110,11 @@ fn extract_with_aire(dir: &std::path::Path) -> std::path::PathBuf {
     nodes.extend(street(&mut s, 31, 45.030, 1.000));
     for (id, north) in [(51, 0.0005), (52, 0.001), (53, 0.004), (54, 0.006)] {
         nodes.push(node(&mut s, id, 45.000 + north, 1.0013, &[]));
+    }
+    nodes.push(node(&mut s, 61, 44.999, 1.000, &[]));
+    nodes.push(node(&mut s, 62, 44.999, 1.001, &[]));
+    for (id, north) in [(71, 0.0005), (72, 0.001)] {
+        nodes.push(node(&mut s, id, 45.000 + north, 1.000_65, &[]));
     }
     let ways = vec![
         way(
@@ -123,8 +129,16 @@ fn extract_with_aire(dir: &std::path::Path) -> std::path::PathBuf {
         ),
         way(&mut s, 400, &[31, 32, 33], &[("highway", "primary")]),
         way(&mut s, 500, &[3, 51, 52], &[("highway", "service")]),
-        way(&mut s, 700, &[1, 31], &[("highway", "residential")]),
+        way(&mut s, 700, &[1, 61], &[("highway", "residential")]),
+        way(&mut s, 710, &[61, 62], &[("highway", "tertiary")]),
         way(&mut s, 800, &[52, 53, 54], &[("highway", "track")]),
+        way(&mut s, 900, &[2, 71], &[("highway", "service")]),
+        way(
+            &mut s,
+            910,
+            &[71, 72],
+            &[("highway", "residential"), ("maxweight", "7.5")],
+        ),
     ];
     let path = dir.join("aire.osm.pbf");
     std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
@@ -236,10 +250,13 @@ fn the_roads_enclosed_behind_a_sauf_desserte_street_take_its_limit_and_plate() {
         prepared.report.local_access_extended, 1,
         "the service road within 500 m of the street, not the track beyond"
     );
+    let aire = records_of(&prepared, "way/500");
+    assert_eq!(aire.len(), 1, "{aire:?}");
     assert!(
-        records_of(&prepared, "way/500").is_empty(),
-        "no sign stands on the service road: no restriction for the check"
+        aire[0].enclosed && aire[0].except_destination,
+        "the check joins the service road to the zone and never tells of it: {aire:?}"
     );
+    assert_eq!(aire[0].limit, Some(3.5));
     routing::write(&prepared, dir.path()).unwrap();
     let mut osc = String::new();
     flate2::read::GzDecoder::new(std::fs::File::open(dir.path().join("fixes.osc.gz")).unwrap())
@@ -263,11 +280,72 @@ fn the_roads_enclosed_behind_a_sauf_desserte_street_take_its_limit_and_plate() {
     );
     assert!(
         block(700).is_empty(),
-        "a street that leads to the primary road is open to everyone: {osc}"
+        "a street that leads to a tertiary road 111 m away is open to everyone: {osc}"
+    );
+    assert!(
+        block(900).is_empty(),
+        "a 7.5 t street without the plate leads in too: a 5 t vehicle may pass: {osc}"
     );
     assert!(
         block(800).is_empty(),
         "the track beyond 500 m stays as mapped: {osc}"
     );
     assert!(block(400).is_empty());
+}
+
+#[test]
+fn a_search_left_unfinished_or_grown_past_a_campsite_marks_nothing() {
+    // Behind the "sauf desserte" street of `extract`: from its last node, a
+    // chain of ten short service roads, deeper than the passes read; from
+    // its first node, a road to a hub with seventy dead ends, more roads
+    // than a campsite has.
+    let mut s = Strings(vec![String::new()]);
+    let mut nodes = street(&mut s, 1, 45.000, 1.000);
+    let mut ways = vec![way(
+        &mut s,
+        100,
+        &[1, 2, 3],
+        &[
+            ("highway", "residential"),
+            ("maxweightrating", "3.5"),
+            ("maxweightrating:conditional", "none @ destination"),
+        ],
+    )];
+    let mut previous = 3;
+    for k in 0..10_i64 {
+        #[allow(clippy::cast_precision_loss, reason = "ten steps")]
+        let north = 0.000_05 * (k + 1) as f64;
+        nodes.push(node(&mut s, 100 + k, 45.000 + north, 1.0013, &[]));
+        ways.push(way(
+            &mut s,
+            1_000 + k,
+            &[previous, 100 + k],
+            &[("highway", "service")],
+        ));
+        previous = 100 + k;
+    }
+    nodes.push(node(&mut s, 300, 44.9995, 1.000, &[]));
+    ways.push(way(&mut s, 2_000, &[1, 300], &[("highway", "service")]));
+    for k in 0..70_i64 {
+        #[allow(clippy::cast_precision_loss, reason = "seventy steps")]
+        let east = 0.000_01 * (k + 1) as f64;
+        nodes.push(node(&mut s, 400 + k, 44.9994, 1.000 + east, &[]));
+        ways.push(way(
+            &mut s,
+            3_000 + k,
+            &[300, 400 + k],
+            &[("highway", "service")],
+        ));
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let pbf = dir.path().join("deep.osm.pbf");
+    std::fs::write(&pbf, file_of(&s, &nodes, &ways)).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 6, 20, 20, 59).unwrap();
+    let prepared = routing::prepare(&pbf, &[], at, at).unwrap();
+    assert_eq!(
+        prepared.report.local_access_extended, 0,
+        "neither a chain the passes did not finish nor seventy roads are a campsite: {:?}",
+        prepared.report
+    );
+    assert!(prepared.records.iter().all(|r| !r.enclosed));
 }

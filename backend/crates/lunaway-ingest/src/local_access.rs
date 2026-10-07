@@ -13,14 +13,18 @@
 //! (2026-10-07), Goult's aire behind a 2.5 t street among them.
 //!
 //! So the roads without a limit of the zone's kind that only the zone
-//! leads to, within [`LOCAL_ACCESS_REACH_M`] of it, take the zone's limit
+//! leads to, within [`ENCLOSED_REACH_M`] of it, take the zone's limit
 //! and plate in the change file: a trip that ends there gets the right from
 //! its own edge, on the first pass, and keeps the plates of every other
 //! zone. A vehicle under the limit sees no change; one above it may reach
-//! these roads only as it may reach the zone, to go there. No restriction
-//! record is written for them: no sign stands there, and the check after
-//! each route reaches a stop the same distance beyond a zone
-//! ([`lunaway_domain::routing::local_access_runs`]).
+//! these roads only as it may reach the zone, to go there. A component
+//! another way leads into for a heavier vehicle (a limit without the plate
+//! above the zone's, a road of the general network) is left as it is:
+//! marking it would close a way that vehicle may take. Each marked road
+//! gets a restriction record flagged `enclosed`: the check after each
+//! route joins it to the zone's run of local access and never warns of it,
+//! since no sign stands there
+//! ([`lunaway_domain::routing::Restriction::enclosed`]).
 //!
 //! Finding them takes passes over the ways of the extract, one level of
 //! roads each: the ways blocks only, remembered by the pass that read the
@@ -35,7 +39,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use lunaway_domain::{
     Position,
-    routing::{RestrictionKind, corridor::LOCAL_ACCESS_REACH_M, tags},
+    routing::{RestrictionKind, corridor::ENCLOSED_REACH_M, tags},
 };
 use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock};
 
@@ -125,7 +129,9 @@ where
     let err = pbf_error(path);
     let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
     let (tx, rx) = std::sync::mpsc::sync_channel::<(Option<ByteOffset>, osmpbf::Blob)>(threads * 2);
-    let rx = Mutex::new(rx);
+    // Each worker holds the receiver: once the last one has stopped, even
+    // by a panic, the reader's next send fails instead of waiting forever.
+    let rx = std::sync::Arc::new(Mutex::new(rx));
     std::thread::scope(|scope| {
         let reader = scope.spawn(move || -> Result<(), osmpbf::Error> {
             match only {
@@ -151,7 +157,9 @@ where
         });
         let workers: Vec<_> = (0..threads)
             .map(|_| {
-                scope.spawn(|| {
+                let rx = std::sync::Arc::clone(&rx);
+                let (identity, map, reduce) = (&identity, &map, &reduce);
+                scope.spawn(move || {
                     let mut acc = identity();
                     let mut ways = Vec::new();
                     let mut failure = None;
@@ -180,6 +188,7 @@ where
                 })
             })
             .collect();
+        drop(rx);
         let mut total = identity();
         let mut ways = Vec::new();
         let mut failure = None;
@@ -237,6 +246,9 @@ struct Zone {
     searched: Ids,
     /// Nodes to search from on the next pass.
     frontier: Ids,
+    /// The roads met with a limit of this kind and no plate, by id: their
+    /// nodes and their figure.
+    boundaries: ById<(Vec<i64>, f64)>,
 }
 
 /// What a pass gives for one zone.
@@ -251,14 +263,6 @@ enum Search {
     Major,
     /// A road with a limit of the zone's kind: a boundary, not entered.
     Boundary,
-}
-
-/// The routable `highway` values of the preparation.
-fn routable(tags: &BTreeMap<String, String>) -> Option<&str> {
-    let h = tags.get("highway")?;
-    (crate::routing::ROUTABLE.contains(&h.as_str())
-        && tags.get("area").map(String::as_str) != Some("yes"))
-    .then_some(h.as_str())
 }
 
 /// The ways of each zone's component behind it, found from `seeds` (each
@@ -285,6 +289,7 @@ pub fn search(
                 found: ById::default(),
                 searched: Ids::default(),
                 frontier: Ids::default(),
+                boundaries: ById::default(),
             });
             zones.len() - 1
         };
@@ -335,10 +340,12 @@ pub fn search(
                             .tags()
                             .map(|(k, v)| (k.to_owned(), v.to_owned()))
                             .collect();
-                        let Some(highway) = routable(&tags) else {
+                        if !crate::routing::is_routable(&tags) {
                             continue;
-                        };
-                        let major = MAJOR.contains(&highway);
+                        }
+                        let major = tags
+                            .get("highway")
+                            .is_some_and(|h| MAJOR.contains(&h.as_str()));
                         let met = Road {
                             id: w.id(),
                             version: w.info().version().unwrap_or(0),
@@ -381,7 +388,11 @@ pub fn search(
         for (i, met, search) in finds {
             let z = &mut zones[i];
             match search {
-                Search::Boundary => {}
+                Search::Boundary => {
+                    if let Some(figure) = tags::read_limit(&met.tags, z.kind).limit() {
+                        z.boundaries.insert(met.id, (met.refs, figure));
+                    }
+                }
                 Search::Major => {
                     z.found.insert(met.id, (met, true));
                 }
@@ -434,15 +445,23 @@ pub fn search(
                 .iter()
                 .filter_map(|id| z.found.get(id).map(|(m, _)| m.clone()))
                 .collect();
-            let gates: HashSet<i64> = ways
+            let nodes: HashSet<i64> = ways.iter().flat_map(|w| w.refs.iter().copied()).collect();
+            let gates: HashSet<i64> = nodes
                 .iter()
-                .flat_map(|w| w.refs.iter().copied())
+                .copied()
                 .filter(|r| z.seed_nodes.contains(r))
                 .collect();
+            let boundary_max = z
+                .boundaries
+                .values()
+                .filter(|(refs, _)| refs.iter().any(|r| nodes.contains(r)))
+                .map(|(_, figure)| *figure)
+                .reduce(f64::max);
             out.push(Enclosed {
                 kind: z.kind,
                 ways,
                 gates,
+                boundary_max,
             });
         }
     }
@@ -494,6 +513,9 @@ pub struct Enclosed {
     pub ways: Vec<Road>,
     /// Their nodes shared with the zone's ways: where a trip comes in.
     pub gates: HashSet<i64>,
+    /// The highest figure of the limits without the plate that also lead
+    /// into them, if any: a vehicle under it may come in that way.
+    pub boundary_max: Option<f64>,
 }
 
 impl Enclosed {
@@ -502,7 +524,7 @@ impl Enclosed {
         self.ways.iter().flat_map(|w| w.refs.iter().copied())
     }
 
-    /// The roads whose every node lies within [`LOCAL_ACCESS_REACH_M`] of a
+    /// The roads whose every node lies within [`ENCLOSED_REACH_M`] of a
     /// gate along the roads, given the nodes' positions.
     #[must_use]
     pub fn within_reach(&self, coords: &HashMap<i64, Position>) -> Vec<&Road> {
@@ -532,7 +554,7 @@ impl Enclosed {
             }
             for (m, len) in edges.get(&n).into_iter().flatten() {
                 let next = d + len;
-                if next <= LOCAL_ACCESS_REACH_M && best.get(m).is_none_or(|b| next < *b) {
+                if next <= ENCLOSED_REACH_M && best.get(m).is_none_or(|b| next < *b) {
                     best.insert(*m, next);
                     queue.push((next, *m));
                 }
@@ -542,5 +564,78 @@ impl Enclosed {
             .iter()
             .filter(|w| w.refs.iter().all(|r| best.contains_key(r)))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn road(id: i64, refs: &[i64]) -> Road {
+        Road {
+            id,
+            version: 1,
+            timestamp: DateTime::UNIX_EPOCH,
+            refs: refs.to_vec(),
+            tags: BTreeMap::new(),
+        }
+    }
+
+    fn zone(found: &[(Road, bool)]) -> Zone {
+        Zone {
+            kind: RestrictionKind::MaxWeight,
+            seeds: Ids::default(),
+            seed_nodes: Ids::default(),
+            found: found.iter().map(|(r, m)| (r.id, (r.clone(), *m))).collect(),
+            searched: Ids::default(),
+            frontier: Ids::default(),
+            boundaries: ById::default(),
+        }
+    }
+
+    #[test]
+    fn roads_that_share_a_node_are_one_component() {
+        let z = zone(&[
+            (road(1, &[10, 11]), false),
+            (road(2, &[11, 12]), false),
+            (road(3, &[20, 21]), false),
+        ]);
+        let mut c: Vec<Vec<i64>> = components(&z)
+            .into_iter()
+            .map(|mut c| {
+                c.sort_unstable();
+                c
+            })
+            .collect();
+        c.sort();
+        assert_eq!(c, vec![vec![1, 2], vec![3]]);
+    }
+
+    #[test]
+    fn only_the_roads_within_reach_of_a_gate_are_marked() {
+        // A service road north from the gate, 111 m, then a track to 667 m.
+        let at = |north: f64| Position::new(45.0 + north, 1.0).unwrap();
+        let coords: HashMap<i64, Position> = [
+            (1, at(0.0)),
+            (2, at(0.000_5)),
+            (3, at(0.001)),
+            (4, at(0.004)),
+            (5, at(0.006)),
+        ]
+        .into_iter()
+        .collect();
+        let e = Enclosed {
+            kind: RestrictionKind::MaxWeight,
+            ways: vec![road(500, &[1, 2, 3]), road(800, &[3, 4, 5])],
+            gates: [1].into_iter().collect(),
+            boundary_max: None,
+        };
+        let reached: Vec<i64> = e.within_reach(&coords).iter().map(|r| r.id).collect();
+        assert_eq!(reached, [500], "the track ends 667 m from the gate");
+        let none = Enclosed {
+            gates: HashSet::new(),
+            ..e
+        };
+        assert!(none.within_reach(&coords).is_empty(), "no gate, no way in");
     }
 }

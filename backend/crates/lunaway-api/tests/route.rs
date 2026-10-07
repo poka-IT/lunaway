@@ -141,6 +141,7 @@ fn tunnel_record() -> (RestrictionRecord, Vec<Position>) {
         shape: polyline::encode(&points),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
         except_destination: false,
+        enclosed: false,
     };
     (r, points)
 }
@@ -378,13 +379,19 @@ async fn when_every_way_meets_the_bridge_no_route_is_given(pool: PgPool) {
     {
         let asked = asked.lock().unwrap();
         // The same ring again changes nothing: the API stops asking. The
-        // bridge lies 44 m from the origin and 132 m from the destination,
-        // so the trip is asked again with each search radius, two calls
-        // each.
+        // bridge lies 132 m from the destination, so the trip is asked
+        // again with each search radius for it, two calls each; the
+        // origin, 44 m from the bridge, counts as the vehicle's position
+        // (the request does not say otherwise) and is never moved.
         assert_eq!(asked.len(), 6);
-        assert!(asked[0]["locations"][0].get("radius").is_none());
-        assert_eq!(asked[2]["locations"][0]["radius"], 100);
+        assert!(asked[0]["locations"][1].get("radius").is_none());
+        assert_eq!(asked[2]["locations"][1]["radius"], 100);
         assert_eq!(asked[4]["locations"][1]["radius"], 150);
+        assert!(
+            asked[2..]
+                .iter()
+                .all(|b| b["locations"][0].get("radius").is_none())
+        );
     }
 
     // An engine that finds no way once the bridge is excluded.
@@ -429,7 +436,21 @@ fn weight_record(
         shape: polyline::encode(&points),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
         except_destination,
+        enclosed: false,
     };
+    assert!(r.check().is_ok());
+    (r, points)
+}
+
+/// A road enclosed behind a 3.5 t "sauf desserte" zone along `lat_lon`,
+/// as the graph build writes it.
+fn enclosed_record(
+    external_id: &str,
+    lat_lon: &[(f64, f64)],
+) -> (RestrictionRecord, Vec<Position>) {
+    let (mut r, points) = weight_record(external_id, lat_lon, true);
+    r.enclosed = true;
+    r.name = Some("Aire".to_owned());
     assert!(r.check().is_ok());
     (r, points)
 }
@@ -462,9 +483,11 @@ const DESTINATION_STREET: [(f64, f64); 4] = [
     (45.845_128, 1.286_312),
     (45.845_089, 1.286_339),
 ];
-/// A stretch of `ROUTE_AROUND` from 710 to 803 m, 1.2 km before the
-/// destination: farther from both stops than local access reaches.
-const CROSSED_STREET: [(f64, f64); 3] = [
+/// A stretch of `ROUTE_UNDER` from 61 to 122 m, far from both stops.
+const CROSSED_STREET: [(f64, f64); 2] = [(45.846_736_9, 1.285_104_6), (45.846_251_1, 1.285_480_5)];
+/// A stretch of `ROUTE_AROUND` from 710 to 803 m, 550 to 630 m from both
+/// stops in a straight line.
+const FAR_STREET: [(f64, f64); 3] = [
     (45.845_188, 1.278_259),
     (45.844_631, 1.278_525),
     (45.844_382, 1.278_618),
@@ -537,11 +560,19 @@ async fn a_weight_limit_without_the_plate_still_closes_the_destination(pool: PgP
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_campsite_behind_a_sauf_desserte_street_is_reached(pool: PgPool) {
     // The zone's street ends 56 m before the destination, which lies on a
-    // road without the plate: an aire on a service road behind a "sauf
-    // desserte" street, as at Goult (way 109270742, 113 m) or the Calvaire
-    // aire (way 198967532, 114 m). The engine reaches it; the check takes
-    // the street for local access.
-    seed_records(&pool, &[weight_record("way/1", &LAST_STREET, true)]).await;
+    // road without a limit only the zone leads to: an aire on a service
+    // road behind a "sauf desserte" street, as at Goult (way 109270742,
+    // 113 m) or the Calvaire aire (way 198967532, 114 m). The graph build
+    // marks that road (`enclosed`): the check takes the street for local
+    // access and says nothing of the service road, where no sign stands.
+    seed_records(
+        &pool,
+        &[
+            weight_record("way/1", &LAST_STREET, true),
+            enclosed_record("way/2", &DESTINATION_STREET),
+        ],
+    )
+    .await;
     let (url, asked) = engine(
         vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
         Duration::ZERO,
@@ -556,7 +587,9 @@ async fn a_campsite_behind_a_sauf_desserte_street_is_reached(pool: PgPool) {
         "the street leads to the destination: not through traffic"
     );
     assert_eq!(asked.lock().unwrap().len(), 1);
-    let w = &r["routes"][0]["warnings"][0];
+    let warnings = r["routes"][0]["warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "the enclosed road is never told: {body}");
+    let w = &warnings[0];
     assert_eq!(w["externalId"], "way/1");
     assert_eq!(w["kind"], "TOO_HEAVY");
     assert_eq!(w["severity"], "WARNING");
@@ -568,10 +601,25 @@ async fn a_campsite_behind_a_sauf_desserte_street_is_reached(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_sauf_desserte_street_short_of_an_open_destination_blocks(pool: PgPool) {
+    // The same street, the destination on a road the build did not find
+    // enclosed: the street is crossed to reach a place outside the zone.
+    seed_records(&pool, &[weight_record("way/1", &LAST_STREET, true)]).await;
+    let (url, _) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, MOVED_QUERY, heavy(4.5)).await;
+    assert_eq!(body["data"]["route"]["recalculations"], 1, "{body}");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_sauf_desserte_street_crossed_on_the_way_blocks_a_heavy_motorhome(pool: PgPool) {
     seed_records(&pool, &[weight_record("way/3", &CROSSED_STREET, true)]).await;
     let (url, asked) = engine(
-        vec![(200, osrm(&[ROUTE_AROUND])), (200, osrm(&[ROUTE_UNDER]))],
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
         Duration::ZERO,
     )
     .await;
@@ -584,10 +632,10 @@ async fn a_sauf_desserte_street_crossed_on_the_way_blocks_a_heavy_motorhome(pool
         "through traffic is not local access: the route goes round"
     );
     let answer: Value = serde_json::from_str(r["osrmJson"].as_str().unwrap()).unwrap();
-    assert_eq!(answer["routes"][0]["geometry"], ROUTE_UNDER);
+    assert_eq!(answer["routes"][0]["geometry"], ROUTE_AROUND);
     assert_eq!(asked.lock().unwrap().len(), 2);
     // Within the limit, nothing to say.
-    let (url, _) = engine(vec![(200, osrm(&[ROUTE_AROUND]))], Duration::ZERO).await;
+    let (url, _) = engine(vec![(200, osrm(&[ROUTE_UNDER]))], Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
     let (_, body) = gql(&app, ROUTE_QUERY, heavy(3.5)).await;
     assert_eq!(body["data"]["route"]["recalculations"], 0, "{body}");
@@ -754,7 +802,9 @@ async fn a_stop_behind_a_limit_beside_it_is_moved_to_a_road_the_vehicle_reaches(
     };
     let (url, asked) = engine(answers(), Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
-    let (_, body) = gql(&app, MOVED_QUERY, input(3.3)).await;
+    let mut planned = input(3.3);
+    planned["input"]["origin"]["vehiclePosition"] = false.into();
+    let (_, body) = gql(&app, MOVED_QUERY, planned).await;
     let r = &body["data"]["route"];
     assert_eq!(r["status"], "OK", "{body}");
     assert_eq!(
@@ -779,32 +829,66 @@ async fn a_stop_behind_a_limit_beside_it_is_moved_to_a_road_the_vehicle_reaches(
     }
 
     // The vehicle's own position during guidance stays where it is, with
-    // or without a course; the destination alone is looked for farther.
-    let (url, asked) = engine(answers(), Duration::ZERO).await;
-    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
-    let mut driving = input(3.3);
-    driving["input"]["origin"]["vehiclePosition"] = true.into();
-    let (_, body) = gql(&app, MOVED_QUERY, driving).await;
-    assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
-    assert_eq!(body["data"]["route"]["movedStops"], json!([]));
-    let asked = asked.lock().unwrap();
-    assert!(
-        asked[2]["locations"][0].get("radius").is_none(),
-        "never move the vehicle"
-    );
-    assert_eq!(asked[2]["locations"][1]["radius"], 100);
+    // or without a course, and so does an origin that does not say (an app
+    // before the field); the destination alone is looked for farther.
+    for driving in [Some(true), None] {
+        let (url, asked) = engine(answers(), Duration::ZERO).await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+        let mut request = input(3.3);
+        if let Some(v) = driving {
+            request["input"]["origin"]["vehiclePosition"] = v.into();
+        }
+        let (_, body) = gql(&app, MOVED_QUERY, request).await;
+        assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+        assert_eq!(body["data"]["route"]["movedStops"], json!([]));
+        let asked = asked.lock().unwrap();
+        assert!(
+            asked[2]["locations"][0].get("radius").is_none(),
+            "never move the vehicle ({driving:?})"
+        );
+        assert_eq!(asked[2]["locations"][1]["radius"], 100);
+    }
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_stop_is_not_moved_beyond_the_radius_asked(pool: PgPool) {
-    // The engine snaps the origin 180 m away at both radii: no road
-    // within, the route from there is not the trip asked for.
+async fn a_failure_while_moving_a_stop_gives_the_first_answer(pool: PgPool) {
+    // The engine fails on the trip asked again: the first answer, without
+    // a safe route and with its blocker, stands; not UNAVAILABLE.
     seed(&pool).await;
     let (url, asked) = engine(
         vec![
             (200, osrm(&[ROUTE_UNDER])),
             (200, osrm(&[ROUTE_UNDER])),
-            (200, around_snapped(180.0, 3.0)),
+            (
+                500,
+                json!({"code": "InternalError", "message": "the engine broke"}),
+            ),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, MOVED_QUERY, input(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "NO_SAFE_ROUTE", "{body}");
+    assert_eq!(r["blockers"][0]["externalId"], "way/52984577");
+    assert_eq!(
+        asked.lock().unwrap().len(),
+        3,
+        "after a failure, the next radius is not tried"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_stop_is_not_moved_beyond_the_radius_asked(pool: PgPool) {
+    // The engine snaps the destination 180 m away at both radii: no road
+    // within, the route to there is not the trip asked for.
+    seed(&pool).await;
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, around_snapped(2.0, 180.0)),
         ],
         Duration::ZERO,
     )
@@ -823,7 +907,7 @@ async fn a_stop_is_not_moved_beyond_the_radius_asked(pool: PgPool) {
 async fn a_limit_far_from_the_stops_moves_none_of_them(pool: PgPool) {
     // A weight limit without the plate 550 m from both stops, on the only
     // way: moving a stop would not help, the trip is not asked again.
-    seed_records(&pool, &[weight_record("way/3", &CROSSED_STREET, false)]).await;
+    seed_records(&pool, &[weight_record("way/3", &FAR_STREET, false)]).await;
     let (url, asked) = engine(vec![(200, osrm(&[ROUTE_AROUND]))], Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
     let (_, body) = gql(&app, MOVED_QUERY, heavy(4.5)).await;

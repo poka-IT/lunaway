@@ -583,6 +583,7 @@ mod tests {
             certainty: Certainty::Unknown,
             feature: RestrictionFeature::Barrier,
             except_destination: false,
+            enclosed: false,
         };
         let kept = |met| Kept {
             at: tarifa,

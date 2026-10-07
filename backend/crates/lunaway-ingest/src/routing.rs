@@ -149,7 +149,7 @@ fn tag_map<'a>(tags: impl Iterator<Item = (&'a str, &'a str)>) -> BTreeMap<Strin
     tags.map(|(k, v)| (k.to_owned(), v.to_owned())).collect()
 }
 
-fn is_routable(tags: &BTreeMap<String, String>) -> bool {
+pub(crate) fn is_routable(tags: &BTreeMap<String, String>) -> bool {
     tags.get("highway")
         .is_some_and(|h| ROUTABLE.contains(&h.as_str()))
         && tags.get("area").map(String::as_str) != Some("yes")
@@ -766,17 +766,19 @@ pub fn prepare(
                 shape: shape.clone(),
                 observed_at: observed,
                 except_destination: tags::limit_spares_local_access(&w.tags, *kind),
+                enclosed: false,
             });
         }
     }
-    extend_local_access(
+    records.extend(extend_local_access(
         &enclosed,
         &ways.kept,
         &extra,
         &coords,
         &mut rewrites,
         &mut report,
-    );
+        observed,
+    ));
     report.fixed_ways = rewrites.len() - report.fixed_nodes;
 
     for (id, at, tags) in &nodes.restricted {
@@ -796,6 +798,7 @@ pub fn prepare(
                 shape: shape.clone(),
                 observed_at: observed,
                 except_destination: tags::limit_spares_local_access(tags, kind),
+                enclosed: false,
             });
         }
     }
@@ -839,6 +842,7 @@ pub fn prepare(
                     &ways.kept,
                     &extra,
                 ),
+                enclosed: false,
             });
         }
     }
@@ -856,10 +860,14 @@ pub fn prepare(
 }
 
 /// Marks the roads enclosed behind each "sauf desserte" zone, within reach
-/// of it, with the zone's limit and plate ([`local_access`]): the lowest
-/// figure among the zone's ways that touch them and keep their plate once
-/// IGN is read. A component on which IGN puts a limit of the kind is left
-/// as it is: that limit is its own.
+/// of it, with the zone's limit and plate ([`local_access`]), and gives
+/// their restriction records, flagged `enclosed`. The figure is the lowest
+/// among the zone's ways at the gates that keep their plate once IGN is
+/// read. Left as it is: a component on which IGN puts a limit of the kind
+/// (that limit is its own), one a limit without the plate above that
+/// figure also leads into (a vehicle between the two may come in that way
+/// and pass through), and a road whose tags already carry an exception of
+/// the kind (a time, a vehicle class), which the plate would replace.
 fn extend_local_access(
     enclosed: &[local_access::Enclosed],
     kept: &[KeptWay],
@@ -867,8 +875,15 @@ fn extend_local_access(
     coords: &HashMap<i64, Position>,
     rewrites: &mut Vec<Rewrite>,
     report: &mut PrepareReport,
-) {
+    observed: DateTime<Utc>,
+) -> Vec<RestrictionRecord> {
     let kept_index: HashMap<i64, usize> = kept.iter().enumerate().map(|(i, w)| (w.id, i)).collect();
+    let mut by_node: HashMap<i64, Vec<usize>> = HashMap::new();
+    for (wi, w) in kept.iter().enumerate() {
+        for r in &w.refs {
+            by_node.entry(*r).or_default().push(wi);
+        }
+    }
     let ign_lowest = |wi: usize, kind: RestrictionKind| {
         extra.get(&wi).and_then(|m| m.get(&kind)).map(|(v, _)| *v)
     };
@@ -878,10 +893,12 @@ fn extend_local_access(
         .filter(|(_, r)| matches!(r.shape, RewriteShape::Way(_)))
         .map(|(i, r)| (r.id, i))
         .collect();
+    let mut marked: HashSet<i64> = HashSet::new();
+    let mut marks: HashMap<(i64, RestrictionKind), (&local_access::Road, f64)> = HashMap::new();
     for e in enclosed {
-        let Some(conditional) = e.kind.conditional_keys().first() else {
+        if e.kind.conditional_keys().is_empty() {
             continue;
-        };
+        }
         if e.ways.iter().any(|w| {
             kept_index
                 .get(&w.id)
@@ -890,51 +907,99 @@ fn extend_local_access(
             continue;
         }
         // The zone's ways at the gates, with the figure the graph gives them.
-        let value = kept
+        let mut at_gates: Vec<usize> = e
+            .gates
             .iter()
-            .enumerate()
-            .filter(|(_, w)| w.refs.iter().any(|r| e.gates.contains(r)))
-            .filter(|(wi, w)| {
-                tags::spares_local_access_with(&w.tags, e.kind, ign_lowest(*wi, e.kind))
+            .flat_map(|g| by_node.get(g).into_iter().flatten().copied())
+            .collect();
+        at_gates.sort_unstable();
+        at_gates.dedup();
+        let value = at_gates
+            .into_iter()
+            .filter(|wi| {
+                tags::spares_local_access_with(&kept[*wi].tags, e.kind, ign_lowest(*wi, e.kind))
             })
-            .filter_map(|(wi, w)| {
-                let osm = tags::read_limit(&w.tags, e.kind).limit()?;
+            .filter_map(|wi| {
+                let osm = tags::read_limit(&kept[wi].tags, e.kind).limit()?;
                 Some(ign_lowest(wi, e.kind).map_or(osm, |ign| osm.min(ign)))
             })
             .reduce(f64::min);
         let Some(value) = value else {
             continue;
         };
-        let reached = e.within_reach(coords);
+        if e.boundary_max.is_some_and(|b| b > value) {
+            continue;
+        }
+        let reached: Vec<&local_access::Road> = e
+            .within_reach(coords)
+            .into_iter()
+            .filter(|road| {
+                !e.kind
+                    .conditional_keys()
+                    .iter()
+                    .any(|k| road.tags.contains_key(*k))
+            })
+            .collect();
         if reached.is_empty() {
             continue;
         }
         report.local_access_areas += 1;
         for road in reached {
-            report.local_access_extended += 1;
-            let i = *by_way.entry(road.id).or_insert_with(|| {
-                rewrites.push(Rewrite {
-                    id: road.id,
-                    version: road.version.max(0) + 1,
-                    timestamp: road.timestamp + chrono::Duration::seconds(1),
-                    shape: RewriteShape::Way(road.refs.clone()),
-                    tags: road.tags.clone(),
-                });
-                rewrites.len() - 1
-            });
-            let tags = &mut rewrites[i].tags;
-            let figure = tags::canonical(value);
             // Two zones of different figures around one road: the lower.
-            let lower = tags
-                .get(e.kind.graph_key())
-                .and_then(|v| v.parse::<f64>().ok())
-                .is_none_or(|v| value < v);
-            if lower {
-                tags.insert(e.kind.graph_key().to_owned(), figure);
-            }
-            tags.insert((*conditional).to_owned(), tags::LOCAL_ACCESS.to_owned());
+            marks
+                .entry((road.id, e.kind))
+                .and_modify(|(_, v)| *v = v.min(value))
+                .or_insert((road, value));
         }
     }
+    let mut marks: Vec<_> = marks.into_iter().collect();
+    marks.sort_unstable_by_key(|((id, kind), _)| (*id, *kind));
+    let mut records = Vec::new();
+    for ((_, kind), (road, value)) in marks {
+        let Some(conditional) = kind.conditional_keys().first() else {
+            continue;
+        };
+        if marked.insert(road.id) {
+            report.local_access_extended += 1;
+        }
+        let i = *by_way.entry(road.id).or_insert_with(|| {
+            rewrites.push(Rewrite {
+                id: road.id,
+                version: road.version.max(0) + 1,
+                timestamp: road.timestamp + chrono::Duration::seconds(1),
+                shape: RewriteShape::Way(road.refs.clone()),
+                tags: road.tags.clone(),
+            });
+            rewrites.len() - 1
+        });
+        let tags = &mut rewrites[i].tags;
+        tags.insert(kind.graph_key().to_owned(), tags::canonical(value));
+        tags.insert((*conditional).to_owned(), tags::LOCAL_ACCESS.to_owned());
+        let points: Vec<Position> = road
+            .refs
+            .iter()
+            .filter_map(|r| coords.get(r).copied())
+            .collect();
+        if points.len() < 2 {
+            continue;
+        }
+        records.push(RestrictionRecord {
+            source: RestrictionSource::Osm,
+            external_id: format!("way/{}", road.id),
+            kind,
+            limit: Some(value),
+            certainty: Certainty::Known,
+            feature: RestrictionFeature::Road,
+            name: name_of(&road.tags),
+            other_value: None,
+            other_source: None,
+            shape: polyline::encode(&points),
+            observed_at: observed,
+            except_destination: true,
+            enclosed: true,
+        });
+    }
+    records
 }
 
 /// Whether an IGN section's limit of `kind` at `value` spares local access.
