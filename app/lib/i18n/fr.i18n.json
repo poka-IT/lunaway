@@ -3,7 +3,9 @@
   "nav": {
     "map": "Carte",
     "favorites": "Favoris",
-    "profile": "Profil"
+    "profile": "Profil",
+    "fold": "Réduire le menu",
+    "unfold": "Afficher le menu en entier"
   },
   "common": {
     "close": "Fermer",
@@ -181,7 +183,10 @@
     "serviceOff": "La localisation de l'appareil est désactivée. Activez-la dans les réglages rapides, puis réessayez.",
     "notAllowed": "Position non autorisée. La carte fonctionne sans elle.",
     "noFix": "Position introuvable pour l'instant. Réessayez à découvert ou dans un moment.",
-    "unsupported": "Cet appareil ne donne pas sa position."
+    "unsupported": "Cet appareil ne donne pas sa position.",
+    "browserDeniedTitle": "Position bloquée par le navigateur",
+    "browserDenied": "Le navigateur refuse votre position à Lunaway. Pour l'autoriser, cliquez sur l'icône à gauche de l'adresse du site (un cadenas ou des curseurs), mettez Position sur Autoriser, puis cliquez de nouveau sur le bouton de position.",
+    "browserNoFix": "Le navigateur n'a pas donné de position. Réessayez dans un moment ; sur un ordinateur, le Wi-Fi aide à la trouver."
   },
   "search": {
     "towns": "Communes",
@@ -255,8 +260,10 @@
     "coordinates": "Coordonnées",
     "copy": "Copier les coordonnées",
     "copyShort": "Copier",
+    "copyAs": "Copier en $format",
+    "copiesAs": "« Copier » copie : $format",
     "copied": "Copié : $text",
-    "otherFormats": "Autres formats",
+    "otherFormats": "Choisir le format copié",
     "formatDecimal": "Degrés décimaux",
     "formatDms": "Degrés, minutes, secondes",
     "formatGeo": "Lien geo:",
@@ -810,7 +817,7 @@
       "administration": "Une désignation par l'équipe de Lunaway"
     },
     "orInstead": "Ou bien $requirement",
-    "recoveryNone": "Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s'il est perdu, le compte l'est aussi.",
+    "recoveryNone": "Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s'il est perdu, le compte l'est aussi.",
     "recoveryCreate": "Faire ma carte de secours",
     "recoveryMade": "Faite le $date",
     "recoveryRemake": "Refaire",
@@ -841,8 +848,12 @@
   },
   "recovery": {
     "title": "Carte de secours",
-    "intro": "Un code qui ramène votre compte sur un nouvel appareil. Lunaway ne conserve pas ce code : personne ne pourra vous le redonner.",
-    "replaces": "Une nouvelle carte remplace la précédente, qui ne marchera plus.",
+    "intro": "Un code qui ramène votre compte sur un nouvel appareil. Lunaway n'en garde qu'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.",
+    "replaces": "Une nouvelle carte remplace la précédente : l'ancien code cessera de marcher.",
+    "replaceTitle": "Remplacer la carte du $date ?",
+    "replaceBody": "La nouvelle carte aura un autre code. Celui de la carte du $date cessera de marcher dès maintenant. Il ne peut pas être réaffiché : Lunaway n'en a gardé qu'une empreinte.",
+    "replaceKeep": "Garder l'ancienne",
+    "replaceConfirm": "Faire une nouvelle carte",
     "make": "Faire la carte",
     "codeLabel": "Votre code de secours",
     "shownOnce": "Ce code ne s'affiche qu'une fois. Notez-le, ou enregistrez l'image, avant de fermer.",
@@ -1203,7 +1214,7 @@
   "poi": {
     "category": {
       "groceries": "Courses",
-      "vending": "Distributeurs",
+      "vending": "Distributeurs alimentaires",
       "water": "Eau et vidange",
       "fuel": "Carburant et énergie",
       "health": "Santé",

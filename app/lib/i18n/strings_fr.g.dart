@@ -98,6 +98,8 @@ class _Translations$nav$fr extends Translations$nav$en {
 	@override String get map => 'Carte';
 	@override String get favorites => 'Favoris';
 	@override String get profile => 'Profil';
+	@override String get fold => 'Réduire le menu';
+	@override String get unfold => 'Afficher le menu en entier';
 }
 
 // Path: common
@@ -353,6 +355,9 @@ class _Translations$location$fr extends Translations$location$en {
 	@override String get notAllowed => 'Position non autorisée. La carte fonctionne sans elle.';
 	@override String get noFix => 'Position introuvable pour l\'instant. Réessayez à découvert ou dans un moment.';
 	@override String get unsupported => 'Cet appareil ne donne pas sa position.';
+	@override String get browserDeniedTitle => 'Position bloquée par le navigateur';
+	@override String get browserDenied => 'Le navigateur refuse votre position à Lunaway. Pour l\'autoriser, cliquez sur l\'icône à gauche de l\'adresse du site (un cadenas ou des curseurs), mettez Position sur Autoriser, puis cliquez de nouveau sur le bouton de position.';
+	@override String get browserNoFix => 'Le navigateur n\'a pas donné de position. Réessayez dans un moment ; sur un ordinateur, le Wi-Fi aide à la trouver.';
 }
 
 // Path: search
@@ -447,8 +452,10 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get coordinates => 'Coordonnées';
 	@override String get copy => 'Copier les coordonnées';
 	@override String get copyShort => 'Copier';
+	@override String copyAs({required Object format}) => 'Copier en ${format}';
+	@override String copiesAs({required Object format}) => '« Copier » copie : ${format}';
 	@override String copied({required Object text}) => 'Copié : ${text}';
-	@override String get otherFormats => 'Autres formats';
+	@override String get otherFormats => 'Choisir le format copié';
 	@override String get formatDecimal => 'Degrés décimaux';
 	@override String get formatDms => 'Degrés, minutes, secondes';
 	@override String get formatGeo => 'Lien geo:';
@@ -755,7 +762,7 @@ class _Translations$account$fr extends Translations$account$en {
 	@override String get levelTop => 'Vous êtes au niveau le plus haut.';
 	@override late final _Translations$account$requirement$fr requirement = _Translations$account$requirement$fr._(_root);
 	@override String orInstead({required Object requirement}) => 'Ou bien ${requirement}';
-	@override String get recoveryNone => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.';
+	@override String get recoveryNone => 'Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.';
 	@override String get recoveryCreate => 'Faire ma carte de secours';
 	@override String recoveryMade({required Object date}) => 'Faite le ${date}';
 	@override String get recoveryRemake => 'Refaire';
@@ -793,8 +800,12 @@ class _Translations$recovery$fr extends Translations$recovery$en {
 
 	// Translations
 	@override String get title => 'Carte de secours';
-	@override String get intro => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway ne conserve pas ce code : personne ne pourra vous le redonner.';
-	@override String get replaces => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.';
+	@override String get intro => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.';
+	@override String get replaces => 'Une nouvelle carte remplace la précédente : l\'ancien code cessera de marcher.';
+	@override String replaceTitle({required Object date}) => 'Remplacer la carte du ${date} ?';
+	@override String replaceBody({required Object date}) => 'La nouvelle carte aura un autre code. Celui de la carte du ${date} cessera de marcher dès maintenant. Il ne peut pas être réaffiché : Lunaway n\'en a gardé qu\'une empreinte.';
+	@override String get replaceKeep => 'Garder l\'ancienne';
+	@override String get replaceConfirm => 'Faire une nouvelle carte';
 	@override String get make => 'Faire la carte';
 	@override String get codeLabel => 'Votre code de secours';
 	@override String get shownOnce => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.';
@@ -1988,7 +1999,7 @@ class _Translations$poi$category$fr extends Translations$poi$category$en {
 
 	// Translations
 	@override String get groceries => 'Courses';
-	@override String get vending => 'Distributeurs';
+	@override String get vending => 'Distributeurs alimentaires';
 	@override String get water => 'Eau et vidange';
 	@override String get fuel => 'Carburant et énergie';
 	@override String get health => 'Santé';
@@ -2201,6 +2212,8 @@ extension on TranslationsFr {
 			'nav.map' => 'Carte',
 			'nav.favorites' => 'Favoris',
 			'nav.profile' => 'Profil',
+			'nav.fold' => 'Réduire le menu',
+			'nav.unfold' => 'Afficher le menu en entier',
 			'common.close' => 'Fermer',
 			'common.cancel' => 'Annuler',
 			'common.retry' => 'Réessayer',
@@ -2333,6 +2346,9 @@ extension on TranslationsFr {
 			'location.notAllowed' => 'Position non autorisée. La carte fonctionne sans elle.',
 			'location.noFix' => 'Position introuvable pour l\'instant. Réessayez à découvert ou dans un moment.',
 			'location.unsupported' => 'Cet appareil ne donne pas sa position.',
+			'location.browserDeniedTitle' => 'Position bloquée par le navigateur',
+			'location.browserDenied' => 'Le navigateur refuse votre position à Lunaway. Pour l\'autoriser, cliquez sur l\'icône à gauche de l\'adresse du site (un cadenas ou des curseurs), mettez Position sur Autoriser, puis cliquez de nouveau sur le bouton de position.',
+			'location.browserNoFix' => 'Le navigateur n\'a pas donné de position. Réessayez dans un moment ; sur un ordinateur, le Wi-Fi aide à la trouver.',
 			'search.towns' => 'Communes',
 			'search.places' => 'Lieux',
 			'search.noResult' => ({required Object query}) => 'Aucun lieu ni aucune commune ne correspond à « ${query} ».',
@@ -2387,8 +2403,10 @@ extension on TranslationsFr {
 			'place.coordinates' => 'Coordonnées',
 			'place.copy' => 'Copier les coordonnées',
 			'place.copyShort' => 'Copier',
+			'place.copyAs' => ({required Object format}) => 'Copier en ${format}',
+			'place.copiesAs' => ({required Object format}) => '« Copier » copie : ${format}',
 			'place.copied' => ({required Object text}) => 'Copié : ${text}',
-			'place.otherFormats' => 'Autres formats',
+			'place.otherFormats' => 'Choisir le format copié',
 			'place.formatDecimal' => 'Degrés décimaux',
 			'place.formatDms' => 'Degrés, minutes, secondes',
 			'place.formatGeo' => 'Lien geo:',
@@ -2702,6 +2720,8 @@ extension on TranslationsFr {
 			'navigation.settings.voice' => 'Instructions vocales',
 			'navigation.settings.voiceHint' => 'Avec la voix du téléphone',
 			'navigation.settings.units' => 'Distances',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.settings.metric' => 'Kilomètres',
 			'navigation.settings.imperial' => 'Miles',
 			'navigation.settings.speedLimit' => 'Limite de vitesse',
@@ -2709,8 +2729,6 @@ extension on TranslationsFr {
 			'navigation.settings.speedSound' => 'Alertes de vitesse parlées',
 			'navigation.settings.speedSoundHint' => 'Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls.',
 			'list.title' => 'Lieux à proximité',
-			_ => null,
-		} ?? switch (path) {
 			'list.empty' => 'Aucun lieu par ici avec ces filtres',
 			'list.emptyHint' => 'Déplacez la carte, dézoomez ou assouplissez les filtres.',
 			'list.downloading' => 'Les lieux arrivent',
@@ -2845,7 +2863,7 @@ extension on TranslationsFr {
 			'account.requirement.nomination' => 'Une nomination par la modération',
 			'account.requirement.administration' => 'Une désignation par l\'équipe de Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Ou bien ${requirement}',
-			'account.recoveryNone' => 'Pas encore de carte de secours. Sans elle, ce compte reste sur ce téléphone : s\'il est perdu, le compte l\'est aussi.',
+			'account.recoveryNone' => 'Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryCreate' => 'Faire ma carte de secours',
 			'account.recoveryMade' => ({required Object date}) => 'Faite le ${date}',
 			'account.recoveryRemake' => 'Refaire',
@@ -2868,8 +2886,12 @@ extension on TranslationsFr {
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris sont maintenant gardées avec votre compte.',
 			'recovery.title' => 'Carte de secours',
-			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway ne conserve pas ce code : personne ne pourra vous le redonner.',
-			'recovery.replaces' => 'Une nouvelle carte remplace la précédente, qui ne marchera plus.',
+			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.',
+			'recovery.replaces' => 'Une nouvelle carte remplace la précédente : l\'ancien code cessera de marcher.',
+			'recovery.replaceTitle' => ({required Object date}) => 'Remplacer la carte du ${date} ?',
+			'recovery.replaceBody' => ({required Object date}) => 'La nouvelle carte aura un autre code. Celui de la carte du ${date} cessera de marcher dès maintenant. Il ne peut pas être réaffiché : Lunaway n\'en a gardé qu\'une empreinte.',
+			'recovery.replaceKeep' => 'Garder l\'ancienne',
+			'recovery.replaceConfirm' => 'Faire une nouvelle carte',
 			'recovery.make' => 'Faire la carte',
 			'recovery.codeLabel' => 'Votre code de secours',
 			'recovery.shownOnce' => 'Ce code ne s\'affiche qu\'une fois. Notez-le, ou enregistrez l\'image, avant de fermer.',
@@ -3166,7 +3188,7 @@ extension on TranslationsFr {
 			'favoritesSync.body' => 'Vos listes seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.',
 			'favoritesSync.confirm' => 'Créer le compte et synchroniser',
 			'poi.category.groceries' => 'Courses',
-			'poi.category.vending' => 'Distributeurs',
+			'poi.category.vending' => 'Distributeurs alimentaires',
 			'poi.category.water' => 'Eau et vidange',
 			'poi.category.fuel' => 'Carburant et énergie',
 			'poi.category.health' => 'Santé',
@@ -3212,6 +3234,8 @@ extension on TranslationsFr {
 			'poi.maybeClosedSince' => ({required Object date}) => 'Indiqué fermé par FINESS depuis le ${date} : il a peut-être fermé définitivement.',
 			'poi.seasonal' => 'Saisonnier : il peut être fermé en hiver.',
 			'poi.fee' => 'Payant',
+			_ => null,
+		} ?? switch (path) {
 			'poi.free' => 'Gratuit',
 			'poi.stillThereTitle' => 'Toujours là ?',
 			'poi.stillThereHint' => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.',
@@ -3223,8 +3247,6 @@ extension on TranslationsFr {
 			'poi.thanksGone' => 'Merci, c\'est noté : n\'existe plus.',
 			'poi.fuelPrices' => 'Prix des carburants',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
-			_ => null,
-		} ?? switch (path) {
 			'poi.priceUpdated' => ({required Object when}) => 'Prix mis à jour ${when}',
 			'poi.feedRead' => ({required Object when}) => 'Prix relevés ${when}',
 			'poi.shortageTemporary' => 'En rupture pour l\'instant',

@@ -40,24 +40,29 @@ abstract final class LunaType {
 
   /// The scale, a notch above the Material defaults for the text read most:
   /// the app is read at arm's length, often by older eyes. Every size still
-  /// follows the system text size, since widgets read these styles.
-  static TextTheme textTheme(Color onSurface) => TextTheme(
-    displayLarge: serif(44, 360, height: 1.08),
-    displayMedium: serif(36, 370, height: 1.1),
-    displaySmall: serif(30, 390, height: 1.12),
-    headlineLarge: serif(28, 400),
-    headlineMedium: serif(25, 420),
-    headlineSmall: serif(22.5, 440, height: 1.2),
-    titleLarge: serif(20, 460, height: 1.22),
-    titleMedium: _sans(17, FontWeight.w600, height: 1.3),
-    titleSmall: _sans(15, FontWeight.w600, height: 1.3),
-    bodyLarge: _sans(17, FontWeight.w400, height: 1.45, spacing: 0.1),
-    bodyMedium: _sans(15.5, FontWeight.w400, height: 1.42, spacing: 0.1),
-    bodySmall: _sans(13.5, FontWeight.w400, height: 1.38, spacing: 0.1),
-    labelLarge: _sans(15.5, FontWeight.w600, height: 1.25, spacing: 0.1),
-    labelMedium: _sans(13.5, FontWeight.w600, height: 1.25, spacing: 0.15),
-    labelSmall: _sans(12, FontWeight.w600, height: 1.25, spacing: 0.3),
-  ).apply(bodyColor: onSurface, displayColor: onSurface);
+  /// follows the system text size, since widgets read these styles. [dense]
+  /// is the desktop scale, a point smaller: read at a desk, closer to the
+  /// eyes, and still above the Material sizes.
+  static TextTheme textTheme(Color onSurface, {bool dense = false}) {
+    double size(double touch, double desk) => dense ? desk : touch;
+    return TextTheme(
+      displayLarge: serif(44, 360, height: 1.08),
+      displayMedium: serif(36, 370, height: 1.1),
+      displaySmall: serif(30, 390, height: 1.12),
+      headlineLarge: serif(size(28, 26), 400),
+      headlineMedium: serif(size(25, 23), 420),
+      headlineSmall: serif(size(22.5, 21), 440, height: 1.2),
+      titleLarge: serif(size(20, 19), 460, height: 1.22),
+      titleMedium: _sans(size(17, 16), FontWeight.w600, height: 1.3),
+      titleSmall: _sans(size(15, 14.5), FontWeight.w600, height: 1.3),
+      bodyLarge: _sans(size(17, 16), FontWeight.w400, height: 1.45, spacing: 0.1),
+      bodyMedium: _sans(size(15.5, 14.5), FontWeight.w400, height: 1.42, spacing: 0.1),
+      bodySmall: _sans(size(13.5, 13), FontWeight.w400, height: 1.38, spacing: 0.1),
+      labelLarge: _sans(size(15.5, 14.5), FontWeight.w600, height: 1.25, spacing: 0.1),
+      labelMedium: _sans(size(13.5, 13), FontWeight.w600, height: 1.25, spacing: 0.15),
+      labelSmall: _sans(12, FontWeight.w600, height: 1.25, spacing: 0.3),
+    ).apply(bodyColor: onSurface, displayColor: onSurface);
+  }
 
   /// A prominent number (a distance, a height, a count) in Fraunces, whose
   /// figures are lining by default.

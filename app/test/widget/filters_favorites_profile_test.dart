@@ -51,18 +51,23 @@ void main() {
       await tester.tap(find.text('Filtres'));
       await settleShort(tester);
       expect(find.text('Afficher 5 lieux'), findsOneWidget);
-      // The family card, before the services section of the same name (the
-      // map's "Services" chip of the shops and services stays behind).
-      await tester.tap(
-        find.descendant(of: find.byType(FiltersPanel), matching: find.text('Services')).first,
-      );
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      // The family card, by its hint: below the night, the section named
+      // "Services" and the vehicle, it is built once scrolled to.
+      final services = find.text('Eau et vidange, pas de nuit sur place');
+      await tester.scrollUntilVisible(services, 200, scrollable: list);
+      await tester.pump();
+      await tester.tap(services);
       await settleShort(tester);
       expect(find.text('Afficher 1 lieu'), findsOneWidget);
       final allowed = find.descendant(
         of: find.byType(FiltersPanel),
         matching: find.text('Nuit autorisée'),
       );
-      await tester.ensureVisible(allowed);
+      // The night comes first in the sheet.
+      await tester.scrollUntilVisible(allowed, -200, scrollable: list);
       await tester.pump();
       await tester.tap(allowed);
       await settleShort(tester);
@@ -70,11 +75,7 @@ void main() {
       await tester.tap(find.text('Tout effacer'));
       await settleShort(tester);
       expect(find.text('Afficher 5 lieux'), findsOneWidget);
-      // Back to the top of the sheet, where the families are.
-      await tester.drag(
-        find.descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable)).first,
-        const Offset(0, 2000),
-      );
+      await tester.scrollUntilVisible(find.text('Campings et accueils'), 200, scrollable: list);
       await settleShort(tester);
       await tester.tap(find.text('Campings et accueils'));
       await settleShort(tester);

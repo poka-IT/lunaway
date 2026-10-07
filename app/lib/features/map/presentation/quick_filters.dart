@@ -1,9 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/filters_sheet.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_chips.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -17,16 +19,33 @@ import 'package:lunaway/shared/widgets/night_badge.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 
 /// The one row of chips under the search: the button to the full filters
-/// with the count of those active, the filters a traveller flips most, then
-/// the six categories of shops and services around (one at a time), and
-/// the vehicle's height last. One row rather than two leaves the map the
-/// room; it scrolls sideways and fades at its edges, so a chip cut by the
-/// screen edge reads as "more this way" rather than as a mistake.
+/// with the count of those active, then what matters most on the road
+/// first ([order]). One row rather than two leaves the map the room; it
+/// scrolls sideways and fades at its edges, so a chip cut by the screen
+/// edge reads as "more this way" rather than as a mistake.
 class QuickFilters extends ConsumerWidget {
   const new({this.padding = EdgeInsets.zero, this.floating = true, super.key});
 
   /// The height the row takes, for the map's top padding.
-  static const double height = 48 + Space.s * 2;
+  static double heightOf(BuildContext context) => controlHeight(context, 48) + Space.s * 2;
+
+  /// The chips after "Filters", by what a motorhome needs on the road: fuel
+  /// first (a heavy van burns 10 to 15 l per 100 km, and not every station
+  /// takes its height), then water and the dump station (every two or three
+  /// days), then the night (every evening), the vehicle's height (a barrier
+  /// ends a detour), the price, then food, health and services, and the
+  /// vending machines last.
+  static const List<QuickChip> order = [
+    PoiChip(PoiCategory.fuel),
+    PoiChip(PoiCategory.water),
+    PlaceChip.night,
+    PlaceChip.vehicle,
+    PlaceChip.free,
+    PoiChip(PoiCategory.groceries),
+    PoiChip(PoiCategory.health),
+    PoiChip(PoiCategory.services),
+    PoiChip(PoiCategory.vending),
+  ];
 
   final EdgeInsets padding;
 
@@ -48,34 +67,22 @@ class QuickFilters extends ConsumerWidget {
       await settings.setFilter(next);
     }
 
-    final chips = <Widget>[
-      MapChip(
-        icon: AppIcons.filters,
-        label: t.map.filters,
-        count: filter.activeCount,
-        semanticsLabel: filter.activeCount == 0 ? null : t.filters.active(n: filter.activeCount),
-        floating: floating,
-        onTap: () => showFiltersSheet(context),
-      ),
-      MapChip(
+    Widget place(PlaceChip chip) => switch (chip) {
+      .night => MapChip(
         leading: const NightBadge(OvernightStatus.allowed),
         label: t.filters.nightPossible,
         selected: filter.nightOk,
         floating: floating,
         onTap: () => apply(filter.withNightOk(on: !filter.nightOk)),
       ),
-      MapChip(
+      .free => MapChip(
         icon: AppIcons.free,
         label: t.filters.freeOnly,
         selected: filter.freeOnly,
         floating: floating,
         onTap: () => apply(filter.copyWith(freeOnly: !filter.freeOnly)),
       ),
-      _PoiGroup(
-        label: t.poi.chipsLabel,
-        chips: poiCategoryChips(context, ref, floating: floating),
-      ),
-      MapChip(
+      .vehicle => MapChip(
         icon: AppIcons.vehicleFits,
         label: vehicle?.heightM == null
             ? t.filters.myVehicleFits
@@ -94,6 +101,30 @@ class QuickFilters extends ConsumerWidget {
           await apply(filter.copyWith(fitsMyVehicle: !filter.fitsMyVehicle));
         },
       ),
+    };
+
+    final chips = <Widget>[
+      MapChip(
+        icon: AppIcons.filters,
+        label: t.map.filters,
+        count: filter.activeCount,
+        semanticsLabel: filter.activeCount == 0 ? null : t.filters.active(n: filter.activeCount),
+        floating: floating,
+        onTap: () => showFiltersSheet(context),
+      ),
+      // The shops and services next to one another form one group for a
+      // screen reader, which says what they are.
+      for (final group in _runs(order))
+        if (group.first is PoiChip)
+          _PoiGroup(
+            label: t.poi.chipsLabel,
+            chips: [
+              for (final c in group)
+                ...poiCategoryChip(context, ref, (c as PoiChip).category, floating: floating),
+            ],
+          )
+        else
+          for (final c in group) place(c as PlaceChip),
     ];
     return ShaderMask(
       shaderCallback: (rect) => LinearGradient(
@@ -101,11 +132,9 @@ class QuickFilters extends ConsumerWidget {
         stops: [0, Space.s / rect.width, 1 - Space.xxl / rect.width, 1],
       ).createShader(rect),
       blendMode: BlendMode.dstIn,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      child: SidewaysRow(
         // Room for the chips' shadows inside the faded strip.
         padding: padding.add(const EdgeInsets.symmetric(vertical: Space.s)),
-        clipBehavior: Clip.none,
         child: Row(
           children: [
             for (final c in chips)
@@ -122,6 +151,96 @@ class QuickFilters extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// A row that scrolls sideways under a finger, and under a mouse too: the
+/// wheel, which turns vertically, moves it sideways, and a drag with the
+/// button held moves it as a finger would. Without both, the chips past the
+/// edge of a desktop pane were out of reach of a mouse.
+class SidewaysRow extends StatefulWidget {
+  const new({required this.child, this.padding = EdgeInsets.zero, super.key});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  State<SidewaysRow> createState() => _SidewaysRowState();
+}
+
+class _SidewaysRowState extends State<SidewaysRow> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_scroll.hasClients) return;
+    // A trackpad's sideways swipe is the row's own; only the vertical
+    // turn of a wheel is turned sideways.
+    final delta = event.scrollDelta.dy;
+    if (delta == 0 || event.scrollDelta.dx != 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      final position = _scroll.position;
+      _scroll.jumpTo(
+        (position.pixels + delta).clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerSignal: _onSignal,
+    child: ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context)
+          .copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+      child: SingleChildScrollView(
+        controller: _scroll,
+        scrollDirection: Axis.horizontal,
+        padding: widget.padding,
+        clipBehavior: Clip.none,
+        child: widget.child,
+      ),
+    ),
+  );
+}
+
+/// A chip of the row after "Filters": a filter of the places, or a category
+/// of the shops and services around.
+sealed class QuickChip {
+  const new();
+}
+
+/// A filter of the places themselves.
+enum PlaceChip implements QuickChip { night, vehicle, free }
+
+/// A category of the shops and services around.
+@immutable
+final class PoiChip extends QuickChip {
+  const new(this.category);
+
+  final PoiCategory category;
+
+  @override
+  bool operator ==(Object other) => other is PoiChip && other.category == category;
+
+  @override
+  int get hashCode => category.hashCode;
+}
+
+/// [chips] cut into runs of the same kind, in order.
+List<List<QuickChip>> _runs(List<QuickChip> chips) {
+  final runs = <List<QuickChip>>[];
+  for (final c in chips) {
+    if (runs.isNotEmpty && (runs.last.last is PoiChip) == (c is PoiChip)) {
+      runs.last.add(c);
+    } else {
+      runs.add([c]);
+    }
+  }
+  return runs;
 }
 
 /// The categories of shops and services in the row, one group for a screen
@@ -196,8 +315,9 @@ class MapChip extends StatelessWidget {
         excludeSemantics: semanticsLabel != null,
         child: AnimatedContainer(
           duration: Motion.of(context, Motion.short),
-          // 48 dp: the smallest touch target of the design rules.
-          height: 48,
+          // 48 dp: the smallest touch target of the design rules; 40 with a
+          // mouse, which aims finer.
+          height: controlHeight(context, 48),
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(LunaTokens.radiusPill),

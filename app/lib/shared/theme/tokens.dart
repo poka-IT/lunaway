@@ -21,6 +21,13 @@ abstract final class Space {
   static const double giant = 48;
 }
 
+/// A control's height under the theme's density: [touch] where fingers
+/// aim, 8 less with a mouse and a keyboard (the compact visual density of
+/// the desktop look). For the controls the app draws itself (the search
+/// pill, the chips, the rail); Material's own follow the density already.
+double controlHeight(BuildContext context, double touch) =>
+    touch + Theme.of(context).visualDensity.baseSizeAdjustment.dy;
+
 /// How an overnight status is drawn: the moon phase on its disc, and the
 /// tone of its label.
 @immutable

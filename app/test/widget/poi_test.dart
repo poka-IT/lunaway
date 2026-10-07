@@ -45,8 +45,8 @@ void main() {
       expect(find.text('Santé'), findsOneWidget);
       expect(map.lastProps!.pois!.category, isNull, reason: 'none on by default');
 
-      await tester.ensureVisible(find.text('Distributeurs'));
-      await tester.tap(find.text('Distributeurs'));
+      await tester.ensureVisible(find.text('Distributeurs alimentaires'));
+      await tester.tap(find.text('Distributeurs alimentaires'));
       await settleShort(tester);
       expect(map.lastProps!.pois!.category, PoiCategory.vending);
       await tester.ensureVisible(find.text('Santé'));

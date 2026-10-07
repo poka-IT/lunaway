@@ -527,6 +527,14 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   }
 
   @override
+  Future<void> showPosition(LatLng position, {double? accuracy}) async {
+    await _call('return window.lunaway.showPosition(lat, lon);', {
+      'lat': position.lat,
+      'lon': position.lon,
+    });
+  }
+
+  @override
   void dispose() {
     _view.dispose();
     super.dispose();

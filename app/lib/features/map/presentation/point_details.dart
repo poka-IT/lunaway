@@ -139,7 +139,7 @@ class PointActionBar extends ConsumerWidget {
           const SizedBox(width: Space.s),
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: () => copyCoordinates(context, position),
+              onPressed: () => copyCoordinates(context, ref, position),
               icon: const Icon(AppIcons.copy),
               label: Text(t.place.copyShort, maxLines: 2, textAlign: TextAlign.center),
               style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),

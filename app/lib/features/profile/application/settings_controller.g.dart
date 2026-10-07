@@ -141,7 +141,7 @@ final class SettingsProvider extends $NotifierProvider<Settings, AppSettings> {
   }
 }
 
-String _$settingsHash() => r'3bfd3482e311ff4e19dfe84d400fc38fb43d983a';
+String _$settingsHash() => r'45bb3844930d5265a43fb1c3783fab97a6c3ae36';
 
 /// The user's settings: the state changes at once, the write follows.
 // keepAlive: the settings shape every screen for the whole run.

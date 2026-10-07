@@ -34,7 +34,12 @@ screen never builds its own bar or rail.
 Many users are 55 to 75 and read the app at arm's length in a van cab. So:
 
 - touch targets of 48 dp at least, text from the theme's text styles (they
-  follow the system font scale), never a fixed font size in a widget;
+  follow the system font scale), never a fixed font size in a widget. With a
+  mouse in a medium or expanded window (`pointerDensity`,
+  `app/lib/core/layout/pointer_input.dart`) the theme is a notch denser:
+  compact visual density, text a point smaller. A control the app draws
+  itself takes its height from `controlHeight(context, touch)`, never a bare
+  number, so it follows;
 - contrast from the colour scheme roles (`onSurface`, `onPrimaryContainer`),
   never a hard-coded grey;
 - one primary action per screen, named with a verb;
