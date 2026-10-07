@@ -1,3 +1,4 @@
+import 'package:flutter/animation.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
@@ -6,6 +7,7 @@ import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// What each layer of the map draws, for the pointer ([nearestHit]): taken
@@ -13,55 +15,82 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// sizes of [MapLook] and [PoiMapStyle]), so a change of look moves the
 /// targets with it.
 final Map<String, HitShape> mapHitShapes = () {
-  final pin = _pin(const PinGeometry(selected: false));
   const selected = PinGeometry(selected: true);
-  final dot = _sum(_stops(MapLook.dotRadius), _stops(MapLook.dotStrokeWidth));
   // The marker of a long-pressed point (`pointMarkerSize`): a drop of
   // radius 14 whose head stands 17 px under the image's top.
   const marker = HitShape(radius: FixedHit(14), lift: FixedHit(44 - 17), priority: 0, inert: true);
-  final poiPin = _poiPin(const PoiPinGeometry(), priority: 4);
   return {
+    // A selection stands over the pin it was chosen from, drawn by another
+    // layer: its tip, where the place's dot is (one of the tiles), is part
+    // of it, so the pointer there finds the selection and not the pin
+    // under it. A tap there opens what is already open. The selection
+    // keeps its own look under the mouse: only the ring is added.
     MapStyle.selectionPinLayer: HitShape(
       radius: FixedHit(selected.outer),
       lift: FixedHit(selected.tipDrop),
+      anchor: _dot,
       priority: 0,
     ),
     '${MapStyle.selectionPinLayer}/point': marker,
-    PoiMapStyle.selectionLayerId: _poiPin(const PoiPinGeometry(selected: true), priority: 0),
-    MapStyle.placesLayer: pin,
-    PlaceTiles.pinsLayer: pin,
+    PoiMapStyle.selectionLayerId: _poiPin(
+      const PoiPinGeometry(selected: true),
+      priority: 0,
+      selection: true,
+    ),
+    // The device's places: no dot under their pins.
+    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false),
+    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
       priority: 2,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: StopsHit('zoom', dot), priority: 3),
-    PlaceTiles.dotsLayer: HitShape(radius: StopsHit('zoom', dot), priority: 3),
-    PoiMapStyle.pinsLayerId: poiPin,
+    PlaceTiles.pinDotsLayer: HitShape(radius: _dot, priority: 3),
+    PlaceTiles.dotsLayer: HitShape(radius: _dot, priority: 3),
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4),
     PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
 }();
 
-/// A place's pin, at the size [MapLook.pinSize] draws it by the zoom.
-HitShape _pin(PinGeometry g) {
+/// A place's dot with its rim, by the zoom: the dot of the low zooms, the
+/// dot under each pin of the tiles, and the hover's ring under every pin.
+final StopsHit _dot = StopsHit(
+  'zoom',
+  _sum(_stops(MapLook.dotRadius), _stops(MapLook.dotStrokeWidth)),
+);
+
+/// A place's pin, at the size [MapLook.pinSize] draws it by the zoom. With
+/// [dotUnder] (the tiles' pins), the dot drawn under its tip from the same
+/// feature is part of it ([HitShape.anchor]); without, the hover's ring
+/// takes that dot's size ([HitShape.ring]) and the target stays the head.
+HitShape _pin(PinGeometry g, {required bool dotUnder}) {
   final size = _stops(MapLook.pinSize(1));
   return HitShape(
     radius: StopsHit('zoom', [for (final (z, s) in size) (z, g.outer * s)]),
     lift: StopsHit('zoom', [for (final (z, s) in size) (z, g.tipDrop * s)]),
+    anchor: dotUnder ? _dot : null,
+    ring: dotUnder ? null : _dot,
+    icon: StopsHit('zoom', size),
     priority: 1,
   );
 }
 
 /// A point's pin: a rounded square on a short tail, anchored at the bottom
-/// of its image, which leaves [PoiPinGeometry.margin] under the tip.
-HitShape _poiPin(PoiPinGeometry g, {required int priority}) {
+/// of its image, which leaves [PoiPinGeometry.margin] under the tip. No dot
+/// is drawn there: the hover's ring takes a place's dot size, so it is the
+/// same under every pin. A [selection] stands over the point's own pin and
+/// takes in its tip, as a place's does.
+HitShape _poiPin(PoiPinGeometry g, {required int priority, bool selection = false}) {
   final half = g.side / 2 + g.rim;
   return HitShape(
     radius: FixedHit(half),
     lift: FixedHit(g.margin + g.tail + half),
+    anchor: selection ? _dot : null,
+    ring: selection ? null : _dot,
+    icon: selection ? null : const FixedHit(1),
     priority: priority,
   );
 }
@@ -135,16 +164,29 @@ String hitLayerOf(Map<Object?, Object?> properties, {required bool pin}) {
 
 /// What the map pages read (`web/lunaway_maplibre.js`, `web/premap.js`,
 /// `assets/map/lunaway_map.js`): the tolerances, the shapes of every layer
-/// a pointer picks from, the route map's too, and the ring the hover draws
-/// around the shape under the mouse.
+/// a pointer picks from, the route map's too, and the look of the hover:
+/// its ring around the point under the mouse, how much a pin grows, and the
+/// theme's timing for both.
 Map<String, Object?> hitShapesJson() => {
   'tolerance': {for (final k in PointerKind.values) k.name: hitTolerance(k)},
   'ring': {
     'color': '#${(LunaTokens.selection.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
-    'width': 2.5,
-    'gap': 2.5,
+    'width': MapLook.hoverRingWidth,
+    'gap': MapLook.hoverRingGap,
+    'grow': MapLook.hoverGrow,
+    'ms': Motion.short.inMilliseconds,
+    'enter': _bezier(Motion.enter),
+    'exit': _bezier(Motion.exit),
   },
   'shapes': {
     for (final e in {...mapHitShapes, ...routeHitShapes}.entries) e.key: e.value.toJson(),
   },
+};
+
+/// A cubic curve as CSS writes it (`cubic-bezier`). The theme's curves are
+/// all cubic; another kind would have no CSS twin, and fails the pages'
+/// test rather than ease otherwise on the map.
+List<double> _bezier(Curve curve) => switch (curve) {
+  Cubic(:final a, :final b, :final c, :final d) => [a, b, c, d],
+  _ => throw StateError('$curve has no cubic-bezier form'),
 };

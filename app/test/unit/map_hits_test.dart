@@ -9,6 +9,7 @@ import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/theme/map_look.dart';
 
 /// The pages that pick features themselves, each with the same block.
 const _pages = ['web/lunaway_maplibre.js', 'assets/map/lunaway_map.js'];
@@ -86,6 +87,82 @@ final List<_Case> _cases = [
       _c(PlaceTiles.pinDotsLayer, [_here + const Offset(4, 3)], {'kind': 'parking', 'id': 'b'}),
       // Its tip 20 px under the click: the head is centred there.
       _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "on a place's exact point, its pin is picked as on its head, not the dot under it",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinDotsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'just under the point, out of the dot, still the pin',
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinDotsLayer, [_here - const Offset(0, 9)], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinsLayer, [_here - const Offset(0, 9)], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "another place's dot under the pointer beats a pin whose tip is near",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(9, 0)], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinDotsLayer, [_here], {'kind': 'campsite', 'id': 'b'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "a finger on bare ground 20 px under a point of interest's pin is no tap on it",
+    at: _here,
+    zoom: 15,
+    tolerance: _touch,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here - const Offset(0, 20)], {'kind': 'bakery', 'id': 'p'}),
+    ],
+    expected: null,
+  ),
+  (
+    name: "nor under a pin of the device's places, which has no dot under it",
+    at: _here,
+    zoom: 13,
+    tolerance: _touch,
+    candidates: [
+      _c(MapStyle.placesLayer, [_here - const Offset(0, 20)], {'kind': 'place', 'id': 'a'}),
+    ],
+    expected: null,
+  ),
+  (
+    name: "on a selected place's point, the selection wins over the pin it stands on",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(MapStyle.selectionPinLayer, [_here], {'kind': 'place', 'id': 'a'}),
+      _c(PlaceTiles.pinsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+      _c(PlaceTiles.pinDotsLayer, [_here], {'kind': 'parking', 'id': 'a'}),
+    ],
+    expected: (0, 0),
+  ),
+  (
+    name: "on a selected point of interest's point, the selection wins over its pin",
+    at: _here,
+    zoom: 15,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here], {'kind': 'bakery', 'id': 'p'}),
+      _c(PoiMapStyle.selectionLayerId, [_here], {'kind': 'bakery', 'id': 'p'}),
     ],
     expected: (1, 0),
   ),
@@ -405,6 +482,326 @@ process.stdout.write(JSON.stringify(out));
         final e = _cases[i].expected;
         expect(decided[i], e == null ? null : [e.$1, e.$2], reason: _cases[i].name);
       }
+    }, skip: node ? false : 'needs node on the PATH (the CI has it)');
+
+    group('shows one look per place under the mouse', () {
+      // A place of the tiles at zoom 13, its point on screen at _here: the
+      // pin and the dot under its tip are the same feature of the same
+      // source, drawn by two layers.
+      const zoom = 13.0;
+      const place = {'kind': 'parking', 'night': 'allowed', 'id': 'a'};
+      Map<String, Object?> tileFeature(String layer) => {
+        'source': PlaceTiles.source,
+        'sourceLayer': PlaceTiles.pinsSourceLayer,
+        'layer': {
+          'id': layer,
+          'layout': {
+            if (layer == PlaceTiles.pinsLayer) 'icon-image': {'name': 'pin-parking-allowed'},
+          },
+        },
+      };
+      Map<String, Object?> candidate(
+        String layer,
+        Map<String, Object?> properties,
+        Map<String, Object?> feature, {
+        Offset at = _here,
+      }) => {
+        'layer': layer,
+        'properties': properties,
+        'points': [
+          [at.dx, at.dy],
+        ],
+        'coordinates': [
+          [1.5, 43.5],
+        ],
+        'feature': feature,
+      };
+      final pinAndDot = [
+        candidate(PlaceTiles.pinsLayer, place, tileFeature(PlaceTiles.pinsLayer)),
+        candidate(PlaceTiles.pinDotsLayer, place, tileFeature(PlaceTiles.pinDotsLayer)),
+      ];
+      final head = _here - Offset(0, mapHitShapes[PlaceTiles.pinsLayer]!.lift.at(zoom, place));
+      final dotRing =
+          mapHitShapes[PlaceTiles.pinDotsLayer]!.radius.at(zoom, place) + MapLook.hoverRingGap;
+
+      /// What the page's hover shows with the mouse at each point of [at]
+      /// over [candidates], as `lunawayHits.look` describes it.
+      Future<List<Map<String, Object?>?>> looks(
+        List<Offset> at,
+        List<Map<String, Object?>> candidates,
+      ) async {
+        final block = _block.firstMatch(File(_pages.first).readAsStringSync())!.group(0)!;
+        const script = r'''
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+const hits = new Function(input.block + '\nreturn lunawayHits;')();
+const out = input.at.map((at) => {
+  const h = hits.nearest(at, input.candidates, input.zoom, input.tolerance);
+  if (!h) return null;
+  const c = input.candidates[h.index];
+  return hits.look({
+    layer: c.layer,
+    properties: c.properties,
+    point: c.points[h.pointIndex],
+    coordinates: c.coordinates[h.pointIndex],
+    shape: hits.shapeOf(c.layer, c.properties),
+    zoom: input.zoom,
+    inert: h.inert,
+    feature: c.feature
+  });
+});
+process.stdout.write(JSON.stringify(out));
+''';
+        final process = await Process.start('node', ['-e', script]);
+        process.stdin.write(
+          jsonEncode({
+            'block': block,
+            'zoom': zoom,
+            'tolerance': _mouse,
+            'candidates': candidates,
+            'at': [
+              for (final p in at) [p.dx, p.dy],
+            ],
+          }),
+        );
+        await process.stdin.close();
+        final output = await process.stdout.transform(utf8.decoder).join();
+        final errors = await process.stderr.transform(utf8.decoder).join();
+        expect(await process.exitCode, 0, reason: errors);
+        return [
+          for (final l in jsonDecode(output) as List<Object?>) (l as Map?)?.cast<String, Object?>(),
+        ];
+      }
+
+      test('the pin from its head and from its exact point: one ring around the point, the '
+          'pin grown', () async {
+        final [fromHead, fromPoint, fromBelow] = await looks([
+          head,
+          _here,
+          _here + const Offset(0, 8),
+        ], pinAndDot);
+        expect(fromHead, isNotNull);
+        expect(fromPoint, fromHead);
+        expect(fromBelow, fromHead);
+        expect([fromHead!['x'], fromHead['y']], [_here.dx, _here.dy], reason: 'on the point');
+        expect(fromHead['ring']! as num, closeTo(dotRing, 1e-9));
+        expect(fromHead['pin'], {
+          'image': 'pin-parking-allowed',
+          // Full size from zoom 12 (MapLook.pinSize).
+          'size': 1,
+        });
+      });
+
+      test('a dot whose pin found no room: the same ring, nothing grows', () async {
+        final [look] = await looks([_here], [pinAndDot.last]);
+        final [pinLook] = await looks([_here], pinAndDot);
+        expect(look!['key'], isNot(pinLook!['key']), reason: 'a pin drawn later shows anew');
+        expect(
+          [look['x'], look['y'], look['ring'], look['pin']],
+          [pinLook['x'], pinLook['y'], pinLook['ring'], null],
+        );
+      });
+
+      test("a cluster's ring goes around its disc", () async {
+        const props = {'point_count': 50, 'cluster_id': 7};
+        final [look] = await looks(
+          [_here],
+          [
+            candidate(MapStyle.clustersLayer, props, {'source': MapStyle.placesSource, 'id': 7}),
+          ],
+        );
+        final r = mapHitShapes[MapStyle.clustersLayer]!.radius.at(zoom, props);
+        expect(look!['ring']! as num, closeTo(r + MapLook.hoverRingGap, 1e-9));
+        expect(look['pin'], isNull);
+      });
+
+      test('a route mark is told the mouse is on it, a group is not', () async {
+        final layer = RouteLayers.badgesOf(RouteLayers.marksSource);
+        final [mark, group] = await looks(
+          [_here, _here + const Offset(200, 0)],
+          [
+            candidate(
+              layer,
+              {'mark': 'event:0:1', 'kind': 'works', 'size': 1},
+              {'source': RouteLayers.marksSource, 'id': 1000000003},
+            ),
+            candidate(
+              layer,
+              {'point_count': 3, 'cluster_id': 9, 'size': 1},
+              {'source': RouteLayers.marksSource, 'id': 9},
+              at: _here + const Offset(200, 0),
+            ),
+          ],
+        );
+        expect(mark!['state'], {'source': RouteLayers.marksSource, 'id': 1000000003});
+        expect(mark['ring']! as num, closeTo(15.5 + MapLook.hoverRingGap, 1e-9));
+        expect(group!['state'], isNull);
+      });
+
+      test("a point of interest's pin grows over the same ring; drawn faded, it keeps its look; "
+          'a selection keeps its own', () async {
+        const zoom15 = {'kind': 'bakery', 'id': 'p'};
+        Map<String, Object?> poi(String layer, {double opacity = 1, String image = 'poi-bakery'}) =>
+            candidate(layer, zoom15, {
+              'source': PoiMapStyle.source,
+              'sourceLayer': PoiMapStyle.pointsLayer,
+              'layer': {
+                'id': layer,
+                'layout': {
+                  'icon-image': {'name': image},
+                },
+                'paint': {'icon-opacity': opacity},
+              },
+            });
+        final [open, closed, chosen] = await Future.wait([
+          looks([_here], [poi(PoiMapStyle.pinsLayerId)]),
+          looks([_here], [poi(PoiMapStyle.pinsLayerId, opacity: 0.42)]),
+          looks([_here], [poi(PoiMapStyle.selectionLayerId, image: 'poi-bakery-selected')]),
+        ]);
+        expect(open.single!['ring']! as num, closeTo(dotRing, 1e-9), reason: "a place's ring");
+        expect((open.single!['pin']! as Map)['image'], 'poi-bakery');
+        expect(closed.single!['pin'], isNull);
+        expect(chosen.single!['pin'], isNull);
+        expect(chosen.single!['ring']! as num, closeTo(dotRing, 1e-9));
+      });
+    }, skip: node ? false : 'needs node on the PATH (the CI has it)');
+
+    test('the hover drops the copy of a pin a click redraws, and grows it again from the new '
+        'drawing', () async {
+      final block = _block.firstMatch(File(_pages.first).readAsStringSync())!.group(0)!;
+      // A page reduced to what the hover touches: elements that hold
+      // children, a map whose query answers [features], frames run on
+      // demand. Coordinates are screen pixels (the projection is the
+      // identity).
+      const script = r'''
+const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+function El(tag) {
+  this.tagName = tag.toUpperCase();
+  this.children = [];
+  this.parentNode = null;
+  this.style = {};
+  const set = new Set();
+  this.classList = { toggle: (c, on) => (on ? set.add(c) : set.delete(c)), add: (c) => set.add(c), remove: (c) => set.delete(c) };
+}
+El.prototype.appendChild = function (c) { if (c.parentNode) c.remove(); c.parentNode = this; this.children.push(c); return c; };
+El.prototype.remove = function () { const p = this.parentNode; if (p) { p.children = p.children.filter((x) => x !== this); this.parentNode = null; } };
+El.prototype.getContext = function () { return { putImageData() {} }; };
+El.prototype.dispatchEvent = function (e) { hovers.push(e.detail ? e.detail.layer : null); };
+Object.defineProperty(El.prototype, 'offsetWidth', { get() { return 0; } });
+Object.defineProperty(El.prototype, 'textContent', { set() { this.children.slice().forEach((c) => c.remove()); } });
+const hovers = [];
+let frames = [];
+globalThis.document = { createElement: (t) => new El(t), addEventListener() {} };
+globalThis.ImageData = function () {};
+globalThis.CustomEvent = function (type, init) { this.type = type; this.detail = init.detail; };
+globalThis.requestAnimationFrame = (f) => { frames.push(f); return frames.length; };
+globalThis.cancelAnimationFrame = () => {};
+const hits = new Function(input.block + '\nreturn lunawayHits;')();
+const container = new El('div');
+const handlers = {};
+let features = [];
+const map = {
+  on(type, f) { (handlers[type] = handlers[type] || []).push(f); },
+  getCanvasContainer: () => container,
+  getLayer: () => ({}),
+  queryRenderedFeatures: () => features,
+  project: (c) => ({ x: c[0], y: c[1] }),
+  unproject: (p) => ({ lng: p[0], lat: p[1] }),
+  getZoom: () => 13,
+  getImage: () => ({ data: { width: 4, height: 6, data: new Uint8Array(96) }, pixelRatio: 2 }),
+  getSource: () => null,
+  setFeatureState() {}
+};
+function fire(type, e) {
+  (handlers[type] || []).forEach((f) => f(e || {}));
+  const due = frames;
+  frames = [];
+  due.forEach((f) => f());
+}
+// What is on screen: each look, as the tags of its parts.
+function looks() {
+  return container.children.flatMap((root) => root.children.map((l) => l.children.map((c) => c.tagName)));
+}
+hits.hover(map);
+features = input.pinAndDot;
+const out = {};
+fire('mousemove', { point: { x: 500, y: 385 } });
+out.hovered = looks();
+fire('mousedown');
+out.pressed = looks();
+fire('idle');
+out.settledSame = looks();
+fire('mousedown');
+features = [input.selection].concat(input.pinAndDot);
+fire('idle');
+out.settledSelected = looks();
+out.hovers = hovers.slice();
+fire('movestart');
+out.moved = looks();
+process.stdout.write(JSON.stringify(out));
+setTimeout(() => process.exit(0), 0);
+''';
+      Map<String, Object?> feature(
+        String layer,
+        String source,
+        Map<String, Object?> properties, {
+        String? image,
+        Object? id,
+      }) => {
+        'layer': {
+          'id': layer,
+          'layout': {
+            'icon-image': ?(image == null ? null : {'name': image}),
+          },
+          'paint': <String, Object?>{},
+        },
+        'source': source,
+        'sourceLayer': source == PlaceTiles.source ? PlaceTiles.pinsSourceLayer : null,
+        'id': ?id,
+        'properties': properties,
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [_here.dx, _here.dy],
+        },
+      };
+      const place = {'kind': 'parking', 'night': 'allowed', 'id': 'a'};
+      final process = await Process.start('node', ['-e', script]);
+      process.stdin.write(
+        jsonEncode({
+          'block': block,
+          'pinAndDot': [
+            feature(PlaceTiles.pinsLayer, PlaceTiles.source, place, image: 'pin-parking-allowed'),
+            feature(PlaceTiles.pinDotsLayer, PlaceTiles.source, place),
+          ],
+          'selection': feature(
+            MapStyle.selectionPinLayer,
+            MapStyle.selectionSource,
+            const {'kind': 'place', 'id': 'a', 'icon': 'pin-parking-allowed-selected'},
+            image: 'pin-parking-allowed-selected',
+            id: 1,
+          ),
+        }),
+      );
+      await process.stdin.close();
+      final output = await process.stdout.transform(utf8.decoder).join();
+      final errors = await process.stderr.transform(utf8.decoder).join();
+      expect(await process.exitCode, 0, reason: errors);
+      final seen = jsonDecode(output) as Map<String, Object?>;
+      expect(seen['hovered'], [
+        ['DIV', 'CANVAS'],
+      ], reason: 'a ring and the grown copy of the pin');
+      expect(seen['pressed'], [
+        ['DIV'],
+      ], reason: 'the copy goes on the press: the click may redraw the pin under it');
+      expect(seen['settledSame'], [
+        ['DIV', 'CANVAS'],
+      ], reason: 'the map settled, nothing new under the mouse: the copy grows again');
+      expect(
+        (seen['settledSelected']! as List).expand((l) => l as List),
+        isNot(contains('CANVAS')),
+        reason: 'the pin drawn selected keeps its own look: no copy of the old one over it',
+      );
+      expect(seen['hovers'], [PlaceTiles.pinsLayer, MapStyle.selectionPinLayer]);
+      expect(seen['moved'], isEmpty, reason: 'the looks do not follow the map: they go');
     }, skip: node ? false : 'needs node on the PATH (the CI has it)');
   });
 }

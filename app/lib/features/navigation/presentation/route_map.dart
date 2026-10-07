@@ -380,11 +380,12 @@ Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
 
 /// The route map's targets, for the pointer ([nearestHit]): every badge
 /// (a mark or a group of them), then the other routes, which a tap
-/// anywhere along picks.
+/// anywhere along picks. A mark under the mouse is told so (`hover`), and
+/// its lit ring gives way to the hover's (`RouteMarkStyle.haloOpacity`).
 final Map<String, HitShape> routeHitShapes = {
   // The ends and stops over the marks, the marks over the minor ones.
   for (final (i, source) in RouteLayers.markSources.reversed.indexed)
-    RouteLayers.badgesOf(source): HitShape(radius: _badgeHit, priority: 1 + i),
+    RouteLayers.badgesOf(source): HitShape(radius: _badgeHit, priority: 1 + i, hoverState: 'mark'),
   RouteLayers.alternatives: _lineHit,
   RouteLayers.alternativesCasing: _lineHit,
 };
