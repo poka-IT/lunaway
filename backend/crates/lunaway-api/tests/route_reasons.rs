@@ -516,17 +516,18 @@ async fn a_long_trip_asks_fewer_alternatives(pool: PgPool) {
     );
     let (url, asked) = engine(vec![off.clone(), off.clone(), off]).await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    // Lille to Dakhla, 3 415 km in a straight line.
+    // Lille to Guelmim, 2 645 km in a straight line.
     let body = gql(
         &app,
-        trip((50.6292, 3.0573), (23.6848, -15.958), &json!({})),
+        trip((50.6292, 3.0573), (28.987, -10.0574), &json!({})),
     )
     .await;
     assert_eq!(body["data"]["route"]["status"], "OFF_NETWORK", "{body}");
     let first = asked.lock().unwrap()[0].clone();
-    assert!(
-        first.get("alternates").is_none(),
-        "three routes of 4 000 km would exceed what the API reads of the engine"
+    assert_eq!(
+        first.get("alternates"),
+        Some(&json!(1)),
+        "three routes of 3 500 km by road would exceed what the API reads of the engine"
     );
     // El Hierro to the North Cape, 5 300 km: refused before the engine.
     let body = gql(&app, trip((27.75, -18.0), (70.98, 25.97), &json!({}))).await;
