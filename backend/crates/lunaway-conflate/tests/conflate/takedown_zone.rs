@@ -130,7 +130,23 @@ async fn a_listing_near_a_place_taken_down_waits_until_a_moderator_releases_it(p
     .await;
     run(&ingest, at(2), Some(&key)).await.unwrap();
     let journal = tempfile::tempdir().unwrap();
+    // A version published just now: only the takedown can move it before
+    // the worker's interval.
+    lunaway_db::place_tiles::publish_layer_now(&pool)
+        .await
+        .unwrap();
+    let before = lunaway_db::place_tiles::layer_version(&pool).await.unwrap();
     let done = take_down_spot(&ingest, journal.path()).await;
+    let after = lunaway_db::place_tiles::layer_version(&pool).await.unwrap();
+    assert_eq!(
+        after.version,
+        before.version + 1,
+        "the takedown publishes the places' tiles at once, under the import role"
+    );
+    assert!(
+        after.published_seq > before.published_seq,
+        "the new version covers the tombstone"
+    );
     let stored: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM takedown_cells"#)
         .fetch_one(&pool)
         .await

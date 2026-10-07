@@ -110,8 +110,23 @@ pub async fn take_down(
             tracing::error!(%error, "the takedown is journaled but was not committed");
             return Err(error.into());
         }
+        publish_places_now(pool).await;
     }
     Ok(done)
+}
+
+/// A new version of the places' tiles, so a place taken down leaves every
+/// tile at once instead of at the worker's next version. A failure is
+/// logged and not returned: the takedown is committed, and the worker
+/// publishes the change within `--place-layer-every-mins` anyway.
+async fn publish_places_now(pool: &PgPool) {
+    match lunaway_db::place_tiles::publish_layer_now(pool).await {
+        Ok(version) => tracing::info!(version, "places layer: new tiles version"),
+        Err(error) => tracing::error!(
+            %error,
+            "the places layer could not move to a new version; the worker publishes it later"
+        ),
+    }
 }
 
 /// What a replay found and did.
@@ -217,6 +232,7 @@ pub async fn replay(
             match takedowns::take_down(&mut tx, standing.root, e.code, e.with_nearby, key).await? {
                 TakeDown::Done(d) => {
                     tx.commit().await?;
+                    publish_places_now(pool).await;
                     out.taken_down.push(d);
                 }
                 TakeDown::NoPlace => out.absent += 1,

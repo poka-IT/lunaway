@@ -8,6 +8,8 @@ mod community;
 mod enforcement;
 mod fuel;
 mod http;
+mod mvt;
+mod place_tiles;
 mod poi;
 mod regions;
 mod road_events;

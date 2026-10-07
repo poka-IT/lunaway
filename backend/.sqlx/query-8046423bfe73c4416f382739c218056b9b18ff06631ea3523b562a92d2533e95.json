@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region\n        FROM places\n        WHERE deleted_at IS NULL\n          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n          AND ($5::text[] IS NULL OR kind = ANY($5))\n          AND services @> $6::text[]\n          AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))\n          AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)\n          AND ($11::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $11)\n          AND ($12::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $12)\n          AND ($13::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $13)\n          AND ($9::uuid IS NULL OR id > $9)\n        ORDER BY id\n        LIMIT $10\n        ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region\n        FROM places\n        WHERE id = ANY($1)\n        ",
   "describe": {
     "columns": [
       {
@@ -475,19 +475,7 @@
     ],
     "parameters": {
       "Left": [
-        "Float8",
-        "Float8",
-        "Float8",
-        "Float8",
-        "TextArray",
-        "TextArray",
-        "Bool",
-        "Float8",
-        "Uuid",
-        "Int8",
-        "Float8",
-        "Float8",
-        "Float8"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -537,5 +525,5 @@
       true
     ]
   },
-  "hash": "4f12da021cf0c73a6c876389540a4f5f4873fe9cce74d28d3e6ed0c4940fed18"
+  "hash": "8046423bfe73c4416f382739c218056b9b18ff06631ea3523b562a92d2533e95"
 }

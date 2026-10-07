@@ -229,6 +229,39 @@ pub struct PlaceFilter {
     pub vehicle_width_m: Option<f64>,
     /// Leave out places whose known maximum weight is below this, tonnes.
     pub vehicle_weight_t: Option<f64>,
+    /// Only these overnight statuses (all when `None`).
+    pub overnight: Option<Vec<OvernightStatus>>,
+    /// The place must have at least one service of each group.
+    pub service_groups: Vec<Vec<Service>>,
+    /// Only places whose parking is known to be free.
+    pub free_only: bool,
+}
+
+impl PlaceFilter {
+    fn kind_codes(&self) -> Option<Vec<String>> {
+        self.kinds
+            .as_ref()
+            .map(|k| k.iter().map(|k| k.code().to_owned()).collect())
+    }
+
+    fn service_codes(&self) -> Vec<String> {
+        self.services.iter().map(|s| s.code().to_owned()).collect()
+    }
+
+    fn overnight_codes(&self) -> Option<Vec<String>> {
+        self.overnight
+            .as_ref()
+            .map(|o| o.iter().map(|o| o.code().to_owned()).collect())
+    }
+
+    /// One mask per group (`places.services_mask`, `Service::mask`): a
+    /// place passes a group when its mask shares a bit with it.
+    fn group_masks(&self) -> Vec<i32> {
+        self.service_groups
+            .iter()
+            .map(|g| i32::try_from(Service::mask(g)).unwrap_or(i32::MAX))
+            .collect()
+    }
 }
 
 /// One page of the viewport query.
@@ -240,6 +273,21 @@ pub struct PlacePage {
     pub has_next_page: bool,
     /// Places matching in the whole viewport.
     pub total_count: i64,
+    /// With a list sorted by distance, where the next page starts: the
+    /// last place read and its distance from the anchor, as the database
+    /// computed it.
+    pub end_near: Option<NearAfter>,
+}
+
+/// Where a page sorted by distance starts: after this place, at this
+/// distance from the anchor.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NearAfter {
+    /// The distance of the last place of the previous page, metres, exactly
+    /// as [`PlacePage::end_near`] gave it.
+    pub distance_m: f64,
+    /// That place.
+    pub id: Uuid,
 }
 
 /// Live places inside `bbox` that pass `filter`, by id, after `after`.
@@ -254,15 +302,10 @@ pub async fn in_bbox(
     first: i64,
     after: Option<Uuid>,
 ) -> Result<PlacePage, DbError> {
-    let kinds: Option<Vec<String>> = filter
-        .kinds
-        .as_ref()
-        .map(|k| k.iter().map(|k| k.code().to_owned()).collect());
-    let services: Vec<String> = filter
-        .services
-        .iter()
-        .map(|s| s.code().to_owned())
-        .collect();
+    let kinds = filter.kind_codes();
+    let services = filter.service_codes();
+    let overnight = filter.overnight_codes();
+    let groups = filter.group_masks();
     let rows = sqlx::query_as!(
         PlaceDb,
         r#"
@@ -285,6 +328,9 @@ pub async fn in_bbox(
           AND ($11::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $11)
           AND ($12::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $12)
           AND ($13::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $13)
+          AND ($14::text[] IS NULL OR overnight = ANY($14))
+          AND NOT EXISTS (SELECT 1 FROM unnest($15::int[]) AS g(m) WHERE services_mask & g.m = 0)
+          AND (NOT $16 OR price_parking_eur = 0)
           AND ($9::uuid IS NULL OR id > $9)
         ORDER BY id
         LIMIT $10
@@ -302,10 +348,147 @@ pub async fn in_bbox(
         filter.vehicle_length_m,
         filter.vehicle_width_m,
         filter.vehicle_weight_t,
+        overnight.as_deref() as Option<&[String]>,
+        &groups,
+        filter.free_only,
     )
     .fetch_all(pool)
     .await?;
-    let total_count = sqlx::query_scalar!(
+    let total_count = count_in_bbox(pool, bbox, filter).await?;
+    let has_next_page = i64::try_from(rows.len()).unwrap_or(i64::MAX) > first;
+    let nodes = rows
+        .into_iter()
+        .take(usize::try_from(first).unwrap_or(0))
+        .map(PlaceRow::try_from)
+        .collect::<Result<_, _>>()?;
+    Ok(PlacePage {
+        nodes,
+        has_next_page,
+        total_count,
+        end_near: None,
+    })
+}
+
+/// Live places inside `bbox` that pass `filter`, nearest to `near` first
+/// (the GiST index's ordering, `geom <-> point`, metres on the sphere),
+/// ties by id, after `after`.
+///
+/// # Errors
+///
+/// [`DbError`] when a query fails or a row does not decode.
+pub async fn near_in_bbox(
+    pool: &PgPool,
+    bbox: BBox,
+    filter: &PlaceFilter,
+    near: Position,
+    first: i64,
+    after: Option<NearAfter>,
+) -> Result<PlacePage, DbError> {
+    let kinds = filter.kind_codes();
+    let services = filter.service_codes();
+    let overnight = filter.overnight_codes();
+    let groups = filter.group_masks();
+    let order = sqlx::query!(
+        r#"
+        WITH anchor AS (
+            SELECT ST_SetSRID(ST_MakePoint($14, $15), 4326)::geography AS p
+        )
+        SELECT id, geom <-> anchor.p AS "distance_m!"
+        FROM places CROSS JOIN anchor
+        WHERE deleted_at IS NULL
+          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
+          AND ($5::text[] IS NULL OR kind = ANY($5))
+          AND services @> $6::text[]
+          AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))
+          AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)
+          AND ($11::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $11)
+          AND ($12::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $12)
+          AND ($13::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $13)
+          AND ($16::text[] IS NULL OR overnight = ANY($16))
+          AND NOT EXISTS (SELECT 1 FROM unnest($17::int[]) AS g(m) WHERE services_mask & g.m = 0)
+          AND (NOT $18 OR price_parking_eur = 0)
+          AND ($9::float8 IS NULL
+               OR geom <-> anchor.p > $9
+               OR (geom <-> anchor.p = $9 AND id > $19))
+        ORDER BY geom <-> anchor.p, id
+        LIMIT $10
+        "#,
+        bbox.west(),
+        bbox.south(),
+        bbox.east(),
+        bbox.north(),
+        kinds.as_deref() as Option<&[String]>,
+        &services,
+        filter.overnight_ok,
+        filter.vehicle_height_m,
+        after.map(|a| a.distance_m),
+        first + 1,
+        filter.vehicle_length_m,
+        filter.vehicle_width_m,
+        filter.vehicle_weight_t,
+        near.lon(),
+        near.lat(),
+        overnight.as_deref() as Option<&[String]>,
+        &groups,
+        filter.free_only,
+        after.map(|a| a.id),
+    )
+    .fetch_all(pool)
+    .await?;
+    let has_next_page = i64::try_from(order.len()).unwrap_or(i64::MAX) > first;
+    let order: Vec<(Uuid, f64)> = order
+        .into_iter()
+        .take(usize::try_from(first).unwrap_or(0))
+        .map(|r| (r.id, r.distance_m))
+        .collect();
+    let ids: Vec<Uuid> = order.iter().map(|(id, _)| *id).collect();
+    let rows = sqlx::query_as!(
+        PlaceDb,
+        r#"
+        SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
+               overnight, services, activities, description, street, postcode, city,
+               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               max_width_m, max_weight_t, capacity,
+               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
+               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
+               deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
+               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
+               reported_issues, verification, region
+        FROM places
+        WHERE id = ANY($1)
+        "#,
+        &ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut by_id: std::collections::HashMap<Uuid, PlaceDb> =
+        rows.into_iter().map(|r| (r.id, r)).collect();
+    // A place deleted between the two reads is left out of this page; the
+    // cursor still follows the order read.
+    let nodes = ids
+        .iter()
+        .filter_map(|id| by_id.remove(id))
+        .filter(|r| !r.deleted)
+        .map(PlaceRow::try_from)
+        .collect::<Result<_, _>>()?;
+    let total_count = count_in_bbox(pool, bbox, filter).await?;
+    Ok(PlacePage {
+        nodes,
+        has_next_page,
+        total_count,
+        end_near: order
+            .last()
+            .map(|&(id, distance_m)| NearAfter { distance_m, id }),
+    })
+}
+
+/// How many live places inside `bbox` pass `filter`.
+async fn count_in_bbox(pool: &PgPool, bbox: BBox, filter: &PlaceFilter) -> Result<i64, DbError> {
+    let kinds = filter.kind_codes();
+    let services = filter.service_codes();
+    let overnight = filter.overnight_codes();
+    let groups = filter.group_masks();
+    Ok(sqlx::query_scalar!(
         r#"
         SELECT count(*) AS "n!" FROM places
         WHERE deleted_at IS NULL
@@ -317,6 +500,9 @@ pub async fn in_bbox(
           AND ($9::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $9)
           AND ($10::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $10)
           AND ($11::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $11)
+          AND ($12::text[] IS NULL OR overnight = ANY($12))
+          AND NOT EXISTS (SELECT 1 FROM unnest($13::int[]) AS g(m) WHERE services_mask & g.m = 0)
+          AND (NOT $14 OR price_parking_eur = 0)
         "#,
         bbox.west(),
         bbox.south(),
@@ -329,20 +515,12 @@ pub async fn in_bbox(
         filter.vehicle_length_m,
         filter.vehicle_width_m,
         filter.vehicle_weight_t,
+        overnight.as_deref() as Option<&[String]>,
+        &groups,
+        filter.free_only,
     )
     .fetch_one(pool)
-    .await?;
-    let has_next_page = i64::try_from(rows.len()).unwrap_or(i64::MAX) > first;
-    let nodes = rows
-        .into_iter()
-        .take(usize::try_from(first).unwrap_or(0))
-        .map(PlaceRow::try_from)
-        .collect::<Result<_, _>>()?;
-    Ok(PlacePage {
-        nodes,
-        has_next_page,
-        total_count,
-    })
+    .await?)
 }
 
 /// One entry of the change feed.
