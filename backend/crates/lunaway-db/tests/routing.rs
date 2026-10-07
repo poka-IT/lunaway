@@ -71,6 +71,7 @@ fn record(
         other_source: None,
         shape: polyline::encode(shape),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
+        except_destination: false,
     };
     let points = r.check().unwrap();
     (r, points)
@@ -314,6 +315,48 @@ async fn the_api_reads_the_routing_tables_and_writes_none(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_limit_that_spares_local_access_says_so_to_the_check(pool: PgPool) {
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let id = "20261006T0300Z-fr";
+    let (mut spared, points) = record(
+        RestrictionSource::Osm,
+        "way/52984577",
+        RestrictionKind::MaxWeight,
+        Some(3.5),
+        &tunnel(),
+    );
+    spared.except_destination = true;
+    let plain = record(
+        RestrictionSource::Ign,
+        "ign/TRONROUT0000000000000001",
+        RestrictionKind::MaxWeight,
+        Some(3.5),
+        &tunnel(),
+    );
+    routing::load_graph(&ingest, &graph(id), &[(spared, points), plain])
+        .await
+        .unwrap();
+    routing::activate(&ingest, id).await.unwrap();
+    let api = as_role(&pool, "SET ROLE lunaway_app").await;
+    let route = polyline::decode(ROUTE_UNDER).unwrap();
+    let near = routing::restrictions_near(&api, id, &route, 15.0)
+        .await
+        .unwrap();
+    let flags: std::collections::BTreeMap<&str, bool> = near
+        .iter()
+        .map(|r| (r.external_id.as_str(), r.restriction.except_destination))
+        .collect();
+    assert_eq!(
+        flags,
+        std::collections::BTreeMap::from([
+            ("ign/TRONROUT0000000000000001", false),
+            ("way/52984577", true)
+        ]),
+        "the check must know which limit a trip may end on"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn the_database_refuses_a_row_that_does_not_hold_together(pool: PgPool) {
     routing::load_graph(&pool, &graph("20261006T0300Z-fr"), &[])
         .await
@@ -346,6 +389,13 @@ async fn the_database_refuses_a_row_that_does_not_hold_together(pool: PgPool) {
                 certainty, feature, geom, observed_at) VALUES (gen_random_uuid(), '20261006T0300Z-fr',
                 'community', 'report/1', 'max_height', 3.0, 'known', 'road',
                 ST_GeomFromText('POINT(1 45)', 4326)::geography, now())",
+        ),
+        (
+            "a clearance that spares local access",
+            "INSERT INTO route_restrictions (id, graph_id, source, external_id, kind, limit_value,
+                certainty, feature, geom, observed_at, except_destination) VALUES (gen_random_uuid(),
+                '20261006T0300Z-fr', 'osm', 'way/1', 'max_height', 3.0, 'known', 'road',
+                ST_GeomFromText('POINT(1 45)', 4326)::geography, now(), true)",
         ),
     ] {
         assert!(sqlx::query(sql).execute(&pool).await.is_err(), "{what}");

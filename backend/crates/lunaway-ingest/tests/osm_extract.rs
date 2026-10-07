@@ -62,7 +62,7 @@ fn packed(out: &mut Vec<u8>, field: u64, values: impl IntoIterator<Item = u64>) 
 }
 
 /// Strings of a block, index 0 being the empty string as the format wants.
-struct Strings(Vec<String>);
+pub(crate) struct Strings(pub(crate) Vec<String>);
 
 impl Strings {
     fn id(&mut self, s: &str) -> u64 {
@@ -87,7 +87,13 @@ fn units(deg: f64) -> u64 {
     zigzag(n)
 }
 
-fn node(strings: &mut Strings, id: i64, lat: f64, lon: f64, t: &[(&str, &str)]) -> Vec<u8> {
+pub(crate) fn node(
+    strings: &mut Strings,
+    id: i64,
+    lat: f64,
+    lon: f64,
+    t: &[(&str, &str)],
+) -> Vec<u8> {
     let mut m = Vec::new();
     varint_field(&mut m, 1, zigzag(id));
     tags(&mut m, strings, t);
@@ -107,7 +113,7 @@ fn deltas(ids: &[i64]) -> Vec<u64> {
         .collect()
 }
 
-fn way(strings: &mut Strings, id: i64, refs: &[i64], t: &[(&str, &str)]) -> Vec<u8> {
+pub(crate) fn way(strings: &mut Strings, id: i64, refs: &[i64], t: &[(&str, &str)]) -> Vec<u8> {
     let mut m = Vec::new();
     varint_field(&mut m, 1, u64::try_from(id).unwrap());
     tags(&mut m, strings, t);
@@ -242,7 +248,7 @@ fn extract() -> Vec<u8> {
 }
 
 /// Bytes of an extract holding `nodes` and `ways` only.
-fn file_of(s: &Strings, nodes: &[Vec<u8>], ways: &[Vec<u8>]) -> Vec<u8> {
+pub(crate) fn file_of(s: &Strings, nodes: &[Vec<u8>], ways: &[Vec<u8>]) -> Vec<u8> {
     let group = |field: u64, items: &[Vec<u8>]| {
         let mut g = Vec::new();
         for item in items {

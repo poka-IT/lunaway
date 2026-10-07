@@ -140,6 +140,7 @@ fn tunnel_record() -> (RestrictionRecord, Vec<Position>) {
         other_source: None,
         shape: polyline::encode(&points),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
+        except_destination: false,
     };
     (r, points)
 }
@@ -397,6 +398,156 @@ async fn when_every_way_meets_the_bridge_no_route_is_given(pool: PgPool) {
     assert_eq!(body["data"]["route"]["status"], "NO_SAFE_ROUTE", "{body}");
     assert_eq!(body["data"]["route"]["recalculations"], 1);
     assert_eq!(body["data"]["route"]["blockers"][0]["limit"], 2.7);
+}
+
+/// A 3.5 t weight limit along `lat_lon`, sparing local access or not.
+fn weight_record(
+    external_id: &str,
+    lat_lon: &[(f64, f64)],
+    except_destination: bool,
+) -> (RestrictionRecord, Vec<Position>) {
+    let points: Vec<Position> = lat_lon
+        .iter()
+        .map(|(lat, lon)| Position::new(*lat, *lon).unwrap())
+        .collect();
+    let r = RestrictionRecord {
+        source: RestrictionSource::Osm,
+        external_id: external_id.to_owned(),
+        kind: RestrictionKind::MaxWeight,
+        limit: Some(3.5),
+        certainty: Certainty::Known,
+        feature: RestrictionFeature::Road,
+        name: Some("Rue Maurice Utrillo".to_owned()),
+        other_value: None,
+        other_source: None,
+        shape: polyline::encode(&points),
+        observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
+        except_destination,
+    };
+    assert!(r.check().is_ok());
+    (r, points)
+}
+
+async fn seed_records(pool: &PgPool, records: &[(RestrictionRecord, Vec<Position>)]) {
+    routing::load_graph(
+        pool,
+        &NewGraph {
+            id: GRAPH.to_owned(),
+            osm_data_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
+            ign_fetched_at: None,
+            ign_edition: None,
+            built_at: Utc.with_ymd_and_hms(2026, 10, 6, 7, 0, 0).unwrap(),
+            engine: "valhalla 3.9.0".to_owned(),
+            stats: json!({}),
+        },
+        records,
+    )
+    .await
+    .unwrap();
+    routing::activate(pool, GRAPH).await.unwrap();
+}
+
+/// The last two stretches of `ROUTE_UNDER`, end to end: 135 to 212 m and
+/// 212 to 268 m, the destination.
+const LAST_STREET: [(f64, f64); 2] = [(45.846_147, 1.285_561), (45.845_55, 1.286_043)];
+const DESTINATION_STREET: [(f64, f64); 4] = [
+    (45.845_55, 1.286_043),
+    (45.845_406, 1.286_139),
+    (45.845_128, 1.286_312),
+    (45.845_089, 1.286_339),
+];
+/// A stretch of `ROUTE_UNDER` from 61 to 122 m, far from both stops.
+const CROSSED_STREET: [(f64, f64); 2] = [(45.846_736_9, 1.285_104_6), (45.846_251_1, 1.285_480_5)];
+
+fn heavy(weight_t: f64) -> Value {
+    let mut v = input(2.5);
+    v["input"]["vehicle"]["weightT"] = weight_t.into();
+    v
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_sauf_desserte_zone_takes_a_heavy_motorhome_home_and_never_across(pool: PgPool) {
+    // Two streets of a "sauf desserte" 3.5 t zone lead to the destination:
+    // a 4.5 t motorhome may drive them, and is told of the limit.
+    seed_records(
+        &pool,
+        &[
+            weight_record("way/1", &LAST_STREET, true),
+            weight_record("way/2", &DESTINATION_STREET, true),
+        ],
+    )
+    .await;
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, heavy(4.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        r["recalculations"], 0,
+        "the destination lies inside the zone: its streets are local access"
+    );
+    assert_eq!(asked.lock().unwrap().len(), 1);
+    let warnings = r["routes"][0]["warnings"].as_array().unwrap();
+    let ids: Vec<&str> = warnings
+        .iter()
+        .map(|w| w["externalId"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["way/1", "way/2"], "in driving order: {body}");
+    for w in warnings {
+        assert_eq!(w["kind"], "TOO_HEAVY");
+        assert_eq!(w["severity"], "WARNING");
+        assert_eq!(w["limit"], 3.5);
+        assert_eq!(w["vehicleValue"], 4.5);
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_weight_limit_without_the_plate_still_closes_the_destination(pool: PgPool) {
+    seed_records(&pool, &[weight_record("way/2", &DESTINATION_STREET, false)]).await;
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, heavy(4.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(
+        r["recalculations"], 1,
+        "a B13 without a plate binds the last street too: {body}"
+    );
+    assert_eq!(asked.lock().unwrap().len(), 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_sauf_desserte_street_crossed_on_the_way_blocks_a_heavy_motorhome(pool: PgPool) {
+    seed_records(&pool, &[weight_record("way/3", &CROSSED_STREET, true)]).await;
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, heavy(4.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        r["recalculations"], 1,
+        "through traffic is not local access: the route goes round"
+    );
+    let answer: Value = serde_json::from_str(r["osrmJson"].as_str().unwrap()).unwrap();
+    assert_eq!(answer["routes"][0]["geometry"], ROUTE_AROUND);
+    assert_eq!(asked.lock().unwrap().len(), 2);
+    // Within the limit, nothing to say.
+    let (url, _) = engine(vec![(200, osrm(&[ROUTE_UNDER]))], Duration::ZERO).await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, heavy(3.5)).await;
+    assert_eq!(body["data"]["route"]["recalculations"], 0, "{body}");
+    assert_eq!(body["data"]["route"]["routes"][0]["warnings"], json!([]));
 }
 
 #[sqlx::test(migrations = "../../migrations")]

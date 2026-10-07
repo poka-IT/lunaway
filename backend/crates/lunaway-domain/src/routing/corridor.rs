@@ -162,6 +162,13 @@ impl RouteLine {
         self.stops.iter().any(|stop| (s - stop).abs() <= tolerance)
     }
 
+    /// Distances from the start where the route stops: its start, each
+    /// waypoint ([`Self::with_legs`]), its end.
+    #[must_use]
+    pub fn stops(&self) -> &[f64] {
+        &self.stops
+    }
+
     /// The shape, in driving order.
     #[must_use]
     pub fn points(&self) -> &[Position] {
@@ -519,6 +526,38 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
     hits
 }
 
+/// Largest gap, metres, between two stretches of a run of local access, or
+/// between a stop and the run: the hits of two ways that meet at a junction
+/// end and start a few sample steps apart.
+pub const LOCAL_ACCESS_GAP_M: f64 = 20.0;
+
+/// The parts of a route where limits that spare local access let it
+/// through: the runs of `spans` (`(start_m, end_m)` along the route) that
+/// join up, each within [`LOCAL_ACCESS_GAP_M`] of the next, and reach a
+/// stop. Valhalla 3.9.0 does the same: a trip that starts or ends on a
+/// limit marked `except_destination` may drive on along limits of the same
+/// kind so marked, and loses the right at the first edge without one
+/// (`DynamicCost::EvaluateRestrictions` and `BidirectionalAStar::SetOrigin`,
+/// tag 3.9.0). A run that reaches no stop is through traffic.
+#[must_use]
+pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
+    let mut sorted: Vec<(f64, f64)> = spans.iter().map(|(a, b)| (a.min(*b), a.max(*b))).collect();
+    sorted.sort_by(|x, y| x.0.total_cmp(&y.0));
+    let mut runs: Vec<(f64, f64)> = Vec::new();
+    for (a, b) in sorted {
+        match runs.last_mut() {
+            Some(run) if a <= run.1 + LOCAL_ACCESS_GAP_M => run.1 = run.1.max(b),
+            _ => runs.push((a, b)),
+        }
+    }
+    runs.retain(|(a, b)| {
+        stops
+            .iter()
+            .any(|s| *s >= a - LOCAL_ACCESS_GAP_M && *s <= b + LOCAL_ACCESS_GAP_M)
+    });
+    runs
+}
+
 /// A ring around `center` of about `radius_m`, for the router's
 /// `exclude_polygons`: an octagon, closed (the last point repeats the
 /// first).
@@ -542,6 +581,34 @@ pub fn exclusion_ring(center: Position, radius_m: f64) -> Vec<Position> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_access_runs_from_a_stop_and_never_across_a_town() {
+        // A 10 km trip: stops at 0 and 10 000 m.
+        let stops = [0.0, 10_000.0];
+        // The last two streets before the destination, end to end, and a
+        // "sauf desserte" street crossed at 4 km.
+        let spans = [(9_700.0, 9_850.0), (9_858.0, 10_000.0), (4_000.0, 4_200.0)];
+        let runs = local_access_runs(&stops, &spans);
+        assert_eq!(
+            runs,
+            vec![(9_700.0, 10_000.0)],
+            "the streets reaching the destination are local access, the one crossed at 4 km is not"
+        );
+        // A run that stops short of the destination by more than the gap
+        // left a street without the plate between: through traffic again.
+        assert!(local_access_runs(&stops, &[(9_700.0, 9_900.0)]).is_empty());
+        // From the start too, and around a waypoint.
+        assert_eq!(
+            local_access_runs(&stops, &[(5.0, 300.0)]),
+            vec![(5.0, 300.0)]
+        );
+        assert_eq!(
+            local_access_runs(&[0.0, 5_000.0, 10_000.0], &[(4_900.0, 5_100.0)]),
+            vec![(4_900.0, 5_100.0)]
+        );
+        assert!(local_access_runs(&stops, &[]).is_empty());
+    }
 
     #[test]
     fn the_marks_of_old_queries_never_hide_a_segment() {

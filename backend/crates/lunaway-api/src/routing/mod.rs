@@ -27,7 +27,7 @@ pub(crate) mod public;
 pub(crate) mod valhalla;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     sync::Arc,
     time::Duration,
 };
@@ -37,8 +37,8 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
-        exclusion_ring, match_route, polyline,
+        Finding, Hit, RestrictionKind, RouteLine, RoutingDimensions, Severity, VehicleProfile,
+        assess, exclusion_ring, local_access_runs, match_route, polyline,
     },
 };
 use serde_json::Value;
@@ -1303,6 +1303,11 @@ async fn check_routes(
 /// The restrictions `near` a route that it drives through, weighed against
 /// the vehicle: (warnings, blockers), each in driving order. Fails closed: a
 /// severity this code does not know blocks.
+///
+/// A limit the vehicle exceeds that spares local access ("sauf desserte")
+/// warns where the route uses it to reach or leave a stop, and blocks where
+/// it crosses it: the route may drive the runs of such limits of one kind
+/// that reach a stop ([`local_access_runs`]), as the engine does.
 pub(crate) fn match_restrictions(
     line: &RouteLine,
     near: Vec<db::NearRestriction>,
@@ -1310,6 +1315,9 @@ pub(crate) fn match_restrictions(
 ) -> (Vec<Met>, Vec<Met>) {
     let mut warnings = Vec::new();
     let mut blocking = Vec::new();
+    // Decided once every such limit of the route is known: a run of them
+    // reaches a stop or not as a whole.
+    let mut sparing: Vec<(Met, Vec<Hit>)> = Vec::new();
     for r in near {
         let hits = match_route(line, &r.geometry, r.restriction.source.tolerance_m());
         let Some(hit) = hits.first().copied() else {
@@ -1318,14 +1326,52 @@ pub(crate) fn match_restrictions(
         let Some(finding) = assess(&r.restriction, dims) else {
             continue;
         };
+        let spares = r.restriction.except_destination
+            && r.restriction.kind.spares_local_access()
+            && finding.severity == Severity::Blocking;
         let met = Met {
             finding,
             restriction: r,
             hit,
         };
+        if spares {
+            sparing.push((met, hits));
+            continue;
+        }
         match finding.severity {
             Severity::Warning => warnings.push(met),
             _ => blocking.push(met),
+        }
+    }
+    let kinds: BTreeSet<RestrictionKind> = sparing
+        .iter()
+        .map(|(m, _)| m.restriction.restriction.kind)
+        .collect();
+    for kind in kinds {
+        let spans: Vec<(f64, f64)> = sparing
+            .iter()
+            .filter(|(m, _)| m.restriction.restriction.kind == kind)
+            .flat_map(|(_, hits)| hits.iter().map(|h| (h.start_m, h.end_m)))
+            .collect();
+        let runs = local_access_runs(line.stops(), &spans);
+        let inside = |h: &Hit| runs.iter().any(|(a, b)| h.start_m >= *a && h.end_m <= *b);
+        for (met, hits) in sparing
+            .iter()
+            .filter(|(m, _)| m.restriction.restriction.kind == kind)
+        {
+            match hits.iter().find(|h| !inside(h)) {
+                Some(through) => blocking.push(Met {
+                    hit: *through,
+                    ..met.clone()
+                }),
+                None => warnings.push(Met {
+                    finding: Finding {
+                        severity: Severity::Warning,
+                        ..met.finding
+                    },
+                    ..met.clone()
+                }),
+            }
         }
     }
     warnings.sort_by(|a, b| a.hit.start_m.total_cmp(&b.hit.start_m));

@@ -162,9 +162,15 @@ pub(crate) fn costing_options(dims: &RoutingDimensions, avoid: Avoid) -> Value {
 /// A stop as the engine takes it. A stop is snapped to the nearest road
 /// the vehicle may drive, never onto a ferry line: a point picked on the
 /// map near a port or in a lagoon would otherwise start or end the trip on
-/// the boat (Venice, measured 2026-10-07). The vehicle's own position, the
-/// stop sent with a heading, keeps the ferry: a driver recalculating on
-/// board is on the boat, and the nearest road may be the port left behind.
+/// the boat (Venice, measured 2026-10-07). Nor into a tunnel: a point
+/// picked on a city square fell onto the aisle of the car park under it,
+/// 1.8 or 1.9 m high, and no motorhome could start or end there (the town
+/// halls of Toulouse and Montpellier, production, 2026-10-07,
+/// `plan/research/61-limites-urbaines.md`). The engine's snapping knows
+/// the vehicle's access, not its limits, so the filter is the tunnel tag
+/// those aisles carry. The vehicle's own position, the stop sent with a
+/// heading, keeps both: a driver recalculating on board is on the boat or
+/// in the tunnel, and the nearest road may be the one left behind.
 fn location(s: &Stop) -> Value {
     let mut l = json!({
         "lat": s.at.lat(),
@@ -177,7 +183,7 @@ fn location(s: &Stop) -> Value {
             l["heading"] = h.into();
             l["heading_tolerance"] = HEADING_TOLERANCE_DEG.into();
         }
-        None => l["search_filter"] = json!({"exclude_ferry": true}),
+        None => l["search_filter"] = json!({"exclude_ferry": true, "exclude_tunnel": true}),
     }
     l
 }
@@ -735,8 +741,8 @@ mod tests {
         );
         assert_eq!(
             body["locations"][1]["search_filter"],
-            json!({"exclude_ferry": true}),
-            "a stop picked on the map is snapped to a road, never a ferry line"
+            json!({"exclude_ferry": true, "exclude_tunnel": true}),
+            "a stop picked on the map is snapped to a road, never a ferry line nor a tunnel"
         );
         assert_eq!(
             body["exclude_polygons"][0][0],

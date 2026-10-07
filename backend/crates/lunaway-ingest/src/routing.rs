@@ -90,6 +90,15 @@ pub struct PrepareReport {
     pub weight_rating_copied: usize,
     /// Ways and nodes whose `motorhome` access was copied to `motorcar`.
     pub motorhome_access_copied: usize,
+    /// Limits whose exception for local access ("sauf desserte") the
+    /// change file writes in the form Valhalla reads.
+    pub local_access_written: usize,
+    /// Exceptions Valhalla would read that a motorhome may not use ("sauf
+    /// livraisons", or one on a clearance), removed.
+    pub local_access_removed: usize,
+    /// IGN sections whose weight limit is set aside: on a motorway or a
+    /// ramp, or on a lane closed to the public.
+    pub ign_weight_set_aside: usize,
     /// Limit values no sign carries, left for a human.
     pub invalid_values: usize,
     /// IGN sections read.
@@ -400,7 +409,7 @@ fn node_element(
     fixes.retain(|k, _| k == "motorcar");
     if !fixes.is_empty() {
         let mut new_tags = tags.clone();
-        new_tags.extend(fixes);
+        tags::apply_fixes(&mut new_tags, &fixes);
         out.rewrites.push(Rewrite {
             id,
             version: version.max(0) + 1,
@@ -596,7 +605,8 @@ pub fn prepare(
     // Per kept way, the lowest IGN figure of each kind and the section it
     // came from; per section, the OpenStreetMap figure it disagrees with.
     let mut extra: HashMap<usize, BTreeMap<RestrictionKind, (f64, usize)>> = HashMap::new();
-    let mut section_matched = vec![false; sections.len()];
+    // Per section, the kept ways it matched.
+    let mut section_ways: Vec<Vec<usize>> = vec![Vec::new(); sections.len()];
     for (si, s) in sections.iter().enumerate() {
         let mut near: HashSet<usize> = HashSet::new();
         for p in &s.geometry {
@@ -623,7 +633,7 @@ pub fn prepare(
             if !along_way && !along_section {
                 continue;
             }
-            section_matched[si] = true;
+            section_ways[si].push(*wi);
             let limits = extra.entry(*wi).or_default();
             for (kind, value) in ign_limits(s) {
                 let e = limits.entry(kind).or_insert((value, si));
@@ -633,7 +643,11 @@ pub fn prepare(
             }
         }
     }
-    report.ign_matched = section_matched.iter().filter(|m| **m).count();
+    report.ign_matched = section_ways.iter().filter(|w| !w.is_empty()).count();
+    report.ign_weight_set_aside = sections
+        .iter()
+        .filter(|s| s.weight_t.is_some() && !s.weight_concerns_public_traffic())
+        .count();
 
     // Disputes, both ways: (section, kind) -> the OpenStreetMap figure, and
     // (way index, kind) -> the IGN figure.
@@ -668,14 +682,24 @@ pub fn prepare(
                 report.motorhome_access_copied += 1;
             }
             let applied_ign = ign.iter().any(|(kind, v)| {
-                fixes.get(kind.graph_key()).map(String::as_str)
+                fixes.get(kind.graph_key()).and_then(Option::as_deref)
                     == Some(tags::canonical(*v).as_str())
             });
             if applied_ign {
                 report.ign_applied += 1;
             }
+            let conditionals = RestrictionKind::LIMITS
+                .iter()
+                .filter_map(|k| k.conditional_keys().first())
+                .filter_map(|key| fixes.get(*key));
+            for change in conditionals {
+                match change {
+                    Some(_) => report.local_access_written += 1,
+                    None => report.local_access_removed += 1,
+                }
+            }
             let mut new_tags = w.tags.clone();
-            new_tags.extend(fixes);
+            tags::apply_fixes(&mut new_tags, &fixes);
             rewrites.push(Rewrite {
                 id: w.id,
                 version: w.version.max(0) + 1,
@@ -712,6 +736,7 @@ pub fn prepare(
                 other_source: dispute.map(|_| RestrictionSource::Ign),
                 shape: shape.clone(),
                 observed_at: observed,
+                except_destination: tags::limit_spares_local_access(&w.tags, *kind),
             });
         }
     }
@@ -733,6 +758,7 @@ pub fn prepare(
                 other_source: None,
                 shape: shape.clone(),
                 observed_at: observed,
+                except_destination: tags::limit_spares_local_access(tags, kind),
             });
         }
     }
@@ -769,6 +795,13 @@ pub fn prepare(
                 other_source: dispute.map(|_| RestrictionSource::Osm),
                 shape: shape.clone(),
                 observed_at: s.modified_at.unwrap_or(ign_fetched_at),
+                except_destination: ign_spares_local_access(
+                    kind,
+                    value,
+                    &section_ways[si],
+                    &ways.kept,
+                    &extra,
+                ),
             });
         }
     }
@@ -785,7 +818,35 @@ pub fn prepare(
     })
 }
 
-/// The limits of an IGN section, plausible ones only.
+/// Whether an IGN section's limit of `kind` at `value` spares local access.
+/// IGN has no exception, so the section takes that of the OpenStreetMap
+/// ways it matched when every one of them carries the same figure with the
+/// plate, and the graph kept it there ([`tags::spares_local_access_with`]):
+/// one "sauf desserte" street seen by two sources must not close what the
+/// graph lets a trip reach.
+fn ign_spares_local_access(
+    kind: RestrictionKind,
+    value: f64,
+    matched: &[usize],
+    kept: &[KeptWay],
+    extra: &HashMap<usize, BTreeMap<RestrictionKind, (f64, usize)>>,
+) -> bool {
+    !matched.is_empty()
+        && matched.iter().all(|wi| {
+            let Some(w) = kept.get(*wi) else {
+                return false;
+            };
+            let lowest = extra.get(wi).and_then(|m| m.get(&kind)).map(|(v, _)| *v);
+            tags::spares_local_access_with(&w.tags, kind, lowest)
+                && tags::read_limit(&w.tags, kind)
+                    .limit()
+                    .is_some_and(|osm| (osm - value).abs() <= tags::tolerance(kind))
+        })
+}
+
+/// The limits of an IGN section, plausible ones only, without a weight that
+/// does not concern the public road
+/// ([`IgnSection::weight_concerns_public_traffic`]).
 fn ign_limits(s: &IgnSection) -> Vec<(RestrictionKind, f64)> {
     [
         (
@@ -810,6 +871,7 @@ fn ign_limits(s: &IgnSection) -> Vec<(RestrictionKind, f64)> {
         ),
     ]
     .into_iter()
+    .filter(|(k, _, _)| *k != RestrictionKind::MaxWeight || s.weight_concerns_public_traffic())
     .filter_map(|(k, v, range)| v.filter(|x| range.contains(x)).map(|x| (k, x)))
     .collect()
 }

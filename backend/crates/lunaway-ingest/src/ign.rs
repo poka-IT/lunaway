@@ -70,6 +70,50 @@ pub struct IgnSection {
     pub modified_at: Option<DateTime<Utc>>,
     /// The section's line.
     pub geometry: Vec<Position>,
+    /// What road it is (`nature`: "Type autoroutier", "Bretelle", "Route à
+    /// 1 chaussée"...).
+    pub nature: Option<String>,
+    /// Who may drive it (`acces_vehicule_leger`: "Libre", "A péage",
+    /// "Restreint aux ayants droit", "Physiquement impossible").
+    pub access: Option<String>,
+}
+
+/// The natures of a motorway and its ramps in BD TOPO.
+const MOTORWAY_NATURES: [&str; 2] = ["Type autoroutier", "Bretelle"];
+/// The access of a section most motorised users may not take: "seules
+/// certaines catégories sont autorisées : secours, employés, propriétaires,
+/// livreurs" (bdtopoexplorer.ign.fr, `troncon_de_route`, September 2026).
+const RESTRICTED_ACCESS: &str = "Restreint aux ayants droit";
+
+impl IgnSection {
+    /// Whether the section's total weight limit concerns the public traffic
+    /// on the road it describes.
+    ///
+    /// BD TOPO defines the limit as a physical one for every vehicle ("Il
+    /// s'agit d'une limitation physique ; aucune dérogation n'est
+    /// possible"), and has no attribute for goods vehicles
+    /// (`plan/research/07-navigation.md`, B.2). Yet it gives 3.5 t to 3 km
+    /// of the A8 at Rousset, 67 sections of the A54 and 25 of the N113
+    /// between Arles and Salon, all of them `sources = DSR` and without a
+    /// clearance, roads that coaches and heavy goods vehicles take every
+    /// day: a 3.8 t motorhome from Marseille to Nice was sent 81 km round
+    /// (`plan/research/61-limites-urbaines.md`). On a motorway or one of its
+    /// ramps, IGN's weight is set aside; OpenStreetMap's own limits stay,
+    /// such as the A86 tunnel at Rueil, mapped `maxweight=3.5`.
+    ///
+    /// A section closed to the public describes a reserved lane: its limit
+    /// says nothing of the public road a few metres off, where the check
+    /// after each route would otherwise meet it (the D113 at Vitrolles, 1 m
+    /// from such a lane at 3.5 t).
+    #[must_use]
+    pub fn weight_concerns_public_traffic(&self) -> bool {
+        let motorway = self
+            .nature
+            .as_deref()
+            .is_some_and(|n| MOTORWAY_NATURES.contains(&n));
+        let reserved = self.access.as_deref() == Some(RESTRICTED_ACCESS);
+        !(motorway || reserved)
+    }
 }
 
 #[derive(Deserialize)]
@@ -187,6 +231,8 @@ pub fn parse(bytes: &[u8]) -> Result<(Vec<IgnSection>, usize), IngestError> {
                 name: text(p, "nom_voie_ban_gauche").or_else(|| text(p, "nom_collaboratif_gauche")),
                 modified_at: date(p, "date_modification").or_else(|| date(p, "date_creation")),
                 geometry,
+                nature: text(p, "nature"),
+                access: text(p, "acces_vehicule_leger"),
             },
             _ => {
                 skipped += 1;
@@ -484,6 +530,39 @@ mod tests {
     }
 
     #[test]
+    fn a_weight_on_a_motorway_or_a_reserved_lane_is_not_the_public_road_s() {
+        // TRONROUT0000000040841459, the A8 at Rousset, and
+        // TRONROUT0000002477095513, a lane beside the D113 at Vitrolles, as
+        // the WFS answered on 2026-10-07 (fields kept: those read here).
+        let body = r#"{"type":"FeatureCollection","features":[
+          {"type":"Feature","geometry":{"type":"LineString","coordinates":[[5.667611,43.470484],[5.67878,43.470642]]},
+           "properties":{"cleabs":"TRONROUT0000000040841459","nature":"Type autoroutier",
+             "acces_vehicule_leger":"A péage","restriction_de_poids_total":3.5,"sources":"DSR"}},
+          {"type":"Feature","geometry":{"type":"LineString","coordinates":[[5.26319879,43.42615204],[5.2639356,43.42560833]]},
+           "properties":{"cleabs":"TRONROUT0000002477095513","nature":"Route à 1 chaussée",
+             "acces_vehicule_leger":"Restreint aux ayants droit","restriction_de_poids_total":3.5}},
+          {"type":"Feature","geometry":{"type":"LineString","coordinates":[[1.0,45.0],[1.001,45.001]]},
+           "properties":{"cleabs":"TRONROUT0000000000003","nature":"Route à 1 chaussée",
+             "acces_vehicule_leger":"Libre","restriction_de_poids_total":3.5}}
+        ]}"#;
+        let (sections, _) = parse(body.as_bytes()).unwrap();
+        assert_eq!(sections[0].nature.as_deref(), Some("Type autoroutier"));
+        assert_eq!(
+            sections[1].access.as_deref(),
+            Some("Restreint aux ayants droit")
+        );
+        let concerns: Vec<bool> = sections
+            .iter()
+            .map(IgnSection::weight_concerns_public_traffic)
+            .collect();
+        assert_eq!(
+            concerns,
+            [false, false, true],
+            "a motorway's 3.5 t and a reserved lane's leave the road open; a street's stays"
+        );
+    }
+
+    #[test]
     fn the_edition_is_read_from_the_layer_s_abstract() {
         // As the Géoplateforme answers (2026-10-06).
         let caps = "<FeatureType><Name>BDTOPO_V3:batiment</Name>\
@@ -508,6 +587,8 @@ mod tests {
             name: None,
             modified_at: None,
             geometry: vec![p, p],
+            nature: None,
+            access: None,
         };
         assert!(check_area(&[section(at(45.8, 1.2))]).is_ok());
         // Latitude and longitude swapped.
