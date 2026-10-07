@@ -7,7 +7,9 @@ import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/places/data/online_places.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -120,6 +122,91 @@ final class FakePlacesRepository implements PlacesRepository {
 
   @override
   Future<int> storageSizeBytes() async => 3 * 1024 * 1024 + 300 * 1024;
+}
+
+/// The API's places in memory, with the server's semantics: the viewport
+/// and the filter, nearest to `near` first, pages by cursor, and every
+/// request recorded.
+final class FakeOnlinePlaces implements OnlinePlaces {
+  new(List<Place> places) {
+    for (final p in places) {
+      _places[p.id] = p;
+    }
+  }
+
+  final Map<String, Place> _places = {};
+
+  /// What the server holds from now on for [place]'s id.
+  void put(Place place) => _places[place.id] = place;
+
+  /// Every request, as `kind:argument` (`page:<after>`, `search:<text>`,
+  /// `place:<id>`).
+  final List<String> requests = [];
+
+  /// The `near` of each page asked: what the API learns of where the user
+  /// looks.
+  final List<LatLng> nears = [];
+
+  /// Makes every request fail as a lost network would.
+  bool offline = false;
+
+  /// Holds the answers of the next pages (a cursor given) until it
+  /// completes: a page on its way while the map moves.
+  Completer<void>? holdPages;
+
+  void _ask(String request) {
+    requests.add(request);
+    if (offline) throw GraphQLNetworkException('offline', null);
+  }
+
+  @override
+  Future<PlacePage> inBounds(
+    GeoBounds bounds,
+    PlaceFilter filter, {
+    required LatLng near,
+    int first = 50,
+    String? after,
+  }) async {
+    _ask('page:${after ?? ''}');
+    nears.add(near);
+    if (after != null) await holdPages?.future;
+    final inside = [
+      for (final p in _places.values)
+        if (bounds.contains(p.position) && filter.matches(p.summary, maxHeightM: p.maxHeightM))
+          p.summary,
+    ]..sort((a, b) => a.position.distanceTo(near).compareTo(b.position.distanceTo(near)));
+    final start = int.tryParse(after ?? '') ?? 0;
+    final end = (start + first).clamp(0, inside.length);
+    return PlacePage(
+      places: inside.sublist(start.clamp(0, inside.length), end),
+      total: inside.length,
+      hasNextPage: end < inside.length,
+      endCursor: '$end',
+    );
+  }
+
+  @override
+  Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20}) async {
+    _ask('search:$text');
+    final q = text.toLowerCase();
+    return [
+      for (final p in _places.values)
+        if ((p.name ?? '').toLowerCase().contains(q) ||
+            (p.address?.city ?? '').toLowerCase().startsWith(q))
+          p.summary,
+    ].take(first).toList();
+  }
+
+  /// Holds the answers of [place] until it completes: what the page shows
+  /// while the place is on its way.
+  Completer<void>? hold;
+
+  @override
+  Future<Place?> place(String id) async {
+    _ask('place:$id');
+    await hold?.future;
+    return _places[id];
+  }
 }
 
 final class FakeFavoritesRepository implements FavoritesRepository {

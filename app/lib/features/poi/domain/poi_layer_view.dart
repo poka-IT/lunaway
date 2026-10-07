@@ -52,13 +52,6 @@ final class PoiLayerView {
       listEquals(other.fuelLabels, fuelLabels);
 
   @override
-  int get hashCode => Object.hash(
-    tileJsonUrl,
-    category,
-    vending,
-    openNowOnly,
-    state,
-    night,
-    selected,
-  );
+  int get hashCode =>
+      Object.hash(tileJsonUrl, category, vending, openNowOnly, state, night, selected);
 }

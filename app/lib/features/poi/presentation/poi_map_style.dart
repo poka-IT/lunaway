@@ -57,11 +57,7 @@ abstract final class PoiMapStyle {
   /// The image of a point of [kind]: its glyph on the category's tone, or
   /// grey and smaller when [quiet], or larger and ringed in amber when
   /// [selected]. The sprite generator writes them under the same ids.
-  static String imageId(
-    PoiKind kind, {
-    bool quiet = false,
-    bool selected = false,
-  }) =>
+  static String imageId(PoiKind kind, {bool quiet = false, bool selected = false}) =>
       'poi-${kind.code}${quiet ? '-quiet' : ''}${selected ? '-selected' : ''}';
 
   /// The dot of a category where its points gather.
@@ -87,10 +83,7 @@ abstract final class PoiMapStyle {
   static List<Object> iconImage({bool quiet = false}) => [
     'match',
     ['get', 'kind'],
-    for (final kind in PoiKind.values) ...[
-      kind.code,
-      imageId(kind, quiet: quiet),
-    ],
+    for (final kind in PoiKind.values) ...[kind.code, imageId(kind, quiet: quiet)],
     imageId(PoiKind.vendingOther, quiet: quiet),
   ];
 
@@ -102,19 +95,18 @@ abstract final class PoiMapStyle {
 
   /// What the chosen chip shows: its category, or the one kind of vending
   /// machine chosen.
-  static List<Object> _chosen(PoiLayerView view) =>
-      switch (_vendingKind(view)) {
-        final kind? => [
-          '==',
-          ['get', 'kind'],
-          kind.code,
-        ],
-        null => [
-          '==',
-          ['get', 'category'],
-          view.category?.code ?? '',
-        ],
-      };
+  static List<Object> _chosen(PoiLayerView view) => switch (_vendingKind(view)) {
+    final kind? => [
+      '==',
+      ['get', 'kind'],
+      kind.code,
+    ],
+    null => [
+      '==',
+      ['get', 'category'],
+      view.category?.code ?? '',
+    ],
+  };
 
   /// The points of the chosen category, less those a place stands for, and
   /// only the open ones when asked.
@@ -164,12 +156,7 @@ abstract final class PoiMapStyle {
 
   /// A closed point is drawn faded: it stays on the map, an information when
   /// arriving in the evening.
-  static List<Object> opacity(PoiLayerView view) => [
-    'case',
-    _inIds(view.state.closed),
-    0.42,
-    1.0,
-  ];
+  static List<Object> opacity(PoiLayerView view) => ['case', _inIds(view.state.closed), 0.42, 1.0];
 
   /// Lower keys are placed first where points collide: at night what is
   /// open around the clock, then the open ones (by day, those open around
@@ -267,8 +254,7 @@ abstract final class PoiMapStyle {
   /// From the cheapest station in view to the dearest, on
   /// [PoiLook.priceScale].
   static List<Object> fuelTextColor({required bool dark}) {
-    String hex(Color c) =>
-        '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+    String hex(Color c) => '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
     final (cheap, middle, dear) = PoiLook.priceScale(dark: dark);
     return [
       'interpolate',
@@ -298,12 +284,9 @@ abstract final class PoiMapStyle {
   static String? firstLabelLayer(String style) {
     if (!style.trimLeft().startsWith('{')) return null;
     try {
-      final layers =
-          (jsonDecode(style) as Map<String, dynamic>)['layers']
-              as List<dynamic>?;
+      final layers = (jsonDecode(style) as Map<String, dynamic>)['layers'] as List<dynamic>?;
       for (final l in layers ?? const []) {
-        if (l is Map<String, dynamic> && l['type'] == 'symbol')
-          return l['id'] as String?;
+        if (l is Map<String, dynamic> && l['type'] == 'symbol') return l['id'] as String?;
       }
     } on Object {
       return null;
@@ -356,10 +339,7 @@ final class TapPoiDot extends PoiTap {
 
 /// The action for a tap on a feature with [properties] at [coordinates]
 /// (`[lon, lat]`), or null when it is none of the points layers'.
-PoiTap? poiTapFor(
-  Map<Object?, Object?>? properties,
-  List<Object?>? coordinates,
-) {
+PoiTap? poiTapFor(Map<Object?, Object?>? properties, List<Object?>? coordinates) {
   if (properties == null) return null;
   if (properties.containsKey('count') && !properties.containsKey('id')) {
     if (coordinates == null || coordinates.length < 2) return null;

@@ -80,11 +80,7 @@ enum PoiKind {
 
   /// The machines a traveller adds in two gestures: the three the add sheet
   /// offers.
-  static const List<PoiKind> addable = [
-    vendingPizza,
-    vendingBread,
-    vendingOther,
-  ];
+  static const List<PoiKind> addable = [vendingPizza, vendingBread, vendingOther];
 
   /// What the vending chip lets one show alone, in the order of its menu,
   /// pizza first. The tiles count these per kind below the zoom of the
@@ -199,18 +195,13 @@ final class PoiFeature {
 
   /// The feature of the `pois` layer of a tile, from its properties and its
   /// `[lon, lat]`; null when it lacks what the app needs.
-  static PoiFeature? fromTile(
-    Map<Object?, Object?>? properties,
-    List<Object?>? coordinates,
-  ) {
-    if (properties == null || coordinates == null || coordinates.length < 2)
-      return null;
+  static PoiFeature? fromTile(Map<Object?, Object?>? properties, List<Object?>? coordinates) {
+    if (properties == null || coordinates == null || coordinates.length < 2) return null;
     final id = properties['id'];
     final kind = PoiKind.fromCode(properties['kind']);
     final lon = coordinates[0];
     final lat = coordinates[1];
-    if (id is! String || kind == null || lon is! num || lat is! num)
-      return null;
+    if (id is! String || kind == null || lon is! num || lat is! num) return null;
     final name = properties['name'];
     return PoiFeature(
       id: id,
@@ -250,11 +241,7 @@ final class PoiFeature {
 /// map stands on them.
 @immutable
 final class PoiLayerState {
-  const new({
-    this.closed = const {},
-    this.open = const {},
-    this.hidden = const {},
-  });
+  const new({this.closed = const {}, this.open = const {}, this.hidden = const {}});
 
   static const empty = PoiLayerState();
 
@@ -272,8 +259,7 @@ final class PoiLayerState {
       _sets.equals(other.hidden, hidden);
 
   @override
-  int get hashCode =>
-      Object.hash(_sets.hash(closed), _sets.hash(open), _sets.hash(hidden));
+  int get hashCode => Object.hash(_sets.hash(closed), _sets.hash(open), _sets.hash(hidden));
 }
 
 /// A dump station the map also shows as a place (2,130 of the 2,756 of the
@@ -306,15 +292,12 @@ PoiLayerState computePoiLayerState(
     final near = [
       for (final p in places)
         if (candidates.any(
-          (c) =>
-              (c.position.lat - p.lat).abs() < box &&
-              (c.position.lon - p.lon).abs() < box * 2,
+          (c) => (c.position.lat - p.lat).abs() < box && (c.position.lon - p.lon).abs() < box * 2,
         ))
           p,
     ];
     for (final c in candidates) {
-      if (near.any((p) => p.distanceTo(c.position) <= duplicateRadiusM))
-        hidden.add(c.id);
+      if (near.any((p) => p.distanceTo(c.position) <= duplicateRadiusM)) hidden.add(c.id);
     }
   }
   for (final f in features) {
@@ -333,11 +316,7 @@ PoiLayerState computePoiLayerState(
 /// A fuel's price at a station.
 @immutable
 final class FuelPrice {
-  const new({
-    required this.fuel,
-    required this.priceEur,
-    required this.updatedAt,
-  });
+  const new({required this.fuel, required this.priceEur, required this.updatedAt});
 
   final String fuel;
   final double priceEur;
@@ -402,8 +381,7 @@ final class FuelInfo {
     return i < 0 ? order.length : i;
   }
 
-  FuelShortage? shortageOf(String fuel) =>
-      shortages.firstWhereOrNull((s) => s.fuel == fuel);
+  FuelShortage? shortageOf(String fuel) => shortages.firstWhereOrNull((s) => s.fuel == fuel);
 }
 
 /// One source of a point, with its identifier there.
@@ -494,13 +472,8 @@ final class Poi {
   LatLng get position => LatLng(lat, lon);
 
   /// The point as a tile would show it, for the map's selection.
-  PoiFeature get feature => PoiFeature(
-    id: id,
-    kind: kind,
-    position: position,
-    name: name,
-    hours: hours,
-  );
+  PoiFeature get feature =>
+      PoiFeature(id: id, kind: kind, position: position, name: name, hours: hours);
 
   @override
   bool operator ==(Object other) => other is Poi && other.id == id;
@@ -512,11 +485,7 @@ final class Poi {
 /// The nearest points of one category around a place.
 @immutable
 final class NearbyPois {
-  const new({
-    required this.category,
-    required this.radiusM,
-    required this.pois,
-  });
+  const new({required this.category, required this.radiusM, required this.pois});
 
   final PoiCategory category;
   final double radiusM;
@@ -526,11 +495,7 @@ final class NearbyPois {
 /// Orders [pois] for a list read at [now]: open first, then unknown, then
 /// closed, each by distance; at night, what is open around the clock comes
 /// before the rest.
-List<Poi> sortForReading(
-  Iterable<Poi> pois,
-  DateTime now, {
-  bool night = false,
-}) {
+List<Poi> sortForReading(Iterable<Poi> pois, DateTime now, {bool night = false}) {
   int rank(Poi p) {
     if (night && p.hours.alwaysOpen) return 0;
     return switch (p.hours.opennessAt(now)) {
@@ -543,21 +508,14 @@ List<Poi> sortForReading(
   return [...pois]..sort((a, b) {
     final byRank = rank(a).compareTo(rank(b));
     if (byRank != 0) return byRank;
-    return (a.distanceM ?? double.infinity).compareTo(
-      b.distanceM ?? double.infinity,
-    );
+    return (a.distanceM ?? double.infinity).compareTo(b.distanceM ?? double.infinity);
   });
 }
 
 /// A station's price of one fuel, as a list of the cheapest reads it.
 @immutable
 final class FuelOffer {
-  const new({
-    required this.station,
-    required this.price,
-    required this.distanceM,
-    this.shortage,
-  });
+  const new({required this.station, required this.price, required this.distanceM, this.shortage});
 
   final Poi station;
   final FuelPrice price;
@@ -570,11 +528,7 @@ final class FuelOffer {
 /// The offers of [fuel] among [stations], cheapest first, then nearest to
 /// [from]; a station out of it for now comes after those that sell it, one
 /// that stopped selling it is left out.
-List<FuelOffer> cheapestOffers(
-  Iterable<Poi> stations,
-  String fuel, {
-  required LatLng from,
-}) {
+List<FuelOffer> cheapestOffers(Iterable<Poi> stations, String fuel, {required LatLng from}) {
   final offers = <FuelOffer>[];
   for (final s in stations) {
     final info = s.fuel;
@@ -593,9 +547,7 @@ List<FuelOffer> cheapestOffers(
     );
   }
   return offers..sort((a, b) {
-    final out = (a.shortage != null ? 1 : 0).compareTo(
-      b.shortage != null ? 1 : 0,
-    );
+    final out = (a.shortage != null ? 1 : 0).compareTo(b.shortage != null ? 1 : 0);
     if (out != 0) return out;
     final byPrice = a.price.priceEur.compareTo(b.price.priceEur);
     return byPrice != 0 ? byPrice : a.distanceM.compareTo(b.distanceM);
@@ -615,12 +567,7 @@ double priceRank(double price, Iterable<double> prices) {
 /// A price on the map, under its station's pin.
 @immutable
 final class FuelLabel {
-  const new({
-    required this.id,
-    required this.position,
-    required this.text,
-    required this.rank,
-  });
+  const new({required this.id, required this.position, required this.text, required this.rank});
 
   final String id;
   final LatLng position;

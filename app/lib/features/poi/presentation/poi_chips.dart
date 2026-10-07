@@ -36,9 +36,7 @@ List<Widget> poiCategoryChip(
         selected: on,
         floating: floating,
         // A screen reader hears that this chip asks a choice first.
-        semanticsLabel: c == PoiCategory.vending && !on
-            ? t.poi.vendingMenu
-            : null,
+        semanticsLabel: c == PoiCategory.vending && !on ? t.poi.vendingMenu : null,
         onTap: () async {
           Haptics.select();
           if (c != PoiCategory.vending || on) return layer.toggle(c);
@@ -67,33 +65,23 @@ List<Widget> poiCategoryChip(
 Future<({PoiKind? kind})?> showVendingMenu(BuildContext chipContext) {
   final t = chipContext.t;
   final box = chipContext.findRenderObject()! as RenderBox;
-  final overlay =
-      Overlay.of(chipContext).context.findRenderObject()! as RenderBox;
-  final topLeft = box.localToGlobal(
-    Offset(0, box.size.height),
-    ancestor: overlay,
-  );
+  final overlay = Overlay.of(chipContext).context.findRenderObject()! as RenderBox;
+  final topLeft = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
   const tone = PoiCategory.vending;
-  PopupMenuItem<({PoiKind? kind})> item(
-    PoiKind? kind,
-    IconData icon,
-    String label,
-  ) => PopupMenuItem(
-    value: (kind: kind),
-    child: Row(
-      children: [
-        Icon(icon, color: PoiLook.tone(tone)),
-        const SizedBox(width: Space.m),
-        Flexible(child: Text(label)),
-      ],
-    ),
-  );
+  PopupMenuItem<({PoiKind? kind})> item(PoiKind? kind, IconData icon, String label) =>
+      PopupMenuItem(
+        value: (kind: kind),
+        child: Row(
+          children: [
+            Icon(icon, color: PoiLook.tone(tone)),
+            const SizedBox(width: Space.m),
+            Flexible(child: Text(label)),
+          ],
+        ),
+      );
   return showMenu<({PoiKind? kind})>(
     context: chipContext,
-    position: RelativeRect.fromRect(
-      topLeft & Size.zero,
-      Offset.zero & overlay.size,
-    ),
+    position: RelativeRect.fromRect(topLeft & Size.zero, Offset.zero & overlay.size),
     semanticLabel: t.poi.vendingMenu,
     items: [
       for (final kind in PoiKind.vendingChoices)

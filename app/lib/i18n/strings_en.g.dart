@@ -1118,6 +1118,9 @@ class Translations$list$en {
 
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
+
+	/// en: 'More places could not be loaded. Try again'
+	String get moreFailed => 'More places could not be loaded. Try again';
 }
 
 // Path: favorites
@@ -5578,6 +5581,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -6022,9 +6026,9 @@ extension on Translations {
 			'placeForm.nothingChanged' => 'Nothing has changed',
 			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
-			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
 			'favoritesSync.local' => 'On this device only',
 			'favoritesSync.action' => 'Sync',

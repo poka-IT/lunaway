@@ -145,11 +145,7 @@ extension PoiLabels on Translations {
 
   /// A point's state at [now]: "Open 24/7", "Open, closes at 19:00",
   /// "Closed, opens tomorrow at 08:00", or "Hours unknown".
-  String poiOpening(
-    PoiHours hours,
-    DateTime now, {
-    PlaceZone zone = PlaceZone.central,
-  }) {
+  String poiOpening(PoiHours hours, DateTime now, {PlaceZone zone = PlaceZone.central}) {
     if (hours.alwaysOpen) return _t.poi.alwaysOpen;
     final state = hours.stateAt(now);
     if (state == null) return _t.poi.hoursUnknown;
@@ -169,12 +165,7 @@ Color poiOpeningColor(ColorScheme scheme, PoiHours hours, DateTime now) =>
 /// A point's tile in a list or a header: its glyph on its category's tone,
 /// as on the map.
 class PoiAvatar extends StatelessWidget {
-  const new({
-    required this.kind,
-    this.size = 44,
-    this.faded = false,
-    super.key,
-  });
+  const new({required this.kind, this.size = 44, this.faded = false, super.key});
 
   final PoiKind kind;
   final double size;
@@ -193,11 +184,7 @@ class PoiAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       alignment: Alignment.center,
-      child: Icon(
-        PoiLook.kind(kind),
-        size: size * 0.54,
-        color: LunaTokens.pinGlyph,
-      ),
+      child: Icon(PoiLook.kind(kind), size: size * 0.54, color: LunaTokens.pinGlyph),
     ),
   );
 }

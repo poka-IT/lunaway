@@ -230,6 +230,14 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         return swept;
       });
 
+  /// Forgets every place and every sync: the web, which reads the places
+  /// from the API now, drops the copy an earlier version of the app synced
+  /// into the browser's storage.
+  Future<int> forgetAll() => _db.transaction(() async {
+    await _db.delete(_db.regionSyncs).go();
+    return await _db.delete(_db.places).go();
+  });
+
   @override
   Future<void> reset(String region, GeoBounds bounds) => _db.transaction(() async {
     await (_db.delete(_db.regionSyncs)..where((s) => s.region.equals(region))).go();

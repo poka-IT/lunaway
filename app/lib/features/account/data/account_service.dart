@@ -46,11 +46,7 @@ final class BadChallengeException implements Exception {
 /// A session the server handed out.
 @immutable
 final class Session {
-  const new({
-    required this.token,
-    required this.expiresAt,
-    required this.openedAt,
-  });
+  const new({required this.token, required this.expiresAt, required this.openedAt});
 
   final String token;
   final DateTime expiresAt;
@@ -192,9 +188,7 @@ final class AccountService {
     return session == null ? const {} : _headers(session);
   }
 
-  static Map<String, String> _headers(Session s) => {
-    'authorization': 'Bearer ${s.token}',
-  };
+  static Map<String, String> _headers(Session s) => {'authorization': 'Bearer ${s.token}'};
 
   /// Sends [operation] as the account. Without an account it makes one when
   /// [create] allows it, and throws [NoAccountException] otherwise.
@@ -205,8 +199,7 @@ final class AccountService {
     bool fresh = false,
   }) async {
     var session = await _current();
-    if (session == null ||
-        (fresh && clock().difference(session.openedAt) > freshFor)) {
+    if (session == null || (fresh && clock().difference(session.openedAt) > freshFor)) {
       session = await _signInOnce(create: create, replacing: session);
     }
     try {
@@ -223,8 +216,7 @@ final class AccountService {
   /// A session for a request made outside GraphQL (a photo upload), signing
   /// in when there is none.
   Future<Map<String, String>> sessionHeaders({bool create = false}) async {
-    final session =
-        await _current() ?? await _signInOnce(create: create, replacing: null);
+    final session = await _current() ?? await _signInOnce(create: create, replacing: null);
     return _headers(session);
   }
 
@@ -235,14 +227,9 @@ final class AccountService {
 
   /// Signs in once for every caller that needs it now: two requests refused
   /// together share one new session.
-  Future<Session> _signInOnce({
-    required bool create,
-    required Session? replacing,
-  }) async {
+  Future<Session> _signInOnce({required bool create, required Session? replacing}) async {
     final current = _session;
-    if (current != null &&
-        replacing != null &&
-        current.token != replacing.token) {
+    if (current != null && replacing != null && current.token != replacing.token) {
       return current;
     }
     final running = _signingIn;
@@ -255,8 +242,7 @@ final class AccountService {
         if (!create) rethrow;
       }
     }
-    return await (_signingIn ??= _signIn(create: create)
-        .whenComplete(() => _signingIn = null));
+    return await (_signingIn ??= _signIn(create: create).whenComplete(() => _signingIn = null));
   }
 
   Future<Session> _signIn({required bool create}) async {
@@ -270,9 +256,7 @@ final class AccountService {
       // second one.
       await keys.save(key);
     }
-    final previous = Account.fromJson(
-      _decode(await secrets.read(_accountSlot)),
-    );
+    final previous = Account.fromJson(_decode(await secrets.read(_accountSlot)));
     final (nonce, signature) = await _answer(key);
     // Only a device that holds no account and may make one lets the server
     // create it. Behind a key that held an account here, an unknown key
@@ -297,8 +281,7 @@ final class AccountService {
       final reason = e.withCode(GraphQLError.notFound)?.reason;
       if (reason != null && reason != GraphQLError.unknownKey) rethrow;
       if (!e.hasCode(GraphQLError.notFound)) rethrow;
-      if (generation != _generation || previous == null)
-        throw const NoAccountException();
+      if (generation != _generation || previous == null) throw const NoAccountException();
       _log.warning('the device key no longer opens its account');
       await _forget(lost: true);
       throw const AccountLostException();
@@ -312,9 +295,7 @@ final class AccountService {
     // does not know. Behind a key that held an account here, a new one
     // means the old one is gone: the account just made was not asked for,
     // it goes at once, and so does the key.
-    if (previous != null &&
-        result.created &&
-        result.account.id != previous.id) {
+    if (previous != null && result.created && result.account.id != previous.id) {
       _log.warning('the device key no longer opens its account');
       try {
         await client.execute(deleteAccountOperation, const {}, {
@@ -332,12 +313,7 @@ final class AccountService {
     await _keep(result);
     // A device that never saw this account greets it as new, even when a
     // lost answer made the server create it on an earlier attempt.
-    _events.add(
-      AccountSignedIn(
-        result.account,
-        created: result.created || previous == null,
-      ),
-    );
+    _events.add(AccountSignedIn(result.account, created: result.created || previous == null));
     return _session!;
   }
 
@@ -348,15 +324,11 @@ final class AccountService {
     final challenge = await client.execute(authChallengeOperation);
     final nonce = challenge.nonce;
     if (!RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(nonce)) {
-      throw const BadChallengeException(
-        'the nonce is not 32 bytes of base64url',
-      );
+      throw const BadChallengeException('the nonce is not 32 bytes of base64url');
     }
     final message = '${P256.challengePrefix}$nonce';
     if (challenge.message != message) {
-      throw const BadChallengeException(
-        'the message is not the prefix and the nonce',
-      );
+      throw const BadChallengeException('the message is not the prefix and the nonce');
     }
     final signature = await key.sign(Uint8List.fromList(utf8.encode(message)));
     return (nonce, P256.b64url(signature));
@@ -386,9 +358,7 @@ final class AccountService {
   /// [ServerRecoveryCode] is null when the API is older than the date, or
   /// when this device made or used a card while the read was under way
   /// (the answer predates that card).
-  Future<
-    ({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})
-  >
+  Future<({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})>
   refresh() async {
     final cards = _cardWrites;
     final read = await run(myAccountOperation);
@@ -414,10 +384,7 @@ final class AccountService {
   int _cardWrites = 0;
 
   Future<Account> rename(String pseudonym) async {
-    final account = await run(
-      updateProfileOperation,
-      variables: {'pseudonym': pseudonym},
-    );
+    final account = await run(updateProfileOperation, variables: {'pseudonym': pseudonym});
     await secrets.write(_accountSlot, jsonEncode(account.toJson()));
     _events.add(AccountSignedIn(account, created: false));
     return account;

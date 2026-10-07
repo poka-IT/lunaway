@@ -97,11 +97,11 @@ fn request_span<B>(request: &Request<B>) -> tracing::Span {
 }
 
 /// The HTTP router: `/health` for probes, `POST /graphql` for the API,
-/// `POST /upload` for photos, `GET /poi/...` for the map tiles of the
-/// points of interest, `GET /external-photos/...` for the photo proxy of
-/// the external community source. Responses are gzip-compressed when the
-/// client accepts it: a sync page of 1000 places shrinks about thirteen
-/// times.
+/// `POST /upload` for photos, `GET /poi/...` and `GET /places/...` for the
+/// map tiles of the points of interest and of the places,
+/// `GET /external-photos/...` for the photo proxy of the external community
+/// source. Responses are gzip-compressed when the client accepts it: a sync
+/// page of 1000 places shrinks about thirteen times.
 pub fn router(state: ApiState) -> Router {
     let limits = state.config.limits;
     let dev_cors = state.config.dev_cors;
@@ -125,10 +125,20 @@ pub fn router(state: ApiState) -> Router {
         slots: tokio::sync::Semaphore::new(upload::UPLOADS_AT_ONCE),
     });
     let max_upload = upload.max_body();
+    let builders = Arc::new(tokio::sync::Semaphore::new(state.config.tiles.concurrency));
     let tiles = Arc::new(tiles::TileEndpoint::new(
+        tiles::Layer::Points,
         state.pool.clone(),
         state.config.tiles.clone(),
         Arc::clone(&rate),
+        Arc::clone(&builders),
+    ));
+    let place_tiles = Arc::new(tiles::TileEndpoint::new(
+        tiles::Layer::Places,
+        state.pool.clone(),
+        state.config.tiles.clone(),
+        Arc::clone(&rate),
+        builders,
     ));
     let endpoint = Arc::new(http::Endpoint::new(build_schema(state), limits, rate));
     let graphql = post(http::graphql).with_state(endpoint);
@@ -146,6 +156,14 @@ pub fn router(state: ApiState) -> Router {
         .route(
             "/poi/{version}/{z}/{x}/{y}",
             get(tiles::tile).with_state(tiles),
+        )
+        .route(
+            tiles::PLACES_TILE_JSON_PATH,
+            get(tiles::tile_json).with_state(Arc::clone(&place_tiles)),
+        )
+        .route(
+            "/places/{version}/{z}/{x}/{y}",
+            get(tiles::tile).with_state(place_tiles),
         )
         .route(
             "/external-photos/{id}/{size}",

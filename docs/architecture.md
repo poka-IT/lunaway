@@ -117,6 +117,9 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file
   the app downloads once before it follows the feed
   (`docs/region-packs.md`).
+- `place_layer`: the version of the places' map tiles and the change
+  feed's position it covers; `places.services_mask`, the services as the
+  bits the tiles carry.
 - `pois`: the points of interest around the places (shops, food vending
   machines, water and sanitation, fuel and energy, health, services), one
   source each, never conflated with the places; `poi_join_records`: what
@@ -165,6 +168,31 @@ vending machines, water, fuel, health, services).
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
   the worker writes as a point of the `community` source, ODbL).
+
+## Places on the map
+
+How a place reaches the screen, by platform (`docs/deploy.md`, "Places
+layer"):
+
+- **Map, every platform.** Vector tiles of the places built by PostGIS at
+  `GET /places/{version}/{z}/{x}/{y}.mvt`, described by
+  `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
+  overnight status, services mask, free or paid, height limit (and its
+  name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
+  and set of those properties. The app filters them with a map expression
+  on the device, with the same meaning as the `places` query's filter, so
+  a change of filter costs no request. The worker publishes a new version
+  at most every 15 minutes, and at once after a takedown; the version in
+  the URL lets a tile be cached for good.
+- **Details.** A tap on a pin reads `place(id)` (a persisted query, by its
+  hash).
+- **List.** `places(bbox, filter, near:)`: the places nearest to the map's
+  centre first, page by page, the centre rounded by the server to 0.01
+  degree; the device's own position is never sent.
+- **Offline, native apps.** The regions a user keeps come as packs, then
+  the change feed (`docs/region-packs.md`), into the local SQLite (drift),
+  for the screens and the search without network. The web app keeps no
+  copy of the places: it reads the tiles, `place(id)` and the list.
 
 ## Routing
 
@@ -343,14 +371,42 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 
 `app/`, Flutter, Riverpod 3 with code generation, go_router, slang, drift.
 
-- **Offline first**: the synced places live in a local SQLite database with an
-  R*Tree index for the viewport and FTS5 for search; contributions queue
-  locally and replay when the network returns; regions can be downloaded
-  (places, basemap, municipality names for offline search).
-- **Map**: MapLibre (`maplibre_gl` on Android, iOS and the web; `maplibre`
-  through a WebView on macOS and Windows), behind one interface; the visible
-  places feed a clustered GeoJSON source, never one widget per spot.
-  Basemap: self-hosted Protomaps PMTiles. Linux users use the web app.
+- **Online, nothing waits for a download**: while the network answers, the
+  map draws the places from the API's vector tiles (`/places/`, "Places
+  layer" in `docs/deploy.md`), and the filters are MapLibre expressions on
+  their properties (`placeTileFilter`, the same rule as
+  `PlaceFilter.matches`), applied without a request. A tap opens the page
+  at once with what the tile said (name, kind, night) while `place(id)`
+  reads the rest (a persisted query; the copy is kept in `place_cache` for
+  a later opening offline). The list beside the map is `places(bbox,
+  filter, near)` a page at a time, nearest to the map's centre (the device's
+  position is never sent); the search is `search` when the device holds no
+  place.
+- **Offline kept on phones and computers**: the regions' packs and their
+  change feed fill a local SQLite database (R*Tree for the viewport, FTS5
+  for search) in the background, a few seconds after the map's first view
+  (`docs/region-packs.md`). When the network does not answer, the map, the
+  list and the search read it, the map through a clustered GeoJSON source.
+  Contributions queue locally and replay when the network returns.
+- **The web keeps no places**: no pack, no feed; a copy of what an earlier
+  version synced into the browser is dropped. Favourites, the vehicle and
+  the user's contributions stay in the browser.
+- **Map**: MapLibre (`maplibre_gl` on Android, iOS and the web; MapLibre GL
+  JS in a WebView on macOS and Windows), behind one interface; never one
+  widget per spot. The camera is read when the map rests, never at each
+  frame. A change of theme turns the colours in place: on Android and iOS
+  the paint properties that differ between Aube and Minuit and the
+  basemap's icons (`StyleDiff`, `BasemapIcons`); in the browser and the
+  WebView, MapLibre GL JS diffs the new style with the app's layers kept
+  (`web/lunaway_maplibre.js`, `assets/map/lunaway_map.js`). Basemap:
+  self-hosted Protomaps PMTiles. Linux users use the web app.
+- **Web start**: the page loads MapLibre GL JS with itself and draws a first
+  map (`web/premap.js`) from the view, theme and filters the app kept in
+  `localStorage`, while the Flutter engine downloads; the app's map takes
+  its camera and replaces it once it has drawn the same view. Pin images
+  load when a layer first draws them. A service worker written for each
+  build (`app/tool/web/service_worker.py`) serves a second visit from the
+  browser's cache.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
 - **Coordinates in one gesture**: every place shows its coordinates with a

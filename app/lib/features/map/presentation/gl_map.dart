@@ -1,19 +1,25 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/domain/style_diff.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/map/basemap_icons.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -22,8 +28,9 @@ import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 final _log = Logger('map');
 
 /// The map on Android, iOS and the web: maplibre_gl (MapLibre Native, and
-/// MapLibre GL JS in the browser). Places go through one clustered GeoJSON
-/// source, never one widget per place.
+/// MapLibre GL JS in the browser). Online the places come from the API's
+/// vector tiles ([GlPlaceTiles]); offline from one clustered GeoJSON source
+/// of the places the device holds. Never one widget per place.
 class GlLunaMap extends StatefulWidget {
   const new(this.props, {super.key});
 
@@ -37,6 +44,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
 
+  /// The style the map widget is given: the one loaded whole. A change of
+  /// theme on Android and iOS keeps it and turns the colours in place
+  /// ([StyleDiff]); the browser does the same inside MapLibre GL JS
+  /// (`web/lunaway_maplibre.js`), so the web passes every style on.
+  late String _style = widget.props.style;
+
+  /// The style the map shows: [_style], or the one a change in place
+  /// turned it into.
+  late String _shown = widget.props.style;
+
   /// The first view still has to be fitted to the region. Decided when the
   /// map is made, not read from the props at style load: the map can
   /// report its first camera (which ends `fitInitial`) before a slow first
@@ -49,8 +66,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
-  String? _sentSelected;
+  Object? _sentSelected;
+  String? _sentSelectedId;
   LatLng? _sentPoint;
+  bool? _sentDark;
 
   // Updates run one after the other: a newer one never races an older one.
   Future<void> _queue = Future.value();
@@ -58,15 +77,55 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // The points of interest: their source, layers and selection.
   final _poi = GlPoiLayers();
 
+  // The places from the tiles.
+  final _tiles = GlPlaceTiles();
+
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
+
+  /// On the web, the page's first map stays on screen until this one has
+  /// drawn its view (`web/premap.js`).
+  bool _premapShown = kIsWeb;
+  Timer? _premapLater;
+
+  /// Whether the first places drawn were reported (`lunaway-places-drawn`
+  /// in the timeline, "places drawn" in the log): the start-up budget of
+  /// the phones is measured against it; the web marks it from the page.
+  bool _placesDrawn = kIsWeb;
 
   LunaMapProps get _props => widget.props;
 
   @override
   void dispose() {
     _stopWebLongPress?.call();
+    _premapLater?.cancel();
     super.dispose();
+  }
+
+  /// Takes the camera the page's first map shows (the user may have moved
+  /// it) and lets that map fade out: this one has drawn the same view.
+  Future<void> _handOverPremap() async {
+    if (!_premapShown) return;
+    _premapShown = false;
+    _premapLater?.cancel();
+    final c = _controller;
+    final camera = Premap.camera();
+    try {
+      if (c != null && camera != null) {
+        await c.moveCamera(
+          gl.CameraUpdate.newLatLngZoom(
+            gl.LatLng(camera.center.lat, camera.center.lon),
+            camera.zoom,
+          ),
+        );
+      }
+    } on Object catch (e) {
+      _log.info("the first map's camera was not taken: $e");
+    } finally {
+      // Whatever happened to the camera, the first map must not stay over
+      // the app.
+      Premap.handOver();
+    }
   }
 
   Future<void> _onWebLongPress(double x, double y) async {
@@ -79,15 +138,65 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   @override
   void didUpdateWidget(GlLunaMap old) {
     super.didUpdateWidget(old);
-    if (old.props.style != _props.style) {
+    if (_props.style != _shown) _restyle(_props.style);
+    _scheduleSync();
+  }
+
+  /// Brings the map to [style]: in place when only colours and the sprite
+  /// differ and the map runs on MapLibre Native, whole otherwise. Called
+  /// from [didUpdateWidget], before the build that gives the map widget
+  /// [_style].
+  void _restyle(String style) {
+    if (kIsWeb) {
+      // MapLibre GL JS diffs the new style against the loaded one and keeps
+      // the app's sources, layers and images (`web/lunaway_maplibre.js`);
+      // when it cannot, it loads the style whole and the map sets itself up
+      // again on its style event.
+      _style = _shown = style;
+      return;
+    }
+    final diff = _ready ? StyleDiff.between(_shown, style) : null;
+    if (diff == null) {
+      _style = _shown = style;
       // The new style drops every source and layer; they come back on load.
       _ready = false;
-      _sentPlaces = null;
-      _sentSelected = null;
-      _sentPoint = null;
-      _poi.forget();
+      _forgetSent();
+      return;
     }
-    _scheduleSync();
+    _shown = style;
+    final dark = _props.dark;
+    _queue = _queue
+        .then((_) => _applyInPlace(diff, dark: dark))
+        .catchError((Object e, StackTrace st) => _log.warning('the theme did not turn', e, st));
+  }
+
+  /// Sets the paint properties the new style changes, then the basemap's
+  /// icons of its sprite, which MapLibre Native keeps from the loaded style.
+  Future<void> _applyInPlace(StyleDiff diff, {required bool dark}) async {
+    final c = _controller;
+    if (c == null || !_ready) return;
+    final clock = Stopwatch()..start();
+    await Future.wait([
+      for (final MapEntry(key: layer, value: paint) in diff.paint.entries)
+        _quietly(() => c.setLayerProperties(layer, RawLayerProperties(paint))),
+    ]);
+    if (!diff.changesSprite || !mounted) return;
+    final icons = await BasemapIcons.load(
+      dark: dark,
+      pixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    await Future.wait([for (final e in icons.entries) _quietly(() => c.addImage(e.key, e.value))]);
+    _log.info('theme turned in place in ${clock.elapsedMilliseconds} ms');
+  }
+
+  void _forgetSent() {
+    _sentPlaces = null;
+    _sentSelected = null;
+    _sentSelectedId = null;
+    _sentPoint = null;
+    _sentDark = null;
+    _poi.forget();
+    _tiles.forget();
   }
 
   void _scheduleSync() {
@@ -102,12 +211,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   int get _ratio => PinSprites.ratioFor(MediaQuery.devicePixelRatioOf(context));
 
   double get _pinScale {
+    // In the browser the page adds each pin when a layer first draws it, at
+    // its density (web/lunaway_maplibre.js): its size is the logical one.
+    if (kIsWeb) return 1;
     // Both native plugins read an image pixel as a physical one: Android
     // directly, iOS through the UIImage it makes at the screen's scale.
     final native =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.android ||
-            defaultTargetPlatform == TargetPlatform.iOS);
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
     return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
@@ -119,6 +230,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     iconIgnorePlacement: true,
   );
 
+  /// The clusters' colours, which follow the theme.
+  static Map<String, Object?> _clusterPaint({required bool dark}) => {
+    'circle-color': MapLook.clusterFill(dark: dark),
+    'circle-stroke-color': MapLook.clusterStroke(dark: dark),
+  };
+
   /// Counts style loads: a theme or language switch loads a new style while
   /// the setup of the previous one may still be adding its layers.
   int _styleLoads = 0;
@@ -128,15 +245,22 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     if (c == null || !mounted) return;
     if (kIsWeb) _stopWebLongPress ??= listenWebMapLongPress(_onWebLongPress);
     final load = ++_styleLoads;
+    final clock = Stopwatch()..start();
     _ready = false;
+    _forgetSent();
     // A newer style load takes over: this one stops at its next step.
     bool current() => mounted && load == _styleLoads;
     final dark = _props.dark;
     try {
-      final images = await PinSprites.load(_ratio);
-      for (final e in images.entries) {
+      // In the browser the page adds the pins as they are first drawn
+      // (web/lunaway_maplibre.js): two hundred images fetched and decoded in
+      // Dart held the first view of the map back.
+      if (!kIsWeb) {
+        final images = await PinSprites.load(_ratio);
+        // The images go in together: the engine queues each call, and one at
+        // a time waits a round trip for each of the hundred pins.
         if (!current()) return;
-        await c.addImage(e.key, e.value);
+        await Future.wait([for (final e in images.entries) c.addImage(e.key, e.value)]);
       }
       // The one call an older setup had in flight may already have added a
       // layer or a source to this style: each is removed before it is added.
@@ -157,8 +281,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           pinScale: _pinScale,
           current: current,
           dark: dark,
-          below: PoiMapStyle.firstLabelLayer(_props.style),
+          below: PoiMapStyle.firstLabelLayer(_shown),
         );
+      }
+      if (_props.placeTiles case final tiles?) {
+        await _tiles.install(c, tiles, pinScale: _pinScale, dark: dark, current: current);
       }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
@@ -268,10 +395,17 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       }
       if (!current()) return;
       _ready = true;
+      _log.info('style set up in ${clock.elapsedMilliseconds} ms');
       _sentPlaces = null;
       _sentSelected = null;
       _sentPoint = null;
+      _sentDark = dark;
       _scheduleSync();
+      // The first idle hands the page's first map over; a map whose tiles
+      // keep it busy does it after a while all the same.
+      if (_premapShown) {
+        _premapLater ??= Timer(const Duration(seconds: 3), () => unawaited(_handOverPremap()));
+      }
       // The first camera rests without a move: report it, so the list beside
       // the map follows from the start.
       await _onCameraIdle();
@@ -293,6 +427,22 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final c = _controller;
     if (c == null || !_ready) return;
     final props = _props;
+    final tiles = props.placeTiles;
+    if (tiles != null && !_tiles.installed) {
+      // Online again: the tiles come back under the device's places.
+      await _tiles.install(
+        c,
+        tiles,
+        pinScale: _pinScale,
+        dark: props.dark,
+        current: () => mounted && _ready,
+        below: MapStyle.clustersLayer,
+      );
+    } else if (tiles == null && _tiles.installed) {
+      await _tiles.remove(c);
+    } else if (tiles != null) {
+      await _tiles.sync(c, tiles, dark: props.dark);
+    }
     if (!identical(props.places, _sentPlaces)) {
       _sentPlaces = props.places;
       await c.setGeoJsonSource(
@@ -300,15 +450,43 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await placesFeatureCollectionInBackground(props.places),
       );
     }
-    if (props.selectedId != _sentSelected || props.markedPoint != _sentPoint) {
-      _sentSelected = props.selectedId;
+    if (_sentDark != props.dark) {
+      _sentDark = props.dark;
+      await c.setLayerProperties(
+        MapStyle.clustersLayer,
+        RawLayerProperties(_clusterPaint(dark: props.dark)),
+      );
+      await c.setLayerProperties(
+        MapStyle.clusterCountLayer,
+        RawLayerProperties({'text-color': MapLook.clusterText(dark: props.dark)}),
+      );
+      if (props.pois != null) {
+        await _quietly(
+          () => c.setLayerProperties(
+            PoiMapStyle.fuelLayerId,
+            RawLayerProperties({
+              'text-color': PoiMapStyle.fuelTextColor(dark: props.dark),
+              'text-halo-color': PoiMapStyle.fuelHalo(dark: props.dark),
+            }),
+          ),
+        );
+      }
+    }
+    final selected = props.selectedPlace;
+    final selectedKey = selected == null
+        ? null
+        : (selected.id, selected.lat, selected.lon, selected.kind, selected.overnight);
+    if (selectedKey != _sentSelected || props.markedPoint != _sentPoint) {
+      final sameId = selected != null && selected.id == _sentSelectedId;
+      _sentSelected = selectedKey;
+      _sentSelectedId = selected?.id;
       _sentPoint = props.markedPoint;
-      final selected = props.places.where((p) => p.id == props.selectedId).firstOrNull;
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
         pointFeatureCollection(selected, point: props.markedPoint),
       );
-      if (selected != null || props.markedPoint != null) await _popSelection(c);
+      // A place read after its tap redraws its pin without a second pop.
+      if ((selected != null && !sameId) || props.markedPoint != null) await _popSelection(c);
     }
     if (props.pois case final pois?) await _poi.sync(c, pois, pinScale: _pinScale);
   }
@@ -333,7 +511,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     const slop = 14.0;
     final features = await c.queryRenderedFeaturesInRect(
       Rect.fromCenter(center: Offset(point.x, point.y), width: slop * 2, height: slop * 2),
-      [...MapStyle.tappableLayers, if (_props.pois != null) ...PoiMapStyle.tappable],
+      [
+        ...MapStyle.tappableLayers,
+        if (_tiles.installed) ...PlaceTiles.tappable,
+        if (_props.pois != null) ...PoiMapStyle.tappable,
+      ],
       null,
     );
     if (features.isEmpty) {
@@ -352,9 +534,27 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           await moveTo(at, zoom: zoom + 0.3);
           return;
         case TapPlace(:final id):
-          _props.onPlaceTap(id);
+          final selected = _props.selectedPlace;
+          _props.onPlaceTap(
+            id,
+            hint:
+                _props.places.where((p) => p.id == id).firstOrNull ??
+                (selected?.id == id ? selected : null),
+          );
           return;
         case TapNothing():
+          break;
+      }
+      switch (placeTileTapFor(properties, coordinates)) {
+        case OpenTilePlace(:final place):
+          _props.onPlaceTap(place.id, hint: place);
+          return;
+        case ZoomToTileDot():
+          final at = await c.toLatLng(point);
+          final zoom = (await c.queryCameraPosition())?.zoom ?? 6;
+          await moveTo(LatLng(at.latitude, at.longitude), zoom: zoomForDot(zoom));
+          return;
+        case null:
           break;
       }
       switch (poiTapFor(properties, coordinates)) {
@@ -362,7 +562,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           _props.onPoiTap?.call(feature);
           return;
         case TapPoiDot(:final lat, :final lon):
-          final zoom = c.cameraPosition?.zoom ?? 10;
+          final zoom = (await c.queryCameraPosition())?.zoom ?? 10;
           await moveTo(LatLng(lat, lon), zoom: math.min(zoom + 2, PoiMapStyle.pointsMinZoom + 0.5));
           return;
         case null:
@@ -373,24 +573,60 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     }
   }
 
-  /// Reports the points under the view once the map rests after a move or a
-  /// change of chip.
+  /// Reports the points and the places under the view once the map rests
+  /// after a move or a change of chip.
   Future<void> _onMapIdle() async {
     final c = _controller;
+    if (c == null || !_ready) return;
+    if (_premapShown) await _handOverPremap();
+    final camera = await c.queryCameraPosition();
+    if (camera == null || !mounted) return;
+    final key = (camera.target.latitude, camera.target.longitude, camera.zoom);
     final pois = _props.pois;
-    final report = _props.onPoisInView;
-    final camera = c?.cameraPosition;
-    if (c == null || !_ready || pois == null || report == null || camera == null) return;
+    final reportPois = _props.onPoisInView;
+    if (pois != null && reportPois != null) {
+      try {
+        final found = await _poi.probe(c, pois, zoom: camera.zoom, camera: key);
+        if (found != null && mounted) reportPois(found);
+      } on Object catch (e) {
+        _log.info('could not read the points in view: $e');
+      }
+    }
+    if (!_placesDrawn) await _reportPlacesDrawn(c);
+    final reportPlaces = _props.onPlacesInView;
+    if (_tiles.installed && reportPlaces != null) {
+      try {
+        final region = await c.getVisibleRegion();
+        final bounds = GeoBounds(
+          south: region.southwest.latitude,
+          west: region.southwest.longitude,
+          north: region.northeast.latitude,
+          east: region.northeast.longitude,
+        );
+        final found = await _tiles.probe(c, zoom: camera.zoom, camera: key, bounds: bounds);
+        if (found != null && mounted) reportPlaces(found, bounds);
+      } on Object catch (e) {
+        _log.info('could not read the places in view: $e');
+      }
+    }
+  }
+
+  /// Marks, once, the first rest of the map that draws places.
+  Future<void> _reportPlacesDrawn(gl.MapLibreMapController c) async {
+    final size = mounted ? context.size : null;
+    if (size == null) return;
     try {
-      final found = await _poi.probe(
-        c,
-        pois,
-        zoom: camera.zoom,
-        camera: (camera.target.latitude, camera.target.longitude, camera.zoom),
-      );
-      if (found != null && mounted) report(found);
+      final drawn = await c.queryRenderedFeaturesInRect(Offset.zero & size, [
+        if (_tiles.installed) ...PlaceTiles.tappable,
+        MapStyle.placesLayer,
+        MapStyle.clustersLayer,
+      ], null);
+      if (drawn.isEmpty || _placesDrawn) return;
+      _placesDrawn = true;
+      developer.Timeline.instantSync('lunaway-places-drawn');
+      _log.info('places drawn');
     } on Object catch (e) {
-      _log.info('could not read the points in view: $e');
+      _log.fine('could not read the places drawn: $e');
     }
   }
 
@@ -398,7 +634,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final c = _controller;
     if (c == null) return;
     final region = await c.getVisibleRegion();
-    final camera = c.cameraPosition;
+    final camera = await c.queryCameraPosition();
     if (camera == null || !mounted) return;
     _props.onViewportChanged(
       MapViewport(
@@ -423,7 +659,8 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     await WidgetsBinding.instance.endOfFrame;
     final c = _controller;
     if (c == null || !mounted) return;
-    final z = zoom ?? c.cameraPosition?.zoom ?? 12;
+    final z = zoom ?? (await c.queryCameraPosition())?.zoom ?? 12;
+    if (!mounted) return;
     final target = centerForPadding(center, z, _props.padding);
     await c.animateCamera(
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(target.lat, target.lon), z),
@@ -500,12 +737,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     }
     final inset = props.attributionInset;
     return gl.MapLibreMap(
-      styleString: props.style,
+      styleString: _style,
       initialCameraPosition: gl.CameraPosition(
         target: gl.LatLng(props.initialCenter.lat, props.initialCenter.lon),
         zoom: props.initialZoom,
       ),
-      trackCameraPosition: true,
       // No annotations: the places are layers of their own. The plugin's
       // annotation manager would add unused layers on every style load, and
       // races a style switch (the theme turning at sunset).
@@ -540,6 +776,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       onMapLongClick: kIsWeb
           ? null
           : (_, position) => _props.onLongPress(LatLng(position.latitude, position.longitude)),
+      // The camera is read when the map rests (queryCameraPosition), never
+      // tracked: tracking sends every frame of a pan across the platform
+      // channel, for a position nothing reads during the move.
       onCameraIdle: _onCameraIdle,
       onMapIdle: _onMapIdle,
     );

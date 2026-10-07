@@ -759,6 +759,185 @@ final class NearbyPlacesProvider
 
 String _$nearbyPlacesHash() => r'7be2753b027bd88e436462ff4cd350be1b8e4127';
 
+/// The selected place as the map draws its pin and the sheet titles it:
+/// the place once read, what the tap or the row knew before that.
+
+@ProviderFor(selectedPlace)
+final selectedPlaceProvider = SelectedPlaceProvider._();
+
+/// The selected place as the map draws its pin and the sheet titles it:
+/// the place once read, what the tap or the row knew before that.
+
+final class SelectedPlaceProvider
+    extends $FunctionalProvider<PlaceSummary?, PlaceSummary?, PlaceSummary?>
+    with $Provider<PlaceSummary?> {
+  /// The selected place as the map draws its pin and the sheet titles it:
+  /// the place once read, what the tap or the row knew before that.
+  SelectedPlaceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'selectedPlaceProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$selectedPlaceHash();
+
+  @$internal
+  @override
+  $ProviderElement<PlaceSummary?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PlaceSummary? create(Ref ref) {
+    return selectedPlace(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlaceSummary? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlaceSummary?>(value),
+    );
+  }
+}
+
+String _$selectedPlaceHash() => r'9fbc396825f64453c59b7642d9448d365a4826ca';
+
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
+
+@ProviderFor(NearbyPlacesPage)
+final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
+
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
+final class NearbyPlacesPageProvider
+    extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
+  /// The list beside the map. With the places from the tiles: from the zoom
+  /// of their names, the places the tiles hold inside the view, read on the
+  /// device without a request (exact, at once, and nothing of where the user
+  /// looks leaves it beyond the tiles themselves); below it, a page of the
+  /// API at a time, the view widened to a grid of 0.05 degree and ranked
+  /// from a point of that grid, never the device's position. Either way
+  /// sorted again on the device from the user when the map shows them.
+  /// Otherwise the places the device holds.
+  NearbyPlacesPageProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'nearbyPlacesPageProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$nearbyPlacesPageHash();
+
+  @$internal
+  @override
+  NearbyPlacesPage create() => NearbyPlacesPage();
+}
+
+String _$nearbyPlacesPageHash() => r'2ab6eec070e9a0588dc8b98adcb6d77c9c48d918';
+
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
+
+abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
+  FutureOr<NearbyPage> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<NearbyPage>, NearbyPage>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<NearbyPage>, NearbyPage>,
+              AsyncValue<NearbyPage>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(PlacesInView)
+final placesInViewProvider = PlacesInViewProvider._();
+
+final class PlacesInViewProvider
+    extends $NotifierProvider<PlacesInView, PlacesInViewReport> {
+  PlacesInViewProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placesInViewProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placesInViewHash();
+
+  @$internal
+  @override
+  PlacesInView create() => PlacesInView();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PlacesInViewReport value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlacesInViewReport>(value),
+    );
+  }
+}
+
+String _$placesInViewHash() => r'fd5d77ca6e24c4555213a7bb1e5265e9320c9cf2';
+
+abstract class _$PlacesInView extends $Notifier<PlacesInViewReport> {
+  PlacesInViewReport build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<PlacesInViewReport, PlacesInViewReport>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<PlacesInViewReport, PlacesInViewReport>,
+              PlacesInViewReport,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
 /// The map widget, swapped for a fake in widget tests where platform views do
 /// not render.
 // keepAlive: a constant of the run.

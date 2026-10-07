@@ -4,6 +4,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -68,10 +69,7 @@ class PoiLayer extends _$PoiLayer {
 
   /// Turns the vending machines on, only those of [kind] when given.
   void showVending(PoiKind? kind) {
-    assert(
-      kind == null || PoiKind.vendingChoices.contains(kind),
-      'not a vending choice: $kind',
-    );
+    assert(kind == null || PoiKind.vendingChoices.contains(kind), 'not a vending choice: $kind');
     state = PoiLayerChoice(
       category: PoiCategory.vending,
       vending: kind,
@@ -79,11 +77,8 @@ class PoiLayer extends _$PoiLayer {
     );
   }
 
-  void setOpenNowOnly({required bool on}) => state = PoiLayerChoice(
-    category: state.category,
-    vending: state.vending,
-    openNowOnly: on,
-  );
+  void setOpenNowOnly({required bool on}) =>
+      state = PoiLayerChoice(category: state.category, vending: state.vending, openNowOnly: on);
 
   void clear() => state = const PoiLayerChoice();
 }
@@ -108,12 +103,16 @@ PoiLayerState poiLayerState(Ref ref) {
   final features = ref.watch(poisInViewProvider);
   if (features.isEmpty) return PoiLayerState.empty;
   final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
-  final places = ref.watch(mapPlacesProvider).value ?? const [];
-  return computePoiLayerState(
-    features,
-    now,
-    places: [for (final p in places) p.position],
-  );
+  // The places of the tiles in view, or those the device holds when the
+  // map draws them.
+  final places = [
+    for (final p
+        in ref.watch(placesFromTilesProvider)
+            ? ref.watch(placesInViewProvider).places
+            : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[])
+      p.position,
+  ];
+  return computePoiLayerState(features, now, places: places);
 }
 
 /// Whether it is night now, when what is open around the clock comes first.
@@ -203,9 +202,7 @@ Future<List<Poi>?> fuelStationsInView(Ref ref) async {
   if (ref.watch(poiLayerProvider).category != PoiCategory.fuel) return const [];
   final viewport = ref.watch(viewportProvider);
   if (viewport == null || viewport.zoom < fuelStationsMinZoom) return const [];
-  return await ref.watch(
-    fuelStationsProvider(fuelQueryBox(viewport.bounds)).future,
-  );
+  return await ref.watch(fuelStationsProvider(fuelQueryBox(viewport.bounds)).future);
 }
 
 /// The cheapest offers of the chosen fuel among the stations of the view
@@ -245,8 +242,7 @@ List<FuelLabel> fuelLabels(Ref ref, String language) {
   final priced = [
     for (final s in stations)
       if (view.contains(s.position))
-        if (s.fuel?.prices.where((p) => p.fuel == fuel).firstOrNull
-            case final price?)
+        if (s.fuel?.prices.where((p) => p.fuel == fuel).firstOrNull case final price?)
           // Out of it for now, its last price would mislead: the list says
           // so in words, the map shows none.
           if (s.fuel!.shortageOf(fuel) == null) (s, price.priceEur),
@@ -255,11 +251,6 @@ List<FuelLabel> fuelLabels(Ref ref, String language) {
   final format = NumberFormat('0.000', language);
   return [
     for (final (s, p) in priced)
-      FuelLabel(
-        id: s.id,
-        position: s.position,
-        text: format.format(p),
-        rank: priceRank(p, prices),
-      ),
+      FuelLabel(id: s.id, position: s.position, text: format.format(p), rank: priceRank(p, prices)),
   ];
 }

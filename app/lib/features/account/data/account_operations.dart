@@ -67,10 +67,7 @@ mutation AuthChallenge {
 }''',
   parse: (data) {
     final c = data['authChallenge'] as Map<String, dynamic>;
-    return Challenge(
-      nonce: c['nonce'] as String,
-      message: c['message'] as String,
-    );
+    return Challenge(nonce: c['nonce'] as String, message: c['message'] as String);
   },
 );
 
@@ -151,15 +148,12 @@ typedef ServerRecoveryCode = ({DateTime? createdAt});
 
 /// A date of the answer, null for null; anything else throws, so a garbled
 /// answer leaves the device's date alone rather than reading as "no card".
-DateTime? _date(Object? value) =>
-    value == null ? null : DateTime.parse(value as String).toUtc();
+DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String).toUtc();
 
 /// The account with its level, the authors it mutes, and the date of its
 /// recovery code (the same on every device of the account).
 final myAccountOperation =
-    GraphQLOperation<
-      ({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})
-    >(
+    GraphQLOperation<({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})>(
       name: 'MyAccount',
       document: _myAccountDocument(withCard: true),
       older: OlderForm.selecting(_myAccountDocument(withCard: false)),
@@ -168,13 +162,8 @@ final myAccountOperation =
         return (
           account: _account(a),
           muted: [
-            for (final m
-                in (a['mutedAuthors'] as List<dynamic>)
-                    .cast<Map<String, dynamic>>())
-              Author(
-                id: m['id'] as String,
-                pseudonym: m['pseudonym'] as String,
-              ),
+            for (final m in (a['mutedAuthors'] as List<dynamic>).cast<Map<String, dynamic>>())
+              Author(id: m['id'] as String, pseudonym: m['pseudonym'] as String),
           ],
           recoveryCode: a.containsKey('recoveryCodeCreatedAt')
               ? (createdAt: _date(a['recoveryCodeCreatedAt']))
@@ -199,8 +188,7 @@ final createRecoveryCodeOperation = GraphQLOperation<String>(
 mutation CreateRecoveryCode {
   createRecoveryCode { code }
 }''',
-  parse: (data) =>
-      (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
+  parse: (data) => (data['createRecoveryCode'] as Map<String, dynamic>)['code'] as String,
 );
 
 final signOutOperation = GraphQLOperation<bool>(
@@ -232,8 +220,7 @@ query MyDevices {
 }''',
   parse: (data) => [
     for (final d
-        in ((data['myAccount'] as Map<String, dynamic>)['devices']
-                as List<dynamic>)
+        in ((data['myAccount'] as Map<String, dynamic>)['devices'] as List<dynamic>)
             .cast<Map<String, dynamic>>())
       Device(
         id: d['id'] as String,

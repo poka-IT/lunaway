@@ -46,9 +46,9 @@ final class CacheDatabase extends _$CacheDatabase {
   // developer's device, so they get no migration. Version 2 keeps what the
   // community says of each place, version 3 the points of interest read
   // around them, version 4 the sync region of each place and the speed
-  // camera data of the guidance.
+  // camera data of the guidance, version 5 the places opened online.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -82,6 +82,7 @@ final class CacheDatabase extends _$CacheDatabase {
         await m.createIndex(placesRegion);
         await m.createTable(enforcementItems);
       }
+      if (from < 5) await m.createTable(placeCache);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

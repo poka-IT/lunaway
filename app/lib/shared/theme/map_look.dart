@@ -1,4 +1,6 @@
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/theme/palette.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 
 /// How Lunaway's own layers look on the basemap: clusters, pins and the
 /// selection. Both map engines read these values, so they draw one map.
@@ -108,6 +110,41 @@ abstract final class MapLook {
   /// The font stack of the counts, which must exist on the basemap's glyph
   /// server: the Protomaps fonts stop at Medium.
   static const clusterFont = ['Noto Sans Medium'];
+
+  /// The dot of a place from the tiles: its family's tone, as a pin's head.
+  static String familyColor(KindFamily family) => _hex(LunaTokens.familyFill(family).toARGB32());
+
+  /// A country's thousands of dots stay apart; at street zoom a dot under a
+  /// pin that found no room still reads as a place.
+  static const List<Object> dotRadius = [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    3,
+    1.6,
+    6,
+    2.6,
+    9,
+    3.8,
+    12,
+    5,
+  ];
+  static const List<Object> dotStrokeWidth = [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    3,
+    0.3,
+    8,
+    0.9,
+    12,
+    1.4,
+  ];
+
+  /// The rim of a dot, the basemap's own tone so it detaches from the land.
+  static String dotStroke({required bool dark}) =>
+      _hex((dark ? Palette.minuit : Palette.creme).toARGB32());
+  static const double dotOpacity = 0.95;
 
   /// Slightly smaller pins when zoomed out, full size from zoom 12. [scale]
   /// converts the pin images to the engine's unit: 1 / ratio where an image

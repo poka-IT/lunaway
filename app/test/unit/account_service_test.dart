@@ -47,124 +47,98 @@ void main() {
   });
   tearDown(() => expect(api.violations, isEmpty));
 
-  test(
-    'a first contribution whose sign-in never reached the server is sent once',
-    () async {
-      // The key was kept before the first sign-in, whose request was lost:
-      // no account on the device, none on the server.
-      await keys.save(await keys.generate());
-      final db = UserDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final outbox = OutboxStore(
-        db,
-        files: MemoryPendingFiles(),
-        clock: () => testNow,
-      );
-      final entry = await outbox.add(
-        ContributionKind.confirm,
-        placeId: lakeArea.id,
-        payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
-      );
-      // The app ended during that attempt.
-      await outbox.markSending(entry!.id);
-      final sender = OutboxSender(
-        outbox: outbox,
-        api: GraphQLCommunityApi(
-          account: service,
-          uploader: PhotoUploader(
-            client: MockClient((_) async => http.Response('', 404)),
-            endpoint: Uri.parse('$testApiBase/upload'),
-            userAgent: 'test',
-          ),
+  test('a first contribution whose sign-in never reached the server is sent once', () async {
+    // The key was kept before the first sign-in, whose request was lost:
+    // no account on the device, none on the server.
+    await keys.save(await keys.generate());
+    final db = UserDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final outbox = OutboxStore(db, files: MemoryPendingFiles(), clock: () => testNow);
+    final entry = await outbox.add(
+      ContributionKind.confirm,
+      placeId: lakeArea.id,
+      payload: {'placeId': lakeArea.id, 'status': 'STILL_OK'},
+    );
+    // The app ended during that attempt.
+    await outbox.markSending(entry!.id);
+    final sender = OutboxSender(
+      outbox: outbox,
+      api: GraphQLCommunityApi(
+        account: service,
+        uploader: PhotoUploader(
+          client: MockClient((_) async => http.Response('', 404)),
+          endpoint: Uri.parse('$testApiBase/upload'),
+          userAgent: 'test',
         ),
-        accountId: () async => (await service.restore())?.account.id,
-        clock: () => testNow,
-      );
+      ),
+      accountId: () async => (await service.restore())?.account.id,
+      clock: () => testNow,
+    );
 
-      final report = await sender.sendDue();
-      expect(report.sent, 1);
-      expect(api.operations.where((o) => o == 'Confirm'), hasLength(1));
-      expect(api.strangersDeleted, 0, reason: 'its own first account, kept');
-      expect((await service.restore())?.account.id, isNotNull);
-      expect(await outbox.all(), isEmpty);
-    },
-  );
+    final report = await sender.sendDue();
+    expect(report.sent, 1);
+    expect(api.operations.where((o) => o == 'Confirm'), hasLength(1));
+    expect(api.strangersDeleted, 0, reason: 'its own first account, kept');
+    expect((await service.restore())?.account.id, isNotNull);
+    expect(await outbox.all(), isEmpty);
+  });
 
-  test(
-    'a key the server no longer knows makes no account behind the user',
-    () async {
-      final key = await keys.generate();
-      await keys.save(key);
-      await service.ensureAccount();
-      api.revokeAll();
-      await expectLater(
-        service.refresh(),
-        throwsA(isA<AccountLostException>()),
-      );
-      // Signed in without letting the server make an account for the key:
-      // nothing was made behind the user, nothing had to be deleted.
-      expect(api.last('SignIn')!['createIfUnknown'], isFalse);
-      expect(api.operations, isNot(contains('DeleteAccount')));
-      expect(await keys.load(), isNull);
-      expect(await service.restore(), isNull);
-    },
-  );
+  test('a key the server no longer knows makes no account behind the user', () async {
+    final key = await keys.generate();
+    await keys.save(key);
+    await service.ensureAccount();
+    api.revokeAll();
+    await expectLater(service.refresh(), throwsA(isA<AccountLostException>()));
+    // Signed in without letting the server make an account for the key:
+    // nothing was made behind the user, nothing had to be deleted.
+    expect(api.last('SignIn')!['createIfUnknown'], isFalse);
+    expect(api.operations, isNot(contains('DeleteAccount')));
+    expect(await keys.load(), isNull);
+    expect(await service.restore(), isNull);
+  });
 
-  test(
-    'a refusal of the sign-in for another reason keeps the account',
-    () async {
-      await keys.save(await keys.generate());
-      await service.ensureAccount();
-      final inner = api.client(MockClient((_) async => http.Response('', 404)));
-      var refuse = false;
-      final client = GraphQLClient(
-        endpoint: Uri.parse('$testApiBase/graphql'),
-        httpClient: MockClient((request) async {
-          if (refuse && request.body.contains('"operationName":"SignIn"')) {
-            return http.Response(
-              jsonEncode({
-                'data': null,
-                'errors': [
-                  {
-                    'message': 'not found',
-                    'extensions': {
-                      'code': 'NOT_FOUND',
-                      'reason': 'SOMETHING_ELSE',
-                    },
-                  },
-                ],
-              }),
-              200,
-            );
-          }
-          final copy = http.Request(request.method, request.url)
-            ..headers.addAll(request.headers)
-            ..body = request.body;
-          final streamed = await inner.send(copy);
-          return await http.Response.fromStream(streamed);
-        }),
-        userAgent: 'Lunaway/test (+https://lunaway.net)',
-      );
-      final other = AccountService(
-        client: client,
-        keys: keys,
-        secrets: secrets,
-        locale: () => 'fr',
-        clock: () => testNow,
-      );
-      refuse = true;
-      api.revokeAll();
-      await expectLater(
-        other.refresh(),
-        throwsA(isA<GraphQLResponseException>()),
-      );
-      expect(
-        await keys.load(),
-        isNotNull,
-        reason: 'the key is not dropped for another refusal',
-      );
-    },
-  );
+  test('a refusal of the sign-in for another reason keeps the account', () async {
+    await keys.save(await keys.generate());
+    await service.ensureAccount();
+    final inner = api.client(MockClient((_) async => http.Response('', 404)));
+    var refuse = false;
+    final client = GraphQLClient(
+      endpoint: Uri.parse('$testApiBase/graphql'),
+      httpClient: MockClient((request) async {
+        if (refuse && request.body.contains('"operationName":"SignIn"')) {
+          return http.Response(
+            jsonEncode({
+              'data': null,
+              'errors': [
+                {
+                  'message': 'not found',
+                  'extensions': {'code': 'NOT_FOUND', 'reason': 'SOMETHING_ELSE'},
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        final copy = http.Request(request.method, request.url)
+          ..headers.addAll(request.headers)
+          ..body = request.body;
+        final streamed = await inner.send(copy);
+        return await http.Response.fromStream(streamed);
+      }),
+      userAgent: 'Lunaway/test (+https://lunaway.net)',
+    );
+    final other = AccountService(
+      client: client,
+      keys: keys,
+      secrets: secrets,
+      locale: () => 'fr',
+      clock: () => testNow,
+    );
+    refuse = true;
+    api.revokeAll();
+    await expectLater(other.refresh(), throwsA(isA<GraphQLResponseException>()));
+    expect(await keys.load(), isNotNull, reason: 'the key is not dropped for another refusal');
+  });
 
   test('an account kept here that the key does not open is replaced, never deleted', () async {
     await service.ensureAccount();
@@ -189,29 +163,26 @@ void main() {
     expect(api.hasAccount, isTrue);
   });
 
-  test(
-    'a sign-in that ends after the device forgot its account keeps nothing',
-    () async {
-      final key = await keys.generate();
-      await keys.save(key);
-      await service.ensureAccount();
-      await secrets.delete('session');
-      final reading = AccountService(
-        client: service.client,
-        keys: keys,
-        secrets: secrets,
-        locale: () => 'fr',
-        clock: () => testNow,
-      );
-      // The sign-in starts, then the account is forgotten (signed out)
-      // before its answer is kept.
-      final pending = reading.refresh();
-      await reading.signOut();
-      await expectLater(pending, throwsA(isA<NoAccountException>()));
-      expect(await secrets.read('session'), isNull);
-      expect(await reading.restore(), isNull);
-    },
-  );
+  test('a sign-in that ends after the device forgot its account keeps nothing', () async {
+    final key = await keys.generate();
+    await keys.save(key);
+    await service.ensureAccount();
+    await secrets.delete('session');
+    final reading = AccountService(
+      client: service.client,
+      keys: keys,
+      secrets: secrets,
+      locale: () => 'fr',
+      clock: () => testNow,
+    );
+    // The sign-in starts, then the account is forgotten (signed out)
+    // before its answer is kept.
+    final pending = reading.refresh();
+    await reading.signOut();
+    await expectLater(pending, throwsA(isA<NoAccountException>()));
+    expect(await secrets.read('session'), isNull);
+    expect(await reading.restore(), isNull);
+  });
 
   group('an API older than the app', () {
     test('signs in in the older form, and an account made behind the kept one goes', () async {
@@ -220,21 +191,13 @@ void main() {
       api
         ..older = true
         ..revokeAll();
-      await expectLater(
-        service.refresh(),
-        throwsA(isA<AccountLostException>()),
-      );
-      expect(
-        api.olderRefusals,
-        ['MyAccount', 'SignIn'],
-        reason: 'the new forms first, refused: the read with the recovery date, then the sign-in',
-      );
+      await expectLater(service.refresh(), throwsA(isA<AccountLostException>()));
+      expect(api.olderRefusals, [
+        'MyAccount',
+        'SignIn',
+      ], reason: 'the new forms first, refused: the read with the recovery date, then the sign-in');
       expect(api.last('SignIn')!.containsKey('createIfUnknown'), isFalse);
-      expect(
-        api.strangersDeleted,
-        1,
-        reason: 'the account the older API made at once deleted',
-      );
+      expect(api.strangersDeleted, 1, reason: 'the account the older API made at once deleted');
       expect(await keys.load(), isNull);
       expect(await service.restore(), isNull);
     });

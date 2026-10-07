@@ -271,7 +271,7 @@ final class PoiLayerStateProvider
   }
 }
 
-String _$poiLayerStateHash() => r'33a2be2f92a6f55587e3ac386e9e4f748e2df3f0';
+String _$poiLayerStateHash() => r'c76f1c50f4fd27f56146ae7081a389822158add9';
 
 /// Whether it is night now, when what is open around the clock comes first.
 

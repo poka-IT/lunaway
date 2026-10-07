@@ -79,25 +79,15 @@ abstract final class PoiLook {
   /// night. The labels on the map and the list of the cheapest share it, so
   /// a colour means the same price in both.
   static (Color, Color, Color) priceScale({required bool dark}) => dark
-      ? (
-          const Color(0xFF86D7A6),
-          const Color(0xFFF2E1C3),
-          const Color(0xFFF2998F),
-        )
-      : (
-          const Color(0xFF1D6B45),
-          const Color(0xFF5A4B12),
-          const Color(0xFFB23A2E),
-        );
+      ? (const Color(0xFF86D7A6), const Color(0xFFF2E1C3), const Color(0xFFF2998F))
+      : (const Color(0xFF1D6B45), const Color(0xFF5A4B12), const Color(0xFFB23A2E));
 
   /// The colour of a price whose rank among those in view is [rank] (0 the
   /// cheapest, 1 the dearest).
   static Color price(double rank, {required bool dark}) {
     final (cheap, middle, dear) = priceScale(dark: dark);
     final r = rank.clamp(0.0, 1.0);
-    return r <= 0.5
-        ? Color.lerp(cheap, middle, r * 2)!
-        : Color.lerp(middle, dear, r * 2 - 1)!;
+    return r <= 0.5 ? Color.lerp(cheap, middle, r * 2)! : Color.lerp(middle, dear, r * 2 - 1)!;
   }
 }
 
@@ -119,29 +109,18 @@ final class PoiPinGeometry {
 
   Size get canvas {
     final outer = side + rim * 2;
-    return Size(
-      (outer + margin * 2).ceilToDouble(),
-      (outer + tail + margin * 2).ceilToDouble(),
-    );
+    return Size((outer + margin * 2).ceilToDouble(), (outer + tail + margin * 2).ceilToDouble());
   }
 
   /// The centre of the square.
   Offset get center {
     final size = canvas;
-    return Offset(
-      size.width / 2,
-      size.height - margin - tail - (side / 2 + rim),
-    );
+    return Offset(size.width / 2, size.height - margin - tail - (side / 2 + rim));
   }
 }
 
 /// Paints the pin of [kind] on [canvas], at the logical scale of the canvas.
-void paintPoiPin(
-  Canvas canvas,
-  PoiKind kind, {
-  bool quiet = false,
-  bool selected = false,
-}) {
+void paintPoiPin(Canvas canvas, PoiKind kind, {bool quiet = false, bool selected = false}) {
   final g = PoiPinGeometry(quiet: quiet, selected: selected);
   final c = g.center;
   final outerHalf = g.side / 2 + g.rim;
@@ -178,13 +157,7 @@ void paintPoiPin(
     ..drawPath(tail, Paint()..color = rimColor)
     ..drawRRect(outer, Paint()..color = rimColor)
     ..drawRRect(inner, Paint()..color = fill);
-  _paintGlyph(
-    canvas,
-    PoiLook.kind(kind),
-    c,
-    g.side * 0.68,
-    LunaTokens.pinGlyph,
-  );
+  _paintGlyph(canvas, PoiLook.kind(kind), c, g.side * 0.68, LunaTokens.pinGlyph);
 }
 
 /// The size of a category's gathering dot, in logical pixels.
@@ -215,13 +188,7 @@ void _paintDot(Canvas canvas, PoiCategory category, IconData glyph) {
   _paintGlyph(canvas, glyph, c, 10.5, LunaTokens.pinGlyph);
 }
 
-void _paintGlyph(
-  Canvas canvas,
-  IconData icon,
-  Offset center,
-  double size,
-  Color color,
-) {
+void _paintGlyph(Canvas canvas, IconData icon, Offset center, double size, Color color) {
   final painter = TextPainter(
     text: TextSpan(
       text: String.fromCharCode(icon.codePoint),

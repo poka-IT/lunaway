@@ -29,8 +29,8 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 4 (the region of each place), the user store at 3 (fuel)', () {
-    expect(db.schemaVersion, 4);
+  test('the cache is at version 5 (the places opened online), the user store at 3 (fuel)', () {
+    expect(db.schemaVersion, 5);
     expect(user.schemaVersion, 3);
   });
 

@@ -3562,6 +3562,272 @@ class PlaceExtrasCacheCompanion extends UpdateCompanion<PlaceExtrasCacheRow> {
   }
 }
 
+class PlaceCache extends Table with TableInfo<PlaceCache, PlaceCacheRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  PlaceCache(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _placeIdMeta = const VerificationMeta(
+    'placeId',
+  );
+  late final GeneratedColumn<String> placeId = GeneratedColumn<String>(
+    'place_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL PRIMARY KEY',
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _fetchedAtMeta = const VerificationMeta(
+    'fetchedAt',
+  );
+  late final GeneratedColumn<int> fetchedAt = GeneratedColumn<int>(
+    'fetched_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [placeId, json, fetchedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'place_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaceCacheRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('place_id')) {
+      context.handle(
+        _placeIdMeta,
+        placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_placeIdMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(
+        _jsonMeta,
+        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    if (data.containsKey('fetched_at')) {
+      context.handle(
+        _fetchedAtMeta,
+        fetchedAt.isAcceptableOrUnknown(data['fetched_at']!, _fetchedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {placeId};
+  @override
+  PlaceCacheRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaceCacheRow(
+      placeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}place_id'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+      fetchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at'],
+      )!,
+    );
+  }
+
+  @override
+  PlaceCache createAlias(String alias) {
+    return PlaceCache(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class PlaceCacheRow extends DataClass implements Insertable<PlaceCacheRow> {
+  final String placeId;
+  final String json;
+  final int fetchedAt;
+  const PlaceCacheRow({
+    required this.placeId,
+    required this.json,
+    required this.fetchedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['place_id'] = Variable<String>(placeId);
+    map['json'] = Variable<String>(json);
+    map['fetched_at'] = Variable<int>(fetchedAt);
+    return map;
+  }
+
+  PlaceCacheCompanion toCompanion(bool nullToAbsent) {
+    return PlaceCacheCompanion(
+      placeId: Value(placeId),
+      json: Value(json),
+      fetchedAt: Value(fetchedAt),
+    );
+  }
+
+  factory PlaceCacheRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaceCacheRow(
+      placeId: serializer.fromJson<String>(json['place_id']),
+      json: serializer.fromJson<String>(json['json']),
+      fetchedAt: serializer.fromJson<int>(json['fetched_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'place_id': serializer.toJson<String>(placeId),
+      'json': serializer.toJson<String>(json),
+      'fetched_at': serializer.toJson<int>(fetchedAt),
+    };
+  }
+
+  PlaceCacheRow copyWith({String? placeId, String? json, int? fetchedAt}) =>
+      PlaceCacheRow(
+        placeId: placeId ?? this.placeId,
+        json: json ?? this.json,
+        fetchedAt: fetchedAt ?? this.fetchedAt,
+      );
+  PlaceCacheRow copyWithCompanion(PlaceCacheCompanion data) {
+    return PlaceCacheRow(
+      placeId: data.placeId.present ? data.placeId.value : this.placeId,
+      json: data.json.present ? data.json.value : this.json,
+      fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaceCacheRow(')
+          ..write('placeId: $placeId, ')
+          ..write('json: $json, ')
+          ..write('fetchedAt: $fetchedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(placeId, json, fetchedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaceCacheRow &&
+          other.placeId == this.placeId &&
+          other.json == this.json &&
+          other.fetchedAt == this.fetchedAt);
+}
+
+class PlaceCacheCompanion extends UpdateCompanion<PlaceCacheRow> {
+  final Value<String> placeId;
+  final Value<String> json;
+  final Value<int> fetchedAt;
+  final Value<int> rowid;
+  const PlaceCacheCompanion({
+    this.placeId = const Value.absent(),
+    this.json = const Value.absent(),
+    this.fetchedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaceCacheCompanion.insert({
+    required String placeId,
+    required String json,
+    required int fetchedAt,
+    this.rowid = const Value.absent(),
+  }) : placeId = Value(placeId),
+       json = Value(json),
+       fetchedAt = Value(fetchedAt);
+  static Insertable<PlaceCacheRow> custom({
+    Expression<String>? placeId,
+    Expression<String>? json,
+    Expression<int>? fetchedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (placeId != null) 'place_id': placeId,
+      if (json != null) 'json': json,
+      if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaceCacheCompanion copyWith({
+    Value<String>? placeId,
+    Value<String>? json,
+    Value<int>? fetchedAt,
+    Value<int>? rowid,
+  }) {
+    return PlaceCacheCompanion(
+      placeId: placeId ?? this.placeId,
+      json: json ?? this.json,
+      fetchedAt: fetchedAt ?? this.fetchedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (placeId.present) {
+      map['place_id'] = Variable<String>(placeId.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (fetchedAt.present) {
+      map['fetched_at'] = Variable<int>(fetchedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaceCacheCompanion(')
+          ..write('placeId: $placeId, ')
+          ..write('json: $json, ')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class DeviceState extends Table with TableInfo<DeviceState, DeviceStateRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -4669,6 +4935,7 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
   );
   late final RegionSyncs regionSyncs = RegionSyncs(this);
   late final PlaceExtrasCache placeExtrasCache = PlaceExtrasCache(this);
+  late final PlaceCache placeCache = PlaceCache(this);
   late final DeviceState deviceState = DeviceState(this);
   late final PoiCache poiCache = PoiCache(this);
   late final EnforcementItems enforcementItems = EnforcementItems(this);
@@ -4686,6 +4953,7 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
     placesAfterUpdate,
     regionSyncs,
     placeExtrasCache,
+    placeCache,
     deviceState,
     poiCache,
     enforcementItems,
