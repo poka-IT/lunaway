@@ -401,8 +401,8 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        12,
-        "the API reads the sources"
+        13,
+        "the API reads the sources, with their agreements' terms"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
     denied(
@@ -767,4 +767,193 @@ async fn a_pack_build_knows_when_its_lock_went_with_its_session(pool: PgPool) {
     );
     let other = lunaway_db::packs::BuildLock::acquire(&pool).await.unwrap();
     other.release().await.unwrap();
+}
+
+/// The external community source's tables go to the role that writes each:
+/// the importers write the agreement, the switch, the reviews, the ratings
+/// and the photo rows; the API reads them, fills in a photo's files and
+/// deletes a retired photo's row once its files are gone. Run end to end
+/// with the two roles, as the services and the commands do.
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
+    use lunaway_db::extcom;
+    use lunaway_domain::extcom::{Agreement, RawAgreement, Terms};
+
+    for t in ["external_reviews", "external_ratings"] {
+        assert_eq!(
+            privileges(&pool, "lunaway_ingest", t).await,
+            ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            "lunaway_ingest on {t}"
+        );
+        assert_eq!(
+            privileges(&pool, "lunaway_app", t).await,
+            ["SELECT"],
+            "lunaway_app on {t}"
+        );
+    }
+    for t in ["source_agreements", "source_switches"] {
+        assert_eq!(
+            privileges(&pool, "lunaway_ingest", t).await,
+            ["SELECT", "INSERT", "UPDATE"],
+            "lunaway_ingest on {t}"
+        );
+        assert_eq!(
+            privileges(&pool, "lunaway_app", t).await,
+            ["SELECT"],
+            "lunaway_app on {t}"
+        );
+    }
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "external_photos").await,
+        ["SELECT", "INSERT", "UPDATE"],
+        "the importers never delete a photo row: it names files the API wrote"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "external_photos").await,
+        ["SELECT", "DELETE"],
+        "the API fills in a photo's files only (column grants), and deletes retired rows"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "source_erasures").await,
+        ["SELECT", "INSERT"],
+        "an erasure is never undone by an import"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "source_erasures")
+            .await
+            .is_empty()
+    );
+
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let source = SourceId::EXTCOM;
+    let today = chrono::NaiveDate::from_ymd_opt(2026, 10, 7).unwrap();
+    let terms = Terms::new("REF-1", &["img.partner.example".into()]).unwrap();
+    let agreement = Agreement::check(
+        &RawAgreement {
+            reference: "REF-1".into(),
+            grantor: "Partner".into(),
+            grantee: "Lunaway".into(),
+            signed_on: chrono::NaiveDate::from_ymd_opt(2026, 1, 1),
+            valid_until: None,
+            scope: vec!["places".into(), "reviews".into(), "photos".into()],
+            attribution: "Source communautaire externe".into(),
+            licence_url: None,
+        },
+        &terms,
+        today,
+    )
+    .unwrap();
+    extcom::upsert_agreement(&ingest, &source, &agreement, Utc::now())
+        .await
+        .unwrap();
+    let r = record("Parking du lac");
+    let raw = serde_json::json!({});
+    let stored = records::upsert_unless_hidden(
+        &ingest,
+        &source,
+        &[NewRecord {
+            external_id: "1",
+            external_url: None,
+            record: &r,
+            raw: &raw,
+            fetched_at: Utc::now(),
+            scope: None,
+        }],
+    )
+    .await
+    .unwrap();
+    assert_eq!(stored.map(|s| s.inserted), Some(1));
+    extcom::set_record_licence(&ingest, &source, &["1".into()], "REF-1")
+        .await
+        .unwrap();
+    let extras = extcom::Extras {
+        external_id: "1".into(),
+        reviews: Some(vec![extcom::NewReview {
+            external_id: "r".into(),
+            author_id: Some("u-1".into()),
+            author: Some("Marie".into()),
+            written_at: Utc::now(),
+            lang: Some("fr".into()),
+            rating: Some(4),
+            body: Some("Calme".into()),
+            vehicle: None,
+        }]),
+        rating: Some((4.0, 10)),
+        photos: Some(vec![extcom::NewPhoto {
+            external_id: "p".into(),
+            url: "https://img.partner.example/p.jpg".into(),
+            author_id: Some("u-1".into()),
+            author: None,
+            licence: "REF-1".into(),
+            taken_at: None,
+        }]),
+    };
+    let written = extcom::store_extras(&ingest, &source, "REF-1", Utc::now(), &[extras])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((written.reviews_written, written.photos_written), (1, 1));
+
+    // The API: the proxy reads a photo, records a failure, then its files.
+    let photo: uuid::Uuid = sqlx::query_scalar("SELECT id FROM external_photos")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let p = extcom::photo_for_proxy(&app, photo, today)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(p.hosts, ["img.partner.example"]);
+    extcom::photo_failed(&app, photo, Utc::now()).await.unwrap();
+    let path = format!("photos/ab/cd/abcd{}.webp", "0".repeat(60));
+    let thumb = format!("photos/ef/01/ef01{}.webp", "0".repeat(60));
+    extcom::photo_processed(
+        &app,
+        photo,
+        extcom::ProcessedPhoto {
+            path: &path,
+            thumb_path: &thumb,
+            size: (10, 10),
+            thumb_size: (10, 10),
+            thumbhash: &[1, 2, 3],
+        },
+    )
+    .await
+    .unwrap();
+    denied(
+        sqlx::query("UPDATE external_photos SET url = 'https://elsewhere.example/x.jpg'")
+            .execute(&app)
+            .await,
+        "the API cannot point a photo at another host",
+    );
+    denied(
+        sqlx::query("DELETE FROM external_reviews")
+            .execute(&app)
+            .await,
+        "the API deletes no review of the partner",
+    );
+
+    // The erasure and the switches, with the import role.
+    let erased = extcom::erase_author(&ingest, &source, "u-1", &"0".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!((erased.reviews, erased.photos), (1, 1));
+    extcom::set_hidden(&ingest, &source, true, None)
+        .await
+        .unwrap();
+    extcom::purge(&ingest, &source, Some("agreement ended"))
+        .await
+        .unwrap();
+    extcom::retire_records(&ingest, &source, &["1".into()])
+        .await
+        .unwrap();
+    extcom::forget_retired(&ingest, &source).await.unwrap();
+
+    // Then the API's role removes the retired rows once the files are gone.
+    let retired = extcom::retired_photo_files(&app, 10).await.unwrap();
+    assert_eq!(retired.len(), 1);
+    assert_eq!(retired[0].unshared_files, [path, thumb]);
+    let ids: Vec<uuid::Uuid> = retired.iter().map(|r| r.id).collect();
+    assert_eq!(extcom::delete_retired_photos(&app, &ids).await.unwrap(), 1);
 }

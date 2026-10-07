@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM external_ratings WHERE record_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "81575c714429e2e1becb1a69daf2e5f116c75a0616ce2ce05c9e0b59a8ccef9e"
+}

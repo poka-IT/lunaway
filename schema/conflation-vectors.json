@@ -5,7 +5,7 @@
     "The algorithm is specified in docs/conflation.md; every constant it uses is in `parameters` below, and the Rust test asserts that its constants are these.",
     "`names`: input name -> normalised name (fold, abbreviations, generic words removed). `phones` and `websites`: input -> normalised value, null when it identifies nothing.",
     "`cases`: score record `a` against record `b`. `expected` is the decision (merge, review, distinct); `score` is the final score, to be matched within 0.001. Scoring is symmetric: b against a gives the same result.",
-    "A record: `source` (source id: osm, atout-france, community), `kind` (taxonomy code), `name` (null when the source gives none), `lat`, `lon` (WGS 84 degrees), and optionally `accuracyM` (metres of position uncertainty, default 0), `osm` (OSM element the record is or cites, e.g. node/123), `wikidata`, `phone`, `website`, `postcode`, `cityCode` (INSEE code).",
+    "A record: `source` (source id: osm, atout-france, community, extcom), `kind` (taxonomy code), `name` (null when the source gives none), `lat`, `lon` (WGS 84 degrees), and optionally `accuracyM` (metres of position uncertainty, default 0), `osm` (OSM element the record is or cites, e.g. node/123), `wikidata`, `phone`, `website`, `postcode`, `cityCode` (INSEE code).",
     "`why` says what the case pins down; `id` is stable, so a failing case can be named in a commit.",
     "Format version 1. Adding a case or a parameter is compatible; changing a value is a change of the algorithm and goes with both implementations."
   ],
@@ -148,6 +148,34 @@
       "and",
       "of",
       "the",
+      "am",
+      "an",
+      "auf",
+      "bei",
+      "beim",
+      "das",
+      "dem",
+      "den",
+      "der",
+      "die",
+      "im",
+      "in",
+      "und",
+      "zum",
+      "zur",
+      "al",
+      "del",
+      "el",
+      "las",
+      "los",
+      "y",
+      "da",
+      "dei",
+      "della",
+      "delle",
+      "dello",
+      "di",
+      "il",
       "aire",
       "aires",
       "area",
@@ -174,6 +202,16 @@
       "sosta",
       "stationnement",
       "stellplatz",
+      "aparcamiento",
+      "autocaravana",
+      "autocaravanas",
+      "campeggio",
+      "campingplatz",
+      "parcheggio",
+      "parkplatz",
+      "wohnmobil",
+      "wohnmobile",
+      "wohnmobilstellplatz",
       "accueil",
       "communal",
       "communale",
@@ -260,7 +298,7 @@
     },
     {
       "input": "Straße am Øresund",
-      "normalized": "strasse am oresund"
+      "normalized": "strasse oresund"
     },
     {
       "input": "GROẞE STRAẞE",
@@ -268,7 +306,7 @@
     },
     {
       "input": "Stellplatz Wohnmobil 2",
-      "normalized": "wohnmobil 2"
+      "normalized": "2"
     }
   ],
   "phones": [
@@ -1164,6 +1202,200 @@
         "lon": 4.1,
         "postcode": "30140",
         "cityCode": "30132"
+      }
+    },
+    {
+      "id": "extcom-pin-40m-from-named-osm-car-park",
+      "why": "A spot of the external community source, pinned by a visitor 40 m from the car park OSM maps under the same name, is that car park: the pin's 20 m of uncertainty are credited.",
+      "expected": "merge",
+      "score": 0.9415,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking du Lac",
+        "lat": 45.8992,
+        "lon": 6.1294
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Parking du lac",
+        "lat": 45.8995593,
+        "lon": 6.1294,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-pin-40m-from-unnamed-osm-car-park",
+      "why": "The same pin beside a car park OSM maps without a name goes to review: a missing name is neither for nor against, and a town has car parks 50 m apart.",
+      "expected": "review",
+      "score": 0.7062,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": null,
+        "lat": 45.8992,
+        "lon": 6.1294
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Parking calme près du lac",
+        "lat": 45.8995593,
+        "lon": 6.1294,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-campsite-under-its-town-name",
+      "why": "A campsite the community names after its town, not by its own name, is not merged on position alone.",
+      "expected": "distinct",
+      "score": 0.5288,
+      "a": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.8901,
+        "lon": 1.2163,
+        "accuracyM": 30
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "campsite",
+        "name": "Camping municipal de Sarlat",
+        "lat": 44.890639,
+        "lon": 1.2163,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-campsite-under-its-town-name-same-phone",
+      "why": "The same campsite under its town's name merges when both give the same phone number.",
+      "expected": "merge",
+      "score": 0.9,
+      "a": {
+        "source": "atout-france",
+        "kind": "campsite",
+        "name": "CAMPING LES PINS",
+        "lat": 44.8901,
+        "lon": 1.2163,
+        "accuracyM": 30,
+        "phone": "05 53 00 00 00"
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "campsite",
+        "name": "Camping municipal de Sarlat",
+        "lat": 44.890639,
+        "lon": 1.2163,
+        "accuracyM": 20,
+        "phone": "+33 5 53 00 00 00"
+      }
+    },
+    {
+      "id": "extcom-duplicate-inside-the-feed",
+      "why": "The feed listing one spot twice is a duplicate to report, never a merge: two records of one source do not merge.",
+      "expected": "review",
+      "score": 1.0,
+      "a": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Aire du port",
+        "lat": 43.2961,
+        "lon": 5.3699,
+        "accuracyM": 20
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Aire du Port (gratuit)",
+        "lat": 43.2962347,
+        "lon": 5.3699,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-german-stellplatz-names",
+      "why": "German articles and the words for a motorhome pitch are generic: 'Wohnmobilstellplatz am Badesee' and 'Stellplatz Badesee' are one name.",
+      "expected": "merge",
+      "score": 0.9977,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Wohnmobilstellplatz am Badesee",
+        "lat": 47.8571,
+        "lon": 12.1281
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "motorhome_area",
+        "name": "Stellplatz Badesee",
+        "lat": 47.8573695,
+        "lon": 12.1281,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-spanish-area-names",
+      "why": "Spanish articles and 'autocaravanas' are generic: the area of Cambrils under two spellings is one spot.",
+      "expected": "merge",
+      "score": 0.9994,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Área de autocaravanas de Cambrils",
+        "lat": 41.0669,
+        "lon": 1.0597
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "motorhome_area",
+        "name": "Area autocaravanas Cambrils",
+        "lat": 41.0671246,
+        "lon": 1.0597,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-italian-car-park-filed-as-area",
+      "why": "Italian prepositions and 'parcheggio' are generic, and a car park filed as a motorhome area is compatible (0.9): the lake's car park is one spot.",
+      "expected": "merge",
+      "score": 0.9,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Area di sosta del lago",
+        "lat": 45.6389,
+        "lon": 10.6912
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Parcheggio del lago",
+        "lat": 45.6390797,
+        "lon": 10.6912,
+        "accuracyM": 20
+      }
+    },
+    {
+      "id": "extcom-neighbour-car-parks",
+      "why": "Two car parks of a seaside town 120 m apart, named after what they serve, stay two spots.",
+      "expected": "distinct",
+      "score": 0.0471,
+      "a": {
+        "source": "osm",
+        "kind": "parking",
+        "name": "Parking de la plage",
+        "lat": 43.4832,
+        "lon": -1.5586
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "parking",
+        "name": "Parking du port",
+        "lat": 43.484278,
+        "lon": -1.5586,
+        "accuracyM": 20
       }
     }
   ]

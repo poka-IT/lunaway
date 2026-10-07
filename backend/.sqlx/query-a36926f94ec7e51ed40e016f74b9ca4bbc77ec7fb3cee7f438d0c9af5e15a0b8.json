@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records\n        SET deleted_at = now(), needs_conflation = true, changed_at = now()\n        WHERE source_id = $1 AND external_id = ANY($2) AND deleted_at IS NULL\n          AND taken_down_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a36926f94ec7e51ed40e016f74b9ca4bbc77ec7fb3cee7f438d0c9af5e15a0b8"
+}

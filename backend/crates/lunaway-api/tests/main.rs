@@ -6,6 +6,7 @@
 mod budget;
 mod community;
 mod enforcement;
+mod extcom;
 mod fuel;
 mod http;
 mod poi;

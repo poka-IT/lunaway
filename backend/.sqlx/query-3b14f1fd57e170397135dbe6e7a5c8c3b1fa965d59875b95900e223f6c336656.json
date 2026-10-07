@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH hidden AS (\n            SELECT coalesce(array_agg(source_id), '{}') AS ids\n            FROM source_switches WHERE hidden_at IS NOT NULL\n        )\n        SELECT a.id AS \"a!\", b.id AS \"b!\"\n        FROM hidden, source_records a\n        JOIN source_records b\n          ON b.id <> a.id\n         AND b.deleted_at IS NULL\n         AND ST_DWithin(a.geom, b.geom, $2 + least(a.accuracy_m, $3) + $3)\n        WHERE a.id = ANY($1) AND a.deleted_at IS NULL\n          AND NOT (a.source_id = ANY(hidden.ids)) AND NOT (b.source_id = ANY(hidden.ids))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "b!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3b14f1fd57e170397135dbe6e7a5c8c3b1fa965d59875b95900e223f6c336656"
+}

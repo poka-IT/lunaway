@@ -145,7 +145,8 @@ impl Snapshot {
         rows.into_iter().map(PlaceRow::try_from).collect()
     }
 
-    /// The sources of every place in `ids`.
+    /// The sources of every place in `ids`, with their terms and without a
+    /// hidden source, as `places::sources_of` gives them.
     ///
     /// # Errors
     ///
@@ -156,11 +157,12 @@ impl Snapshot {
             SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,
                    lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
                        AS "fetched_at!",
-                   s.id AS source_id, s.name, s.licence, s.attribution, s.url
+                   s.id AS "source_id!", s.name AS "name!", s.licence AS "licence!",
+                   s.attribution AS "attribution!", s.url AS "url!"
             FROM place_sources ps
             JOIN source_records r ON r.id = ps.record_id
-            JOIN sources s ON s.id = r.source_id
-            WHERE ps.place_id = ANY($1)
+            JOIN source_terms s ON s.id = r.source_id
+            WHERE ps.place_id = ANY($1) AND s.hidden_at IS NULL
             ORDER BY ps.place_id, s.id, r.external_id
             "#,
             ids,

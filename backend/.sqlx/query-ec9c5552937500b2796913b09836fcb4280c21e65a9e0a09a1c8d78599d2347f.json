@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos\n        SET url = NULL, author = NULL, author_id = NULL, retired_at = coalesce(retired_at, now())\n        WHERE source_id = $1 AND author_id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ec9c5552937500b2796913b09836fcb4280c21e65a9e0a09a1c8d78599d2347f"
+}

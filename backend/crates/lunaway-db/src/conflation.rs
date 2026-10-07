@@ -76,7 +76,8 @@ pub async fn dirty(tx: &mut WriterTx) -> Result<Vec<Uuid>, DbError> {
 /// Pairs (dirty record, live record within reach) for the live records of
 /// `ids`. `radius_m` is the largest kind radius and `accuracy_cap_m` the
 /// largest uncertainty credited to a record: the scorer decides inside that
-/// reach, the GiST index finds it.
+/// reach, the GiST index finds it. A record of a hidden source
+/// (`source_switches`) is not live.
 ///
 /// # Errors
 ///
@@ -89,13 +90,18 @@ pub async fn candidates(
 ) -> Result<Vec<(Uuid, Uuid)>, DbError> {
     let mut rows = sqlx::query!(
         r#"
+        WITH hidden AS (
+            SELECT coalesce(array_agg(source_id), '{}') AS ids
+            FROM source_switches WHERE hidden_at IS NOT NULL
+        )
         SELECT a.id AS "a!", b.id AS "b!"
-        FROM source_records a
+        FROM hidden, source_records a
         JOIN source_records b
           ON b.id <> a.id
          AND b.deleted_at IS NULL
          AND ST_DWithin(a.geom, b.geom, $2 + least(a.accuracy_m, $3) + $3)
         WHERE a.id = ANY($1) AND a.deleted_at IS NULL
+          AND NOT (a.source_id = ANY(hidden.ids)) AND NOT (b.source_id = ANY(hidden.ids))
         "#,
         ids,
         radius_m,
@@ -129,7 +135,8 @@ pub struct StoredRecord {
     /// When it was last read (`lunaway_read_at`): the field resolution
     /// prefers the latest read between sources it trusts alike.
     pub fetched_at: DateTime<Utc>,
-    /// Whether the source no longer lists it.
+    /// Whether the source no longer lists it, or the source is hidden
+    /// (`source_switches`): either way it belongs to no place.
     pub deleted: bool,
     /// What it says.
     pub record: NormalizedRecord,
@@ -146,7 +153,11 @@ pub async fn records(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<StoredRecord
         SELECT id, source_id, external_id, external_url,
                lunaway_read_at('records', source_id, scope, fetched_at, deleted_at)
                    AS "fetched_at!",
-               deleted_at IS NOT NULL AS "deleted!", data
+               (deleted_at IS NOT NULL OR EXISTS (
+                   SELECT 1 FROM source_switches w
+                   WHERE w.source_id = source_records.source_id AND w.hidden_at IS NOT NULL))
+                   AS "deleted!",
+               data
         FROM source_records WHERE id = ANY($1) ORDER BY id
         "#,
         ids,

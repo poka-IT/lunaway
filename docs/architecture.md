@@ -98,6 +98,18 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   author, whose own confirmations then count). The points of interest
   follow the same rule with `poi_refresh_queue`. A summary left
   unrefreshed never reaches the devices that synced before.
+- The external community source (`extcom`, `docs/feeds.md`): a partner's
+  places arrive as records like any source's, their licence column the
+  agreement's reference; its reviews, rating summaries and photos have
+  tables of their own (`external_reviews`, `external_ratings`,
+  `external_photos`), hung on the record that carried them and read per
+  place when its card opens, never in the change feed or a pack.
+  `source_agreements` keeps who granted what and when; `source_switches`
+  hides or purges a source at once (the conflation then counts its
+  records as retired); `source_erasures` keeps the hashes of the authors
+  erased at the partner's request. A photo is downloaded the first time a
+  device asks for it, by the API's photo proxy, through the upload's
+  pipeline.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
 - `changes`: a monotonic cursor the app syncs from, by box or by sync
@@ -395,5 +407,7 @@ Anti-abuse measures:
 - Reviews and photos: CC BY 4.0, under a source of their own
   (`community-cc-by`); the community's places, edits and reports stay
   under the ODbL (`community`).
+- The external community source: the terms of its written agreement,
+  whose reference every row carries (`docs/feeds.md`).
 
 The sources and their terms are listed in `docs/data-sources.md`.
