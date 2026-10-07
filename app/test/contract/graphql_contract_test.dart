@@ -55,7 +55,7 @@ void main() {
     // this app ships), and against this one, which keeps those arguments
     // optional.
     // A form that only leaves variables out (the cruising speed of the
-    // fuel search) is for a later API, checked in the navigation contract.
+    // fuel search) is for a later API: test/unit/navigation/fuel_along_route_test.dart.
     if (op.older case final older? when older.document != op.document) {
       test('${op.name} in its older form is valid against both APIs', () {
         expect(validator.validate(older.document), isEmpty);
