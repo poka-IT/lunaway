@@ -14,7 +14,8 @@ part of 'route_mark_focus.dart';
 final routeMarkFocusProvider = RouteMarkFocusFamily._();
 
 /// The focus of the marks of the preview of [target].
-final class RouteMarkFocusProvider extends $NotifierProvider<RouteMarkFocus, MarkFocus> {
+final class RouteMarkFocusProvider
+    extends $NotifierProvider<RouteMarkFocus, MarkFocus> {
   /// The focus of the marks of the preview of [target].
   RouteMarkFocusProvider._({
     required RouteMarkFocusFamily super.from,
@@ -43,7 +44,10 @@ final class RouteMarkFocusProvider extends $NotifierProvider<RouteMarkFocus, Mar
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(MarkFocus value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<MarkFocus>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MarkFocus>(value),
+    );
   }
 
   @override
@@ -62,7 +66,14 @@ String _$routeMarkFocusHash() => r'811220afc60dd4c49eaa64a330c09235fafa24f1';
 /// The focus of the marks of the preview of [target].
 
 final class RouteMarkFocusFamily extends $Family
-    with $ClassFamilyOverride<RouteMarkFocus, MarkFocus, MarkFocus, MarkFocus, RouteTarget> {
+    with
+        $ClassFamilyOverride<
+          RouteMarkFocus,
+          MarkFocus,
+          MarkFocus,
+          MarkFocus,
+          RouteTarget
+        > {
   RouteMarkFocusFamily._()
     : super(
         retry: null,

@@ -49,17 +49,19 @@ class _RoadEventsSectionState extends ConsumerState<RoadEventsSection> {
     final now = ref.watch(clockProvider)().toLocal();
     final met = route?.roadEvents ?? const <RouteRoadEvent>[];
     final avoided = plan.avoidedRoadEvents;
-    // A mark beyond the first rows asked for its row: the list opens.
-    final revealed = target == null
-        ? null
-        : ref.watch(routeMarkFocusProvider(target).select((f) => f.reveal));
-    // Once open, it stays open: a later mark among the first rows would
-    // otherwise fold it under the reader.
-    if (route != null &&
-        met
-            .skip(RoadEventsSection.shown)
-            .any((e) => eventMarkId(route.index, e.event.id) == revealed)) {
-      _all = true;
+    // A mark beyond the first rows asked for its row: the list opens, and
+    // stays open, so a later mark among the first rows does not fold it
+    // under the reader.
+    if (target != null) {
+      ref.listen(routeMarkFocusProvider(target).select((f) => (f.reveal, f.revealSerial)), (
+        _,
+        now,
+      ) {
+        final hidden = route != null && !_all
+            ? met.skip(RoadEventsSection.shown).map((e) => eventMarkId(route.index, e.event.id))
+            : const <String>[];
+        if (hidden.contains(now.$1)) setState(() => _all = true);
+      });
     }
     final all = _all;
     if (met.isEmpty && avoided.isEmpty) {

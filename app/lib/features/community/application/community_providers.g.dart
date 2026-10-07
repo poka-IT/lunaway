@@ -140,17 +140,24 @@ final pendingPhotoProvider = PendingPhotoFamily._();
 /// The bytes of a photo waiting in the outbox, for its tile.
 
 final class PendingPhotoProvider
-    extends $FunctionalProvider<AsyncValue<Uint8List?>, Uint8List?, FutureOr<Uint8List?>>
+    extends
+        $FunctionalProvider<
+          AsyncValue<Uint8List?>,
+          Uint8List?,
+          FutureOr<Uint8List?>
+        >
     with $FutureModifier<Uint8List?>, $FutureProvider<Uint8List?> {
   /// The bytes of a photo waiting in the outbox, for its tile.
-  PendingPhotoProvider._({required PendingPhotoFamily super.from, required String super.argument})
-    : super(
-        retry: null,
-        name: r'pendingPhotoProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
+  PendingPhotoProvider._({
+    required PendingPhotoFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'pendingPhotoProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
 
   @override
   String debugGetCreateSourceHash() => _$pendingPhotoHash();
@@ -201,7 +208,8 @@ final class PendingPhotoFamily extends $Family
 
   /// The bytes of a photo waiting in the outbox, for its tile.
 
-  PendingPhotoProvider call(String fileId) => PendingPhotoProvider._(argument: fileId, from: this);
+  PendingPhotoProvider call(String fileId) =>
+      PendingPhotoProvider._(argument: fileId, from: this);
 
   @override
   String toString() => r'pendingPhotoProvider';
@@ -210,7 +218,8 @@ final class PendingPhotoFamily extends $Family
 @ProviderFor(outboxStore)
 final outboxStoreProvider = OutboxStoreProvider._();
 
-final class OutboxStoreProvider extends $FunctionalProvider<OutboxStore, OutboxStore, OutboxStore>
+final class OutboxStoreProvider
+    extends $FunctionalProvider<OutboxStore, OutboxStore, OutboxStore>
     with $Provider<OutboxStore> {
   OutboxStoreProvider._()
     : super(
@@ -384,7 +393,9 @@ final class OutboxEntriesProvider
           List<PendingContribution>,
           Stream<List<PendingContribution>>
         >
-    with $FutureModifier<List<PendingContribution>>, $StreamProvider<List<PendingContribution>> {
+    with
+        $FutureModifier<List<PendingContribution>>,
+        $StreamProvider<List<PendingContribution>> {
   /// Every contribution waiting, oldest first.
   OutboxEntriesProvider._()
     : super(
@@ -402,8 +413,9 @@ final class OutboxEntriesProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<PendingContribution>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<List<PendingContribution>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<List<PendingContribution>> create(Ref ref) {
@@ -451,8 +463,9 @@ final class OwnOutboxEntriesProvider
 
   @$internal
   @override
-  $ProviderElement<List<PendingContribution>> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<List<PendingContribution>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   List<PendingContribution> create(Ref ref) {
@@ -509,8 +522,9 @@ final class PendingForPlaceProvider
 
   @$internal
   @override
-  $ProviderElement<List<PendingContribution>> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<List<PendingContribution>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   List<PendingContribution> create(Ref ref) {
@@ -575,7 +589,9 @@ final class UploadProgressProvider
           Map<String, double>,
           Stream<Map<String, double>>
         >
-    with $FutureModifier<Map<String, double>>, $StreamProvider<Map<String, double>> {
+    with
+        $FutureModifier<Map<String, double>>,
+        $StreamProvider<Map<String, double>> {
   /// The progress of each photo being sent, by outbox entry, 0 to 1.
   UploadProgressProvider._()
     : super(
@@ -593,8 +609,9 @@ final class UploadProgressProvider
 
   @$internal
   @override
-  $StreamProviderElement<Map<String, double>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<Map<String, double>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<Map<String, double>> create(Ref ref) {
@@ -690,7 +707,10 @@ final class OutboxRunnerProvider extends $NotifierProvider<OutboxRunner, bool> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
   }
 }
 
@@ -708,7 +728,13 @@ abstract class _$OutboxRunner extends $Notifier<bool> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<bool, bool>;
     final element =
-        ref.element as $ClassProviderElement<AnyNotifier<bool, bool>, bool, Object?, Object?>;
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
@@ -722,7 +748,11 @@ final myContributionsProvider = MyContributionsProvider._();
 
 final class MyContributionsProvider
     extends
-        $FunctionalProvider<AsyncValue<MyContributions>, MyContributions, FutureOr<MyContributions>>
+        $FunctionalProvider<
+          AsyncValue<MyContributions>,
+          MyContributions,
+          FutureOr<MyContributions>
+        >
     with $FutureModifier<MyContributions>, $FutureProvider<MyContributions> {
   /// The account's own contributions, read online.
   MyContributionsProvider._()
@@ -741,8 +771,9 @@ final class MyContributionsProvider
 
   @$internal
   @override
-  $FutureProviderElement<MyContributions> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<MyContributions> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
   FutureOr<MyContributions> create(Ref ref) {
@@ -763,7 +794,8 @@ final gateProvider = GateFamily._();
 /// device without an account counts as level 0, the level a new account
 /// starts at.
 
-final class GateProvider extends $FunctionalProvider<Gate, Gate, Gate> with $Provider<Gate> {
+final class GateProvider extends $FunctionalProvider<Gate, Gate, Gate>
+    with $Provider<Gate> {
   /// Whether the device's account may do an action of level [required]; a
   /// device without an account counts as level 0, the level a new account
   /// starts at.
@@ -788,7 +820,8 @@ final class GateProvider extends $FunctionalProvider<Gate, Gate, Gate> with $Pro
 
   @$internal
   @override
-  $ProviderElement<Gate> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<Gate> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   Gate create(Ref ref) {
@@ -798,7 +831,10 @@ final class GateProvider extends $FunctionalProvider<Gate, Gate, Gate> with $Pro
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Gate value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Gate>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Gate>(value),
+    );
   }
 
   @override
@@ -818,7 +854,8 @@ String _$gateHash() => r'9188597352b8a3ba16fcddd8517c44669c385c89';
 /// device without an account counts as level 0, the level a new account
 /// starts at.
 
-final class GateFamily extends $Family with $FunctionalFamilyOverride<Gate, int> {
+final class GateFamily extends $Family
+    with $FunctionalFamilyOverride<Gate, int> {
   GateFamily._()
     : super(
         retry: null,
@@ -832,7 +869,8 @@ final class GateFamily extends $Family with $FunctionalFamilyOverride<Gate, int>
   /// device without an account counts as level 0, the level a new account
   /// starts at.
 
-  GateProvider call(int required) => GateProvider._(argument: required, from: this);
+  GateProvider call(int required) =>
+      GateProvider._(argument: required, from: this);
 
   @override
   String toString() => r'gateProvider';

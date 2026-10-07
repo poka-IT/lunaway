@@ -13,7 +13,12 @@ part of 'driving_aids.dart';
 final drivingAidsStoreProvider = DrivingAidsStoreProvider._();
 
 final class DrivingAidsStoreProvider
-    extends $FunctionalProvider<DrivingAidsStore, DrivingAidsStore, DrivingAidsStore>
+    extends
+        $FunctionalProvider<
+          DrivingAidsStore,
+          DrivingAidsStore,
+          DrivingAidsStore
+        >
     with $Provider<DrivingAidsStore> {
   DrivingAidsStoreProvider._()
     : super(
@@ -54,12 +59,17 @@ String _$drivingAidsStoreHash() => r'6a9e21df1ff65fc78733ec8b9cba47d3e71906de';
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 
 @ProviderFor(DrivingAidsSettingsController)
-final drivingAidsSettingsControllerProvider = DrivingAidsSettingsControllerProvider._();
+final drivingAidsSettingsControllerProvider =
+    DrivingAidsSettingsControllerProvider._();
 
 /// Whether the limit shows, and whether the aids speak.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 final class DrivingAidsSettingsControllerProvider
-    extends $AsyncNotifierProvider<DrivingAidsSettingsController, DrivingAidsSettings> {
+    extends
+        $AsyncNotifierProvider<
+          DrivingAidsSettingsController,
+          DrivingAidsSettings
+        > {
   /// Whether the limit shows, and whether the aids speak.
   // keepAlive: the guidance reads it at every fix, the profile edits it.
   DrivingAidsSettingsControllerProvider._()
@@ -81,17 +91,20 @@ final class DrivingAidsSettingsControllerProvider
   DrivingAidsSettingsController create() => DrivingAidsSettingsController();
 }
 
-String _$drivingAidsSettingsControllerHash() => r'24ba81da1223fdfce722631afbf68edc1cf406e6';
+String _$drivingAidsSettingsControllerHash() =>
+    r'24ba81da1223fdfce722631afbf68edc1cf406e6';
 
 /// Whether the limit shows, and whether the aids speak.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 
-abstract class _$DrivingAidsSettingsController extends $AsyncNotifier<DrivingAidsSettings> {
+abstract class _$DrivingAidsSettingsController
+    extends $AsyncNotifier<DrivingAidsSettings> {
   FutureOr<DrivingAidsSettings> build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<DrivingAidsSettings>, DrivingAidsSettings>;
+    final ref =
+        this.ref as $Ref<AsyncValue<DrivingAidsSettings>, DrivingAidsSettings>;
     final element =
         ref.element
             as $ClassProviderElement<
@@ -108,7 +121,12 @@ abstract class _$DrivingAidsSettingsController extends $AsyncNotifier<DrivingAid
 final enforcementStoreProvider = EnforcementStoreProvider._();
 
 final class EnforcementStoreProvider
-    extends $FunctionalProvider<EnforcementStore, EnforcementStore, EnforcementStore>
+    extends
+        $FunctionalProvider<
+          EnforcementStore,
+          EnforcementStore,
+          EnforcementStore
+        >
     with $Provider<EnforcementStore> {
   EnforcementStoreProvider._()
     : super(
@@ -157,7 +175,8 @@ final enforcementFeedProvider = EnforcementFeedProvider._();
 // keepAlive: a stateless service, wired once.
 
 final class EnforcementFeedProvider
-    extends $FunctionalProvider<EnforcementFeed, EnforcementFeed, EnforcementFeed>
+    extends
+        $FunctionalProvider<EnforcementFeed, EnforcementFeed, EnforcementFeed>
     with $Provider<EnforcementFeed> {
   /// The speed camera delta, through the routing client: no position goes
   /// with it, only the countries of the trip.
@@ -210,7 +229,11 @@ final countryLocatorProvider = CountryLocatorProvider._();
 
 final class CountryLocatorProvider
     extends
-        $FunctionalProvider<AsyncValue<CountryLocator>, CountryLocator, FutureOr<CountryLocator>>
+        $FunctionalProvider<
+          AsyncValue<CountryLocator>,
+          CountryLocator,
+          FutureOr<CountryLocator>
+        >
     with $FutureModifier<CountryLocator>, $FutureProvider<CountryLocator> {
   /// The countries around a position, read on the device by the guidance
   /// library; where it is not loaded, none (every rule then reads as off).
@@ -231,8 +254,9 @@ final class CountryLocatorProvider
 
   @$internal
   @override
-  $FutureProviderElement<CountryLocator> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<CountryLocator> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
   FutureOr<CountryLocator> create(Ref ref) {
