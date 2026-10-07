@@ -63,6 +63,24 @@ final class AppConfig {
         !url.path.contains('..');
   }
 
+  /// Whether [url] is the API's proxy of a photo of the external community
+  /// source (`/external-photos/<uuid>/thumb` or `/large`): the API downloads
+  /// the partner's file on the first request and answers with a redirect
+  /// to its own copy under `/media/`.
+  bool isApiExternalPhoto(Uri url) {
+    final base = apiBase;
+    return url.scheme == base.scheme &&
+        url.host == base.host &&
+        url.port == base.port &&
+        !url.hasQuery &&
+        url.path.startsWith('${base.path}/external-photos/') &&
+        _externalPhotoPath.hasMatch(url.path.substring(base.path.length));
+  }
+
+  static final _externalPhotoPath = RegExp(
+    r'^/external-photos/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(thumb|large)$',
+  );
+
   /// The honest User-Agent of every request the app makes.
   static String userAgent(String version) => 'Lunaway/$version (+$website)';
 }

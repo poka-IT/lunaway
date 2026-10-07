@@ -267,19 +267,22 @@ final class UserAgentProvider
 String _$userAgentHash() => r'cd5d351cc762fa1b7d16fa007dcdad9ebe9c01b8';
 
 /// Downloads the photos of the API's image proxy.
-// keepAlive: a stateless service over the shared client.
+// keepAlive: it remembers which proxied photos may not be asked for yet,
+// across every place opened.
 
 @ProviderFor(imageFetcher)
 final imageFetcherProvider = ImageFetcherProvider._();
 
 /// Downloads the photos of the API's image proxy.
-// keepAlive: a stateless service over the shared client.
+// keepAlive: it remembers which proxied photos may not be asked for yet,
+// across every place opened.
 
 final class ImageFetcherProvider
     extends $FunctionalProvider<ImageFetcher, ImageFetcher, ImageFetcher>
     with $Provider<ImageFetcher> {
   /// Downloads the photos of the API's image proxy.
-  // keepAlive: a stateless service over the shared client.
+  // keepAlive: it remembers which proxied photos may not be asked for yet,
+  // across every place opened.
   ImageFetcherProvider._()
     : super(
         from: null,
@@ -313,7 +316,7 @@ final class ImageFetcherProvider
   }
 }
 
-String _$imageFetcherHash() => r'ffd7fa49c64a0acf7cf81764cc33bca2ff064653';
+String _$imageFetcherHash() => r'8287367a24a95408d9a901df8138af76d6271030';
 
 /// The clock, injectable so freshness and "open now" are testable.
 // keepAlive: a pure function with no state to release.

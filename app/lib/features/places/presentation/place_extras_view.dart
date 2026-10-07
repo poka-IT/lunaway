@@ -11,6 +11,7 @@ import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
 import 'package:lunaway/features/community/presentation/place_community.dart';
+import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -18,11 +19,11 @@ import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
+import 'package:lunaway/shared/images/retrying_image.dart';
 import 'package:lunaway/shared/images/thumbhash.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
-import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
@@ -50,12 +51,16 @@ class PlacePhotos extends ConsumerWidget {
         if (e.kind == ContributionKind.photo && e.fileId != null) e,
     ];
     bool shown(Photo p) => p.authorId == null || !muted.contains(p.authorId);
-    final photos = switch (extras) {
+    final ours = switch (extras) {
       AsyncValue(:final value, hasValue: true) when value != null =>
         value.photos.where(shown).toList(),
       AsyncError() => place.coverPhotos.where(shown).toList(),
       _ => const <Photo>[],
     };
+    // The external community source's photos follow Lunaway's, as soon as
+    // they come; the strip never waits for them.
+    final external = ref.watch(placeExternalProvider(place.id)).value?.content.photos ?? const [];
+    final photos = [...ours, ...external];
     if (extras is AsyncLoading && !extras.hasValue) {
       return Padding(
         padding: const EdgeInsets.only(top: Space.xl),
@@ -86,6 +91,7 @@ class PlacePhotos extends ConsumerWidget {
           photo: photo,
           fetcher: ref.watch(imageFetcherProvider),
           source: itemSourceLabel(t, photo.sourceId, sources: place.sources),
+          credit: photoCredit(t, photo, sources: place.sources),
           label: t.place.photoPosition(index: i + 1, count: photos.length),
           onTap: () => showPhotoViewer(
             context,
@@ -254,6 +260,7 @@ class _Thumb extends StatelessWidget {
     required this.photo,
     required this.fetcher,
     required this.source,
+    required this.credit,
     required this.label,
     required this.onTap,
   });
@@ -264,6 +271,10 @@ class _Thumb extends StatelessWidget {
   /// The source of the photo, on its corner: every value shown says where it
   /// came from.
   final String source;
+
+  /// The source and, for another community's photo, its author: what a
+  /// screen reader says of the photo.
+  final String credit;
   final String label;
   final VoidCallback onTap;
 
@@ -276,9 +287,11 @@ class _Thumb extends StatelessWidget {
     final placeholder = hash == null
         ? const Skeleton(width: width, height: PlacePhotos.height, radius: 0)
         : Image(image: ThumbHashImage(hash), fit: BoxFit.cover, excludeFromSemantics: true);
+    final empty = ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHigh);
+    final author = isLunawayCommunity(photo.sourceId) ? null : photo.authorName;
     return Semantics(
       button: true,
-      label: '$label, $source',
+      label: '$label, $credit',
       child: ClipRRect(
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: SizedBox(
@@ -287,15 +300,15 @@ class _Thumb extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image(
+              RetryingImage(
                 image: ResizeImage(CachedImage(photo.thumbUrl, fetcher: fetcher), width: 480),
                 fit: BoxFit.cover,
-                excludeFromSemantics: true,
-                frameBuilder: (context, child, frame, _) => AnimatedSwitcher(
-                  duration: Motion.of(context, Motion.short),
-                  child: frame == null ? placeholder : child,
-                ),
-                errorBuilder: (context, _, _) => hash != null
+                placeholder: placeholder,
+                // A photo the proxy has not fetched yet keeps its frame,
+                // still: it may wait hours for the server's daily budget,
+                // and a pulse would say it is on its way.
+                waiting: hash != null ? placeholder : empty,
+                error: hash != null
                     ? placeholder
                     : ColoredBox(
                         color: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -308,7 +321,22 @@ class _Thumb extends StatelessWidget {
                 right: Space.s,
                 child: Align(
                   alignment: Alignment.bottomLeft,
-                  child: ExcludeSemantics(child: SourceBadge(label: source, onPhoto: true)),
+                  // Another community's photo is credited to its author
+                  // too, in a tag of its own under the source's, so the
+                  // narrow tile keeps both readable.
+                  child: ExcludeSemantics(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SourceBadge(label: source, onPhoto: true, maxLines: 3),
+                        if (author case final name?) ...[
+                          const SizedBox(height: Space.xxs),
+                          SourceBadge(label: name, onPhoto: true),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
               Material(
@@ -463,35 +491,50 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
               final ratio = p.width != null && p.height != null && p.height! > 0
                   ? p.width! / p.height!
                   : null;
+              final broken = Icon(
+                AppIcons.brokenImage,
+                color: LunaTokens.of(context).onPhotoBackdropMuted,
+                size: 64,
+              );
+              // The thumbnail the strip already holds, while the large
+              // photo comes or when it cannot: the photo shows at once,
+              // sharper a moment later.
+              final thumb = Image(
+                image: ResizeImage(CachedImage(p.thumbUrl, fetcher: widget.fetcher), width: 480),
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
+                frameBuilder: (context, child, frame, _) =>
+                    frame != null ? child : const Center(child: CircularProgressIndicator()),
+                errorBuilder: (context, _, _) => broken,
+              );
               return InteractiveViewer(
                 maxScale: 4,
                 child: Center(
-                  child: Image(
-                    // Decoded at the size of the screen, not of the file: a
-                    // large photo would otherwise take tens of megabytes.
-                    image: ResizeImage(
-                      CachedImage(p.largeUrl, fetcher: widget.fetcher),
-                      width:
-                          (MediaQuery.sizeOf(context).width *
-                                  MediaQuery.devicePixelRatioOf(context))
-                              .round(),
-                      policy: ResizeImagePolicy.fit,
-                    ),
-                    fit: BoxFit.contain,
-                    semanticLabel: t.place.photoPosition(index: i + 1, count: widget.photos.length),
-                    // The ThumbHash in the photo's own frame while it loads.
-                    frameBuilder: (context, child, frame, _) => frame != null
-                        ? child
-                        : hash != null && ratio != null
-                        ? AspectRatio(
-                            aspectRatio: ratio,
-                            child: Image(image: ThumbHashImage(hash), fit: BoxFit.fill),
-                          )
-                        : const Center(child: CircularProgressIndicator()),
-                    errorBuilder: (context, _, _) => Icon(
-                      AppIcons.brokenImage,
-                      color: LunaTokens.of(context).onPhotoBackdropMuted,
-                      size: 64,
+                  child: Semantics(
+                    label: t.place.photoPosition(index: i + 1, count: widget.photos.length),
+                    image: true,
+                    child: RetryingImage(
+                      // Decoded at the size of the screen, not of the file: a
+                      // large photo would otherwise take tens of megabytes.
+                      image: ResizeImage(
+                        CachedImage(p.largeUrl, fetcher: widget.fetcher),
+                        width:
+                            (MediaQuery.sizeOf(context).width *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
+                        policy: ResizeImagePolicy.fit,
+                      ),
+                      fit: BoxFit.contain,
+                      // The ThumbHash in the photo's own frame while it
+                      // loads, else the thumbnail.
+                      placeholder: hash != null && ratio != null
+                          ? AspectRatio(
+                              aspectRatio: ratio,
+                              child: Image(image: ThumbHashImage(hash), fit: BoxFit.fill),
+                            )
+                          : thumb,
+                      waiting: thumb,
+                      error: thumb,
                     ),
                   ),
                 ),
@@ -508,10 +551,17 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                     icon: const Icon(AppIcons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const Spacer(),
-                  SourceBadge(
-                    label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
-                    onPhoto: true,
+                  // Goes onto two lines rather than push the counter out of
+                  // a phone at a large text size.
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: SourceBadge(
+                        label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
+                        onPhoto: true,
+                        maxLines: 2,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: Space.m),
                   Text(
@@ -576,8 +626,9 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
   }
 }
 
-/// The ratings of the place per source, then its reviews, newest first,
-/// with the next page on demand.
+/// The head of the reviews: the ratings of the place per source, the
+/// account's own review, and what stands for the list while it is empty,
+/// loading or out of reach. The reviews follow as [placeReviewItems].
 class PlaceReviewsSection extends ConsumerWidget {
   const new({required this.place, super.key});
 
@@ -588,13 +639,11 @@ class PlaceReviewsSection extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final reviews = ref.watch(placeReviewsProvider(place.id));
-    final muted = ref.watch(mutedAuthorIdsProvider);
-    final account = ref.watch(accountControllerProvider);
-    final me = account is SignedIn ? account.account.id : null;
-    // The account's own review shows in its own card above; a muted
-    // author's never.
-    bool shown(Review r) =>
-        (r.authorId == null || !muted.contains(r.authorId)) && (me == null || r.authorId != me);
+    final feed = ref.watch(placeReviewFeedProvider(place.id));
+    // The external community source's ratings beside Lunaway's, each with
+    // its own badge, average and count: never added together.
+    final external = ref.watch(placeExternalProvider(place.id));
+    final ratings = [...place.ratings, ...?external.value?.content.ratings];
     final ownText =
         OwnReview.of(
           ref.watch(placeExtrasProvider(place.id)).value?.myReview,
@@ -615,13 +664,16 @@ class PlaceReviewsSection extends ConsumerWidget {
             spacing: 12,
             runSpacing: 8,
             children: [
-              for (final r in place.ratings)
+              for (final r in ratings)
                 Wrap(
                   spacing: Space.s,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    SourceBadge(label: itemSourceLabel(t, r.sourceId, sources: place.sources)),
+                    SourceBadge(
+                      label: itemSourceLabel(t, r.sourceId, sources: place.sources),
+                      maxLines: 2,
+                    ),
                     RatingText(average: r.average, count: r.count),
                   ],
                 ),
@@ -630,8 +682,14 @@ class PlaceReviewsSection extends ConsumerWidget {
           const SizedBox(height: Space.m),
           YourReview(place: place),
           const SizedBox(height: Space.l),
+          // The reviews themselves are items of the card's list
+          // ([placeReviewItems]), built as they scroll into view.
           switch (reviews) {
-            AsyncData(:final value) when value.page.nodes.where(shown).isEmpty => Text(
+            // "None" waits for the external source too: its reviews may
+            // still come.
+            AsyncData() when feed.reviews.isEmpty && external.isLoading && !external.hasValue =>
+              const Skeleton(height: 96, radius: 20),
+            AsyncData() when feed.reviews.isEmpty && feed.next == null => Text(
               // With the account's own review just above, "none" would read
               // as if it had not been kept.
               ownText ? t.place.noOtherReviews : t.place.noReviews,
@@ -639,38 +697,12 @@ class PlaceReviewsSection extends ConsumerWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            AsyncData(:final value) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final r in value.page.nodes.where(shown))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: Space.sm),
-                    child: ReviewCard(review: r, sources: place.sources, placeId: place.id),
-                  ),
-                if (value.page.hasNextPage)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: value.loadingMore
-                        ? const Padding(
-                            padding: EdgeInsets.all(Space.m),
-                            child: SizedBox.square(
-                              dimension: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
-                            ),
-                          )
-                        : TextButton.icon(
-                            onPressed: () =>
-                                ref.read(placeReviewsProvider(place.id).notifier).loadMore(),
-                            icon: Icon(value.moreFailed ? AppIcons.retry : AppIcons.expand),
-                            label: Text(
-                              value.moreFailed ? t.place.moreReviewsFailed : t.place.moreReviews,
-                            ),
-                          ),
-                  ),
-              ],
-            ),
-            AsyncError() => _OfflineNote(
-              onRetry: () => ref.invalidate(placeExtrasProvider(place.id)),
+            AsyncData() => const SizedBox.shrink(),
+            // Lunaway's reviews need a connection; the external source's,
+            // when they came, still follow.
+            AsyncError() => Padding(
+              padding: const EdgeInsets.only(bottom: Space.sm),
+              child: _OfflineNote(onRetry: () => ref.invalidate(placeExtrasProvider(place.id))),
             ),
             AsyncLoading() => const Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -685,6 +717,49 @@ class PlaceReviewsSection extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The reviews of [place], Lunaway's and the external community source's
+/// in one list, newest first, one widget each, then the button for the
+/// next page: items of the card's own list, so a place with hundreds of
+/// reviews builds only those on screen. Nothing until Lunaway's first page
+/// is in; the external source's reviews, when they come after it, take
+/// their place by date among those already shown.
+List<Widget> placeReviewItems(BuildContext context, WidgetRef ref, Place place) {
+  final ours = ref.watch(placeReviewsProvider(place.id));
+  if (ours.isLoading && !ours.hasValue && !ours.hasError) return const [];
+  final feed = ref.watch(placeReviewFeedProvider(place.id));
+  final t = context.t;
+  return [
+    for (final r in feed.reviews)
+      Padding(
+        key: ValueKey('review-${r.sourceId}-${r.id}'),
+        padding: const EdgeInsets.only(bottom: Space.sm),
+        child: ReviewCard(review: r, sources: place.sources, placeId: place.id),
+      ),
+    if (feed.next case final next?)
+      Align(
+        alignment: Alignment.centerLeft,
+        child: feed.loadingMore
+            ? const Padding(
+                padding: EdgeInsets.all(Space.m),
+                child: SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              )
+            : TextButton.icon(
+                onPressed: () => switch (next) {
+                  ReviewOrigin.lunaway =>
+                    ref.read(placeReviewsProvider(place.id).notifier).loadMore(),
+                  ReviewOrigin.external =>
+                    ref.read(placeExternalProvider(place.id).notifier).loadMore(),
+                },
+                icon: Icon(feed.moreFailed ? AppIcons.retry : AppIcons.expand),
+                label: Text(feed.moreFailed ? t.place.moreReviewsFailed : t.place.moreReviews),
+              ),
+      ),
+  ];
 }
 
 class ReviewCard extends StatelessWidget {
@@ -742,7 +817,15 @@ class ReviewCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SourceBadge(label: itemSourceLabel(t, review.sourceId, sources: sources)),
+                    // A long source name ("Source communautaire externe")
+                    // goes on two lines in a narrow card rather than past
+                    // its edge or cut.
+                    Flexible(
+                      child: SourceBadge(
+                        label: itemSourceLabel(t, review.sourceId, sources: sources),
+                        maxLines: 2,
+                      ),
+                    ),
                     ReviewMenu(review: review, placeId: placeId),
                   ],
                 ),

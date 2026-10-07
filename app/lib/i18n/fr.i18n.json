@@ -302,7 +302,13 @@
     "photoPosition": "Photo $index sur $count",
     "links": "Sur d'autres sites",
     "sourceWithLicence": "$source · $licence",
-    "licenceCcBy": "CC BY 4.0"
+    "licenceCcBy": "CC BY 4.0",
+    "photoCredit": "$source · $author"
+  },
+  "sources": {
+    "extcom": {
+      "label": "Source communautaire externe"
+    }
   },
   "hours": {
     "open": "Ouvert maintenant",
