@@ -12,9 +12,12 @@ import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/shared/theme/motion.dart';
+import 'package:lunaway/shared/theme/palette.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 final _log = Logger('route_map');
@@ -86,13 +89,40 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// elsewhere), not a move to glide through.
   static const _jumpM = 500.0;
 
-  /// The arrow is drawn at the screen's density. MapLibre on Android and
-  /// iOS reads an image pixel as a physical one (maplibre_gl 0.27.1 makes
-  /// the iOS image at the screen's scale), the web as a CSS pixel.
-  double get _arrowScale => kIsWeb ? 1 / MediaQuery.devicePixelRatioOf(context) : 1;
+  /// The arrow and the badges are drawn at the screen's density. MapLibre
+  /// on Android and iOS reads an image pixel as a physical one (maplibre_gl
+  /// 0.27.1 makes the iOS image at the screen's scale), the web as a CSS
+  /// pixel.
+  double get _imageScale => kIsWeb ? 1 / MediaQuery.devicePixelRatioOf(context) : 1;
+
+  /// The marks lit, by index, as the engine has them; null when unknown
+  /// (new data, a new style).
+  Set<int>? _sentLit;
+  int? _sentFocus;
+
+  /// The plugin has no feature state on iOS: there the halo's filter names
+  /// the lit marks.
+  static bool get _litByFilter => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// What the browser's hover last reported over this map: a mark's id or
+  /// a group's.
+  String? _hovered;
+  void Function()? _stopHover;
+
+  /// A camera move was reported and has not come to rest.
+  bool _moving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Only a browser has a pointer that hovers; the page picks what it is
+    // over by the same rule as a click.
+    _stopHover = listenWebMapHover(_onWebHover);
+  }
 
   @override
   void dispose() {
+    _stopHover?.call();
     _ticker.dispose();
     super.dispose();
   }
@@ -146,12 +176,17 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final dark = _props.dark;
     const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
     try {
-      final arrow = await vehicleArrowPng(MediaQuery.devicePixelRatioOf(context));
+      final ratio = MediaQuery.devicePixelRatioOf(context);
+      final arrow = await vehicleArrowPng(ratio);
+      final badges = await routeBadgePngs(ratio);
       if (!current()) return;
       await c.addImage(RouteLayers.vehicleImage, arrow);
+      for (final MapEntry(:key, :value) in badges.entries) {
+        await c.addImage(key, value);
+      }
       for (final id in [
         RouteLayers.vehicle,
-        RouteLayers.marks,
+        ...RouteLayers.markLayers.reversed,
         RouteLayers.route,
         RouteLayers.routeCasing,
         RouteLayers.alternatives,
@@ -162,12 +197,22 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       for (final id in [
         RouteLayers.alternativesSource,
         RouteLayers.routeSource,
-        RouteLayers.marksSource,
+        ...RouteLayers.markSources,
         RouteLayers.vehicleSource,
       ]) {
         if (!current()) return;
         await _quietly(() => c.removeSource(id));
-        await c.addSource(id, const gl.GeojsonSourceProperties(data: empty));
+        final options = RouteMarkStyle.sourceOptions(id);
+        await c.addSource(
+          id,
+          gl.GeojsonSourceProperties(
+            data: empty,
+            cluster: options['cluster'] as bool?,
+            clusterRadius: options['clusterRadius'] as double?,
+            clusterMaxZoom: options['clusterMaxZoom'] as double?,
+            clusterProperties: options['clusterProperties'],
+          ),
+        );
       }
       if (!current()) return;
       const round = gl.LineLayerProperties(lineJoin: 'round', lineCap: 'round');
@@ -202,6 +247,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.casingWidth,
           ),
         ),
+        // The chosen route answers no click: no pointer over it.
         enableInteraction: false,
       );
       await c.addLineLayer(
@@ -215,23 +261,16 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         ),
         enableInteraction: false,
       );
-      await c.addCircleLayer(
-        RouteLayers.marksSource,
-        RouteLayers.marks,
-        gl.CircleLayerProperties(
-          circleColor: const ['get', 'fill'],
-          circleRadius: const ['get', 'radius'],
-          circleStrokeColor: RouteLook.markStroke,
-          circleStrokeWidth: RouteLook.markStrokeWidth,
-        ),
-        enableInteraction: false,
-      );
+      for (final source in RouteLayers.markSources) {
+        if (!current()) return;
+        await _addMarkLayers(c, source);
+      }
       await c.addSymbolLayer(
         RouteLayers.vehicleSource,
         RouteLayers.vehicle,
         gl.SymbolLayerProperties(
           iconImage: RouteLayers.vehicleImage,
-          iconSize: _arrowScale,
+          iconSize: _imageScale,
           iconRotate: const ['get', 'course'],
           iconRotationAlignment: 'map',
           iconPitchAlignment: 'map',
@@ -244,6 +283,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _ready = true;
       _sentLines = null;
       _sentMarks = null;
+      _sentLit = null;
+      _sentFocus = _props.focus?.serial;
       _sentVehicle = null;
       _sentCamera = null;
       _sentInsets = null;
@@ -251,6 +292,128 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     } on Object catch (e, st) {
       _log.warning('could not set up the route layers', e, st);
     }
+  }
+
+  /// The layers of one source of marks, bottom to top: the lit ring, the
+  /// badges with their text, and the text beside them. None is watched by
+  /// the plugin: a tap and the pointer pick by [routeHitShapes].
+  Future<void> _addMarkLayers(gl.MapLibreMapController c, String source) async {
+    final minzoom = source == RouteLayers.minorSource ? RouteMarkStyle.minorMinZoom : null;
+    await c.addCircleLayer(
+      source,
+      RouteLayers.haloOf(source),
+      gl.CircleLayerProperties(
+        circleRadius: RouteMarkStyle.haloRadius,
+        circleColor: RouteLook.halo,
+        circleStrokeColor: RouteLook.haloRim,
+        circleStrokeWidth: 2,
+        circleOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
+        circleStrokeOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
+      ),
+      minzoom: minzoom,
+      filter: _litByFilter ? _litFilter(const []) : RouteMarkStyle.notGroup,
+      enableInteraction: false,
+    );
+    await c.addSymbolLayer(
+      source,
+      RouteLayers.badgesOf(source),
+      gl.SymbolLayerProperties(
+        iconImage: RouteMarkStyle.iconImage,
+        iconSize: RouteMarkStyle.iconSize(_imageScale),
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+        symbolSortKey: RouteMarkStyle.sortKey,
+        textField: RouteMarkStyle.textField,
+        textFont: RouteMarkStyle.font,
+        textSize: RouteMarkStyle.textSize,
+        textColor: RouteMarkStyle.textColor,
+        textAllowOverlap: true,
+        textIgnorePlacement: true,
+      ),
+      minzoom: minzoom,
+      enableInteraction: false,
+    );
+    await c.addSymbolLayer(
+      source,
+      RouteLayers.sideOf(source),
+      gl.SymbolLayerProperties(
+        textField: const ['get', 'side'],
+        textFont: RouteMarkStyle.font,
+        textSize: 11,
+        textAnchor: 'left',
+        textOffset: RouteMarkStyle.sideOffset,
+        textOptional: true,
+        textColor: RouteLook.hex(Palette.minuit),
+        textHaloColor: RouteLook.hex(Palette.creme),
+        textHaloWidth: 1.5,
+      ),
+      minzoom: minzoom,
+      filter: RouteMarkStyle.sideFilter,
+      enableInteraction: false,
+    );
+  }
+
+  /// The halo's filter where marks are lit through it: those of [ids].
+  static List<Object> _litFilter(List<int> ids) => [
+    'all',
+    RouteMarkStyle.notGroup,
+    [
+      'in',
+      ['id'],
+      ['literal', ids],
+    ],
+  ];
+
+  /// Lights the marks of [highlighted] and puts out the others, sending
+  /// only what changed.
+  Future<void> _light(gl.MapLibreMapController c, Set<String> highlighted) async {
+    final marks = _props.marks;
+    final lit = {
+      for (final (i, m) in marks.indexed)
+        if (highlighted.contains(m.id)) i,
+    };
+    final sent = _sentLit;
+    if (sent != null && setEquals(lit, sent)) return;
+    final before = sent ?? const <int>{};
+    _sentLit = lit;
+    if (_litByFilter) {
+      final bySource = <String, List<int>>{};
+      for (final i in lit) {
+        (bySource[routeMarkSource(marks[i])] ??= []).add(routeMarkFeatureId(i));
+      }
+      for (final s in RouteLayers.markSources) {
+        await c.setFilter(RouteLayers.haloOf(s), _litFilter(bySource[s] ?? const []));
+      }
+      return;
+    }
+    for (final i in before.union(lit)) {
+      if (i >= marks.length || lit.contains(i) == before.contains(i)) continue;
+      await c.setFeatureState(routeMarkSource(marks[i]), '${routeMarkFeatureId(i)}', {
+        'lit': lit.contains(i),
+      });
+    }
+  }
+
+  /// Brings the marks of [focus] into view, close enough that none is in a
+  /// group, then pulses them: three beats of their ring, a handful of calls
+  /// rather than a frame by frame animation.
+  Future<void> _fly(gl.MapLibreMapController c, RouteMapFocus focus) async {
+    final zoom = math.max(c.cameraPosition?.zoom ?? 0, RouteMarkStyle.clusterMaxZoom + 0.5);
+    await c.animateCamera(
+      gl.CameraUpdate.newLatLngZoom(gl.LatLng(focus.position.lat, focus.position.lon), zoom),
+      duration: mounted ? Motion.of(context, Motion.camera) : Duration.zero,
+    );
+    if (!mounted || Motion.reduced(context)) return;
+    final keep = _props.highlighted;
+    for (var beat = 0; beat < 3; beat++) {
+      if (!mounted || !_ready) return;
+      await _light(c, {...keep, ...focus.marks});
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      if (!mounted || !_ready) return;
+      await _light(c, keep.difference(focus.marks.toSet()));
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+    }
+    if (mounted && _ready) await _light(c, _props.highlighted);
   }
 
   Future<void> _sync() async {
@@ -270,7 +433,22 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
-      await c.setGeoJsonSource(RouteLayers.marksSource, routeMarksCollection(p.marks));
+      for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
+        await c.setGeoJsonSource(key, value);
+      }
+      // The states and the halo's filter name features by their index in
+      // the old marks: all put out, then lit again.
+      if (!_litByFilter) {
+        for (final s in RouteLayers.markSources) {
+          await _quietly(() => c.removeFeatureState(s));
+        }
+      }
+      _sentLit = null;
+    }
+    await _light(c, p.highlighted);
+    if (p.focus case final focus? when focus.serial != _sentFocus) {
+      _sentFocus = focus.serial;
+      unawaited(_fly(c, focus));
     }
     if (p.vehicle != _sentVehicle) {
       _sentVehicle = p.vehicle;
@@ -435,20 +613,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     );
   }
 
-  /// The nearest mark within reach (a place, a station, a stop), else
-  /// another route that passes within reach ([nearestHit]); at street level
-  /// a tap that reaches neither, nor a sign of the route, is a tap on bare
-  /// map at [at].
+  /// The engine's screen units per logical pixel, for its feature queries
+  /// and the points of its taps: Android counts physical pixels.
+  double get _queryScale => mapQueryScale(
+    web: kIsWeb,
+    platform: defaultTargetPlatform,
+    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+  );
+
+  /// The nearest badge or other route within reach of a tap ([nearestHit],
+  /// [routeHitShapes]), and at street level one the tap just missed
+  /// ([hitAroundTap]): a group zooms in until it opens, a mark reports
+  /// itself, another route is chosen. Nothing in reach is a tap on bare map
+  /// at [at]. Every mark is a target: none is a sign that opens nothing.
   Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
     final seq = ++_taps;
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
-    // The engine's units per logical pixel: Android counts physical pixels.
-    final scale = mapQueryScale(
-      web: kIsWeb,
-      platform: defaultTargetPlatform,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-    );
+    final scale = _queryScale;
     final tolerance = hitTolerance(webMapPointerKind());
     // Wide enough for the reach of a free point (FreeTap); the selection's
     // own tolerance is applied below.
@@ -458,28 +640,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       width: reach * 2 * scale,
       height: reach * 2 * scale,
     );
-    final onMarkTap = _props.onMarkTap;
-    final onLineTap = _props.onLineTap;
-    final onEmptyTap = _props.onEmptyTap;
-    final (marks, lines, camera) = await (
-      onMarkTap == null && onEmptyTap == null
-          ? Future.value(const <Object?>[])
-          : c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null),
-      onLineTap == null
-          ? Future.value(const <Object?>[])
-          : c.queryRenderedFeaturesInRect(box, const [
-              RouteLayers.alternatives,
-              RouteLayers.alternativesCasing,
-            ], null),
+    final layers = [
+      ...RouteLayers.badges,
+      if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
+    ];
+    // One query per layer: the engines do not all say which layer a
+    // feature was drawn by.
+    final (answers, camera) = await (
+      Future.wait([
+        for (final layer in layers) c.queryRenderedFeaturesInRect(box, [layer], null),
+      ]),
       c.queryCameraPosition(),
     ).wait;
     if (!mounted) return;
     final zoom = camera?.zoom;
     final features = [
-      for (final f in marks)
-        if (f is Map) (RouteLayers.marks, f),
-      for (final f in lines)
-        if (f is Map) (RouteLayers.alternatives, f),
+      for (final (i, found) in answers.indexed)
+        for (final f in found)
+          if (f is Map) (layers[i], f),
     ];
     final positions = [
       for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
@@ -503,22 +681,17 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         ),
     ];
     final tapped = Offset(point.x, point.y) / scale;
-    MapHit? pick(Map<String, HitShape> shapes, double t) =>
-        nearestHit(tapped, candidates, shapes: shapes, zoom: 0, tolerance: t);
-    final hit = hitAroundTap((t) => pick(routeHitShapes, t), tolerance: tolerance, zoom: zoom);
+    final hit = hitAroundTap(
+      (t) => nearestHit(tapped, candidates, shapes: routeHitShapes, zoom: 0, tolerance: t),
+      tolerance: tolerance,
+      zoom: zoom,
+    );
     if (hit == null) {
-      // A sign that opens nothing (the start, the destination, a warning)
-      // is still no bare map: the tap does nothing rather than offer the
-      // point under it.
-      final sign = hitAroundTap(
-        (t) => pick(routeSignHitShapes, t),
-        tolerance: tolerance,
-        zoom: zoom,
-      );
-      if (sign != null || zoom == null || onEmptyTap == null) return;
+      final onEmptyTap = _props.onEmptyTap;
+      if (onEmptyTap == null) return;
       // On a touch screen GL JS keeps the second tap of a double tap for its
       // zoom: the first one is dropped once the camera zooms.
-      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null) {
+      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null && zoom != null) {
         final stands = await touchTapStands(
           camera: () async {
             final now = await c.queryCameraPosition();
@@ -531,16 +704,56 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         );
         if (!stands) return;
       }
-      if (mounted) onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
+      // Without a zoom no point opens (bareTapAt), but a callout still
+      // closes.
+      if (mounted) onEmptyTap(LatLng(at.latitude, at.longitude), zoom ?? 0);
       return;
     }
-    final properties = candidates[hit.index].properties;
-    switch ((properties['id'], properties['index'])) {
-      case (final String id, _):
-        onMarkTap?.call(id);
-      case (_, final num index):
-        onLineTap?.call(index.toInt());
+    final chosen = candidates[hit.index];
+    final p = chosen.properties;
+    if (p['cluster_id'] case final num cluster) {
+      final source = RouteLayers.markSources.firstWhere(
+        (s) => RouteLayers.badgesOf(s) == chosen.layer,
+        orElse: () => RouteLayers.marksSource,
+      );
+      final where = positions[hit.index];
+      try {
+        final open = await c.getClusterExpansionZoom(source, cluster.toInt());
+        if (where.isNotEmpty && mounted) {
+          final centre = where[hit.pointIndex];
+          await c.animateCamera(
+            gl.CameraUpdate.newLatLngZoom(gl.LatLng(centre.lat, centre.lon), open + 0.3),
+            duration: Motion.of(context, Motion.camera),
+          );
+        }
+      } on Object catch (e, st) {
+        // The group went with new data between the tap and the answer.
+        _log.fine('could not open a group of marks', e, st);
+      }
+      return;
     }
+    if (p['mark'] case final String id) {
+      final screen = chosen.points.isEmpty ? tapped : chosen.points[hit.pointIndex];
+      _props.onMarkTap?.call(id, at: screen);
+      return;
+    }
+    if (p['index'] case final num index) _props.onLineTap?.call(index.toInt());
+  }
+
+  /// The browser's hover picked another target ([listenWebMapHover]): a
+  /// badge of this map is told to the screen, anything else is nothing.
+  void _onWebHover(WebMapHover? hover) {
+    final p = hover == null || !RouteLayers.badges.contains(hover.layer) ? null : hover.properties;
+    final next = switch (p) {
+      null => null,
+      {'mark': final String id} => RouteMapHover(at: hover!.at, mark: id),
+      {'cluster_id': _} => RouteMapHover(at: hover!.at, group: RouteMarkStyle.groupCounts(p)),
+      _ => null,
+    };
+    final key = next?.mark ?? (next == null ? null : 'group:${p?['cluster_id']}');
+    if (key == _hovered || !mounted) return;
+    _hovered = key;
+    _props.onMarkHover?.call(next);
   }
 
   @override
@@ -578,6 +791,15 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
           : _onTap,
+      // Told once a move starts, not at each of its frames.
+      onCameraMove: p.onCameraMove == null
+          ? null
+          : (_) {
+              if (_moving) return;
+              _moving = true;
+              _props.onCameraMove?.call();
+            },
+      onCameraIdle: () => _moving = false,
       onMapLongClick: p.onLongPress == null
           ? null
           : (_, at) {

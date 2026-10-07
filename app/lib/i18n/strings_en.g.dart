@@ -1149,6 +1149,7 @@ class Translations$navigation$en {
 	late final Translations$navigation$ferry$en ferry = Translations$navigation$ferry$en.internal(_root);
 	late final Translations$navigation$warning$en warning = Translations$navigation$warning$en.internal(_root);
 	late final Translations$navigation$roadEvents$en roadEvents = Translations$navigation$roadEvents$en.internal(_root);
+	late final Translations$navigation$marks$en marks = Translations$navigation$marks$en.internal(_root);
 	late final Translations$navigation$guidance$en guidance = Translations$navigation$guidance$en.internal(_root);
 	late final Translations$navigation$voice$en voice = Translations$navigation$voice$en.internal(_root);
 	late final Translations$navigation$units$en units = Translations$navigation$units$en.internal(_root);
@@ -3941,6 +3942,96 @@ class Translations$navigation$roadEvents$en {
 	String get reasonOverLimit => 'over your vehicle\'s limit';
 }
 
+// Path: navigation.marks
+class Translations$navigation$marks$en {
+	Translations$navigation$marks$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Legend'
+	String get legend => 'Legend';
+
+	/// en: 'Fold the legend'
+	String get legendHide => 'Fold the legend';
+
+	/// en: 'Start'
+	String get kindOrigin => 'Start';
+
+	/// en: 'Destination'
+	String get kindDestination => 'Destination';
+
+	/// en: 'Stop'
+	String get kindStop => 'Stop';
+
+	/// en: 'Road closed'
+	String get kindClosure => 'Road closed';
+
+	/// en: 'Works'
+	String get kindWorks => 'Works';
+
+	/// en: 'Lanes closed'
+	String get kindLanes => 'Lanes closed';
+
+	/// en: 'Height limit'
+	String get kindClearance => 'Height limit';
+
+	/// en: 'Weight limit'
+	String get kindWeight => 'Weight limit';
+
+	/// en: 'Other limit (width, length, ban)'
+	String get kindLimit => 'Other limit (width, length, ban)';
+
+	/// en: 'Fuel station'
+	String get kindFuel => 'Fuel station';
+
+	/// en: 'Place near the route'
+	String get kindPlace => 'Place near the route';
+
+	/// en: 'Marks close together: zoom in to tell them apart'
+	String get groupLegend => 'Marks close together: zoom in to tell them apart';
+
+	/// en: '(one) {$n mark} (other) {$n marks}'
+	String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} mark',
+		other: '${n} marks',
+	);
+
+	/// en: 'Zoom in to see each one'
+	String get groupHint => 'Zoom in to see each one';
+
+	/// en: '$kind: $n'
+	String count({required Object kind, required Object n}) => '${kind}: ${n}';
+
+	/// en: 'Stop $n'
+	String stop({required Object n}) => 'Stop ${n}';
+
+	/// en: 'Starting point'
+	String get origin => 'Starting point';
+
+	/// en: 'Near the route'
+	String get nearRoute => 'Near the route';
+
+	/// en: 'The route goes around it'
+	String get avoided => 'The route goes around it';
+
+	/// en: 'Stops every route'
+	String get blocking => 'Stops every route';
+
+	/// en: 'See it in the list'
+	String get showInList => 'See it in the list';
+
+	/// en: 'Show all'
+	String get showAll => 'Show all';
+
+	/// en: 'show on the map'
+	String get onMap => 'show on the map';
+
+	/// en: '$price €'
+	String price({required Object price}) => '${price} €';
+}
+
 // Path: navigation.guidance
 class Translations$navigation$guidance$en {
 	Translations$navigation$guidance$en.internal(this._root);
@@ -5653,10 +5744,36 @@ extension on Translations {
 			'navigation.roadEvents.reasonInside' => 'the route starts or ends inside it',
 			'navigation.roadEvents.reasonNearLimit' => 'with little margin',
 			'navigation.roadEvents.reasonOverLimit' => 'over your vehicle\'s limit',
-			'navigation.guidance.then' => 'Then',
-			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
+			'navigation.marks.legend' => 'Legend',
+			'navigation.marks.legendHide' => 'Fold the legend',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.marks.kindOrigin' => 'Start',
+			'navigation.marks.kindDestination' => 'Destination',
+			'navigation.marks.kindStop' => 'Stop',
+			'navigation.marks.kindClosure' => 'Road closed',
+			'navigation.marks.kindWorks' => 'Works',
+			'navigation.marks.kindLanes' => 'Lanes closed',
+			'navigation.marks.kindClearance' => 'Height limit',
+			'navigation.marks.kindWeight' => 'Weight limit',
+			'navigation.marks.kindLimit' => 'Other limit (width, length, ban)',
+			'navigation.marks.kindFuel' => 'Fuel station',
+			'navigation.marks.kindPlace' => 'Place near the route',
+			'navigation.marks.groupLegend' => 'Marks close together: zoom in to tell them apart',
+			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
+			'navigation.marks.groupHint' => 'Zoom in to see each one',
+			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
+			'navigation.marks.stop' => ({required Object n}) => 'Stop ${n}',
+			'navigation.marks.origin' => 'Starting point',
+			'navigation.marks.nearRoute' => 'Near the route',
+			'navigation.marks.avoided' => 'The route goes around it',
+			'navigation.marks.blocking' => 'Stops every route',
+			'navigation.marks.showInList' => 'See it in the list',
+			'navigation.marks.showAll' => 'Show all',
+			'navigation.marks.onMap' => 'show on the map',
+			'navigation.marks.price' => ({required Object price}) => '${price} €',
+			'navigation.guidance.then' => 'Then',
+			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
 			'navigation.guidance.offRoute' => 'Off the route',
 			'navigation.guidance.rerouting' => 'Finding a new route',
 			'navigation.guidance.rerouted' => 'New route',
@@ -6143,6 +6260,8 @@ extension on Translations {
 			'reviewSheet.starsRequired' => 'Choose a rating from 1 to 5',
 			'reviewSheet.text' => 'Your review',
 			'reviewSheet.textHint' => 'The quiet, the welcome, the room to manoeuvre, what was useful',
+			_ => null,
+		} ?? switch (path) {
 			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'At least ${n} more character', other: 'At least ${n} more characters', ), 
 			'reviewSheet.visited' => 'Date of the stay',
 			'reviewSheet.visitedNone' => 'Not given',
@@ -6169,8 +6288,6 @@ extension on Translations {
 			'photoFlow.unreadable' => 'This picture cannot be read on this device. Try a JPEG or PNG photo.',
 			'photoFlow.sending' => ({required Object percent}) => 'Sending ${percent} %',
 			'photoFlow.pending' => 'Photo waiting to be sent',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.addTitle' => 'Add a place',
 			'placeForm.editTitle' => 'Edit the place',
 			'placeForm.proposeTitle' => 'Suggest a change',

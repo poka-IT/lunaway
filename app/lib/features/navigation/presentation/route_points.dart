@@ -2,7 +2,9 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -18,17 +20,42 @@ final class RoutePoints {
   final List<FuelOffer> stations;
   final List<RouteStop> stops;
 
-  List<RouteMapMark> get marks => [
+  List<RouteMarker> markers(Translations t) => [
     for (final place in places)
-      RouteMapMark(
-        position: LatLng(place.lat, place.lon),
-        kind: RouteMarkKind.place,
-        id: 'place:${place.id}',
+      RouteMarker(
+        RouteMapMark(
+          id: 'place:${place.id}',
+          position: LatLng(place.lat, place.lon),
+          kind: RouteMarkKind.place,
+          badge: RouteBadge.place(place.kind),
+          // Many along a long route: they show closer in, under the marks
+          // about the vehicle.
+          minor: true,
+        ),
+        PlaceSubject(place),
       ),
     for (final s in stations)
-      RouteMapMark(position: s.position, kind: RouteMarkKind.station, id: 'poi:${s.id}'),
+      RouteMarker(
+        RouteMapMark(
+          id: 'poi:${s.id}',
+          position: s.position,
+          kind: RouteMarkKind.fuel,
+          badge: RouteBadge.fuel,
+          side: t.shortPrice(s.priceEur),
+        ),
+        FuelSubject(s),
+      ),
     for (final (i, s) in stops.indexed)
-      RouteMapMark(position: s.position, kind: RouteMarkKind.stop, id: 'stop:$i'),
+      RouteMarker(
+        RouteMapMark(
+          id: 'stop:$i',
+          position: s.position,
+          kind: RouteMarkKind.stop,
+          badge: RouteBadge.stop,
+          label: '${i + 1}',
+        ),
+        StopSubject(i, s),
+      ),
   ];
 
   /// The point a tap on the mark [id] stands for; null when it is gone.

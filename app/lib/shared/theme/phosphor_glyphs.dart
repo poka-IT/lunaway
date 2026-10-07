@@ -9,6 +9,7 @@ abstract final class PhosphorRegular {
   static const arrowSquareOut = IconData(0xe5de, fontFamily: 'PhosphorRegular');
   static const arrowsClockwise = IconData(0xe094, fontFamily: 'PhosphorRegular');
   static const arrowsHorizontal = IconData(0xeb06, fontFamily: 'PhosphorRegular');
+  static const arrowsMerge = IconData(0xed3e, fontFamily: 'PhosphorRegular');
   static const arrowsVertical = IconData(0xeb04, fontFamily: 'PhosphorRegular');
   static const baby = IconData(0xe774, fontFamily: 'PhosphorRegular');
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
@@ -146,7 +147,9 @@ abstract final class PhosphorRegular {
 
 /// Phosphor icons, fill: active states, pins and avatars.
 abstract final class PhosphorFill {
+  static const arrowsMerge = IconData(0xed3e, fontFamily: 'PhosphorFill');
   static const barn = IconData(0xec72, fontFamily: 'PhosphorFill');
+  static const barricade = IconData(0xe948, fontFamily: 'PhosphorFill');
   static const basket = IconData(0xe964, fontFamily: 'PhosphorFill');
   static const bread = IconData(0xe81c, fontFamily: 'PhosphorFill');
   static const carProfile = IconData(0xe8cc, fontFamily: 'PhosphorFill');
@@ -162,6 +165,7 @@ abstract final class PhosphorFill {
   static const egg = IconData(0xe812, fontFamily: 'PhosphorFill');
   static const envelopeSimple = IconData(0xe218, fontFamily: 'PhosphorFill');
   static const firstAid = IconData(0xe56e, fontFamily: 'PhosphorFill');
+  static const flagCheckered = IconData(0xea38, fontFamily: 'PhosphorFill');
   static const gasPump = IconData(0xe768, fontFamily: 'PhosphorFill');
   static const heart = IconData(0xe2a8, fontFamily: 'PhosphorFill');
   static const hospital = IconData(0xe844, fontFamily: 'PhosphorFill');

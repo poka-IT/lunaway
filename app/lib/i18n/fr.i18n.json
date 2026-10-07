@@ -636,6 +636,37 @@
       "reasonNearLimit": "de justesse",
       "reasonOverLimit": "au-dessus de la limite de votre véhicule"
     },
+    "marks": {
+      "legend": "Légende",
+      "legendHide": "Replier la légende",
+      "kindOrigin": "Départ",
+      "kindDestination": "Arrivée",
+      "kindStop": "Étape",
+      "kindClosure": "Route fermée",
+      "kindWorks": "Travaux",
+      "kindLanes": "Voies réduites",
+      "kindClearance": "Hauteur limitée",
+      "kindWeight": "Poids limité",
+      "kindLimit": "Autre limite (largeur, longueur, interdiction)",
+      "kindFuel": "Station-service",
+      "kindPlace": "Lieu près du trajet",
+      "groupLegend": "Repères proches regroupés : rapprochez-vous pour les séparer",
+      "group(param=n)": {
+        "one": "$n repère",
+        "other": "$n repères"
+      },
+      "groupHint": "Rapprochez-vous pour les voir un par un",
+      "count": "$kind : $n",
+      "stop": "Étape $n",
+      "origin": "Point de départ",
+      "nearRoute": "Près du trajet",
+      "avoided": "L'itinéraire passe à côté",
+      "blocking": "Bloque chaque itinéraire",
+      "showInList": "Voir dans la liste",
+      "showAll": "Tout afficher",
+      "onMap": "montrer sur la carte",
+      "price": "$price €"
+    },
     "guidance": {
       "then": "Puis",
       "arrival": "Arrivée $time",
