@@ -19,8 +19,8 @@ void main() {
         return slop >= 18 ? ['pin'] : const <String>[];
       }, zoom: 15);
       expect(found, ['pin']);
-      expect(asked, [MapHit.select, MapHit.freePoint]);
-      expect(MapHit.freePoint, MapHit.select * 1.5);
+      expect(asked, [FreeTap.select, FreeTap.freePoint]);
+      expect(FreeTap.freePoint, FreeTap.select * 1.5);
     });
 
     test('a pin under the finger is taken without looking further', () async {
@@ -29,8 +29,8 @@ void main() {
         asked.add(slop);
         return ['pin at $slop'];
       }, zoom: 15);
-      expect(found, ['pin at ${MapHit.select}']);
-      expect(asked, [MapHit.select]);
+      expect(found, ['pin at ${FreeTap.select}']);
+      expect(asked, [FreeTap.select]);
     });
 
     test('nothing in the wider square: the map is bare there', () async {
@@ -44,7 +44,7 @@ void main() {
         return slop >= 18 ? ['dot'] : const <String>[];
       }, zoom: 13);
       expect(found, isEmpty, reason: 'a click there does no more than before');
-      expect(asked, [MapHit.select]);
+      expect(asked, [FreeTap.select]);
     });
   });
 
@@ -78,12 +78,12 @@ void main() {
   group('the double tap window', () {
     test('the app waits on GL JS only: the native engines wait themselves', () {
       Duration on(TargetPlatform p, {bool web = false}) =>
-          MapHit.doubleTapWindowFor(web: web, platform: p);
+          FreeTap.doubleTapWindowFor(web: web, platform: p);
       expect(on(TargetPlatform.android), Duration.zero);
       expect(on(TargetPlatform.iOS), Duration.zero);
-      expect(on(TargetPlatform.android, web: true), MapHit.doubleTapWindow);
-      expect(on(TargetPlatform.macOS), MapHit.doubleTapWindow);
-      expect(on(TargetPlatform.windows), MapHit.doubleTapWindow);
+      expect(on(TargetPlatform.android, web: true), FreeTap.doubleTapWindow);
+      expect(on(TargetPlatform.macOS), FreeTap.doubleTapWindow);
+      expect(on(TargetPlatform.windows), FreeTap.doubleTapWindow);
     });
 
     test('a single tap acts once the window has passed, not before', () {

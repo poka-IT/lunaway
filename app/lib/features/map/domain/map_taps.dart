@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 /// Kept apart from the engines so that one rule serves the phone, the web
 /// and the desktop maps, and so that a shared hit resolution can replace it
 /// in one place.
-abstract final class MapHit {
+abstract final class FreeTap {
   /// A finger is wider than a pin: a tap this close to one opens it.
   static const double select = 14;
 
@@ -37,9 +37,9 @@ abstract final class MapHit {
       : doubleTapWindow;
 }
 
-/// The features a tap at [zoom] reaches: those within [MapHit.select] when
-/// there are any, else, from [MapHit.freePointMinZoom] where a bare tap
-/// opens a point, those within [MapHit.freePoint]. Further out the map
+/// The features a tap at [zoom] reaches: those within [FreeTap.select] when
+/// there are any, else, from [FreeTap.freePointMinZoom] where a bare tap
+/// opens a point, those within [FreeTap.freePoint]. Further out the map
 /// keeps the selection's square alone, so a click there does no more than
 /// it did. [query] reads the engine's rendered features in a square of that
 /// half side around the tap.
@@ -47,9 +47,9 @@ Future<List<T>> featuresAroundTap<T>(
   Future<List<T>> Function(double slop) query, {
   required double? zoom,
 }) async {
-  final near = await query(MapHit.select);
-  if (near.isNotEmpty || zoom == null || zoom < MapHit.freePointMinZoom) return near;
-  return await query(MapHit.freePoint);
+  final near = await query(FreeTap.select);
+  if (near.isNotEmpty || zoom == null || zoom < FreeTap.freePointMinZoom) return near;
+  return await query(FreeTap.freePoint);
 }
 
 /// What a tap on bare map does.
@@ -70,14 +70,14 @@ enum BareTap {
 /// point, so a tap never swaps one card for another by surprise.
 BareTap bareTapAt({required double zoom, required bool open}) {
   if (open) return BareTap.close;
-  return zoom >= MapHit.freePointMinZoom ? BareTap.freePoint : BareTap.nothing;
+  return zoom >= FreeTap.freePointMinZoom ? BareTap.freePoint : BareTap.nothing;
 }
 
 /// Waits [window] after a tap on bare map before acting on it: a second tap
 /// in that time is the end of a double tap (the map zooms) and cancels
 /// both.
 final class DoubleTapGate {
-  new({this.window = MapHit.doubleTapWindow});
+  new({this.window = FreeTap.doubleTapWindow});
 
   final Duration window;
   Timer? _pending;

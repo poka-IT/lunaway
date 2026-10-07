@@ -301,7 +301,7 @@ class _Map extends ConsumerStatefulWidget {
 class _MapState extends ConsumerState<_Map> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
   final _gate = DoubleTapGate(
-    window: MapHit.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
+    window: FreeTap.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
   );
 
   @override
@@ -331,7 +331,7 @@ class _MapState extends ConsumerState<_Map> {
   /// The first time the map comes down to the street, one line says that a
   /// tap there leads somewhere; never again after.
   void _hintFreeTap(MapViewport v) {
-    if (v.zoom < MapHit.freePointMinZoom) return;
+    if (v.zoom < FreeTap.freePointMinZoom) return;
     final settings = ref.read(settingsProvider);
     if (settings.mapTapHintShown) return;
     unawaited(ref.read(settingsProvider.notifier).setMapTapHintShown());

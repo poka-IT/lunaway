@@ -111,7 +111,7 @@ final class LunaMapProps {
   final ValueChanged<MapViewport> onViewportChanged;
 
   /// A tap where there is no pin, no cluster and no marker within
-  /// `MapHit.freePoint`, at that point, with the map's zoom then. The screen
+  /// `FreeTap.freePoint`, at that point, with the map's zoom then. The screen
   /// decides (`bareTapAt`): close what is open, or open the point.
   final void Function(LatLng at, double zoom)? onEmptyTap;
   final ValueChanged<LunaMapController> onMapReady;

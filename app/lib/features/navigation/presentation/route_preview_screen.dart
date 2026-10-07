@@ -258,7 +258,7 @@ class _PreviewMap extends ConsumerStatefulWidget {
 class _PreviewMapState extends ConsumerState<_PreviewMap> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
   final _gate = DoubleTapGate(
-    window: MapHit.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
+    window: FreeTap.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
   );
 
   @override

@@ -170,9 +170,9 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
     'hit': {
-      'select': MapHit.select,
-      'freePoint': MapHit.freePoint,
-      'freePointMinZoom': MapHit.freePointMinZoom,
+      'select': FreeTap.select,
+      'freePoint': FreeTap.freePoint,
+      'freePointMinZoom': FreeTap.freePointMinZoom,
     },
     'tappable': [
       ...MapStyle.tappableLayers,

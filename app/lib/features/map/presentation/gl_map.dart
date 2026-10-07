@@ -539,7 +539,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (_props.pois != null) ...PoiMapStyle.tappable,
     ];
     // A finger is wider than a pin: look in a square around the tap, then
-    // in a wider one before calling it bare map (MapHit). The tap's point is
+    // in a wider one before calling it bare map (FreeTap). The tap's point is
     // in the engine's units.
     final zoom = (await c.queryCameraPosition())?.zoom;
     final features = await featuresAroundTap((logical) {

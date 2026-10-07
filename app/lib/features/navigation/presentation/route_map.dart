@@ -186,7 +186,7 @@ final class RouteMapProps {
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
 
-  /// A tap with no mark and no route within `MapHit.freePoint`, at that
+  /// A tap with no mark and no route within `FreeTap.freePoint`, at that
   /// point, with the map's zoom then.
   final void Function(LatLng at, double zoom)? onEmptyTap;
 }
