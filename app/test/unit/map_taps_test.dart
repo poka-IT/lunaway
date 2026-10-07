@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,14 +106,50 @@ void main() {
   });
 
   group('the double tap window', () {
-    test('the app waits on GL JS only: the native engines wait themselves', () {
-      Duration on(TargetPlatform p, {bool web = false}) =>
-          FreeTap.doubleTapWindowFor(web: web, platform: p);
+    test('the screen waits for mouse clicks only: the engines wait for fingers', () {
+      Duration on(TargetPlatform p, {bool web = false, PointerKind pointer = PointerKind.touch}) =>
+          FreeTap.doubleTapWindowFor(web: web, platform: p, pointer: pointer);
       expect(on(TargetPlatform.android), Duration.zero);
       expect(on(TargetPlatform.iOS), Duration.zero);
-      expect(on(TargetPlatform.android, web: true), FreeTap.doubleTapWindow);
-      expect(on(TargetPlatform.macOS), FreeTap.doubleTapWindow);
-      expect(on(TargetPlatform.windows), FreeTap.doubleTapWindow);
+      expect(on(TargetPlatform.android, web: true), Duration.zero, reason: 'zoomedAfterTap');
+      expect(
+        on(TargetPlatform.android, web: true, pointer: PointerKind.mouse),
+        FreeTap.doubleTapWindow,
+      );
+      expect(on(TargetPlatform.macOS, pointer: PointerKind.mouse), FreeTap.doubleTapWindow);
+      expect(on(TargetPlatform.windows, pointer: PointerKind.mouse), FreeTap.doubleTapWindow);
+    });
+
+    test('a finger whose second tap comes 450 ms later: the zoom drops the first', () {
+      fakeAsync((time) {
+        var zoom = 15.0;
+        bool? zoomed;
+        unawaited(zoomedAfterTap(() async => zoom, 15).then((v) => zoomed = v));
+        time.elapse(const Duration(milliseconds: 450));
+        // The second tap ends: GL JS starts its zoom.
+        zoom = 15.2;
+        time.elapse(const Duration(milliseconds: 200));
+        expect(zoomed, isTrue);
+      });
+    });
+
+    test('a single tap with a finger: the camera stays, the tap acts', () {
+      fakeAsync((time) {
+        bool? zoomed;
+        unawaited(zoomedAfterTap(() async => 15, 15).then((v) => zoomed = v));
+        time.elapse(FreeTap.touchDoubleTapWait);
+        expect(zoomed, isFalse);
+        expect(FreeTap.touchDoubleTapWait, greaterThan(const Duration(milliseconds: 500)));
+      });
+    });
+
+    test('a camera that cannot be read lets the tap act', () {
+      fakeAsync((time) {
+        bool? zoomed;
+        unawaited(zoomedAfterTap(() async => throw StateError('gone'), 15).then((v) => zoomed = v));
+        time.elapse(FreeTap.touchDoubleTapWait);
+        expect(zoomed, isFalse);
+      });
     });
 
     test('a single tap acts once the window has passed, not before', () {

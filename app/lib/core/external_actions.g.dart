@@ -13,8 +13,7 @@ part of 'external_actions.dart';
 final externalActionsProvider = ExternalActionsProvider._();
 
 final class ExternalActionsProvider
-    extends
-        $FunctionalProvider<ExternalActions, ExternalActions, ExternalActions>
+    extends $FunctionalProvider<ExternalActions, ExternalActions, ExternalActions>
     with $Provider<ExternalActions> {
   ExternalActionsProvider._()
     : super(

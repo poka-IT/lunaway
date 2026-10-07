@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
 
 /// How far from a tap the maps look for something to open, in logical
 /// pixels each way, and what a tap on bare map does.
@@ -25,14 +26,46 @@ abstract final class FreeTap {
   /// the double click.
   static const Duration doubleTapWindow = Duration(milliseconds: 250);
 
-  /// The wait of [DoubleTapGate] on an engine: MapLibre Native on Android
-  /// and iOS reports a tap only once it knows no second one follows, so the
-  /// app adds no wait of its own there. MapLibre GL JS (the web, the desktop
-  /// page) reports every click.
-  static Duration doubleTapWindowFor({required bool web, required TargetPlatform platform}) =>
-      !web && (platform == TargetPlatform.android || platform == TargetPlatform.iOS)
-      ? Duration.zero
-      : doubleTapWindow;
+  /// MapLibre GL JS on a touch screen counts a second tap within 500 ms as
+  /// a double tap and keeps it for its zoom: the app hears the first tap
+  /// alone. The engine waits this long after a bare tap and drops it when
+  /// the camera zoomed meanwhile ([zoomedAfterTap]).
+  static const Duration touchDoubleTapWait = Duration(milliseconds: 550);
+
+  /// The wait of [DoubleTapGate] for [pointer] on an engine. MapLibre
+  /// Native on Android and iOS reports a tap only once it knows no second
+  /// one follows; MapLibre GL JS on a touch screen has its own wait
+  /// ([touchDoubleTapWait]): the screen adds none there. With a mouse, the
+  /// browsers and the desktop page report both clicks of a double click.
+  static Duration doubleTapWindowFor({
+    required bool web,
+    required TargetPlatform platform,
+    required PointerKind pointer,
+  }) {
+    if (!web && (platform == TargetPlatform.android || platform == TargetPlatform.iOS)) {
+      return Duration.zero;
+    }
+    return web && pointer == PointerKind.touch ? Duration.zero : doubleTapWindow;
+  }
+}
+
+/// Waits [wait] after a bare tap at [zoomAtTap], then tells whether the
+/// camera zoomed meanwhile ([zoomNow]): the tap was the first of a double
+/// tap the engine kept for itself. A camera the engine cannot read counts
+/// as still.
+Future<bool> zoomedAfterTap(
+  Future<double?> Function() zoomNow,
+  double zoomAtTap, {
+  Duration wait = FreeTap.touchDoubleTapWait,
+}) async {
+  await Future<void>.delayed(wait);
+  double? now;
+  try {
+    now = await zoomNow();
+  } on Object {
+    now = null;
+  }
+  return now != null && (now - zoomAtTap).abs() > 0.01;
 }
 
 /// What a tap at [zoom] reaches: what [pick] finds within the selection's
@@ -85,15 +118,16 @@ final class DoubleTapGate {
   @visibleForTesting
   bool get waiting => _pending?.isActive ?? false;
 
-  /// A tap on bare map: [act] runs once the window has passed without a
-  /// second tap.
-  void tap(VoidCallback act) {
-    if (window == Duration.zero) return act();
+  /// A tap on bare map: [act] runs once the window (this gate's, or
+  /// [window] for this tap) has passed without a second tap.
+  void tap(VoidCallback act, {Duration? window}) {
+    final wait = window ?? this.window;
+    if (wait == Duration.zero) return act();
     if (waiting) {
       cancel();
       return;
     }
-    _pending = Timer(window, () {
+    _pending = Timer(wait, () {
       _pending = null;
       act();
     });

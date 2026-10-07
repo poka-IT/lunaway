@@ -20,12 +20,7 @@ final browserLocationProvider = BrowserLocationProvider._();
 // keepAlive: a stateless gateway to the browser for the whole run.
 
 final class BrowserLocationProvider
-    extends
-        $FunctionalProvider<
-          BrowserLocation?,
-          BrowserLocation?,
-          BrowserLocation?
-        >
+    extends $FunctionalProvider<BrowserLocation?, BrowserLocation?, BrowserLocation?>
     with $Provider<BrowserLocation?> {
   /// The browser's position on the web; null on the other platforms, which
   /// ask the system through their own permission flow.

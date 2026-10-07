@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
@@ -257,9 +257,7 @@ class _PreviewMap extends ConsumerStatefulWidget {
 
 class _PreviewMapState extends ConsumerState<_PreviewMap> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
-  final _gate = DoubleTapGate(
-    window: FreeTap.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
-  );
+  final _gate = DoubleTapGate();
 
   @override
   void dispose() {
@@ -353,7 +351,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         },
         // At street level a tap on bare map opens the same card as a long
         // press: the point as a stop, or as the destination.
-        onEmptyTap: (at, zoom) => _gate.tap(() {
+        onEmptyTap: (at, zoom) => _gate.tap(window: freeTapWindow(), () {
           if (!mounted || bareTapAt(zoom: zoom, open: false) != BareTap.freePoint) return;
           unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
         }),

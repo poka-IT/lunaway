@@ -602,7 +602,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       zoom: zoom,
     );
     if (hit == null) {
-      _props.onEmptyTap?.call(reference, zoom);
+      final onEmptyTap = _props.onEmptyTap;
+      if (onEmptyTap == null) return;
+      // On a touch screen GL JS keeps the second tap of a double tap for its
+      // zoom: the first one is dropped once the camera zooms.
+      if (kIsWeb &&
+          webMapPointerKind() == PointerKind.touch &&
+          await zoomedAfterTap(() async => (await c.queryCameraPosition())?.zoom, zoom)) {
+        return;
+      }
+      if (mounted) onEmptyTap(reference, zoom);
       return;
     }
     // The marker of a long-pressed point: its details are already open.

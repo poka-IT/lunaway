@@ -26,6 +26,7 @@ import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/map/presentation/premap_spec.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -300,9 +301,7 @@ class _Map extends ConsumerStatefulWidget {
 
 class _MapState extends ConsumerState<_Map> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
-  final _gate = DoubleTapGate(
-    window: FreeTap.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
-  );
+  final _gate = DoubleTapGate();
 
   @override
   void dispose() {
@@ -313,15 +312,7 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap where nothing can be opened: closes what is open, or, at street
   /// level, marks the point and opens its card.
   void _onBareTap(LatLng at, double zoom) {
-    _gate.tap(() async {
-      // A double tap on a touch screen reaches the web map as one click (the
-      // engine keeps the second for its zoom): a camera that zooms since
-      // the tap tells it.
-      if (_gate.window > Duration.zero) {
-        final now = await ref.read(mapControllerProvider)?.camera();
-        if (!mounted) return;
-        if (now != null && (now.zoom - zoom).abs() > 0.01) return;
-      }
+    _gate.tap(window: freeTapWindow(), () {
       if (!mounted) return;
       final select = ref.read(selectionProvider.notifier);
       switch (bareTapAt(zoom: zoom, open: ref.read(selectionProvider) != null)) {
