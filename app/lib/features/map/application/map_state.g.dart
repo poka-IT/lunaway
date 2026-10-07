@@ -857,7 +857,7 @@ final class NearbyPlacesPageProvider
   NearbyPlacesPage create() => NearbyPlacesPage();
 }
 
-String _$nearbyPlacesPageHash() => r'2ab6eec070e9a0588dc8b98adcb6d77c9c48d918';
+String _$nearbyPlacesPageHash() => r'f2951904a42c59e60b78d3a592d558f92a18c333';
 
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
@@ -918,7 +918,7 @@ final class PlacesInViewProvider
   }
 }
 
-String _$placesInViewHash() => r'fd5d77ca6e24c4555213a7bb1e5265e9320c9cf2';
+String _$placesInViewHash() => r'cbe022b72d0b0ea9578a55bdd1e9d1057781b76b';
 
 abstract class _$PlacesInView extends $Notifier<PlacesInViewReport> {
   PlacesInViewReport build();
