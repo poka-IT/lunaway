@@ -398,7 +398,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// group, then pulses them: three beats of their ring, a handful of calls
   /// rather than a frame by frame animation.
   Future<void> _fly(gl.MapLibreMapController c, RouteMapFocus focus) async {
-    final zoom = math.max(c.cameraPosition?.zoom ?? 0, RouteMarkStyle.clusterMaxZoom + 0.5);
+    final zoom = math.max(c.cameraPosition?.zoom ?? 0, RouteMarkStyle.focusZoom);
     await c.animateCamera(
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(focus.position.lat, focus.position.lon), zoom),
       duration: mounted ? Motion.of(context, Motion.camera) : Duration.zero,

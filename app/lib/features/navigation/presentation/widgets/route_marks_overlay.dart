@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
@@ -376,7 +377,10 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
       alignment: Alignment.topRight,
       child: open
           ? ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280, maxHeight: 360),
+              constraints: BoxConstraints(
+                maxWidth: WindowSize.of(context) == WindowSize.compact ? 220 : 280,
+                maxHeight: 360,
+              ),
               child: Material(
                 color: scheme.surfaceContainerLowest,
                 elevation: 3,
@@ -440,16 +444,22 @@ class _LegendLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final kind = row.kind;
+    // On a phone the legend sits over the little map the sheet leaves: a
+    // denser one hides less of the route.
+    final compact = WindowSize.of(context) == WindowSize.compact;
+    final text = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.hair),
       child: Row(
         children: [
-          ExcludeSemantics(child: RouteBadgeView(row.badge, text: row.label, scale: 0.8)),
+          ExcludeSemantics(
+            child: RouteBadgeView(row.badge, text: row.label, scale: compact ? 0.62 : 0.8),
+          ),
           const SizedBox(width: Space.s),
           Expanded(
             child: Text(
               kind == null ? t.navigation.marks.groupLegend : markKindName(t, kind),
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: compact ? text.bodySmall : text.bodyMedium,
             ),
           ),
         ],

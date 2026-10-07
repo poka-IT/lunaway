@@ -3989,8 +3989,8 @@ class Translations$navigation$marks$en {
 	/// en: 'Place near the route'
 	String get kindPlace => 'Place near the route';
 
-	/// en: 'Marks close together: zoom in to tell them apart'
-	String get groupLegend => 'Marks close together: zoom in to tell them apart';
+	/// en: 'Marks close together, grouped'
+	String get groupLegend => 'Marks close together, grouped';
 
 	/// en: '(one) {$n mark} (other) {$n marks}'
 	String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
@@ -5759,7 +5759,7 @@ extension on Translations {
 			'navigation.marks.kindLimit' => 'Other limit (width, length, ban)',
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
-			'navigation.marks.groupLegend' => 'Marks close together: zoom in to tell them apart',
+			'navigation.marks.groupLegend' => 'Marks close together, grouped',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
