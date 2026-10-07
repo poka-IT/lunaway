@@ -130,7 +130,9 @@
     if (!tiles || !map.getSource(tiles.source)) return;
     var c = map.getCenter();
     var zoom = map.getZoom();
-    var key = [c.lat, c.lng, zoom, JSON.stringify(tiles.filter)].join(',');
+    var view = map.getBounds();
+    // The view too: a resize keeps the camera and changes what is in view.
+    var key = [c.lat, c.lng, zoom, view.toArray().join(','), JSON.stringify(tiles.filter)].join(',');
     if (key === placesProbed) return;
     placesProbed = key;
     var seen = {};
@@ -144,8 +146,7 @@
           features.push({ geometry: { coordinates: f.geometry.coordinates }, properties: f.properties });
         });
     }
-    var b = map.getBounds();
-    send({ type: 'places', features: features, bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+    send({ type: 'places', features: features, bounds: [view.getWest(), view.getSouth(), view.getEast(), view.getNorth()] });
   }
 
   function applyPois() {

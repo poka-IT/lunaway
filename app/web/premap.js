@@ -45,9 +45,10 @@
       (s.style === 'aube' || s.style === 'minuit') &&
       typeof s.lang === 'string' && /^[a-z]{2,3}$/.test(s.lang) &&
       Array.isArray(s.center) && s.center.length === 2 &&
-      isFinite(s.center[0]) && Math.abs(s.center[0]) <= 180 &&
-      isFinite(s.center[1]) && Math.abs(s.center[1]) <= 85 &&
-      isFinite(s.zoom) && s.zoom >= 0;
+      typeof s.center[0] === 'number' && isFinite(s.center[0]) && Math.abs(s.center[0]) <= 180 &&
+      typeof s.center[1] === 'number' && isFinite(s.center[1]) && Math.abs(s.center[1]) <= 85 &&
+      typeof s.zoom === 'number' && isFinite(s.zoom) && s.zoom >= 0 &&
+      s.layers.every(function (l) { return l && typeof l === 'object' && l.source === 'lw-place-tiles'; });
   }
   if (!valid(saved)) saved = null;
 

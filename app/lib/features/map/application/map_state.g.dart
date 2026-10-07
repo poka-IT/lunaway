@@ -857,7 +857,7 @@ final class NearbyPlacesPageProvider
   NearbyPlacesPage create() => NearbyPlacesPage();
 }
 
-String _$nearbyPlacesPageHash() => r'255f1d8fac7c5d63646d5436ed644609aada6a69';
+String _$nearbyPlacesPageHash() => r'2ab6eec070e9a0588dc8b98adcb6d77c9c48d918';
 
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the

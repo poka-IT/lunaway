@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -271,6 +272,43 @@ void main() {
       expect(count, 1);
     });
   });
+
+  testWidgets(
+    'a report of another view keeps the list waiting, and a silent map leaves it to the API',
+    (tester) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap()
+        ..viewport = const MapViewport(
+          bounds: GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25),
+          center: LatLng(45.9, 6.15),
+          zoom: 13,
+        );
+      final app = await pumpLunaway(tester, places: const [], online: online, map: map);
+      final container = app.container(tester);
+      // A resize: the same centre and zoom, another view, and the report of
+      // the previous one.
+      map.lastProps!.onPlacesInView!([lakeArea.summary], map.viewport.bounds);
+      await settleShort(tester);
+      online.requests.clear();
+      map.lastProps!.onViewportChanged(
+        const MapViewport(
+          bounds: GeoBounds(south: 45.8, west: 6.05, north: 46, east: 6.25),
+          center: LatLng(45.9, 6.15),
+          zoom: 13,
+        ),
+      );
+      await settleShort(tester);
+      expect(
+        container.read(nearbyPlacesPageProvider).isLoading,
+        isTrue,
+        reason: 'waits for the map',
+      );
+      expect(online.requests, isEmpty);
+      await settleShort(tester, nearbyReportWait);
+      expect(online.requests.where((r) => r.startsWith('page:')), isNotEmpty);
+      expect(container.read(nearbyPlacesPageProvider).isLoading, isFalse);
+    },
+  );
 
   group('a device that keeps no places (the web)', () {
     testWidgets('never syncs, and its profile says nothing of a download', (tester) async {

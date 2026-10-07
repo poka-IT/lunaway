@@ -350,8 +350,11 @@ $placeSummaryFragment''',
 /// the map looks than a point rounded to that grid. Without it, the centre
 /// of a map the user brought to their position is that position.
 GeoBounds placesQueryBox(GeoBounds view) {
-  double down(double v) => _onGrid((v / placesGrid).floorToDouble() * placesGrid);
-  double up(double v) => _onGrid((v / placesGrid).ceilToDouble() * placesGrid);
+  // A hair inside the cell, so that an edge already on the grid (a box
+  // snapped once, 0.15000000000000002) stays where it is.
+  const hair = 1e-9;
+  double down(double v) => _onGrid((v / placesGrid + hair).floorToDouble() * placesGrid);
+  double up(double v) => _onGrid((v / placesGrid - hair).ceilToDouble() * placesGrid);
   return GeoBounds(
     south: down(view.south).clamp(-90, 90),
     west: down(view.west).clamp(-180, 180),

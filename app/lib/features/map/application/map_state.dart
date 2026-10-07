@@ -275,6 +275,10 @@ final class NearbyPage {
 /// ([placesQueryBox], [searchAnchor]) before they leave the device.
 typedef NearbyQuery = ({GeoBounds bounds, LatLng near, PlaceFilter filter});
 
+/// How long the list waits for the map to report the places of a view at
+/// the zoom of the names before it asks the API.
+const nearbyReportWait = Duration(seconds: 6);
+
 /// Rows per page of the list asked of the API: three screens of a phone.
 const nearbyPageSize = 30;
 
@@ -303,16 +307,25 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     if (ref.watch(placesFromTilesProvider)) {
       if (viewport.zoom >= PlaceTiles.nameZoom) {
         final report = ref.watch(placesInViewProvider);
+        if (report.covers(viewport)) {
+          // The filters again on the device: a report made under the
+          // previous filters stands until the map reports again (the tiles
+          // carry no height in a summary, so the height alone waits for
+          // that report).
+          final places = _sorted(
+            report.places.where((p) => viewport.bounds.contains(p.position) && filter.matches(p)),
+          );
+          return NearbyPage(places, total: places.length);
+        }
         // The map reports the places of a view once its tiles are in: until
-        // it has for this one, the list keeps the rows it shows.
-        if (!report.covers(viewport)) return await Completer<NearbyPage>().future;
-        // The filters again on the device: a report made under the previous
-        // filters stands until the map reports again (the tiles carry no
-        // height in a summary, so the height alone waits for that report).
-        final places = _sorted(
-          report.places.where((p) => viewport.bounds.contains(p.position) && filter.matches(p)),
-        );
-        return NearbyPage(places, total: places.length);
+        // it has for this one, the list keeps the rows it shows. A map that
+        // stays busy (tiles that do not come) leaves the list to the API,
+        // whose failure says so.
+        final wait = Completer<void>();
+        final timer = Timer(nearbyReportWait, wait.complete);
+        ref.onDispose(timer.cancel);
+        await wait.future;
+        if (!ref.mounted) return const NearbyPage([]);
       }
       final query = (
         bounds: placesQueryBox(viewport.bounds),

@@ -128,7 +128,8 @@ final class GlPlaceTiles {
 
   /// The places of the tiles inside [bounds] once the map rests, at the
   /// zoom of the pins, the filter applied; null when nothing changed since
-  /// the last report (the same camera and filter).
+  /// the last report (the same camera, view and filter: a resize keeps the
+  /// camera and changes the view).
   Future<List<PlaceSummary>?> probe(
     gl.MapLibreMapController c, {
     required double zoom,
@@ -137,7 +138,7 @@ final class GlPlaceTiles {
   }) async {
     final view = _sent;
     if (view == null) return null;
-    final key = (camera, view.filter);
+    final key = (camera, bounds, view.filter);
     if (key == _probed) return null;
     _probed = key;
     if (zoom < PlaceTiles.pinZoom) return const [];
