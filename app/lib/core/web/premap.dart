@@ -7,12 +7,19 @@ import 'package:lunaway/core/web/premap_stub.dart'
 /// Elsewhere there is none, and these do nothing.
 abstract final class Premap {
   /// The camera the first map shows now (the user may have moved it), null
-  /// once it has gone or where there is none.
-  static ({LatLng center, double zoom})? camera() => impl.premapCamera();
+  /// once it has gone or where there is none. With [x] and [y] (a point of
+  /// the window, in logical pixels), the place the first map draws there
+  /// as the centre: a map whose centre stands at that point of the window
+  /// draws the same view.
+  static ({LatLng center, double zoom})? camera({double? x, double? y}) =>
+      impl.premapCamera(x: x, y: y);
 
   /// The app's map shows the same view: the first map fades out.
   static void handOver() => impl.premapHandOver();
 
   /// Keeps [json] (premapState) for the first map of the next visit.
   static void remember(String json) => impl.premapRemember(json);
+
+  /// Keeps [json] (premapFrame): where the app's map stands in the window.
+  static void rememberFrame(String json) => impl.premapRememberFrame(json);
 }

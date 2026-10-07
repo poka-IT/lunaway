@@ -30,8 +30,11 @@ class MapSearch extends ConsumerStatefulWidget {
   /// shows the brand leaves it out.
   final bool brand;
 
+  /// The pill's height to a finger; 8 less to a mouse.
+  static const double touchHeight = 56;
+
   /// The pill's height: 56 to a finger, 48 to a mouse.
-  static double heightOf(BuildContext context) => controlHeight(context, 56);
+  static double heightOf(BuildContext context) => controlHeight(context, touchHeight);
 
   @override
   ConsumerState<MapSearch> createState() => _MapSearchState();

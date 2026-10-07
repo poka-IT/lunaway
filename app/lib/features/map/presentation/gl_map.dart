@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/web/premap.dart';
+import 'package:lunaway/core/web/tile_errors.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
@@ -80,6 +81,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // The places from the tiles.
   final _tiles = GlPlaceTiles();
 
+  // Tiles of the places that had failed at the last report.
+  int _tileErrorsSeen = 0;
+
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;
 
@@ -109,7 +113,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     _premapShown = false;
     _premapLater?.cancel();
     final c = _controller;
-    final camera = Premap.camera();
+    // The place the first map draws where this map has its centre: this map
+    // stands beside the rail and the panes while the first map fills the
+    // window, and centred there at the same zoom it draws the same pixels.
+    final box = mounted ? context.findRenderObject() : null;
+    final middle = box is RenderBox && box.hasSize
+        ? box.localToGlobal(box.size.center(Offset.zero))
+        : null;
+    final camera = Premap.camera(x: middle?.dx, y: middle?.dy);
     try {
       if (c != null && camera != null) {
         await c.moveCamera(
@@ -383,7 +394,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           final camera = cameraForBounds(
             GeoBounds.metropolitanFrance,
             size,
-            _props.padding + const EdgeInsets.all(16),
+            _props.padding + const EdgeInsets.all(fitInitialMargin),
           );
           await c.moveCamera(
             gl.CameraUpdate.newLatLngZoom(
@@ -603,8 +614,16 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           north: region.northeast.latitude,
           east: region.northeast.longitude,
         );
+        // A tile of the places that failed since the last rest (counted by
+        // the page on the web): the report says so even when the camera did
+        // not move, and the list asks the API.
+        final errors = PlaceTileErrors.count();
+        final failed = errors > _tileErrorsSeen;
+        _tileErrorsSeen = errors;
         final found = await _tiles.probe(c, zoom: camera.zoom, camera: key, bounds: bounds);
-        if (found != null && mounted) reportPlaces(found, bounds);
+        if ((found != null || failed) && mounted) {
+          reportPlaces(found ?? const [], bounds, failed: failed);
+        }
       } on Object catch (e) {
         _log.info('could not read the places in view: $e');
       }

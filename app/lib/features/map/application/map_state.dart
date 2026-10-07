@@ -307,7 +307,8 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     if (ref.watch(placesFromTilesProvider)) {
       if (viewport.zoom >= PlaceTiles.nameZoom) {
         final report = ref.watch(placesInViewProvider);
-        if (report.covers(viewport)) {
+        final covered = report.covers(viewport);
+        if (covered && !report.failed && report.places.isNotEmpty) {
           // The filters again on the device: a report made under the
           // previous filters stands until the map reports again (the tiles
           // carry no height in a summary, so the height alone waits for
@@ -318,14 +319,21 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
           return NearbyPage(places, total: places.length);
         }
         // The map reports the places of a view once its tiles are in: until
-        // it has for this one, the list keeps the rows it shows. A map that
-        // stays busy (tiles that do not come) leaves the list to the API,
-        // whose failure says so.
-        final wait = Completer<void>();
-        final timer = Timer(nearbyReportWait, wait.complete);
-        ref.onDispose(timer.cancel);
-        await wait.future;
-        if (!ref.mounted) return const NearbyPage([]);
+        // it has for this one, the list keeps the rows it shows. The API
+        // answers at once when the tiles cannot: no map to report yet, a
+        // tile that failed, or a view whose tiles hold no place (a failure
+        // the native maps do not report looks the same, and a view without
+        // places costs one page of the API). A map that stays busy (tiles
+        // that do not come) leaves the list to the API after a while, whose
+        // failure says so.
+        final map = ref.watch(mapControllerProvider);
+        if (!covered && map != null) {
+          final wait = Completer<void>();
+          final timer = Timer(nearbyReportWait, wait.complete);
+          ref.onDispose(timer.cancel);
+          await wait.future;
+          if (!ref.mounted) return const NearbyPage([]);
+        }
       }
       final query = (
         bounds: placesQueryBox(viewport.bounds),
@@ -417,7 +425,7 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
 /// names, and what the points of interest leave room for.
 @immutable
 final class PlacesInViewReport {
-  const new(this.places, {this.bounds});
+  const new(this.places, {this.bounds, this.failed = false});
 
   static const none = PlacesInViewReport([]);
 
@@ -425,6 +433,9 @@ final class PlacesInViewReport {
 
   /// The view they are the places of; null before the first report.
   final GeoBounds? bounds;
+
+  /// A tile of the view failed to load: [places] may lack some, or all.
+  final bool failed;
 
   /// Whether this report is of [viewport]: the map reports once its tiles
   /// are in, after the camera has come to rest.
@@ -446,9 +457,11 @@ class PlacesInView extends _$PlacesInView {
   @override
   PlacesInViewReport build() => PlacesInViewReport.none;
 
-  void report(List<PlaceSummary> places, GeoBounds bounds) {
-    if (state.bounds == bounds && listEquals(places, state.places)) return;
-    state = PlacesInViewReport(places, bounds: bounds);
+  void report(List<PlaceSummary> places, GeoBounds bounds, {bool failed = false}) {
+    if (state.bounds == bounds && state.failed == failed && listEquals(places, state.places)) {
+      return;
+    }
+    state = PlacesInViewReport(places, bounds: bounds, failed: failed);
   }
 }
 
