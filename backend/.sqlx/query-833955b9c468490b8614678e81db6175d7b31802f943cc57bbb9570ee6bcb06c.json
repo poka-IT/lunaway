@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO place_takedowns (place_id, reason) VALUES ($1, $2)\n            ON CONFLICT (place_id) DO UPDATE SET reason = EXCLUDED.reason\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "833955b9c468490b8614678e81db6175d7b31802f943cc57bbb9570ee6bcb06c"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE\n        gone AS (\n            SELECT c.id, c.place_id, c.account_id, c.status, c.created_at\n            FROM confirmations c WHERE c.id = ANY($1)\n        ),\n        -- The same depth as the summary's walk to the live place.\n        chain(start, id, depth) AS (\n            SELECT DISTINCT g.place_id, g.place_id, 0 FROM gone g\n            UNION ALL\n            SELECT c.start, p.merged_into, c.depth + 1\n            FROM chain c JOIN places p ON p.id = c.id\n            WHERE p.merged_into IS NOT NULL AND c.depth < 8\n        ),\n        roots AS (\n            SELECT DISTINCT ON (start) start, id AS root FROM chain ORDER BY start, depth DESC\n        ),\n        family(root, id) AS (\n            SELECT DISTINCT root, root FROM roots\n            UNION\n            SELECT f.root, p.id FROM places p JOIN family f ON p.merged_into = f.id\n        ),\n        authors AS (\n            SELECT DISTINCT r.root, s.account_id\n            FROM (SELECT DISTINCT root FROM roots) r\n            JOIN place_sources ps ON ps.place_id = r.root\n            JOIN source_records sr ON sr.id = ps.record_id AND sr.deleted_at IS NULL\n            JOIN place_submissions s ON s.record_id = sr.id\n            WHERE s.kind = 'create' AND s.account_id IS NOT NULL\n        ),\n        counted AS (\n            SELECT r.root, g.account_id, g.status, g.created_at,\n                   g.status = 'still_ok' AND a.trust_level >= 1\n                   AND NOT EXISTS (SELECT 1 FROM authors au\n                                   WHERE au.root = r.root AND au.account_id = g.account_id)\n                   AND NOT EXISTS (SELECT 1 FROM confirmations k\n                                   JOIN family f ON f.root = r.root AND f.id = k.place_id\n                                   WHERE k.account_id = g.account_id AND k.status = 'still_ok'\n                                     AND k.id <> ALL($1))\n                       AS confirms\n            FROM gone g\n            JOIN roots r ON r.start = g.place_id\n            LEFT JOIN accounts a ON a.id = g.account_id\n            WHERE a.banned_at IS NULL\n        )\n        INSERT INTO confirmation_tallies (place_id, last_ok, confirmers)\n        SELECT root,\n               max(created_at) FILTER (WHERE status = 'still_ok'),\n               (count(DISTINCT account_id) FILTER (WHERE confirms))::int4\n        FROM counted\n        GROUP BY root\n        ON CONFLICT (place_id) DO UPDATE SET\n            last_ok = greatest(confirmation_tallies.last_ok, EXCLUDED.last_ok),\n            confirmers = confirmation_tallies.confirmers + EXCLUDED.confirmers,\n            updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b5ca4d0b18f6914fca0e2809145fd0fbc86b99bfbbb1297bc3b690606c2d643"
+}

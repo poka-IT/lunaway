@@ -1384,8 +1384,10 @@ type Mutation {
 	deleteAccount(confirm: String!): Boolean!
 	"""
 	Deletes the account of a recovery code, as `deleteAccount` does (the
-	lunaway.net/account/delete page), journal included. 5 attempts an
-	hour per client.
+	lunaway.net/account/delete page), journal included; a banned
+	account may too, and the hashes of its device keys are then kept
+	two years so they cannot open a new account (`FORBIDDEN` on
+	`signIn`). 5 attempts an hour per client.
 	"""
 	deleteAccountWithRecoveryCode(code: String!): Boolean!
 	"""
@@ -2883,7 +2885,8 @@ type Query {
 	"""
 	Searches names, address cities and municipalities, without accents:
 	whole words first, then word prefixes, then typo-tolerant matches;
-	among equal matches, the nearest to `near` first.
+	among equal matches, the nearest to `near` first, `near` rounded by
+	the server to the nearest 0.05 degree (about 5 km) before any use.
 	"""
 	search(text: String!, near: LatLonInput, first: Int = 20): [Place!]!
 	"""
@@ -2949,7 +2952,9 @@ type Query {
 	Fuel stations within `radiusKm` of `at` (10 by default, 50 at most)
 	with a price of `fuel` updated in the last 90 days, at most `limit`
 	(10 by default, 50 at most): those not out of it first, then the
-	cheapest, then the nearest.
+	cheapest, then the nearest. `at` is rounded by the server to the
+	nearest 0.05 degree (about 5 km) before any use, and `distanceM`
+	is measured from that point.
 	"""
 	fuelNearby(at: LatLonInput!, fuel: FuelKind!, radiusKm: Float! = 10.0, limit: Int! = 10): [FuelStop!]!
 	"""
@@ -2960,6 +2965,12 @@ type Query {
 	the detour's fuel in it. One per request, like `route`, and counted
 	in its own quota (`RATE_LIMITED` when spent). A detour the engine
 	could not measure in time is estimated (`detour.measured` false).
+	The server drops the line's ends before any use: the search runs
+	along the line from where it first gets 2 km away from its first
+	point to where it is last 2 km away from its last point (none when
+	nothing is left), so neither end is read; a station within half
+	`maxDetourKm` of what is left may still lie near an end. `alongKm`
+	and `routeKm` still count from the line's first point.
 	"""
 	fuelAlongRoute(input: FuelAlongRouteInput!): FuelAlongRoute!
 	"""
@@ -2972,13 +2983,16 @@ type Query {
 	point `at` (give one), nearest first, with their distance; open or
 	closed alike (`openNow` says which). Within `radiusM` (20 km at
 	most), or the category's default (`poiCategories`); `perCategory`
-	points each (1 by default, 10 at most); `kinds` narrows them.
+	points each (1 by default, 10 at most); `kinds` narrows them. `at`
+	is rounded by the server to the nearest 0.05 degree (about 5 km)
+	before any use, and the distances are measured from that point.
 	"""
 	nearbyPois(placeId: UUID, at: LatLonInput, categories: [PoiCategory!], kinds: [PoiKind!], perCategory: Int = 1, radiusM: Float): [NearbyPois!]!
 	"""
 	Searches the names and brands of the points of interest, without
 	accents, typos tolerated; among equal matches the nearest to `near`
-	first. `categories` narrows them.
+	first, `near` rounded by the server to the nearest 0.05 degree
+	(about 5 km) before any use. `categories` narrows them.
 	"""
 	searchPois(text: String!, near: LatLonInput, categories: [PoiCategory!], first: Int = 20): [Poi!]!
 	"""

@@ -152,6 +152,39 @@ pub(crate) enum Answer {
     NoSegment,
 }
 
+/// `text` with every decimal number written `#`. The engine's messages
+/// are logged (`EngineError::Refused`), and a message that quoted a
+/// location would put a request's position in the journal; its codes and
+/// counts, whole numbers, stay.
+pub(crate) fn without_decimals(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut run = String::new();
+    let flush = |run: &mut String, out: &mut String| {
+        // The dots around a number are punctuation, kept as they are.
+        let core = run.trim_matches('.');
+        if core.contains('.') {
+            let lead = run.len() - run.trim_start_matches('.').len();
+            let trail = run.len() - run.trim_end_matches('.').len();
+            out.push_str(&run[..lead]);
+            out.push('#');
+            out.push_str(&run[run.len() - trail..]);
+        } else {
+            out.push_str(run);
+        }
+        run.clear();
+    };
+    for c in text.chars() {
+        if c.is_ascii_digit() || c == '.' {
+            run.push(c);
+        } else {
+            flush(&mut run, &mut out);
+            out.push(c);
+        }
+    }
+    flush(&mut run, &mut out);
+    out
+}
+
 /// Why the engine could not be used.
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum EngineError {
@@ -334,10 +367,12 @@ impl Engine {
                         .get("error_code")
                         .and_then(Value::as_i64)
                         .unwrap_or_default(),
-                    value
-                        .get("error")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
+                    without_decimals(
+                        value
+                            .get("error")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                    )
                 ),
             });
         }
@@ -356,10 +391,12 @@ impl Engine {
                         .get("error_code")
                         .and_then(Value::as_i64)
                         .unwrap_or_default(),
-                    value
-                        .get("error")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
+                    without_decimals(
+                        value
+                            .get("error")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                    )
                 ),
             });
         }
@@ -381,10 +418,12 @@ impl Engine {
                 status,
                 code: format!(
                     "{code}: {}",
-                    value
-                        .get("message")
-                        .and_then(Value::as_str)
-                        .unwrap_or_default()
+                    without_decimals(
+                        value
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                    )
                 ),
             }),
         }
@@ -414,6 +453,20 @@ mod tests {
             trailer_weight_t: None,
             top_speed_kph: top,
         }
+    }
+
+    #[test]
+    fn an_engine_message_loses_its_decimals_and_keeps_its_codes() {
+        assert_eq!(
+            without_decimals("No suitable edges near location 45.123456,4.5 (171)."),
+            "No suitable edges near location #,# (171).",
+            "a position quoted by the engine must not reach the journal"
+        );
+        assert_eq!(
+            without_decimals("Path distance exceeds the max distance limit: 5000000 meters"),
+            "Path distance exceeds the max distance limit: 5000000 meters"
+        );
+        assert_eq!(without_decimals("v3.5..."), "v#...");
     }
 
     #[test]

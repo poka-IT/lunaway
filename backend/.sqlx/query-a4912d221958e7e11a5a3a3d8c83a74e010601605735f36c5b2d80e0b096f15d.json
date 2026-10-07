@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE place_submissions SET status = 'applied', applied_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a4912d221958e7e11a5a3a3d8c83a74e010601605735f36c5b2d80e0b096f15d"
+}

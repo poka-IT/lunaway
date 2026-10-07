@@ -66,6 +66,8 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   merged into it and their records, which keep a `taken_down_at` that
   every later import and conflation respects; the API's role then deletes
   the community's content (`docs/deploy.md`, "Taking a place down").
+  The row keeps the kind of request as a code (`private-home`, `gdpr`,
+  `court-order`, `other`), never a text that could name the requester.
   `takedown_cells` keeps no position: the keyed hashes
   (`LUNAWAY_TAKEDOWN_SECRET`, held by the import role only) of the H3
   cells around where the place stood (`lunaway_domain::takedown`). The
@@ -78,6 +80,14 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   conflation worker (`lunaway conflate --watch`, woken by the API through
   `NOTIFY`) writes each accepted one into a record of the `community` source
   and conflates it like any other.
+- Retention: `lunaway retention`, daily with the API's role, deletes
+  issue reports after 90 days, content reports and decided moderation
+  entries a year after their decision, confirmations after two years
+  (what they gave a place stays in `confirmation_tallies`, what they gave
+  an account's level in `accounts.archived_confirmations`), and empties
+  the content of a refused or withdrawn submission 30 days after the
+  decision; the durations are `lunaway_db::retention`'s, and the privacy
+  page states them.
 - The community summary of a place (ratings, counts, cover photos, recent
   issues, verification) lives on `places`, recomputed by the same worker,
   so the change feed carries it.
@@ -126,7 +136,12 @@ vending machines, water, fuel, health, services).
   builds a few at a time.
 - **Details and offline.** GraphQL: `poi(id)`, `nearbyPois` (the nearest
   per category around a place or a point), `searchPois`, and `pois(bbox)`
-  pages for a device to keep a region offline.
+  pages for a device to keep a region offline. A point a client sends
+  (`nearbyPois.at`, `searchPois.near`, `fuelNearby.at`) is rounded by the
+  API to the 0.05 degree grid the app uses before any use, and
+  `fuelAlongRoute` drops what leads out of 2 km around the ends of the
+  line it is sent (`lunaway_domain::geo`); no request position is
+  logged.
 - **Community.** `confirmPoi` ("still there?"; three accounts of level 1
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`
@@ -283,7 +298,14 @@ database first (`lunaway_db::deletions`, one file per day on the data
 volume, copied off-site every hour, encrypted, with the backups); after a
 restore, `lunaway accounts replay-deletions` deletes again every account
 the journal names, so a restored dump never brings a deleted account back
-(`docs/deploy.md`, "Backups and restore"). A contribution the app may send
+(`docs/deploy.md`, "Backups and restore"). The deletion empties the
+content of the submissions never applied (an applied one is ODbL data and
+stays, without author). A banned account may delete itself; the SHA-256 of
+each of its device keys then stays two years in `banned_keys`, without the
+account, its pseudonym or the ban's reason, so the same key cannot open a
+new account (`signIn` answers `FORBIDDEN`). A ban deletes the texts of the
+account's reviews at once: each stays a rating without text, which the
+summary leaves out. A contribution the app may send
 twice (a new place, an edit, a confirmation, an issue, a road report)
 carries the outbox entry's id as an idempotency key: the same request
 again returns what the first made (`lunaway_db::idempotency`, 30 days).

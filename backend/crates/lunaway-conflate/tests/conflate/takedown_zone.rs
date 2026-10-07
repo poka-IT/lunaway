@@ -102,7 +102,6 @@ async fn take_down_spot(ingest: &PgPool, dir: &std::path::Path) -> takedowns::Ta
         &TakedownJournal::new(dir),
         Request {
             place,
-            reason: "GDPR erasure, ticket 1",
             code: TakedownCode::PrivateHome,
             with_nearby: false,
         },
@@ -437,9 +436,10 @@ async fn the_journal_takes_a_restored_place_down_again_once(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
     let journal = TakedownJournal::new(dir.path());
     let mut tx = begin_writer(&ingest).await.unwrap();
-    let TakeDown::Done(d) = takedowns::take_down(&mut tx, place, "court order 7", false, &key)
-        .await
-        .unwrap()
+    let TakeDown::Done(d) =
+        takedowns::take_down(&mut tx, place, TakedownCode::CourtOrder, false, &key)
+            .await
+            .unwrap()
     else {
         panic!("not taken down");
     };
@@ -730,7 +730,6 @@ async fn another_secret_is_told_apart(pool: PgPool) {
             &TakedownJournal::new(dir.path()),
             Request {
                 place: bourg,
-                reason: "test",
                 code: TakedownCode::Other,
                 with_nearby: false,
             },
@@ -802,7 +801,7 @@ async fn a_replay_leaves_alone_a_family_the_journal_does_not_name(pool: PgPool) 
     let dir = tempfile::tempdir().unwrap();
     let journal = TakedownJournal::new(dir.path());
     let mut tx = begin_writer(&ingest).await.unwrap();
-    let TakeDown::Done(d) = takedowns::take_down(&mut tx, place, "gdpr 9", false, &key)
+    let TakeDown::Done(d) = takedowns::take_down(&mut tx, place, TakedownCode::Gdpr, false, &key)
         .await
         .unwrap()
     else {

@@ -21,7 +21,7 @@ use chrono::{TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState};
 use lunaway_db::{PgPool, pois::NewJoin};
-use lunaway_domain::{SourceId, poi::decode_hours};
+use lunaway_domain::{Position, SourceId, poi::decode_hours};
 use lunaway_ingest::{
     finess, fuel, laposte, poi_osm,
     store::{store_joins, store_pois},
@@ -535,6 +535,18 @@ async fn around_a_point_each_category_gives_its_nearest(pool: PgPool) {
         json!({"lat": AMBERIEU.0, "lon": AMBERIEU.1, "at": "2026-10-06T08:00:00Z"}),
     )
     .await;
+    // The server keeps the point on the 0.05 degree grid only: the centre
+    // of Ambérieu and the grid's node beside it get the same answer, its
+    // distances measured from the node.
+    let node = Position::new(AMBERIEU.0, AMBERIEU.1).unwrap().coarsened();
+    assert!(node.distance_m(Position::new(AMBERIEU.0, AMBERIEU.1).unwrap()) > 500.0);
+    let at_node = gql(
+        &app,
+        &q,
+        json!({"lat": node.lat(), "lon": node.lon(), "at": "2026-10-06T08:00:00Z"}),
+    )
+    .await;
+    assert_eq!(body, at_node, "the point sent never reaches the search");
     let groups = ok(&body)["nearbyPois"].as_array().unwrap();
     let categories: Vec<&str> = groups
         .iter()
@@ -561,10 +573,17 @@ async fn around_a_point_each_category_gives_its_nearest(pool: PgPool) {
             .collect();
         assert!(d.windows(2).all(|w| w[0] <= w[1]), "nearest first: {d:?}");
         assert!(d.iter().all(|x| *x <= g["radiusM"].as_f64().unwrap()));
+        for p in g["pois"].as_array().unwrap() {
+            let at = Position::new(p["lat"].as_f64().unwrap(), p["lon"].as_f64().unwrap()).unwrap();
+            assert!(
+                (p["distanceM"].as_f64().unwrap() - at.distance_m(node)).abs()
+                    < 2.0 + at.distance_m(node) * 0.005,
+                "measured from the grid's node: {p}"
+            );
+        }
     }
     let health = &groups[4]["pois"][0];
     assert_eq!(health["name"], "Pharmacie du Champ de Mars");
-    assert!(health["distanceM"].as_f64().unwrap() < 200.0);
     let services = groups[5]["pois"].as_array().unwrap();
     let post = services
         .iter()
@@ -608,9 +627,13 @@ async fn around_a_point_each_category_gives_its_nearest(pool: PgPool) {
     let vending = &ok(&wide)["nearbyPois"];
     assert_eq!(vending.as_array().unwrap().len(), 1);
     assert_eq!(vending[0]["pois"][0]["kind"], "VENDING_PIZZA");
+    let machine = Position::new(47.2678, -0.0696).unwrap();
     assert!(
-        vending[0]["pois"][0]["distanceM"].as_f64().unwrap() < 20.0,
-        "the machine at the point asked about, give or take the rounding of the coordinates"
+        (vending[0]["pois"][0]["distanceM"].as_f64().unwrap()
+            - machine.distance_m(machine.coarsened()))
+        .abs()
+            < 20.0,
+        "the machine at the point asked about, its distance from the grid's node"
     );
 
     let both = gql(
@@ -713,6 +736,36 @@ async fn a_point_shows_what_each_source_says(pool: PgPool) {
     )
     .await;
     assert_eq!(ok(&found)["searchPois"][0]["name"], "Ambérieu en Bugey");
+    let search = |lat: f64, lon: f64| {
+        let app = &app;
+        async move {
+            gql(
+                app,
+                "query($lat: Float!, $lon: Float!) { searchPois(text: \"pharmacie\", \
+                 near: {lat: $lat, lon: $lon}) { lat lon distanceM } }",
+                json!({"lat": lat, "lon": lon}),
+            )
+            .await
+        }
+    };
+    let off_grid = search(45.9597, 5.3582).await;
+    let node = Position::new(45.9597, 5.3582).unwrap().coarsened();
+    assert_eq!(
+        off_grid,
+        search(node.lat(), node.lon()).await,
+        "the search ranks from the grid's node, never from the point sent"
+    );
+    let first = &ok(&off_grid)["searchPois"][0];
+    let at = Position::new(
+        first["lat"].as_f64().unwrap(),
+        first["lon"].as_f64().unwrap(),
+    )
+    .unwrap();
+    assert!(
+        (first["distanceM"].as_f64().unwrap() - at.distance_m(node)).abs()
+            < 2.0 + at.distance_m(node) * 0.005,
+        "measured from the grid's node (the database's spheroid against a sphere here)"
+    );
 
     let gone = gql(
         &app,

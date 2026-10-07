@@ -351,6 +351,14 @@ async fn open_session_for(
                 account: Account::load(ctx, viewer).await?,
             });
         }
+        // The key of a banned account that deleted itself opens nothing
+        // while its record lasts (`retention::BANNED_KEY_DAYS`).
+        if accounts::key_banned(pool, &key.sec1_uncompressed())
+            .await
+            .map_err(|e| internal(&e))?
+        {
+            return Err(forbidden("this account is banned"));
+        }
         if !create {
             return Err(unknown_key());
         }
@@ -579,6 +587,12 @@ impl MutationRoot {
             .map_err(|e| internal(&e))?
             .ok_or_else(|| not_found("account with this recovery code"))?;
         not_banned(banned)?;
+        if accounts::key_banned(pool, &key.sec1_uncompressed())
+            .await
+            .map_err(|e| internal(&e))?
+        {
+            return Err(forbidden("this device key belongs to a banned account"));
+        }
         let (expires, key_id) = accounts::attach_key_and_open_session(
             pool,
             account_id,
@@ -631,8 +645,10 @@ impl MutationRoot {
     }
 
     /// Deletes the account of a recovery code, as `deleteAccount` does (the
-    /// lunaway.net/account/delete page), journal included. 5 attempts an
-    /// hour per client.
+    /// lunaway.net/account/delete page), journal included; a banned
+    /// account may too, and the hashes of its device keys are then kept
+    /// two years so they cannot open a new account (`FORBIDDEN` on
+    /// `signIn`). 5 attempts an hour per client.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn delete_account_with_recovery_code(
         &self,

@@ -26,7 +26,7 @@ use std::collections::BTreeSet;
 use lunaway_domain::{
     PlaceKind, Position,
     conflation::score::{MAX_KIND_RADIUS_M, kind_radius_m},
-    takedown::{CellHash, TakedownKey},
+    takedown::{CellHash, TakedownCode, TakedownKey},
 };
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -495,18 +495,18 @@ pub async fn exclusion_cells(tx: &mut WriterTx) -> Result<Vec<CellHash>, DbError
 /// Takes `place` down, merges followed: keeps the hashes of the cells
 /// around its positions and its records' (`key`), empties it, the places
 /// merged into it and their records (and the nearby retired records
-/// [`Preview`] lists, when `with_nearby`), and logs it with `reason`; the
-/// first reason stays when it runs again, which empties what was missed.
-/// Refused while records near the place wait for the conflation.
+/// [`Preview`] lists, when `with_nearby`), and logs it with the kind of
+/// request `code`, never a text that could name the requester; the first
+/// code stays when it runs again, which empties what was missed. Refused
+/// while records near the place wait for the conflation.
 ///
 /// # Errors
 ///
-/// [`DbError`] when a statement fails, or when `reason` is empty or longer
-/// than 500 characters (the table's check).
+/// [`DbError`] when a statement fails.
 pub async fn take_down(
     tx: &mut WriterTx,
     place: Uuid,
-    reason: &str,
+    code: TakedownCode,
     with_nearby: bool,
     key: &TakedownKey,
 ) -> Result<TakeDown, DbError> {
@@ -550,7 +550,7 @@ pub async fn take_down(
         ON CONFLICT (place_id) DO NOTHING
         "#,
         root,
-        reason,
+        code.code(),
     )
     .execute(tx.conn())
     .await?;
@@ -721,6 +721,13 @@ pub async fn purge_community(pool: &PgPool, place: Uuid) -> Result<Purge, DbErro
         &family
     )
     .fetch_all(&mut *tx)
+    .await?;
+    // What the deleted answers left on the place goes with them.
+    sqlx::query!(
+        "DELETE FROM confirmation_tallies WHERE place_id = ANY($1)",
+        &family
+    )
+    .execute(&mut *tx)
     .await?;
     let issue_reports = sqlx::query_scalar!(
         "DELETE FROM issue_reports WHERE place_id = ANY($1) RETURNING id",

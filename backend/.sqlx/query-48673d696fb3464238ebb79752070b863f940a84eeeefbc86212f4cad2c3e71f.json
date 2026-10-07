@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO banned_keys (key_hash, banned_at)\n            SELECT sha256(public_key), $2 FROM device_keys WHERE account_id = $1\n            ON CONFLICT (key_hash) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48673d696fb3464238ebb79752070b863f940a84eeeefbc86212f4cad2c3e71f"
+}

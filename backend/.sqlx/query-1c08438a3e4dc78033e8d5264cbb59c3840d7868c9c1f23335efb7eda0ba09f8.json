@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE place_submissions SET\n            status = CASE WHEN status = 'accepted' THEN 'withdrawn' ELSE status END,\n            decided_at = CASE WHEN status = 'accepted' THEN now() ELSE decided_at END,\n            payload = CASE WHEN status = 'applied' THEN payload ELSE '{}'::jsonb END,\n            account_id = NULL, device_key_id = NULL\n        WHERE account_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1c08438a3e4dc78033e8d5264cbb59c3840d7868c9c1f23335efb7eda0ba09f8"
+}

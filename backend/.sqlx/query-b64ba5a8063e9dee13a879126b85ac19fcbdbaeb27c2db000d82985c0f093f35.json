@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE place_submissions SET payload = '{}'::jsonb\n        WHERE status IN ('rejected', 'withdrawn') AND payload <> '{}'::jsonb\n          AND coalesce(decided_at, created_at) < $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b64ba5a8063e9dee13a879126b85ac19fcbdbaeb27c2db000d82985c0f093f35"
+}

@@ -57,13 +57,11 @@ pub enum TakedownError {
 
 /// A takedown asked for.
 #[derive(Debug, Clone, Copy)]
-pub struct Request<'a> {
+pub struct Request {
     /// The place named; a place merged into another names the other.
     pub place: Uuid,
-    /// Why, kept in the database only: the kind of request and its
-    /// reference.
-    pub reason: &'a str,
-    /// The kind of request, the only word of it the journal keeps.
+    /// The kind of request, all the database and the journal keep of it:
+    /// a free text could name the requester.
     pub code: TakedownCode,
     /// Also empties the retired records near it that name no place.
     pub with_nearby: bool,
@@ -81,7 +79,7 @@ pub async fn take_down(
     pool: &PgPool,
     key: &TakedownKey,
     journal: &TakedownJournal,
-    request: Request<'_>,
+    request: Request,
     now: DateTime<Utc>,
 ) -> Result<TakeDown, TakedownError> {
     journal.check_writable(now)?;
@@ -90,7 +88,7 @@ pub async fn take_down(
     let done = takedowns::take_down(
         &mut tx,
         request.place,
-        request.reason,
+        request.code,
         request.with_nearby,
         key,
     )
@@ -209,7 +207,6 @@ pub async fn replay(
                 out.would_take_down.push(standing.root);
                 continue;
             }
-            let reason = format!("replayed from the takedown journal: {}", e.code);
             let mut tx = begin_writer(pool).await?;
             // The worker may have merged a place into the root since the
             // family was read: checked again under the writers' lock.
@@ -217,7 +214,7 @@ pub async fn replay(
                 out.to_check.push((*id, standing.root));
                 continue;
             }
-            match takedowns::take_down(&mut tx, standing.root, &reason, e.with_nearby, key).await? {
+            match takedowns::take_down(&mut tx, standing.root, e.code, e.with_nearby, key).await? {
                 TakeDown::Done(d) => {
                     tx.commit().await?;
                     out.taken_down.push(d);

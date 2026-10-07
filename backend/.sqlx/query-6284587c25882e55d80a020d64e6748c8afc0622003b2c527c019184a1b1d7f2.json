@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO poi_moderation (poi_id, note)\n            SELECT DISTINCT poi_id, 'added by a banned account, deleted since'\n            FROM place_submissions WHERE account_id = $1 AND poi_id IS NOT NULL\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6284587c25882e55d80a020d64e6748c8afc0622003b2c527c019184a1b1d7f2"
+}

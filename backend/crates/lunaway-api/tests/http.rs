@@ -489,6 +489,17 @@ async fn search_folds_accents_and_forgives_a_typo(pool: PgPool) {
         ["Sainte-Eulalie-en-Born", "Mimizan"],
         "the nearer one first"
     );
+    let off_grid = gql(
+        &app,
+        q,
+        json!({"t": "camping du lac", "near": {"lat": 44.3123, "lon": -1.1789}}),
+    )
+    .await;
+    assert_eq!(
+        off_grid, near,
+        "both points lie by the grid's node 44.3, -1.2: the search ranks from the node, \
+         never from the point sent"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

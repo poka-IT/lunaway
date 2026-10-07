@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE accounts a SET archived_confirmations = a.archived_confirmations + n.places::int4\n        FROM (\n            SELECT c.account_id, count(DISTINCT c.place_id) AS places\n            FROM confirmations c\n            WHERE c.id = ANY($1) AND c.account_id IS NOT NULL\n              AND NOT EXISTS (\n                  SELECT 1 FROM confirmations k\n                  WHERE k.account_id = c.account_id AND k.place_id = c.place_id\n                    AND k.id <> ALL($1))\n            GROUP BY c.account_id\n        ) n\n        WHERE a.id = n.account_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5fa694bff177a31acdb81e28e10d10a0e53ad86a95a89458cc4acde37140a28f"
+}

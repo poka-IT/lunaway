@@ -141,6 +141,78 @@ async fn every_reason_code_is_stored_and_an_empty_one_refused(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_takedown_stores_a_code_and_never_a_text(pool: PgPool) {
+    use lunaway_domain::takedown::TakedownCode;
+    let place = uuid::Uuid::now_v7();
+    let content = lunaway_domain::conflation::PlaceContent {
+        name: None,
+        kind: PlaceKind::Parking,
+        position: Position::new(47.3, -0.5).unwrap(),
+        overnight: lunaway_domain::OvernightStatus::Allowed,
+        services: Vec::new(),
+        activities: Vec::new(),
+        description: None,
+        address: lunaway_domain::Address::default(),
+        price_parking_eur: None,
+        price_services_eur: None,
+        max_height_m: None,
+        max_length_m: None,
+        max_width_m: None,
+        max_weight_t: None,
+        capacity: None,
+        opening_hours: None,
+        website: None,
+        phone: None,
+        stars: None,
+    };
+    let opening = conflation::OpeningEval {
+        parsed: false,
+        intervals: None,
+        until: None,
+        window_start: None,
+        refresh_at: None,
+    };
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    conflation::upsert_place(
+        &mut tx,
+        conflation::PlaceWrite {
+            id: place,
+            content: &content,
+            provenance: &[],
+            opening: &opening,
+            descriptions: &[],
+            external_links: &[],
+            content_hash: "h",
+        },
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    let store = |reason: String| {
+        sqlx::query!(
+            r#"
+            INSERT INTO place_takedowns (place_id, reason) VALUES ($1, $2)
+            ON CONFLICT (place_id) DO UPDATE SET reason = EXCLUDED.reason
+            "#,
+            place,
+            reason,
+        )
+        .execute(&pool)
+    };
+    for c in TakedownCode::ALL {
+        store(c.code().to_owned())
+            .await
+            .unwrap_or_else(|e| panic!("{c:?} refused: {e}"));
+    }
+    assert!(
+        store("GDPR request from Jean Dupont, 12 rue des Lilas".to_owned())
+            .await
+            .is_err(),
+        "a free text could name the requester: only the codes are stored"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn the_feed_identity_changes_when_a_restore_regenerates_the_epoch(pool: PgPool) {
     let head = lunaway_db::places::feed_head(&pool).await.unwrap();
     assert_eq!(head.last_seq, 0, "an empty feed");
@@ -313,6 +385,17 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         privileges(&pool, "lunaway_app", "place_hold_releases").await,
         ["SELECT", "INSERT"],
         "a release is journaled and never rewritten"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "banned_keys").await,
+        ["SELECT", "INSERT", "DELETE"],
+        "a banned key's hash is written at the deletion and removed after two years, never \
+         rewritten"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "confirmation_tallies").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the daily retention job writes what the deleted confirmations gave"
     );
     insert(&pool, "way/1").await;
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
@@ -488,6 +571,17 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         privileges(&pool, "lunaway_ingest", "takedown_cells").await,
         ["SELECT", "INSERT"],
         "a takedown's zone is added to, never rewritten nor removed"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "confirmation_tallies").await,
+        ["SELECT"],
+        "the worker reads what aged-out confirmations gave a place"
+    );
+    assert!(
+        privileges(&pool, "lunaway_ingest", "banned_keys")
+            .await
+            .is_empty(),
+        "the importers have nothing to do with accounts"
     );
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_holds").await,

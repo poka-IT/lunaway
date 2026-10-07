@@ -511,7 +511,8 @@ impl QueryRoot {
 
     /// Searches names, address cities and municipalities, without accents:
     /// whole words first, then word prefixes, then typo-tolerant matches;
-    /// among equal matches, the nearest to `near` first.
+    /// among equal matches, the nearest to `near` first, `near` rounded by
+    /// the server to the nearest 0.05 degree (about 5 km) before any use.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,
@@ -525,10 +526,12 @@ impl QueryRoot {
         if !SEARCH_TEXT_CHARS.contains(&text.chars().count()) {
             return Err(invalid_input("text must hold 2 to 100 characters"));
         }
+        // On the grid only, as every point a search ranks from; the error
+        // names no coordinate.
         let near = near
-            .map(|p| Position::new(p.lat, p.lon))
+            .map(|p| Position::new(p.lat, p.lon).map(Position::coarsened))
             .transpose()
-            .map_err(|e| invalid_input(format!("near: {e}")))?;
+            .map_err(|_| invalid_input("near: not a valid position"))?;
         let (pool, _permit) = db(ctx).await?;
         let rows = search::search(pool, text, near, first)
             .await
@@ -638,7 +641,9 @@ impl QueryRoot {
     /// Fuel stations within `radiusKm` of `at` (10 by default, 50 at most)
     /// with a price of `fuel` updated in the last 90 days, at most `limit`
     /// (10 by default, 50 at most): those not out of it first, then the
-    /// cheapest, then the nearest.
+    /// cheapest, then the nearest. `at` is rounded by the server to the
+    /// nearest 0.05 degree (about 5 km) before any use, and `distanceM`
+    /// is measured from that point.
     #[graphql(complexity = "crate::fuel_query::nearby_cost(limit, child_complexity)")]
     async fn fuel_nearby(
         &self,
@@ -658,6 +663,12 @@ impl QueryRoot {
     /// the detour's fuel in it. One per request, like `route`, and counted
     /// in its own quota (`RATE_LIMITED` when spent). A detour the engine
     /// could not measure in time is estimated (`detour.measured` false).
+    /// The server drops the line's ends before any use: the search runs
+    /// along the line from where it first gets 2 km away from its first
+    /// point to where it is last 2 km away from its last point (none when
+    /// nothing is left), so neither end is read; a station within half
+    /// `maxDetourKm` of what is left may still lie near an end. `alongKm`
+    /// and `routeKm` still count from the line's first point.
     #[graphql(complexity = "crate::fuel_query::along_cost(input.limit, child_complexity)")]
     async fn fuel_along_route(
         &self,
@@ -678,7 +689,9 @@ impl QueryRoot {
     /// point `at` (give one), nearest first, with their distance; open or
     /// closed alike (`openNow` says which). Within `radiusM` (20 km at
     /// most), or the category's default (`poiCategories`); `perCategory`
-    /// points each (1 by default, 10 at most); `kinds` narrows them.
+    /// points each (1 by default, 10 at most); `kinds` narrows them. `at`
+    /// is rounded by the server to the nearest 0.05 degree (about 5 km)
+    /// before any use, and the distances are measured from that point.
     #[graphql(
         complexity = "poi_query::nearby_cost(per_category, categories.as_ref(), child_complexity)"
     )]
@@ -712,7 +725,8 @@ impl QueryRoot {
 
     /// Searches the names and brands of the points of interest, without
     /// accents, typos tolerated; among equal matches the nearest to `near`
-    /// first. `categories` narrows them.
+    /// first, `near` rounded by the server to the nearest 0.05 degree
+    /// (about 5 km) before any use. `categories` narrows them.
     #[graphql(complexity = "cost(first, 20, child_complexity)")]
     async fn search_pois(
         &self,

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM confirmation_tallies WHERE place_id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bb7d641c090abb8cb77bf3a2b69c8337ee4b065ec5efb5f1ec652cc367fce73b"
+}

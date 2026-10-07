@@ -2837,7 +2837,6 @@ async fn a_place_added_on_a_spot_taken_down_waits_for_a_moderator(pool: PgPool) 
         &lunaway_db::takedown_journal::TakedownJournal::new(journal.path()),
         lunaway_conflate::takedown::Request {
             place: port,
-            reason: "private home, ticket 3",
             code: TakedownCode::PrivateHome,
             with_nearby: false,
         },
@@ -2902,4 +2901,102 @@ async fn a_place_added_on_a_spot_taken_down_waits_for_a_moderator(pool: PgPool) 
     let s = gql(&app, Some(&author), mine, json!({})).await;
     let place = &ok(&s)["myAccount"]["placeSubmissions"]["nodes"][0]["placeId"];
     assert!(place.is_string(), "released, the place goes live: {s}");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_banned_account_may_delete_itself_and_its_key_opens_nothing_after(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let phone = Device::new(5);
+    let (token, id) = sign_in(&app, &phone).await;
+    let made = gql(
+        &app,
+        Some(&token),
+        "mutation { createRecoveryCode { code } }",
+        json!({}),
+    )
+    .await;
+    let code_text = ok(&made)["createRecoveryCode"]["code"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    lunaway_db::accounts::ban(&pool, id, "spam, ticket 4")
+        .await
+        .unwrap()
+        .unwrap();
+
+    let deleted = gql(
+        &app,
+        None,
+        "mutation($code: String!) { deleteAccountWithRecoveryCode(code: $code) }",
+        json!({"code": code_text}),
+    )
+    .await;
+    assert_eq!(
+        ok(&deleted)["deleteAccountWithRecoveryCode"],
+        true,
+        "a banned account may erase itself"
+    );
+    let left = sqlx::query!(
+        r#"SELECT (SELECT count(*) FROM accounts) AS "accounts!",
+                  (SELECT count(*) FROM banned_keys) AS "keys!""#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!((left.accounts, left.keys), (0, 1));
+
+    for create in [true, false] {
+        let (nonce, message) = challenge(&app).await;
+        let again = gql(
+            &app,
+            None,
+            "mutation($jwk: String!, $nonce: String!, $sig: String!, $create: Boolean!) {
+              signIn(publicKeyJwk: $jwk, nonce: $nonce, signature: $sig,
+                     createIfUnknown: $create) { created }
+            }",
+            json!({"jwk": phone.jwk(), "nonce": nonce, "sig": phone.sign(&message),
+                   "create": create}),
+        )
+        .await;
+        assert_eq!(
+            code(&again),
+            "FORBIDDEN",
+            "the same key does not open a new account (createIfUnknown {create})"
+        );
+    }
+    let accounts: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM accounts"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(accounts, 0);
+    let (other_token, other) = sign_in(&app, &Device::new(6)).await;
+    assert_ne!(other, id, "another key is another account");
+
+    // Nor does it join another account through a recovery code.
+    let made = gql(
+        &app,
+        Some(&other_token),
+        "mutation { createRecoveryCode { code } }",
+        json!({}),
+    )
+    .await;
+    let other_code = ok(&made)["createRecoveryCode"]["code"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (nonce, message) = challenge(&app).await;
+    let joined = gql(
+        &app,
+        None,
+        "mutation($code: String!, $jwk: String!, $nonce: String!, $sig: String!) {
+          recoverAccount(code: $code, publicKeyJwk: $jwk, nonce: $nonce, signature: $sig) {
+            token
+          }
+        }",
+        json!({"code": other_code, "jwk": phone.jwk(), "nonce": nonce,
+               "sig": phone.sign(&message)}),
+    )
+    .await;
+    assert_eq!(code(&joined), "FORBIDDEN");
 }

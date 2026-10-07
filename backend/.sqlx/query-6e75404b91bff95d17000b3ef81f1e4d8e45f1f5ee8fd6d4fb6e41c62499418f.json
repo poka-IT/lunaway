@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT key_hash FROM banned_keys",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key_hash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "banned_keys",
+            "name": "key_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6e75404b91bff95d17000b3ef81f1e4d8e45f1f5ee8fd6d4fb6e41c62499418f"
+}

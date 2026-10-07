@@ -13,7 +13,7 @@
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
-//! lunaway conflate --take-down <place> --reason TEXT [--reason-code CODE] [--with-nearby] [--yes]
+//! lunaway conflate --take-down <place> --reason-code CODE [--with-nearby] [--yes]
 //! lunaway takedowns import < FILE
 //! lunaway takedowns replay [--dry-run] [--allow-empty]
 //! lunaway stats
@@ -33,6 +33,7 @@
 //! lunaway accounts find <pseudonym>
 //! lunaway accounts delete <account-id> [--yes]
 //! lunaway accounts replay-deletions [--dry-run]
+//! lunaway retention
 //! lunaway routing fetch-ign [--refresh]
 //! lunaway routing prepare --pbf FILE --out DIR --graph-id ID --engine TEXT [--no-ign]
 //! lunaway routing test-routes --url http://127.0.0.1:8002 --cases FILE
@@ -48,8 +49,9 @@
 //! ```
 //!
 //! The imports and the conflation run with the import role
-//! (`lunaway_ingest`); `moderation` and `accounts` write accounts and
-//! contributions, so they run with the API's role (`lunaway_app`), whose
+//! (`lunaway_ingest`); `moderation`, `accounts` and `retention` write
+//! accounts and contributions, so they run with the API's role
+//! (`lunaway_app`), whose
 //! `DATABASE_URL` the API uses, and remove photo files under
 //! `LUNAWAY_MEDIA_DIR` like the API, so they run as the API's user.
 //! `accounts delete` writes the deletion to the journal under
@@ -162,16 +164,16 @@ enum Command {
         /// change feed tells every device. Then `moderation take-down`
         /// deletes its community content, and the region's pack is built
         /// again (both printed). Without `--yes`, prints what it touches.
-        #[arg(long, value_name = "PLACE", conflicts_with_all = ["full", "watch"], requires = "reason")]
+        #[arg(long, value_name = "PLACE", conflicts_with_all = ["full", "watch"], requires = "reason_code")]
         take_down: Option<Uuid>,
-        /// Why, logged with the takedown in the database: the kind of
-        /// request and its reference, never the requester's personal data.
-        #[arg(long, requires = "take_down")]
+        /// Accepted and ignored, for the scripts written before the codes:
+        /// no text of a request is stored, it could name the requester.
+        #[arg(long, requires = "take_down", hide = true)]
         reason: Option<String>,
-        /// The kind of request, the only word of it the journal outside the
-        /// database keeps: private-home, gdpr, court-order or other.
-        #[arg(long, requires = "take_down", default_value = "other")]
-        reason_code: lunaway_domain::takedown::TakedownCode,
+        /// The kind of request, all the database and the journal outside it
+        /// keep: private-home, gdpr, court-order or other.
+        #[arg(long, requires = "take_down")]
+        reason_code: Option<lunaway_domain::takedown::TakedownCode>,
         /// Takes it down for real.
         #[arg(long, requires = "take_down")]
         yes: bool,
@@ -210,6 +212,10 @@ enum Command {
         #[command(subcommand)]
         action: Accounts,
     },
+    /// Applies the durations the privacy page states to the contribution
+    /// tables (`lunaway_db::retention`), with the API's database role:
+    /// daily, from a timer.
+    Retention,
     /// The routing graph: its build steps and its publication.
     Routing {
         #[command(subcommand)]
@@ -1062,6 +1068,13 @@ async fn main() -> anyhow::Result<()> {
             with_nearby,
             ..
         } => {
+            if reason.is_some() {
+                // Never echoed: the text is what must not be kept.
+                eprintln!("--reason is ignored: only --reason-code is stored");
+            }
+            let code = reason_code.context(
+                "--take-down needs --reason-code: private-home, gdpr, court-order or other",
+            )?;
             let journal = journal_dir(cli.takedown_journal)
                 .map(lunaway_db::takedown_journal::TakedownJournal::new);
             take_down(
@@ -1069,8 +1082,7 @@ async fn main() -> anyhow::Result<()> {
                 journal.as_ref(),
                 lunaway_conflate::takedown::Request {
                     place,
-                    reason: reason.as_deref().unwrap_or_default(),
-                    code: reason_code,
+                    code,
                     with_nearby,
                 },
                 yes,
@@ -1269,6 +1281,19 @@ async fn main() -> anyhow::Result<()> {
             let journal =
                 journal_dir(cli.deletion_journal).map(lunaway_db::deletions::DeletionJournal::new);
             accounts(&pool, &media, journal.as_ref(), action).await?;
+        }
+        Command::Retention => {
+            let s = lunaway_db::retention::sweep(&pool, chrono::Utc::now()).await?;
+            println!(
+                "retention: {} issue reports, {} content reports, {} moderation entries, \
+                 {} confirmations deleted; {} submissions emptied; {} banned key hashes deleted",
+                s.issue_reports,
+                s.content_reports,
+                s.moderation_entries,
+                s.confirmations,
+                s.submission_payloads,
+                s.banned_keys
+            );
         }
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Enforcement { action } => enforcement(&pool, action).await?,
@@ -1941,15 +1966,10 @@ fn takedown_key_required() -> anyhow::Result<lunaway_domain::takedown::TakedownK
 async fn take_down(
     pool: &lunaway_db::PgPool,
     journal: Option<&lunaway_db::takedown_journal::TakedownJournal>,
-    request: lunaway_conflate::takedown::Request<'_>,
+    request: lunaway_conflate::takedown::Request,
     yes: bool,
 ) -> anyhow::Result<()> {
     use lunaway_db::takedowns::{self, TakeDown};
-    let reason = request.reason.trim();
-    anyhow::ensure!(
-        !reason.is_empty() && reason.chars().count() <= 500,
-        "--reason takes 1 to 500 characters"
-    );
     let place = request.place;
     let Some(p) = takedowns::preview(pool, place).await? else {
         anyhow::bail!("no place {place}");
@@ -1968,7 +1988,7 @@ async fn take_down(
         pool,
         &key,
         journal,
-        lunaway_conflate::takedown::Request { reason, ..request },
+        request,
         chrono::Utc::now(),
     )
     .await?

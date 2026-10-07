@@ -89,6 +89,123 @@ impl Position {
         // `min` guards asin against a rounding error just above 1.
         2.0 * EARTH_RADIUS_M * h.sqrt().min(1.0).asin()
     }
+
+    /// The nearest node of the [`COARSE_GRID_DEG`] grid: what the API keeps
+    /// of a position a client sends for a search around it, so the promise
+    /// "about 5 km" holds whatever the client rounded.
+    #[must_use]
+    pub fn coarsened(self) -> Self {
+        // A multiple of the step within [-90, 90] and [-180, 180] stays in
+        // range: the extremes are multiples themselves.
+        let snap = |v: f64| (v * COARSE_STEPS_PER_DEG).round() / COARSE_STEPS_PER_DEG;
+        Self {
+            lat: snap(self.lat),
+            lon: snap(self.lon),
+        }
+    }
+}
+
+/// The step of the grid searches are anchored on, degrees: 0.05, about
+/// 5.6 km of latitude and 3.9 km of longitude at 45° N. The app rounds to
+/// the same grid before it sends (`searchAnchor`, `fuel_feed_providers`).
+pub const COARSE_GRID_DEG: f64 = 0.05;
+
+/// Nodes of the grid per degree: rounding `v * 20` is exact where rounding
+/// `v / 0.05` is not (0.05 has no exact binary form).
+const COARSE_STEPS_PER_DEG: f64 = 20.0;
+
+/// A line with its two ends cut away, and how far along the original line
+/// it starts.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrimmedLine {
+    /// What is left, from the first cut to the second.
+    pub points: Vec<Position>,
+    /// Metres along the original line before the first point left.
+    pub head_m: f64,
+    /// Length of the original line, metres.
+    pub total_m: f64,
+}
+
+/// `line` without its ends: it starts where it first gets `radius_m` away
+/// (straight line) from its first point, and ends where it last was
+/// `radius_m` away from its last point. A route's ends are where the
+/// device is and where it goes: the part of the line that leads out of
+/// either circle goes, at least `radius_m` of line at each end (a route
+/// that comes back near its start later keeps that later part). `None`
+/// when nothing is left: the line never leaves a circle, or the two cuts
+/// cross.
+#[must_use]
+pub fn trim_ends(line: &[Position], radius_m: f64) -> Option<TrimmedLine> {
+    let (first, last) = (*line.first()?, *line.last()?);
+    let total_m: f64 = line.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+    // Half a metre past the circle: a cut point written with six decimals
+    // (0.11 m at most) for the routing engine stays outside it.
+    let radius_m = radius_m + 0.5;
+    let (head_seg, head_t, head_at) = leave_circle(line.iter().copied(), first, radius_m)?;
+    let reversed = line.iter().rev().copied();
+    let (tail_rseg, tail_rt, tail_at) = leave_circle(reversed, last, radius_m)?;
+    // In the forward direction, the tail's cut lies on segment `tail_seg`
+    // (from point `tail_seg` to `tail_seg + 1`) at `1 - tail_rt`.
+    let tail_seg = line.len() - 2 - tail_rseg;
+    let tail_t = 1.0 - tail_rt;
+    if (head_seg, head_t) >= (tail_seg, tail_t) {
+        return None;
+    }
+    let head_m = line[..=head_seg]
+        .windows(2)
+        .map(|w| w[0].distance_m(w[1]))
+        .sum::<f64>()
+        + line[head_seg].distance_m(head_at);
+    let mut points = Vec::with_capacity(tail_seg - head_seg + 2);
+    points.push(head_at);
+    points.extend_from_slice(&line[head_seg + 1..=tail_seg]);
+    points.push(tail_at);
+    Some(TrimmedLine {
+        points,
+        head_m,
+        total_m,
+    })
+}
+
+/// Where the line `points` first leaves the circle of `radius_m` around
+/// `centre`: the segment (its first point's index), the fraction along it,
+/// and the point, at least `radius_m` from `centre`.
+fn leave_circle(
+    points: impl Iterator<Item = Position>,
+    centre: Position,
+    radius_m: f64,
+) -> Option<(usize, f64, Position)> {
+    let mut prev: Option<Position> = None;
+    for (i, p) in points.enumerate() {
+        if let Some(a) = prev
+            && p.distance_m(centre) >= radius_m
+        {
+            // `a` is inside, `p` outside: bisect for the crossing, keeping
+            // the outer end so the cut is never inside the circle.
+            let (mut lo, mut hi) = (0.0_f64, 1.0_f64);
+            for _ in 0..40 {
+                let mid = f64::midpoint(lo, hi);
+                if lerp(a, p, mid).distance_m(centre) >= radius_m {
+                    hi = mid;
+                } else {
+                    lo = mid;
+                }
+            }
+            return Some((i - 1, hi, lerp(a, p, hi)));
+        }
+        prev = Some(p);
+    }
+    None
+}
+
+/// The point at fraction `t` of the way from `a` to `b`, in degrees: on
+/// the segments of a route, a few kilometres long at most, the difference
+/// with the great circle is far below a metre.
+fn lerp(a: Position, b: Position, t: f64) -> Position {
+    Position {
+        lat: a.lat + (b.lat - a.lat) * t,
+        lon: a.lon + (b.lon - a.lon) * t,
+    }
 }
 
 /// A latitude/longitude rectangle, south-west to north-east. It never crosses
@@ -228,6 +345,94 @@ mod tests {
 
     fn position() -> impl Strategy<Value = Position> {
         (-90.0..=90.0f64, -180.0..=180.0f64).prop_map(|(lat, lon)| Position::new(lat, lon).unwrap())
+    }
+
+    #[test]
+    fn a_position_snaps_to_the_grid_the_app_uses() {
+        let p = Position::new(45.123_456, 4.876_543).unwrap().coarsened();
+        assert_eq!((p.lat(), p.lon()), (45.1, 4.9));
+        let again = p.coarsened();
+        assert_eq!(
+            again, p,
+            "a position the app already rounded must reach the server unchanged"
+        );
+        let edge = Position::new(-90.0, 180.0).unwrap().coarsened();
+        assert_eq!((edge.lat(), edge.lon()), (-90.0, 180.0));
+        let half = Position::new(0.025, -0.025).unwrap().coarsened();
+        assert_eq!(
+            (half.lat(), half.lon()),
+            (0.05, -0.05),
+            "half a step rounds away from zero, as Dart's round() does"
+        );
+    }
+
+    /// A line north from (45, 3), one point every 100 m, `km` long.
+    fn north_line(km: u32) -> Vec<Position> {
+        (0..=km * 10)
+            .map(|i| Position::new(45.0 + f64::from(i) * 0.000_899_3, 3.0).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn a_line_loses_two_kilometres_at_each_end() {
+        let line = north_line(10);
+        let t = trim_ends(&line, 2_000.0).unwrap();
+        let (first, last) = (line[0], line[line.len() - 1]);
+        for p in &t.points {
+            assert!(
+                p.distance_m(first) >= 2_000.0 && p.distance_m(last) >= 2_000.0,
+                "no point of the line sent may lie within 2 km of either end: {p:?}"
+            );
+        }
+        assert!(
+            t.points[0].distance_m(first) < 2_001.0,
+            "the cut is where the line leaves the circle, not a segment later"
+        );
+        assert!((t.head_m - 2_000.0).abs() < 1.0, "head {}", t.head_m);
+        assert!((t.total_m - 10_000.0).abs() < 10.0, "total {}", t.total_m);
+    }
+
+    #[test]
+    fn a_long_segment_is_cut_inside_it() {
+        let line = [
+            Position::new(45.0, 3.0).unwrap(),
+            Position::new(45.1, 3.0).unwrap(),
+        ];
+        let t = trim_ends(&line, 2_000.0).unwrap();
+        assert_eq!(t.points.len(), 2);
+        assert!((t.points[0].distance_m(line[0]) - 2_000.0).abs() < 1.0);
+        assert!((t.points[1].distance_m(line[1]) - 2_000.0).abs() < 1.0);
+        assert!(t.points[0].distance_m(line[0]) >= 2_000.0);
+    }
+
+    #[test]
+    fn a_line_too_short_keeps_nothing() {
+        assert_eq!(trim_ends(&north_line(4)[..39], 2_000.0), None);
+        assert_eq!(
+            trim_ends(&[Position::new(45.0, 3.0).unwrap()], 2_000.0),
+            None
+        );
+    }
+
+    proptest! {
+        #[test]
+        fn trimmed_ends_are_never_near_the_true_ends(
+            start in (44.0..46.0f64, 2.0..4.0f64),
+            steps in prop::collection::vec((-0.02..0.02f64, -0.02..0.02f64), 1..60),
+        ) {
+            let mut line = vec![Position::new(start.0, start.1).unwrap()];
+            for (dlat, dlon) in steps {
+                let p = line[line.len() - 1];
+                line.push(Position::new(p.lat() + dlat, p.lon() + dlon).unwrap());
+            }
+            if let Some(t) = trim_ends(&line, 2_000.0) {
+                let (first, last) = (line[0], line[line.len() - 1]);
+                prop_assert!(t.points.len() >= 2);
+                prop_assert!(t.points[0].distance_m(first) >= 2_000.0);
+                prop_assert!(t.points[t.points.len() - 1].distance_m(last) >= 2_000.0);
+                prop_assert!(t.head_m >= 2_000.0 && t.head_m <= t.total_m);
+            }
+        }
     }
 
     proptest! {

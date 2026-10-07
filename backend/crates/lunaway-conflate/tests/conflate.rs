@@ -10,7 +10,10 @@
 use chrono::{TimeZone, Utc};
 use lunaway_conflate::{RunStats, run};
 use lunaway_db::{PgPool, places, records};
-use lunaway_domain::{NormalizedRecord, PlaceKind, Position, SourceId, conflation::ConstraintKind};
+use lunaway_domain::{
+    NormalizedRecord, PlaceKind, Position, SourceId, conflation::ConstraintKind,
+    takedown::TakedownCode,
+};
 use lunaway_ingest::{FetchedRecord, atout_france, geocode, osm, store::store_complete};
 use uuid::Uuid;
 
@@ -25,6 +28,10 @@ const BAN_ANSWER: &[u8] =
 // restore. Kept under tests/conflate/, where cargo makes no binary of it.
 #[path = "conflate/takedown_zone.rs"]
 mod takedown_zone;
+
+// The confirmations that age out leave the summary as it was.
+#[path = "conflate/retention.rs"]
+mod retention;
 
 /// The takedown secret of the tests.
 fn test_key() -> lunaway_domain::takedown::TakedownKey {
@@ -1699,7 +1706,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     .unwrap();
     let mut tx = begin_writer(&ingest).await.unwrap();
     assert_eq!(
-        takedowns::take_down(&mut tx, heir, "court order 2026-123", false, &test_key())
+        takedowns::take_down(&mut tx, heir, TakedownCode::CourtOrder, false, &test_key())
             .await
             .unwrap(),
         takedowns::TakeDown::Unconflated(1),
@@ -1733,7 +1740,8 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         "the community's step waits for the catalogue's"
     );
     let mut as_api = begin_writer(&app).await.unwrap();
-    let refused = takedowns::take_down(&mut as_api, heir, "forged", false, &test_key()).await;
+    let refused =
+        takedowns::take_down(&mut as_api, heir, TakedownCode::Other, false, &test_key()).await;
     assert!(
         matches!(&refused, Err(lunaway_db::DbError::Query(e))
             if e.as_database_error().and_then(|d| d.code()).as_deref() == Some("42501")),
@@ -1745,7 +1753,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     let takedowns::TakeDown::Done(done) = takedowns::take_down(
         &mut tx,
         absorbed,
-        "court order 2026-123",
+        TakedownCode::CourtOrder,
         false,
         &test_key(),
     )
@@ -1887,7 +1895,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         "the devices keeping {region} drop it: {in_region:?}"
     );
 
-    // Again: the first reason and date stay, nothing else changes.
+    // Again: the first code and date stay, nothing else changes.
     let first_at: chrono::DateTime<Utc> =
         sqlx::query_scalar!("SELECT taken_down_at FROM places WHERE id = $1", heir)
             .fetch_one(&pool)
@@ -1895,7 +1903,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             .unwrap()
             .unwrap();
     let mut tx = begin_writer(&ingest).await.unwrap();
-    takedowns::take_down(&mut tx, heir, "second request", false, &test_key())
+    takedowns::take_down(&mut tx, heir, TakedownCode::Gdpr, false, &test_key())
         .await
         .unwrap();
     tx.commit().await.unwrap();
@@ -1904,7 +1912,10 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
         .await
         .unwrap();
     assert_eq!(logged.len(), 1);
-    assert_eq!(logged[0].reason, "court order 2026-123");
+    assert_eq!(
+        logged[0].reason, "court-order",
+        "the kind of request is kept, as its code: no text that could name the requester"
+    );
     let again_at: Option<chrono::DateTime<Utc>> =
         sqlx::query_scalar!("SELECT taken_down_at FROM places WHERE id = $1", heir)
             .fetch_one(&pool)

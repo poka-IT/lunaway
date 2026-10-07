@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_reports c\n        WHERE coalesce(c.dismissed_at, (\n                  SELECT min(q.decided_at) FROM moderation_queue q\n                  WHERE q.kind = 'reported_content' AND q.target_type = c.target_type\n                    AND q.target_id = c.target_id AND q.status <> 'open'\n                    AND q.decided_at >= c.created_at)) < $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2fa89fa34f6d1092f1b78006665b6fb015710b6b68a89e8047e112678cb68dcb"
+}

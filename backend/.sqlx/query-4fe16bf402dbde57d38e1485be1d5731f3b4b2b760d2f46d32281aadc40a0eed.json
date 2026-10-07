@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE confirmations SET created_at = now() + interval '5 days' WHERE id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4fe16bf402dbde57d38e1485be1d5731f3b4b2b760d2f46d32281aadc40a0eed"
+}

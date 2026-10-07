@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM banned_keys WHERE deleted_at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7d1c93c2525b3d1c96fd9fc9cbf3d6ef49fb8aa6a8d2bbde66a7ac0bf90710b8"
+}

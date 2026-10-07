@@ -68,6 +68,22 @@ pub struct DeviceKey {
     pub banned: bool,
 }
 
+/// Whether the device key `public_key` (SEC1, uncompressed) belonged to a
+/// banned account that deleted itself: it may not open an account again
+/// while its record lasts.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn key_banned(pool: &PgPool, public_key: &[u8]) -> Result<bool, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM banned_keys WHERE key_hash = sha256($1)) AS "banned!""#,
+        public_key
+    )
+    .fetch_one(pool)
+    .await?)
+}
+
 /// The device key with this thumbprint.
 ///
 /// # Errors
@@ -439,6 +455,9 @@ pub struct TrustInputs {
 ///
 /// [`DbError`] when the query fails; `Ok(None)` when the account is gone.
 pub async fn trust_inputs(pool: &PgPool, account: Uuid) -> Result<Option<TrustInputs>, DbError> {
+    // `archived_confirmations` holds the places whose answers aged out
+    // (`retention`): a place the account confirms again two years later
+    // counts twice, a gain too slow to be worth a record of which places.
     let row = sqlx::query!(
         r#"
         SELECT
@@ -446,13 +465,14 @@ pub async fn trust_inputs(pool: &PgPool, account: Uuid) -> Result<Option<TrustIn
             a.active_days::int8 AS "active_days!",
             a.granted_level,
             (SELECT count(DISTINCT c.place_id) FROM confirmations c
-             WHERE c.account_id = a.id) AS "confirmations!",
+             WHERE c.account_id = a.id) + a.archived_confirmations AS "confirmations!",
             (SELECT count(DISTINCT r.place_id) FROM reviews r
              WHERE r.account_id = a.id AND r.status = 'published' AND r.withdrawn_at IS NULL)
               + (SELECT count(DISTINCT p.place_id) FROM photos p
                  WHERE p.account_id = a.id AND p.status = 'published'
                    AND p.withdrawn_at IS NULL)
               + (SELECT count(DISTINCT c.place_id) FROM confirmations c WHERE c.account_id = a.id)
+              + a.archived_confirmations
               + (SELECT count(DISTINCT s.place_id) FROM place_submissions s
                  WHERE s.account_id = a.id AND s.status = 'applied') AS "contributions!",
             a.moderation_removals::int8 AS "removals!",
@@ -638,11 +658,30 @@ pub async fn delete_account(
     account: Uuid,
 ) -> Result<Option<DeletedAccount>, DbError> {
     let mut tx = pool.begin().await?;
-    let exists = sqlx::query_scalar!("SELECT id FROM accounts WHERE id = $1 FOR UPDATE", account)
-        .fetch_optional(&mut *tx)
-        .await?;
-    if exists.is_none() {
+    let found = sqlx::query_scalar!(
+        "SELECT banned_at FROM accounts WHERE id = $1 FOR UPDATE",
+        account
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(banned_at) = found else {
         return Ok(None);
+    };
+    // A banned account may erase itself, but its keys must not open a new
+    // account at once: their hashes stay, without the account, its reason
+    // or anything it wrote (`retention::BANNED_KEY_DAYS`).
+    if let Some(banned_at) = banned_at {
+        sqlx::query!(
+            r#"
+            INSERT INTO banned_keys (key_hash, banned_at)
+            SELECT sha256(public_key), $2 FROM device_keys WHERE account_id = $1
+            ON CONFLICT (key_hash) DO NOTHING
+            "#,
+            account,
+            banned_at,
+        )
+        .execute(&mut *tx)
+        .await?;
     }
     // Every place whose summary may change, before the rows go.
     sqlx::query!(
@@ -699,12 +738,32 @@ pub async fn delete_account(
     )
     .fetch_all(&mut *tx)
     .await?;
-    sqlx::query!(
-        "UPDATE confirmations SET account_id = NULL, note = NULL WHERE account_id = $1",
-        account
-    )
-    .execute(&mut *tx)
-    .await?;
+    if banned_at.is_some() {
+        // A ban took its answers out of every summary; kept without author
+        // they would count again, so they go. The points it added stay
+        // hidden, which its ban did until now.
+        sqlx::query!("DELETE FROM confirmations WHERE account_id = $1", account)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query!(
+            r#"
+            INSERT INTO poi_moderation (poi_id, note)
+            SELECT DISTINCT poi_id, 'added by a banned account, deleted since'
+            FROM place_submissions WHERE account_id = $1 AND poi_id IS NOT NULL
+            ON CONFLICT DO NOTHING
+            "#,
+            account
+        )
+        .execute(&mut *tx)
+        .await?;
+    } else {
+        sqlx::query!(
+            "UPDATE confirmations SET account_id = NULL, note = NULL WHERE account_id = $1",
+            account
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
     // Issue reports go with the account: kept without author they could no
     // longer be counted once per account, and an account deleted after
     // fifty reports would leave fifty on the card.
@@ -717,8 +776,19 @@ pub async fn delete_account(
     )
     .fetch_all(&mut *tx)
     .await?;
+    // What never became part of the places database goes with its author:
+    // an accepted one is withdrawn before the worker applies it, and no
+    // refused or withdrawn one keeps its content (a new place's position
+    // above all). An applied one is ODbL data now and stays, unsigned.
     sqlx::query!(
-        "UPDATE place_submissions SET account_id = NULL, device_key_id = NULL WHERE account_id = $1",
+        r#"
+        UPDATE place_submissions SET
+            status = CASE WHEN status = 'accepted' THEN 'withdrawn' ELSE status END,
+            decided_at = CASE WHEN status = 'accepted' THEN now() ELSE decided_at END,
+            payload = CASE WHEN status = 'applied' THEN payload ELSE '{}'::jsonb END,
+            account_id = NULL, device_key_id = NULL
+        WHERE account_id = $1
+        "#,
         account
     )
     .execute(&mut *tx)
@@ -754,11 +824,12 @@ pub async fn delete_account(
     }))
 }
 
-/// Bans `account`: its sessions end, it cannot sign in again, its
-/// published reviews and photos are removed (the files of those photos are
-/// returned for removal), its issue reports are dismissed, and its plain
-/// ratings and confirmations stop counting (the summary leaves banned
-/// accounts out). `None` when the account does not exist.
+/// Bans `account`: its sessions end, it cannot sign in again, the texts of
+/// its reviews are deleted (each stays a rating without text), its photos
+/// are removed (the files of those photos are returned for removal), its
+/// issue reports are dismissed, and its ratings and confirmations stop
+/// counting (the summary leaves banned accounts out). `None` when the
+/// account does not exist.
 ///
 /// # Errors
 ///
@@ -782,10 +853,13 @@ pub async fn ban(
     sqlx::query!("DELETE FROM sessions WHERE account_id = $1", account)
         .execute(&mut *tx)
         .await?;
+    // The texts go, the ratings stay as ratings without text: the summary
+    // leaves a banned account's ratings out, and a text kept "removed"
+    // would still be stored.
     sqlx::query!(
         r#"
-        UPDATE reviews SET status = 'removed', updated_at = now()
-        WHERE account_id = $1 AND body IS NOT NULL AND status <> 'removed'
+        UPDATE reviews SET body = NULL, lang = NULL, updated_at = now()
+        WHERE account_id = $1 AND body IS NOT NULL
         "#,
         account
     )

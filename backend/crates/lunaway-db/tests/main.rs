@@ -10,6 +10,7 @@ mod migrations_on_data;
 mod places;
 mod pois;
 mod regions;
+mod retention;
 mod road_events;
 mod routing;
 mod schema_and_records;

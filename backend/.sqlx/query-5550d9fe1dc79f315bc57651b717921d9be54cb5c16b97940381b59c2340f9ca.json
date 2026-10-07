@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT body, lang, stars FROM reviews WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "lang"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "stars",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "stars"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5550d9fe1dc79f315bc57651b717921d9be54cb5c16b97940381b59c2340f9ca"
+}

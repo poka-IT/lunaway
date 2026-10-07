@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM moderation_queue\n        WHERE status <> 'open' AND coalesce(decided_at, created_at) < $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f0f471099c346468779c475e7eaca71b37cd74b682327b2ab10ee52b0e5e99a8"
+}

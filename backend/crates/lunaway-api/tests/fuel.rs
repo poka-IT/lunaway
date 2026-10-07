@@ -260,14 +260,21 @@ async fn stations_along_a_real_route_are_ranked_by_their_price_with_the_detour(p
     let r = &ok(&body)["fuelAlongRoute"];
 
     // The corridor: every station with a diesel price within 2.5 km of the
-    // line, by a scan of the line.
-    let line = polyline::decode(ROUTE.trim()).unwrap();
-    let in_band = rows
-        .iter()
-        .filter(|row| row["gazole_prix"].is_number())
-        .filter(|row| to_route(&line, position(row)) <= 2_500.0)
-        .count();
-    assert_eq!(r["candidates"], in_band);
+    // line the server keeps, by a scan of that line: the route without
+    // what leads out of 2 km around its start and its end.
+    let full = polyline::decode(ROUTE.trim()).unwrap();
+    let line = lunaway_domain::trim_ends(&full, 2_000.0).unwrap().points;
+    let in_band = |l: &[Position]| {
+        rows.iter()
+            .filter(|row| row["gazole_prix"].is_number())
+            .filter(|row| to_route(l, position(row)) <= 2_500.0)
+            .count()
+    };
+    assert_eq!(r["candidates"], in_band(&line));
+    assert!(
+        in_band(&line) < in_band(&full),
+        "the sample has stations near Limoges and Brive, which the search must not see"
+    );
     assert!((93.0..94.5).contains(&r["routeKm"].as_f64().unwrap()));
     assert_eq!(r["detoursMeasured"], true);
 
@@ -289,6 +296,10 @@ async fn stations_along_a_real_route_are_ranked_by_their_price_with_the_detour(p
         assert!(e >= last, "ranked by effective price");
         last = e;
         assert!(s["distanceM"].as_f64().unwrap() <= 2_500.0);
+        assert!(
+            s["alongKm"].as_f64().unwrap() >= 2.0,
+            "counted from the route's start, as the app reads it: {s}"
+        );
         assert_eq!(s["fuel"], "DIESEL");
         assert_eq!(s["sourceId"], "prix-carburants");
         assert!(s["address"]["city"].is_string());
@@ -313,6 +324,16 @@ async fn stations_along_a_real_route_are_ranked_by_their_price_with_the_detour(p
         assert!(sources[k].get("heading").is_none(), "a station has none");
         assert_eq!(sources[k], targets[0], "the stations are both");
         assert_eq!(m["verbose"], true);
+        let (start, end) = (full[0], full[full.len() - 1]);
+        for anchor in sources[..k].iter().chain(&targets[k..]).map(point) {
+            assert!(
+                anchor.distance_m(start) >= 2_000.0 && anchor.distance_m(end) >= 2_000.0,
+                "no point of the route within 2 km of its ends reaches the engine: {anchor:?} at \
+                 {} m and {} m",
+                anchor.distance_m(start),
+                anchor.distance_m(end)
+            );
+        }
         let all: Vec<Position> = sources.iter().chain(targets).map(point).collect();
         let widest = all
             .iter()
@@ -496,6 +517,14 @@ async fn fuel_near_a_point_lists_the_cheapest_first_with_its_trend(pool: PgPool)
     .await;
     let found = ok(&body)["fuelNearby"].as_array().unwrap().clone();
 
+    // The server searches from the point on the 0.05 degree grid, never
+    // from the one sent.
+    let grid = at.coarsened();
+    assert!(
+        grid.distance_m(at) > 1_000.0,
+        "the sample's point is off the grid"
+    );
+    let at = grid;
     // What the recorded feed says: within 4 km, the cheapest diesel first,
     // equal prices by distance, a station out of diesel last.
     let mut expected: Vec<(bool, f64, f64, String)> = rows
@@ -520,6 +549,15 @@ async fn fuel_near_a_point_lists_the_cheapest_first_with_its_trend(pool: PgPool)
         .collect();
     assert_eq!(got, expected);
     for s in &found {
+        let station = rows
+            .iter()
+            .find(|r| r["id"].as_i64().unwrap().to_string() == s["stationId"].as_str().unwrap())
+            .unwrap();
+        assert!(
+            (s["distanceM"].as_f64().unwrap() - position(station).distance_m(at)).abs()
+                < 2.0 + position(station).distance_m(at) * 0.005,
+            "the distance is measured from the grid's point: {s}"
+        );
         assert_eq!(
             s["effectivePriceEur"], s["priceEur"],
             "no detour near a point"
@@ -605,4 +643,43 @@ async fn a_station_openstreetmap_names_shows_its_name_hours_and_trend(pool: PgPo
     let fuel = &ok(&body)["poi"]["fuel"];
     assert_eq!(fuel["priceTrend"]["days"], json!([{"lowEur": 2.25}]));
     assert!(fuel["lpgTrend"].is_null(), "no LPG day seen");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_route_within_its_two_cut_ends_searches_nothing(pool: PgPool) {
+    let rows = seed(&pool).await;
+    let (url, asked) = engine(None).await;
+    let api = app_with(&pool, Some(&url), None);
+    // The last 3.5 km of the route, into Brive: once what leads out of
+    // 2 km around each end goes, nothing is left.
+    let full = polyline::decode(ROUTE.trim()).unwrap();
+    let mut short = vec![full[full.len() - 1]];
+    for p in full.iter().rev().skip(1) {
+        let along: f64 = short.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        if along >= 3_500.0 {
+            break;
+        }
+        short.push(*p);
+    }
+    short.reverse();
+    let near = rows
+        .iter()
+        .filter(|row| row["gazole_prix"].is_number())
+        .filter(|row| to_route(&short, position(row)) <= 2_500.0)
+        .count();
+    assert!(
+        near > 0,
+        "stations lie along that stretch, and must not be offered"
+    );
+    let mut input = along_input(5.0, 5);
+    input["i"]["polyline"] = json!(polyline::encode(&short));
+    let body = gql(&api, &along_query(), input).await;
+    let r = &ok(&body)["fuelAlongRoute"];
+    assert_eq!(r["stations"], json!([]));
+    assert_eq!(r["candidates"], 0);
+    assert!((3.4..3.6).contains(&r["routeKm"].as_f64().unwrap()));
+    assert!(
+        asked.lock().unwrap().is_empty(),
+        "nothing goes to the engine"
+    );
 }

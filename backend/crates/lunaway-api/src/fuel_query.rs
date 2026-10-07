@@ -9,13 +9,14 @@ use async_graphql::{Context, Result};
 use chrono::{DateTime, Utc};
 use lunaway_db::fuel::{self as db, FuelStationRow, StationPoint};
 use lunaway_domain::{
-    BBox, Position,
+    BBox, Position, TrimmedLine,
     fuel::{
         Corridor, Detour, Located, MAX_LINE_SPAN_DEG, MAX_PRICE_AGE_DAYS, Refuel, line_span_deg,
         runs,
     },
     poi::{FuelKind, open_state},
     routing::polyline,
+    trim_ends,
 };
 use serde_json::{Value, json};
 
@@ -49,6 +50,9 @@ const MAX_INPUT_POINTS: usize = 1_000;
 const MAX_LINE_POINTS: usize = 20_000;
 /// Longest route, kilometres: the engine's own limit for a route.
 const MAX_ROUTE_KM: f64 = 2_500.0;
+/// How much of each end of the line the search drops, metres: the start
+/// is the device's position when a preview searches from it.
+pub(crate) const END_CUT_M: f64 = 2_000.0;
 /// Detours accepted, kilometres.
 const DETOUR_KM: RangeInclusive<f64> = 0.5..=30.0;
 /// Consumptions accepted, litres per 100 km.
@@ -176,7 +180,11 @@ pub(crate) async fn nearby(
     radius_km: f64,
     limit: i32,
 ) -> Result<Vec<FuelStop>> {
-    let at = Position::new(at.lat, at.lon).map_err(|e| invalid_input(format!("at: {e}")))?;
+    // Kept on the grid only, before anything reads it; the error names no
+    // coordinate.
+    let at = Position::new(at.lat, at.lon)
+        .map_err(|_| invalid_input("at: not a valid position"))?
+        .coarsened();
     if !(radius_km.is_finite() && radius_km > 0.0 && radius_km <= MAX_NEARBY_RADIUS_KM) {
         return Err(invalid_input(format!(
             "radiusKm must be above 0 and at most {MAX_NEARBY_RADIUS_KM}"
@@ -500,6 +508,23 @@ pub(crate) async fn along_route(
         .take(Action::FuelRoute, client)
         .map_err(|wait| quota_spent("fuel searches along a route", wait))?;
     let points = line_of(&input)?;
+    // The line's ends are where the device is and where it goes: they are
+    // cut before anything reads the line, and the search runs on the rest.
+    let Some(trimmed) = trim_ends(&points, END_CUT_M) else {
+        let route_m: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        return Ok(FuelAlongRoute {
+            stations: Vec::new(),
+            route_km: route_m / 1_000.0,
+            candidates: 0,
+            detours_measured: false,
+        });
+    };
+    drop(points);
+    let TrimmedLine {
+        points,
+        head_m,
+        total_m,
+    } = trimmed;
     let half_width_m = s.max_detour_km * 1_000.0 / 2.0;
     let corridor = Arc::new(
         tokio::task::spawn_blocking(move || Corridor::new(points, half_width_m))
@@ -560,13 +585,13 @@ pub(crate) async fn along_route(
                 s.fuel,
                 now,
                 c.located.offset_m,
-                Some((c.located.along_m, c.detour, s.refuel)),
+                Some((head_m + c.located.along_m, c.detour, s.refuel)),
             )
         })
         .collect();
     Ok(FuelAlongRoute {
         stations,
-        route_km: corridor.length_m() / 1_000.0,
+        route_km: total_m / 1_000.0,
         candidates: i32::try_from(found).unwrap_or(i32::MAX),
         detours_measured,
     })

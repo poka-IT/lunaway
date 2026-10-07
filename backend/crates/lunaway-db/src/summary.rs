@@ -236,15 +236,23 @@ pub async fn refresh(tx: &mut WriterTx, ids: &[Uuid]) -> Result<u64, DbError> {
                 FROM confirmations c LEFT JOIN accounts a ON a.id = c.account_id
                 WHERE c.place_id IN (SELECT id FROM family) AND a.banned_at IS NULL
             ),
+            -- What the confirmations deleted after two years gave
+            -- (`retention`): the accounts they counted have no answer left
+            -- here, so they add to those counted above.
+            tallied AS (
+                SELECT max(t.last_ok) AS last_ok, coalesce(sum(t.confirmers), 0) AS confirmers
+                FROM confirmation_tallies t WHERE t.place_id IN (SELECT id FROM family)
+            ),
             summary AS (
                 SELECT rated.avg, rated.n, rated.reviews,
                        (SELECT count(*)::int4 FROM shown) AS photo_n,
-                       cover.photos, issues.list, confirmed.last_ok,
+                       cover.photos, issues.list,
+                       greatest(confirmed.last_ok, tallied.last_ok) AS last_ok,
                        CASE WHEN EXISTS (SELECT 1 FROM records)
                                  AND NOT EXISTS (SELECT 1 FROM records WHERE source_id <> 'community')
-                                 AND confirmed.confirmers < $4
+                                 AND confirmed.confirmers + tallied.confirmers < $4
                             THEN 'to_verify' ELSE 'verified' END AS verification
-                FROM rated, cover, issues, confirmed
+                FROM rated, cover, issues, confirmed, tallied
             )
             UPDATE places p SET
                 rating_avg = s.avg, rating_count = s.n, review_count = s.reviews,

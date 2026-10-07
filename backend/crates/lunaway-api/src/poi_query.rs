@@ -124,9 +124,12 @@ pub(crate) async fn nearby(ctx: &Context<'_>, args: NearbyArgs) -> Result<Vec<Ne
                 .ok_or_else(|| not_found("place"))?
                 .position
         }
-        (None, Some(p)) => {
-            Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("at: {e}")))?
-        }
+        // A point the client chose is kept on the grid only: the server
+        // never holds where the device is (`Position::coarsened`). The
+        // error names no coordinate.
+        (None, Some(p)) => Position::new(p.lat, p.lon)
+            .map_err(|_| invalid_input("at: not a valid position"))?
+            .coarsened(),
         _ => return Err(invalid_input("give either placeId or at")),
     };
     let radii: Vec<f64> = cats
@@ -177,10 +180,11 @@ pub(crate) async fn search(
     if !(2..=100).contains(&text.chars().count()) {
         return Err(invalid_input("text must hold 2 to 100 characters"));
     }
+    // On the grid only; the error names no coordinate.
     let near = near
-        .map(|p| Position::new(p.lat, p.lon))
+        .map(|p| Position::new(p.lat, p.lon).map(Position::coarsened))
         .transpose()
-        .map_err(|e| invalid_input(format!("near: {e}")))?;
+        .map_err(|_| invalid_input("near: not a valid position"))?;
     let cats: Option<Vec<PoiCategory>> =
         categories.map(|c| c.into_iter().map(Into::into).collect());
     let (pool, _permit) = db(ctx).await?;
