@@ -707,7 +707,7 @@
       "voiceOn": "Turn the voice on",
       "voiceOff": "Turn the voice off",
       "overview": "Whole route",
-      "recenter": "Back to the vehicle",
+      "recenter": "Recenter",
       "end": "End",
       "endTitle": "End the guidance?",
       "endConfirm": "End",
@@ -734,7 +734,19 @@
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
       "enforcementSource": "$source, list of $date",
-      "demoDrive": "Simulated drive: a demonstration without GPS"
+      "demoDrive": "Simulated drive: a demonstration without GPS",
+      "places": {
+        "button": "Places on the map",
+        "buttonHidden": "Places on the map: hidden",
+        "title": "Places on the map",
+        "show": "Show places and services",
+        "which": "Which ones",
+        "mapFilters": "As on the map",
+        "mapFiltersHint": "The places of your filters, and the services of the chip chosen on the map.",
+        "nights": "Overnight spots",
+        "fuel": "Fuel",
+        "water": "Water and dump"
+      }
     },
     "voice": {
       "rerouting": "Recalculating.",

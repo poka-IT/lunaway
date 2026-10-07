@@ -158,7 +158,6 @@ final class GuidanceSession {
     this.ahead = const [],
     this.eventAlerts = const [],
     this.reroutes = 0,
-    this.overview = false,
     this.positionLost = false,
     this.stops = const [],
     this.moves = const StopMoves(),
@@ -184,9 +183,6 @@ final class GuidanceSession {
   final List<RoadEventFinding> eventAlerts;
 
   final int reroutes;
-
-  /// The whole route on the map instead of the vehicle.
-  final bool overview;
 
   /// The position stopped coming: location turned off, or its permission
   /// taken back. The next fix clears it.
@@ -225,7 +221,6 @@ final class GuidanceSession {
     List<WarningAhead>? ahead,
     List<RoadEventFinding>? eventAlerts,
     int? reroutes,
-    bool? overview,
     bool? positionLost,
     List<RouteStop>? stops,
     StopMoves? moves,
@@ -243,7 +238,6 @@ final class GuidanceSession {
     ahead: ahead ?? this.ahead,
     eventAlerts: eventAlerts ?? this.eventAlerts,
     reroutes: reroutes ?? this.reroutes,
-    overview: overview ?? this.overview,
     positionLost: positionLost ?? this.positionLost,
     stops: stops ?? this.stops,
     moves: moves ?? this.moves,
@@ -546,11 +540,6 @@ class GuidanceController extends _$GuidanceController {
     fromVehicle: true,
     stops: [for (final stop in stops ?? s.stops) stop.position],
   );
-
-  void setOverview({required bool on}) {
-    final s = state;
-    if (s != null) state = s.copyWith(overview: on);
-  }
 
   /// Opens the system's voice installer, then tries the voice again.
   Future<void> installVoices() async {

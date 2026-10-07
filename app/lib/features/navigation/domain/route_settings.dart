@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:meta/meta.dart';
 
@@ -86,6 +87,7 @@ final class NavigationSettings {
     this.units = DistanceUnits.metric,
     this.acceptedDisclaimer,
     this.legendSeen = false,
+    this.guidancePlaces = const GuidancePlaces(),
   });
 
   /// Unknown or corrupt values fall back to the defaults, never fatal: the
@@ -103,6 +105,7 @@ final class NavigationSettings {
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
         acceptedDisclaimer: accepted is String ? accepted : null,
         legendSeen: json['legendSeen'] == true,
+        guidancePlaces: GuidancePlaces.fromJson(json['guidancePlaces']),
       );
     } on FormatException {
       return const NavigationSettings();
@@ -122,18 +125,23 @@ final class NavigationSettings {
   /// The legend of the route map was shown open once: it now opens folded.
   final bool legendSeen;
 
+  /// The places and points the guidance map shows.
+  final GuidancePlaces guidancePlaces;
+
   NavigationSettings copyWith({
     AvoidOptions? avoid,
     bool? voice,
     DistanceUnits? units,
     String? acceptedDisclaimer,
     bool? legendSeen,
+    GuidancePlaces? guidancePlaces,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
     voice: voice ?? this.voice,
     units: units ?? this.units,
     acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
     legendSeen: legendSeen ?? this.legendSeen,
+    guidancePlaces: guidancePlaces ?? this.guidancePlaces,
   );
 
   String encode() => jsonEncode({
@@ -142,6 +150,7 @@ final class NavigationSettings {
     'units': units.name,
     'acceptedDisclaimer': ?acceptedDisclaimer,
     if (legendSeen) 'legendSeen': true,
+    if (guidancePlaces != const GuidancePlaces()) 'guidancePlaces': guidancePlaces.toJson(),
   });
 
   @override
@@ -151,10 +160,12 @@ final class NavigationSettings {
       other.voice == voice &&
       other.units == units &&
       other.acceptedDisclaimer == acceptedDisclaimer &&
-      other.legendSeen == legendSeen;
+      other.legendSeen == legendSeen &&
+      other.guidancePlaces == guidancePlaces;
 
   @override
-  int get hashCode => Object.hash(avoid, voice, units, acceptedDisclaimer, legendSeen);
+  int get hashCode =>
+      Object.hash(avoid, voice, units, acceptedDisclaimer, legendSeen, guidancePlaces);
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).

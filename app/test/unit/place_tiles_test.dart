@@ -8,79 +8,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
-/// Evaluates the part of the MapLibre expression language the places'
-/// filters use, with the engines' semantics: `get` of a missing property is
-/// null, `==` of values of different types is false, `>=` on a null fails
-/// the feature (an error in a filter keeps nothing), `match` compares its
-/// input with each label or list of labels.
-Object? _eval(Object? expr, Map<String, Object> properties) {
-  if (expr is! List) return expr;
-  final op = expr.first as String;
-  Object? arg(int i) => _eval(expr[i], properties);
-  num n(int i) => switch (arg(i)) {
-    final num v => v,
-    _ => throw const _Fails(),
-  };
-  switch (op) {
-    case 'get':
-      return properties[expr[1]];
-    case 'has':
-      return properties.containsKey(expr[1]);
-    case '!':
-      return arg(1) != true;
-    // Both stop at the first argument that decides, as the engines do.
-    case 'all':
-      for (var i = 1; i < expr.length; i++) {
-        if (arg(i) != true) return false;
-      }
-      return true;
-    case 'any':
-      for (var i = 1; i < expr.length; i++) {
-        if (arg(i) == true) return true;
-      }
-      return false;
-    case 'coalesce':
-      for (var i = 1; i < expr.length; i++) {
-        final v = arg(i);
-        if (v != null) return v;
-      }
-      return null;
-    case 'match':
-      final input = arg(1);
-      for (var i = 2; i + 1 < expr.length; i += 2) {
-        final label = expr[i];
-        if (label is List ? label.contains(input) : label == input) return arg(i + 1);
-      }
-      return arg(expr.length - 1);
-    case '==':
-      final a = arg(1);
-      final b = arg(2);
-      return (a.runtimeType == b.runtimeType || (a is num && b is num)) && a == b;
-    case '>=':
-      return n(1) >= n(2);
-    case '/':
-      return n(1) / n(2);
-    case '*':
-      return n(1) * n(2);
-    case '-':
-      return n(1) - n(2);
-    case 'floor':
-      return n(1).floor();
-  }
-  throw UnsupportedError(op);
-}
-
-class _Fails implements Exception {
-  const new();
-}
-
-bool _keeps(List<Object> filter, Map<String, Object> properties) {
-  try {
-    return _eval(filter, properties) == true;
-  } on _Fails {
-    return false;
-  }
-}
+import '../helpers/style_expressions.dart';
 
 /// A place and the properties the API's tiles give it (`docs/deploy.md`,
 /// "Places layer"): domain codes, the services mask, the price class, the
@@ -157,7 +85,7 @@ void main() {
         final s = _sample(r);
         final expected = filter.matches(s.place, maxHeightM: s.maxHeightM);
         expect(
-          _keeps(expression, s.tile),
+          styleFilterKeeps(expression, s.tile),
           expected,
           reason: 'filter ${filter.activeCount} criteria, tile ${s.tile}',
         );
@@ -181,7 +109,7 @@ void main() {
       final filter = _randomFilter(r);
       final s = _sample(r, dots: true);
       expect(
-        _keeps(placeTileFilter(filter), s.tile),
+        styleFilterKeeps(placeTileFilter(filter), s.tile),
         filter.matches(s.place, maxHeightM: s.maxHeightM),
       );
     }
@@ -190,7 +118,7 @@ void main() {
   test('the empty filter keeps every feature', () {
     final r = Random(3);
     for (var i = 0; i < 50; i++) {
-      expect(_keeps(placeTileFilter(PlaceFilter.none), _sample(r).tile), isTrue);
+      expect(styleFilterKeeps(placeTileFilter(PlaceFilter.none), _sample(r).tile), isTrue);
     }
   });
 
@@ -217,7 +145,7 @@ void main() {
     for (final kind in PlaceKind.values) {
       for (final night in OvernightStatus.values) {
         expect(
-          _eval(placeTilePinImage(), {
+          evalStyleExpression(placeTilePinImage(), {
             'kind': kind.wire.toLowerCase(),
             'night': night.wire.toLowerCase(),
           }),
@@ -226,7 +154,7 @@ void main() {
       }
     }
     expect(
-      _eval(placeTilePinImage(), {'kind': 'a_future_kind', 'night': 'allowed'}),
+      evalStyleExpression(placeTilePinImage(), {'kind': 'a_future_kind', 'night': 'allowed'}),
       pinImageId(PlaceKind.extraService, OvernightStatus.unknown),
       reason: 'a newer server must not leave a place without a pin',
     );
@@ -234,7 +162,8 @@ void main() {
 
   test('a night allowed is placed before a night tolerated, and drawn above it', () {
     num rank(OvernightStatus o, {bool placement = false}) =>
-        _eval(placeTileRank(placement: placement), {'night': o.wire.toLowerCase()})! as num;
+        evalStyleExpression(placeTileRank(placement: placement), {'night': o.wire.toLowerCase()})!
+            as num;
     expect(rank(OvernightStatus.allowed), greaterThan(rank(OvernightStatus.tolerated)));
     expect(
       rank(OvernightStatus.allowed, placement: true),

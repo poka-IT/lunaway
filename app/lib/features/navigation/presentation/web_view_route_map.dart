@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +10,14 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('route_map');
@@ -22,7 +26,8 @@ final _log = Logger('route_map');
 /// (`assets/map/map.html` and its MapLibre GL JS) given the route layers
 /// instead of the places. While guiding, `assets/map/route_motion.js`
 /// glides the vehicle between fixes and rides the camera with it, as
-/// the maplibre_gl route map does on the other platforms.
+/// the maplibre_gl route map does on the other platforms, and stops
+/// following at the user's first gesture.
 ///
 /// As for the main map, the web view holds the app's bridge, so it holds
 /// nothing but the map page.
@@ -50,7 +55,16 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   RouteCamera? _sentCamera;
   VehiclePuck? _sentVehicle;
   EdgeInsets? _sentFollowPadding;
+  RouteMapPlaces? _sentPlaces;
+  bool? _sentGuiding;
   Size _size = Size.zero;
+
+  /// The places of the last spec given to the page.
+  RouteMapPlaces? _specPlaces;
+
+  /// A gesture of the user stopped following in the page; the camera stays
+  /// where the user puts it until following starts again from another view.
+  bool _heldByUser = false;
 
   RouteMapProps get _props => widget.props;
 
@@ -116,29 +130,34 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   Future<void> _init() async {
     _style = _props.style;
+    _specPlaces = _props.places;
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final reduced = Motion.reduced(context);
     final arrow = base64Encode(await vehicleArrowPng(ratio));
     final badges = await routeBadgePngs(ratio);
+    final pins = _props.places == null
+        ? const <String, Uint8List>{}
+        : await PinSprites.load(PinSprites.ratioFor(ratio));
     if (!mounted) return;
-    final start = switch (_props.camera) {
-      FitCamera(:final bounds) => bounds.center,
-      FollowCamera(:final position) => position,
-    };
+    final start = initialCamera(_props);
     await _call('return window.lunaway.init(options);', {
       'options': {
         'style': _styleArgument(_props.style),
-        'lat': start.lat,
-        'lon': start.lon,
-        'zoom': 11,
+        'lat': start.target.lat,
+        'lon': start.target.lon,
+        'zoom': start.zoom,
+        'bearing': start.bearing,
+        'pitch': start.tilt,
         // The vehicle's arrow and the badges of the marks, drawn at the
         // screen's density.
         'pixelRatio': ratio,
         'images': {
           RouteLayers.vehicleImage: arrow,
           for (final MapEntry(:key, :value) in badges.entries) key: base64Encode(value),
+          for (final id in RoutePlaceLayers.imageIds())
+            if (pins[id] case final bytes?) id: base64Encode(bytes),
         },
-        'spec': _spec(dark: _props.dark),
+        'spec': _spec(dark: _props.dark, places: _props.places, ratio: ratio),
         'reducedMotion': reduced,
       },
     });
@@ -147,11 +166,28 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   /// The route layers in the GL JS style syntax. Every badge is a target
   /// (lunawayHits.pick, by routeHitShapes): a mark reports itself, a group
-  /// zooms in; the cards beside the map pick the route.
-  static Map<String, Object?> _spec({required bool dark}) => {
+  /// zooms in; the cards beside the map pick the route. The places and the
+  /// points of [places] lie under the route and open their card.
+  static Map<String, Object?> _spec({
+    required bool dark,
+    required RouteMapPlaces? places,
+    required double ratio,
+  }) => {
     'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
-    'tappable': [...RouteLayers.badges],
+    'tappable': [...RouteLayers.badges, if (places != null) ...RoutePlaceLayers.tappable],
+    if (places != null)
+      // A pin of the places reports itself (onClick in lunaway_map.js); the
+      // guidance lists none.
+      'placeTiles': {
+        'source': RoutePlaceLayers.placeSource,
+        'sourceLayer': PlaceTiles.pinsSourceLayer,
+        'layers': [RoutePlaceLayers.placePins],
+        'pinZoom': PlaceTiles.pinZoom,
+        'filter': places.placeFilter ?? RoutePlaceLayers.none,
+        'probe': false,
+      },
     'sources': [
+      if (places != null) ...RoutePlaceLayers.jsonSources(places),
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
       for (final s in RouteLayers.markSources)
         {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
@@ -159,6 +195,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
     ],
     'layers': [
+      // The pins are shipped at their own density and added at the
+      // screen's (pixelRatio): sized back as the main map draws them.
+      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio)),
       _line(
         RouteLayers.alternativesCasing,
         RouteLayers.alternativesSource,
@@ -194,11 +233,28 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           'icon-rotation-alignment': 'map',
           'icon-pitch-alignment': 'map',
           'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
+          // The arrow keeps the pins of the places off itself, as on the
+          // other engines.
+          'icon-ignore-placement': false,
+          'icon-padding': RoutePlaceLayers.vehicleClearance,
         },
       },
     ],
   };
+
+  /// The places' and the points' layers, their images drawn at [scale].
+  static List<Map<String, Object?>> _placeLayers(RouteMapPlaces places, double scale) => [
+    for (final layer in RoutePlaceLayers.jsonLayers(places))
+      {
+        ...layer,
+        'layout': {
+          ...layer['layout']! as Map<String, Object?>,
+          'icon-size': layer['id'] == RoutePlaceLayers.placePins
+              ? RoutePlaceLayers.placeSize(scale)
+              : RoutePlaceLayers.poiSize(scale),
+        },
+      },
+  ];
 
   static Map<String, Object?> _line(String id, String source, String color, double width) => {
     'id': id,
@@ -221,6 +277,11 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentCamera = null;
         _sentVehicle = null;
         _sentFollowPadding = null;
+        _sentGuiding = null;
+        // A new page follows nothing yet: no gesture holds it.
+        _heldByUser = false;
+        // The spec the page holds carries the places as they were sent.
+        _sentPlaces = _specPlaces;
         if (_style != null && _props.style != _style) {
           _setStyle();
         } else {
@@ -232,6 +293,25 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         }
       case 'movestart':
         _props.onCameraMove?.call();
+      case 'gesture':
+        _heldByUser = true;
+        _props.onGesture?.call();
+      case 'touch':
+        _props.onTouch?.call(event['down'] == true);
+      case 'rest':
+        _props.onRest?.call(freeViewOfPage(event, size: _size));
+      case 'place':
+        final place = placeFromTile(
+          event['properties'] as Map<Object?, Object?>?,
+          event['coordinates'] as List<Object?>?,
+        );
+        if (place != null) _props.onPlaceTap?.call(place);
+      case 'poi':
+        final poi = PoiFeature.fromTile(
+          event['properties'] as Map<Object?, Object?>?,
+          event['coordinates'] as List<Object?>?,
+        );
+        if (poi != null) _props.onPoiTap?.call(poi);
       case 'hover':
         _props.onMarkHover?.call(switch ((_pointOf(event), event['mark'], event['group'])) {
           (final at?, final String id, _) => RouteMapHover(at: at, mark: id),
@@ -271,10 +351,15 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   void _setStyle() {
     _style = _props.style;
+    _specPlaces = _props.places;
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
-        'spec': _spec(dark: _props.dark),
+        'spec': _spec(
+          dark: _props.dark,
+          places: _props.places,
+          ratio: MediaQuery.devicePixelRatioOf(context),
+        ),
       }),
     );
   }
@@ -282,10 +367,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   @override
   void didUpdateWidget(WebViewRouteMap old) {
     super.didUpdateWidget(old);
-    if (_ready && (_props.style != _style || _props.dark != old.props.dark)) {
+    // The places came: their sources go into the spec. Gone, their layers
+    // are hidden (_sync), the sources kept for their return.
+    final placesCame = _props.places != null && _specPlaces == null;
+    if (_ready && (_props.style != _style || _props.dark != old.props.dark || placesCame)) {
       _setStyle();
       return;
     }
+    _heldByUser = heldAfter(held: _heldByUser, before: old.props.camera, after: _props.camera);
     _schedule();
   }
 
@@ -298,6 +387,24 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   Future<void> _sync() async {
     if (!_ready) return;
     final p = _props;
+    if (p.guiding != _sentGuiding) {
+      _sentGuiding = p.guiding;
+      await _call('return window.lunawayRoute.guiding(on);', {'on': p.guiding});
+    }
+    final places = p.places;
+    if (places != _sentPlaces && _specPlaces != null) {
+      _sentPlaces = places;
+      for (final (id, filter) in [
+        (RoutePlaceLayers.placePins, places?.placeFilter),
+        (RoutePlaceLayers.poiPins, places?.poiFilter),
+      ]) {
+        await _call('return window.lunaway.setLayer(id, filter, visible);', {
+          'id': id,
+          'filter': filter ?? RoutePlaceLayers.none,
+          'visible': filter != null,
+        });
+      }
+    }
     if (!identical(p.lines, _sentLines)) {
       _sentLines = p.lines;
       await _call('return window.lunaway.setData(id, data);', {
@@ -342,11 +449,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       }
     }
     final camera = p.camera;
-    if (camera is FollowCamera && camera != _sentCamera) {
-      _sentCamera = camera;
-      final pad = p.padding;
-      final free = math.max(0, _size.height - pad.top - pad.bottom);
-      final padding = EdgeInsets.fromLTRB(pad.left, pad.top + free * 0.45, pad.right, pad.bottom);
+    // A gesture that stopped following in the page keeps the user's view
+    // until the screen asks again to follow (cameraStep, heldAfter).
+    final step = cameraStep(sent: _sentCamera, next: camera, heldByUser: _heldByUser);
+    if (step == CameraStep.none) return;
+    _sentCamera = camera;
+    if (camera is FollowCamera) {
+      final padding = followInsets(_size, p.padding);
       _sentFollowPadding = padding;
       await _call('return window.lunawayRoute.follow(options);', {
         'options': {
@@ -357,17 +466,24 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
             'left': padding.left,
             'right': padding.right,
           },
+          'ease': _reduced ? 0 : camera.ease.inMilliseconds,
+          'enter': step == CameraStep.enterFollow,
         },
       });
+      return;
     }
-    if (camera != _sentCamera && camera is FitCamera) {
+    if (step == CameraStep.free) {
+      _sentFollowPadding = null;
+      await _call('return window.lunawayRoute.free();');
+      return;
+    }
+    if (camera is FitCamera) {
       // Whether the page follows is its own state: a resize clears
       // _sentCamera while it still does.
-      if (_sentFollowPadding != null) {
+      if (step == CameraStep.overview || _sentFollowPadding != null) {
         _sentFollowPadding = null;
-        await _call('return window.lunawayRoute.follow(null);');
+        await _call('return window.lunawayRoute.overview();');
       }
-      _sentCamera = camera;
       final pad = p.padding;
       await _call('return window.lunaway.fitBounds(s, w, n, e, padding);', {
         's': camera.bounds.south,

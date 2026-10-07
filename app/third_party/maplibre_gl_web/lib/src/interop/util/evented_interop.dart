@@ -39,6 +39,11 @@ extension EventJsImplExtension on EventJsImpl {
   external JSAny? get features;
   external PointJsImpl get point;
   external void preventDefault();
+
+  /// Set on the camera events of the app's own guidance motion, which
+  /// moves the map at every frame (lunawayRouteMotion in
+  /// app/web/lunaway_maplibre.js).
+  external bool? get lunawayMotion;
 }
 
 @JS('Evented')

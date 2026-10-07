@@ -4113,8 +4113,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Whole route'
 	String get overview => 'Whole route';
 
-	/// en: 'Back to the vehicle'
-	String get recenter => 'Back to the vehicle';
+	/// en: 'Recenter'
+	String get recenter => 'Recenter';
 
 	/// en: 'End'
 	String get end => 'End';
@@ -4196,6 +4196,8 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'Simulated drive: a demonstration without GPS'
 	String get demoDrive => 'Simulated drive: a demonstration without GPS';
+
+	late final Translations$navigation$guidance$places$en places = Translations$navigation$guidance$places$en.internal(_root);
 }
 
 // Path: navigation.voice
@@ -5283,6 +5285,45 @@ class Translations$navigation$warning$localAccess$en {
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
 }
 
+// Path: navigation.guidance.places
+class Translations$navigation$guidance$places$en {
+	Translations$navigation$guidance$places$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Places on the map'
+	String get button => 'Places on the map';
+
+	/// en: 'Places on the map: hidden'
+	String get buttonHidden => 'Places on the map: hidden';
+
+	/// en: 'Places on the map'
+	String get title => 'Places on the map';
+
+	/// en: 'Show places and services'
+	String get show => 'Show places and services';
+
+	/// en: 'Which ones'
+	String get which => 'Which ones';
+
+	/// en: 'As on the map'
+	String get mapFilters => 'As on the map';
+
+	/// en: 'The places of your filters, and the services of the chip chosen on the map.'
+	String get mapFiltersHint => 'The places of your filters, and the services of the chip chosen on the map.';
+
+	/// en: 'Overnight spots'
+	String get nights => 'Overnight spots';
+
+	/// en: 'Fuel'
+	String get fuel => 'Fuel';
+
+	/// en: 'Water and dump'
+	String get water => 'Water and dump';
+}
+
 // Path: navigation.voice.localAccess
 class Translations$navigation$voice$localAccess$en {
 	Translations$navigation$voice$localAccess$en.internal(this._root);
@@ -5882,7 +5923,7 @@ extension on Translations {
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
-			'navigation.guidance.recenter' => 'Back to the vehicle',
+			'navigation.guidance.recenter' => 'Recenter',
 			'navigation.guidance.end' => 'End',
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
@@ -5910,6 +5951,16 @@ extension on Translations {
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
 			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
+			'navigation.guidance.places.button' => 'Places on the map',
+			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
+			'navigation.guidance.places.title' => 'Places on the map',
+			'navigation.guidance.places.show' => 'Show places and services',
+			'navigation.guidance.places.which' => 'Which ones',
+			'navigation.guidance.places.mapFilters' => 'As on the map',
+			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip chosen on the map.',
+			'navigation.guidance.places.nights' => 'Overnight spots',
+			'navigation.guidance.places.fuel' => 'Fuel',
+			'navigation.guidance.places.water' => 'Water and dump',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -6328,6 +6379,8 @@ extension on Translations {
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',
 			'issueSheet.send' => 'Report',
+			_ => null,
+		} ?? switch (path) {
 			'reportSheet.review' => 'Report this review',
 			'reportSheet.photo' => 'Report this photo',
 			'reportSheet.place' => 'Report this place',
@@ -6338,8 +6391,6 @@ extension on Translations {
 			'reportSheet.reason.privacy' => 'Shows or names a person, a plate, a private address',
 			'reportSheet.reason.other' => 'Another reason',
 			'reportSheet.note' => 'Tell more (optional)',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.noteOther' => 'Say what is wrong',
 			'reportSheet.sent' => 'Thank you, the moderators will take a look',
 			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',

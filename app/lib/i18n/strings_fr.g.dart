@@ -1908,7 +1908,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get voiceOn => 'Activer la voix';
 	@override String get voiceOff => 'Couper la voix';
 	@override String get overview => 'Tout le trajet';
-	@override String get recenter => 'Revenir au véhicule';
+	@override String get recenter => 'Recentrer';
 	@override String get end => 'Terminer';
 	@override String get endTitle => 'Terminer le guidage ?';
 	@override String get endConfirm => 'Terminer';
@@ -1936,6 +1936,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get overLimit => 'au-dessus de la limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, liste du ${date}';
 	@override String get demoDrive => 'Trajet simulé : démonstration sans GPS';
+	@override late final _Translations$navigation$guidance$places$fr places = _Translations$navigation$guidance$places$fr._(_root);
 }
 
 // Path: navigation.voice
@@ -2498,6 +2499,25 @@ class _Translations$navigation$warning$localAccess$fr extends Translations$navig
 	@override String axleLoad({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination';
 	@override String width({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination';
 	@override String length({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination';
+}
+
+// Path: navigation.guidance.places
+class _Translations$navigation$guidance$places$fr extends Translations$navigation$guidance$places$en {
+	_Translations$navigation$guidance$places$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get button => 'Lieux sur la carte';
+	@override String get buttonHidden => 'Lieux sur la carte : masqués';
+	@override String get title => 'Lieux sur la carte';
+	@override String get show => 'Montrer les lieux et services';
+	@override String get which => 'Lesquels';
+	@override String get mapFilters => 'Comme sur la carte';
+	@override String get mapFiltersHint => 'Les lieux de vos filtres, et les services de la puce choisie sur la carte.';
+	@override String get nights => 'Nuit possible';
+	@override String get fuel => 'Carburant';
+	@override String get water => 'Eau et vidange';
 }
 
 // Path: navigation.voice.localAccess
@@ -3091,7 +3111,7 @@ extension on TranslationsFr {
 			'navigation.guidance.voiceOn' => 'Activer la voix',
 			'navigation.guidance.voiceOff' => 'Couper la voix',
 			'navigation.guidance.overview' => 'Tout le trajet',
-			'navigation.guidance.recenter' => 'Revenir au véhicule',
+			'navigation.guidance.recenter' => 'Recentrer',
 			'navigation.guidance.end' => 'Terminer',
 			'navigation.guidance.endTitle' => 'Terminer le guidage ?',
 			'navigation.guidance.endConfirm' => 'Terminer',
@@ -3119,6 +3139,16 @@ extension on TranslationsFr {
 			'navigation.guidance.overLimit' => 'au-dessus de la limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, liste du ${date}',
 			'navigation.guidance.demoDrive' => 'Trajet simulé : démonstration sans GPS',
+			'navigation.guidance.places.button' => 'Lieux sur la carte',
+			'navigation.guidance.places.buttonHidden' => 'Lieux sur la carte : masqués',
+			'navigation.guidance.places.title' => 'Lieux sur la carte',
+			'navigation.guidance.places.show' => 'Montrer les lieux et services',
+			'navigation.guidance.places.which' => 'Lesquels',
+			'navigation.guidance.places.mapFilters' => 'Comme sur la carte',
+			'navigation.guidance.places.mapFiltersHint' => 'Les lieux de vos filtres, et les services de la puce choisie sur la carte.',
+			'navigation.guidance.places.nights' => 'Nuit possible',
+			'navigation.guidance.places.fuel' => 'Carburant',
+			'navigation.guidance.places.water' => 'Eau et vidange',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
@@ -3537,6 +3567,8 @@ extension on TranslationsFr {
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',
 			'issueSheet.send' => 'Signaler',
+			_ => null,
+		} ?? switch (path) {
 			'reportSheet.review' => 'Signaler cet avis',
 			'reportSheet.photo' => 'Signaler cette photo',
 			'reportSheet.place' => 'Signaler ce lieu',
@@ -3547,8 +3579,6 @@ extension on TranslationsFr {
 			'reportSheet.reason.privacy' => 'Montre ou nomme une personne, une plaque, une adresse privée',
 			'reportSheet.reason.other' => 'Autre raison',
 			'reportSheet.note' => 'Dites-en plus (facultatif)',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.noteOther' => 'Dites ce qui ne va pas',
 			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
 			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
