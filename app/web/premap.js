@@ -115,7 +115,17 @@
     }
     return f;
   }
-  var frame = measuredFrame() || modelFrame();
+  // A frame that leaves the view less than 40 px either way (a very short
+  // window under the search and the sheet) would have MapLibre fit nothing
+  // and show the world: the whole window then, with a margin.
+  function roomy(f) {
+    return !!f &&
+      innerWidth - f.l - f.r - f.pl - f.pr >= 40 &&
+      innerHeight - f.t - f.b - f.pt - f.pb >= 40;
+  }
+  var frame = measuredFrame();
+  if (!roomy(frame)) frame = modelFrame();
+  if (!roomy(frame)) frame = { l: 0, t: 0, r: 0, b: 0, pl: 24, pt: 24, pr: 24, pb: 24 };
 
   // A first visit: the day's basemap by day, the night's after dark (the
   // app then turns it by the sun), labels in the browser's language.

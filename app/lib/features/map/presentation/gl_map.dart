@@ -81,8 +81,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // The places from the tiles.
   final _tiles = GlPlaceTiles();
 
-  // Tiles of the places that had failed at the last report.
-  int _tileErrorsSeen = 0;
+  // Tiles of the places that had failed at the last report; those of an
+  // earlier map of the page count as seen.
+  int _tileErrorsSeen = PlaceTileErrors.count();
 
   // Stops the web long press listener; null on native builds.
   void Function()? _stopWebLongPress;

@@ -31,12 +31,14 @@ find "$release" -type f -exec chmod 0644 {} +
 # A page that a browser's service worker serves from an older build names
 # that build's renamed startup files (app/tool/web/fingerprint.py lists
 # them in hashed.txt). They are carried into the new release from the last
-# five app releases, so that such a page still finds them until its worker
-# moves to the new build. Only the files each build renamed are listed, so
-# nothing older than five builds is kept.
+# twenty app releases, so that such a page still finds them until its worker
+# moves to the new build (a browser that misses more deploys and lost them
+# from its HTTP cache stays on the loading screen until its worker updates,
+# at the next visit). Only the files each build renamed are listed, so
+# nothing older than twenty builds is kept, about 15 MB each.
 if [ "$kind" = app ]; then
   carried=0
-  for earlier in $(find /srv/lunaway/releases/app -mindepth 1 -maxdepth 1 -type d ! -name "$name" -printf '%f\n' | sort | tail -n 5); do
+  for earlier in $(find /srv/lunaway/releases/app -mindepth 1 -maxdepth 1 -type d ! -name "$name" -printf '%f\n' | sort | tail -n 20); do
     list="/srv/lunaway/releases/app/$earlier/hashed.txt"
     [ -f "$list" ] || continue
     while IFS= read -r rel; do

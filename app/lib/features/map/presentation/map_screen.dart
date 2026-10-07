@@ -405,6 +405,7 @@ class _Map extends ConsumerWidget {
         onPoisInView: (features) => ref.read(poisInViewProvider.notifier).report(features),
       ),
     );
+    final window = MediaQuery.sizeOf(context);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -415,7 +416,7 @@ class _Map extends ConsumerWidget {
             onRect: (rect) => Premap.rememberFrame(
               jsonEncode(
                 premapFrame(
-                  window: MediaQuery.sizeOf(context),
+                  window: window,
                   map: rect,
                   fit: padding + const EdgeInsets.all(fitInitialMargin),
                 ),

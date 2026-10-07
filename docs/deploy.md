@@ -1078,8 +1078,12 @@ their digest (`name.<12 hex>.js`, `canvaskit-<12 hex>/`), listed in the
 build's `hashed.txt`, which `/app/` serves `immutable` for a year, and every
 text or WebAssembly file gets a Brotli copy (`.br`, quality 11) that Caddy
 serves to browsers that accept it. `infra/server/install-web.sh` copies the
-renamed files of the last five app releases into the new one, so a page that
-a service worker still serves from an older build finds them. Then the
+renamed files of the last twenty app releases into the new one, so a page
+that a service worker still serves from an older build finds them. Pointing
+the symlink back at an older release carries nothing: a browser whose worker
+already serves a newer build then loads that build's renamed files from its
+HTTP cache, or deploy the older commit again instead. On the web, starting
+offline rests on the HTTP cache for the renamed files. Then the
 script writes the service worker, `lunaway_sw.js`, with
 `app/tool/web/service_worker.py`: it names every other file of the build and
 a digest of them all, so a second visit is served from the browser's cache
