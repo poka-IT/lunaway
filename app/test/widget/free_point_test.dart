@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -200,6 +201,30 @@ void main() {
       expect(find.text('Point sur la carte'), findsOneWidget);
       expect(find.text('45.770100, 4.840200'), findsOneWidget);
       expect(api.calls.where((c) => c.operation == 'AddPlace'), isEmpty, reason: 'no place made');
+    });
+
+    testWidgets('the preview writes the point in the format the user copies coordinates in', (
+      tester,
+    ) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(
+        tester,
+        settings: const AppSettings(copyFormat: CoordinateFormat.dms),
+        overrides: navigationOverrides(routes: routes),
+      );
+      await tapBare(app, tester, 15);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      expect(find.text(CoordinateFormat.dms.format(spot)), findsOneWidget);
+      expect(find.text('45.770100, 4.840200'), findsNothing);
+      // A stop without a name is written the same way.
+      const stop = LatLng(45.84, 1.27);
+      SchematicRouteMap.last!.onEmptyTap!(stop, 15);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      await tester.tap(find.textContaining('Ajouter comme étape'));
+      await settleShort(tester);
+      expect(find.text(CoordinateFormat.dms.format(stop)), findsOneWidget);
     });
 
     testWidgets('on the preview, a tap at street level offers the point as a stop', (tester) async {

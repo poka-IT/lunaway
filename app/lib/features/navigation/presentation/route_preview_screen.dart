@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
@@ -38,6 +37,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dar
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -411,10 +411,11 @@ class _Panel extends ConsumerWidget {
     return SliverList.list(
       children: [
         Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
-        // A bare point has no name: its coordinates say which one it is.
+        // A bare point has no name: its coordinates say which one it is, in
+        // the format the user copies them in.
         if (label == null)
           Text(
-            CoordinateFormat.decimal.format(target.destination),
+            ref.watch(settingsProvider.select((s) => s.copyFormat)).format(target.destination),
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         const SizedBox(height: Space.m),
