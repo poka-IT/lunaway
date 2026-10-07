@@ -22,9 +22,12 @@ abstract final class PinSprites {
   static Future<Map<String, Uint8List>> load(int ratio, {AssetBundle? bundle}) =>
       _loaded.putIfAbsent(ratio, () async {
         final assets = bundle ?? rootBundle;
-        return {
-          for (final id in [...allPinImageIds(), ...PoiMapStyle.allImageIds()])
-            id: (await assets.load('assets/map/pins/${ratio}x/$id.png')).buffer.asUint8List(),
-        };
+        final ids = [...allPinImageIds(), ...PoiMapStyle.allImageIds()];
+        // Read together: one after the other, two hundred reads (each a
+        // request on the web) held the map's first places back.
+        final bytes = await Future.wait([
+          for (final id in ids) assets.load('assets/map/pins/${ratio}x/$id.png'),
+        ]);
+        return {for (final (i, id) in ids.indexed) id: bytes[i].buffer.asUint8List()};
       });
 }
