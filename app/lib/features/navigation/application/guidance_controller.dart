@@ -121,6 +121,27 @@ final class WarningAhead {
   final double aheadM;
 }
 
+/// Where the server moved the stops of a route: the destination, and each
+/// stop by itself, so that a stop passed and dropped from the list leaves
+/// the others where they are.
+@immutable
+final class StopMoves {
+  const new({this.destination, this.stops = const {}});
+
+  /// The moves of [plan], computed for [stops], the stops it was asked
+  /// with (stop 0 of the plan is the origin, the vehicle, never moved).
+  factory of(RoutePlan plan, List<RouteStop> stops) => StopMoves(
+    destination: plan.movedTo(stops.length + 1),
+    stops: {
+      for (final m in plan.movedStops)
+        if (m.stopIndex >= 1 && m.stopIndex <= stops.length) stops[m.stopIndex - 1]: m.position,
+    },
+  );
+
+  final LatLng? destination;
+  final Map<RouteStop, LatLng> stops;
+}
+
 /// One guidance, from the start to the arrival.
 @immutable
 final class GuidanceSession {
@@ -140,6 +161,7 @@ final class GuidanceSession {
     this.overview = false,
     this.positionLost = false,
     this.stops = const [],
+    this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
   });
 
@@ -173,6 +195,9 @@ final class GuidanceSession {
   /// The stops still ahead, in order.
   final List<RouteStop> stops;
 
+  /// Where the server moved the destination and the stops of [plan].
+  final StopMoves moves;
+
   /// The limit, the excess, and the danger zone or camera ahead, where the
   /// rule of the country the vehicle is in allows it.
   final DrivingAids aids;
@@ -203,6 +228,7 @@ final class GuidanceSession {
     bool? overview,
     bool? positionLost,
     List<RouteStop>? stops,
+    StopMoves? moves,
     DrivingAids? aids,
   }) => GuidanceSession(
     target: target ?? this.target,
@@ -220,6 +246,7 @@ final class GuidanceSession {
     overview: overview ?? this.overview,
     positionLost: positionLost ?? this.positionLost,
     stops: stops ?? this.stops,
+    moves: moves ?? this.moves,
     aids: aids ?? this.aids,
   );
 }
@@ -356,6 +383,7 @@ class GuidanceController extends _$GuidanceController {
       voiceOn: settings.voice,
       voice: VoiceReadiness.none,
       stops: stops,
+      moves: StopMoves.of(plan, stops),
     );
     final readiness = await voice.prepare(plan.applied.language);
     if (!ref.mounted || generation != _generation) return false;
@@ -812,6 +840,8 @@ class GuidanceController extends _$GuidanceController {
       state = state!.copyWith(
         target: target,
         stops: stops,
+        // The moves read with the stops the route was asked with.
+        moves: StopMoves.of(plan, stops ?? s.stops),
         plan: plan,
         routeIndex: plan.routes.first.index,
         snapshot: snap,

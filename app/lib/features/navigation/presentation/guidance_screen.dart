@@ -261,11 +261,10 @@ class _GuidanceMap extends ConsumerWidget {
       places: places,
       stations: ref.watch(shownFuelOffersProvider(route.line)),
       stops: session.stops,
-      movedTo: RoutePoints.movedWaypoints(session.plan, session.stops.length),
+      movedTo: {for (final (i, stop) in session.stops.indexed) i: ?session.moves.stops[stop]},
     );
     // A destination the server moved: the route ends there.
-    final destination =
-        session.plan.movedTo(session.stops.length + 1) ?? session.target.destination;
+    final destination = session.moves.destination ?? session.target.destination;
     final now = ref.watch(clockProvider)();
 
     return ref.watch(routeMapBuilderProvider)(

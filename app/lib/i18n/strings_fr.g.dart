@@ -1974,7 +1974,7 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
 	@override String get inDangerZone => 'Zone de danger.';
 	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
-	@override String localAccess({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.';
+	@override late final _Translations$navigation$voice$localAccess$fr localAccess = _Translations$navigation$voice$localAccess$fr._(_root);
 	@override String tonnes({required Object n}) => '${n} tonnes';
 }
 
@@ -2498,6 +2498,19 @@ class _Translations$navigation$warning$localAccess$fr extends Translations$navig
 	@override String axleLoad({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination';
 	@override String width({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination';
 	@override String length({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination';
+}
+
+// Path: navigation.voice.localAccess
+class _Translations$navigation$voice$localAccess$fr extends Translations$navigation$voice$localAccess$en {
+	_Translations$navigation$voice$localAccess$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String weight({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.';
+	@override String axleLoad({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.';
+	@override String width({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.';
+	@override String length({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.';
 }
 
 /// The flat map containing all translations for locale <fr>.
@@ -3126,7 +3139,10 @@ extension on TranslationsFr {
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
 			'navigation.voice.inDangerZone' => 'Zone de danger.',
 			'navigation.voice.camera' => ({required Object distance}) => 'Radar dans ${distance}.',
-			'navigation.voice.localAccess' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.',
+			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.',
+			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.',
+			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.',
+			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.',
 			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
@@ -3531,11 +3547,11 @@ extension on TranslationsFr {
 			'reportSheet.reason.privacy' => 'Montre ou nomme une personne, une plaque, une adresse privée',
 			'reportSheet.reason.other' => 'Autre raison',
 			'reportSheet.note' => 'Dites-en plus (facultatif)',
+			_ => null,
+		} ?? switch (path) {
 			'reportSheet.noteOther' => 'Dites ce qui ne va pas',
 			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
 			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
 			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',

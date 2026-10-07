@@ -4275,8 +4275,7 @@ class Translations$navigation$voice$en {
 	/// en: 'Speed camera in $distance.'
 	String camera({required Object distance}) => 'Speed camera in ${distance}.';
 
-	/// en: 'Caution, in $distance, local access only above $limit.'
-	String localAccess({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit}.';
+	late final Translations$navigation$voice$localAccess$en localAccess = Translations$navigation$voice$localAccess$en.internal(_root);
 
 	/// en: '$n tonnes'
 	String tonnes({required Object n}) => '${n} tonnes';
@@ -5284,6 +5283,27 @@ class Translations$navigation$warning$localAccess$en {
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
 }
 
+// Path: navigation.voice.localAccess
+class Translations$navigation$voice$localAccess$en {
+	Translations$navigation$voice$localAccess$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Caution, in $distance, local access only above $limit.'
+	String weight({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit}.';
+
+	/// en: 'Caution, in $distance, local access only above $limit per axle.'
+	String axleLoad({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit} per axle.';
+
+	/// en: 'Caution, in $distance, local access only for vehicles wider than $limit.'
+	String width({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles wider than ${limit}.';
+
+	/// en: 'Caution, in $distance, local access only for vehicles longer than $limit.'
+	String length({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -5910,7 +5930,10 @@ extension on Translations {
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}.',
 			'navigation.voice.inDangerZone' => 'Danger zone.',
 			'navigation.voice.camera' => ({required Object distance}) => 'Speed camera in ${distance}.',
-			'navigation.voice.localAccess' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit}.',
+			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit}.',
+			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit} per axle.',
+			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles wider than ${limit}.',
+			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.',
 			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
@@ -6315,11 +6338,11 @@ extension on Translations {
 			'reportSheet.reason.privacy' => 'Shows or names a person, a plate, a private address',
 			'reportSheet.reason.other' => 'Another reason',
 			'reportSheet.note' => 'Tell more (optional)',
+			_ => null,
+		} ?? switch (path) {
 			'reportSheet.noteOther' => 'Say what is wrong',
 			'reportSheet.sent' => 'Thank you, the moderators will take a look',
 			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.muteAuthor' => 'Hide this author',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Hide ${name}?',
 			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',

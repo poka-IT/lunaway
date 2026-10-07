@@ -571,6 +571,39 @@ void main() {
       await drive(tester, plan, toM: 1000);
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
     });
+
+    testWidgets('a stop and a destination the server moved keep their places once a stop is '
+        'passed', (tester) async {
+      final base = routeFixture('limoges_drive');
+      final road = LineTrack(base.routes.first).at(800);
+      final stopAt = LatLng(road.lat + 0.0018, road.lon);
+      const movedStop = LatLng(45.8352, 1.2655);
+      const movedEnd = LatLng(45.8101, 1.2302);
+      final plan = routeFixture(
+        'limoges_drive',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': movedStop.lat, 'lon': movedStop.lon, 'distanceM': 90.0},
+          {'stopIndex': 2, 'lat': movedEnd.lat, 'lon': movedEnd.lon, 'distanceM': 60.0},
+        ],
+      );
+      await guide(
+        tester,
+        plan,
+        stops: [RouteStop(position: stopAt, label: 'Fontaine')],
+      );
+      LatLng markAt(String id) =>
+          SchematicRouteMap.last!.marks.singleWhere((m) => m.id == id).position;
+      await drive(tester, plan, toM: 700);
+      expect(markAt('stop:0'), movedStop, reason: 'the stop where the route passes');
+      expect(markAt('destination'), movedEnd);
+      await drive(tester, plan, toM: 1000);
+      expect(SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.stop), isEmpty);
+      expect(
+        markAt('destination'),
+        movedEnd,
+        reason: 'the stop passed and dropped, the destination stays where the route ends',
+      );
+    });
   });
 
   testWidgets("the detour to a station is weighed with the vehicle's own consumption", (

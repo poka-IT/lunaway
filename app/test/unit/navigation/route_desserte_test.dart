@@ -124,6 +124,13 @@ void main() {
         ).warningAhead(desserte(RouteWarningKind.tooHeavy, 3.5), 300),
         'Caution, in 300 metres, local access only above 3.5 tonnes.',
       );
+      expect(
+        w.warningAhead(desserte(RouteWarningKind.narrow, 2.3), 300),
+        'Attention, dans 300 mètres, accès riverains : plus de 2 mètres 30 de large seulement '
+        'pour la desserte.',
+        reason: 'a width is not taken for a weight',
+      );
+      expect(w.warningAhead(desserte(RouteWarningKind.axleLoad, 10), 300), contains('par essieu'));
     });
   });
 

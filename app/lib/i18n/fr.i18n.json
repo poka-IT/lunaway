@@ -766,7 +766,12 @@
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
       "camera": "Radar dans $distance.",
-      "localAccess": "Attention, dans $distance, accès riverains : plus de $limit seulement pour la desserte.",
+      "localAccess": {
+        "weight": "Attention, dans $distance, accès riverains : plus de $limit seulement pour la desserte.",
+        "axleLoad": "Attention, dans $distance, accès riverains : plus de $limit par essieu seulement pour la desserte.",
+        "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
+        "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
+      },
       "tonnes": "$n tonnes"
     },
     "units": {

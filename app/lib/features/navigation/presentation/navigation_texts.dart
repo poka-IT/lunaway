@@ -497,12 +497,27 @@ final class TranslatedWording implements GuidanceWording {
     final distance = t.spokenDistance(aheadM, units);
     final limit = warning.limit;
     if (warning.exceptDestination && limit != null) {
-      final figure = switch (warning.kind) {
-        RouteWarningKind.tooHeavy || RouteWarningKind.axleLoad => t.spokenTonnes(limit),
-        RouteWarningKind.narrow || RouteWarningKind.tooLong => t.spokenSize(limit),
+      // The full path of each key: the translation gate finds them so.
+      final said = switch (warning.kind) {
+        RouteWarningKind.tooHeavy => t.navigation.voice.localAccess.weight(
+          distance: distance,
+          limit: t.spokenTonnes(limit),
+        ),
+        RouteWarningKind.axleLoad => t.navigation.voice.localAccess.axleLoad(
+          distance: distance,
+          limit: t.spokenTonnes(limit),
+        ),
+        RouteWarningKind.narrow => t.navigation.voice.localAccess.width(
+          distance: distance,
+          limit: t.spokenSize(limit),
+        ),
+        RouteWarningKind.tooLong => t.navigation.voice.localAccess.length(
+          distance: distance,
+          limit: t.spokenSize(limit),
+        ),
         _ => null,
       };
-      if (figure != null) return t.navigation.voice.localAccess(distance: distance, limit: figure);
+      if (said != null) return said;
     }
     return switch (warning.kind) {
       RouteWarningKind.lowClearance when limit != null => t.navigation.voice.clearance(

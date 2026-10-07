@@ -766,7 +766,12 @@
       "dangerZone": "Danger zone in $distance.",
       "inDangerZone": "Danger zone.",
       "camera": "Speed camera in $distance.",
-      "localAccess": "Caution, in $distance, local access only above $limit.",
+      "localAccess": {
+        "weight": "Caution, in $distance, local access only above $limit.",
+        "axleLoad": "Caution, in $distance, local access only above $limit per axle.",
+        "width": "Caution, in $distance, local access only for vehicles wider than $limit.",
+        "length": "Caution, in $distance, local access only for vehicles longer than $limit."
+      },
       "tonnes": "$n tonnes"
     },
     "units": {
