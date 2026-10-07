@@ -764,6 +764,18 @@ fn far_input(height_m: f64) -> Value {
     }})
 }
 
+/// The bridge of Rue Maurice Utrillo marked as a limit on the road itself:
+/// only barriers and road limits are remembered (an underpass's ring would
+/// cut the road above it too).
+async fn as_road_limit(pool: &PgPool) {
+    sqlx::query(
+        "UPDATE route_restrictions SET feature = 'road' WHERE external_id = 'way/52984577'",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
 /// The centres of the rings a request sent.
 fn rings(request: &Value) -> Vec<Position> {
     request["exclude_polygons"]
@@ -792,6 +804,7 @@ fn rings(request: &Value) -> Vec<Position> {
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_blocker_met_by_two_trips_is_avoided_from_the_first_call_of_the_next(pool: PgPool) {
     seed(&pool).await;
+    as_road_limit(&pool).await;
     let (url, asked) = engine(
         vec![
             (200, osrm(&[ROUTE_UNDER])),
@@ -849,6 +862,7 @@ async fn a_blocker_met_by_two_trips_is_avoided_from_the_first_call_of_the_next(p
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: PgPool) {
     seed(&pool).await;
+    as_road_limit(&pool).await;
     let no_route = (
         400,
         json!({"code": "NoRoute", "message": "Impossible route between points"}),
@@ -889,6 +903,7 @@ async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: P
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_trip_left_without_a_safe_route_by_remembered_blockers_is_asked_again(pool: PgPool) {
     seed(&pool).await;
+    as_road_limit(&pool).await;
     let (url, asked) = engine(
         vec![
             (200, osrm(&[ROUTE_UNDER])),

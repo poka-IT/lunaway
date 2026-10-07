@@ -36,8 +36,8 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, Restriction, RestrictionSource, RouteLine, RoutingDimensions, Severity,
-        VehicleProfile, assess, exclusion_ring, match_route, polyline,
+        Finding, Hit, Restriction, RestrictionFeature, RestrictionSource, RouteLine,
+        RoutingDimensions, Severity, VehicleProfile, assess, exclusion_ring, match_route, polyline,
     },
 };
 use serde_json::Value;
@@ -302,12 +302,19 @@ pub(crate) struct Routing {
 /// Only the rows of OpenStreetMap and the IGN, which belong to a graph and
 /// end with it: DiaLog's and the community's live outside the graphs, and
 /// DiaLog's come back under new ids at every reading, so a remembered copy
-/// would outlive the order it stood for. A blocker serves ahead once two
-/// requests have met it, which keeps a single odd trip out of the list.
-/// What the list still tells: a client sending two trips through a
-/// restriction learns from the second answer's recalculations whether
-/// another vehicle at least that tall met it since the graph was built.
-/// Public restrictions only, in memory, never logged.
+/// would outlive the order it stood for. Only barriers and limits on the
+/// road itself: a ring under a bridge or over an underpass would also cut
+/// the road at the other level, for trips that never needed it.
+///
+/// Only a meeting more than [`CLEAR_OF_STOPS_M`] from every stop of the
+/// trip counts, so trips from and to a home near a restriction leave no
+/// trace, and a blocker serves ahead once two requests have met it. What
+/// the list still tells (privacy audit of 2026-10-07): a client sending
+/// trips through a restriction learns from the answer's recalculations, or
+/// its time, whether a vehicle at least that tall passed through it on a
+/// longer trip, since the graph was built or since the client pushed older
+/// entries out with trips of its own. Public restrictions only, in memory,
+/// never logged.
 #[derive(Default)]
 struct Remembered {
     graph_id: String,
@@ -563,7 +570,13 @@ impl Routing {
     /// Keeps the restriction blockers of a check of graph `graph_id`, those
     /// of OpenStreetMap and the IGN, each counted once per request: those
     /// in `counted` were counted by an earlier attempt of the request.
-    fn remember(&self, graph_id: &str, blockers: &[Met], counted: &mut Vec<uuid::Uuid>) {
+    fn remember(
+        &self,
+        graph_id: &str,
+        stops: &[Stop],
+        blockers: &[Met],
+        counted: &mut Vec<uuid::Uuid>,
+    ) {
         let mut memory = self
             .remembered
             .lock()
@@ -577,7 +590,13 @@ impl Routing {
             if !matches!(
                 r.restriction.source,
                 RestrictionSource::Osm | RestrictionSource::Ign
-            ) || counted.contains(&r.id)
+            ) || !matches!(
+                r.restriction.feature,
+                RestrictionFeature::Barrier | RestrictionFeature::Road
+            ) || stops
+                .iter()
+                .any(|s| s.at.distance_m(b.hit.middle) <= CLEAR_OF_STOPS_M)
+                || counted.contains(&r.id)
             {
                 continue;
             }
@@ -846,7 +865,7 @@ impl Routing {
                 blockers.extend(b);
                 event_blockers.extend(e);
             }
-            self.remember(graph_id, &blockers, &mut work.counted);
+            self.remember(graph_id, &request.stops, &blockers, &mut work.counted);
             for e in &event_blockers {
                 if !avoided.iter().any(|a| a.id == e.event.id) {
                     avoided.push(Arc::clone(&e.event));
@@ -1419,14 +1438,14 @@ fn fix_instructions(route: &mut Value) {
 mod tests {
     use super::*;
 
-    /// A height limit of 2.7 m from `source`, met by a route at `at`.
+    /// A height barrier of 2.7 m from `source`, met by a route at `at`.
     fn met(source: RestrictionSource, id: u128, at: Position) -> Met {
         let restriction = Restriction {
             kind: lunaway_domain::routing::RestrictionKind::MaxHeight,
             limit: Some(2.7),
             source,
             certainty: lunaway_domain::routing::Certainty::Known,
-            feature: lunaway_domain::routing::RestrictionFeature::Underpass,
+            feature: RestrictionFeature::Barrier,
         };
         Met {
             finding: assess(&restriction, &dims(3.3)).unwrap(),
@@ -1480,26 +1499,48 @@ mod tests {
             met(RestrictionSource::Osm, 1, bridge),
             met(RestrictionSource::Dialog, 2, order),
         ];
-        // The same bridge twice in one answer, from two of its routes.
+        // The same barrier twice in one answer, from two of its routes.
         routing.remember(
             g,
+            &trip,
             &[blockers[0].clone(), blockers[0].clone()],
             &mut Vec::new(),
         );
         assert!(
             routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
-            "one request leaves nothing another client could notice"
+            "one request keeps a single odd trip out"
         );
         let mut second = Vec::new();
-        routing.remember(g, &blockers, &mut second);
-        routing.remember(g, &blockers, &mut second);
+        routing.remember(g, &trip, &blockers, &mut second);
+        routing.remember(g, &trip, &blockers, &mut second);
         assert_eq!(
             routing.remembered_for(g, &trip, &dims(3.3)),
             [bridge],
-            "the bridge of the graph, met by two requests; never DiaLog's \
+            "the barrier of the graph, met by two requests; never DiaLog's \
              order, which a later reading may end"
         );
-        routing.remember(g, &blockers, &mut Vec::new());
+        // An underpass: its ring would cut the road above it too.
+        let mut under = met(
+            RestrictionSource::Osm,
+            3,
+            Position::new(45.86, 1.30).unwrap(),
+        );
+        under.restriction.restriction.feature = RestrictionFeature::Underpass;
+        // A barrier met by trips that start next to it, from a home there.
+        let home = met(
+            RestrictionSource::Osm,
+            4,
+            Position::new(45.705, 1.105).unwrap(),
+        );
+        for _ in 0..3 {
+            routing.remember(g, &trip, &[under.clone(), home.clone()], &mut Vec::new());
+        }
+        assert_eq!(
+            routing.remembered_for(g, &stops(&[(45.30, 0.70), (46.30, 1.90)]), &dims(3.3)),
+            [bridge],
+            "neither an underpass nor a barrier met only near a trip's stops"
+        );
+        routing.remember(g, &trip, &blockers, &mut Vec::new());
         assert_eq!(routing.remembered_for(g, &trip, &dims(3.3)), [bridge]);
         assert!(
             routing.remembered_for(g, &trip, &dims(2.5)).is_empty(),
@@ -1517,7 +1558,7 @@ mod tests {
                 .is_empty(),
             "a trip starting near it: a ring there could move the stop"
         );
-        routing.remember("20261013T0300Z-eu", &[], &mut Vec::new());
+        routing.remember("20261013T0300Z-eu", &trip, &[], &mut Vec::new());
         assert!(
             routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
             "a new graph forgets the old one's blockers"
