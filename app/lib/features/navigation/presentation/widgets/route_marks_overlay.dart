@@ -382,6 +382,7 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
               ),
             )
           : ActionChip(
+              mouseCursor: WidgetStateMouseCursor.clickable,
               avatar: const Icon(AppIcons.about),
               label: Text(t.navigation.marks.legend),
               onPressed: () => setState(() => _open = true),
@@ -479,6 +480,7 @@ class _MarkLinkedRowState extends ConsumerState<MarkLinkedRow> {
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           ),
           child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
             onTap: () => _focus.fly(widget.marks),
             child: widget.child,

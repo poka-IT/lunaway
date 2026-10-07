@@ -1381,6 +1381,16 @@ pub enum ReportOutcome {
     Hidden,
 }
 
+/// The kind of external item a report names; `None` for the community's
+/// own content.
+fn external_kind(target: ReportTarget) -> Option<crate::content::ItemKind> {
+    match target {
+        ReportTarget::ExternalReview => Some(crate::content::ItemKind::Review),
+        ReportTarget::ExternalPhoto => Some(crate::content::ItemKind::Photo),
+        ReportTarget::Review | ReportTarget::Photo | ReportTarget::Place => None,
+    }
+}
+
 /// Records that `reporter` reports a published or hidden review, a photo or
 /// a place, once per reporter and target. At `hide_after` distinct
 /// reporters of level 1 or more (not banned), one of them at least of level
@@ -1436,13 +1446,16 @@ pub async fn report_content(
             }
         }
         ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
-            let found = crate::content::external_item_on(&mut tx, id).await?;
-            match found {
-                Some(item) if item.is_review == (target == ReportTarget::ExternalReview) => {
-                    (None, None)
-                }
-                _ => return Ok(ReportOutcome::NoTarget),
+            let Some(kind) = external_kind(target) else {
+                return Ok(ReportOutcome::NoTarget);
+            };
+            if crate::content::external_item_on(&mut tx, kind, id)
+                .await?
+                .is_none()
+            {
+                return Ok(ReportOutcome::NoTarget);
             }
+            (None, None)
         }
         ReportTarget::Place => {
             let exists = sqlx::query_scalar!(
@@ -1514,10 +1527,14 @@ pub async fn report_content(
             .await?
             .rows_affected(),
             ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
-                match crate::content::external_item_on(&mut tx, id).await? {
+                let Some(kind) = external_kind(target) else {
+                    return Ok(ReportOutcome::NoTarget);
+                };
+                match crate::content::external_item_on(&mut tx, kind, id).await? {
                     Some(item) => crate::content::hide_item_on(
                         &mut tx,
                         &item.source_id,
+                        kind,
                         &item.external_id,
                         crate::content::HideOrigin::Reports,
                     )

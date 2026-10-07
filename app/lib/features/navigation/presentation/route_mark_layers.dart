@@ -51,17 +51,10 @@ Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
   };
 }
 
-/// How far from a badge's centre a finger or a pointer still hits it,
-/// logical pixels. Local to the route layers until the app-wide hit rules
-/// land: they take over here, in one place.
-abstract final class RouteHit {
-  static double radius({required bool touch}) => touch ? 22 : 17;
-}
-
 /// The look of the marks, as MapLibre style expressions both engines share.
 abstract final class RouteMarkStyle {
   /// A minor mark beside a major one.
-  static const minorSize = 0.72;
+  static const double minorSize = routeMinorScale;
 
   /// Minor marks show from this zoom: a town's streets, where a place near
   /// the route is worth seeing.
@@ -161,23 +154,16 @@ abstract final class RouteMarkStyle {
     ['get', 'size'],
   ];
 
-  /// The invisible disc a tap or a pointer hits, wider than the badge.
-  static List<Object> hitRadius({required bool touch}) => [
-    '*',
-    RouteHit.radius(touch: touch),
-    [
-      'case',
-      _group,
-      1,
-      ['get', 'size'],
-    ],
-  ];
-
   /// What a group counts, for its tooltip, and its most pressing tone.
   static final Map<String, Object> clusterProperties = {
     'top': [
       'max',
       ['get', 'rank'],
+    ],
+    // How large its badge is for the pointer (routeHitShapes).
+    'size': [
+      'max',
+      ['get', 'size'],
     ],
     for (final k in RouteMarkKind.values)
       if (!k.anchor)
@@ -204,15 +190,8 @@ abstract final class RouteMarkStyle {
 
   /// The marks' layers in the GL JS style syntax, bottom to top, for the
   /// desktop map page.
-  static List<Map<String, Object?>> jsonLayers({required bool touch}) => [
+  static List<Map<String, Object?>> jsonLayers() => [
     for (final source in RouteLayers.markSources) ...[
-      {
-        'id': RouteLayers.hitOf(source),
-        'type': 'circle',
-        'source': source,
-        ..._minZoom(source),
-        'paint': {'circle-radius': hitRadius(touch: touch), 'circle-opacity': 0},
-      },
       {
         'id': RouteLayers.haloOf(source),
         'type': 'circle',

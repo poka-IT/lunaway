@@ -6,8 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/presentation/web_map_controls.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -96,16 +99,25 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// the lit marks.
   static bool get _litByFilter => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
-  // The pointer, while the web plugin reports it over the hit layers.
-  math.Point<double>? _hoverPoint;
-  bool _hoverBusy = false;
+  /// What the browser's hover last reported over this map: a mark's id or
+  /// a group's.
   String? _hovered;
+  void Function()? _stopHover;
 
   /// A camera move was reported and has not come to rest.
   bool _moving = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Only a browser has a pointer that hovers; the page picks what it is
+    // over by the same rule as a click.
+    _stopHover = listenWebMapHover(_onWebHover);
+  }
+
+  @override
   void dispose() {
+    _stopHover?.call();
     _ticker.dispose();
     super.dispose();
   }
@@ -208,6 +220,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth + 3,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.alternativesSource,
@@ -218,6 +231,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.routeSource,
@@ -275,21 +289,11 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
   }
 
-  /// The layers of one source of marks, bottom to top: the invisible disc a
-  /// tap or the pointer hits (the only layer the web plugin watches, so the
-  /// pointer turns into a hand over it), the lit ring, the badges with
-  /// their text, and the text beside them.
+  /// The layers of one source of marks, bottom to top: the lit ring, the
+  /// badges with their text, and the text beside them. None is watched by
+  /// the plugin: a tap and the pointer pick by [routeHitShapes].
   Future<void> _addMarkLayers(gl.MapLibreMapController c, String source) async {
     final minzoom = source == RouteLayers.minorSource ? RouteMarkStyle.minorMinZoom : null;
-    await c.addCircleLayer(
-      source,
-      RouteLayers.hitOf(source),
-      gl.CircleLayerProperties(
-        circleRadius: RouteMarkStyle.hitRadius(touch: !pointerPlatform),
-        circleOpacity: 0,
-      ),
-      minzoom: minzoom,
-    );
     await c.addCircleLayer(
       source,
       RouteLayers.haloOf(source),
@@ -605,140 +609,129 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   }
 
   /// The engine's screen units per logical pixel, for its feature queries
-  /// and the points of its taps.
+  /// and the points of its taps: Android counts physical pixels.
   double get _queryScale => mapQueryScale(
     web: kIsWeb,
     platform: defaultTargetPlatform,
     devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
   );
 
-  /// The topmost mark or group at [point] (engine units), with the source
-  /// a group belongs to. The hit layers are wider than the badges: the box
-  /// only covers the imprecision of the point itself.
-  Future<({Map<Object?, Object?> properties, List<Object?>? at, String source})?> _hitAt(
+  /// What a tap at [point] (engine units) picks: the nearest badge or
+  /// other route within reach ([nearestHit], [routeHitShapes]), its layer,
+  /// its properties and where it stands in logical pixels.
+  Future<({String layer, Map<Object?, Object?> properties, LatLng? at, Offset? screen})?> _pick(
     gl.MapLibreMapController c,
     math.Point<double> point,
   ) async {
-    final half = 2 * _queryScale;
+    final scale = _queryScale;
+    final tolerance = hitTolerance(webMapPointerKind());
     final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: half * 2,
-      height: half * 2,
+      width: tolerance * 2 * scale,
+      height: tolerance * 2 * scale,
     );
-    for (final source in RouteLayers.markSources.reversed) {
-      final found = await c.queryRenderedFeaturesInRect(box, [RouteLayers.hitOf(source)], null);
-      for (final raw in found) {
-        final f = raw as Map<Object?, Object?>;
-        if (f['properties'] case final Map<Object?, Object?> properties) {
-          final geometry = f['geometry'] as Map<Object?, Object?>?;
-          return (
-            properties: properties,
-            at: geometry?['coordinates'] as List<Object?>?,
-            source: source,
-          );
-        }
-      }
-    }
-    return null;
+    final layers = [
+      if (_props.onMarkTap != null) ...RouteLayers.badges,
+      if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
+    ];
+    // One query per layer: the engines do not all say which layer a
+    // feature was drawn by.
+    final answers = await Future.wait([
+      for (final layer in layers) c.queryRenderedFeaturesInRect(box, [layer], null),
+    ]);
+    final features = [
+      for (final (i, found) in answers.indexed)
+        for (final f in found)
+          if (f is Map) (layers[i], f),
+    ];
+    if (features.isEmpty || !mounted) return null;
+    final positions = [
+      for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
+    ];
+    // Projected by the engine: while guiding, the map turns and tilts.
+    final flat = [for (final p in positions) ...p];
+    final projected = flat.isEmpty
+        ? const <math.Point<num>>[]
+        : await c.toScreenLocationBatch([for (final p in flat) gl.LatLng(p.lat, p.lon)]);
+    if (!mounted) return null;
+    var next = 0;
+    final candidates = [
+      for (var i = 0; i < features.length; i++)
+        HitCandidate(
+          layer: features[i].$1,
+          properties: (features[i].$2['properties'] as Map<Object?, Object?>?) ?? const {},
+          points: [
+            for (final _ in positions[i])
+              if (projected[next++] case final s) Offset(s.x.toDouble(), s.y.toDouble()) / scale,
+          ],
+        ),
+    ];
+    final hit = nearestHit(
+      Offset(point.x, point.y) / scale,
+      candidates,
+      shapes: routeHitShapes,
+      zoom: 0,
+      tolerance: tolerance,
+    );
+    if (hit == null) return null;
+    final chosen = candidates[hit.index];
+    final at = positions[hit.index];
+    return (
+      layer: chosen.layer,
+      properties: chosen.properties,
+      at: at.isEmpty ? null : at[hit.pointIndex],
+      screen: chosen.points.isEmpty ? null : chosen.points[hit.pointIndex],
+    );
   }
 
-  /// A group zooms in until it opens, a mark reports itself, then another
-  /// route; nothing at all says so.
+  /// The nearest target within reach: a group zooms in until it opens, a
+  /// mark reports itself, another route is chosen; nothing says so.
   Future<void> _onTap(math.Point<double> point) async {
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
-    final hit = await _hitAt(c, point);
-    if (hit != null && mounted) {
-      final p = hit.properties;
-      final scale = _queryScale;
-      if (p['cluster_id'] case final num cluster) {
-        final zoom = await c.getClusterExpansionZoom(hit.source, cluster.toInt());
-        if (hit.at case [final num lon, final num lat, ...]) {
-          await c.animateCamera(
-            gl.CameraUpdate.newLatLngZoom(gl.LatLng(lat.toDouble(), lon.toDouble()), zoom + 0.3),
-            duration: mounted ? Motion.of(context, Motion.camera) : Duration.zero,
-          );
-        }
-        return;
-      }
-      if (p['mark'] case final String id) {
-        _props.onMarkTap?.call(id, at: Offset(point.x / scale, point.y / scale));
-        return;
-      }
+    final hit = await _pick(c, point);
+    if (!mounted) return;
+    if (hit == null) {
+      _props.onEmptyTap?.call();
+      return;
     }
-    final onLineTap = _props.onLineTap;
-    if (onLineTap != null) {
-      final slop = 16.0 * _queryScale;
-      final box = Rect.fromCenter(
-        center: Offset(point.x, point.y),
-        width: slop * 2,
-        height: slop * 2,
+    final p = hit.properties;
+    if (p['cluster_id'] case final num cluster) {
+      final source = RouteLayers.markSources.firstWhere(
+        (s) => RouteLayers.badgesOf(s) == hit.layer,
+        orElse: () => RouteLayers.marksSource,
       );
-      final features = await c.queryRenderedFeaturesInRect(box, const [
-        RouteLayers.alternatives,
-        RouteLayers.alternativesCasing,
-      ], null);
-      if (features.isNotEmpty) {
-        final properties = (features.first as Map<Object?, Object?>)['properties'];
-        final index = properties is Map<Object?, Object?> ? properties['index'] : null;
-        if (index is num) {
-          onLineTap(index.toInt());
-          return;
-        }
+      final zoom = await c.getClusterExpansionZoom(source, cluster.toInt());
+      if (hit.at case final at? when mounted) {
+        await c.animateCamera(
+          gl.CameraUpdate.newLatLngZoom(gl.LatLng(at.lat, at.lon), zoom + 0.3),
+          duration: Motion.of(context, Motion.camera),
+        );
       }
+      return;
     }
-    _props.onEmptyTap?.call();
+    if (p['mark'] case final String id) {
+      final scale = _queryScale;
+      _props.onMarkTap?.call(id, at: hit.screen ?? Offset(point.x / scale, point.y / scale));
+      return;
+    }
+    if (p['index'] case final num index) _props.onLineTap?.call(index.toInt());
   }
 
-  /// The web plugin reports the pointer entering and leaving the hit
-  /// layers, one event per feature: what is topmost under it is asked once
-  /// the events of a move are in, and reported when it changes.
-  void _onHover(
-    math.Point<double> point,
-    gl.LatLng _,
-    String _,
-    gl.Annotation? _,
-    gl.HoverEventType _,
-  ) {
-    _hoverPoint = point;
-    if (_hoverBusy) return;
-    _hoverBusy = true;
-    scheduleMicrotask(() async {
-      try {
-        while (_hoverPoint != null && mounted) {
-          final at = _hoverPoint!;
-          _hoverPoint = null;
-          await _resolveHover(at);
-        }
-      } on Object catch (e) {
-        _log.fine('route map hover failed: $e');
-      } finally {
-        _hoverBusy = false;
-      }
-    });
-  }
-
-  Future<void> _resolveHover(math.Point<double> point) async {
-    final c = _controller;
-    if (c == null || !_ready) return;
-    final hit = await _hitAt(c, point);
-    final p = hit?.properties;
-    final RouteMapHover? hover;
-    final String? key;
-    if (p == null) {
-      (hover, key) = (null, null);
-    } else if (p['cluster_id'] case final num cluster) {
-      key = 'group:${hit!.source}:$cluster';
-      hover = RouteMapHover(at: Offset(point.x, point.y), group: RouteMarkStyle.groupCounts(p));
-    } else if (p['mark'] case final String id) {
-      key = id;
-      hover = RouteMapHover(at: Offset(point.x, point.y), mark: id);
-    } else {
-      (hover, key) = (null, null);
-    }
+  /// The browser's hover picked another target ([listenWebMapHover]): a
+  /// badge of this map is told to the screen, anything else is nothing.
+  void _onWebHover(WebMapHover? hover) {
+    final p = hover == null || !RouteLayers.badges.contains(hover.layer) ? null : hover.properties;
+    final next = switch (p) {
+      null => null,
+      {'mark': final String id} => RouteMapHover(at: hover!.at, mark: id),
+      {'cluster_id': _} => RouteMapHover(at: hover!.at, group: RouteMarkStyle.groupCounts(p)),
+      _ => null,
+    };
+    final key = next?.mark ?? (next == null ? null : 'group:${p?['cluster_id']}');
     if (key == _hovered || !mounted) return;
     _hovered = key;
-    _props.onMarkHover?.call(hover);
+    _props.onMarkHover?.call(next);
   }
 
   @override
@@ -771,16 +764,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       attributionButtonMargins: math.Point(p.padding.left + 8, p.padding.bottom + 8),
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
-      onMapCreated: (c) {
-        _controller = c;
-        // Only the browser has a pointer that hovers.
-        if (kIsWeb) c.onFeatureHover.add(_onHover);
-      },
+      onMapCreated: (c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
-      // A click on a layer the plugin watches (the hit discs, the other
-      // routes) is a map click too: the plugin would report it only as a
-      // feature tap, and _onTap decides what it hits.
-      featureTapsTriggersMapClick: true,
       onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
           : (point, _) => _onTap(point),
@@ -797,16 +782,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
     );
-    return LayoutBuilder(
-      builder: (context, box) {
-        final size = box.biggest;
-        if (size != _size) {
-          _size = size;
-          // The follow camera's insets follow the map's height.
-          if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
-        }
-        return map;
-      },
+    return WebMapPointer(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final size = box.biggest;
+          if (size != _size) {
+            _size = size;
+            // The follow camera's insets follow the map's height.
+            if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
+          }
+          return map;
+        },
+      ),
     );
   }
 }

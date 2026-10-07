@@ -141,14 +141,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'reducedMotion': reduced,
       },
     });
-    await _call('return window.lunawayMarks.listen(hits);', {'hits': RouteLayers.hits});
+    await _call('return window.lunawayMarks.listen(layers);', {'layers': RouteLayers.badges});
   }
 
-  /// The route layers in the GL JS style syntax. Every mark is tappable
-  /// through its hit layer, a group zooms in; the cards beside the map pick
-  /// the route.
+  /// The route layers in the GL JS style syntax. Every badge is a target
+  /// (lunawayHits.pick, by routeHitShapes): a mark reports itself, a group
+  /// zooms in; the cards beside the map pick the route.
   static Map<String, Object?> _spec({required bool dark}) => {
-    'tappable': RouteLayers.hits,
+    'tappable': [...RouteLayers.badges],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
       for (final s in RouteLayers.markSources)
@@ -181,8 +181,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         RouteLook.line(dark: dark),
         RouteLook.lineWidth,
       ),
-      // A desktop has a mouse: the hit discs keep a pointer's tolerance.
-      ...RouteMarkStyle.jsonLayers(touch: false),
+      ...RouteMarkStyle.jsonLayers(),
       {
         'id': RouteLayers.vehicle,
         'type': 'symbol',

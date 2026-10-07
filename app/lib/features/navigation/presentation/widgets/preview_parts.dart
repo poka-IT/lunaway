@@ -82,6 +82,7 @@ class _RoadbookState extends State<Roadbook> {
           button: true,
           expanded: _open,
           child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
             onTap: () => setState(() => _open = !_open),
             borderRadius: BorderRadius.circular(LunaTokens.radiusM),
             child: ConstrainedBox(

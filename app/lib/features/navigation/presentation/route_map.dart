@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
@@ -11,6 +12,7 @@ import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 /// A route line on the map.
@@ -301,7 +303,9 @@ typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps pr
 /// Android, iOS and the web, MapLibre GL JS in a web view on macOS and
 /// Windows.
 Widget buildPlatformRouteMap(BuildContext context, RouteMapProps props) {
-  if (kIsWeb) return GlRouteMap(props);
+  // On the web the map is an HTML element: covered while a dialog or a
+  // sheet is open, so their clicks and wheel stay theirs (as the main map).
+  if (kIsWeb) return MapShield(child: GlRouteMap(props));
   return switch (defaultTargetPlatform) {
     TargetPlatform.android || TargetPlatform.iOS => GlRouteMap(props),
     TargetPlatform.macOS || TargetPlatform.windows => WebViewRouteMap(props),
@@ -373,6 +377,25 @@ Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
   ],
 };
 
+/// The route map's targets, for the pointer ([nearestHit]): every badge
+/// (a mark or a group of them), then the other routes, which a tap
+/// anywhere along picks.
+final Map<String, HitShape> routeHitShapes = {
+  // The ends and stops over the marks, the marks over the minor ones.
+  for (final (i, source) in RouteLayers.markSources.reversed.indexed)
+    RouteLayers.badgesOf(source): HitShape(radius: _badgeHit, priority: 1 + i),
+  RouteLayers.alternatives: _lineHit,
+  RouteLayers.alternativesCasing: _lineHit,
+};
+
+/// The size of a minor mark beside a major one.
+const routeMinorScale = 0.72;
+
+/// A badge's disc and rim, half of [RouteBadge.extent], smaller for a
+/// minor mark (`size`, which a group takes from its largest mark).
+const _badgeHit = StopsHit('size', [(routeMinorScale, 15.5 * routeMinorScale), (1, 15.5)]);
+const _lineHit = HitShape(radius: FixedHit(0), priority: 9, line: true);
+
 /// Ids of the route map's sources and layers, shared by both engines.
 abstract final class RouteLayers {
   static const alternativesSource = 'lw-route-alternatives';
@@ -398,17 +421,17 @@ abstract final class RouteLayers {
   static const vehicle = 'lw-route-vehicle';
   static const vehicleImage = 'lw-vehicle-arrow';
 
-  static String hitOf(String source) => '$source-hit';
   static String haloOf(String source) => '$source-halo';
   static String badgesOf(String source) => '$source-badges';
   static String sideOf(String source) => '$source-side';
 
-  /// The hit layers, the topmost first: what a tap or a pointer finds.
-  static final List<String> hits = [for (final s in markSources.reversed) hitOf(s)];
+  /// The badges, the topmost first: what a tap or a pointer picks among the
+  /// marks ([routeHitShapes]).
+  static final List<String> badges = [for (final s in markSources.reversed) badgesOf(s)];
 
   /// Every layer of the marks, bottom to top.
   static final List<String> markLayers = [
-    for (final s in markSources) ...[hitOf(s), haloOf(s), badgesOf(s), sideOf(s)],
+    for (final s in markSources) ...[haloOf(s), badgesOf(s), sideOf(s)],
   ];
 }
 

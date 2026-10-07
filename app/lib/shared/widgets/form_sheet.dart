@@ -204,6 +204,7 @@ class ChoiceTile extends StatelessWidget {
             side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
           ),
           child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
             customBorder: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(LunaTokens.radiusL),
             ),

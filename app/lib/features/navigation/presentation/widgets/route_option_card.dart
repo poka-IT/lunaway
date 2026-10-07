@@ -55,6 +55,7 @@ class RouteOptionCard extends StatelessWidget {
         child: Material(
           type: MaterialType.transparency,
           child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
             onTap: onTap,
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
             child: Padding(
