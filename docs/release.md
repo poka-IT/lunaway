@@ -6,9 +6,8 @@ its own file for the details: `docs/play-store.md`, `docs/app-store.md`,
 the servers. This file gives the order and the checks.
 
 Nothing is automatic. No workflow runs on a tag (`.github/workflows/ci.yml`
-runs on pushes to `main` and on pull requests; `routing-graph.yml` on a
-schedule): every store build, signature, upload and deploy below is made by
-hand, on the maintainer's Mac.
+runs on pushes to `main` and on pull requests): every store build,
+signature, upload and deploy below is made by hand, on the maintainer's Mac.
 
 ## 1. Before the version
 

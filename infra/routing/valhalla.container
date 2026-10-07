@@ -12,8 +12,8 @@
 # root, and with Network=host nothing rewrites the host firewall, whereas
 # Docker inserts its own rules for published ports.
 #
-# The graph is built weekly by GitHub Actions (infra/routing/build-graph.sh)
-# and installed by lunaway-routing-refresh into /srv/routing/builds/<id>/ on
+# The graph is built weekly on a throwaway Hetzner server driven by the
+# maintainer's Mac (infra/routing/europe-build.sh) and installed by lunaway-routing-refresh into /srv/routing/builds/<id>/ on
 # the root disk; /srv/routing/current points at the build in service. The
 # root disk is local NVMe: the tiles are memory-mapped and read at random,
 # which a network volume serves slower, and they can be rebuilt.
@@ -23,8 +23,11 @@
 # /srv/routing/current/valhalla_tiles.tar, listens on 127.0.0.1:8002 and
 # answers route, trace_attributes, sources_to_targets (the detours of the
 # fuel search, points 60 km apart at most) and status only. Its log lines name
-# the method, path and status of each request, never a position (the body
-# is not logged; checked on 2026-10-06).
+# the request's number, time, status and size, never a position (the body
+# is not logged; checked on 2026-10-06 and on 2026-10-07 over 1 000 European
+# routes). The long-request threshold of each service is set to an hour in
+# valhalla.json, so a slow request is not written out whatever the
+# engine's default.
 #
 # Install, once the first graph is in /srv/routing/current:
 #   apt-get install podman
@@ -44,9 +47,9 @@ ConditionPathExists=/srv/routing/current/valhalla.json
 # 3.9.0, pinned by the digest of its multi-architecture index (2026-10-06);
 # keep equal to VALHALLA_IMAGE in infra/routing/version.sh.
 Image=ghcr.io/valhalla/valhalla@sha256:511c095b8caf393dccceb8b519ec96b6f85a0166b2288ba014a8a748acc5a63c
-# Four worker threads: the backend's vCPUs. A route across France takes
-# 0.25 to 0.36 s of one thread (Lille to Nice with two alternatives,
-# measured 2026-10-06).
+# Four worker threads, half the backend's 8 vCPUs: PostgreSQL and the API
+# keep the rest. A long European route takes 0.4 to 1.2 s of one thread
+# once its tiles are in memory (plan/research/31-routage-europe.md, 3.2).
 Exec=valhalla_service /srv/routing/current/valhalla.json 4
 # Host network, bound to 127.0.0.1 by valhalla.json: no port publishing, no
 # firewall rule, and the API reaches it on loopback.
@@ -62,10 +65,13 @@ NoNewPrivileges=true
 # state, so a stop is the SIGKILL, after 2 s instead of 10.
 StopTimeout=2
 # cgroup v2 charges the page cache of the memory-mapped tiles to the
-# container. Serving France measured 593 MiB after long routes (anonymous
-# 427 MiB, file 160 MiB; 2026-10-06); the cap leaves the page cache room to
-# grow with the tiles in use, and reclaims it before PostgreSQL's.
-PodmanArgs=--memory=3g --pids-limit=256
+# container. Serving Europe without a cap settled at 5.95 GB after 400
+# varied routes, 4 at a time (anonymous 1.5 GB, the rest tiles); with 3 GB
+# the kernel read the same tiles again and again, 15 GB for those 400
+# routes, and the median rose from 0.60 to 0.84 s
+# (plan/research/31-routage-europe.md, 3.3). 6 GB on the 16 GB backend
+# (cx43) holds the tiles in use and still reclaims them before PostgreSQL's.
+PodmanArgs=--memory=6g --pids-limit=256
 
 [Service]
 # Each stop ends in SIGKILL (137), so a plain `systemctl stop valhalla`

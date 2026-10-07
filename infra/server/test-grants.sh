@@ -91,6 +91,16 @@ place_region_exits SELECT
 fuel_price_days SELECT
 enforcement_sources SELECT
 source_reads SELECT
+place_holds SELECT
+place_hold_releases INSERT
+place_hold_releases SELECT
+banned_keys SELECT
+banned_keys INSERT
+banned_keys DELETE
+confirmation_tallies SELECT
+confirmation_tallies INSERT
+confirmation_tallies UPDATE
+confirmation_tallies DELETE
 $(for table in $account_tables; do printf '%s SELECT\n%s INSERT\n%s UPDATE\n%s DELETE\n' "$table" "$table" "$table" "$table"; done)
 EOF
 )"
@@ -161,6 +171,14 @@ source_records SELECT
 source_records UPDATE
 sources SELECT
 sync_epoch SELECT
+place_hold_releases SELECT
+place_holds INSERT
+place_holds SELECT
+takedown_cells INSERT
+takedown_cells SELECT
+takedown_key INSERT
+takedown_key SELECT
+confirmation_tallies SELECT
 region_packs SELECT
 region_packs INSERT
 region_packs UPDATE
@@ -266,6 +284,12 @@ refused "lunaway_app moves the speed camera revision" /etc/lunaway/api.env "SELE
 refused "lunaway_app reads the takedowns" /etc/lunaway/api.env "SELECT count(*) FROM place_takedowns"
 refused "lunaway_app logs a takedown" /etc/lunaway/api.env "INSERT INTO place_takedowns SELECT * FROM place_takedowns WHERE false"
 refused "lunaway_app dates a read" /etc/lunaway/api.env "UPDATE source_reads SET read_at = read_at WHERE false"
+# The cells around a place taken down and the secret's check value are the
+# import role's (migrations 20261006210100 and 20261006210300): the API only
+# decides the holds a moderator approves or rejects.
+refused "lunaway_app reads the takedown cells" /etc/lunaway/api.env "SELECT count(*) FROM takedown_cells"
+refused "lunaway_app reads the takedown key's check" /etc/lunaway/api.env "SELECT count(*) FROM takedown_key"
+refused "lunaway_app moves a held place" /etc/lunaway/api.env "UPDATE place_holds SET place_id = place_id WHERE false"
 got="$(as_role /etc/lunaway/api.env "
 SELECT string_agg(attname, ' ' ORDER BY attname)
 FROM pg_attribute
@@ -308,6 +332,12 @@ refused "lunaway_ingest deletes a place" /etc/lunaway/ingest.env "DELETE FROM pl
 refused "lunaway_ingest deletes a record" /etc/lunaway/ingest.env "DELETE FROM source_records WHERE false"
 refused "lunaway_ingest writes a source" /etc/lunaway/ingest.env "UPDATE sources SET name = name WHERE false"
 refused "lunaway_ingest writes the sync epoch" /etc/lunaway/ingest.env "UPDATE sync_epoch SET created_at = created_at WHERE false"
+refused "lunaway_ingest decides a held place" /etc/lunaway/ingest.env "UPDATE place_holds SET status = status WHERE false"
+refused "lunaway_ingest releases a held place" /etc/lunaway/ingest.env "INSERT INTO place_hold_releases SELECT * FROM place_hold_releases WHERE false"
+# The retention's tables (migration 20261007090000): a banned key's hash is
+# the API's alone, the tallies of answers are the API's to write.
+refused "lunaway_ingest reads a banned key's hash" /etc/lunaway/ingest.env "SELECT count(*) FROM banned_keys"
+refused "lunaway_ingest writes an answer tally" /etc/lunaway/ingest.env "DELETE FROM confirmation_tallies WHERE false"
 refused "lunaway_ingest writes the migrations table" /etc/lunaway/ingest.env "DELETE FROM _sqlx_migrations WHERE false"
 refused "lunaway_ingest creates a table" /etc/lunaway/ingest.env "CREATE TABLE grants_probe (x int)"
 refused "lunaway_ingest writes an account" /etc/lunaway/ingest.env "UPDATE accounts SET trust_level = trust_level WHERE false"

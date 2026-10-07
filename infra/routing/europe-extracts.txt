@@ -1,0 +1,32 @@
+# The Geofabrik extracts merged into the Europe routing graph
+# (infra/routing/europe-build.sh), one path per line under
+# https://download.geofabrik.de/, without -latest.osm.pbf. The countries of
+# the backend's European import (EUROPE in
+# backend/crates/lunaway-ingest/src/osm_extract.rs) plus Morocco, reached by
+# the ferries from Spain. A country added to the import belongs here too,
+# or its places get no route.
+europe/france
+europe/spain
+africa/canary-islands
+europe/portugal
+europe/italy
+europe/germany
+europe/austria
+europe/switzerland
+europe/liechtenstein
+europe/belgium
+europe/netherlands
+europe/luxembourg
+europe/united-kingdom
+europe/ireland-and-northern-ireland
+europe/denmark
+europe/norway
+europe/sweden
+europe/finland
+europe/croatia
+europe/slovenia
+europe/greece
+europe/poland
+europe/czech-republic
+europe/andorra
+africa/morocco

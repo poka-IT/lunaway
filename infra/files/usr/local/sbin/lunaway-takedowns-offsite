@@ -1,0 +1,93 @@
+#!/bin/bash
+# Keeps an age-encrypted copy of the takedown journal,
+# /srv/data/backups/offsite/place-takedowns/place-takedowns.jsonl.age,
+# which the ops server pulls with the dumps and the Mac pulls from the ops
+# server. Runs hourly from lunaway-takedowns-offsite.timer; installed by
+# infra/server/backups.sh.
+#
+# The journal (/srv/data/place-takedowns, one file per UTC day, written by
+# `lunaway conflate --take-down` as the import role) lives outside the
+# dumps: after a restore, `lunaway takedowns replay` takes down again every
+# place the dump brought back and puts back the cells of their exclusion
+# zones (docs/deploy.md, "Backups and restore"). The copy is a single file,
+# every day of the journal in order, written again at each run; the pulls
+# replace it.
+#
+# The journal is never pruned (a few lines a year, the cells must outlive
+# every restore), so any day of the last copy missing from the journal is a
+# loss: on a new data volume the journal is empty until the operator puts
+# it back from the copy, and an empty or partial copy pulled meanwhile would
+# replace the only good one. Two guards, as for the account deletions
+# (lunaway-deletions-offsite):
+#   - a journal that names no takedown never makes the first copy;
+#   - the days of the last copy are kept on the root disk
+#     (/var/lib/lunaway-takedowns-offsite/days, dates only), and a day gone
+#     from the journal stops the run.
+# LUNAWAY_TAKEDOWNS_ALLOW_LOSS=1 lets a deliberate loss through.
+#
+# The plaintext goes from the journal to age through a pipe, never to a
+# file. Each day is read without following a symbolic link: the import role
+# owns the directory, and this runs as root.
+set -euo pipefail
+umask 027
+src=/srv/data/place-takedowns
+dst=/srv/data/backups/offsite/place-takedowns
+copy="$dst/place-takedowns.jsonl.age"
+state="${STATE_DIRECTORY:-/var/lib/lunaway-takedowns-offsite}/days"
+recipients=/etc/lunaway/backup-recipient
+
+[ -s "$recipients" ] || { echo "no age recipient in $recipients" >&2; exit 1; }
+mountpoint -q /srv/data || { echo "/srv/data is not mounted" >&2; exit 1; }
+[ -d "$dst" ] || { echo "no $dst (infra/server/backups.sh)" >&2; exit 1; }
+if [ ! -d "$src" ] || [ ! -r "$src" ] || [ ! -x "$src" ]; then
+  echo "cannot read the journal directory $src (infra/server/pipeline.sh)" >&2
+  exit 1
+fi
+trap 'rm -f "$copy.partial"' EXIT
+
+mark_success() {
+  date -u +%Y%m%dT%H%M%SZ > "$dst/last-success.new"
+  mv -f "$dst/last-success.new" "$dst/last-success"
+}
+
+# Only the names the journal writes, oldest day first.
+days=()
+while IFS= read -r name; do
+  [[ "$name" =~ ^takedowns-[0-9]{8}\.jsonl$ ]] && days+=("$name")
+done < <(find "$src" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+
+# Every day in order; awk gives back the newline of a last line a crash
+# cut short, so the replay skips that line alone.
+journal() {
+  local name
+  for name in "${days[@]}"; do
+    dd if="$src/$name" iflag=nofollow status=none | awk 1
+  done
+}
+lines="$(journal | grep -c . || true)"
+
+if [ "$lines" = 0 ] && [ ! -e "$copy" ]; then
+  mark_success
+  echo "takedown journal: no takedown and no copy yet, nothing written"
+  exit 0
+fi
+
+if [ -s "$state" ] && [ "${LUNAWAY_TAKEDOWNS_ALLOW_LOSS:-0}" != 1 ]; then
+  lost=()
+  while IFS= read -r name; do
+    [[ "$name" =~ ^takedowns-[0-9]{8}\.jsonl$ ]] || continue
+    [ -f "$src/$name" ] || lost+=("$name")
+  done < "$state"
+  if [ "${#lost[@]}" -gt 0 ]; then
+    echo "the journal lost ${#lost[*]} day(s) (${lost[*]}): the copy is left as it was." >&2
+    echo "Put the journal back (docs/deploy.md, \"Backups and restore\"), or run with LUNAWAY_TAKEDOWNS_ALLOW_LOSS=1 for a deliberate loss." >&2
+    exit 1
+  fi
+fi
+
+journal | age --encrypt --recipients-file "$recipients" -o "$copy.partial"
+mv -f "$copy.partial" "$copy"
+printf '%s\n' "${days[@]}" > "$state.new"
+mv -f "$state.new" "$state"
+mark_success
+echo "takedown journal: ${#days[@]} days, $lines lines, encrypted into $copy"

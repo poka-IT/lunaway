@@ -70,13 +70,18 @@
 # to /32, no port, no credentials, no cookies, no query strings, nothing that
 # names a tile (coordinates, ranges, ETags, sizes), a photo (its path), an
 # offline pack or a regional pack of places (their region).
-# Kept 14 days.
+# Rolled daily, a line kept 14 days at most.
 (access_log) {
 	log {
 		output file /var/log/caddy/access.log {
+			# A new file every day, and a rolled file goes 12 days after it was
+			# rolled: a line stays about 14 days (a day or two in the current
+			# file, as a restart may start the day again, then 12). The size
+			# bound only splits a busy day.
+			roll_interval 24h
 			roll_size 50MiB
-			roll_keep 5
-			roll_keep_for 336h
+			roll_keep 60
+			roll_keep_for 288h
 		}
 		format filter {
 			request>remote_ip ip_mask 16 32

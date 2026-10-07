@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The hourly sweep of the routing build's throwaway servers
+  (infra/ops/mac-routing/lunaway-routing-build.sh sweep): deletes any server
+  or firewall labelled purpose=routing-build created more than 8 hours ago,
+  which only a build killed with the Mac leaves behind. A template, filled
+  in and installed by infra/ops/mac-routing/install.sh.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>legal.p2p.lunaway.routing-sweep</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/bash</string>
+		<string>__SCRIPT__</string>
+		<string>sweep</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>LUNAWAY_ALERT_GH_USER</key>
+		<string>__ALERT_GH_USER__</string>
+	</dict>
+	<key>StartInterval</key>
+	<integer>3600</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

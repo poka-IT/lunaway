@@ -11,9 +11,10 @@
 #   records_flagged                           records an import flagged and no
 #                                             conflation took yet
 #   fuel_age_s                                seconds since the last fuel price
-#                                             import stored the feed (each run
-#                                             writes every station's fetch
-#                                             time), -1 before the first
+#                                             import read the feed (a stored
+#                                             price or the read date of a pass
+#                                             that changed none), -1 before
+#                                             the first
 #   poi_layer_pending_s                       how long a change of the points
 #                                             layer has waited for its
 #                                             publication (at most every 6
@@ -53,8 +54,13 @@ SELECT json_build_object(
   'submissions_oldest_s', (SELECT coalesce(floor(extract(epoch FROM now() - min(coalesce(decided_at, created_at)))), 0)::bigint
                            FROM place_submissions WHERE status = 'accepted'),
   'records_flagged', (SELECT count(*) FROM source_records WHERE needs_conflation),
-  'fuel_age_s', (SELECT coalesce(floor(extract(epoch FROM now() - max(fetched_at))), -1)::bigint
-                 FROM poi_join_records WHERE source_id = 'prix-carburants'),
+  -- The latest of the feed's stored prices and of its last read: a pass
+  -- that changes no price writes no row, only its read date
+  -- (source_reads, migration 20261006210000_join_read_dates).
+  'fuel_age_s', (SELECT coalesce(floor(extract(epoch FROM now() - greatest(max(j.fetched_at),
+                   (SELECT max(r.read_at) FROM source_reads r
+                     WHERE r.target = 'joins' AND r.source_id = 'prix-carburants' AND r.scope = '*')))), -1)::bigint
+                 FROM poi_join_records j WHERE j.source_id = 'prix-carburants'),
   'poi_layer_pending_s', (SELECT coalesce(floor(extract(epoch FROM now() - pending_since)), -1)::bigint
                           FROM poi_layer),
   'camera_lists', (SELECT count(*) FROM enforcement_sources WHERE source_id <> 'osm'),

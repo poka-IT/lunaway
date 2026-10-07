@@ -21,25 +21,34 @@
 #   sudo lunaway-admin ingest atout-france|municipalities|fuel|laposte|finess [--refresh]
 #   sudo lunaway-admin ingest cameras [--list france,...] [--refresh]
 #   sudo lunaway-admin ingest cameras-osm [--europe | --extract NAME...]
-#   sudo lunaway-admin conflate [--full]
 #   sudo lunaway-admin stats
 #   sudo lunaway-admin pois stats|hours
 #   sudo lunaway-admin road-events poll|match|stats|dialog-permanent [...]
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
 #       private ranges
+#   sudo lunaway-admin conflate [--full]
+#   sudo lunaway-admin takedowns import < FILE
+#   sudo lunaway-admin takedowns replay [--dry-run] [--allow-empty]
+#       as the imports with the takedown secret (/etc/lunaway/takedown.env)
+#       and journal (/srv/data/place-takedowns), loopback only
 #   sudo lunaway-admin packs build [--region CODE [--takedown]] | list
 #       as the imports, writing /srv/data/packs only (served by Caddy under
 #       /packs/places/), with the API's public URLs (media.env); loopback only
 #   sudo lunaway-admin enforcement build [--full] [--allow-retire] | stats
 #       as the imports, with the zones' secret (/etc/lunaway/zone.env) and
 #       the routing engine on loopback; nothing else
-#   sudo lunaway-admin take-down <place> --reason TEXT [--with-nearby] [--yes]
+#   sudo lunaway-admin take-down <place> --reason-code CODE [--with-nearby] [--yes]
 #       takes a place down for good (docs/deploy.md, "Taking a place down"):
-#       1. conflate --take-down, as the imports; 2. moderation take-down, as
-#       the API; 3. packs build --region <its region> --takedown, as the
-#       packs; stops at the first step that fails. Without --yes, step 1's
-#       preview only, and what would follow
+#       1. conflate --take-down, as the imports with the takedown secret,
+#       journaled with CODE (private-home, gdpr, court-order or other); 2.
+#       moderation take-down, as the API; 3. packs build --region <its
+#       region> --takedown, as the packs; stops at the first step that
+#       fails. Without --yes, step 1's preview only, and what would follow
+#   sudo lunaway-admin replay-takedowns [--dry-run] [--allow-empty]
+#       after a restore (docs/deploy.md, "Backups and restore"): takedowns
+#       replay, as the imports; then moderation purge-taken-down, as the
+#       API; then the packs of each region the replay names
 #   sudo lunaway-admin migrate
 #       starts lunaway-migrate.service (role lunaway_owner)
 #
@@ -90,6 +99,21 @@ as_ingest() {
     -p IPAddressAllow=localhost \
     "$cli" "$@"
 }
+# The conflation and the takedowns: the import role with the takedown
+# secret and journal, which the imports themselves (parsers of outside
+# payloads) do not get. No outbound network: the conflation reads and
+# writes the database only.
+as_takedown() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+    -p MemoryHigh=2560M -p MemoryMax=3G \
+    -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+    -p EnvironmentFile=/etc/lunaway/takedown.env -E LUNAWAY_TAKEDOWN_JOURNAL=/srv/data/place-takedowns \
+    -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest -p ReadWritePaths=/srv/data/place-takedowns \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+    -p IPAddressDeny=any -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
 # The packs come out 0640 lunaway-ingest:caddy, like the unit's
 # (/srv/data/packs is setgid caddy).
 as_packs() {
@@ -119,30 +143,44 @@ as_enforcement() {
 # place it took down (an id merged into another names the other) and its
 # region: steps 2 and 3 use those, never the id given.
 take_down() {
-  local place="" reason="" yes=0 nearby=0 out final region
+  local place="" code="" yes=0 nearby=0 out final region
   place="${1:-}"
   shift || true
   [[ "$place" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] \
-    || { echo "take-down <place> --reason TEXT [--with-nearby] [--yes]: <place> is a place id" >&2; exit 2; }
+    || { echo "take-down <place> --reason-code CODE [--with-nearby] [--yes]: <place> is a place id" >&2; exit 2; }
   while [ $# -gt 0 ]; do
     case "$1" in
-      --reason) [ $# -ge 2 ] || { echo "--reason takes a text" >&2; exit 2; }; reason="$2"; shift 2 ;;
+      --reason)
+        # A free text on a sudo command line lands in the journal: the
+        # request is kept as a code only (plan/research/38, part 6).
+        echo "take-down takes no --reason: give --reason-code (private-home, gdpr, court-order or other), and keep the request's reference outside the server" >&2
+        exit 2
+        ;;
+      --reason-code)
+        [ $# -ge 2 ] || { echo "--reason-code takes private-home, gdpr, court-order or other" >&2; exit 2; }
+        code="$2"
+        shift 2
+        ;;
       --yes) yes=1; shift ;;
       --with-nearby) nearby=1; shift ;;
       *) echo "take-down: unknown argument $1" >&2; exit 2 ;;
     esac
   done
-  [ -n "$reason" ] || { echo "take-down needs --reason TEXT (the kind of request and its reference, never the requester's name)" >&2; exit 2; }
-  local step1=(conflate --take-down "$place" --reason "$reason")
+  case "$code" in
+    private-home | gdpr | court-order | other) ;;
+    *) echo "take-down needs --reason-code: private-home, gdpr, court-order or other" >&2; exit 2 ;;
+  esac
+  # The code is all the database and the journal keep of the request.
+  local step1=(conflate --take-down "$place" --reason-code "$code")
   [ "$nearby" = 1 ] && step1+=(--with-nearby)
   if [ "$yes" = 0 ]; then
     echo "== 1. the catalogue, preview (import role)"
-    as_ingest "${step1[@]}"
+    as_takedown "${step1[@]}"
     echo "== then, with --yes: 2. moderation take-down (API role), 3. packs build --region <its region> --takedown"
     return 0
   fi
   echo "== 1. the catalogue (import role)"
-  if ! out="$(as_ingest "${step1[@]}" --yes)"; then
+  if ! out="$(as_takedown "${step1[@]}" --yes)"; then
     printf '%s\n' "$out"
     echo "step 1 failed: nothing else done" >&2
     exit 1
@@ -162,12 +200,49 @@ take_down() {
   as_packs packs build --region "$region" --takedown || { echo "step 3 failed: run lunaway-admin packs build --region $region --takedown again" >&2; exit 1; }
 }
 
+# replay-takedowns: after a restore, the takedown journal applied again
+# (docs/deploy.md, "Backups and restore"), each step under its own
+# identity: the replay as the imports, the purge of the community content
+# as the API, then the packs of every region the replay names. The API and
+# the worker stay stopped meanwhile.
+replay_takedowns() {
+  local dry=0 allow=() out regions region
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dry-run) dry=1; shift ;;
+      --allow-empty) allow=(--allow-empty); shift ;;
+      *) echo "replay-takedowns: unknown argument $1" >&2; exit 2 ;;
+    esac
+  done
+  if [ "$dry" = 1 ]; then
+    as_takedown takedowns replay --dry-run ${allow[@]+"${allow[@]}"}
+    return
+  fi
+  echo "== 1. the journal (import role)"
+  if ! out="$(as_takedown takedowns replay ${allow[@]+"${allow[@]}"})"; then
+    printf '%s\n' "$out"
+    echo "step 1 failed: nothing else done" >&2
+    exit 1
+  fi
+  printf '%s\n' "$out"
+  echo "== 2. the community's content of every place taken down (API role)"
+  as_api moderation purge-taken-down --yes || { echo "step 2 failed: run lunaway-admin moderation purge-taken-down --yes, then the packs" >&2; exit 1; }
+  regions="$(sed -nE 's/^ *then: lunaway packs build --region ([A-Z0-9-]+) --takedown$/\1/p' <<<"$out" | sort -u)"
+  for region in $regions; do
+    echo "== 3. the packs of $region (packs)"
+    as_packs packs build --region "$region" --takedown || { echo "step 3 failed: run lunaway-admin packs build --region $region --takedown again" >&2; exit 1; }
+  done
+}
+
 case "${1:-}" in
   moderation|accounts)
     as_api "$@"
     ;;
-  ingest|conflate|stats|pois|road-events)
+  ingest|stats|pois|road-events)
     as_ingest "$@"
+    ;;
+  conflate|takedowns)
+    as_takedown "$@"
     ;;
   packs)
     as_packs "$@"
@@ -179,13 +254,17 @@ case "${1:-}" in
     shift
     take_down "$@"
     ;;
+  replay-takedowns)
+    shift
+    replay_takedowns "$@"
+    ;;
   migrate)
     systemctl reset-failed lunaway-migrate 2>/dev/null || true
     systemctl start lunaway-migrate.service
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,44p' "$0" >&2
+    sed -n '2,53p' "$0" >&2
     exit 2
     ;;
 esac

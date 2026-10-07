@@ -78,5 +78,117 @@
     "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
     "min_km": 80.0,
     "max_km": 110.0
+  },
+  {
+    "name": "Strasbourg to Offenburg: across the Rhine into Germany, about 29 km",
+    "from": [48.5734, 7.7521],
+    "to": [48.4709, 7.9408],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 20.0,
+    "max_km": 40.0
+  },
+  {
+    "name": "Perpignan to Figueres: across the Pyrenees into Spain, about 59 km",
+    "from": [42.6987, 2.8956],
+    "to": [42.2665, 2.9617],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 45.0,
+    "max_km": 75.0
+  },
+  {
+    "name": "Geneva to Annecy: from Switzerland into France, about 54 km",
+    "from": [46.2044, 6.1432],
+    "to": [45.8992, 6.1294],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 40.0,
+    "max_km": 70.0
+  },
+  {
+    "name": "Nice to Genoa: along the coast into Italy, about 198 km",
+    "from": [43.7102, 7.262],
+    "to": [44.4056, 8.9463],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 170.0,
+    "max_km": 230.0
+  },
+  {
+    "name": "Madrid to Lisbon: from Spain into Portugal, about 629 km",
+    "from": [40.4168, -3.7038],
+    "to": [38.7223, -9.1393],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 560.0,
+    "max_km": 700.0
+  },
+  {
+    "name": "Porto to Lisbon, in Portugal, about 314 km",
+    "from": [41.1579, -8.6291],
+    "to": [38.7223, -9.1393],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 280.0,
+    "max_km": 350.0
+  },
+  {
+    "name": "Milan to Rome, in Italy, about 570 km",
+    "from": [45.4642, 9.19],
+    "to": [41.9028, 12.4964],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 520.0,
+    "max_km": 640.0
+  },
+  {
+    "name": "Seville to Granada, in Spain, about 251 km",
+    "from": [37.3891, -5.9845],
+    "to": [37.1773, -3.5986],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 220.0,
+    "max_km": 290.0
+  },
+  {
+    "name": "Tangier to Marrakech, in Morocco, about 569 km",
+    "from": [35.7595, -5.834],
+    "to": [31.6295, -7.9811],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 500.0,
+    "max_km": 640.0
+  },
+  {
+    "name": "Seville to Tangier: the Tarifa ferry into Morocco, about 253 km",
+    "from": [37.3891, -5.9845],
+    "to": [35.7595, -5.834],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 220.0,
+    "max_km": 300.0
+  },
+  {
+    "name": "Hamburg to Copenhagen: into Denmark, about 336 km",
+    "from": [53.5511, 9.9937],
+    "to": [55.6761, 12.5683],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "min_km": 300.0,
+    "max_km": 500.0
+  },
+  {
+    "name": "Warsaw, Wrzesinska: maxweight=1.5 keeps a 3.5 t motorhome out of the street and the yard behind it",
+    "from": [52.24994, 21.0354],
+    "to": [52.2297, 21.0122],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_ways": [23554963, 888734069, 888734068],
+    "no_route_ok": true
+  },
+  {
+    "name": "Venice, Tronchetto: a 3.3 m motorhome is never sent through the 2.1 m building passage",
+    "from": [45.4903, 12.2422],
+    "to": [45.4425, 12.304],
+    "vehicle": {"height": 3.3, "width": 2.3, "length": 7.4, "weight": 3.5},
+    "avoid_ways": [103289002],
+    "no_route_ok": true
+  },
+  {
+    "name": "Venice, Tronchetto: a 2.0 m van takes the 2.1 m building passage",
+    "from": [45.4903, 12.2422],
+    "to": [45.4425, 12.304],
+    "vehicle": {"height": 2.0, "width": 2.0, "length": 5.5, "weight": 3.0},
+    "use_ways": [103289002],
+    "max_km": 20.0
   }
 ]

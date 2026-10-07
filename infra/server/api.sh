@@ -55,8 +55,22 @@ changed=0
 install_file "$STAGING/media.env" /etc/lunaway/media.env 0600 && changed=1
 install_file systemd/lunaway-api.service /etc/systemd/system/lunaway-api.service 0644 && changed=1
 install_file files/usr/local/sbin/lunaway-admin /usr/local/sbin/lunaway-admin 0755 || true
-[ "$changed" = 1 ] && systemctl daemon-reload
+retention_changed=0
+for unit in lunaway-retention.service lunaway-retention.timer; do
+  install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && retention_changed=1
+done
+[ "$changed" = 1 ] || [ "$retention_changed" = 1 ] && systemctl daemon-reload
 systemctl enable --quiet lunaway-api
+# The retention timer, once the release's CLI has the command: before, a
+# daily run would only fail. Asked as the API's user, never as root.
+if [ -x /opt/lunaway/current/lunaway ] \
+  && runuser -u lunaway-api -- /opt/lunaway/current/lunaway --help 2>/dev/null | grep -E '^ +retention ' >/dev/null; then
+  systemctl enable --quiet --now lunaway-retention.timer
+  log "retention daily, next $(systemctl show lunaway-retention.timer -p NextElapseUSecRealtime --value)"
+else
+  systemctl disable --quiet --now lunaway-retention.timer 2>/dev/null || true
+  log "the release's CLI has no retention command: its timer stays off"
+fi
 if [ -x /opt/lunaway/current/lunaway-api ]; then
   if [ "$changed" = 1 ] || ! systemctl is-active --quiet lunaway-api; then
     systemctl reset-failed lunaway-api 2>/dev/null || true

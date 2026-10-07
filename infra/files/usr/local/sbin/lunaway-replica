@@ -1,8 +1,8 @@
 #!/bin/sh
-# Pulls the backend's encrypted dumps and their markers into the replica on
-# the ops server's volume, then drops the dumps older than
-# LUNAWAY_REPLICA_DAYS; then the encrypted photos. Runs as lunaway-backup
-# from lunaway-replica.service. The backend forces this key to `rrsync -ro`
+# Drops the dumps older than LUNAWAY_REPLICA_DAYS and the held photos past
+# their day, then pulls the backend's encrypted dumps and their markers into
+# the replica on the ops server's volume, then the encrypted photos. Runs as
+# lunaway-backup from lunaway-replica.service. The backend forces this key to `rrsync -ro`
 # on its off-site directory, so the pull can read that directory and nothing
 # else.
 #
@@ -19,23 +19,63 @@ days="${LUNAWAY_REPLICA_DAYS:-14}"
 hold="${LUNAWAY_DELETED_DAYS:-26}"
 ssh_cmd="ssh -F /etc/lunaway-ops/ssh_config"
 
-rsync -rt --timeout=300 --exclude=/media/ -e "$ssh_cmd" backend-replica: "$replica/"
+# The pruning runs first, whatever the pulls do next: the durations the
+# privacy page states (14 days of dumps, 26 days of deleted photos) hold on
+# a day the backend cannot be reached, and again after the pulls for what
+# they brought.
 
 # The names carry the dump's UTC date (lunaway-20261006T001502Z.dump.age):
 # a file whose date is before the cutoff goes.
-cutoff=$(date -u -d "$days days ago" +%Y%m%d)
-for f in "$replica"/lunaway-*.dump.age "$replica"/globals-*.sql.age; do
-	[ -e "$f" ] || continue
-	day=$(basename "$f" | sed -E 's/^[a-z]+-([0-9]{8})T.*/\1/')
-	case "$day" in
-	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
-	*) continue ;;
-	esac
-	if [ "$day" -lt "$cutoff" ]; then
-		rm -f "$f"
-		echo "dropped $(basename "$f")"
-	fi
-done
+prune_dumps() {
+	cutoff=$(date -u -d "$days days ago" +%Y%m%d)
+	for f in "$replica"/lunaway-*.dump.age "$replica"/globals-*.sql.age; do
+		[ -e "$f" ] || continue
+		day=$(basename "$f" | sed -E 's/^[a-z]+-([0-9]{8})T.*/\1/')
+		case "$day" in
+		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+		*) continue ;;
+		esac
+		if [ "$day" -lt "$cutoff" ]; then
+			rm -f "$f"
+			echo "dropped $(basename "$f")"
+		fi
+	done
+}
+
+# Each held copy is filed under the day the backend deleted its photo
+# (media/deletions, kept 30 days there) and dropped 26 days after that day,
+# however late this pull runs; a copy the list does not name was deleted
+# more than 30 days ago and goes now. The list and the marker, which
+# --backup also moves aside when they change, are not kept.
+prune_held() {
+	list="$replica/media/deletions"
+	held_cutoff=$(date -u -d "$hold days ago" +%Y%m%d)
+	mkdir -p "$deleted"
+	find "$deleted" -type f ! -name '*.webp.age' -delete
+	find "$deleted" -type f -name '*.webp.age' | while IFS= read -r f; do
+		rel=$(printf '%s' "$f" | sed -nE "s|^$deleted/[0-9]{8}/(photos/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\\.webp\\.age)\$|\\1|p")
+		if [ -z "$rel" ]; then
+			rm -f "$f"
+			continue
+		fi
+		day=$(awk -v p="$rel" '$1 ~ /^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/ && $2 == p { print $1; exit }' "$list" 2>/dev/null || true)
+		if [ -z "$day" ] || [ "$day" -lt "$held_cutoff" ]; then
+			rm -f "$f"
+			echo "dropped the copy of a photo deleted ${day:-before the 30 days the list covers}"
+		elif [ "$f" != "$deleted/$day/$rel" ]; then
+			mkdir -p "$(dirname "$deleted/$day/$rel")"
+			mv -f "$f" "$deleted/$day/$rel"
+		fi
+	done
+	find "$deleted" -mindepth 1 -depth -type d -empty -delete
+}
+
+prune_dumps
+prune_held
+
+failed=0
+rsync -rt --timeout=300 --exclude=/media/ -e "$ssh_cmd" backend-replica: "$replica/" || failed=1
+prune_dumps
 newest=$(find "$replica" -maxdepth 1 -name 'lunaway-*.dump.age' -printf '%f\n' | sort | tail -n 1)
 echo "replica: $(find "$replica" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l) dumps, newest ${newest:-none}, last-success $(cat "$replica/last-success" 2>/dev/null || echo none)"
 
@@ -44,29 +84,7 @@ echo "replica: $(find "$replica" -maxdepth 1 -name 'lunaway-*.dump.age' | wc -l)
 # only lunaway-pull (the Mac) and this account reach these files anyway.
 today=$(date -u +%Y%m%d)
 rsync -rtp --timeout=600 --chmod=D0755,F0644 --delete --backup --backup-dir="$deleted/$today" \
-	-e "$ssh_cmd" backend-replica:media/ "$replica/media/"
-# Each held copy is filed under the day the backend deleted its photo
-# (media/deletions, kept 30 days there) and dropped 26 days after that day,
-# however late this pull runs; a copy the list does not name was deleted
-# more than 30 days ago and goes now. The list and the marker, which
-# --backup also moves aside when they change, are not kept.
-list="$replica/media/deletions"
-held_cutoff=$(date -u -d "$hold days ago" +%Y%m%d)
-find "$deleted" -type f ! -name '*.webp.age' -delete
-find "$deleted" -type f -name '*.webp.age' | while IFS= read -r f; do
-	rel=$(printf '%s' "$f" | sed -nE "s|^$deleted/[0-9]{8}/(photos/[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{64}\\.webp\\.age)\$|\\1|p")
-	if [ -z "$rel" ]; then
-		rm -f "$f"
-		continue
-	fi
-	day=$(awk -v p="$rel" '$1 ~ /^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/ && $2 == p { print $1; exit }' "$list" 2>/dev/null)
-	if [ -z "$day" ] || [ "$day" -lt "$held_cutoff" ]; then
-		rm -f "$f"
-		echo "dropped the copy of a photo deleted ${day:-before the 30 days the list covers}"
-	elif [ "$f" != "$deleted/$day/$rel" ]; then
-		mkdir -p "$(dirname "$deleted/$day/$rel")"
-		mv -f "$f" "$deleted/$day/$rel"
-	fi
-done
-find "$deleted" -mindepth 1 -depth -type d -empty -delete
+	-e "$ssh_cmd" backend-replica:media/ "$replica/media/" || failed=1
+prune_held
 echo "photos: $(find "$replica/media" -type f -name '*.webp.age' | wc -l) in the replica, $(find "$deleted" -type f -name '*.webp.age' | wc -l) deleted ones held, media last-success $(cat "$replica/media/last-success" 2>/dev/null || echo none)"
+[ "$failed" = 0 ] || { echo "a pull from the backend failed; the pruning ran anyway" >&2; exit 1; }

@@ -28,7 +28,7 @@ echo "--- listening sockets"
 ss -tulpnH | awk '{ print $1, $5, $7 }' | sort
 echo "--- systemd-analyze security"
 units="ssh caddy"
-[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-ingest-osm-europe@Mon lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-packs lunaway-cameras lunaway-enforcement lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
+[ "$server_role" = backend ] && units="lunaway-api caddy lunaway-pgdump lunaway-media-offsite lunaway-deletions-offsite lunaway-takedowns-offsite postgresql@18-main lunaway-migrate lunaway-ingest-osm lunaway-ingest-osm-europe@Mon lunaway-conflate lunaway-conflate-worker lunaway-worker-status lunaway-packs lunaway-cameras lunaway-enforcement lunaway-tiles lunaway-tiles-refresh lunaway-tiles-packs ssh"
 [ "$server_role" = ops ] && units="gatus caddy lunaway-replica ssh"
 for unit in $units; do
   printf '%-22s %s\n' "$unit" "$(systemd-analyze security "$unit" 2>/dev/null | tail -n 1)"
@@ -170,6 +170,9 @@ done
 echo "daily timer: $(systemctl is-enabled lunaway-enforcement.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-enforcement.timer | awk '{ print $1, $2, $3 }')"
 stat -c '%a %U:%G %n' /etc/lunaway/zone.env /srv/data/backups/offsite/zone-secret.env.age 2>&1
 echo "zone secret: $(grep -cE '^LUNAWAY_ZONE_SECRET=[0-9a-f]{64}$' /etc/lunaway/zone.env 2>/dev/null) line of 64 hex digits (the value is not printed); loaded by: $(grep -l '^EnvironmentFile=/etc/lunaway/zone.env' /etc/systemd/system/lunaway-*.service 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+stat -c '%a %U:%G %n' /etc/lunaway/takedown.env /srv/data/backups/offsite/takedown-secret.env.age /srv/data/place-takedowns 2>&1
+echo "takedown secret: $(grep -cE '^LUNAWAY_TAKEDOWN_SECRET=[0-9a-f]{64}$' /etc/lunaway/takedown.env 2>/dev/null) line of 64 hex digits (the value is not printed); loaded by: $(grep -l '^EnvironmentFile=/etc/lunaway/takedown.env' /etc/systemd/system/lunaway-*.service 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+echo "takedown journal: $(find /srv/data/place-takedowns -maxdepth 1 -type f -name 'takedowns-*.jsonl' 2>/dev/null | wc -l) days, encrypted copy last-success $(cat /srv/data/backups/offsite/place-takedowns/last-success 2>/dev/null || echo none)"
 echo "lists: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(source_id || ' ' || devices || ' read ' || to_char(fetched_at at time zone 'UTC', 'MM-DD HH24:MI'), ', ' order by source_id) from enforcement_sources" 2>&1 | head -n 1)"
 echo "items: $(runuser -u postgres -- psql -X -At -d lunaway -c "select string_agg(country || ' ' || kind || ' ' || n, ', ' order by country, kind) from (select country, kind, count(*) n from enforcement_items where deleted_at is null group by 1, 2) s" 2>&1 | head -n 1)"
 echo "last build: $(stat -c '%y' /var/lib/lunaway-enforcement/built 2>/dev/null || echo never)"

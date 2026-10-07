@@ -1,9 +1,10 @@
 #!/bin/bash
 # Builds a routing graph bundle for motorhomes, from an OpenStreetMap extract
 # and IGN BD TOPO's restricted road sections, and checks it before anyone
-# serves it (docs/deploy.md, "Routing"). Run weekly by the GitHub Actions
-# workflow .github/workflows/routing-graph.yml; runs as well on any machine
-# with Docker, Rust and 25 GB of free disk for France.
+# serves it (docs/deploy.md, "Routing"). Run weekly for Europe by
+# infra/routing/europe-build.sh on a throwaway Hetzner server; runs as well
+# on any machine with Docker and Rust (25 GB of free disk for France, about
+# 171 GB and 32 GB of memory for Europe).
 #
 #   infra/routing/build-graph.sh <extract.osm.pbf> <output dir> [options]
 #     --area fr        the area's code, in the graph's name (default fr)

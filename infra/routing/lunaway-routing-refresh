@@ -3,9 +3,10 @@
 # engine to it (docs/deploy.md, "Routing"). Run daily by
 # lunaway-routing-refresh.timer as root (it restarts valhalla.service);
 # installed to /usr/local/sbin/ by the server step listed in
-# plan/research/15-navigation-backend.md. The graph is built by the GitHub
-# Actions workflow (.github/workflows/routing-graph.yml) and published as the
-# assets of the release `routing-graph`; this script pulls it, because the
+# plan/research/15-navigation-backend.md. The graph is built weekly on a
+# throwaway Hetzner server driven by the maintainer's Mac
+# (infra/ops/mac-routing/), signed there and published as the assets of the
+# GitHub release `routing-graph`; this script pulls it, because the
 # backend's SSH is closed to anything but the admin sources.
 #
 #   lunaway-routing-refresh            the published graph, if it is new
@@ -197,9 +198,16 @@ curl "${CURL_SAFE[@]}" --max-time 120 --max-filesize 65536 -o "$dl/SHA256SUMS.si
 ssh-keygen -Y verify -f "$SIGNERS" -I lunaway-routing -n lunaway-routing-graph \
   -s "$dl/SHA256SUMS.sig" <"$dl/SHA256SUMS" >/dev/null || die "SHA256SUMS is not signed by the build key"
 names=$(awk '{print $2}' "$dl/SHA256SUMS")
-# France is one part of 1.48 GB (2026-10-06); eight parts of 2 GiB at most
-# bound what a download may put on the root disk.
-[ "$(printf '%s\n' "$names" | grep -cE "$PART_RE")" -le 8 ] || die "SHA256SUMS names more than 8 parts"
+# Europe is five parts, 8.3 GB in all (2026-10-06); eight parts of 2 GiB at
+# most bound what a download may put on the root disk.
+part_count=$(printf '%s\n' "$names" | grep -cE "$PART_RE")
+[ "$part_count" -le 8 ] || die "SHA256SUMS names more than 8 parts"
+# Room for the download and its unpacked graph (2.5 times the parts for
+# Europe: 8.3 GB give 20.4 GB), beside the two graphs kept: a run that would
+# fill the root disk stops before it starts.
+need_gb=$(( part_count * 2 * 7 / 2 + 5 ))
+free_gb=$(( $(df --output=avail -B1 "$ROUTING" | tail -n 1 | tr -dc '0-9') / 1000000000 ))
+[ "$free_gb" -ge "$need_gb" ] || die "$free_gb GB free on $ROUTING, $need_gb GB needed for $part_count parts"
 for name in $names; do
   case "$name" in
     build.json | prepare.json | test-routes.txt) cap=$((1024 * 1024)) ;;

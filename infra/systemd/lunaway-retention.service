@@ -1,0 +1,63 @@
+# Applies the retention the privacy page states to the contribution tables
+# (lunaway_db::retention: issue reports after 90 days, resolved reports and
+# moderation entries a year after the decision, "still there?" answers
+# after two years, the content of refused or withdrawn submissions after 30
+# days, a banned account's key hash two years after it deleted itself),
+# with the API's role, which owns those tables. Daily, from
+# lunaway-retention.timer; installed by infra/server/api.sh
+# (plan/research/38-backend-confidentialite.md, 9.1). After a restore, the
+# next run brings the older rows back within those durations.
+[Unit]
+Description=Lunaway retention of contributions
+After=postgresql.service
+Requires=postgresql.service
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-api
+Group=lunaway-api
+UMask=0077
+# DATABASE_URL of lunaway_app, the role the API writes these tables with.
+EnvironmentFile=/etc/lunaway/api.env
+Environment=RUST_LOG=info
+# Plain text in the journal, without terminal colour codes.
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway retention
+TimeoutStartSec=30min
+Nice=10
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# PostgreSQL on loopback, nothing else; no file is written.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryMax=512M

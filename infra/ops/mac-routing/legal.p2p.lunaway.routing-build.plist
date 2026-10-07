@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The weekly Europe routing graph build, orchestrated from the maintainer's
+  Mac (infra/ops/mac-routing/lunaway-routing-build.sh run). A template:
+  infra/ops/mac-routing/install.sh fills in the markers between double
+  underscores and installs it in ~/Library/LaunchAgents.
+
+  Sundays at 03:00 local time: Geofabrik's extracts of the day before
+  yesterday are all out by then, and the next day's appear in the
+  afternoon (UTC); the build takes about three and a half hours, and the
+  backend installs the graph at its next daily refresh. A run missed while
+  the Mac slept happens at wake-up.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>legal.p2p.lunaway.routing-build</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/bash</string>
+		<string>__SCRIPT__</string>
+		<string>run</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>LUNAWAY_ALERT_GH_USER</key>
+		<string>__ALERT_GH_USER__</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key>
+		<integer>0</integer>
+		<key>Hour</key>
+		<integer>3</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

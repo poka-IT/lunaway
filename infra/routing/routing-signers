@@ -1,9 +1,14 @@
-# The key the weekly graph build signs its SHA256SUMS with
-# (.github/workflows/routing-graph.yml, job `publish`), in the allowed
+# The keys the routing graph's SHA256SUMS may be signed with, in the allowed
 # signers format of ssh-keygen -Y verify; installed as
-# /etc/lunaway/routing-signers by infra/server/routing.sh. The private half
-# exists only as the secret ROUTING_SIGNING_KEY of the GitHub environment
-# `routing-graph` (deployments from main only): it was generated on
-# 2026-10-06, stored there from stdin and deleted. Rotation is a new pair:
-# docs/deploy.md, "Routing".
-lunaway-routing namespaces="lunaway-routing-graph" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICoJVU2eTOIH7GX3vRo+ZDcZ348FIOpqT/7tBSzskYXx
+# /etc/lunaway/routing-signers by infra/server/routing.sh. Rotation is a new
+# pair: docs/deploy.md, "Routing".
+#
+# The maintainer's Mac, which orchestrates the weekly Europe build and
+# publishes it (infra/ops/mac-routing/): ~/.config/lunaway/routing-signing_ed25519,
+# generated on 2026-10-07, with an age-encrypted copy in the backup chain
+# (routing-signing-key-<stamp>.age).
+lunaway-routing namespaces="lunaway-routing-graph" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHIfdWqDZIaiSpmz2SuTeNTmLB4orSsqA4s2WYPskRtX
+#
+# The key of the retired France workflow (GitHub secret ROUTING_SIGNING_KEY,
+# 2026-10-06) was removed on 2026-10-07, once the first Europe graph served:
+# a graph signed by it no longer installs.

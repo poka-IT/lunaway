@@ -22,7 +22,9 @@ NoNewPrivileges=true
 # (RunInit) did not pass SIGINT on (tested 2026-10-06). The engine keeps no
 # state, so a stop is the SIGKILL, after 2 s instead of 10.
 StopTimeout=2
-PodmanArgs=--memory=2g --pids-limit=128
+# The route tests of a Europe graph read tiles from several countries; 4 GB
+# keeps them in memory next to the 6 GB of the engine in service.
+PodmanArgs=--memory=4g --pids-limit=128
 
 [Service]
 # 128 + SIGKILL, the way it is stopped. A candidate killed by memory fails

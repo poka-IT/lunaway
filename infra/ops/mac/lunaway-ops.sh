@@ -11,7 +11,9 @@
 #   2. checks the newest dump: recent, no failure recorded after the last
 #      success, decrypts (the age key exists only here) and lists with
 #      pg_restore, without writing the plaintext anywhere
-#   3. reads the state of every check of the status page (Gatus)
+#   3. checks the Mac's own disk (50 GB free at least) and the weekly
+#      routing graph build it runs (infra/ops/mac-routing/), then reads the
+#      state of every check of the status page (Gatus)
 #   4. opens or updates one GitHub issue "ops: alerte" when something fails,
 #      and closes it when everything is green again. The issue names the
 #      failing checks only: no address, no key, no file path of a server.
@@ -61,8 +63,43 @@ stamp_seconds() {
 	date -j -u -f %Y%m%dT%H%M%SZ "$1" +%s 2>/dev/null
 }
 
+# The copies past their durations: the photos held 26 days after their
+# deletion day, and the dumps whose date is more than keep_days days old.
+# Run before the pull, so the durations hold on a night the ops server
+# cannot be reached, and after it.
+prune() {
+	held_cutoff=$(date -u -v-"${held_days}"d +%Y%m%d)
+	for d in "$dest"/media-deleted/*; do
+		[ -d "$d" ] || continue
+		day=$(basename "$d")
+		case "$day" in
+		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+		*) continue ;;
+		esac
+		if [ "$day" -lt "$held_cutoff" ]; then
+			find "$d" -type f -delete
+			find "$d" -depth -type d -empty -delete
+			say "dropped the photos deleted on $day"
+		fi
+	done
+	cutoff=$(date -u -v-"${keep_days}"d +%Y%m%d)
+	for f in "$dest"/lunaway-*.dump.age "$dest"/globals-*.sql.age; do
+		[ -e "$f" ] || continue
+		day=$(basename "$f" | sed -E 's/^[a-z]+-([0-9]{8})T.*/\1/')
+		case "$day" in
+		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+		*) continue ;;
+		esac
+		if [ "$day" -lt "$cutoff" ]; then
+			rm -f "$f"
+			say "dropped $(basename "$f")"
+		fi
+	done
+}
+
 say "start"
 mkdir -p "$dest"
+prune
 
 # 1. The pull. The ops server reboots at 02:30 UTC when an update asks for
 # it, which is 04:30 in Paris in summer: three attempts, two minutes apart.
@@ -141,6 +178,18 @@ deletions_at=$(stamp_seconds "$deletions_success")
 if [ -z "$deletions_at" ] || [ $(( (now - deletions_at) / 3600 )) -ge 36 ]; then
 	fail "la copie du journal des suppressions de comptes n'a pas été faite depuis 36 heures (${deletions_success:-jamais})"
 fi
+# The takedown journal's copy (lunaway-takedowns-offsite, hourly on the
+# server; none until a first place is taken down): the same checks. A
+# restore replays it, or places taken down come back.
+takedowns_copy="$dest/place-takedowns/place-takedowns.jsonl.age"
+if [ -f "$takedowns_copy" ] && ! age --decrypt --identity "$conf/backup-age.key" "$takedowns_copy" > /dev/null 2>&1; then
+	fail "la copie du journal des retraits de lieux ne se déchiffre pas"
+fi
+takedowns_success=$(read_stamp "$dest/place-takedowns/last-success")
+takedowns_at=$(stamp_seconds "$takedowns_success")
+if [ -z "$takedowns_at" ] || [ $(( (now - takedowns_at) / 3600 )) -ge 36 ]; then
+	fail "la copie du journal des retraits de lieux n'a pas été faite depuis 36 heures (${takedowns_success:-jamais})"
+fi
 # Photos deleted on the server. macOS's rsync (openrsync) sends --delete to
 # the server even on a pull, and the ops server's read-only rrsync refuses
 # it: a copy the server's list (media/manifest) no longer names is filed
@@ -180,35 +229,37 @@ if [ "$pulled" = yes ] && [ -f "$manifest" ]; then
 elif [ "$pulled" = yes ]; then
 	fail "aucune liste des photos sur le serveur ops"
 fi
-# Held copies 26 days after their deletion day, then dropped.
-for d in "$dest"/media-deleted/*; do
-	[ -d "$d" ] || continue
-	day=$(basename "$d")
-	case "$day" in
-	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
-	*) continue ;;
-	esac
-	if [ "$day" -lt "$held_cutoff" ]; then
-		find "$d" -type f -delete
-		find "$d" -depth -type d -empty -delete
-		say "dropped the photos deleted on $day"
-	fi
-done
+# The pruning again, for the copies the pull just set aside.
+prune
 
-# Retention: the dumps whose date is more than keep_days days old.
-cutoff=$(date -u -v-"${keep_days}"d +%Y%m%d)
-for f in "$dest"/lunaway-*.dump.age "$dest"/globals-*.sql.age; do
-	[ -e "$f" ] || continue
-	day=$(basename "$f" | sed -E 's/^[a-z]+-([0-9]{8})T.*/\1/')
-	case "$day" in
-	[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
-	*) continue ;;
-	esac
-	if [ "$day" -lt "$cutoff" ]; then
-		rm -f "$f"
-		say "dropped $(basename "$f")"
+# The Mac's own disk: the backups, the routing build's bundle (8.3 GB a
+# week) and the work of this repository live there; a full disk stopped
+# colima on 2026-10-06.
+free_gb=$(df -g "$HOME" | awk 'NR == 2 { print $4 }')
+if [ -z "$free_gb" ] || [ "$free_gb" -lt 50 ]; then
+	fail "le disque du Mac n'a plus que ${free_gb:-?} Go libres (seuil 50 Go)"
+else
+	say "Mac disk: $free_gb GB free"
+fi
+
+# The weekly routing graph build (infra/ops/mac-routing/): its last run, and
+# its last success less than 8 days ago (weekly). Digits and plain words
+# only are read from its state file.
+routing_state="$HOME/Library/Application Support/Lunaway/routing/state"
+if [ -f "$HOME/Library/LaunchAgents/legal.p2p.lunaway.routing-build.plist" ]; then
+	last_success=$(sed -nE 's/^last_success=([0-9]{9,11})$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
+	last_run=$(sed -nE 's/^last_run=[0-9]{9,11} (ok|nothing|failed)$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
+	swept=$(sed -nE 's/^swept=([0-9]{9,11}) [0-9]+$/\1/p' "$routing_state" 2>/dev/null | tail -n 1)
+	if [ "$last_run" = failed ]; then
+		fail "la dernière construction hebdomadaire du graphe de routage a échoué (~/Library/Logs/lunaway-routing-build.log)"
 	fi
-done
+	if [ -z "$last_success" ] || [ $(( (now - last_success) / 86400 )) -ge 8 ]; then
+		fail "aucune construction du graphe de routage n'a abouti depuis 8 jours"
+	fi
+	if [ -n "$swept" ] && [ $(( (now - swept) / 3600 )) -lt 24 ]; then
+		fail "un serveur de construction du graphe de routage restait et a été supprimé par le balayage"
+	fi
+fi
 
 # 3. The status page.
 if statuses=$(curl -fsS -m 30 "$status_url/api/v1/endpoints/statuses"); then

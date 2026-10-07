@@ -4,22 +4,25 @@
 # /etc/gatus/config.yaml (root:gatus, 0640), filling in the markers between
 # double underscores. Gatus answers on loopback only; Caddy serves the page.
 #
-# Two groups:
+# Three groups:
 #   public    what a user meets: the API, its certificate, the web app, the
 #             basemap, the points of interest, routing, the road events;
 #             checked over HTTPS like any client
 #   backend   the backend's own facts, read over the private network from
 #             its health probe (lunaway-health, a forced SSH command of the
 #             lunaway-pull account): PostgreSQL, the data volume, the nightly
-#             dump, the conflation worker, the photo backup, the basemap's
+#             dump, the conflation worker, the photo backup, the journals'
+#             backups, the basemap's
 #             build and offline packs, the fuel prices, the routing graph,
 #             the OpenStreetMap imports of France and Europe, the regional
 #             packs of places, the points layer's publication, the speed
-#             camera lists and the build of their zones. Gatus does not
+#             camera lists and the build of their zones, the disks. Gatus does not
 #             check SSH host keys. A host posing as the backend gets nothing
 #             it can reuse (the key's signature is bound to that one
 #             session); it could only answer a false green, and it would
 #             have to sit on the private network.
+#   ops       this server's own disks, read the same way through SSH on its
+#             loopback (lunaway-ops-health, forced for the same probe key)
 #
 # Nothing here alerts by itself: the maintainer's Mac reads
 # /api/v1/endpoints/statuses every night and opens a GitHub issue when a
@@ -263,7 +266,9 @@ __PROBE_KEY__
       - "[STATUS] == 0"
       - "[BODY].postgresql == ok"
 
-  # Grow the volume before 80% (docs/deploy.md, "Sizing").
+  # Grow the volume before 80% (docs/deploy.md, "Sizing"). The root disk
+  # holds the routing graphs: two Europe graphs and a download take about
+  # 70 GB of its 150 GB at the peak of a refresh.
   - name: Data volume
     group: backend
     url: "ssh://__BACKEND_PRIVATE_IP__:22"
@@ -278,7 +283,47 @@ __PROBE_KEY__
       - "[CONNECTED] == true"
       - "[BODY].data_volume.mounted == true"
       - "[BODY].data_volume.used_percent < 80"
-      - "[BODY].root_disk.used_percent < 85"
+      - "[BODY].root_disk.used_percent < 80"
+
+  # The tile volume keeps the previous planet until the next monthly refresh
+  # needs its room (about 90% full after a refresh, by design), so what
+  # counts is how full it is without the planets not served: past 80%, the
+  # next refresh may not fit.
+  - name: Tile volume
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].tiles.mounted == true"
+      - "[BODY].tiles.held_percent < 80"
+
+  # The ops server's own disks, read through SSH on its loopback (Gatus
+  # checks only what answers over the network): the volume holds 14 nightly
+  # dumps, 351 MB each with Europe on 2026-10-07, and fills when a dump
+  # reaches 1.3 GB.
+  - name: Ops replica volume
+    group: ops
+    url: "ssh://127.0.0.1:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[STATUS] == 0"
+      - "[BODY].data_volume.mounted == true"
+      - "[BODY].data_volume.used_percent < 80"
+      - "[BODY].root_disk.used_percent < 80"
 
   # Succeeded less than 26 hours ago, and no failure recorded since.
   - name: Nightly dump
@@ -344,6 +389,23 @@ __PROBE_KEY__
     conditions:
       - "[CONNECTED] == true"
       - "[BODY].deletions_backup.ok == true"
+
+  # The encrypted copy of the takedown journal was written in the last 3
+  # hours (lunaway-takedowns-offsite, hourly). Without it, a restore after
+  # the loss of the data volume brings places taken down back.
+  - name: Takedown journal backup
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].takedowns_backup.ok == true"
 
   # The monthly refresh installs a build dated a day or two earlier; a build
   # older than 35 days means the last refresh failed.

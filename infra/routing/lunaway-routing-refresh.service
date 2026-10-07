@@ -18,7 +18,7 @@ ExecStart=/usr/local/sbin/lunaway-routing-refresh
 EnvironmentFile=/etc/lunaway/ingest.env
 Environment=RUST_LOG=info
 Environment=NO_COLOR=1
-# A France graph is about 1.1 GB to download and 3.3 GB unpacked.
+# A Europe graph is about 8.3 GB to download and 20.4 GB unpacked.
 TimeoutStartSec=3h
 # Behind the API and PostgreSQL for CPU and disk.
 Nice=10
@@ -58,6 +58,7 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # and PostgreSQL; never the private network or the cloud metadata service.
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
-# Reading a restrictions file of 300 000 rows holds them in memory.
-MemoryHigh=1536M
-MemoryMax=2G
+# Reading a restrictions file holds its rows in memory: 266 389 for France
+# stayed under 1.5 GB (2026-10-06), Europe has 841 651.
+MemoryHigh=4G
+MemoryMax=5G

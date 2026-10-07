@@ -1,0 +1,13 @@
+# Daily at 03:40 UTC: after the nightly dump (00:15) and the upgrade run
+# (01:30), before the morning imports. A run missed while the server was
+# off happens at boot (Persistent).
+[Unit]
+Description=Lunaway retention of contributions, daily
+
+[Timer]
+OnCalendar=*-*-* 03:40:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

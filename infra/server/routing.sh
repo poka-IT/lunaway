@@ -61,8 +61,8 @@ for dir in /srv/routing/builds/*/; do
     config_changed=1
   fi
 done
-# The public half of the build key (allowed signers format); the private half
-# lives only in GitHub's environment secret.
+# The public halves of the build keys (allowed signers format); the private
+# half of the current one lives on the maintainer's Mac (infra/ops/mac-routing/).
 install_file routing/routing-signers /etc/lunaway/routing-signers 0644 || true
 [ "$changed" = 1 ] && systemctl daemon-reload
 
@@ -73,5 +73,5 @@ if [ -L /srv/routing/current ]; then
   fi
   log "graph $(basename "$(readlink /srv/routing/current)"), valhalla $(systemctl is-active valhalla), next refresh $(systemctl show lunaway-routing-refresh.timer -p NextElapseUSecRealtime --value)"
 else
-  log "no graph yet: publish one (.github/workflows/routing-graph.yml), then sudo systemctl start lunaway-routing-refresh and run this step again"
+  log "no graph yet: publish one (infra/ops/mac-routing/install.sh run on the Mac), then sudo systemctl start lunaway-routing-refresh and run this step again"
 fi

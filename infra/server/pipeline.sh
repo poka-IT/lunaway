@@ -50,6 +50,16 @@
 #                      again: a new secret moves every danger zone the phones
 #                      hold. An age-encrypted copy goes to the off-site
 #                      directory, pulled to the ops server and the Mac
+#   /etc/lunaway/takedown.env   LUNAWAY_TAKEDOWN_SECRET, the same way: it keys
+#                      the cells of every takedown's exclusion zone, so a new
+#                      one would free every zone taken down before it. Loaded
+#                      by the conflation units and lunaway-admin's import
+#                      role only, never by the API
+#   /srv/data/place-takedowns   the takedown journal (lunaway-ingest, group
+#                      lunaway-takedowns, 2750), outside the dumps: after a
+#                      restore, `takedowns replay` takes down again what the
+#                      dump brought back; copied off the server hourly by
+#                      lunaway-takedowns-offsite (infra/server/backups.sh)
 #
 # The timers stay off while the release carries no `lunaway` binary: a run
 # before the first migration would only fail. The worker starts only with a
@@ -103,6 +113,39 @@ if [ ! -s "$zone_copy" ]; then
   mv "$zone_copy.partial" "$zone_copy"
   echo "    encrypted copy: $zone_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
 fi
+
+log "takedown secret and journal"
+# The key of the cells around each place taken down (plan/research/34,
+# 9.1): the conflation holds a new or moving place in them. Generated once,
+# never printed; a copy on the data volume means a secret existed, and the
+# cells already stored only match that one, so it is restored, never
+# generated again (docs/deploy.md, "Backups and restore").
+takedown_env=/etc/lunaway/takedown.env
+takedown_copy=/srv/data/backups/offsite/takedown-secret.env.age
+if ! grep -qE '^LUNAWAY_TAKEDOWN_SECRET=[0-9a-f]{64}$' "$takedown_env" 2>/dev/null; then
+  [ -e "$takedown_copy" ] && die "$takedown_env holds no LUNAWAY_TAKEDOWN_SECRET but $takedown_copy exists: restore the secret from it (docs/deploy.md, \"Backups and restore\"), never generate another"
+  secret="$(openssl rand -hex 32)"
+  [[ "$secret" =~ ^[0-9a-f]{64}$ ]] || die "openssl gave no secret of 64 hex digits"
+  ( umask 077
+    printf 'LUNAWAY_TAKEDOWN_SECRET=%s\n' "$secret" > "$takedown_env.new"
+    mv "$takedown_env.new" "$takedown_env" )
+  unset secret
+  echo "    generated LUNAWAY_TAKEDOWN_SECRET in $takedown_env"
+fi
+chown root:root "$takedown_env"
+chmod 0600 "$takedown_env"
+if [ ! -s "$takedown_copy" ]; then
+  age --encrypt --recipients-file /etc/lunaway/backup-recipient --output "$takedown_copy.partial" "$takedown_env"
+  chown root:lunaway-pull "$takedown_copy.partial"
+  chmod 0640 "$takedown_copy.partial"
+  mv "$takedown_copy.partial" "$takedown_copy"
+  echo "    encrypted copy: $takedown_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
+fi
+# The journal: written by the import role (conflate --take-down, takedowns
+# import), read by its encrypted copy's unit through the group (setgid: the
+# CLI's 0640 files take it).
+getent group lunaway-takedowns >/dev/null || groupadd --system lunaway-takedowns
+install -d -m 2750 -o lunaway-ingest -g lunaway-takedowns /srv/data/place-takedowns
 
 log "units"
 changed=0

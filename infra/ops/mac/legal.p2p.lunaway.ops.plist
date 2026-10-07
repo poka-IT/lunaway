@@ -6,7 +6,9 @@
   the status page and keeps one GitHub issue in step. A template:
   infra/ops/mac/install.sh fills in the markers between double underscores
   and installs it in ~/Library/LaunchAgents. A run missed while the Mac
-  slept happens at wake-up.
+  slept happens at wake-up; RunAtLoad adds a run at each start of the
+  session, so the backups are pruned to their durations after the Mac was
+  off, before any pull.
 -->
 <plist version="1.0">
 <dict>
@@ -33,6 +35,8 @@
 		<key>Minute</key>
 		<integer>30</integer>
 	</dict>
+	<key>RunAtLoad</key>
+	<true/>
 	<key>StandardOutPath</key>
 	<string>__LOG__</string>
 	<key>StandardErrorPath</key>

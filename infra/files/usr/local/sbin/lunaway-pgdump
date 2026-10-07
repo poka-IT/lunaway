@@ -1,14 +1,16 @@
 #!/bin/sh
 # Dumps the lunaway database and the cluster's roles, keeps the last
-# LUNAWAY_DUMP_KEEP dumps on the data volume, copies the newest
-# LUNAWAY_MIRROR_KEEP of them to the root disk, and writes an age-encrypted
-# copy of each into the off-site directory, which the ops server pulls.
+# LUNAWAY_DUMP_KEEP dumps on the data volume, writes an age-encrypted copy
+# of each into the off-site directory, which the ops server pulls, and
+# keeps the newest LUNAWAY_MIRROR_KEEP encrypted copies on the root disk.
 #
 # The root disk is what Hetzner's daily server backup captures (volumes are
 # not part of it), so a lost volume still leaves a recent dump in the backup
-# images. The off-site copies are encrypted to a recipient whose private key
-# exists only on the maintainer's Mac: the ops server and the Mac hold
-# ciphertext they cannot read. A run that succeeds writes the time of its
+# images; only encrypted ones, since those images are kept by Hetzner for a
+# week outside the durations this project controls. The plaintext dumps
+# stay on the data volume. The encrypted copies are encrypted to a
+# recipient whose private key exists only on the maintainer's Mac: the ops
+# server, the Mac and the images hold ciphertext they cannot read. A run that succeeds writes the time of its
 # dump to last-success there; lunaway-pgdump-failed.service writes
 # last-failure when one fails.
 #
@@ -91,16 +93,19 @@ mv "$primary/lunaway-$stamp.dump.partial" "$primary/lunaway-$stamp.dump"
 # /etc/lunaway/*.env and are set again by infra/server/postgres.sh.
 pg_dumpall --globals-only --no-role-passwords --file="$primary/globals-$stamp.sql"
 
-cp "$primary/lunaway-$stamp.dump" "$mirror/lunaway-$stamp.dump"
-cp "$primary/globals-$stamp.sql" "$mirror/globals-$stamp.sql"
-
 encrypt "$primary/lunaway-$stamp.dump" "$offsite/lunaway-$stamp.dump.age"
 encrypt "$primary/globals-$stamp.sql" "$offsite/globals-$stamp.sql.age"
+cp "$offsite/lunaway-$stamp.dump.age" "$mirror/lunaway-$stamp.dump.age"
+cp "$offsite/globals-$stamp.sql.age" "$mirror/globals-$stamp.sql.age"
+# The plaintext copies earlier versions left on the root disk.
+for f in "$mirror"/lunaway-*.dump "$mirror"/globals-*.sql; do
+	if [ -e "$f" ]; then rm -f "$f"; fi
+done
 
 prune "$primary" 'lunaway-*.dump' "$keep"
 prune "$primary" 'globals-*.sql' "$keep"
-prune "$mirror" 'lunaway-*.dump' "$mirror_keep"
-prune "$mirror" 'globals-*.sql' "$mirror_keep"
+prune "$mirror" 'lunaway-*.dump.age' "$mirror_keep"
+prune "$mirror" 'globals-*.sql.age' "$mirror_keep"
 prune "$offsite" 'lunaway-*.dump.age' "$keep"
 prune "$offsite" 'globals-*.sql.age' "$keep"
 
