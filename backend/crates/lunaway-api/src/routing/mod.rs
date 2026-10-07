@@ -23,6 +23,7 @@ pub(crate) mod diagnose;
 pub(crate) mod events;
 pub(crate) mod ferries;
 pub(crate) mod limits;
+pub(crate) mod public;
 pub(crate) mod valhalla;
 
 use std::{
@@ -36,9 +37,8 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
-        RouteLine, RoutingDimensions, Severity, VehicleProfile, assess, exclusion_ring,
-        match_route, polyline,
+        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
+        exclusion_ring, match_route, polyline,
     },
 };
 use serde_json::Value;
@@ -53,8 +53,8 @@ use self::{
 use crate::config::RoutingConfig;
 
 /// Engine calls for one route at most: the first, and three more with the
-/// blockers excluded (twice that, and one, when the blockers remembered
-/// from earlier trips closed the way and the trip is asked again without
+/// blockers excluded (twice that, and one, when the restrictions excluded
+/// ahead ([`public`]) closed the way and the trip is asked again without
 /// them). Road events add blockers the physical limits did not
 /// have (a closure met only once the route avoids a bridge), hence one
 /// more than the three of the restrictions alone.
@@ -196,6 +196,9 @@ pub(crate) enum Outcome {
         recalculations: usize,
         /// The road events an earlier attempt met and the routes avoid.
         avoided: Vec<Arc<EventRow>>,
+        /// The speed limits along each route, when asked: none for a route
+        /// the engine could not trace in time.
+        limits: Vec<Option<Vec<lunaway_domain::speed::Span>>>,
     },
     /// No route at all.
     NoRoute(NoRoute),
@@ -272,6 +275,9 @@ pub(crate) struct Spent {
     /// Matching the routes against what the queries found, off the async
     /// threads.
     pub(crate) check: Duration,
+    /// Waiting for the speed limits once the routes were checked: they
+    /// are traced during the check.
+    pub(crate) limits: Duration,
 }
 
 /// The engine and its share of the server.
@@ -286,81 +292,14 @@ pub(crate) struct Routing {
     queue_wait: Duration,
     /// The last answer of the engine's status, and when it was read.
     status: std::sync::Mutex<Option<(std::time::Instant, bool)>>,
-    /// Blockers earlier checks found, excluded from the start of later
-    /// routes.
-    remembered: std::sync::Mutex<Remembered>,
+    /// Engine calls in flight at most.
+    concurrency: usize,
+    /// The restrictions excluded from the first call of a trip, computed
+    /// from public data ([`public`]).
+    public: std::sync::RwLock<Option<Arc<public::Lists>>>,
+    /// Held by the refresh of [`Self::public`] that runs.
+    refreshing: tokio::sync::Mutex<()>,
 }
-
-/// Restrictions the engine does not apply by itself (a height barrier
-/// mapped on a node, a ferry terminal's lane) that blocked earlier routes,
-/// on the graph they were found on. A route meeting one costs a second
-/// engine call and a second check: on 2026-10-07 every trip to Morocco met
-/// the same barrier at Tarifa port, the trips from Edinburgh a 2 m lane at
-/// Dover, at 1.2 to 2.6 s of engine time each
-/// (`plan/research/48-latence-itineraires.md`). Excluded from the first
-/// call of a later trip they may lie on, they cost nothing more.
-///
-/// Only the rows of OpenStreetMap and the IGN, which belong to a graph and
-/// end with it: DiaLog's and the community's live outside the graphs, and
-/// DiaLog's come back under new ids at every reading, so a remembered copy
-/// would outlive the order it stood for. Only barriers, and the limits of
-/// a road that nothing overhangs (width, length, weight, bans): a ring
-/// under a bridge or over an underpass would also cut the road at the other
-/// level, for trips that never needed it, and OpenStreetMap often maps a
-/// bridge's clearance on the plain road segment under it.
-///
-/// Only a meeting more than [`CLEAR_OF_STOPS_M`] from every stop of the
-/// trip counts, so trips from and to a home near a restriction leave no
-/// trace, and a blocker serves ahead once two requests have met it. What
-/// the list still tells (privacy audit of 2026-10-07): a client sending
-/// trips through a restriction learns from the answer's recalculations, or
-/// its time, whether another request, for a vehicle the restriction
-/// blocks and with every stop more than 10 km away, had a route through it
-/// whose alternatives were all blocked, since the graph was built or since
-/// the client pushed older entries out with trips of its own. Closing that
-/// would take a list frozen at fixed times and counted by distinct
-/// clients. Public restrictions only, in memory, never logged.
-#[derive(Default)]
-struct Remembered {
-    graph_id: String,
-    /// The least recently met first.
-    blockers: std::collections::VecDeque<RememberedBlocker>,
-}
-
-struct RememberedBlocker {
-    id: uuid::Uuid,
-    /// The middle of the stretch the route met, where its ring went.
-    at: Position,
-    restriction: Restriction,
-    /// Requests that met it.
-    met: u32,
-}
-
-/// Blockers remembered at most: a few hundred places in Europe hold the
-/// limits the engine misses on the main roads.
-const REMEMBERED: usize = 512;
-/// Whether a ring around `restriction`'s place cuts only its own road: a
-/// barrier, or a road limit other than a height (see [`Remembered`]).
-fn overhangs_nothing(restriction: &Restriction) -> bool {
-    match restriction.feature {
-        RestrictionFeature::Barrier => true,
-        RestrictionFeature::Road => restriction.kind != RestrictionKind::MaxHeight,
-        _ => false,
-    }
-}
-
-/// Requests that must have met a blocker before it is excluded ahead.
-const MET_BEFORE_AHEAD: u32 = 2;
-/// Remembered blockers excluded from a first call at most, under
-/// [`MAX_EXCLUSIONS`].
-const REMEMBERED_RINGS: usize = 50;
-/// How far a remembered blocker must lie from every stop to be excluded
-/// ahead, metres: a ring within reach of a stop's snapping (5 km) could
-/// move the stop to another road unnoticed.
-const CLEAR_OF_STOPS_M: f64 = 10_000.0;
-/// How far beyond the box of its stops a trip may run, degrees: Lille to
-/// Guelmim leaves it by 0.6 degree to take the ferry at Tarifa.
-const TRIP_MARGIN_DEG: f64 = 1.0;
 
 /// How long a status read stays good: `Query.routing` is public, and its
 /// aliases must not turn into calls of the engine.
@@ -380,7 +319,9 @@ impl Routing {
             diagnoses: Semaphore::new(1),
             queue_wait: config.queue_wait,
             status: std::sync::Mutex::new(None),
-            remembered: std::sync::Mutex::new(Remembered::default()),
+            concurrency: config.concurrency.max(1),
+            public: std::sync::RwLock::new(None),
+            refreshing: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -434,7 +375,7 @@ impl Routing {
     /// order of its routes: `None` for a route the engine could not trace
     /// within [`LIMITS_DEADLINE`] altogether (a route is never refused for
     /// its limits).
-    pub(crate) async fn speed_limits(
+    async fn speed_limits(
         &self,
         osrm: &Value,
         vehicle: lunaway_domain::speed::Vehicle,
@@ -479,35 +420,39 @@ impl Routing {
         // time leaves the other slots to the route calls of other trips:
         // their waits stay short of the queue's limit, and best-effort speed
         // limits never make a route fail.
-        let pieces: Vec<(usize, usize, &Value)> = prepared
+        let pieces: Vec<(usize, &Traced, usize, usize, &Value)> = prepared
             .iter()
             .enumerate()
             .filter_map(|(r, p)| p.as_ref().map(|p| (r, p)))
-            .flat_map(|(r, p)| p.bodies.iter().map(move |(first, body)| (r, *first, body)))
+            .flat_map(|(r, p)| {
+                p.bodies
+                    .iter()
+                    .map(move |(first, last, body)| (r, p, *first, *last, body))
+            })
             .collect();
         let calls: Vec<_> = pieces
             .iter()
-            .map(|&(_, _, body)| self.trace_piece(engine, body))
+            .map(|&(_, p, first, last, body)| {
+                self.trace_stretch(engine, &p.points, first, last, Some(body), &p.refused)
+            })
             .collect();
-        let answers: Vec<Result<Value, RouteError>> = futures_util::stream::iter(calls)
-            .buffered(TRACES_AT_ONCE)
-            .collect()
-            .await;
+        let answers: Vec<Result<Vec<lunaway_domain::speed::Edge>, RouteError>> =
+            futures_util::stream::iter(calls)
+                .buffered(TRACES_AT_ONCE)
+                .collect()
+                .await;
         let mut edges: Vec<Option<Vec<lunaway_domain::speed::Edge>>> = prepared
             .iter()
             .map(|p| p.as_ref().map(|_| Vec::new()))
             .collect();
-        for ((r, first, _), answer) in pieces.into_iter().zip(answers) {
-            let found = match answer {
-                Ok(a) => limits::edges_of(&a, first),
-                Err(error) => {
+        for ((r, ..), answer) in pieces.into_iter().zip(answers) {
+            match (answer, &mut edges[r]) {
+                (Ok(e), Some(all)) => all.extend(e),
+                (Err(error), _) => {
                     tracing::warn!(%error, "no speed limits for a route");
-                    None
+                    edges[r] = None;
                 }
-            };
-            match (found, &mut edges[r]) {
-                (Some(e), Some(all)) => all.extend(e),
-                _ => edges[r] = None,
+                (Ok(_), None) => {}
             }
         }
         let mut out = Vec::with_capacity(routes.len());
@@ -529,6 +474,67 @@ impl Routing {
         out
     }
 
+    /// The edges of the stretch `first..=last` of `points`, traced with
+    /// `body`, or a body made for the stretch. A stretch the engine refuses
+    /// to walk is traced again in two halves, down to [`SPLIT_DOWN_TO`]
+    /// points, and a shorter one is left without limits: Valhalla 3.9 failed
+    /// `edge_walk` on the first ten points of the routes from Brest to
+    /// Krakow, where the start is snapped in the middle of an edge, and
+    /// walked the rest of their first piece (2026-10-07,
+    /// `plan/research/53-obstacles-publics.md`). One bad place costs a
+    /// refusal per level of halves; past [`MAX_REFUSALS`] refusals for the
+    /// route (`refused`), the engine is refusing more than one place and
+    /// the route gets no limits.
+    fn trace_stretch<'a>(
+        &'a self,
+        engine: &'a Engine,
+        points: &'a [Position],
+        first: usize,
+        last: usize,
+        body: Option<&'a Value>,
+        refused: &'a std::sync::atomic::AtomicUsize,
+    ) -> std::pin::Pin<
+        Box<dyn Future<Output = Result<Vec<lunaway_domain::speed::Edge>, RouteError>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            let made;
+            let body = if let Some(b) = body {
+                b
+            } else {
+                made = limits::trace_body(&points[first..=last]);
+                &made
+            };
+            match self.trace_piece(engine, body).await {
+                Ok(answer) => Ok(limits::edges_of(&answer, first).unwrap_or_default()),
+                Err(RouteError::Engine(EngineError::Refused { status, code }))
+                    if (400..500).contains(&status)
+                        && refused.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                            < MAX_REFUSALS =>
+                {
+                    if last - first <= SPLIT_DOWN_TO {
+                        tracing::info!(
+                            status,
+                            %code,
+                            points = last - first + 1,
+                            "a stretch of a route left without speed limits"
+                        );
+                        return Ok(Vec::new());
+                    }
+                    let mid = first + (last - first) / 2;
+                    let mut edges = self
+                        .trace_stretch(engine, points, first, mid, None, refused)
+                        .await?;
+                    edges.extend(
+                        self.trace_stretch(engine, points, mid, last, None, refused)
+                            .await?,
+                    );
+                    Ok(edges)
+                }
+                Err(error) => Err(error),
+            }
+        })
+    }
+
     /// One speed-limit trace, under an engine slot.
     async fn trace_piece(&self, engine: &Engine, body: &Value) -> Result<Value, RouteError> {
         let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
@@ -538,30 +544,35 @@ impl Routing {
         Ok(engine.trace(body).await?)
     }
 
-    /// Computes and checks routes for `request` on graph `graph_id`.
+    /// Computes and checks routes for `request` on graph `graph_id`, and
+    /// the speed limits of the routes found for `limits`, when given.
     pub(crate) async fn route(
         &self,
         pool: &PgPool,
         graph_id: &str,
         request: &RouteRequest,
         fresh: &Freshness,
+        limits: Option<lunaway_domain::speed::Vehicle>,
     ) -> Routed {
         // One deadline for everything a route does: waits for an engine
         // slot, engine calls, corridor queries, the matching.
         let deadline = tokio::time::Instant::now() + ROUTE_DEADLINE;
-        let mut work = Work::default();
+        let mut work = Work {
+            limits,
+            ..Work::default()
+        };
         let result = tokio::time::timeout_at(deadline, async {
             let first = self
                 .route_within(pool, graph_id, request, fresh, deadline, &mut work)
                 .await;
             match first {
-                // The remembered blockers led the trip where no safe way
-                // remained: asked again without them, it ends as it did
-                // before they were remembered.
+                // The restrictions excluded ahead led the trip where no safe
+                // way remained: asked again without them, it ends as it
+                // would without them.
                 // When the second run cannot end before the route's deadline,
                 // the first answer stands.
-                Ok(first @ Outcome::NoSafeRoute { .. }) if work.used_remembered => {
-                    work.without_remembered = true;
+                Ok(first @ Outcome::NoSafeRoute { .. }) if work.used_ahead => {
+                    work.without_ahead = true;
                     let again =
                         self.route_within(pool, graph_id, request, fresh, deadline, &mut work);
                     match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again).await {
@@ -580,102 +591,6 @@ impl Routing {
             engine_answered: work.answered,
             spent: work.spent,
         }
-    }
-
-    /// Keeps the restriction blockers of a check of graph `graph_id`, those
-    /// of OpenStreetMap and the IGN, each counted once per request: those
-    /// in `counted` were counted by an earlier attempt of the request.
-    fn remember(
-        &self,
-        graph_id: &str,
-        stops: &[Stop],
-        blockers: &[Met],
-        counted: &mut Vec<uuid::Uuid>,
-    ) {
-        let mut memory = self
-            .remembered
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if memory.graph_id != graph_id {
-            memory.blockers.clear();
-            graph_id.clone_into(&mut memory.graph_id);
-        }
-        for b in blockers {
-            let r = &b.restriction;
-            if !matches!(
-                r.restriction.source,
-                RestrictionSource::Osm | RestrictionSource::Ign
-            ) || !overhangs_nothing(&r.restriction)
-                || stops
-                    .iter()
-                    .any(|s| s.at.distance_m(b.hit.middle) <= CLEAR_OF_STOPS_M)
-                || counted.contains(&r.id)
-            {
-                continue;
-            }
-            counted.push(r.id);
-            let known = memory.blockers.iter().position(|k| k.id == r.id);
-            let entry = match known.and_then(|i| memory.blockers.remove(i)) {
-                Some(mut k) => {
-                    k.met = k.met.saturating_add(1);
-                    k
-                }
-                None => RememberedBlocker {
-                    id: r.id,
-                    at: b.hit.middle,
-                    restriction: r.restriction.clone(),
-                    met: 1,
-                },
-            };
-            memory.blockers.push_back(entry);
-        }
-        while memory.blockers.len() > REMEMBERED {
-            memory.blockers.pop_front();
-        }
-    }
-
-    /// The remembered blockers of graph `graph_id` that block `dims` and
-    /// that a route of `stops` may meet, away from the stops: the latest
-    /// first, [`REMEMBERED_RINGS`] at most.
-    fn remembered_for(
-        &self,
-        graph_id: &str,
-        stops: &[Stop],
-        dims: &RoutingDimensions,
-    ) -> Vec<Position> {
-        let memory = self
-            .remembered
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if memory.graph_id != graph_id || stops.is_empty() {
-            return Vec::new();
-        }
-        let (mut south, mut west, mut north, mut east) =
-            (90.0_f64, 180.0_f64, -90.0_f64, -180.0_f64);
-        for s in stops {
-            south = south.min(s.at.lat());
-            north = north.max(s.at.lat());
-            west = west.min(s.at.lon());
-            east = east.max(s.at.lon());
-        }
-        memory
-            .blockers
-            .iter()
-            .rev()
-            .filter(|k| k.met >= MET_BEFORE_AHEAD)
-            .filter(|RememberedBlocker { at, .. }| {
-                (south - TRIP_MARGIN_DEG..=north + TRIP_MARGIN_DEG).contains(&at.lat())
-                    && (west - TRIP_MARGIN_DEG..=east + TRIP_MARGIN_DEG).contains(&at.lon())
-                    && stops
-                        .iter()
-                        .all(|s| s.at.distance_m(*at) > CLEAR_OF_STOPS_M)
-            })
-            .filter(|k| {
-                assess(&k.restriction, dims).is_some_and(|f| f.severity != Severity::Warning)
-            })
-            .map(|k| k.at)
-            .take(REMEMBERED_RINGS)
-            .collect()
     }
 
     /// The reasons a trip has no route, within what is left of the route's
@@ -761,8 +676,8 @@ impl Routing {
         let mut snapped: Option<Vec<f64>> = None;
         let mut calls = 0;
         let alternates = valhalla::alternates_for(request.alternatives, request.straight_m());
-        if !work.without_remembered {
-            for centre in self.remembered_for(graph_id, &request.stops, &dims) {
+        if !work.without_ahead {
+            for centre in self.ahead(graph_id, &request.stops, &dims) {
                 if centres.iter().all(|c| c.distance_m(centre) >= RING_M / 2.0) {
                     centres.push(centre);
                     exclusions.push(exclusion_ring(centre, RING_M));
@@ -770,7 +685,7 @@ impl Routing {
             }
         }
         let mut ahead = !centres.is_empty();
-        work.used_remembered = ahead;
+        work.used_ahead = ahead;
         let mut attempt = 0;
         while attempt < MAX_ATTEMPTS {
             calls = attempt + 1;
@@ -800,13 +715,13 @@ impl Routing {
             work.answered = true;
             let osrm = match answer {
                 Answer::Routes(v) => v,
-                // The remembered blockers closed the last way, or the road
-                // a stop lies on: the trip is asked again without them, so
-                // that a trip without a route is told why by the engine and
-                // the check, as before they were remembered.
+                // The restrictions excluded ahead closed the last way, or
+                // the road a stop lies on: the trip is asked again without
+                // them, so that a trip without a route is told why by the
+                // engine and the check, as it would be without them.
                 Answer::NoSegment | Answer::NoRoute if attempt == 0 && ahead => {
                     ahead = false;
-                    work.used_remembered = false;
+                    work.used_ahead = false;
                     exclusions.clear();
                     centres.clear();
                     continue;
@@ -855,30 +770,83 @@ impl Routing {
             // for each route: 1.3 ms for a 650 km route (measured, test
             // `copying_a_long_route_costs_little`).
             let osrm = Arc::new(osrm);
-            let checked =
-                check_routes(pool, graph_id, &osrm, &dims, request.depart_at, fresh, work).await?;
-            // The checks are over and dropped their shares: no copy.
-            let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
+            // The speed limits are traced while the routes are checked: the
+            // traces of a route of 3 000 km take 0.3 to 0.5 s of the engine,
+            // its check about as long (2026-10-07,
+            // `plan/research/53-obstacles-publics.md`). Those of an answer
+            // whose every route is blocked are dropped unfinished.
+            let traces = work.limits.map(|vehicle| {
+                let shared = Arc::clone(&osrm);
+                Box::pin(async move { self.speed_limits(&shared, vehicle).await })
+            });
+            let check = Box::pin(check_routes(
+                pool,
+                graph_id,
+                &osrm,
+                &dims,
+                request.depart_at,
+                fresh,
+                work,
+            ));
+            let (checked, traces) = match traces {
+                None => (check.await?, Traces::None),
+                Some(traces) => match futures_util::future::select(check, traces).await {
+                    futures_util::future::Either::Left((checked, pending)) => {
+                        (checked?, Traces::Pending(pending))
+                    }
+                    futures_util::future::Either::Right((done, check)) => {
+                        (check.await?, Traces::Done(done))
+                    }
+                },
+            };
             let (safe, blocked): (Vec<_>, Vec<_>) = checked
                 .into_iter()
                 .partition(|(_, blocking, events)| blocking.is_empty() && events.is_empty());
             if !safe.is_empty() {
-                let routes = safe.into_iter().map(|(r, _, _)| r).collect();
+                let waited = std::time::Instant::now();
+                let traced = match traces {
+                    Traces::None => Vec::new(),
+                    Traces::Done(t) => t,
+                    // Never past the route's deadline: the route is sent
+                    // without its limits rather than lost.
+                    Traces::Pending(p) => tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, p)
+                        .await
+                        .unwrap_or_else(|_| {
+                            tracing::warn!("the speed limits of a route ran out of time");
+                            Vec::new()
+                        }),
+                };
+                work.spent.limits += waited.elapsed();
+                // The checks and the traces are over and dropped their
+                // shares: no copy.
+                let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
+                let routes: Vec<CheckedRoute> = safe.into_iter().map(|(r, _, _)| r).collect();
+                let order: Vec<usize> = routes.iter().map(|r| r.index).collect();
                 let (osrm, routes) = keep_routes(osrm, routes, request.language)?;
+                let limits = if traced.is_empty() {
+                    Vec::new()
+                } else {
+                    order
+                        .iter()
+                        .take(routes.len())
+                        .map(|&i| traced.get(i).cloned().flatten())
+                        .collect()
+                };
                 return Ok(Outcome::Found {
                     osrm,
                     routes,
                     recalculations: attempt,
                     avoided,
+                    limits,
                 });
             }
+            drop(traces);
             blockers = Vec::new();
             event_blockers = Vec::new();
             for (_, b, e) in blocked {
                 blockers.extend(b);
                 event_blockers.extend(e);
             }
-            self.remember(graph_id, &request.stops, &blockers, &mut work.counted);
             for e in &event_blockers {
                 if !avoided.iter().any(|a| a.id == e.event.id) {
                     avoided.push(Arc::clone(&e.event));
@@ -926,13 +894,33 @@ impl Routing {
 
 /// Speed-limit pieces traced at once for one request.
 const TRACES_AT_ONCE: usize = 2;
+/// Shape points of the shortest stretch traced again in two halves when
+/// the engine refuses it: a refused piece of 10 000 points takes at most
+/// ten levels of halves, two calls of a few milliseconds each.
+const SPLIT_DOWN_TO: usize = 16;
+/// Refusals of the engine to trace stretches of one route, after which the
+/// route gets no limits: one bad place in a piece of 10 000 points costs
+/// ten.
+const MAX_REFUSALS: usize = 12;
+
+/// The speed limits of an answer while its routes are checked.
+enum Traces<F> {
+    /// None asked.
+    None,
+    /// Traced before the check ended.
+    Done(Vec<Option<Vec<lunaway_domain::speed::Span>>>),
+    /// Still running.
+    Pending(F),
+}
 
 /// A route ready for its speed-limit traces.
 struct Traced {
     points: Vec<Position>,
     along: Vec<f64>,
-    /// Each piece's first shape index and its trace request.
-    bodies: Vec<(usize, Value)>,
+    /// Pieces or halves of pieces the engine refused to trace so far.
+    refused: std::sync::atomic::AtomicUsize,
+    /// Each piece's first and last shape index, and its trace request.
+    bodies: Vec<(usize, usize, Value)>,
 }
 
 /// `route`'s shape, its distances and the trace requests of its pieces;
@@ -960,11 +948,12 @@ async fn prepare_trace(route: &Value) -> Result<Option<Traced>, RouteError> {
         };
         let bodies = pieces
             .into_iter()
-            .map(|(first, last)| (first, limits::trace_body(&points[first..=last])))
+            .map(|(first, last)| (first, last, limits::trace_body(&points[first..=last])))
             .collect();
         Ok(Some(Traced {
             points,
             along,
+            refused: std::sync::atomic::AtomicUsize::new(0),
             bodies,
         }))
     })
@@ -1015,12 +1004,12 @@ struct Work {
     spent: Spent,
     /// What the corridor queries found.
     known: Known,
-    /// Whether the remembered blockers went into the first call.
-    used_remembered: bool,
+    /// The vehicle whose speed limits the routes found carry, when asked.
+    limits: Option<lunaway_domain::speed::Vehicle>,
+    /// Whether restrictions excluded ahead went into the first call.
+    used_ahead: bool,
     /// Whether to leave them out.
-    without_remembered: bool,
-    /// The blockers this request has counted in the remembered ones.
-    counted: Vec<uuid::Uuid>,
+    without_ahead: bool,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -1450,146 +1439,6 @@ fn fix_instructions(route: &mut Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A height barrier of 2.7 m from `source`, met by a route at `at`.
-    fn met(source: RestrictionSource, id: u128, at: Position) -> Met {
-        let restriction = Restriction {
-            kind: RestrictionKind::MaxHeight,
-            limit: Some(2.7),
-            source,
-            certainty: lunaway_domain::routing::Certainty::Known,
-            feature: RestrictionFeature::Barrier,
-        };
-        Met {
-            finding: assess(&restriction, &dims(3.3)).unwrap(),
-            restriction: db::NearRestriction {
-                id: uuid::Uuid::from_u128(id),
-                restriction,
-                external_id: format!("way/{id}"),
-                name: None,
-                geometry: vec![at],
-            },
-            hit: Hit {
-                start_m: 0.0,
-                end_m: 0.0,
-                geometry_index: 0,
-                at,
-                middle: at,
-            },
-        }
-    }
-
-    fn dims(height_m: f64) -> RoutingDimensions {
-        RoutingDimensions {
-            height_m,
-            width_m: 2.3,
-            length_m: 7.4,
-            weight_t: 3.5,
-            axle_load_t: None,
-            trailer_weight_t: None,
-            top_speed_kph: None,
-        }
-    }
-
-    fn stops(points: &[(f64, f64)]) -> Vec<Stop> {
-        points
-            .iter()
-            .map(|&(lat, lon)| Stop {
-                at: Position::new(lat, lon).unwrap(),
-                heading: None,
-            })
-            .collect()
-    }
-
-    #[test]
-    fn only_graph_blockers_two_requests_met_are_excluded_ahead() {
-        let routing = Routing::new(&RoutingConfig::default());
-        let g = "20261006T2326Z-eu";
-        let bridge = Position::new(45.8465, 1.2853).unwrap();
-        let order = Position::new(45.85, 1.29).unwrap();
-        let trip = stops(&[(45.70, 1.10), (46.00, 1.45)]);
-        let blockers = [
-            met(RestrictionSource::Osm, 1, bridge),
-            met(RestrictionSource::Dialog, 2, order),
-        ];
-        // The same barrier twice in one answer, from two of its routes.
-        routing.remember(
-            g,
-            &trip,
-            &[blockers[0].clone(), blockers[0].clone()],
-            &mut Vec::new(),
-        );
-        assert!(
-            routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
-            "one request keeps a single odd trip out"
-        );
-        let mut second = Vec::new();
-        routing.remember(g, &trip, &blockers, &mut second);
-        routing.remember(g, &trip, &blockers, &mut second);
-        assert_eq!(
-            routing.remembered_for(g, &trip, &dims(3.3)),
-            [bridge],
-            "the barrier of the graph, met by two requests; never DiaLog's \
-             order, which a later reading may end"
-        );
-        // An underpass, and a clearance mapped on the plain road under a
-        // bridge: their rings would cut the road above too.
-        let mut under = met(
-            RestrictionSource::Osm,
-            3,
-            Position::new(45.86, 1.30).unwrap(),
-        );
-        under.restriction.restriction.feature = RestrictionFeature::Underpass;
-        let mut clearance = met(
-            RestrictionSource::Osm,
-            5,
-            Position::new(45.87, 1.31).unwrap(),
-        );
-        clearance.restriction.restriction.feature = RestrictionFeature::Road;
-        // A barrier met by trips that start next to it, from a home there.
-        let home = met(
-            RestrictionSource::Osm,
-            4,
-            Position::new(45.705, 1.105).unwrap(),
-        );
-        for _ in 0..3 {
-            routing.remember(
-                g,
-                &trip,
-                &[under.clone(), clearance.clone(), home.clone()],
-                &mut Vec::new(),
-            );
-        }
-        assert_eq!(
-            routing.remembered_for(g, &stops(&[(45.30, 0.70), (46.30, 1.90)]), &dims(3.3)),
-            [bridge],
-            "neither an underpass, nor a clearance on a road, nor a barrier met \
-             only near a trip's stops"
-        );
-        routing.remember(g, &trip, &blockers, &mut Vec::new());
-        assert_eq!(routing.remembered_for(g, &trip, &dims(3.3)), [bridge]);
-        assert!(
-            routing.remembered_for(g, &trip, &dims(2.5)).is_empty(),
-            "a van under the limit is not kept from it"
-        );
-        assert!(
-            routing
-                .remembered_for(g, &stops(&[(48.0, -4.0), (48.5, -3.0)]), &dims(3.3))
-                .is_empty(),
-            "a trip in Brittany cannot meet a bridge in Limoges"
-        );
-        assert!(
-            routing
-                .remembered_for(g, &stops(&[(45.80, 1.25), (46.00, 1.45)]), &dims(3.3))
-                .is_empty(),
-            "a trip starting near it: a ring there could move the stop"
-        );
-        routing.remember("20261013T0300Z-eu", &trip, &[], &mut Vec::new());
-        assert!(
-            routing.remembered_for(g, &trip, &dims(3.3)).is_empty(),
-            "a new graph forgets the old one's blockers"
-        );
-    }
 
     /// Measures what copying a long route's answer costs before its check
     /// leaves the async threads (`check_routes`), against the steps and

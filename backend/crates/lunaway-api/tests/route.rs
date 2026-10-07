@@ -752,9 +752,98 @@ async fn a_route_stands_without_limits_when_the_engine_cannot_trace_it(pool: PgP
     assert_eq!(r["routes"][0]["speedLimits"], Value::Null);
 }
 
+/// An engine that answers every route with Limoges to Brive, refuses to
+/// trace any stretch that starts at the route's first point, as Valhalla
+/// 3.9 refused the start of the routes from Brest to Krakow, and traces any
+/// other stretch as one motorway edge signed 130; the number of points of
+/// each trace it was asked, and whether it refused it.
+async fn picky_tracer() -> (String, Arc<Mutex<Vec<(usize, bool)>>>) {
+    let geometry = LIMOGES_BRIVE.trim().to_owned();
+    let points = polyline::decode(&geometry).unwrap();
+    let start = points[0];
+    let distance: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+    let route = json!({"code": "Ok", "waypoints": [], "routes": [{
+        "geometry": geometry, "distance": distance, "duration": distance / 25.0,
+        "weight_name": "auto",
+        "legs": [{"distance": distance, "steps": [{"mode": "driving", "distance": distance,
+            "intersections": [{"classes": ["motorway"]}]}]}]
+    }]});
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let traces = Arc::clone(&asked);
+    let app = Router::new()
+        .route(
+            "/route",
+            post(move || {
+                let route = route.clone();
+                async move { Json(route) }
+            }),
+        )
+        .route(
+            "/trace_attributes",
+            post(move |Json(body): Json<Value>| {
+                let traces = Arc::clone(&traces);
+                async move {
+                    let shape =
+                        polyline::decode(body["encoded_polyline"].as_str().unwrap()).unwrap();
+                    let refused = shape[0] == start;
+                    traces.lock().unwrap().push((shape.len(), refused));
+                    if refused {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({"error_code": 443,
+                                "error": "Exact route match algorithm failed to find path"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(
+                            json!({"edges": [{"speed_limit": 130, "road_class": "motorway",
+                            "use": "road", "density": 1, "traversability": "forward",
+                            "begin_shape_index": 0, "end_shape_index": shape.len() - 1}]}),
+                        ),
+                    )
+                }
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, asked)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_stretch_the_engine_cannot_walk_is_left_without_limits_and_the_rest_keeps_them(
+    pool: PgPool,
+) {
+    seed(&pool).await;
+    let (url, traces) = picky_tracer().await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, LIMITS_QUERY, weighing(3.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    let spans = r["routes"][0]["speedLimits"].as_array().unwrap();
+    let length = r["routes"][0]["distanceM"].as_f64().unwrap();
+    assert_eq!(spans.len(), 1, "{spans:?}");
+    let from = spans[0]["fromM"].as_f64().unwrap();
+    assert!(
+        from > 0.0 && from < 1_500.0,
+        "only the first few points go without a limit: {from} m"
+    );
+    assert!((spans[0]["toM"].as_f64().unwrap() - length).abs() < 1.0);
+    let traces = traces.lock().unwrap();
+    assert!(
+        traces.iter().filter(|(_, refused)| *refused).count() <= 12,
+        "one bad place costs a refusal per level of halves: {traces:?}"
+    );
+    assert!(
+        traces.iter().any(|(n, refused)| *n <= 17 && *refused),
+        "halved down to a few points: {traces:?}"
+    );
+}
+
 /// A trip whose stops lie about 20 km from the bridge of Rue Maurice
-/// Utrillo: farther than a remembered blocker may lie from a stop to be
-/// excluded ahead. The fake engine answers the shapes it is given.
+/// Utrillo: farther than a restriction excluded ahead may lie from a stop.
+/// The fake engine answers the shapes it is given.
 fn far_input(height_m: f64) -> Value {
     json!({"input": {
         "origin": {"lat": 45.70, "lon": 1.10},
@@ -764,9 +853,13 @@ fn far_input(height_m: f64) -> Value {
     }})
 }
 
-/// The bridge of Rue Maurice Utrillo marked as a height barrier: among
-/// height limits only barriers are remembered (the ring of a clearance
-/// under a bridge would cut the road above it too).
+/// The stops of [`far_input`], as the seeds of the routes that look for
+/// the restrictions to exclude ahead.
+const FAR_SEEDS: [(f64, f64); 2] = [(45.70, 1.10), (46.00, 1.45)];
+
+/// The bridge of Rue Maurice Utrillo marked as a height barrier: a ring
+/// under a bridge would cut the road above it too, so among height limits
+/// only barriers are excluded ahead.
 async fn as_barrier(pool: &PgPool) {
     sqlx::query(
         "UPDATE route_restrictions SET feature = 'barrier' WHERE external_id = 'way/52984577'",
@@ -801,31 +894,53 @@ fn rings(request: &Value) -> Vec<Position> {
         .unwrap_or_default()
 }
 
+/// The answers of the routes between the seeds for the classes the bridge
+/// stops (up to 3.0 m and above): under it, then around it, for each. The
+/// vans' class has nothing to look for and costs no call.
+fn seed_answers() -> Vec<(u16, Value)> {
+    vec![
+        (200, osrm(&[ROUTE_UNDER])),
+        (200, osrm(&[ROUTE_AROUND])),
+        (200, osrm(&[ROUTE_UNDER])),
+        (200, osrm(&[ROUTE_AROUND])),
+    ]
+}
+
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_blocker_met_by_two_trips_is_avoided_from_the_first_call_of_the_next(pool: PgPool) {
+async fn a_restriction_met_between_public_points_is_excluded_from_the_first_call(pool: PgPool) {
     seed(&pool).await;
     as_barrier(&pool).await;
-    let (url, asked) = engine(
-        vec![
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-        ],
-        Duration::ZERO,
-    )
-    .await;
-    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    for _ in 0..2 {
-        let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
-        assert_eq!(body["data"]["route"]["recalculations"], 1, "{body}");
-    }
+    let mut answers = vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))];
+    answers.extend(seed_answers());
+    answers.push((200, osrm(&[ROUTE_AROUND])));
+    let (url, asked) = engine(answers, Duration::ZERO).await;
+    let state = ApiState::new(pool.clone(), config(&url));
+    let app = lunaway_api::router(state.clone());
+    // Before any list is computed, a trip excludes nothing ahead, and what
+    // it meets is kept nowhere.
+    let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    assert_eq!(body["data"]["route"]["recalculations"], 1, "{body}");
+    let done = state.refresh_route_blockers_from(&FAR_SEEDS).await.unwrap();
+    assert_eq!(done.graph_id, GRAPH);
+    assert_eq!(
+        done.kept,
+        [0, 1, 1],
+        "the bridge stops the low and the high classes"
+    );
+    assert_eq!(done.calls, 4, "under then around, for each of the two");
+    assert!(
+        state
+            .refresh_route_blockers_from(&FAR_SEEDS)
+            .await
+            .is_none(),
+        "nothing changed: nothing computed again"
+    );
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let r = &body["data"]["route"];
     assert_eq!(r["status"], "OK", "{body}");
     assert_eq!(
         r["recalculations"], 0,
-        "the bridge two trips met is excluded from the start of the third"
+        "the bridge is excluded from the start of the trip"
     );
     // A van under the bridge's height is not kept from it.
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(2.5)).await;
@@ -834,60 +949,82 @@ async fn a_blocker_met_by_two_trips_is_avoided_from_the_first_call_of_the_next(p
     // stop to another road.
     let (_, body) = gql(&app, ROUTE_QUERY, input(3.3)).await;
     assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+    {
+        let asked = asked.lock().unwrap();
+        assert_eq!(
+            asked.len(),
+            9,
+            "two calls for the first trip, four between the seeds, then one per trip"
+        );
+        assert!(
+            asked[2].get("voice_instructions").is_none() && rings(&asked[2]).is_empty(),
+            "the seeds' routes ask the shapes only"
+        );
+        assert_eq!(rings(&asked[3]).len(), 1, "the seeds' route around it");
+        let centre = Position::new(45.846_494, 1.285_292).unwrap();
+        let ahead = rings(&asked[6]);
+        assert!(
+            ahead.len() == 1 && ahead[0].distance_m(centre) < 10.0,
+            "the trip's first call excludes the bridge: {ahead:?}"
+        );
+        assert!(
+            rings(&asked[7]).is_empty(),
+            "the van's call excludes nothing"
+        );
+        assert!(
+            rings(&asked[8]).is_empty(),
+            "nor the call of a trip from the bridge"
+        );
+    }
 
+    // A new graph: the old one's list is never used on it.
+    routing::load_graph(
+        &pool,
+        &NewGraph {
+            id: "20261013T0300Z-fr".to_owned(),
+            osm_data_at: Utc.with_ymd_and_hms(2026, 10, 12, 20, 20, 43).unwrap(),
+            ign_fetched_at: None,
+            ign_edition: None,
+            built_at: Utc.with_ymd_and_hms(2026, 10, 13, 7, 0, 0).unwrap(),
+            engine: "valhalla 3.9.0".to_owned(),
+            stats: json!({}),
+        },
+        &[tunnel_record()],
+    )
+    .await
+    .unwrap();
+    routing::activate(&pool, "20261013T0300Z-fr").await.unwrap();
+    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let asked = asked.lock().unwrap();
-    assert_eq!(
-        asked.len(),
-        7,
-        "two calls for each of two trips, then one each"
-    );
-    let centre = Position::new(45.846_494, 1.285_292).unwrap();
-    assert!(rings(&asked[0]).is_empty());
-    assert!(rings(&asked[2]).is_empty(), "one trip is not enough");
-    let ahead = rings(&asked[4]);
     assert!(
-        ahead.len() == 1 && ahead[0].distance_m(centre) < 10.0,
-        "the third trip's first call excludes the bridge: {ahead:?}"
-    );
-    assert!(
-        rings(&asked[5]).is_empty(),
-        "the van's call excludes nothing"
-    );
-    assert!(
-        rings(&asked[6]).is_empty(),
-        "nor the call of a trip from the bridge"
+        rings(&asked[9]).is_empty(),
+        "the old graph's list is not used on the new one"
     );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: PgPool) {
+async fn a_trip_closed_by_a_restriction_excluded_ahead_is_asked_again_without_it(pool: PgPool) {
     seed(&pool).await;
     as_barrier(&pool).await;
     let no_route = (
         400,
         json!({"code": "NoRoute", "message": "Impossible route between points"}),
     );
-    let (url, asked) = engine(
-        vec![
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-            no_route,
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-        ],
-        Duration::ZERO,
-    )
-    .await;
-    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
-    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    let mut answers = seed_answers();
+    answers.extend([
+        no_route,
+        (200, osrm(&[ROUTE_UNDER])),
+        (200, osrm(&[ROUTE_AROUND])),
+    ]);
+    let (url, asked) = engine(answers, Duration::ZERO).await;
+    let state = ApiState::new(pool, config(&url));
+    let app = lunaway_api::router(state.clone());
+    state.refresh_route_blockers_from(&FAR_SEEDS).await.unwrap();
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let r = &body["data"]["route"];
     assert_eq!(
         r["status"], "OK",
-        "a way the remembered ring closed is found as before it was remembered: {body}"
+        "a way the ring closed is found as it would be without it: {body}"
     );
     assert_eq!(r["recalculations"], 1);
     let asked = asked.lock().unwrap();
@@ -895,42 +1032,38 @@ async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: P
     assert_eq!(rings(&asked[4]).len(), 1);
     assert!(
         rings(&asked[5]).is_empty(),
-        "asked again without the remembered blockers"
+        "asked again without the restrictions excluded ahead"
     );
     assert_eq!(rings(&asked[6]).len(), 1, "then around the blocker it met");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_trip_left_without_a_safe_route_by_remembered_blockers_is_asked_again(pool: PgPool) {
+async fn a_trip_left_without_a_safe_route_by_restrictions_excluded_ahead_is_asked_again(
+    pool: PgPool,
+) {
     seed(&pool).await;
     as_barrier(&pool).await;
-    let (url, asked) = engine(
-        vec![
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-            // The ring sent ahead and still the bridge: nothing new to
-            // exclude, no safe route with the remembered blockers.
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_UNDER])),
-            (200, osrm(&[ROUTE_AROUND])),
-        ],
-        Duration::ZERO,
-    )
-    .await;
-    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
-    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    let mut answers = seed_answers();
+    answers.extend([
+        // The ring sent ahead and still the bridge: nothing new to
+        // exclude, no safe route with the restrictions excluded ahead.
+        (200, osrm(&[ROUTE_UNDER])),
+        (200, osrm(&[ROUTE_UNDER])),
+        (200, osrm(&[ROUTE_AROUND])),
+    ]);
+    let (url, asked) = engine(answers, Duration::ZERO).await;
+    let state = ApiState::new(pool, config(&url));
+    let app = lunaway_api::router(state.clone());
+    state.refresh_route_blockers_from(&FAR_SEEDS).await.unwrap();
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let r = &body["data"]["route"];
     assert_eq!(
         r["status"], "OK",
-        "the trip ends as it did before the blocker was remembered: {body}"
+        "the trip ends as it would without them: {body}"
     );
     let asked = asked.lock().unwrap();
     assert_eq!(asked.len(), 7);
-    assert_eq!(rings(&asked[4]).len(), 1, "the remembered ring ahead");
+    assert_eq!(rings(&asked[4]).len(), 1, "the ring ahead");
     assert!(rings(&asked[5]).is_empty(), "then the trip from scratch");
     assert_eq!(rings(&asked[6]).len(), 1, "around the bridge it met");
 }

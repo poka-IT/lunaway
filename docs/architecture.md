@@ -234,10 +234,13 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   route). The query takes the route as short encoded pieces and filters
   by a planar distance that only widens the corridor; the matcher then
   applies each source's tolerance.
-- **Remembered blockers.** Barriers and road limits of the graph that the
-  engine does not apply by itself, met by two requests away from their
-  stops, are excluded from the first call of later trips that may meet
-  them, in memory and per graph (`routing::Remembered`, `docs/deploy.md`).
+- **Restrictions excluded ahead.** Barriers and road limits the engine
+  lets routes through, found by routes between the capitals of the
+  graph's countries for three classes of vehicles, are excluded from the
+  first call of a trip that may meet them. Computed from public data only
+  (the graph, the restriction table, the list of capitals) when the graph
+  or the rows outside it change, never from a request
+  (`routing::public`, `docs/deploy.md`).
 - **Ferries.** Avoiding ferries is a preference of the engine; a route
   that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
   (`routing::ferries`: the line's name and ports, where it is boarded and

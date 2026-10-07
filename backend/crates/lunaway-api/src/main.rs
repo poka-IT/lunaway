@@ -111,6 +111,24 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    let state = ApiState::new(pool, config);
+    // The restrictions a trip's first engine call excludes are computed
+    // again when a new graph serves or an import changed the rows outside
+    // it: the version is read every ten minutes, never per request. The
+    // first round waits a minute, so that the engine serves the first
+    // trips after a deploy before it is lent out.
+    let refresh = state.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        loop {
+            if let Some(done) = refresh.refresh_route_blockers().await {
+                tracing::info!(graph = %done.graph_id, kept = ?done.kept, calls = done.calls,
+                    "restrictions kept ahead are ready");
+            }
+            tokio::time::sleep(Duration::from_secs(600)).await;
+        }
+    });
+
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .with_context(|| format!("cannot listen on {addr}"))?;
@@ -119,8 +137,7 @@ async fn main() -> anyhow::Result<()> {
     // The peer address decides whether X-Forwarded-For is believed.
     axum::serve(
         listener,
-        lunaway_api::router(ApiState::new(pool, config))
-            .into_make_service_with_connect_info::<SocketAddr>(),
+        lunaway_api::router(state).into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(shutdown_signal())
     .await

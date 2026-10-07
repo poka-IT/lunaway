@@ -521,6 +521,126 @@ pub async fn restrictions_near(
         .collect()
 }
 
+/// What the restrictions a route is checked against were made of at one
+/// time: the active graph, and the rows outside any graph (DiaLog's, the
+/// community's), which their importers replace without a new graph. Two
+/// equal versions hold the same rows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestrictionsVersion {
+    /// The active graph.
+    pub graph_id: String,
+    /// Rows outside any graph.
+    pub outside_rows: i64,
+    /// The newest of them (ids are UUID v7, written in time order).
+    pub outside_newest: Option<Uuid>,
+}
+
+/// The restrictions' version ([`RestrictionsVersion`]); `None` without an
+/// active graph.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn restrictions_version(pool: &PgPool) -> Result<Option<RestrictionsVersion>, DbError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT g.id AS "graph_id!",
+            (SELECT count(*) FROM route_restrictions WHERE graph_id IS NULL) AS "outside_rows!",
+            (SELECT id FROM route_restrictions WHERE graph_id IS NULL
+             ORDER BY id DESC LIMIT 1) AS outside_newest
+        FROM routing_graphs g WHERE g.active
+        "#
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| RestrictionsVersion {
+        graph_id: r.graph_id,
+        outside_rows: r.outside_rows,
+        outside_newest: r.outside_newest,
+    }))
+}
+
+/// Dimensions a restriction is weighed against when the rows that may stop
+/// a vehicle are read ([`ring_candidates`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Envelope {
+    /// Metres.
+    pub height_m: f64,
+    /// Metres.
+    pub width_m: f64,
+    /// Metres.
+    pub length_m: f64,
+    /// Tonnes.
+    pub weight_t: f64,
+}
+
+/// The restrictions of graph `graph_id`, and those outside any graph, that
+/// a ring of a few metres excludes without closing another road (a
+/// barrier, or a limit of a road other than its clearance: a ring under a
+/// bridge would also cut the road above it), and that may stop a vehicle
+/// of `envelope`: a limit below its figure, a clearance unknown, a ban of
+/// motorhomes. The caller weighs each one against the vehicle exactly
+/// (`lunaway_domain::routing::assess`); this only narrows the rows read.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails or a row does not decode.
+pub async fn ring_candidates(
+    pool: &PgPool,
+    graph_id: &str,
+    envelope: Envelope,
+) -> Result<Vec<NearRestriction>, DbError> {
+    let rows = sqlx::query!(
+        r#"
+        SELECT id, source, external_id, kind, limit_value, certainty, feature, name,
+            ST_AsGeoJSON(geom::geometry, 7) AS "shape!"
+        FROM route_restrictions
+        WHERE (graph_id = $1 OR graph_id IS NULL)
+          AND (feature = 'barrier' OR (feature = 'road' AND kind <> 'max_height'))
+          AND ((kind = 'max_height' AND (limit_value IS NULL OR limit_value < $2))
+            OR (kind = 'max_width' AND limit_value < $3)
+            OR (kind = 'max_length' AND limit_value < $4)
+            OR (kind = 'max_weight' AND limit_value < $5)
+            OR kind = 'motorhome_ban')
+        "#,
+        graph_id,
+        envelope.height_m,
+        envelope.width_m,
+        envelope.length_m,
+        envelope.weight_t,
+    )
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter()
+        .map(|r| {
+            let (source, kind, certainty, feature) =
+                decode_row(r.id, &r.source, &r.kind, &r.certainty, &r.feature)?;
+            let geometry = geojson_points(&r.shape).ok_or_else(|| {
+                DbError::decode(
+                    "restriction geometry",
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("restriction {}", r.id),
+                    ),
+                )
+            })?;
+            Ok(NearRestriction {
+                id: r.id,
+                restriction: Restriction {
+                    kind,
+                    limit: r.limit_value,
+                    source,
+                    certainty,
+                    feature,
+                },
+                external_id: r.external_id,
+                name: r.name,
+                geometry,
+            })
+        })
+        .collect()
+}
+
 /// A disputed restriction: two sources disagree beyond the tolerance.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disputed {
