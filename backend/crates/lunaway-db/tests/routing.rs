@@ -357,3 +357,72 @@ async fn the_database_refuses_a_row_that_does_not_hold_together(pool: PgPool) {
         "a graph is named by its build time and area"
     );
 }
+
+/// `from` moved `metres` towards `azimuth_deg` on the spheroid, as PostGIS
+/// computes it: the test's distances do not rest on the code under test.
+pub(crate) async fn moved(
+    pool: &PgPool,
+    from: Position,
+    metres: f64,
+    azimuth_deg: f64,
+) -> Position {
+    let (lat, lon): (f64, f64) = sqlx::query_as(
+        "SELECT ST_Y(g::geometry), ST_X(g::geometry) FROM (SELECT ST_Project(
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, radians($4)) AS g) t",
+    )
+    .bind(from.lon())
+    .bind(from.lat())
+    .bind(metres)
+    .bind(azimuth_deg)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    at(lat, lon)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_corridor_holds_everything_within_its_width_far_north_and_along_a_long_segment(
+    pool: PgPool,
+) {
+    // Near Tromsø: 30 km east along the parallel in one segment, then 2 km
+    // north. The check reads a segment as a straight line in degrees; the
+    // great-circle arc between the same ends runs about 47 m north of it
+    // at the middle.
+    let (p0, p1, p2) = (at(69.6, 18.0), at(69.6, 18.785), at(69.618, 18.785));
+    let south = moved(&pool, at(69.6, 18.3925), 20.0, 180.0).await;
+    let east = moved(&pool, at(69.609, 18.785), 25.0, 90.0).await;
+    let beyond = moved(&pool, p2, 25.0, 0.0).await;
+    let far = moved(&pool, at(69.609, 18.785), 60.0, 90.0).await;
+    for (id, p) in [
+        ("south", south),
+        ("east", east),
+        ("beyond", beyond),
+        ("far", far),
+    ] {
+        sqlx::query(
+            "INSERT INTO route_restrictions (id, graph_id, source, external_id, kind,
+                limit_value, certainty, feature, geom, observed_at)
+             VALUES (gen_random_uuid(), NULL, 'community', $1, 'max_height', 2.6, 'known',
+                'underpass', ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, now())",
+        )
+        .bind(id)
+        .bind(p.lon())
+        .bind(p.lat())
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    let api = as_role(&pool, "SET ROLE lunaway_app").await;
+    let near = routing::restrictions_near(&api, "20261006T2326Z-eu", &[p0, p1, p2], 26.0)
+        .await
+        .unwrap();
+    let mut found: Vec<&str> = near.iter().map(|r| r.external_id.as_str()).collect();
+    found.sort_unstable();
+    assert_eq!(
+        found,
+        ["beyond", "east", "south"],
+        "everything within 26 m of the line the check reads is in the corridor, \
+         at 70 degrees north where a degree of longitude is a third of one of \
+         latitude, beside a 30 km segment, past the route's end; 60 m is not"
+    );
+}

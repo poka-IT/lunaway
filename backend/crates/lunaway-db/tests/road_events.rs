@@ -1310,3 +1310,51 @@ async fn an_event_reaches_the_phones_when_its_start_comes_within_the_window(pool
         "nor is it in the whole set a new phone starts from"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_events_near_a_route_hold_everything_within_their_widths_far_north(pool: PgPool) {
+    use crate::routing::moved;
+    // The route of the restrictions' test near Tromsø: 30 km east in one
+    // segment, then 2 km north.
+    let route = [p(69.6, 18.0), p(69.6, 18.785), p(69.618, 18.785)];
+    let side = p(69.609, 18.785);
+    let wide = moved(&pool, side, 1_000.0, 90.0).await;
+    let far = moved(&pool, side, 1_300.0, 90.0).await;
+    // Placed by the matcher 30 m south of the long segment's middle, its
+    // own point 5 km away.
+    let middle = p(69.6, 18.3925);
+    let placed_from = moved(&pool, middle, 30.0, 180.0).await;
+    let placed_to = moved(&pool, placed_from, 50.0, 90.0).await;
+    let own_point = moved(&pool, middle, 5_000.0, 180.0).await;
+    let events: Vec<NewEvent> = [("wide", wide), ("far", far), ("matched", own_point)]
+        .into_iter()
+        .map(|(id, at)| NewEvent {
+            geometry: SourceGeometry::Point(at),
+            ..event(id, "0000000001")
+        })
+        .collect();
+    store(&pool, "dir", &events, t0(), true).await;
+    sqlx::query(
+        "UPDATE road_events SET geom_matched = ST_SetSRID(ST_MakeLine(
+            ST_MakePoint($1, $2), ST_MakePoint($3, $4)), 4326)::geography
+         WHERE external_id = 'matched'",
+    )
+    .bind(placed_from.lon())
+    .bind(placed_from.lat())
+    .bind(placed_to.lon())
+    .bind(placed_to.lat())
+    .execute(&pool)
+    .await
+    .unwrap();
+    let api = as_role(&pool, "SET ROLE lunaway_app").await;
+    // The API's widths, 20 m and 1 000 m, with its margin of 11 m.
+    let near = db::events_near(&api, &route, 31.0, 1_011.0).await.unwrap();
+    let mut found: Vec<&str> = near.iter().map(|e| e.external_id.as_str()).collect();
+    found.sort_unstable();
+    assert_eq!(
+        found,
+        ["matched", "wide"],
+        "a placed line within 31 m and an own point within 1 011 m are near the \
+         route at 70 degrees north, beside a 30 km segment; 1 300 m away is not"
+    );
+}

@@ -32,7 +32,6 @@ use lunaway_ingest::{
     cache::Cache,
     http::{self, RetryPolicy},
     road_events::{
-        dialog,
         matching::{self, Engine, MatchError},
         poll::{self, DirState, PollConfig},
     },
@@ -41,6 +40,39 @@ use serde_json::{Value, json};
 
 const DIR_CONTENT: &str = include_str!("fixtures/road_events/dir_content_excerpt.xml");
 const DIALOG: &str = include_str!("fixtures/road_events/dialog_temporary_excerpt.xml");
+
+/// The DiaLog excerpt as it would read now: every instant moved by the time
+/// since 2026-10-06 11:00 UTC, the moment the parse tests read it at. The
+/// poller reads the feed at the real time, and the excerpt's orders end one
+/// after the other from 2026-10-07: unmoved, the count of live orders would
+/// fall day after day.
+fn dialog_now() -> String {
+    // Whole seconds: the instants keep the feed's own form.
+    let by = chrono::Duration::seconds(
+        (Utc::now() - Utc.with_ymd_and_hms(2026, 10, 6, 11, 0, 0).unwrap()).num_seconds(),
+    );
+    let mut out = String::with_capacity(DIALOG.len());
+    let mut i = 0;
+    while let Some(c) = DIALOG[i..].chars().next() {
+        // An instant reads `2026-10-07T06:30:00+00:00`, 25 characters.
+        let instant = DIALOG
+            .get(i..i + 25)
+            .filter(|_| c.is_ascii_digit())
+            .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
+        match instant {
+            Some(t) => {
+                out.push_str(&(t + by).to_rfc3339());
+                i += 25;
+            }
+            None => {
+                out.push(c);
+                i += c.len_utf8();
+            }
+        }
+    }
+    out
+}
+
 const DGT: &str = include_str!("fixtures/road_events/dgt_excerpt.xml");
 const NDW: &[u8] = include_bytes!("fixtures/road_events/ndw_planning_excerpt.xml");
 const COTES_D_ARMOR: &str = include_str!("fixtures/road_events/cotes_d_armor_excerpt.geojson");
@@ -136,7 +168,7 @@ async fn serve(State(f): State<Feeds>, uri: Uri, headers: HeaderMap) -> Response
 
 async fn feeds() -> (Feeds, SocketAddr) {
     let f = Feeds {
-        dialog: Arc::new(Mutex::new(DIALOG.to_owned())),
+        dialog: Arc::new(Mutex::new(dialog_now())),
         seen: Arc::new(Mutex::new(Vec::new())),
         broken: Arc::new(Mutex::new(false)),
     };
@@ -219,20 +251,7 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
     );
     // DiaLog too: due at the first pass.
     assert!(report.sources["dialog"].error.is_none());
-    // The poller reads the feed at the real time, and the excerpt's orders
-    // end one after the other from 2026-10-07: what stays live is what the
-    // parser keeps now and has not ended yet, 6 events on 2026-10-06.
-    let now = Utc::now();
-    let kept = dialog::parse_temporary(DIALOG.as_bytes(), now)
-        .unwrap()
-        .events
-        .iter()
-        .filter(|e| e.valid_to.is_none_or(|t| t > now))
-        .count();
-    assert_eq!(
-        db::live_count(&pool, "dialog").await.unwrap(),
-        i64::try_from(kept).unwrap()
-    );
+    assert_eq!(db::live_count(&pool, "dialog").await.unwrap(), 6);
 
     // The next pass, three minutes later: the aggregate is not due, the
     // poller resumes at the next increment and finds none yet.
@@ -285,11 +304,12 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
     forced.only = vec!["dialog".into()];
     // An order disappears from DiaLog: it ended.
     let gone = {
-        let start = DIALOG.find("<trafficRegulationOrder ").unwrap();
+        let now = dialog_now();
+        let start = now.find("<trafficRegulationOrder ").unwrap();
         let end = start
-            + DIALOG[start..].find("</trafficRegulationOrder>").unwrap()
+            + now[start..].find("</trafficRegulationOrder>").unwrap()
             + "</trafficRegulationOrder>".len();
-        format!("{}{}", &DIALOG[..start], &DIALOG[end..])
+        format!("{}{}", &now[..start], &now[end..])
     };
     *f.dialog.lock().unwrap() = gone;
     let report = poll::poll(&pool, &client, &cache, &forced, engine)
@@ -299,10 +319,7 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
         report.sources["dialog"].ended, 1,
         "an order DiaLog no longer lists is over"
     );
-    assert_eq!(
-        db::live_count(&pool, "dialog").await.unwrap(),
-        i64::try_from(kept).unwrap() - 1
-    );
+    assert_eq!(db::live_count(&pool, "dialog").await.unwrap(), 5);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
