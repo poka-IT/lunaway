@@ -171,10 +171,10 @@ impl Geocoder {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(config.timeout)
             .timeout(config.timeout)
-            // Idle connections to Caddy are dropped well before it closes
-            // them: a request sent on a connection the other end is closing
-            // fails at once (three in 240 searches on production,
-            // 2026-10-07).
+            // Three of 240 searches on production failed before any answer,
+            // with no line in Caddy's log (2026-10-07): the cause is not
+            // known. Idle connections are kept briefly, and `get` sends a
+            // request that failed so once more.
             .pool_idle_timeout(POOL_IDLE)
             .build()
             .inspect_err(|error| {
@@ -381,11 +381,12 @@ impl Geocoder {
             // fresh connection: the pooled one may have been closing.
             let mut response = match http.get(url.clone()).send().await {
                 Ok(response) => response,
-                Err(error) if error.is_request() || error.is_connect() => http
-                    .get(url)
-                    .send()
-                    .await
-                    .map_err(|e| GeocodeError::Unreachable(e.without_url()))?,
+                Err(error) if (error.is_request() || error.is_connect()) && !error.is_timeout() => {
+                    http.get(url)
+                        .send()
+                        .await
+                        .map_err(|e| GeocodeError::Unreachable(e.without_url()))?
+                }
                 Err(error) => return Err(GeocodeError::Unreachable(error.without_url())),
             };
             let status = response.status().as_u16();
