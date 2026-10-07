@@ -272,7 +272,9 @@ published dump of the database never does
 
 `lunaway extcom erase-author <author-id> [--yes]` (import role), for an
 erasure request the partner forwards (on the backend, `lunaway-admin extcom
-erase-author -` reads the id on standard input, so that no log keeps it):
+erase-author -` reads the id on standard input without echo, so that
+neither the journal nor a shell history keeps it, and waits for a running
+import of the feed):
 deletes every review and retires every photo whose `author_id` is that id,
 and keeps the SHA-256 of the id (never the id itself) so that later feeds
 do not bring them back while the partner propagates the erasure. It also

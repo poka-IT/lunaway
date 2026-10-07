@@ -62,6 +62,7 @@ feed" below); the imports run on the backend.
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
+| `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
 | `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
@@ -390,9 +391,9 @@ sudo lunaway-admin ingest cameras --refresh              # the official speed ca
 sudo lunaway-admin ingest cameras-osm --europe           # OpenStreetMap's cameras, from the cached extracts
 sudo lunaway-admin ingest extcom --file /srv/data/extcom-inbox/<feed>  # with /etc/lunaway/extcom.env as well
 sudo lunaway-admin extcom status                         # the external community source: switch and counts
-sudo lunaway-admin extcom hide|show [--note TEXT]        # import role, loopback only (docs/feeds.md, "Switches")
+sudo lunaway-admin extcom hide|show [--note TEXT]        # import role, loopback only, after a running import (docs/feeds.md, "Switches")
 sudo lunaway-admin extcom purge [--yes] [--note TEXT]
-printf '%s' '<author-id>' | sudo lunaway-admin extcom erase-author - [--yes]  # the id on standard input,
+sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard input, not echoed,
                                                          # never on a command line that sudo logs
 sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
 sudo lunaway-admin conflate --full
@@ -871,15 +872,20 @@ repository, its photo host included (`/etc/lunaway/extcom.env`, see
 accepted from 10.42.0.3 only and forced to `rrsync -wo
 /srv/data/extcom-inbox` (`restrict`, and `AllowUsers
 extcom-drop@10.42.0.3` in `/etc/ssh/sshd_config.d/13-extcom-drop.conf`):
-it writes new files into the inbox and nothing else (no read, no
-replacement of a file, no shell). The account, its key and that drop-in
-come from the producer's private deployment, not from `infra/`; the
-`harden` and `ops-access` steps leave them alone. The inbox is
-`extcom-drop:lunaway-ingest` 2750, its files 0640: the imports' user reads
-them, nobody else. A feed arrives as `extcom-<UTC stamp>.jsonl.gz`, then
-its checksum file `<name>.sha256` (`<64 hex>  <name>`), each under a new
-name; `/etc/tmpfiles.d/extcom-inbox.conf` removes the inbox's files after
-4 days.
+write only, no read, no shell. The account owns the inbox, so what lands
+there is the producer's to shape; the import trusts none of it (names,
+links and checksums are checked, below). A replacement of a file was
+refused when the producer's deployment tried it on 2026-10-07 (rsync
+3.5.0: `delete_file: unlink(4) failed: Operation not permitted`), so each
+push takes a new name. The account, its key, that drop-in and the
+tmpfiles rule `/etc/tmpfiles.d/extcom-inbox.conf` (the inbox
+`extcom-drop:lunaway-ingest` 2750, files removed after 4 days) come from
+the producer's private deployment, not from `infra/`: the `harden` and
+`ops-access` steps leave them alone, and the `pipeline` step warns when
+the inbox's owner, mode or tmpfiles rule differ. The imports' user reads
+the files (0640), nobody else. A feed arrives as `extcom-<UTC
+stamp>.jsonl.gz`, then its checksum file `<name>.sha256` (`<64 hex>
+<name>`).
 
 **Import.** `lunaway-ingest-extcom.path` starts
 `lunaway-ingest-extcom.service` when a file lands in the inbox (a file
@@ -887,18 +893,28 @@ written, then renamed, started it twice on 2026-10-07), and
 `lunaway-ingest-extcom.timer` hourly, for a file that landed while the
 service ran. The unit's condition (`lunaway-extcom-inbox pending`) stops
 it at once unless a feed waits: the newest feed whose checksum file
-exists, newer than the name kept in `/srv/data/ingest/extcom-inbox.last`.
-Every feed the producer sends is complete, so only the newest counts and an
-older one is never imported after it. `lunaway-extcom-inbox import` then
-reads the checksum file (it must name the feed), compares the SHA-256, and
-runs `lunaway ingest extcom --file` with the agreement's settings. A
-mismatch or a failed import fails the unit and keeps the name of the last
-feed imported, so the next run takes the same feed again (the importer
-resumes after its last stored batch) until a newer one replaces it. The
-unit sees of `/srv` the inbox, read-only, and the import cache, reaches
-PostgreSQL on loopback and nothing else, and is capped at 1 GiB. A file
-named otherwise (a test feed) is never taken: import it by hand with
-`lunaway-admin ingest extcom --file`.
+exists, newer than the name kept in `/srv/data/ingest/extcom-inbox.last`;
+a symbolic link is no feed. A complete feed replaces everything before it,
+so when several wait, only the newest is imported; when an older one is a
+delta (`complete: false` in its header, or a header that cannot be read),
+every waiting feed is imported in order. The producer sends complete
+feeds today (the header of its test feed, and its report). `lunaway-extcom-inbox
+import` reads the checksum file (it must name the feed), compares the
+SHA-256, and runs `lunaway ingest extcom --file` with the agreement's
+settings, holding `/srv/data/ingest/extcom.lock`. A mismatch or a failed
+import fails the unit and keeps the name of the last feed imported, so the
+next hourly run takes the same feed again: the importer resumes after its
+last stored batch, except when the half rule refused the removals (below),
+where it clears its progress first, so every retry reads the whole feed and
+fails the same way until a newer feed comes. A feed dated more than an hour
+ahead of the server's clock, or a recorded last feed newer than every
+feed of the inbox, fails the condition itself (exit 255) rather than
+skipping in silence. Nothing alerts on a failed unit yet: `systemctl
+status lunaway-ingest-extcom` and its journal show it. The unit sees of
+`/srv` the inbox, read-only, and the import cache, reaches PostgreSQL on
+loopback and nothing else, and is capped at 1 GiB. A file named otherwise
+(a test feed) is never taken: import it by hand with `lunaway-admin ingest
+extcom --file`.
 
 **Merge, packs, tiles.** After an import, and only then, the unit starts
 `lunaway-conflate.service` (which starts `lunaway-packs.service` after
@@ -913,11 +929,14 @@ photos are in no pack and no tile.
 
 **Photos.** None is downloaded at import. The API's proxy
 (`/external-photos/`, see "Photos") fetches one when a device first asks
-for it: the API's unit allows outbound connections for it, except to
-private, shared and link-local ranges (the private network, the metadata
-service), and the proxy itself holds every URL and redirect to the hosts
-of the agreement in force, resolved to public addresses only, at most
-5000 downloads a UTC day. A stored photo is a file under
+for it. The API's unit refuses the private, shared and link-local ranges
+(the private network, the metadata service); nftables lets its user open
+HTTPS and DNS connections only (`/etc/nftables.d/lunaway-api-egress.nft`,
+installed by the `api` step); the proxy itself holds every URL and
+redirect to the hosts of the agreement in force, resolved to public
+addresses only, at most 5000 downloads a UTC day, all clients together.
+Those hosts are a column the import writes (`source_agreements`), so the
+import role decides where the API may download from. A stored photo is a file under
 `/srv/data/media/photos/`, backed up like an upload (encrypted copies, see
 "Backups and restore").
 
@@ -941,14 +960,18 @@ region is built without it, and the purge removes the photo files.
 **Erasure of one author**, for a request the partner forwards:
 
 ```bash
-printf '%s' '<author-id>' | sudo lunaway-admin extcom erase-author - --yes
-sudo lunaway-admin extcom purge-media --yes   # or the next daily run
+sudo lunaway-admin extcom erase-author - --yes   # then paste the id: it is not echoed
+sudo lunaway-admin extcom purge-media --yes      # or the next daily run
 ```
 
 The id comes on standard input: sudo writes a command line to the journal,
-which keeps it for weeks. The command deletes the author's reviews,
-retires their photos, removes the feeds kept in the import cache, and keeps
-the SHA-256 of the id so that later feeds do not bring them back; the purge
+which keeps it for weeks, and a shell keeps its history. It is an argument
+of the CLI only while that runs (a few seconds, visible to `ps`). The
+command waits for an import of the feed that runs: the import reads the
+erased authors once, at its start, and its later batches would write the
+author's reviews and photos back. It deletes the author's reviews, retires
+their photos, removes the feeds kept in the import cache, and keeps the
+SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
 how long: the feeds in the inbox until tmpfiles removes them (4 days; `sudo
 rm` of their literal names shortens it), the dumps (29 days at most), the
@@ -2519,8 +2542,8 @@ sudo lunaway-admin road-events poll --force --only dir
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]` and `/external-photos/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
-| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges (the external community source's photo proxy downloads a photo from the agreement's hosts, resolved to public addresses only, 5000 a day at most; nothing else leaves the host), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]` and `/external-photos/[photo]`, no redirect target (`Location`), regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
+| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges, and limited by nftables to HTTPS and DNS for its user (for the external community source's photo proxy, which the code holds to the agreement's hosts, resolved to public addresses only, 5000 a day at most; the geocoders are reached through Caddy on the loopback, by configuration), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
 | imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the external community feed imported under the same user with loopback only, seeing of `/srv` its inbox (read-only) and the import cache, its SHA-256 checked first, its settings (`/etc/lunaway/extcom.env`, root 0600) loaded by that unit alone; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |
