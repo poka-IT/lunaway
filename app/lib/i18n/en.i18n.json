@@ -726,7 +726,8 @@
     "emptyHint": "Move the map, zoom out or loosen the filters.",
     "downloading": "Places are on their way",
     "downloadingHint": "The list fills in while they download.",
-    "error": "The list could not be loaded."
+    "error": "The list could not be loaded.",
+    "moreFailed": "More places could not be loaded. Try again"
   },
   "favorites": {
     "title": "Favourites",

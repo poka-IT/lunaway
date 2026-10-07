@@ -186,6 +186,22 @@ pub struct PlaceFilterInput {
     /// Leaves out places whose known maximum weight is below this, in
     /// tonnes; places of unknown weight stay.
     pub vehicle_weight_t: Option<f64>,
+    /// Keeps only places whose overnight status is one of these (absent:
+    /// every status; at most 5). The places' map tiles carry the status as
+    /// `night`, so the map's filter `["in", ["get", "night"], ...]` keeps
+    /// the same places.
+    pub overnight: Option<Vec<GqlOvernightStatus>>,
+    /// Keeps only places that have at least one service of each group: the
+    /// app's dump station is `[[GREY_WATER, BLACK_WATER]]` (at most 17
+    /// groups of 17). The tiles carry the services as the mask `s`, so the
+    /// map keeps the same places with `(s & group mask) != 0` for each
+    /// group; below the pin zoom the dots carry bits 0 to 8 only (drinking
+    /// water to laundry, the services the app's filters offer).
+    pub service_groups: Option<Vec<Vec<GqlService>>>,
+    /// `true` keeps only places whose parking is known to be free
+    /// (`priceParkingEur` 0); an unknown price is not free. The tiles say
+    /// the same with `price` 0. `false` or absent does not filter.
+    pub free_only: Option<bool>,
 }
 
 /// A data source and its terms.

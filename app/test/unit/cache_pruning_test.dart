@@ -28,9 +28,16 @@ void main() {
     await db
         .into(db.poiCache)
         .insert(PoiCacheCompanion.insert(cacheKey: 'recent', json: '{}', fetchedAt: at(1)));
-    expect(await pruneOpenedPages(db, now), 2);
+    await db
+        .into(db.placeCache)
+        .insert(PlaceCacheCompanion.insert(placeId: 'old', json: '{}', fetchedAt: at(95)));
+    await db
+        .into(db.placeCache)
+        .insert(PlaceCacheCompanion.insert(placeId: 'recent', json: '{}', fetchedAt: at(2)));
+    expect(await pruneOpenedPages(db, now), 3);
     expect((await db.select(db.placeExtrasCache).get()).map((r) => r.placeId), ['recent']);
     expect((await db.select(db.poiCache).get()).map((r) => r.cacheKey), ['recent']);
+    expect((await db.select(db.placeCache).get()).map((r) => r.placeId), ['recent']);
   });
 
   test('photos not shown for 90 days go, the recent ones stay', () async {

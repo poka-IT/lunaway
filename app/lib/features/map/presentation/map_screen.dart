@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -8,19 +9,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
+import 'package:lunaway/features/map/presentation/premap_spec.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -136,7 +142,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final id = widget.placeId;
     if (id == null) return;
     ref.read(selectionProvider.notifier).select(PlaceSelection(id));
-    final place = await ref.read(placesRepositoryProvider).watchPlace(id).first;
+    final Place? place;
+    try {
+      place = await ref.read(placeReaderProvider).watch(id).first;
+    } on Object catch (e) {
+      // Offline without a copy: the page says so.
+      _log.info('linked place $id not read: $e');
+      return;
+    }
     if (!mounted || place == null) return;
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
@@ -262,7 +275,39 @@ class _Map extends ConsumerWidget {
     );
     final viewport = ref.read(viewportProvider);
     final left = ref.read(initialViewProvider);
-    final places = ref.watch(mapPlacesProvider).value ?? const [];
+    // On the web the page's first map may still be on screen, where the user
+    // may have moved it: the app's map opens on that camera.
+    final premap = kIsWeb ? Premap.camera() : null;
+    final language = Localizations.localeOf(context).languageCode;
+    final filter = ref.watch(effectiveFilterProvider);
+    void remember(MapViewport v) {
+      if (!kIsWeb) return;
+      Premap.remember(
+        jsonEncode(
+          premapState(
+            basemapBase: ref.read(appConfigProvider).basemapBase,
+            placesTileJson: ref.read(placeTileJsonUrlProvider),
+            dark: dark,
+            language: language,
+            center: v.center,
+            zoom: v.zoom,
+            filter: filter,
+          ),
+        ),
+      );
+    }
+
+    // A theme, a language or a filter changed: the next visit's first map
+    // follows.
+    if (kIsWeb && viewport != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => remember(viewport));
+    }
+    // Online the places come from the tiles: the device's own places are
+    // neither read nor turned into GeoJSON.
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final places = fromTiles
+        ? const <PlaceSummary>[]
+        : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
     final selection = ref.watch(selectionProvider);
     final select = ref.read(selectionProvider.notifier);
     final poiChoice = ref.watch(poiLayerProvider);
@@ -285,15 +330,20 @@ class _Map extends ConsumerWidget {
         dark: dark,
         // This run's last camera, else where the previous run left the map,
         // else France.
-        initialCenter: viewport?.center ?? left?.center ?? initialMapCenter,
-        initialZoom: viewport?.zoom ?? left?.zoom ?? initialMapZoom,
+        initialCenter: premap?.center ?? viewport?.center ?? left?.center ?? initialMapCenter,
+        initialZoom: premap?.zoom ?? viewport?.zoom ?? left?.zoom ?? initialMapZoom,
         places: places,
-        selectedId: selection is PlaceSelection ? selection.id : null,
+        placeTiles: fromTiles
+            ? PlaceTilesView(tileJsonUrl: ref.watch(placeTileJsonUrlProvider), filter: filter)
+            : null,
+        selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
-        onPlaceTap: (id) {
-          select.select(PlaceSelection(id));
+        onPlaceTap: (id, {hint}) {
+          select.select(PlaceSelection(id, hint: hint));
           onPlaceTapped?.call();
         },
+        onPlacesInView: (places, bounds) =>
+            ref.read(placesInViewProvider.notifier).report(places, bounds),
         onEmptyTap: () => select.select(null),
         onLongPress: (p) {
           select.select(PointSelection(p));
@@ -303,6 +353,7 @@ class _Map extends ConsumerWidget {
         },
         onViewportChanged: (v) {
           ref.read(viewportProvider.notifier).update(v);
+          remember(v);
           unawaited(
             ref
                 .read(lastViewStoreProvider)
@@ -322,7 +373,7 @@ class _Map extends ConsumerWidget {
         // this run or the one before. A map made again before its fit (a
         // theme or language change in the first seconds) still fits: the
         // camera it reported is only the first one.
-        fitInitial: viewport == null ? left == null : isFirstCamera(viewport),
+        fitInitial: premap == null && (viewport == null ? left == null : isFirstCamera(viewport)),
         pois: pois,
         onPoiTap: (feature) {
           select.select(PoiSelection(feature));
@@ -554,12 +605,8 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
       final selection = widget.selection;
       final viewport = ref.read(viewportProvider);
       if (selection is! PlaceSelection || viewport == null) return;
-      final place = ref
-          .read(mapPlacesProvider)
-          .value
-          ?.where((p) => p.id == selection.id)
-          .firstOrNull;
-      if (place == null) return;
+      final place = ref.read(selectedPlaceProvider);
+      if (place == null || place.id != selection.id) return;
       final m = MediaQuery.of(context);
       final y = screenYOf(place.position, viewport.bounds, m.size.height);
       final bottom = m.size.height - (_rest ?? _detailsOpen(m));
@@ -845,7 +892,8 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
     final panelWidth = width < 720 ? 340.0 : 380.0;
     final reserved = panelOpen ? panelWidth + Space.xxl : 0.0;
     final top = MediaQuery.paddingOf(context).top + _overlayHeight(context);
-    final count = ref.watch(nearbyPlacesProvider).value?.length;
+    final page = ref.watch(nearbyPlacesPageProvider).value;
+    final count = page?.total ?? page?.places.length;
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
     return Stack(
       children: [

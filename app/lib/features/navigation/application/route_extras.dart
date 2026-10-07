@@ -40,30 +40,62 @@ const placesNearRouteM = 800.0;
 Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) async {
   final repository = ref.watch(placesRepositoryProvider);
   final filter = ref.watch(effectiveFilterProvider);
+  final online = ref.watch(placesFromTilesProvider) ? ref.watch(onlinePlacesProvider) : null;
+  // The device's places when it holds some, the API's otherwise (the web).
+  final ask = online != null && await repository.watchCount().first == 0;
+  final boxes = [
+    for (final stretch in _stretches(line, metres: 15000).take(20))
+      if (GeoBounds.around(stretch) case final box?) (stretch: stretch, around: _padded(box)),
+  ];
   final found = <String, ({PlaceSummary place, double offM})>{};
-  for (final stretch in _stretches(line, metres: 15000).take(20)) {
-    final box = GeoBounds.around(stretch);
-    if (box == null) continue;
-    // 800 m: a hundredth of a degree of latitude is 1.1 km; longitude
-    // degrees shrink with the latitude.
-    const padLat = placesNearRouteM / 111195;
-    final padLon = padLat / math.max(0.2, math.cos(box.center.lat * math.pi / 180));
-    final around = GeoBounds(
-      south: box.south - padLat,
-      west: box.west - padLon,
-      north: box.north + padLat,
-      east: box.east + padLon,
-    );
-    final places = await repository.watchInBounds(around, filter, center: around.center).first;
-    for (final p in places) {
-      final near = nearestOnLine(LatLng(p.lat, p.lon), stretch);
-      if (near == null || near.offM > placesNearRouteM) continue;
-      final known = found[p.id];
-      if (known == null || near.offM < known.offM) found[p.id] = (place: p, offM: near.offM);
+  // A few stretches at a time: the API answers each in a few tens of
+  // milliseconds, and a burst of twenty would spend the client's budget.
+  for (var i = 0; i < boxes.length; i += 4) {
+    final batch = boxes.skip(i).take(4).toList();
+    final pages = await Future.wait([
+      for (final b in batch)
+        if (ask)
+          online
+              .inBounds(b.around, filter, near: b.around.center, first: 100)
+              .then((page) => page.places)
+        else
+          repository.watchInBounds(b.around, filter, center: b.around.center).first,
+    ]);
+    for (final (j, places) in pages.indexed) {
+      _keepNearest(found, places, batch[j].stretch);
     }
   }
   final sorted = found.values.toList()..sort((a, b) => a.offM.compareTo(b.offM));
   return [for (final f in sorted.take(120)) f.place];
+}
+
+/// [box] grown by [placesNearRouteM] on every side.
+GeoBounds _padded(GeoBounds box) {
+  // 800 m: a hundredth of a degree of latitude is 1.1 km; longitude
+  // degrees shrink with the latitude.
+  const padLat = placesNearRouteM / 111195;
+  final padLon = padLat / math.max(0.2, math.cos(box.center.lat * math.pi / 180));
+  return GeoBounds(
+    south: box.south - padLat,
+    west: box.west - padLon,
+    north: box.north + padLat,
+    east: box.east + padLon,
+  );
+}
+
+/// Records each of [places] within [placesNearRouteM] of [stretch], with
+/// its distance from the route, keeping the nearest stretch's.
+void _keepNearest(
+  Map<String, ({PlaceSummary place, double offM})> found,
+  List<PlaceSummary> places,
+  List<LatLng> stretch,
+) {
+  for (final p in places) {
+    final near = nearestOnLine(LatLng(p.lat, p.lon), stretch);
+    if (near == null || near.offM > placesNearRouteM) continue;
+    final known = found[p.id];
+    if (known == null || near.offM < known.offM) found[p.id] = (place: p, offM: near.offM);
+  }
 }
 
 /// [line] cut into pieces of about [metres], each sharing its first point

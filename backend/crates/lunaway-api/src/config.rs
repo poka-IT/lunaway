@@ -176,25 +176,33 @@ impl KeepingConfig {
     }
 }
 
-/// The vector tiles of the points of interest (`GET /poi/...`): where the
-/// API says they are, and how much work they may take.
+/// The vector tiles of the points of interest (`GET /poi/...`) and of the
+/// places (`GET /places/...`): where the API says they are, and how much
+/// work they may take. The two layers share the builders; each keeps its
+/// own cache of `cache_bytes`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilesConfig {
     /// The API's public URL, without a trailing slash, which the TileJSON
     /// names in its tile URLs (`LUNAWAY_PUBLIC_URL`, default
     /// `https://api.lunaway.net`).
     pub public_url: String,
-    /// Bytes of tiles kept in memory, the oldest evicted first
-    /// (`LUNAWAY_POI_TILE_CACHE_MB`, 64 MiB): the same tiles of a city are
-    /// asked by every device that looks at it.
+    /// Bytes of tiles kept in memory by each layer, the oldest evicted
+    /// first (`LUNAWAY_POI_TILE_CACHE_MB`, 64 MiB): the same tiles of a city
+    /// are asked by every device that looks at it.
     pub cache_bytes: usize,
-    /// Tiles built at once by the database (`LUNAWAY_POI_TILE_CONCURRENCY`,
-    /// 4): a tile of a dense city takes tens of milliseconds, a cluster
-    /// tile of a whole region a few hundred.
+    /// Tiles built at once by the database, both layers together
+    /// (`LUNAWAY_POI_TILE_CONCURRENCY`, 4): a tile of a dense city takes
+    /// tens of milliseconds, a cluster or dots tile of a whole region a few
+    /// hundred.
     pub concurrency: usize,
     /// Most points in one tile (`LUNAWAY_POI_TILE_MAX_FEATURES`, 4000): the
-    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06.
+    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06; the
+    /// densest places tile at the pin zoom, 197 on 2026-10-07.
     pub max_features: i64,
+    /// Whether the places' dots tiles of a new version are built ahead
+    /// (`LUNAWAY_PLACE_TILE_WARM`, on; `0` turns it off). It needs two
+    /// builders at least: one always stays for the clients.
+    pub warm: bool,
 }
 
 impl Default for TilesConfig {
@@ -204,6 +212,7 @@ impl Default for TilesConfig {
             cache_bytes: 64 * 1024 * 1024,
             concurrency: 4,
             max_features: 4_000,
+            warm: true,
         }
     }
 }
@@ -227,6 +236,7 @@ impl TilesConfig {
                 .and_then(|n| i64::try_from(n).ok())
                 .filter(|n| (100..=50_000).contains(n))
                 .unwrap_or(d.max_features),
+            warm: lookup("LUNAWAY_PLACE_TILE_WARM").is_none_or(|v| v.trim() != "0"),
         }
     }
 }

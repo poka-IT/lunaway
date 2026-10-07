@@ -99,7 +99,14 @@ class PlaceDetails extends ConsumerWidget {
           ),
         ],
       ),
-      AsyncLoading() => _DetailsSkeleton(scrollController: scrollController),
+      AsyncLoading() => _DetailsSkeleton(
+        scrollController: scrollController,
+        hint: switch (ref.watch(selectionProvider)) {
+          PlaceSelection(:final id, :final hint) when id == placeId => hint,
+          _ => null,
+        },
+        onClose: onClose,
+      ),
     };
   }
 }
@@ -866,36 +873,90 @@ class _Sources extends ConsumerWidget {
   }
 }
 
+/// The page while the place is read. When the tap or the row already
+/// said what the place is ([hint]: from the tiles, or a row of the list),
+/// its pin, name and kind show at once and only the rest waits.
 class _DetailsSkeleton extends StatelessWidget {
-  const new({this.scrollController});
+  const new({this.scrollController, this.hint, this.onClose});
 
   final ScrollController? scrollController;
+  final PlaceSummary? hint;
+  final VoidCallback? onClose;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    controller: scrollController,
-    padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
-    children: const [
-      Row(
-        children: [
-          Skeleton(width: 52, height: 52, radius: 16),
-          SizedBox(width: Space.ml),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Skeleton(width: 220, height: 24),
-                SizedBox(height: Space.s),
-                Skeleton(width: 140),
+  Widget build(BuildContext context) {
+    final hint = this.hint;
+    final t = context.t;
+    final theme = Theme.of(context);
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
+      children: [
+        if (hint == null)
+          const Row(
+            children: [
+              Skeleton(width: 52, height: 52, radius: 16),
+              SizedBox(width: Space.ml),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Skeleton(width: 220, height: 24),
+                    SizedBox(height: Space.s),
+                    Skeleton(width: 140),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xxs),
+                child: PlaceHeroTarget(
+                  placeId: hint.id,
+                  kind: hint.kind,
+                  overnight: hint.overnight,
+                  size: 52,
+                ),
+              ),
+              const SizedBox(width: Space.ml),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
+                        style: theme.textTheme.headlineSmall,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: Space.xxs),
+                    Text(
+                      [t.kind(hint.kind), ?hint.city].join(' · '),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onClose != null) ...[
+                const SizedBox(width: Space.xs),
+                _CloseButton(onClose: onClose!),
               ],
-            ),
+            ],
           ),
-        ],
-      ),
-      SizedBox(height: Space.l),
-      Skeleton(height: 112, radius: LunaTokens.radiusXl),
-      SizedBox(height: Space.l),
-      Skeleton(height: 88, radius: LunaTokens.radiusL),
-    ],
-  );
+        const SizedBox(height: Space.l),
+        const Skeleton(height: 112, radius: LunaTokens.radiusXl),
+        const SizedBox(height: Space.l),
+        const Skeleton(height: 88, radius: LunaTokens.radiusL),
+      ],
+    );
+  }
 }

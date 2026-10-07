@@ -40,6 +40,11 @@ fi
 if [ "$kind" = app ] && [ ! -s "$dir/lunaway_nav/lunaway_nav_bg.wasm" ]; then
   die "$dir has no lunaway_nav/lunaway_nav_bg.wasm; run app/packages/lunaway_nav/tool/build_web.sh before the build"
 fi
+if [ "$kind" = app ]; then
+  # The service worker that serves a second visit from the browser's cache
+  # names every file of this build, so it is written after the build.
+  python3 "$LUNAWAY_REPO_DIR/app/tool/web/service_worker.py" "$dir" || die "the service worker was not written"
+fi
 
 if [ "$dry_run" = 1 ]; then
   log "dry run: $dir is ready as a $kind release, nothing uploaded"

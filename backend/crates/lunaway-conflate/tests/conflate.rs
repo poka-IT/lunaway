@@ -1223,6 +1223,7 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
             &ingest,
             std::time::Duration::from_secs(600),
             std::time::Duration::ZERO,
+            std::time::Duration::ZERO,
             || at(2),
             None,
         )
@@ -1255,6 +1256,10 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
     )
     .await
     .unwrap();
+    let version_before = lunaway_db::place_tiles::layer_version(&pool)
+        .await
+        .unwrap()
+        .version;
     let mut applied = false;
     for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -1267,10 +1272,23 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
             break;
         }
     }
+    let mut published = false;
+    for _ in 0..50 {
+        let v = lunaway_db::place_tiles::layer_version(&pool).await.unwrap();
+        if v.version > version_before {
+            published = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
     worker.abort();
     assert!(
         applied,
         "a submission is applied within seconds of the API's NOTIFY, not at the next period"
+    );
+    assert!(
+        published,
+        "the worker publishes the new place in the places' tiles after its run"
     );
 }
 

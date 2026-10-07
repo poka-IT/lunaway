@@ -7,9 +7,9 @@ import 'package:lunaway/core/database/cache_database.dart';
 /// that recent.
 const openedPagesKeep = Duration(days: 90);
 
-/// Drops the copies of places' photos and reviews and of shops' and
-/// services' pages that no opening has read again for [openedPagesKeep].
-/// Returns how many went.
+/// Drops the copies of places opened online, of their photos and reviews,
+/// and of shops' and services' pages that no opening has read again for
+/// [openedPagesKeep]. Returns how many went.
 Future<int> pruneOpenedPages(CacheDatabase db, DateTime now) async {
   final cutoff = now.subtract(openedPagesKeep).millisecondsSinceEpoch;
   final extras = await (db.delete(
@@ -18,5 +18,8 @@ Future<int> pruneOpenedPages(CacheDatabase db, DateTime now) async {
   final pois = await (db.delete(
     db.poiCache,
   )..where((e) => e.fetchedAt.isSmallerThanValue(cutoff))).go();
-  return extras + pois;
+  final places = await (db.delete(
+    db.placeCache,
+  )..where((e) => e.fetchedAt.isSmallerThanValue(cutoff))).go();
+  return extras + pois + places;
 }

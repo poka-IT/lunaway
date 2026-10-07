@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE places SET services = '{grey_water,black_water}' WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a584eb4f339fc0e8cf5cdafb4f995de51e9ef26437adc642507e74d5f4726026"
+}

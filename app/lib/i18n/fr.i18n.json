@@ -726,7 +726,8 @@
     "emptyHint": "Déplacez la carte, dézoomez ou assouplissez les filtres.",
     "downloading": "Les lieux arrivent",
     "downloadingHint": "La liste se remplit pendant le téléchargement.",
-    "error": "La liste n'a pas pu s'afficher."
+    "error": "La liste n'a pas pu s'afficher.",
+    "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer"
   },
   "favorites": {
     "title": "Favoris",

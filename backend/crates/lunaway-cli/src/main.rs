@@ -18,6 +18,7 @@
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
+//!                  [--place-layer-every-mins 15]
 //! lunaway conflate --take-down <place> --reason-code CODE [--with-nearby] [--yes]
 //! lunaway takedowns import < FILE
 //! lunaway takedowns replay [--dry-run] [--allow-empty]
@@ -163,6 +164,12 @@ enum Command {
         /// tiles again at most this often (`pois::publish_layer`).
         #[arg(long, default_value_t = 360)]
         poi_layer_every_mins: u64,
+        /// Shortest time between two versions of the places layer's tiles,
+        /// minutes: the places written meanwhile wait for the next one, so
+        /// devices fetch their tiles again at most this often
+        /// (`place_tiles::publish_layer`). A takedown publishes at once.
+        #[arg(long, default_value_t = 15)]
+        place_layer_every_mins: u64,
         /// Takes this place down for good instead of conflating: a private
         /// home listed as a spot, a request under the GDPR, a court order.
         /// It, the places merged into it and the records that describe them
@@ -1218,9 +1225,11 @@ async fn main() -> anyhow::Result<()> {
             watch,
             every_secs,
             poi_layer_every_mins,
+            place_layer_every_mins,
             ..
         } => {
             let poi_layer_every = Duration::from_secs(poi_layer_every_mins.saturating_mul(60));
+            let place_layer_every = Duration::from_secs(place_layer_every_mins.saturating_mul(60));
             if full {
                 let n = lunaway_db::records::mark_all_dirty(&pool).await?;
                 println!("{n} records flagged for a full rebuild");
@@ -1232,6 +1241,7 @@ async fn main() -> anyhow::Result<()> {
                     &pool,
                     Duration::from_secs(every_secs.max(1)),
                     poi_layer_every,
+                    place_layer_every,
                     chrono::Utc::now,
                     key.as_ref(),
                 )
@@ -1247,6 +1257,12 @@ async fn main() -> anyhow::Result<()> {
                 .context("publishing the points layer failed")?
             {
                 println!("points layer: tiles version {v}");
+            }
+            if let Some(v) = lunaway_conflate::publish_place_layer(&pool, place_layer_every)
+                .await
+                .context("publishing the places layer failed")?
+            {
+                println!("places layer: tiles version {v}");
             }
             println!("records flagged: {}", s.dirty);
             println!(

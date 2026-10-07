@@ -13,7 +13,7 @@ use lunaway_domain::{
     Position,
     routing::{
         Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionRecord,
-        RestrictionSource,
+        RestrictionSource, polyline,
     },
 };
 use sqlx::PgPool;
@@ -380,10 +380,70 @@ fn geojson_points(text: &str) -> Option<Vec<Position>> {
     }
 }
 
+/// Most points of one piece of a route sent to a corridor query: a few
+/// dozen keep each piece's box small, so that its index lookup reads little.
+const PIECE_POINTS: usize = 32;
+/// Longest segment of a piece, metres: a longer one gets points in between.
+/// The index box encloses the piece as great-circle arcs, the distance
+/// filter and the API's matcher read it as straight lines in degrees: by
+/// the sagitta of the arc, the two stay within 6 cm of each other over a
+/// kilometre at 70 degrees north, and part by about 14 m over a 31 km ferry
+/// line at 36 degrees.
+const PIECE_SEGMENT_M: f64 = 1_000.0;
+
+/// `route` as the corridor queries take it: consecutive pieces of at most
+/// [`PIECE_POINTS`] points, each starting where the previous ends, encoded
+/// as polyline6. The client cuts the line rather than `ST_Subdivide`, and
+/// sends text PostGIS decodes in C rather than two arrays of floats: on a
+/// route of 37 197 points the server-side line and subdivision took 0.25 s
+/// of the 1.18 s query, the decoded pieces 7 ms (production, 2026-10-07,
+/// `plan/research/48-latence-itineraires.md`).
+pub(crate) fn corridor_pieces(route: &[Position]) -> Vec<String> {
+    let mut dense: Vec<Position> = Vec::with_capacity(route.len());
+    for pair in route.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        dense.push(a);
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a positive count of points in one segment of a route"
+        )]
+        let n = (a.distance_m(b) / PIECE_SEGMENT_M).ceil() as u32;
+        for k in 1..n {
+            let t = f64::from(k) / f64::from(n);
+            if let Ok(p) = Position::new(
+                a.lat() + (b.lat() - a.lat()) * t,
+                a.lon() + (b.lon() - a.lon()) * t,
+            ) {
+                dense.push(p);
+            }
+        }
+    }
+    dense.extend(route.last().copied());
+    let mut pieces = Vec::with_capacity(dense.len() / (PIECE_POINTS - 1) + 1);
+    let mut start = 0;
+    while start + 1 < dense.len() {
+        let end = (start + PIECE_POINTS).min(dense.len());
+        pieces.push(polyline::encode(&dense[start..end]));
+        start = end - 1;
+    }
+    pieces
+}
+
 /// The restrictions of graph `graph_id`, and the community's, within
-/// `within_m` metres of the line through `route`. The line is cut into
-/// pieces of a few dozen points so each piece's index lookup covers a small
-/// box, whatever the route's length.
+/// `within_m` metres of the line through `route`, and a few more a little
+/// farther: the caller matches each against the route with its own
+/// tolerance, under `within_m`.
+///
+/// The line goes as short pieces ([`corridor_pieces`]), so that each
+/// piece's index lookup covers a small box whatever the route's length.
+/// The index finds the rows in each piece's box widened by `within_m`; the
+/// filter after it is a planar distance in degrees, the metres converted at
+/// the piece's highest latitude with a margin, which only ever widens the
+/// corridor. The exact distance on the spheroid it replaces cost 0.47 ms a
+/// piece, 1.18 s for a route of 3 200 km; the planar one 0.21 s, with 846
+/// rows instead of 787 and none missing on six routes (production,
+/// 2026-10-07, `plan/research/48-latence-itineraires.md`).
 ///
 /// # Errors
 ///
@@ -404,30 +464,29 @@ pub async fn restrictions_near(
             limit: MAX_ROUTE_POINTS,
         });
     }
-    let lons: Vec<f64> = route.iter().map(|p| p.lon()).collect();
-    let lats: Vec<f64> = route.iter().map(|p| p.lat()).collect();
+    let pieces = corridor_pieces(route);
+    // `_ST_Expand` on a geography is the box test `ST_DWithin` runs through
+    // the index itself; PostGIS has no public name for it.
     let rows = sqlx::query!(
         r#"
-        WITH line AS (
-            SELECT ST_SetSRID(ST_MakeLine(ARRAY(
-                SELECT ST_MakePoint(lon, lat)
-                FROM UNNEST($2::float8[], $3::float8[]) WITH ORDINALITY AS u(lon, lat, n)
-                ORDER BY n
-            )), 4326) AS geom
-        ), pieces AS (
-            SELECT ST_Subdivide(geom, 32)::geography AS piece FROM line
+        WITH pieces AS (
+            SELECT g AS line, g::geography AS piece,
+                $3::float8 * 1.05 / (110574.0 * cos(radians(least(89.0,
+                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS within_deg
+            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($2::text[]) AS s) t
         )
         SELECT DISTINCT ON (r.id)
             r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,
             r.name, ST_AsGeoJSON(r.geom::geometry, 7) AS "shape!"
         FROM pieces p
-        JOIN route_restrictions r ON ST_DWithin(r.geom, p.piece, $4)
+        JOIN route_restrictions r
+            ON r.geom && _ST_Expand(p.piece, $3)
+            AND ST_DWithin(r.geom::geometry, p.line, p.within_deg)
         WHERE r.graph_id = $1 OR r.graph_id IS NULL
         ORDER BY r.id
         "#,
         graph_id,
-        &lons,
-        &lats,
+        &pieces,
         within_m,
     )
     .fetch_all(pool)
@@ -524,6 +583,46 @@ pub async fn disputed(pool: &PgPool, graph_id: &str, limit: i64) -> Result<Vec<D
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_corridor_pieces_join_up_and_follow_the_route() {
+        // 100 points 100 m apart, then one segment of 3.5 km.
+        let mut route: Vec<Position> = (0..100)
+            .map(|i| Position::new(45.0 + f64::from(i) * 0.0009, 1.0).unwrap())
+            .collect();
+        route.push(Position::new(45.0891 + 0.0315, 1.0).unwrap());
+        let pieces: Vec<Vec<Position>> = corridor_pieces(&route)
+            .iter()
+            .map(|p| polyline::decode(p).unwrap())
+            .collect();
+        assert!(
+            pieces.iter().all(|p| (2..=PIECE_POINTS).contains(&p.len())),
+            "every piece is a line of a few dozen points"
+        );
+        assert!(
+            pieces.windows(2).all(|w| w[0].last() == w[1].first()),
+            "each piece starts where the previous ends: no gap in the corridor"
+        );
+        let joined: Vec<Position> = pieces
+            .iter()
+            .enumerate()
+            .flat_map(|(i, p)| p.iter().skip(usize::from(i > 0)).copied())
+            .collect();
+        assert_eq!(joined.first(), route.first());
+        assert_eq!(joined.last(), route.last());
+        assert!(
+            route.iter().all(|p| joined.contains(p)),
+            "every point of the route is in a piece"
+        );
+        assert!(
+            joined
+                .windows(2)
+                .all(|w| w[0].distance_m(w[1]) <= PIECE_SEGMENT_M + 1.0),
+            "the long segment is cut, so arcs and straight lines agree"
+        );
+        assert_eq!(joined.len(), 100 + 4, "3.5 km in four segments");
+        assert!(corridor_pieces(&route[..1]).is_empty());
+    }
 
     #[test]
     fn geometries_travel_as_wkt_and_come_back_as_geojson() {

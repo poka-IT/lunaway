@@ -595,6 +595,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get downloading => 'Les lieux arrivent';
 	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
+	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
 }
 
 // Path: favorites
@@ -2967,6 +2968,7 @@ extension on TranslationsFr {
 			'list.downloading' => 'Les lieux arrivent',
 			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
+			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -3409,9 +3411,9 @@ extension on TranslationsFr {
 			'placeForm.submitEdit' => 'Enregistrer la modification',
 			'placeForm.submitPropose' => 'Envoyer la proposition',
 			'placeForm.nothingChanged' => 'Rien n\'a changé',
-			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
 			_ => null,
 		} ?? switch (path) {
+			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
 			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
 			'placeForm.added' => 'Merci : le lieu arrive sur la carte dans un instant',
 			'placeForm.proposed' => 'Merci : votre proposition part en relecture',
