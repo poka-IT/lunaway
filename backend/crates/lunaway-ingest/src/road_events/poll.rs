@@ -157,6 +157,10 @@ pub struct PollConfig {
     pub only: Vec<String>,
     /// Read every selected source now.
     pub force: bool,
+    /// The instant of the pass; `None` reads the system clock. A test sets
+    /// it, so that what its recorded feeds say is current does not end
+    /// with the calendar.
+    pub now: Option<DateTime<Utc>>,
 }
 
 impl Default for PollConfig {
@@ -192,6 +196,7 @@ impl Default for PollConfig {
             match_budget: Duration::from_secs(90),
             only: Vec::new(),
             force: false,
+            now: None,
         }
     }
 }
@@ -316,12 +321,12 @@ fn state_json(state: &DirState) -> serde_json::Value {
 /// Records how a feed's read went, with the state it resumes from.
 async fn record(
     pool: &PgPool,
+    at: DateTime<Utc>,
     id: &str,
     outcome: Result<(), IngestError>,
     state: &serde_json::Value,
     r: &mut SourceReport,
 ) -> Result<(), IngestError> {
-    let at = Utc::now();
     match outcome {
         Ok(()) => {
             let read = db::Read {
@@ -678,7 +683,7 @@ async fn poll_dir(
         cache
             .write("road-events/dir/increment-latest.xml", &bytes)
             .await?;
-        let p = dir::parse(&bytes, Utc::now()).map_err(|source| IngestError::RoadEvents {
+        let p = dir::parse(&bytes, now).map_err(|source| IngestError::RoadEvents {
             what: format!("DIR increment {n}"),
             source,
         })?;
@@ -687,7 +692,7 @@ async fn poll_dir(
             waiting_since: None,
             ..state.clone()
         };
-        apply_dir(pool, p, &after, Utc::now(), report).await?;
+        apply_dir(pool, p, &after, now, report).await?;
         *state = after;
         applied += 1;
         next = n + 1;
@@ -726,7 +731,7 @@ async fn read_aggregate(
     match answer {
         Answer::Body { bytes, etag } => {
             cache.write("road-events/dir/content.xml", &bytes).await?;
-            let p = tokio::task::spawn_blocking(move || dir::parse(&bytes, Utc::now()))
+            let p = tokio::task::spawn_blocking(move || dir::parse(&bytes, now))
                 .await
                 .map_err(IngestError::Blocking)?
                 .map_err(|source| IngestError::RoadEvents {
@@ -785,7 +790,7 @@ async fn poll_dialog(
     cache
         .write("road-events/dialog/temporary.xml", &bytes)
         .await?;
-    let p = tokio::task::spawn_blocking(move || dialog::parse_temporary(&bytes, Utc::now()))
+    let p = tokio::task::spawn_blocking(move || dialog::parse_temporary(&bytes, now))
         .await
         .map_err(IngestError::Blocking)?
         .map_err(|source| IngestError::RoadEvents {
@@ -874,7 +879,7 @@ pub async fn poll(
     engine: Option<&impl Engine>,
 ) -> Result<PollReport, IngestError> {
     let mut out = PollReport::default();
-    let now = Utc::now();
+    let now = config.now.unwrap_or_else(Utc::now);
     if selected(config, "dir") {
         let started = std::time::Instant::now();
         let mut r = SourceReport {
@@ -897,7 +902,15 @@ pub async fn poll(
         let outcome = poll_dir(pass, &mut state, last_full, &mut r).await;
         r.elapsed = started.elapsed();
         let state = state_json(&state);
-        record(pool, "dir", outcome, &state, &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dir",
+            outcome,
+            &state,
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dir".into(), r);
     }
     let dialog_tried = db::feed(pool, "dialog")
@@ -911,7 +924,15 @@ pub async fn poll(
         };
         let outcome = poll_dialog(pool, http, cache, config, now, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, "dialog", outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dialog",
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dialog".into(), r);
     }
     for feed in &config.local {
@@ -928,7 +949,15 @@ pub async fn poll(
         };
         let outcome = poll_local(pool, http, cache, config, feed, now, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, &feed.id, outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            &feed.id,
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert(feed.id.clone(), r);
     }
     let pass = Pass {
@@ -947,7 +976,15 @@ pub async fn poll(
         };
         let outcome = poll_dgt(pass, &mut r).await;
         r.elapsed = started.elapsed();
-        record(pool, "dgt", outcome, &serde_json::json!({}), &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "dgt",
+            outcome,
+            &serde_json::json!({}),
+            &mut r,
+        )
+        .await?;
         out.sources.insert("dgt".into(), r);
     }
     // NDW's file is read by its own unit, which names it (`--only ndw`):
@@ -967,7 +1004,15 @@ pub async fn poll(
         let outcome = poll_ndw(pass, &mut state, &mut r).await;
         r.elapsed = started.elapsed();
         let state = serde_json::to_value(&state).unwrap_or_default();
-        record(pool, "ndw", outcome, &state, &mut r).await?;
+        record(
+            pool,
+            config.now.unwrap_or_else(Utc::now),
+            "ndw",
+            outcome,
+            &state,
+            &mut r,
+        )
+        .await?;
         out.sources.insert("ndw".into(), r);
     }
     if let Some(engine) = engine {
@@ -978,7 +1023,7 @@ pub async fn poll(
     out.lifecycle = Some(
         db::lifecycle(
             pool,
-            Utc::now(),
+            config.now.unwrap_or_else(Utc::now),
             config.expire_after,
             config.keep_ended,
             config.keep_reports,

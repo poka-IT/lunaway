@@ -9,6 +9,7 @@ pub mod conflation;
 mod day_files;
 pub mod deletions;
 pub mod enforcement;
+pub mod extcom;
 pub mod fuel;
 pub mod holds;
 pub mod idempotency;

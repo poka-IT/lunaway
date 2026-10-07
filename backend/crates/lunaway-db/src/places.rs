@@ -621,7 +621,10 @@ pub struct PlaceSourceRow {
     pub match_score: Option<f64>,
 }
 
-/// The sources of every place in `ids`, in one query.
+/// The sources of every place in `ids`, in one query, each with the
+/// licence and attribution of its latest agreement when it came under one
+/// (`source_terms`); a hidden source's records are left out, before the
+/// conflation unlinks them.
 ///
 /// # Errors
 ///
@@ -632,11 +635,12 @@ pub async fn sources_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PlaceSourceRo
         SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,
                lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
                    AS "fetched_at!",
-               s.id AS source_id, s.name, s.licence, s.attribution, s.url
+               s.id AS "source_id!", s.name AS "name!", s.licence AS "licence!",
+               s.attribution AS "attribution!", s.url AS "url!"
         FROM place_sources ps
         JOIN source_records r ON r.id = ps.record_id
-        JOIN sources s ON s.id = r.source_id
-        WHERE ps.place_id = ANY($1)
+        JOIN source_terms s ON s.id = r.source_id
+        WHERE ps.place_id = ANY($1) AND s.hidden_at IS NULL
         ORDER BY ps.place_id, s.id, r.external_id
         "#,
         ids,

@@ -19,6 +19,7 @@ use crate::{
         parse_item_cursor,
     },
     error::{internal, invalid_input},
+    external_types::{ExternalPhoto, ExternalReviewConnection},
     loaders::PlaceSourcesLoader,
     schema::{DB_FIELD_COST, cost, db, state},
 };
@@ -329,6 +330,8 @@ pub struct ExternalLink {
 
 /// Most photos `Place.photos` returns.
 pub const MAX_PLACE_PHOTOS: i64 = 100;
+/// Most photos `Place.externalPhotos` returns.
+pub const MAX_EXTERNAL_PHOTOS: i64 = 50;
 /// Largest page of `Place.reviews`.
 pub const MAX_REVIEWS_PAGE: i32 = 50;
 /// Reviews per page when the client does not say.
@@ -652,6 +655,68 @@ impl Place {
         .await
         .map_err(|e| internal(&e))?
         .into())
+    }
+
+    /// The reviews with text of a partner's community (the external
+    /// community source, `extcom`), newest first, 50 per page at most, each
+    /// with its author's pseudonym and the source's label. Read per place
+    /// when its card opens: the change feed, the packs and the map tiles
+    /// never carry them. Empty while the source is hidden.
+    #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
+    async fn external_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<ExternalReviewConnection> {
+        let first = first.unwrap_or(DEFAULT_REVIEWS_PAGE);
+        if !(1..=MAX_REVIEWS_PAGE).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_REVIEWS_PAGE}"
+            )));
+        }
+        let after = parse_item_cursor(after.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        Ok(
+            lunaway_db::extcom::reviews_of_place(pool, self.0.id, i64::from(first), after)
+                .await
+                .map_err(|e| internal(&e))?
+                .into(),
+        )
+    }
+
+    /// What a partner's community says of the place's ratings as a whole,
+    /// by source (more ratings than the reviews it hands over). Read per
+    /// place, like `externalReviews`; empty while the source is hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_ratings(&self, ctx: &Context<'_>) -> Result<Vec<SourceRating>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::extcom::ratings_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            })
+            .collect())
+    }
+
+    /// The photos of a partner's community, newest first (50 at most),
+    /// each with its author's pseudonym and the source's label. Read per
+    /// place, like `externalReviews`; empty while the source is hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+        let (pool, _permit) = db(ctx).await?;
+        let rows = lunaway_db::extcom::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
+            .await
+            .map_err(|e| internal(&e))?;
+        let config = &state(ctx).config;
+        Ok(rows
+            .into_iter()
+            .map(|r| ExternalPhoto::from_row(r, &config.media, &config.tiles.public_url))
+            .collect())
     }
 
     /// The caller's own rating or review of the place, whatever its status;

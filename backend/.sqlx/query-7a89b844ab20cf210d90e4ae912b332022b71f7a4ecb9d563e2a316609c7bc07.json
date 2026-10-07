@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records SET licence = $3\n        WHERE source_id = $1 AND external_id = ANY($2) AND taken_down_at IS NULL\n          AND licence IS DISTINCT FROM $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7a89b844ab20cf210d90e4ae912b332022b71f7a4ecb9d563e2a316609c7bc07"
+}

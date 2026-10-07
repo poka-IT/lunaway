@@ -29,8 +29,9 @@ pub const WEIGHT_NAME: f64 = 0.4;
 /// Weight of the municipality component, counted only when both records know
 /// their municipality.
 pub const WEIGHT_MUNICIPALITY: f64 = 0.1;
-/// Name component when either record has no name: neither for nor against,
-/// so two unnamed records at the same point reach the review queue at most.
+/// Name component reported when either record has no name. It is not
+/// counted in the mean: a missing name is neither for nor against, and
+/// distance, kind and shared identifiers decide.
 pub const NAME_UNKNOWN: f64 = 0.5;
 /// Largest position uncertainty credited to one record, in metres, so a
 /// badly geocoded record cannot make everything around it a candidate.
@@ -370,10 +371,19 @@ pub fn score(a: &MatchCandidate, b: &MatchCandidate) -> MatchScore {
         .or_else(|| same(a.postcode.as_ref(), b.postcode.as_ref()))
         .map(|eq| if eq { 1.0 } else { 0.0 });
 
-    let (mut weighted, mut weights) = (
-        WEIGHT_DISTANCE * distance + WEIGHT_NAME * name,
-        WEIGHT_DISTANCE + WEIGHT_NAME,
-    );
+    // A missing name is neutral: it leaves the mean, as an unknown
+    // municipality does, so distance, kind and shared identifiers decide.
+    // Scored at 0.5 it capped every unnamed car park beside a named spot
+    // at review (`tests/extcom_synthetic.rs`).
+    let named = a.folded.is_some() && b.folded.is_some();
+    let (mut weighted, mut weights) = if named {
+        (
+            WEIGHT_DISTANCE * distance + WEIGHT_NAME * name,
+            WEIGHT_DISTANCE + WEIGHT_NAME,
+        )
+    } else {
+        (WEIGHT_DISTANCE * distance, WEIGHT_DISTANCE)
+    };
     if let Some(m) = municipality {
         weighted += WEIGHT_MUNICIPALITY * m;
         weights += WEIGHT_MUNICIPALITY;
@@ -589,12 +599,22 @@ mod tests {
     }
 
     #[test]
-    fn unnamed_records_reach_review_at_most() {
+    fn a_missing_name_leaves_the_decision_to_distance_and_kind() {
         let a = rec(PlaceKind::Parking, None, 0.0);
         let b = rec(PlaceKind::Parking, Some("Parking"), 0.0);
         let s = pair(&a, &b);
         assert!((s.components.name - NAME_UNKNOWN).abs() < f64::EPSILON);
-        assert_eq!(s.decision, Decision::Review);
+        assert_eq!(
+            s.decision,
+            Decision::Merge,
+            "the same point and kind, one name missing: the name neither counts for nor against"
+        );
+        let other = rec(PlaceKind::Campsite, None, 0.0);
+        assert_eq!(
+            pair(&a, &other).decision,
+            Decision::Distinct,
+            "an incompatible kind still keeps two unnamed records apart"
+        );
     }
 
     #[test]

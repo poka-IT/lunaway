@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_records SET\n            name = NULL, external_url = NULL, licence = NULL,\n            geom = ST_SetSRID(ST_MakePoint(0, 0), 4326)::geography, accuracy_m = 0,\n            data = jsonb_build_object('kind', data->'kind',\n                                      'position', jsonb_build_object('lat', 0, 'lon', 0)),\n            raw = '{}'\n        WHERE source_id = $1 AND deleted_at IS NOT NULL AND taken_down_at IS NULL\n          AND raw <> '{}'::jsonb\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6310ab116c7ded23526bd1c28beb555dcfe92ab8345414bf83865401e283948"
+}

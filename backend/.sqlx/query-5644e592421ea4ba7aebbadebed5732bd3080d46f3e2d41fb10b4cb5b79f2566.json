@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, source_id, external_id, external_url,\n               lunaway_read_at('records', source_id, scope, fetched_at, deleted_at)\n                   AS \"fetched_at!\",\n               deleted_at IS NOT NULL AS \"deleted!\", data\n        FROM source_records WHERE id = ANY($1) ORDER BY id\n        ",
+  "query": "\n        SELECT id, source_id, external_id, external_url,\n               lunaway_read_at('records', source_id, scope, fetched_at, deleted_at)\n                   AS \"fetched_at!\",\n               (deleted_at IS NOT NULL OR EXISTS (\n                   SELECT 1 FROM source_switches w\n                   WHERE w.source_id = source_records.source_id AND w.hidden_at IS NOT NULL))\n                   AS \"deleted!\",\n               data\n        FROM source_records WHERE id = ANY($1) ORDER BY id\n        ",
   "describe": {
     "columns": [
       {
@@ -86,5 +86,5 @@
       false
     ]
   },
-  "hash": "8d0047786569c48a1dc2116c97d713cd9daad9c7f28a89749b63ee0ec27adb05"
+  "hash": "5644e592421ea4ba7aebbadebed5732bd3080d46f3e2d41fb10b4cb5b79f2566"
 }

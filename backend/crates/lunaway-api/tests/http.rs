@@ -162,6 +162,7 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
             "cat-sct-radars",
             "community",
             "community-cc-by",
+            "extcom",
             "finess",
             "laposte",
             "lu-pch-radars",
@@ -1125,9 +1126,9 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        12,
-        "OpenStreetMap, Atout France, the community under its two licences, the three joined \
-         to the points and the five camera lists"
+        13,
+        "OpenStreetMap, Atout France, the community under its two licences, the external \
+         community source, the three joined to the points and the five camera lists"
     );
 }
 

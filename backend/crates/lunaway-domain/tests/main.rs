@@ -4,6 +4,7 @@
 //! here (`autotests = false` in Cargo.toml), so a new file needs its line.
 
 mod conflation_vectors;
+mod extcom_synthetic;
 mod fuel_corridor;
 
 /// With `autotests = false`, a test file nobody declares compiles into

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\"\n        FROM place_sources ps\n        JOIN external_reviews e ON e.record_id = ps.record_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = $1 AND w.hidden_at IS NULL AND e.body IS NOT NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "85fe3cebd5b52b94acf832b867671c02ed04e157631ee557a621ee5309948fe6"
+}

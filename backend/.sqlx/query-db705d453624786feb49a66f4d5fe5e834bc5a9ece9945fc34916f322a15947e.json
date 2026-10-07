@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO source_switches AS w (source_id, hidden_at, purged_at, note, changed_at)\n        VALUES ($1, now(), now(), $2, now())\n        ON CONFLICT (source_id) DO UPDATE SET\n            hidden_at = coalesce(w.hidden_at, now()), purged_at = now(),\n            note = coalesce($2, w.note), changed_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "db705d453624786feb49a66f4d5fe5e834bc5a9ece9945fc34916f322a15947e"
+}

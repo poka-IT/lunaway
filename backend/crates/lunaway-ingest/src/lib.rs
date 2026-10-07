@@ -9,6 +9,7 @@ pub mod cache;
 pub mod cameras;
 pub mod cameras_osm;
 pub mod enforcement;
+pub mod extcom;
 pub mod extract_run;
 pub mod finess;
 pub mod fuel;
@@ -225,6 +226,14 @@ pub enum IngestError {
         #[source]
         source: std::io::Error,
     },
+    /// A partner's feed names no agreement, or one not in force: nothing
+    /// of it is stored.
+    #[error("the feed's agreement is refused")]
+    Agreement(#[source] lunaway_domain::extcom::AgreementError),
+    /// The source is hidden or purged (`lunaway extcom hide|purge`):
+    /// nothing is imported until it is shown again.
+    #[error("source {0} is hidden: run `lunaway extcom show` first")]
+    SourceHidden(lunaway_domain::SourceId),
 }
 
 fn retry_note(retry_after: Option<std::time::Duration>) -> String {
