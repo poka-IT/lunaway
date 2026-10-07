@@ -187,8 +187,9 @@ async fn weight_and_motorhome_limits_hold(pool: PgPool) {
     );
 }
 
-/// The duration and length of the recommended route from Limoges to Brive (the A20,
-/// posted 130 and 110) for a motorhome of `weight_t` keeping to `cruise`.
+/// The duration and length of the recommended route from Limoges to Brive
+/// (the A20, posted 130 and 110) for a motorhome of `weight_t` keeping to
+/// `cruise`.
 async fn limoges_brive(app: &Router, weight_t: f64, cruise: Option<i32>) -> (f64, f64) {
     let mut vehicle = json!({"kind": "OVERCAB", "heightM": 3.0, "widthM": 2.3, "lengthM": 7.4, "weightT": weight_t});
     if let Some(kmh) = cruise {
