@@ -104,7 +104,14 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
   Future<void> _done() async {
     if (_confirming) return;
     _confirming = true;
-    final live = await _map?.center();
+    LatLng? live;
+    try {
+      live = await _map?.center();
+    } on Object catch (e) {
+      // The resting centre still stands for the spot: the button must not
+      // stay dead.
+      _log.info('the camera was not read at the confirmation: $e');
+    }
     if (!mounted) return;
     Navigator.of(context).pop<Placement>((position: live ?? _center, around: _around));
   }
