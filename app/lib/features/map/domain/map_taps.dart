@@ -9,13 +9,11 @@ import 'package:flutter/foundation.dart';
 /// and the desktop maps, and so that a shared hit resolution can replace it
 /// in one place.
 abstract final class FreeTap {
-  /// A finger is wider than a pin: a tap this close to one opens it.
-  static const double select = 14;
-
   /// Before a tap on bare map opens the card of a free point, the map looks
-  /// this much further for a pin, a cluster or a marker: a tap that just
+  /// this many times further than the tolerance of a selection
+  /// (`hitTolerance`) for a pin, a cluster or a marker: a tap that just
   /// missed one opens it rather than the free point.
-  static const double freePoint = select * 1.5;
+  static const double wider = 1.5;
 
   /// From this zoom (street level) a tap on bare map opens the card of the
   /// point. Further out a tap there is no place in particular, and the map
@@ -37,19 +35,20 @@ abstract final class FreeTap {
       : doubleTapWindow;
 }
 
-/// The features a tap at [zoom] reaches: those within [FreeTap.select] when
-/// there are any, else, from [FreeTap.freePointMinZoom] where a bare tap
-/// opens a point, those within [FreeTap.freePoint]. Further out the map
-/// keeps the selection's square alone, so a click there does no more than
-/// it did. [query] reads the engine's rendered features in a square of that
-/// half side around the tap.
-Future<List<T>> featuresAroundTap<T>(
-  Future<List<T>> Function(double slop) query, {
+/// What a tap at [zoom] reaches: what [pick] finds within the selection's
+/// [tolerance], else, from [FreeTap.freePointMinZoom] where a bare tap opens
+/// a point, what it finds within [FreeTap.wider] times that. Further out the
+/// map keeps the selection's tolerance alone, so a click there does no more
+/// than it did. [pick] is the shared hit resolution (`nearestHit`) at a
+/// given tolerance.
+T? hitAroundTap<T extends Object>(
+  T? Function(double tolerance) pick, {
+  required double tolerance,
   required double? zoom,
-}) async {
-  final near = await query(FreeTap.select);
-  if (near.isNotEmpty || zoom == null || zoom < FreeTap.freePointMinZoom) return near;
-  return await query(FreeTap.freePoint);
+}) {
+  final near = pick(tolerance);
+  if (near != null || zoom == null || zoom < FreeTap.freePointMinZoom) return near;
+  return pick(tolerance * FreeTap.wider);
 }
 
 /// What a tap on bare map does.

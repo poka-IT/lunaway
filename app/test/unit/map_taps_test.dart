@@ -3,62 +3,90 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 void main() {
-  group('the features a tap reaches', () {
-    test('a near miss reaches the pin rather than the bare map', () async {
-      // The pin's edge is 18 px from the tap: outside the square of a
-      // selection, inside the wider one of a free point.
+  group('what a tap reaches', () {
+    // A pin whose drawn edge is 18 px from the tap: outside a mouse's
+    // tolerance (14), inside the reach of a free point (21).
+    String? pinAt18(double tolerance) => tolerance >= 18 ? 'pin' : null;
+
+    test('from the street, a near miss reaches the pin rather than the bare map', () {
       final asked = <double>[];
-      final found = await featuresAroundTap((slop) async {
-        asked.add(slop);
-        return slop >= 18 ? ['pin'] : const <String>[];
-      }, zoom: 15);
-      expect(found, ['pin']);
-      expect(asked, [FreeTap.select, FreeTap.freePoint]);
-      expect(FreeTap.freePoint, FreeTap.select * 1.5);
+      final hit = hitAroundTap(
+        (t) {
+          asked.add(t);
+          return pinAt18(t);
+        },
+        tolerance: 14,
+        zoom: 15,
+      );
+      expect(hit, 'pin');
+      expect(asked, [14, 14 * FreeTap.wider]);
+      expect(FreeTap.wider, 1.5);
     });
 
-    test('a pin under the finger is taken without looking further', () async {
+    test('a pin within the tolerance is taken without looking further', () {
       final asked = <double>[];
-      final found = await featuresAroundTap((slop) async {
-        asked.add(slop);
-        return ['pin at $slop'];
-      }, zoom: 15);
-      expect(found, ['pin at ${FreeTap.select}']);
-      expect(asked, [FreeTap.select]);
+      final hit = hitAroundTap(
+        (t) {
+          asked.add(t);
+          return 'pin at $t';
+        },
+        tolerance: 14,
+        zoom: 15,
+      );
+      expect(hit, 'pin at 14.0');
+      expect(asked, [14]);
     });
 
-    test('nothing in the wider square: the map is bare there', () async {
-      expect(await featuresAroundTap((_) async => const <String>[], zoom: 15), isEmpty);
-    });
-
-    test('further out than the street, the square of a selection alone', () async {
+    test('further out than the street, the tolerance of a selection alone', () {
       final asked = <double>[];
-      final found = await featuresAroundTap((slop) async {
-        asked.add(slop);
-        return slop >= 18 ? ['dot'] : const <String>[];
-      }, zoom: 13);
-      expect(found, isEmpty, reason: 'a click there does no more than before');
-      expect(asked, [FreeTap.select]);
+      final hit = hitAroundTap(
+        (t) {
+          asked.add(t);
+          return pinAt18(t);
+        },
+        tolerance: 14,
+        zoom: 13,
+      );
+      expect(hit, isNull, reason: 'a click there does no more than before');
+      expect(asked, [14]);
     });
   });
 
   group('a tap on the marks of a route', () {
-    test('opens the first mark that has a card', () {
-      expect(markTapFor([null, 'place:lake', 'stop:1']), (open: 'place:lake'));
+    // The destination: a mark without an id, 4 px from the tap's edge.
+    const destination = HitCandidate(
+      layer: RouteLayers.marks,
+      properties: {'kind': 'destination', 'radius': 9},
+      points: [Offset(110, 104)],
+    );
+
+    test('a mark without a card is no target', () {
+      final hit = nearestHit(
+        const Offset(100, 100),
+        [destination],
+        shapes: routeHitShapes,
+        zoom: 0,
+        tolerance: 22,
+      );
+      expect(hit, isNull);
     });
 
-    test('on the destination or a warning, does nothing: no bare map there', () {
-      expect(markTapFor([null]), (open: null));
-    });
-
-    test('with no mark under it, looks further', () {
-      expect(markTapFor(const []), isNull);
+    test('but it is a sign of the route: the tap is no tap on bare map', () {
+      final sign = nearestHit(
+        const Offset(100, 100),
+        [destination],
+        shapes: routeSignHitShapes,
+        zoom: 0,
+        tolerance: 22,
+      );
+      expect(sign, isNotNull);
     });
   });
 

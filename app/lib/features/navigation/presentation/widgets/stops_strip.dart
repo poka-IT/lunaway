@@ -76,11 +76,16 @@ class StopsStrip extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               minTileHeight: 52,
-              leading: ReorderableDragStartListener(
-                index: i,
-                child: Tooltip(
-                  message: t.navigation.stops.reorder,
-                  child: const SizedBox.square(dimension: 48, child: Icon(AppIcons.reorder)),
+              // The list's own handles carry the grab cursor; this one,
+              // drawn by the app, sets it as they do.
+              leading: MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: ReorderableDragStartListener(
+                  index: i,
+                  child: Tooltip(
+                    message: t.navigation.stops.reorder,
+                    child: const SizedBox.square(dimension: 48, child: Icon(AppIcons.reorder)),
+                  ),
                 ),
               ),
               title: Text(

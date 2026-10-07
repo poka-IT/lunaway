@@ -139,11 +139,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   static Map<String, Object?> _spec({required bool dark}) => {
     'clusterSource': RouteLayers.routeSource,
     'selectionLayer': RouteLayers.marks,
-    'hit': {
-      'select': FreeTap.select,
-      'freePoint': FreeTap.freePoint,
-      'freePointMinZoom': FreeTap.freePointMinZoom,
-    },
+    'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
     // Every mark, those without an id too: a tap on the destination or a
     // warning is no tap on bare map (the page ignores a feature without an
     // id, and sends nothing).

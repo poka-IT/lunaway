@@ -3,12 +3,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub.dart'
     if (dart.library.io) 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/palette.dart';
+import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 /// A route line on the map.
@@ -186,29 +188,20 @@ final class RouteMapProps {
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
 
-  /// A tap with no mark and no route within `FreeTap.freePoint`, at that
-  /// point, with the map's zoom then.
+  /// A tap with no mark and no route within reach (`hitAroundTap`), at
+  /// that point, with the map's zoom then.
   final void Function(LatLng at, double zoom)? onEmptyTap;
 }
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);
 
-/// What a tap reaches among the marks under it, given the `id` property of
-/// each (null or absent for a mark that opens nothing, as the start, the
-/// destination or a warning): null when there is no mark, else the first
-/// id to open, or a null `open` when the marks under the tap open nothing.
-/// A mark that opens nothing still is no bare map: the tap does nothing
-/// rather than offer the point under it.
-({String? open})? markTapFor(Iterable<Object?> ids) {
-  if (ids.isEmpty) return null;
-  return (open: ids.whereType<String>().firstOrNull);
-}
-
 /// The map engine of the platform, as for the main map: maplibre_gl on
 /// Android, iOS and the web, MapLibre GL JS in a web view on macOS and
 /// Windows.
 Widget buildPlatformRouteMap(BuildContext context, RouteMapProps props) {
-  if (kIsWeb) return GlRouteMap(props);
+  // On the web the map is an HTML element: covered while a dialog or a
+  // sheet is open, so their clicks and wheel stay theirs (as the main map).
+  if (kIsWeb) return MapShield(child: GlRouteMap(props));
   return switch (defaultTargetPlatform) {
     TargetPlatform.android || TargetPlatform.iOS => GlRouteMap(props),
     TargetPlatform.macOS || TargetPlatform.windows => WebViewRouteMap(props),
@@ -321,6 +314,32 @@ Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
       },
   ],
 };
+
+/// The route map's targets, for the pointer ([nearestHit]): the marks with
+/// an id (a place to add, a station, a stop), drawn as discs of their own
+/// radius, then the other routes, which a tap anywhere along picks.
+const Map<String, HitShape> routeHitShapes = {
+  RouteLayers.marks: _markHit,
+  RouteLayers.tappableMarks: _markHit,
+  RouteLayers.alternatives: _lineHit,
+  RouteLayers.alternativesCasing: _lineHit,
+};
+
+/// Every mark of the route, those that open nothing too: what a tap must
+/// miss to be a tap on bare map.
+const Map<String, HitShape> routeSignHitShapes = {
+  RouteLayers.marks: HitShape(
+    radius: PropertyHit('radius', plus: RouteLook.markStrokeWidth, fallback: 8),
+    priority: 1,
+  ),
+};
+
+const _markHit = HitShape(
+  radius: PropertyHit('radius', plus: RouteLook.markStrokeWidth, fallback: 8),
+  priority: 1,
+  needs: 'id',
+);
+const _lineHit = HitShape(radius: FixedHit(0), priority: 9, line: true);
 
 /// Ids of the route map's sources and layers, shared by both engines.
 abstract final class RouteLayers {

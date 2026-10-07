@@ -322,6 +322,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             children: [
               for (final kind in PlaceKind.values)
                 ChoiceChip(
+                  mouseCursor: WidgetStateMouseCursor.clickable,
                   avatar: Icon(AppIcons.kind(kind), size: 18),
                   label: Text(t.kind(kind)),
                   selected: _kind == kind,
@@ -363,6 +364,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             children: [
               for (final status in OvernightStatus.values)
                 ChoiceChip(
+                  mouseCursor: WidgetStateMouseCursor.clickable,
                   avatar: NightBadge(status),
                   label: Text(t.overnightShort(status)),
                   selected: _night == status,
@@ -377,6 +379,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             children: [
               for (final s in Service.values)
                 FilterChip(
+                  mouseCursor: WidgetStateMouseCursor.clickable,
                   avatar: Icon(AppIcons.service(s), size: 18),
                   label: Text(t.service(s)),
                   selected: _services.contains(s),

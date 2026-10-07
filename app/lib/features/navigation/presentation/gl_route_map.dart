@@ -7,7 +7,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
+import 'package:lunaway/features/map/presentation/web_map_controls.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
+import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -172,6 +176,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth + 3,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.alternativesSource,
@@ -182,6 +187,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.alternativeWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.routeSource,
@@ -192,6 +198,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.casingWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addLineLayer(
         RouteLayers.routeSource,
@@ -202,6 +209,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             lineWidth: RouteLook.lineWidth,
           ),
         ),
+        enableInteraction: false,
       );
       await c.addCircleLayer(
         RouteLayers.marksSource,
@@ -212,6 +220,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           circleStrokeColor: RouteLook.markStroke,
           circleStrokeWidth: RouteLook.markStrokeWidth,
         ),
+        enableInteraction: false,
       );
       await c.addSymbolLayer(
         RouteLayers.vehicleSource,
@@ -225,6 +234,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           iconAllowOverlap: true,
           iconIgnorePlacement: true,
         ),
+        enableInteraction: false,
       );
       if (!current()) return;
       _ready = true;
@@ -421,59 +431,95 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     );
   }
 
-  /// A mark first (a place, a station, a stop), then another route.
+  /// The nearest mark within reach (a place, a station, a stop), else
+  /// another route that passes within reach ([nearestHit]); at street level
+  /// a tap that reaches neither, nor a sign of the route, is a tap on bare
+  /// map at [at].
   Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
-    // The tap's point is in the engine's units, physical pixels on Android.
+    // The engine's units per logical pixel: Android counts physical pixels.
     final scale = mapQueryScale(
       web: kIsWeb,
       platform: defaultTargetPlatform,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
-    Rect box(double slop) => Rect.fromCenter(
+    final tolerance = hitTolerance(webMapPointerKind());
+    // Wide enough for the reach of a free point (FreeTap); the selection's
+    // own tolerance is applied below.
+    final reach = tolerance * FreeTap.wider;
+    final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: slop * 2 * scale,
-      height: slop * 2 * scale,
+      width: reach * 2 * scale,
+      height: reach * 2 * scale,
     );
-    final zoom = (await c.queryCameraPosition())?.zoom;
-    if (!mounted) return;
     final onMarkTap = _props.onMarkTap;
-    if (onMarkTap != null || _props.onEmptyTap != null) {
-      final marks = await featuresAroundTap(
-        (slop) => c.queryRenderedFeaturesInRect(box(slop), const [RouteLayers.marks], null),
-        zoom: zoom,
-      );
-      final ids = [
-        for (final f in marks)
-          switch ((f as Map<Object?, Object?>)['properties']) {
-            final Map<Object?, Object?> p => p['id'],
-            _ => null,
-          },
-      ];
-      if (markTapFor(ids) case (:final open)) {
-        if (open != null) onMarkTap?.call(open);
-        return;
-      }
-    }
     final onLineTap = _props.onLineTap;
-    if (onLineTap != null) {
-      final features = await featuresAroundTap(
-        (slop) => c.queryRenderedFeaturesInRect(box(slop), const [
-          RouteLayers.alternatives,
-          RouteLayers.alternativesCasing,
-        ], null),
+    final onEmptyTap = _props.onEmptyTap;
+    final (marks, lines, camera) = await (
+      onMarkTap == null && onEmptyTap == null
+          ? Future.value(const <Object?>[])
+          : c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null),
+      onLineTap == null
+          ? Future.value(const <Object?>[])
+          : c.queryRenderedFeaturesInRect(box, const [
+              RouteLayers.alternatives,
+              RouteLayers.alternativesCasing,
+            ], null),
+      c.queryCameraPosition(),
+    ).wait;
+    if (!mounted) return;
+    final zoom = camera?.zoom;
+    final features = [
+      for (final f in marks)
+        if (f is Map) (RouteLayers.marks, f),
+      for (final f in lines)
+        if (f is Map) (RouteLayers.alternatives, f),
+    ];
+    final positions = [
+      for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
+    ];
+    // Projected by the engine: while guiding, the map turns and tilts.
+    final flat = [for (final p in positions) ...p];
+    final projected = flat.isEmpty
+        ? const <math.Point<num>>[]
+        : await c.toScreenLocationBatch([for (final p in flat) gl.LatLng(p.lat, p.lon)]);
+    if (!mounted) return;
+    var next = 0;
+    final candidates = [
+      for (var i = 0; i < features.length; i++)
+        HitCandidate(
+          layer: features[i].$1,
+          properties: (features[i].$2['properties'] as Map<Object?, Object?>?) ?? const {},
+          points: [
+            for (final _ in positions[i])
+              if (projected[next++] case final s) Offset(s.x.toDouble(), s.y.toDouble()) / scale,
+          ],
+        ),
+    ];
+    final tapped = Offset(point.x, point.y) / scale;
+    MapHit? pick(Map<String, HitShape> shapes, double t) =>
+        nearestHit(tapped, candidates, shapes: shapes, zoom: 0, tolerance: t);
+    final hit = hitAroundTap((t) => pick(routeHitShapes, t), tolerance: tolerance, zoom: zoom);
+    if (hit == null) {
+      // A sign that opens nothing (the start, the destination, a warning)
+      // is still no bare map: the tap does nothing rather than offer the
+      // point under it.
+      final sign = hitAroundTap(
+        (t) => pick(routeSignHitShapes, t),
+        tolerance: tolerance,
         zoom: zoom,
       );
-      if (features.isNotEmpty) {
-        final properties = (features.first as Map<Object?, Object?>)['properties'];
-        final index = properties is Map<Object?, Object?> ? properties['index'] : null;
-        if (index is num) onLineTap(index.toInt());
-        return;
-      }
+      if (sign == null && zoom != null) onEmptyTap?.call(LatLng(at.latitude, at.longitude), zoom);
+      return;
     }
-    if (zoom == null || !mounted) return;
-    _props.onEmptyTap?.call(LatLng(at.latitude, at.longitude), zoom);
+    final properties = candidates[hit.index].properties;
+    switch ((properties['id'], properties['index'])) {
+      case (final String id, _):
+        onMarkTap?.call(id);
+      case (_, final num index):
+        onLineTap?.call(index.toInt());
+    }
   }
 
   @override
@@ -515,16 +561,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
     );
-    return LayoutBuilder(
-      builder: (context, box) {
-        final size = box.biggest;
-        if (size != _size) {
-          _size = size;
-          // The follow camera's insets follow the map's height.
-          if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
-        }
-        return map;
-      },
+    return WebMapPointer(
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final size = box.biggest;
+          if (size != _size) {
+            _size = size;
+            // The follow camera's insets follow the map's height.
+            if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
+          }
+          return map;
+        },
+      ),
     );
   }
 }

@@ -305,6 +305,7 @@ class _FamilyCard extends StatelessWidget {
           side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
         ),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           onTap: onTap,
           customBorder: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(LunaTokens.radiusL),
@@ -379,6 +380,7 @@ class _ToggleChip extends StatelessWidget {
           ),
         ),
         child: InkWell(
+          mouseCursor: WidgetStateMouseCursor.clickable,
           customBorder: const StadiumBorder(),
           onTap: onTap,
           child: Padding(

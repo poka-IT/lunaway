@@ -8,7 +8,22 @@ external _Premap? get _premap;
 
 extension type _Premap._(JSObject _) implements JSObject {
   external _Camera? camera([JSNumber? x, JSNumber? y]);
+  external _Place? takePlace();
   external void handOver();
+}
+
+extension type _Place._(JSObject _) implements JSObject {
+  external JSAny? get properties;
+  external JSArray<JSNumber>? get coordinates;
+}
+
+({Map<Object?, Object?> properties, List<Object?> coordinates})? premapTakePlace() {
+  final place = _premap?.takePlace();
+  if (place == null) return null;
+  final properties = place.properties.dartify();
+  final coordinates = place.coordinates?.toDart.map((n) => n.toDartDouble).toList();
+  if (properties is! Map || coordinates == null) return null;
+  return (properties: properties.cast<Object?, Object?>(), coordinates: coordinates);
 }
 
 extension type _Camera._(JSObject _) implements JSObject {

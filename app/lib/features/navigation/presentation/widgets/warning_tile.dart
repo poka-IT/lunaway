@@ -56,6 +56,7 @@ class WarningTile extends StatelessWidget {
     return Semantics(
       button: onTap != null,
       child: InkWell(
+        mouseCursor: WidgetStateMouseCursor.clickable,
         onTap: onTap,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: Padding(
