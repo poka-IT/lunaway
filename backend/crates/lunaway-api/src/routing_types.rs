@@ -81,6 +81,11 @@ pub struct RoutePointInput {
     /// The vehicle's course, degrees from north (0 to 360), for the start
     /// of a recalculation: the route then leaves in that direction.
     pub heading_deg: Option<f64>,
+    /// Whether this is the vehicle's own position, for a recalculation
+    /// during guidance, with or without a course: the server never moves
+    /// it. Any other stop whose road the vehicle cannot reach may be moved
+    /// up to 150 m, to the nearest road it can (`RouteResult.movedStops`).
+    pub vehicle_position: Option<bool>,
 }
 
 /// A trailer behind the vehicle.
@@ -561,6 +566,12 @@ pub struct RouteWarning {
     /// The source's identifier (`way/52984577`, `node/348192004`,
     /// `ign/TRONROUT...`), to report a wrong value.
     pub external_id: String,
+    /// Whether the limit spares local access ("sauf desserte" under the
+    /// sign, OpenStreetMap's `maxweight:conditional=none @ destination`): a
+    /// vehicle above it may drive it only to reach or leave a place within.
+    /// A `WARNING` where the route does that; a `BLOCKING` one is through
+    /// traffic.
+    pub except_destination: bool,
 }
 
 impl From<&Met> for RouteWarning {
@@ -599,6 +610,7 @@ impl From<&Met> for RouteWarning {
             },
             name: m.restriction.name.clone(),
             external_id: m.restriction.external_id.clone(),
+            except_destination: r.except_destination && r.kind.spares_local_access(),
         }
     }
 }
@@ -805,6 +817,34 @@ pub struct RerouteParameters {
 /// with the data's date (`plan/research/07-navigation.md`, F.3).
 pub const DISCLAIMER_KEY: &str = "routing.disclaimer.v1";
 
+/// A stop the vehicle cannot reach where it was put (the road it lies on
+/// is closed to the vehicle: a car park under a square, a street too
+/// narrow), which the routes start or end at instead: the nearest road the
+/// vehicle can reach, up to 150 m away.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct MovedStop {
+    /// The stop: 0 the origin, then the waypoints in order, the last the
+    /// destination.
+    pub stop_index: i32,
+    /// Where the routes start or end now, latitude.
+    pub lat: f64,
+    /// Where the routes start or end now, longitude.
+    pub lon: f64,
+    /// How far from the point asked, metres.
+    pub distance_m: f64,
+}
+
+impl From<&crate::routing::MovedStop> for MovedStop {
+    fn from(m: &crate::routing::MovedStop) -> Self {
+        Self {
+            stop_index: i32::try_from(m.index).unwrap_or(i32::MAX),
+            lat: m.at.lat(),
+            lon: m.at.lon(),
+            distance_m: m.distance_m.round(),
+        }
+    }
+}
+
 /// The answer to a route request.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct RouteResult {
@@ -821,6 +861,11 @@ pub struct RouteResult {
     pub osrm_json: Option<String>,
     /// The routes, in the order of `osrmJson.routes`.
     pub routes: Vec<RouteSummary>,
+    /// When `status` is `OK`: the stops the routes do not start or end at,
+    /// because the vehicle could not reach them where they were put, and
+    /// where they start or end instead. Tell the user, and show the moved
+    /// point.
+    pub moved_stops: Vec<MovedStop>,
     /// When `status` is `NO_SAFE_ROUTE`: the limits that stopped every
     /// route, in driving order of the last route tried.
     pub blockers: Vec<RouteWarning>,

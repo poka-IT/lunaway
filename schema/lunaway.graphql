@@ -1717,6 +1717,32 @@ input LocalizedTextInput {
 	text: String!
 }
 
+"""
+A stop the vehicle cannot reach where it was put (the road it lies on
+is closed to the vehicle: a car park under a square, a street too
+narrow), which the routes start or end at instead: the nearest road the
+vehicle can reach, up to 150 m away.
+"""
+type MovedStop {
+	"""
+	The stop: 0 the origin, then the waypoints in order, the last the
+	destination.
+	"""
+	stopIndex: Int!
+	"""
+	Where the routes start or end now, latitude.
+	"""
+	lat: Float!
+	"""
+	Where the routes start or end now, longitude.
+	"""
+	lon: Float!
+	"""
+	How far from the point asked, metres.
+	"""
+	distanceM: Float!
+}
+
 type Mutation {
 	"""
 	A sign-in challenge: sign `message` with the device key (ES256) and
@@ -4803,6 +4829,13 @@ input RoutePointInput {
 	of a recalculation: the route then leaves in that direction.
 	"""
 	headingDeg: Float
+	"""
+	Whether this is the vehicle's own position, for a recalculation
+	during guidance, with or without a course: the server never moves
+	it. Any other stop whose road the vehicle cannot reach may be moved
+	up to 150 m, to the nearest road it can (`RouteResult.movedStops`).
+	"""
+	vehiclePosition: Boolean
 }
 
 """
@@ -4830,6 +4863,13 @@ type RouteResult {
 	The routes, in the order of `osrmJson.routes`.
 	"""
 	routes: [RouteSummary!]!
+	"""
+	When `status` is `OK`: the stops the routes do not start or end at,
+	because the vehicle could not reach them where they were put, and
+	where they start or end instead. Tell the user, and show the moved
+	point.
+	"""
+	movedStops: [MovedStop!]!
 	"""
 	When `status` is `NO_SAFE_ROUTE`: the limits that stopped every
 	route, in driving order of the last route tried.
@@ -5009,6 +5049,14 @@ type RouteWarning {
 	`ign/TRONROUT...`), to report a wrong value.
 	"""
 	externalId: String!
+	"""
+	Whether the limit spares local access ("sauf desserte" under the
+	sign, OpenStreetMap's `maxweight:conditional=none @ destination`): a
+	vehicle above it may drive it only to reach or leave a place within.
+	A `WARNING` where the route does that; a `BLOCKING` one is through
+	traffic.
+	"""
+	exceptDestination: Boolean!
 }
 
 """

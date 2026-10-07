@@ -37,6 +37,32 @@ pub(crate) struct Stop {
     pub(crate) at: Position,
     /// The vehicle's course there, degrees from north, when known.
     pub(crate) heading: Option<u16>,
+    /// The vehicle's own position during guidance, with or without a
+    /// course: never moved to another road.
+    pub(crate) vehicle: bool,
+    /// How far around the point the engine takes every road as a place to
+    /// start or end, metres: set when the stop is asked again because the
+    /// road it was snapped to is closed to the vehicle.
+    pub(crate) radius_m: Option<u32>,
+}
+
+impl Stop {
+    /// A point picked on the map or a place: the engine snaps it to the
+    /// nearest road.
+    pub(crate) const fn at(at: Position) -> Self {
+        Self {
+            at,
+            heading: None,
+            vehicle: false,
+            radius_m: None,
+        }
+    }
+
+    /// Whether the stop may be moved to a road farther away: never the
+    /// vehicle's own position.
+    pub(crate) const fn movable(&self) -> bool {
+        self.heading.is_none() && !self.vehicle
+    }
 }
 
 /// What the user asked to avoid.
@@ -186,6 +212,9 @@ fn location(s: &Stop) -> Value {
             l["heading_tolerance"] = HEADING_TOLERANCE_DEG.into();
         }
         None => l["search_filter"] = json!({"exclude_ferry": true, "exclude_tunnel": true}),
+    }
+    if let Some(r) = s.radius_m {
+        l["radius"] = r.into();
     }
     l
 }
@@ -671,10 +700,7 @@ mod tests {
 
     #[test]
     fn a_probe_asks_for_the_shape_only() {
-        let a = Stop {
-            at: Position::new(45.84719, 1.28476).unwrap(),
-            heading: None,
-        };
+        let a = Stop::at(Position::new(45.84719, 1.28476).unwrap());
         let body = probe_body(&[a, a], &json!({"auto": {}}));
         assert_eq!(body["directions_type"], "none");
         assert!(body.get("alternates").is_none());
@@ -721,13 +747,10 @@ mod tests {
     #[test]
     fn the_body_asks_for_what_ferrostar_reads() {
         let a = Stop {
-            at: Position::new(45.84719, 1.28476).unwrap(),
             heading: Some(90),
+            ..Stop::at(Position::new(45.84719, 1.28476).unwrap())
         };
-        let b = Stop {
-            at: Position::new(45.8451, 1.28637).unwrap(),
-            heading: None,
-        };
+        let b = Stop::at(Position::new(45.8451, 1.28637).unwrap());
         let ring = vec![a.at, b.at, a.at];
         let body = route_body(&[a, b], &json!({}), "fr-FR", 2, &[ring]);
         assert_eq!(body["format"], "osrm");
@@ -750,6 +773,20 @@ mod tests {
             body["exclude_polygons"][0][0],
             json!([1.28476, 45.84719]),
             "longitude first"
+        );
+        assert!(body["locations"][1].get("radius").is_none());
+        let wider = Stop {
+            radius_m: Some(100),
+            ..b
+        };
+        let body = route_body(&[a, wider], &json!({}), "fr-FR", 0, &[]);
+        assert_eq!(
+            body["locations"][1]["radius"], 100,
+            "a stop looked for farther around takes every road within the radius"
+        );
+        assert_eq!(
+            body["locations"][1]["search_filter"]["exclude_tunnel"], true,
+            "still never in a tunnel"
         );
         let three = route_body(&[a, b, a], &json!({}), "en-US", 2, &[]);
         assert!(
