@@ -117,6 +117,7 @@ final class HitShape {
     required this.priority,
     this.lift = const FixedHit(0),
     this.anchor,
+    this.ring,
     this.icon,
     this.hoverState,
     this.needs,
@@ -131,9 +132,15 @@ final class HitShape {
   /// above it: the dot under a place's pin, drawn by another layer from the
   /// same feature. It belongs to the same target, so a pointer on the
   /// place's exact point picks the pin as one on its head does, and the
-  /// hover's ring goes around it. Null for a shape centred on its point,
-  /// whose ring goes around [radius].
+  /// hover's ring goes around it. Only where such a dot is drawn: anywhere
+  /// else it would take in bare ground under the pin, on every engine.
   final HitValue? anchor;
+
+  /// The radius the hover's ring goes around at the feature's point, for a
+  /// pin with no dot drawn there: read by the hover alone, it widens no
+  /// target. Null where the ring goes around [anchor] or, for a shape
+  /// centred on its point, around [radius].
+  final HitValue? ring;
 
   /// The icon size the layer draws the feature at: under the mouse, the
   /// hover grows a copy of its image from it (a pin). Null for what does
@@ -166,6 +173,7 @@ final class HitShape {
     'y': lift.toJson(),
     'p': priority,
     if (anchor != null) 'a': anchor!.toJson(),
+    if (ring != null) 'ring': ring!.toJson(),
     if (icon != null) 'icon': icon!.toJson(),
     if (hoverState != null) 'state': hoverState,
     if (needs != null) 'needs': needs,

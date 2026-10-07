@@ -1,6 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -257,6 +260,21 @@ void main() {
         reason: 'the hover ring stands for it',
       );
       expect(opacity(const {'hover': true}), 0);
+    });
+
+    test('a mark under the mouse on the map lights its row, not its ring; a chosen one stays '
+        'lit', () {
+      final container = ProviderContainer.test();
+      final provider = routeMarkFocusProvider(const RouteTarget(destination: _destination));
+      container.read(provider.notifier)
+        ..select('chosen')
+        ..hover({'pointed'}, onMap: true);
+      expect(container.read(provider).lit, {'chosen', 'pointed'}, reason: 'the rows');
+      expect(container.read(provider).litOnMap, {'chosen'}, reason: 'the map rings its own hover');
+      container.read(provider.notifier).hover({'pointed'});
+      expect(container.read(provider).litOnMap, {'chosen', 'pointed'}, reason: 'through its row');
+      container.read(provider.notifier).leave({'pointed'});
+      expect(container.read(provider).litOnMap, {'chosen'});
     });
 
     test('a feature id names its mark, never a group of the same source', () {
