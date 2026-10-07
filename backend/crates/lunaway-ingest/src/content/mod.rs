@@ -231,6 +231,9 @@ pub struct SourceReport {
     /// Reviews: reviews of new keys held for a later run by the caps on
     /// new keys, though their place had room.
     pub held_new_keys: usize,
+    /// Reviews: keys that lost their rank this run, a review of theirs
+    /// being hidden.
+    pub demoted_keys: usize,
     /// Why the source was stopped before the end, if it was.
     pub stopped: Option<String>,
 }
@@ -1439,9 +1442,11 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             distance_m,
         });
     }
-    // What an operator or the reports hid takes no room; then keys kept
-    // before, oldest first, and few new keys a place and a run, so fresh
-    // keys cannot push the reviews shown off a place (`pick_reviews`).
+    // What an operator or the reports hid takes no room, and the key of a
+    // hidden review loses its rank before the review leaves the table;
+    // then keys kept before, oldest first, and few reviews of new keys, so
+    // fresh keys cannot push the reviews shown off a place
+    // (`pick_reviews`).
     let (hidden_items, hidden_authors) = db::hidden_keys(ctx.pool, id.as_str()).await?;
     matched.retain(|r| {
         !hidden_items.contains(&r.external_id)
@@ -1449,13 +1454,11 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
                 .as_ref()
                 .is_none_or(|k| !hidden_authors.contains(k))
     });
+    report.demoted_keys = db::demote_hidden_review_keys(ctx.pool, id.as_str(), Utc::now())
+        .await?
+        .try_into()
+        .unwrap_or(usize::MAX);
     let known = db::review_keys(ctx.pool, id.as_str()).await?;
-    let mut places_of_key: BTreeMap<&str, BTreeSet<Uuid>> = BTreeMap::new();
-    for r in &matched {
-        if let Some(k) = &r.author_key {
-            places_of_key.entry(k).or_default().insert(r.place_id);
-        }
-    }
     let offers: Vec<ReviewOffer<'_, Uuid>> = matched
         .iter()
         .map(|r| ReviewOffer {
@@ -1463,11 +1466,6 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             key: r.author_key.as_deref(),
             written_at: r.written_at,
             key_since: r.author_key.as_ref().and_then(|k| known.get(k).copied()),
-            elsewhere: r
-                .author_key
-                .as_deref()
-                .and_then(|k| places_of_key.get(k))
-                .map_or(0, |p| p.len().saturating_sub(1)),
         })
         .collect();
     let picked = content::reviews::pick_reviews(&offers, content::reviews::MANGROVE_CAPS);
@@ -1485,7 +1483,9 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     tracing::info!(
         kept = matched.len(),
         new_keys = picked.new_keys,
+        new_reviews = picked.new_reviews,
         held = picked.deferred,
+        demoted = report.demoted_keys,
         "mangrove reviews chosen"
     );
     let replaced = db::replace_reviews(ctx.pool, id.as_str(), &matched, Utc::now()).await?;

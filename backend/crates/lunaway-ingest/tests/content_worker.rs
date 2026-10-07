@@ -279,26 +279,57 @@ async fn mangrove_is_never_replaced_from_part_of_the_map(pool: PgPool) {
     );
 }
 
-/// A page of Mangrove reviews about the point `(lat, lon)`, one per key
-/// of `keys`, written at `iat`.
-fn mangrove_reviews(lat: f64, lon: f64, keys: &[(String, i64)]) -> serde_json::Value {
-    let reviews: Vec<serde_json::Value> = keys
+/// A page of Mangrove reviews about the point `(lat, lon)`, one per name
+/// of `authors`, written at its date and signed by a key made from the
+/// name, as the API lists them. Returns the page and the keys' `kid`.
+fn mangrove_reviews(
+    lat: f64,
+    lon: f64,
+    authors: &[(String, i64)],
+) -> (serde_json::Value, Vec<String>) {
+    use base64::{
+        Engine,
+        engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+    };
+    use p256::ecdsa::{Signature, SigningKey, signature::Signer};
+    use sha2::{Digest, Sha256};
+    // The DER prefix of a P-256 SubjectPublicKeyInfo.
+    const SPKI: [u8; 26] = [
+        0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08,
+        0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+    ];
+    let mut kids = Vec::new();
+    let reviews: Vec<serde_json::Value> = authors
         .iter()
-        .map(|(kid, iat)| {
+        .map(|(name, iat)| {
+            let key = SigningKey::from_slice(&Sha256::digest(name.as_bytes())).unwrap();
+            let mut der = SPKI.to_vec();
+            der.extend_from_slice(&key.verifying_key().to_sec1_bytes());
+            let kid = format!(
+                "-----BEGIN PUBLIC KEY-----{}-----END PUBLIC KEY-----",
+                STANDARD.encode(der)
+            );
+            let payload = serde_json::json!({
+                "sub": format!("geo:{lat},{lon}?u=30"),
+                "rating": 80,
+                "opinion": format!("Avis de {name}."),
+                "iat": iat,
+                "metadata": {"nickname": name}
+            });
+            let header = URL_SAFE_NO_PAD.encode(serde_json::json!({"alg": "ES256"}).to_string());
+            let body = URL_SAFE_NO_PAD.encode(payload.to_string());
+            let sig: Signature = key.sign(format!("{header}.{body}").as_bytes());
+            let sig = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+            kids.push(kid.clone());
             serde_json::json!({
-                "signature": format!("sig{}", kid.replace('-', "")).repeat(3),
+                "signature": sig,
                 "kid": kid,
-                "payload": {
-                    "sub": format!("geo:{lat},{lon}?u=30"),
-                    "rating": 80,
-                    "opinion": format!("Avis de {kid}."),
-                    "iat": iat,
-                    "metadata": {"nickname": kid}
-                }
+                "jwt": format!("{header}.{body}.{sig}"),
+                "payload": payload
             })
         })
         .collect();
-    serde_json::json!({ "reviews": reviews })
+    (serde_json::json!({ "reviews": reviews }), kids)
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -319,18 +350,18 @@ async fn fresh_mangrove_keys_cannot_push_the_reviews_shown_off_a_place(pool: PgP
     let fresh: Vec<(String, i64)> = (0..10)
         .map(|n| (format!("fresh-key-{n}"), 1_790_000_000 + n))
         .collect();
-    let kids: Vec<String> = old.iter().map(|(k, _)| k.clone()).collect();
+    let all: Vec<(String, i64)> = old.iter().chain(&fresh).cloned().collect();
+    let (page, kids) = mangrove_reviews(lat, lon, &all);
     sqlx::query(
         "INSERT INTO content_review_keys (source_id, author_key, first_kept_at) \
          SELECT 'mangrove', encode(sha256(convert_to(k, 'UTF8')), 'hex'), '2026-05-01T00:00:00Z' \
          FROM unnest($1::text[]) AS k",
     )
-    .bind(&kids)
+    .bind(&kids[..old.len()])
     .execute(&pool)
     .await
     .unwrap();
-    let all: Vec<(String, i64)> = old.iter().chain(&fresh).cloned().collect();
-    let page = mangrove_reviews(lat, lon, &all).to_string().into_bytes();
+    let page = page.to_string().into_bytes();
     let media = tempfile::tempdir().unwrap();
     let store = MediaStore::new(media.path());
     let client = http::client_allowing_plain_http().unwrap();

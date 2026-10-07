@@ -590,7 +590,11 @@ pub struct NewReview {
 }
 
 /// The keys of `source` whose reviews Lunaway kept, with when it first
-/// kept one: a key absent from it is new.
+/// kept one: a key absent from it, or demoted, is new. The key of a review
+/// stored now and absent from `content_review_keys` counts too, from the
+/// last run that fetched the review: a release older than that table
+/// stored reviews without recording their keys, and the next run must not
+/// take those reviewers for new ones.
 ///
 /// # Errors
 ///
@@ -600,15 +604,58 @@ pub async fn review_keys(
     source: &str,
 ) -> Result<HashMap<String, DateTime<Utc>>, DbError> {
     let rows = sqlx::query!(
-        "SELECT author_key, first_kept_at FROM content_review_keys WHERE source_id = $1",
+        r#"
+        SELECT author_key AS "author_key!", first_kept_at AS "since!"
+        FROM content_review_keys
+        WHERE source_id = $1 AND demoted_at IS NULL
+        UNION ALL
+        SELECT r.author_key AS "author_key!", min(r.fetched_at) AS "since!"
+        FROM content_reviews r
+        WHERE r.source_id = $1 AND r.author_key IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_review_keys k
+              WHERE k.source_id = r.source_id AND k.author_key = r.author_key)
+        GROUP BY r.author_key
+        "#,
         source,
     )
     .fetch_all(pool)
     .await?;
-    Ok(rows
-        .into_iter()
-        .map(|r| (r.author_key, r.first_kept_at))
-        .collect())
+    Ok(rows.into_iter().map(|r| (r.author_key, r.since)).collect())
+}
+
+/// Demotes, for good, the keys of `source` whose stored review the
+/// reports, a moderator or the operator hid: their author could sign the
+/// same review again under a new signature, which the hide does not
+/// match. Run before [`replace_reviews`], while the hidden review is still
+/// stored. Returns the keys demoted by this call.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn demote_hidden_review_keys(
+    pool: &PgPool,
+    source: &str,
+    at: DateTime<Utc>,
+) -> Result<u64, DbError> {
+    Ok(sqlx::query!(
+        r#"
+        INSERT INTO content_review_keys (source_id, author_key, first_kept_at, demoted_at)
+        SELECT r.source_id, r.author_key, min(r.fetched_at), $2::timestamptz
+        FROM content_reviews r
+        JOIN content_hides h
+          ON h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id
+        WHERE r.source_id = $1 AND r.author_key IS NOT NULL
+        GROUP BY r.source_id, r.author_key
+        ON CONFLICT (source_id, author_key) DO UPDATE SET demoted_at = excluded.demoted_at
+        WHERE content_review_keys.demoted_at IS NULL
+        "#,
+        source,
+        at,
+    )
+    .execute(pool)
+    .await?
+    .rows_affected())
 }
 
 /// Replaces every review of `source` with `reviews`, the whole of what the

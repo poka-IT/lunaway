@@ -416,6 +416,133 @@ async fn content_of_a_merged_place_shows_on_the_place_that_absorbed_it_until_pur
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_key_is_known_once_a_review_it_signed_was_kept(pool: PgPool) {
+    let a = place(&pool, "A", 47.0, 2.0).await;
+    let key = |n: u8| format!("{n:x}").repeat(64);
+    let review = |n: u8, at: chrono::DateTime<Utc>| NewReview {
+        place_id: a,
+        external_id: format!("sig{n}"),
+        rating: Some(4),
+        text: None,
+        lang: None,
+        author: None,
+        author_key: Some(key(n)),
+        written_at: at,
+        page_url: format!("https://mangrove.reviews/list?signature=sig{n}"),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: None,
+    };
+    let first = Utc::now() - Duration::days(14);
+    content::replace_reviews(&pool, "mangrove", &[review(1, first)], first)
+        .await
+        .unwrap();
+    // A release older than the key table stored a review and recorded no
+    // key: its reviewer is not new either.
+    content::replace_reviews(
+        &pool,
+        "mangrove",
+        &[review(1, first), review(2, first)],
+        first,
+    )
+    .await
+    .unwrap();
+    sqlx::query("DELETE FROM content_review_keys WHERE author_key = $1")
+        .bind(key(2))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let known = content::review_keys(&pool, "mangrove").await.unwrap();
+    assert_eq!(
+        known.get(&key(2)).map(chrono::DateTime::timestamp),
+        Some(first.timestamp()),
+        "a stored review makes its key known from when it was fetched"
+    );
+    // The review of key 1 goes from the source; its key stays known.
+    let later = Utc::now();
+    content::replace_reviews(&pool, "mangrove", &[review(2, first)], later)
+        .await
+        .unwrap();
+    let known = content::review_keys(&pool, "mangrove").await.unwrap();
+    assert_eq!(known.len(), 2, "{known:?}");
+    assert_eq!(
+        known[&key(1)].timestamp(),
+        first.timestamp(),
+        "a key keeps the date it was first kept, after its review went"
+    );
+    assert!(
+        content::review_keys(&pool, "wikipedia")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_key_whose_review_was_hidden_is_new_again_for_good(pool: PgPool) {
+    let a = place(&pool, "A", 47.0, 2.0).await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let key = "c".repeat(64);
+    let review = |sig: &str| NewReview {
+        place_id: a,
+        external_id: sig.to_owned(),
+        rating: Some(1),
+        text: Some("Arnaque.".into()),
+        lang: None,
+        author: None,
+        author_key: Some(key.clone()),
+        written_at: Utc::now(),
+        page_url: format!("https://mangrove.reviews/list?signature={sig}"),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: None,
+    };
+    let now = Utc::now();
+    content::replace_reviews(&ingest, "mangrove", &[review("sig1")], now)
+        .await
+        .unwrap();
+    assert!(
+        content::review_keys(&ingest, "mangrove")
+            .await
+            .unwrap()
+            .contains_key(&key)
+    );
+    content::set_hidden(
+        &ingest,
+        "mangrove",
+        &Hide::Item(ItemKind::Review, "sig1".into()),
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        content::demote_hidden_review_keys(&ingest, "mangrove", now)
+            .await
+            .unwrap(),
+        1,
+        "the import role demotes the key of a hidden review"
+    );
+    assert_eq!(
+        content::demote_hidden_review_keys(&ingest, "mangrove", now)
+            .await
+            .unwrap(),
+        0
+    );
+    // The author signs the same review again: the hide misses the new
+    // signature, and the key stays new.
+    content::replace_reviews(&ingest, "mangrove", &[review("sig2")], now)
+        .await
+        .unwrap();
+    assert!(
+        !content::review_keys(&ingest, "mangrove")
+            .await
+            .unwrap()
+            .contains_key(&key),
+        "a review signed again does not give the key its rank back"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn reviews_are_replaced_as_a_whole_and_an_author_stays_hidden(pool: PgPool) {
     let a = place(&pool, "A", 47.0, 2.0).await;
     let key = "ab".repeat(32);

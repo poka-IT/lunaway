@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT author_key AS \"author_key!\", first_kept_at AS \"since!\"\n        FROM content_review_keys\n        WHERE source_id = $1 AND demoted_at IS NULL\n        UNION ALL\n        SELECT r.author_key AS \"author_key!\", min(r.fetched_at) AS \"since!\"\n        FROM content_reviews r\n        WHERE r.source_id = $1 AND r.author_key IS NOT NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_review_keys k\n              WHERE k.source_id = r.source_id AND k.author_key = r.author_key)\n        GROUP BY r.author_key\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "since!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "e8060ae43e1c51e3a29d9002e9d4e5e5adfa4f665e33729b160d45990353a07d"
+}

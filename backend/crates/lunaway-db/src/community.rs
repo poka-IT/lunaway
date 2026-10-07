@@ -1381,14 +1381,13 @@ pub enum ReportOutcome {
     Hidden,
 }
 
-/// The kind of external item a report names: anything but an external
-/// review is looked for among the photos, and finds nothing there when
-/// it is not one.
-fn external_kind(target: ReportTarget) -> crate::content::ItemKind {
-    if target == ReportTarget::ExternalReview {
-        crate::content::ItemKind::Review
-    } else {
-        crate::content::ItemKind::Photo
+/// The kind of external item a report names; `None` for the community's
+/// own content.
+fn external_kind(target: ReportTarget) -> Option<crate::content::ItemKind> {
+    match target {
+        ReportTarget::ExternalReview => Some(crate::content::ItemKind::Review),
+        ReportTarget::ExternalPhoto => Some(crate::content::ItemKind::Photo),
+        ReportTarget::Review | ReportTarget::Photo | ReportTarget::Place => None,
     }
 }
 
@@ -1447,7 +1446,10 @@ pub async fn report_content(
             }
         }
         ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
-            if crate::content::external_item_on(&mut tx, external_kind(target), id)
+            let Some(kind) = external_kind(target) else {
+                return Ok(ReportOutcome::NoTarget);
+            };
+            if crate::content::external_item_on(&mut tx, kind, id)
                 .await?
                 .is_none()
             {
@@ -1525,7 +1527,9 @@ pub async fn report_content(
             .await?
             .rows_affected(),
             ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
-                let kind = external_kind(target);
+                let Some(kind) = external_kind(target) else {
+                    return Ok(ReportOutcome::NoTarget);
+                };
                 match crate::content::external_item_on(&mut tx, kind, id).await? {
                     Some(item) => crate::content::hide_item_on(
                         &mut tx,
