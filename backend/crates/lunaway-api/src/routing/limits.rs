@@ -21,8 +21,13 @@ use serde_json::{Value, json};
 pub(crate) const CHUNK_POINTS: usize = 10_000;
 /// Longest piece of one trace, metres: under the engine's 200 km.
 pub(crate) const CHUNK_M: f64 = 150_000.0;
-/// Most traces for one route: 3 000 km in pieces of 150 km.
-pub(crate) const MAX_CHUNKS: usize = 20;
+/// Most traces for one route: 6 000 km in pieces of 150 km, twice the
+/// longest trip in a straight line (`routing_query::MAX_TRIP_M`). The
+/// roads of the long trips measured run 1.2 to 1.35 times their straight
+/// line (Athens to Lisbon, 2 852 km apart, 3 807 km by road in 26 pieces);
+/// with 20 pieces, no route over 3 000 km had limits (2026-10-07,
+/// `plan/research/53-obstacles-publics.md`).
+pub(crate) const MAX_CHUNKS: usize = 40;
 
 /// The pieces `[first, last]` (shape indices) a route of these distances
 /// from its start (`along`) is traced in, each starting where the previous
@@ -142,8 +147,20 @@ mod tests {
                 .iter()
                 .all(|(a, b)| b - a < CHUNK_POINTS)
         );
-        let endless: Vec<f64> = (0..=40_000).map(|i| f64::from(i) * 100.0).collect();
-        assert_eq!(chunks(&endless), None, "4 000 km: more pieces than allowed");
+        let athens_lisbon: Vec<f64> = (0..=38_070).map(|i| f64::from(i) * 100.0).collect();
+        assert_eq!(
+            chunks(&athens_lisbon).map(|p| p.len()),
+            Some(26),
+            "the longest road of the trips measured has its limits"
+        );
+        let endless: Vec<f64> = (0..=70_000).map(|i| f64::from(i) * 100.0).collect();
+        assert_eq!(chunks(&endless), None, "7 000 km: more pieces than allowed");
+        #[allow(clippy::cast_precision_loss, reason = "a count of forty")]
+        let covered = MAX_CHUNKS as f64 * CHUNK_M;
+        assert!(
+            covered >= 2.0 * crate::routing_query::MAX_TRIP_M,
+            "a road twice as long as the longest trip in a straight line gets its limits"
+        );
     }
 
     #[test]

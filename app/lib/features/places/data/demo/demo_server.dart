@@ -140,7 +140,11 @@ Map<String, Object?> _external(Place? place, {required bool reviewsOnly}) => {
       ? null
       : {
           'id': place.id,
-          if (!reviewsOnly) ...{'externalPhotos': <Object>[], 'externalRatings': <Object>[]},
+          if (!reviewsOnly) ...{
+            'externalPhotos': <Object>[],
+            'externalRatings': <Object>[],
+            'externalDescriptions': <Object>[],
+          },
           'externalReviews': {
             'nodes': <Object>[],
             'endCursor': null,

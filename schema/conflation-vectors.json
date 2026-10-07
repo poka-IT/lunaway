@@ -1417,6 +1417,144 @@
         "lat": 48.8573186,
         "lon": 2.3522
       }
+    },
+    {
+      "id": "datatourisme-prefixed-name",
+      "why": "A tourist office writes the campsite's name after the word \"Camping\", which OpenStreetMap leaves out; 25 m apart, the office's link is the campsite's social page.",
+      "expected": "merge",
+      "score": 1.0,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Le Clos de Banes",
+        "lat": 44.8084323,
+        "lon": 2.8057586,
+        "website": "https://www.leclosdebanes.com"
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "campsite",
+        "name": "Camping Le Clos de Banes",
+        "lat": 44.8083,
+        "lon": 2.806,
+        "website": "https://www.facebook.com/leclosdebanes/",
+        "phone": "+33 6 28 48 01 18",
+        "cityCode": "12223",
+        "accuracyM": 240
+      }
+    },
+    {
+      "id": "datatourisme-generic-area-name",
+      "why": "An office's generic name for a motorhome area is no name: 8 m from the mapped area named after its town, the two merge.",
+      "expected": "merge",
+      "score": 1.0,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car de Lapalisse",
+        "lat": 46.2502484,
+        "lon": 3.6354309
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": null,
+        "lat": 46.250184,
+        "lon": 3.635479,
+        "cityCode": "03138",
+        "accuracyM": 240
+      }
+    },
+    {
+      "id": "datatourisme-area-of-a-campsite",
+      "why": "The motorhome area a campsite runs at its gate and the campsite itself, 56 m apart: often two spots, a person decides.",
+      "expected": "review",
+      "score": 0.8,
+      "a": {
+        "source": "osm",
+        "kind": "campsite",
+        "name": "Le Ranch",
+        "lat": 49.4804393,
+        "lon": -1.8432893
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car > Camping Le Ranch",
+        "lat": 49.4803442,
+        "lon": -1.8425262,
+        "accuracyM": 240
+      }
+    },
+    {
+      "id": "datatourisme-same-commune-300m",
+      "why": "A tourist office places its motorhome area by hand, 300 m from the mapped area of the same commune: with no name of its own and a position credited 240 m, the two merge.",
+      "expected": "merge",
+      "score": 0.8681,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car du Moulin",
+        "lat": 45.1,
+        "lon": 4.2,
+        "postcode": "07300"
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": null,
+        "lat": 45.1027,
+        "lon": 4.2,
+        "postcode": "07300",
+        "cityCode": "07324",
+        "accuracyM": 240
+      }
+    },
+    {
+      "id": "datatourisme-other-commune-300m",
+      "why": "The same hand-placed area 300 m away, but in the next commune: a person decides.",
+      "expected": "review",
+      "score": 0.6863,
+      "a": {
+        "source": "osm",
+        "kind": "motorhome_area",
+        "name": "Aire de camping-car du Moulin",
+        "lat": 45.1,
+        "lon": 4.2,
+        "postcode": "07300"
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": null,
+        "lat": 45.1027,
+        "lon": 4.2,
+        "postcode": "07310",
+        "cityCode": "07102",
+        "accuracyM": 240
+      }
+    },
+    {
+      "id": "datatourisme-same-source-twins",
+      "why": "Two records of the tourist offices for one area (two offices publish it): the same source never merges itself; the pair goes to review as a duplicate to report.",
+      "expected": "review",
+      "score": 1.0,
+      "a": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": null,
+        "lat": 46.250184,
+        "lon": 3.635479,
+        "accuracyM": 240
+      },
+      "b": {
+        "source": "datatourisme",
+        "kind": "motorhome_area",
+        "name": null,
+        "lat": 46.25019,
+        "lon": 3.63548,
+        "accuracyM": 240
+      }
     }
   ]
 }

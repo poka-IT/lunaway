@@ -1,0 +1,78 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT path, thumb_path, width, height, thumbhash\n        FROM content_photos\n        WHERE source_id = $1 AND external_id = $2 AND version = $3\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumb_path"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "thumbhash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumbhash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f67312839bf605e28776ec106be4eb726cdb7cf114cfde4a2cd5abd8e4f2cea4"
+}

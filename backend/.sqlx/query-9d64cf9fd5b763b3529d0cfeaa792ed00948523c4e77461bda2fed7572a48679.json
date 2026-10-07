@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_reviews WHERE source_id = $1 AND NOT (external_id = ANY($2))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d64cf9fd5b763b3529d0cfeaa792ed00948523c4e77461bda2fed7572a48679"
+}

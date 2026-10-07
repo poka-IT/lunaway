@@ -209,15 +209,7 @@ pub(crate) fn route_body(
         body["alternates"] = alternates.into();
     }
     if !exclusions.is_empty() {
-        body["exclude_polygons"] = exclusions
-            .iter()
-            .map(|ring| {
-                ring.iter()
-                    .map(|p| json!([p.lon(), p.lat()]))
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>()
-            .into();
+        body["exclude_polygons"] = rings_json(exclusions);
     }
     body
 }
@@ -234,6 +226,39 @@ pub(crate) fn probe_body(stops: &[Stop], costing: &Value) -> Value {
         "shape_format": "polyline6",
         "directions_type": "none",
     })
+}
+
+/// The body of a route between public points that looks for the
+/// restrictions the engine lets routes through ([`super::public`]): the
+/// routes' shapes only, `alternates` of them as a trip of that length is
+/// asked, around the `exclusions` met so far.
+pub(crate) fn discovery_body(
+    stops: &[Stop],
+    costing: &Value,
+    alternates: u8,
+    exclusions: &[Vec<Position>],
+) -> Value {
+    let mut body = probe_body(stops, costing);
+    if alternates > 0 && stops.len() == 2 {
+        body["alternates"] = alternates.into();
+    }
+    if !exclusions.is_empty() {
+        body["exclude_polygons"] = rings_json(exclusions);
+    }
+    body
+}
+
+/// Exclusion rings as the engine reads them: longitude first.
+fn rings_json(exclusions: &[Vec<Position>]) -> Value {
+    exclusions
+        .iter()
+        .map(|ring| {
+            ring.iter()
+                .map(|p| json!([p.lon(), p.lat()]))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+        .into()
 }
 
 /// What the engine said.

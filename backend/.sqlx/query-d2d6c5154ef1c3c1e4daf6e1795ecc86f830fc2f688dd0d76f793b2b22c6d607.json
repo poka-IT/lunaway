@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_hides WHERE source_id = $1 AND scope = $2 AND key = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d2d6c5154ef1c3c1e4daf6e1795ecc86f830fc2f688dd0d76f793b2b22c6d607"
+}

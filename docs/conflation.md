@@ -147,8 +147,15 @@ loses to OpenStreetMap's mapped geometry and to Lunaway's reviewed pins, its
 vehicle limits (0.5) to the sign OpenStreetMap maps, its kind (0.6) to the
 finer taxonomy of the others, its stars (0.2) to Atout France. A pin of
 that source carries 20 m of accuracy unless the feed says otherwise
-(`docs/feeds.md`). The other sources' differing values stay visible as
-alternatives (`Place.provenance`).
+(`docs/feeds.md`). DATAtourisme, the tourist offices' catalogue, leads with
+Atout France on the address, the website and the phone (0.8), and ranks
+low on the position (0.4): an office places its point by hand, often on the
+town's street, so its records carry 240 m of accuracy
+(`datatourisme::POSITION_ACCURACY_M`) and a generic name ("Aire de
+stationnement pour camping-car") is stored as no name. An unnamed office
+area 300 m from a mapped area of the same commune then merges, and goes to
+review in the next commune (vectors `datatourisme-*-300m`). The other
+sources' differing values stay visible as alternatives (`Place.provenance`).
 
 ## 5. On the server
 

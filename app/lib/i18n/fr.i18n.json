@@ -303,7 +303,12 @@
     "links": "Sur d'autres sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "photoCredit": "$source · $author"
+    "photoCredit": "$source · $author",
+    "photoStreetView": "Vue de la rue",
+    "photoSurroundings": "Aux alentours",
+    "readMore": "Lire la suite",
+    "updatedOn": "mis à jour le $date",
+    "otherSources": "D'après d'autres sources"
   },
   "sources": {
     "extcom": {

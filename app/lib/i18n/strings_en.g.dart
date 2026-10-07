@@ -954,6 +954,21 @@ class Translations$place$en {
 
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
+
+	/// en: 'Street view'
+	String get photoStreetView => 'Street view';
+
+	/// en: 'Surroundings'
+	String get photoSurroundings => 'Surroundings';
+
+	/// en: 'Read more'
+	String get readMore => 'Read more';
+
+	/// en: 'updated $date'
+	String updatedOn({required Object date}) => 'updated ${date}';
+
+	/// en: 'From other sources'
+	String get otherSources => 'From other sources';
 }
 
 // Path: sources
@@ -5260,6 +5275,11 @@ extension on Translations {
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
+			'place.photoStreetView' => 'Street view',
+			'place.photoSurroundings' => 'Surroundings',
+			'place.readMore' => 'Read more',
+			'place.updatedOn' => ({required Object date}) => 'updated ${date}',
+			'place.otherSources' => 'From other sources',
 			'sources.extcom.label' => 'External community source',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
@@ -5533,13 +5553,13 @@ extension on Translations {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Back to the vehicle',
 			'navigation.guidance.end' => 'End',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
 			'navigation.guidance.endKeep' => 'Keep going',
@@ -6047,13 +6067,13 @@ extension on Translations {
 			'placeForm.licence' => 'Places are published under the ODbL, credited to the Lunaway contributors.',
 			'placeForm.moderated' => 'A website or a phone number goes through a moderator before it is published.',
 			'placeForm.direct' => 'Your level applies the change at once.',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.proposal' => 'A moderator will review your suggestion before it applies.',
 			'placeForm.submitAdd' => 'Add the place',
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',

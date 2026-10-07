@@ -162,15 +162,20 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
             "cat-sct-radars",
             "community",
             "community-cc-by",
+            "datatourisme",
             "extcom",
             "finess",
             "laposte",
             "lu-pch-radars",
+            "mangrove",
             "no-nvdb-atk",
             "osm",
+            "panoramax",
             "pl-canard",
             "prix-carburants",
-            "securite-routiere"
+            "securite-routiere",
+            "wikimedia-commons",
+            "wikipedia"
         ]
     );
     let of = |id: &str| &sources[ids.iter().position(|i| *i == id).unwrap()];
@@ -197,6 +202,11 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
         of("securite-routiere")["attribution"],
         "Sécurité routière, radars.securite-routiere.gouv.fr",
         "the CRPA asks for the source of the French list to be cited"
+    );
+    assert_eq!(
+        of("mangrove")["licence"],
+        "CC BY 4.0",
+        "Mangrove's reviews are CC BY 4.0 unless a review says otherwise"
     );
 }
 
@@ -1126,9 +1136,10 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        13,
+        18,
         "OpenStreetMap, Atout France, the community under its two licences, the external \
-         community source, the three joined to the points and the five camera lists"
+         community source, the three joined to the points, the five camera lists and the five \
+         sources of open content"
     );
 }
 

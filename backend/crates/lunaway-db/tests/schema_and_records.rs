@@ -56,15 +56,20 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
             "cat-sct-radars",
             "community",
             "community-cc-by",
+            "datatourisme",
             "extcom",
             "finess",
             "laposte",
             "lu-pch-radars",
+            "mangrove",
             "no-nvdb-atk",
             "osm",
+            "panoramax",
             "pl-canard",
             "prix-carburants",
-            "securite-routiere"
+            "securite-routiere",
+            "wikimedia-commons",
+            "wikipedia"
         ]
     );
     for joined in [SourceId::FUEL_PRICES, SourceId::LAPOSTE, SourceId::FINESS] {

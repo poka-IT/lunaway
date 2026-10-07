@@ -713,6 +713,62 @@ type EnforcementZoneLengths {
 }
 
 """
+A description of a place by an open source (Wikipedia, DATAtourisme),
+in one language: show its source, licence and link with it.
+"""
+type ExternalDescription {
+	"""
+	Its source (`wikipedia`, `datatourisme`).
+	"""
+	sourceId: String!
+	"""
+	The source's name to show with the text.
+	"""
+	sourceLabel: String!
+	"""
+	Its language, BCP 47.
+	"""
+	lang: String!
+	"""
+	The text, plain; it ends with an ellipsis when Lunaway shortened it.
+	"""
+	text: String!
+	"""
+	The title of the page it comes from (the article's).
+	"""
+	title: String
+	"""
+	Who wrote it, when the source credits a person.
+	"""
+	author: String
+	"""
+	Who published it: `Wikipedia`, or the tourist office on
+	DATAtourisme.
+	"""
+	publisher: String
+	"""
+	The source's own date of its last update; null when unknown.
+	"""
+	sourceUpdatedOn: NaiveDate
+	"""
+	Its licence's short name.
+	"""
+	licence: String!
+	"""
+	Its licence's text.
+	"""
+	licenceUrl: String!
+	"""
+	Its page at the source.
+	"""
+	pageUrl: String!
+	"""
+	When Lunaway last read it.
+	"""
+	fetchedAt: DateTime!
+}
+
+"""
 A page about the place elsewhere.
 """
 type ExternalLink {
@@ -731,18 +787,21 @@ type ExternalLink {
 }
 
 """
-A photo from a partner's platform. Lunaway downloads it the first time
-a device asks for it (the URLs below lead to the API's photo proxy
-until then), re-encodes it without its metadata and serves it from its
-own host: a device never reaches the partner.
+A photo from another source than Lunaway's community, stored and
+served by Lunaway: a device never reaches the source. A partner's photo
+is downloaded the first time a device asks for it (its URLs lead to the
+API's photo proxy until then); an open source's is downloaded by the
+weekly content worker.
 """
 type ExternalPhoto {
 	"""
-	Stable identifier.
+	Stable identifier, also what `reportContent(target:
+	EXTERNAL_PHOTO)` takes.
 	"""
 	id: UUID!
 	"""
-	The source (`extcom`).
+	The source (`extcom`, `wikimedia-commons`, `panoramax`,
+	`datatourisme`).
 	"""
 	sourceId: String!
 	"""
@@ -750,16 +809,47 @@ type ExternalPhoto {
 	"""
 	sourceLabel: String!
 	"""
-	The author's pseudonym on the partner's platform.
+	What it shows of the place.
+	"""
+	kind: PhotoKind!
+	"""
+	The author's pseudonym or credit at the source.
 	"""
 	authorName: String
 	"""
-	The photo's licence, or the reference of the agreement it came
-	under.
+	Who published it when that is not the author: the tourist office on
+	DATAtourisme, the Panoramax instance.
+	"""
+	publisher: String
+	"""
+	Its licence (`CC BY-SA 4.0`), or the reference of the agreement it
+	came under.
 	"""
 	licence: String!
 	"""
-	When it was taken, when the partner says.
+	The text of its licence; null under a written agreement.
+	"""
+	licenceUrl: String
+	"""
+	Its page at the source, to link to; null for a partner's photo,
+	which the app never links out to.
+	"""
+	pageUrl: String
+	"""
+	Its title at the source.
+	"""
+	title: String
+	"""
+	The source's own date of its last update, which the Licence Ouverte
+	asks to show (DATAtourisme).
+	"""
+	sourceUpdatedOn: NaiveDate
+	"""
+	From the place to where it was taken, metres; null when unknown.
+	"""
+	distanceM: Float
+	"""
+	When it was taken, when the source says.
 	"""
 	takenAt: DateTime
 	"""
@@ -767,7 +857,8 @@ type ExternalPhoto {
 	"""
 	thumbUrl: String!
 	"""
-	The 2048-pixel image.
+	The large image (2048 pixels for a partner's, 1280 for an open
+	source's).
 	"""
 	largeUrl: String!
 	"""
@@ -786,22 +877,23 @@ type ExternalPhoto {
 
 type ExternalReview {
 	"""
-	Stable identifier.
+	Stable identifier, also what `reportContent(target:
+	EXTERNAL_REVIEW)` takes.
 	"""
 	id: UUID!
 	"""
-	The source (`extcom`); `Query.sources` gives its licence and the
-	attribution its agreement words.
+	The source (`extcom`, `mangrove`); `Query.sources` gives its
+	licence and attribution.
 	"""
 	sourceId: String!
 	"""
 	The source's name to show beside the review ("Source communautaire
-	externe"); the app may translate it by `sourceId`.
+	externe", "Mangrove Reviews"); the app may translate it by
+	`sourceId`.
 	"""
 	sourceLabel: String!
 	"""
-	The author's pseudonym on the partner's platform; null when the
-	partner gave none.
+	The author's pseudonym at the source; null when it gave none.
 	"""
 	authorName: String
 	"""
@@ -813,11 +905,11 @@ type ExternalReview {
 	"""
 	text: String!
 	"""
-	The language of the text (BCP 47), when the partner says.
+	The language of the text (BCP 47), when the source says.
 	"""
 	lang: String
 	"""
-	The author's vehicle, when the partner says.
+	The author's vehicle, when the source says.
 	"""
 	authorVehicle: VehicleKind
 	"""
@@ -825,13 +917,24 @@ type ExternalReview {
 	"""
 	writtenAt: DateTime!
 	"""
-	The reference of the agreement it came under.
+	Its licence (`CC BY 4.0`), or the reference of the agreement it
+	came under.
 	"""
 	licence: String!
+	"""
+	The text of its licence; null for a partner's review, which comes
+	under a written agreement.
+	"""
+	licenceUrl: String
+	"""
+	Where it is published, to link to; null for a partner's review,
+	which the app never links out to.
+	"""
+	pageUrl: String
 }
 
 """
-A page of a partner's reviews, newest first.
+A page of reviews of other sources, newest first.
 """
 type ExternalReviewConnection {
 	"""
@@ -2116,6 +2219,25 @@ type PhotoConnection {
 	totalCount: Int!
 }
 
+"""
+What a photo of another source shows of a place.
+"""
+enum PhotoKind {
+	"""
+	The place itself: a visitor's photo, or one the place's data names.
+	"""
+	PLACE
+	"""
+	A street-level picture looking at the place ("Vue de la rue").
+	"""
+	STREET_VIEW
+	"""
+	A picture taken nearby, in no particular direction ("Aux
+	alentours").
+	"""
+	SURROUNDINGS
+}
+
 type Place {
 	"""
 	Stable identifier (UUID v7). A place merged into another keeps
@@ -2300,25 +2422,38 @@ type Place {
 	"""
 	reviews(first: Int = 20, after: String): ReviewConnection!
 	"""
-	The reviews with text of a partner's community (the external
-	community source, `extcom`), newest first, 50 per page at most, each
-	with its author's pseudonym and the source's label. Read per place
-	when its card opens: the change feed, the packs and the map tiles
-	never carry them. Empty while the source is hidden.
+	The reviews with text of other sources than Lunaway's community,
+	newest first, 50 per page at most, each with its author's pseudonym
+	and its source's id and label: the partner's community (`extcom`)
+	and the open reviews of Mangrove (`mangrove`, with their licence and
+	a link). Read per place when its card opens: the change feed, the
+	packs and the map tiles never carry them. A hidden source shows
+	nothing; neither does an item an operator or the reports hid.
 	"""
 	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
 	"""
-	What a partner's community says of the place's ratings as a whole,
-	by source (more ratings than the reviews it hands over). Read per
-	place, like `externalReviews`; empty while the source is hidden.
+	What other sources say of the place's ratings as a whole, by
+	source: the partner's summaries (more ratings than the reviews it
+	hands over) and the mean of Mangrove's ratings. Read per place, like
+	`externalReviews`; empty while a source is hidden.
 	"""
 	externalRatings: [SourceRating!]!
 	"""
-	The photos of a partner's community, newest first (50 at most),
-	each with its author's pseudonym and the source's label. Read per
-	place, like `externalReviews`; empty while the source is hidden.
+	The photos of other sources than Lunaway's community, served from
+	Lunaway's host (50 at most): the partner's community's first, newest
+	first, then those of the open sources, the ones of the place itself
+	before the street views and the surroundings (`kind`). Each carries
+	its source's id and label, its author and licence, and for an open
+	source a link to its page. Read per place, like `externalReviews`.
 	"""
 	externalPhotos: [ExternalPhoto!]!
+	"""
+	Descriptions of the place by open sources (the introduction of its
+	Wikipedia article, the tourist office's text on DATAtourisme), one
+	per source and language, each with its source's label, licence and
+	page. Read per place, like `externalReviews`.
+	"""
+	externalDescriptions: [ExternalDescription!]!
 	"""
 	The caller's own rating or review of the place, whatever its status;
 	null when anonymous or when there is none.
@@ -3464,6 +3599,14 @@ enum ReportTarget {
 	A place.
 	"""
 	PLACE
+	"""
+	A review of an external source (`Place.externalReviews`).
+	"""
+	EXTERNAL_REVIEW
+	"""
+	A photo of an external source (`Place.externalPhotos`).
+	"""
+	EXTERNAL_PHOTO
 }
 
 """

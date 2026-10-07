@@ -255,8 +255,35 @@ fn locations(line: &[Position]) -> Option<Vec<Position>> {
 
 /// The request that follows `line` in its order, through [`locations`];
 /// `None` when there is nothing to follow.
+#[cfg(test)]
 fn request(line: &[Position]) -> Option<Value> {
-    let points = locations(line)?;
+    request_through(line, &locations(line)?)
+}
+
+/// The points to ask again through when the engine refused a request
+/// through `points`: the ends and the middle point, then the ends alone;
+/// none once only the ends are left. Valhalla 3.9 refuses some streets
+/// drawn both ways with `leg_shape_index not set for intermediate
+/// location` (HTTP 500, `InvalidUrl` in the OSRM format) and routes the
+/// same street through fewer points: four Dutch lines in production,
+/// asked again at every pass until a new graph (2026-10-07,
+/// `plan/research/53-obstacles-publics.md`). The route found is still
+/// held to the line by [`accept`].
+fn fewer(points: &[Position]) -> Option<Vec<Position>> {
+    let (first, last) = (*points.first()?, *points.last()?);
+    match points.len() {
+        0..=2 => None,
+        3 => Some(vec![first, last]),
+        n => Some(vec![first, points[n / 2], last]),
+    }
+}
+
+/// The request that follows `line` in its order through `points` (its
+/// ends, and points along it).
+fn request_through(line: &[Position], points: &[Position]) -> Option<Value> {
+    if points.len() < 2 || line.len() < 2 {
+        return None;
+    }
     let start_heading = heading(line[0], line[1]).rem_euclid(360.0);
     let last = points.len() - 1;
     let stops: Vec<Value> = points
@@ -390,10 +417,31 @@ pub async fn match_lines(
             ways.push(line.iter().rev().copied().collect());
         }
         for way in ways {
-            let Some(body) = request(&way) else {
+            let Some(mut through) = locations(&way) else {
                 continue;
             };
-            if let Some(answer) = engine.route(&body).await?
+            let answer = loop {
+                let Some(body) = request_through(&way, &through) else {
+                    break None;
+                };
+                match engine.route(&body).await {
+                    Ok(answer) => break answer,
+                    Err(error) if error.is_refusal() => match fewer(&through) {
+                        Some(less) => {
+                            tracing::info!(
+                                %error,
+                                points = through.len(),
+                                "the routing engine refused a line through several points; \
+                                 asked again through fewer"
+                            );
+                            through = less;
+                        }
+                        None => return Err(error),
+                    },
+                    Err(error) => return Err(error),
+                }
+            };
+            if let Some(answer) = answer
                 && let Some(points) = accept(&answer, &way, road.as_deref())
             {
                 out.push(points);
@@ -578,6 +626,93 @@ mod tests {
                 .len()
                 <= MAX_LOCATIONS
         );
+    }
+
+    /// An engine that refuses a request through more than `max` points,
+    /// as Valhalla 3.9 refused four Dutch streets, and otherwise drives
+    /// straight through the points asked; it keeps the number of points
+    /// of each request.
+    struct Refusing {
+        max: usize,
+        asked: std::sync::Mutex<Vec<usize>>,
+    }
+
+    impl Engine for Refusing {
+        async fn route(&self, body: &Value) -> Result<Option<Value>, MatchError> {
+            let points: Vec<Position> = body["locations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|l| p(l["lat"].as_f64().unwrap(), l["lon"].as_f64().unwrap()))
+                .collect();
+            self.asked.lock().unwrap().push(points.len());
+            if points.len() > self.max {
+                return Err(MatchError::Refused("HTTP 500: InvalidUrl".to_owned()));
+            }
+            let distance: f64 = points.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+            Ok(Some(json!({
+                "code": "Ok",
+                "waypoints": [{"distance": 1.0}, {"distance": 1.0}],
+                "routes": [{"geometry": polyline::encode(&points), "distance": distance}]
+            })))
+        }
+    }
+
+    #[tokio::test]
+    async fn a_line_refused_through_its_points_is_asked_through_fewer() {
+        // A straight street of 1.5 km, both ways: 7 points each way.
+        let street: Vec<Position> = (0..=30)
+            .map(|i| p(52.10, 5.10 + f64::from(i) * 0.000_73))
+            .collect();
+        let middle_only = Refusing {
+            max: 3,
+            asked: std::sync::Mutex::default(),
+        };
+        let lines = match_lines(
+            &middle_only,
+            std::slice::from_ref(&street),
+            EventDirection::Both,
+            None,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(lines.len(), 2, "placed both ways");
+        assert_eq!(
+            *middle_only.asked.lock().unwrap(),
+            [7, 3, 7, 3],
+            "each way asked through all its points, then its ends and middle"
+        );
+        let ends_only = Refusing {
+            max: 2,
+            asked: std::sync::Mutex::default(),
+        };
+        let one_way = match_lines(
+            &ends_only,
+            std::slice::from_ref(&street),
+            EventDirection::Forward,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(one_way.is_some(), "placed through its ends alone");
+        assert_eq!(*ends_only.asked.lock().unwrap(), [7, 3, 2]);
+        let never = Refusing {
+            max: 1,
+            asked: std::sync::Mutex::default(),
+        };
+        let refused = match_lines(
+            &never,
+            std::slice::from_ref(&street),
+            EventDirection::Forward,
+            None,
+        )
+        .await;
+        assert!(
+            matches!(refused, Err(MatchError::Refused(_))),
+            "refused through its ends too: the refusal is recorded as before"
+        );
+        assert_eq!(*never.asked.lock().unwrap(), [7, 3, 2]);
     }
 
     #[test]

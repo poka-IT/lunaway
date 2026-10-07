@@ -8,6 +8,8 @@ pub mod atout_france;
 pub mod cache;
 pub mod cameras;
 pub mod cameras_osm;
+pub mod content;
+pub mod datatourisme;
 pub mod enforcement;
 pub mod extcom;
 pub mod extract_run;
@@ -216,6 +218,15 @@ pub enum IngestError {
     Implausible {
         /// What is wrong.
         what: String,
+    },
+    /// A picture could not be processed, or the media directory written.
+    #[error("media")]
+    Media(#[source] lunaway_media::MediaError),
+    /// Another run of the same job holds its lock.
+    #[error("another {what} is running")]
+    Busy {
+        /// The job.
+        what: &'static str,
     },
     /// The cache directory or one of its files failed.
     #[error("cache file {path}")]

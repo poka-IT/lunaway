@@ -19,7 +19,7 @@ use crate::{
         parse_item_cursor,
     },
     error::{internal, invalid_input},
-    external_types::{ExternalPhoto, ExternalReviewConnection},
+    external_types::{ExternalDescription, ExternalPhoto, ExternalReviewConnection},
     loaders::PlaceSourcesLoader,
     schema::{DB_FIELD_COST, cost, db, state},
 };
@@ -673,11 +673,13 @@ impl Place {
         .into())
     }
 
-    /// The reviews with text of a partner's community (the external
-    /// community source, `extcom`), newest first, 50 per page at most, each
-    /// with its author's pseudonym and the source's label. Read per place
-    /// when its card opens: the change feed, the packs and the map tiles
-    /// never carry them. Empty while the source is hidden.
+    /// The reviews with text of other sources than Lunaway's community,
+    /// newest first, 50 per page at most, each with its author's pseudonym
+    /// and its source's id and label: the partner's community (`extcom`)
+    /// and the open reviews of Mangrove (`mangrove`, with their licence and
+    /// a link). Read per place when its card opens: the change feed, the
+    /// packs and the map tiles never carry them. A hidden source shows
+    /// nothing; neither does an item an operator or the reports hid.
     #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
     async fn external_reviews(
         &self,
@@ -693,45 +695,91 @@ impl Place {
         }
         let after = parse_item_cursor(after.as_deref())?;
         let (pool, _permit) = db(ctx).await?;
-        Ok(
+        let partner =
             lunaway_db::extcom::reviews_of_place(pool, self.0.id, i64::from(first), after)
                 .await
-                .map_err(|e| internal(&e))?
-                .into(),
-        )
+                .map_err(|e| internal(&e))?;
+        let open = lunaway_db::content::reviews_of_place(pool, self.0.id, i64::from(first), after)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(ExternalReviewConnection::merge(
+            partner,
+            open,
+            usize::try_from(first).unwrap_or(0),
+        ))
     }
 
-    /// What a partner's community says of the place's ratings as a whole,
-    /// by source (more ratings than the reviews it hands over). Read per
-    /// place, like `externalReviews`; empty while the source is hidden.
+    /// What other sources say of the place's ratings as a whole, by
+    /// source: the partner's summaries (more ratings than the reviews it
+    /// hands over) and the mean of Mangrove's ratings. Read per place, like
+    /// `externalReviews`; empty while a source is hidden.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn external_ratings(&self, ctx: &Context<'_>) -> Result<Vec<SourceRating>> {
         let (pool, _permit) = db(ctx).await?;
-        Ok(lunaway_db::extcom::ratings_of_place(pool, self.0.id)
+        let partner = lunaway_db::extcom::ratings_of_place(pool, self.0.id)
             .await
-            .map_err(|e| internal(&e))?
+            .map_err(|e| internal(&e))?;
+        let open = lunaway_db::content::ratings_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(partner
             .into_iter()
             .map(|r| SourceRating {
                 source_id: r.source_id,
                 average: r.average,
                 count: r.count,
             })
+            .chain(open.into_iter().map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            }))
             .collect())
     }
 
-    /// The photos of a partner's community, newest first (50 at most),
-    /// each with its author's pseudonym and the source's label. Read per
-    /// place, like `externalReviews`; empty while the source is hidden.
+    /// The photos of other sources than Lunaway's community, served from
+    /// Lunaway's host (50 at most): the partner's community's first, newest
+    /// first, then those of the open sources, the ones of the place itself
+    /// before the street views and the surroundings (`kind`). Each carries
+    /// its source's id and label, its author and licence, and for an open
+    /// source a link to its page. Read per place, like `externalReviews`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
         let (pool, _permit) = db(ctx).await?;
-        let rows = lunaway_db::extcom::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
+        let partner = lunaway_db::extcom::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
             .await
             .map_err(|e| internal(&e))?;
+        let room = MAX_EXTERNAL_PHOTOS - i64::try_from(partner.len()).unwrap_or(0);
+        let open = if room > 0 {
+            lunaway_db::content::photos_of_place(pool, self.0.id, room)
+                .await
+                .map_err(|e| internal(&e))?
+        } else {
+            Vec::new()
+        };
         let config = &state(ctx).config;
-        Ok(rows
+        Ok(partner
             .into_iter()
             .map(|r| ExternalPhoto::from_row(r, &config.media, &config.tiles.public_url))
+            .chain(
+                open.into_iter()
+                    .map(|r| ExternalPhoto::from_content(r, &config.media)),
+            )
+            .collect())
+    }
+
+    /// Descriptions of the place by open sources (the introduction of its
+    /// Wikipedia article, the tourist office's text on DATAtourisme), one
+    /// per source and language, each with its source's label, licence and
+    /// page. Read per place, like `externalReviews`.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_descriptions(&self, ctx: &Context<'_>) -> Result<Vec<ExternalDescription>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::content::descriptions_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(ExternalDescription::from)
             .collect())
     }
 

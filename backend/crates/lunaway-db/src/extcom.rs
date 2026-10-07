@@ -552,7 +552,7 @@ impl std::ops::AddAssign for ExtrasStats {
 
 /// The UUID v7 of a review written at `at`: the newest reviews come first
 /// in id order, as the community's do, whatever order the feed lists them.
-fn review_id(at: DateTime<Utc>) -> Uuid {
+pub(crate) fn review_id(at: DateTime<Utc>) -> Uuid {
     let secs = u64::try_from(at.timestamp()).unwrap_or(0);
     Uuid::new_v7(uuid::Timestamp::from_unix(
         uuid::NoContext,
@@ -892,6 +892,12 @@ pub async fn reviews_of_place(
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE ps.place_id = $1 AND w.hidden_at IS NULL AND e.body IS NOT NULL
           AND ($2::uuid IS NULL OR e.id < $2)
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = e.source_id
+                AND ((h.scope = 'item' AND h.key = e.external_id)
+                  OR (h.scope = 'place' AND h.key = $1::text)
+                  OR h.scope = 'source'))
         ORDER BY e.id DESC
         LIMIT $3
         "#,
@@ -908,6 +914,12 @@ pub async fn reviews_of_place(
         JOIN external_reviews e ON e.record_id = ps.record_id
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE ps.place_id = $1 AND w.hidden_at IS NULL AND e.body IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = e.source_id
+                AND ((h.scope = 'item' AND h.key = e.external_id)
+                  OR (h.scope = 'place' AND h.key = $1::text)
+                  OR h.scope = 'source'))
         "#,
         place,
     )
@@ -948,6 +960,10 @@ pub async fn ratings_of_place(
         JOIN external_ratings t ON t.record_id = ps.record_id
         LEFT JOIN source_switches w ON w.source_id = t.source_id
         WHERE ps.place_id = $1 AND w.hidden_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = t.source_id
+                AND ((h.scope = 'place' AND h.key = $1::text) OR h.scope = 'source'))
         GROUP BY t.source_id
         ORDER BY t.source_id
         "#,
@@ -1005,6 +1021,12 @@ pub async fn photos_of_place(
         JOIN sources s ON s.id = e.source_id
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE ps.place_id = $1 AND w.hidden_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = e.source_id
+                AND ((h.scope = 'item' AND h.key = e.external_id)
+                  OR (h.scope = 'place' AND h.key = $1::text)
+                  OR h.scope = 'source'))
         ORDER BY e.taken_at DESC NULLS LAST, e.id DESC
         LIMIT $2
         "#,
@@ -1059,6 +1081,12 @@ pub async fn photo_for_proxy(
         FROM external_photos e
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE e.id = $1 AND e.retired_at IS NULL AND e.url IS NOT NULL AND w.hidden_at IS NULL
+          -- A photo the reports, a moderator or the operator hid is no
+          -- longer served, even to a client that kept its address.
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = e.source_id
+                AND ((h.scope = 'item' AND h.key = e.external_id) OR h.scope = 'source'))
         "#,
         id,
         today,

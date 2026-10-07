@@ -47,6 +47,19 @@ impl SourceId {
     pub const CAT_SCT_RADARS: Self = Self(Cow::Borrowed("cat-sct-radars"));
     /// Norway's fixed speed cameras (NVDB, object type 162).
     pub const NO_NVDB_ATK: Self = Self(Cow::Borrowed("no-nvdb-atk"));
+    /// Wikimedia Commons: photos, each under its own free licence.
+    pub const WIKIMEDIA_COMMONS: Self = Self(Cow::Borrowed("wikimedia-commons"));
+    /// Wikipedia: the introduction of a place's article (CC BY-SA 4.0).
+    pub const WIKIPEDIA: Self = Self(Cow::Borrowed("wikipedia"));
+    /// Wikidata (CC0): which article and which image a place's item names.
+    pub const WIKIDATA: Self = Self(Cow::Borrowed("wikidata"));
+    /// Panoramax: street-level pictures, under each instance's licence.
+    pub const PANORAMAX: Self = Self(Cow::Borrowed("panoramax"));
+    /// Mangrove Reviews: open reviews (CC BY 4.0).
+    pub const MANGROVE: Self = Self(Cow::Borrowed("mangrove"));
+    /// DATAtourisme: the descriptions French tourist offices publish
+    /// (Licence Ouverte 2.0).
+    pub const DATATOURISME: Self = Self(Cow::Borrowed("datatourisme"));
     /// The external community source: a partner's places, reviews and
     /// photos, received as a feed under a written agreement
     /// (`docs/feeds.md`), shown as "Source communautaire externe".
@@ -116,6 +129,12 @@ mod tests {
             SourceId::LU_PCH_RADARS,
             SourceId::CAT_SCT_RADARS,
             SourceId::NO_NVDB_ATK,
+            SourceId::WIKIMEDIA_COMMONS,
+            SourceId::WIKIPEDIA,
+            SourceId::WIKIDATA,
+            SourceId::PANORAMAX,
+            SourceId::MANGROVE,
+            SourceId::DATATOURISME,
             SourceId::EXTCOM,
         ] {
             assert_eq!(

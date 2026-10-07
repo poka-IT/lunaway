@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT e.id, e.source_id, s.name AS source_label, e.author, e.written_at, e.lang,\n               e.rating, e.body AS \"body!\", e.vehicle, e.licence\n        FROM place_sources ps\n        JOIN external_reviews e ON e.record_id = ps.record_id\n        JOIN sources s ON s.id = e.source_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = $1 AND w.hidden_at IS NULL AND e.body IS NOT NULL\n          AND ($2::uuid IS NULL OR e.id < $2)\n        ORDER BY e.id DESC\n        LIMIT $3\n        ",
+  "query": "\n        SELECT e.id, e.source_id, s.name AS source_label, e.author, e.written_at, e.lang,\n               e.rating, e.body AS \"body!\", e.vehicle, e.licence\n        FROM place_sources ps\n        JOIN external_reviews e ON e.record_id = ps.record_id\n        JOIN sources s ON s.id = e.source_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = $1 AND w.hidden_at IS NULL AND e.body IS NOT NULL\n          AND ($2::uuid IS NULL OR e.id < $2)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'item' AND h.key = e.external_id)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ORDER BY e.id DESC\n        LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -134,5 +134,5 @@
       false
     ]
   },
-  "hash": "6c299d4a34f45f386d48a9ee7c245d2f27d3225d09f615050e97490ff77d9dbb"
+  "hash": "0e223f4213fba7d3e33f8425ba1d44cecc38216d28957c20ac033ff6614bbc2b"
 }

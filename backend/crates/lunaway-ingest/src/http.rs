@@ -47,7 +47,15 @@ pub const REDIRECT_HOSTS: &[&str] = &[
 /// another one. Geofabrik sends its largest extracts (Germany, 4.9 GB on
 /// 2026-10-06) to the GWDG's mirror of its own download tree
 /// (`https://ftp5.gwdg.de/pub/misc/openstreetmap/download.geofabrik.de/`).
-pub const MIRRORS: &[(&str, &str)] = &[("download.geofabrik.de", "ftp5.gwdg.de")];
+/// IGN's Panoramax instance answers every picture with a redirect to its
+/// object storage at OVH (read 2026-10-07).
+pub const MIRRORS: &[(&str, &str)] = &[
+    ("download.geofabrik.de", "ftp5.gwdg.de"),
+    (
+        "panoramax.ign.fr",
+        "panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net",
+    ),
+];
 
 /// Whether a redirect of a request first sent to `first` may go to `next`:
 /// within the host first asked, to a source's host ([`REDIRECT_HOSTS`]), or
@@ -96,6 +104,27 @@ fn redirect_policy() -> reqwest::redirect::Policy {
 /// [`IngestError::Client`] when the TLS stack cannot be initialised.
 pub fn client() -> Result<reqwest::Client, IngestError> {
     build(true)
+}
+
+/// A client that follows no redirect at all, for a request that carries a
+/// secret in a header of its own (the DATAtourisme key in `X-API-Key`):
+/// reqwest strips only the standard authentication headers when a
+/// redirect changes host, and a redirect to any host of
+/// [`REDIRECT_HOSTS`] would hand the secret over.
+///
+/// # Errors
+///
+/// [`IngestError::Client`] when the TLS stack cannot be initialised.
+pub fn client_without_redirects() -> Result<reqwest::Client, IngestError> {
+    install_crypto_provider();
+    reqwest::Client::builder()
+        .user_agent(user_agent())
+        .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(300))
+        .build()
+        .map_err(IngestError::Client)
 }
 
 /// A client that also accepts plain HTTP, for tests against a local server.
