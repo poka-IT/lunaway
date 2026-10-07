@@ -123,30 +123,32 @@ List<Object> placeTileFilter(PlaceFilter filter) {
       ],
     for (final amenity in Amenity.values)
       if (filter.amenities.contains(amenity))
-        ['any', for (final s in amenity.services) _hasService(s)],
+        ['any', for (final s in amenity.services) placeTileHasService(s)],
     if (filter.freeOnly)
       [
         '==',
         ['get', PlaceTiles.price],
         0,
       ],
-    // An unknown height reads as no limit, so the place stays.
-    if (filter.vehicleHeightM case final height?)
-      [
-        '>=',
-        [
-          'coalesce',
-          ['get', PlaceTiles.height],
-          _noLimitCm,
-        ],
-        heightCentimetres(height),
-      ],
+    if (filter.vehicleHeightM case final height?) placeTileFitsHeight(height),
   ];
   // True for every feature (each carries its kind): the empty filter keeps
   // everything, and an `all` without arguments may read as a legacy filter.
   if (conditions.isEmpty) return const ['has', PlaceTiles.kind];
   return ['all', ...conditions];
 }
+
+/// Keeps the places a vehicle [heightM] high fits under. An unknown height
+/// reads as no limit, so the place stays.
+List<Object> placeTileFitsHeight(double heightM) => [
+  '>=',
+  [
+    'coalesce',
+    ['get', PlaceTiles.height],
+    _noLimitCm,
+  ],
+  heightCentimetres(heightM),
+];
 
 /// Higher than any vehicle, for a place whose height limit is unknown.
 const _noLimitCm = 100000;
@@ -158,7 +160,7 @@ int heightCentimetres(double metres) => (metres * 100).round();
 /// written `floor(s / 2^bit) - 2 * floor(s / 2^(bit + 1)) == 1` because the
 /// expression language has no bitwise operator and the iOS plugin cannot
 /// convert `%` (`test/unit/cluster_label_test.dart`).
-List<Object> _hasService(Service service) {
+List<Object> placeTileHasService(Service service) {
   const mask = [
     'coalesce',
     ['get', PlaceTiles.services],

@@ -17,6 +17,7 @@ import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/data/web_voice.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/data/web_voice_web.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -52,6 +53,10 @@ class RouteSettingsController extends _$RouteSettingsController {
 
   /// Records that the user read the disclaimer of [key].
   Future<void> acceptDisclaimer(String key) => _update((s) => s.copyWith(acceptedDisclaimer: key));
+
+  /// The places and points the guidance map shows from now on.
+  Future<void> setGuidancePlaces(GuidancePlaces places) =>
+      _update((s) => s.copyWith(guidancePlaces: places));
 
   /// Records that the route map's legend was shown open.
   Future<void> legendShown() async {

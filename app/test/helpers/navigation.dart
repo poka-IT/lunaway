@@ -454,14 +454,17 @@ class _SchematicPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final camera = props.camera;
+    GeoBounds around(LatLng position) => GeoBounds(
+      south: position.lat - 0.004,
+      west: position.lon - 0.006,
+      north: position.lat + 0.004,
+      east: position.lon + 0.006,
+    );
     final bounds = switch (camera) {
       FitCamera(:final bounds) => bounds,
-      FollowCamera(:final position) => GeoBounds(
-        south: position.lat - 0.004,
-        west: position.lon - 0.006,
-        north: position.lat + 0.004,
-        east: position.lon + 0.006,
-      ),
+      FollowCamera(:final position) => around(position),
+      // Where the user left it is the engine's: drawn around the vehicle.
+      FreeCamera() => around(props.vehicle?.position ?? const LatLng(45.8, 1.26)),
     };
     final pad = props.padding;
     final box = Rect.fromLTRB(

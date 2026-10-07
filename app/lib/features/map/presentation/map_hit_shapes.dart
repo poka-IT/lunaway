@@ -3,6 +3,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
@@ -62,19 +63,37 @@ final StopsHit _dot = StopsHit(
   _sum(_stops(MapLook.dotRadius), _stops(MapLook.dotStrokeWidth)),
 );
 
-/// A place's pin, at the size [MapLook.pinSize] draws it by the zoom. With
-/// [dotUnder] (the tiles' pins), the dot drawn under its tip from the same
-/// feature is part of it ([HitShape.anchor]); without, the hover's ring
-/// takes that dot's size ([HitShape.ring]) and the target stays the head.
-HitShape _pin(PinGeometry g, {required bool dotUnder}) {
-  final size = _stops(MapLook.pinSize(1));
+/// The pins of the guidance map's places and points, smaller than the main
+/// map's ([RoutePlaceLayers]), under the route's marks for a tap that
+/// could pick either. No dot is drawn under them.
+final Map<String, HitShape> routePlaceHitShapes = {
+  RoutePlaceLayers.placePins: _pin(
+    const PinGeometry(selected: false),
+    dotUnder: false,
+    scale: RoutePlaceLayers.placeScale,
+    priority: 4,
+  ),
+  RoutePlaceLayers.poiPins: _poiPin(
+    const PoiPinGeometry(),
+    priority: 5,
+    scale: RoutePlaceLayers.poiScale,
+  ),
+};
+
+/// A place's pin, at the size [MapLook.pinSize] draws it by the zoom, times
+/// [scale]. With [dotUnder] (the tiles' pins), the dot drawn under its tip
+/// from the same feature is part of it ([HitShape.anchor]); without, the
+/// hover's ring takes that dot's size ([HitShape.ring]) and the target
+/// stays the head.
+HitShape _pin(PinGeometry g, {required bool dotUnder, double scale = 1, int priority = 1}) {
+  final size = _stops(MapLook.pinSize(scale));
   return HitShape(
     radius: StopsHit('zoom', [for (final (z, s) in size) (z, g.outer * s)]),
     lift: StopsHit('zoom', [for (final (z, s) in size) (z, g.tipDrop * s)]),
     anchor: dotUnder ? _dot : null,
     ring: dotUnder ? null : _dot,
     icon: StopsHit('zoom', size),
-    priority: 1,
+    priority: priority,
   );
 }
 
@@ -83,14 +102,19 @@ HitShape _pin(PinGeometry g, {required bool dotUnder}) {
 /// is drawn there: the hover's ring takes a place's dot size, so it is the
 /// same under every pin. A [selection] stands over the point's own pin and
 /// takes in its tip, as a place's does.
-HitShape _poiPin(PoiPinGeometry g, {required int priority, bool selection = false}) {
-  final half = g.side / 2 + g.rim;
+HitShape _poiPin(
+  PoiPinGeometry g, {
+  required int priority,
+  bool selection = false,
+  double scale = 1,
+}) {
+  final half = (g.side / 2 + g.rim) * scale;
   return HitShape(
     radius: FixedHit(half),
-    lift: FixedHit(g.margin + g.tail + half),
+    lift: FixedHit((g.margin + g.tail) * scale + half),
     anchor: selection ? _dot : null,
     ring: selection ? null : _dot,
-    icon: selection ? null : const FixedHit(1),
+    icon: selection ? null : FixedHit(scale),
     priority: priority,
   );
 }
@@ -179,7 +203,8 @@ Map<String, Object?> hitShapesJson() => {
     'exit': _bezier(Motion.exit),
   },
   'shapes': {
-    for (final e in {...mapHitShapes, ...routeHitShapes}.entries) e.key: e.value.toJson(),
+    for (final e in {...mapHitShapes, ...routeHitShapes, ...routePlaceHitShapes}.entries)
+      e.key: e.value.toJson(),
   },
 };
 
