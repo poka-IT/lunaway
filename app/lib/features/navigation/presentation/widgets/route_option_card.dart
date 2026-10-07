@@ -134,7 +134,10 @@ class _Fact extends StatelessWidget {
               Icon(icon, size: 16, color: fg),
               const SizedBox(width: Space.xxs),
             ],
-            Text(text, style: theme.textTheme.labelMedium?.copyWith(color: fg)),
+            // A long fact wraps inside its chip rather than past the card.
+            Flexible(
+              child: Text(text, style: theme.textTheme.labelMedium?.copyWith(color: fg)),
+            ),
           ],
         ),
       ),

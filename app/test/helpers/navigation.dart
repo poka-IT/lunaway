@@ -26,7 +26,9 @@ import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
@@ -513,19 +515,15 @@ class _SchematicPainter extends CustomPainter {
           );
       }
     }
+    // The badges as the engines draw them, minor ones smaller; lit ones in
+    // their ring.
     for (final m in props.marks) {
       final o = project(m.position);
-      canvas
-        ..drawCircle(
-          o,
-          RouteLook.markRadius(m.kind) + 2.5,
-          Paint()..color = _hex(RouteLook.markStroke),
-        )
-        ..drawCircle(
-          o,
-          RouteLook.markRadius(m.kind),
-          Paint()..color = _hex(RouteLook.markFill(m.kind)),
-        );
+      final scale = m.minor ? RouteMarkStyle.minorSize : 1.0;
+      if (props.highlighted.contains(m.id)) {
+        canvas.drawCircle(o, 19 * scale, Paint()..color = _hex(RouteLook.halo));
+      }
+      paintRouteBadge(canvas, m.badge, o, scale: scale, text: m.label);
     }
     final v = props.vehicle;
     if (v != null) {

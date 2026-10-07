@@ -182,7 +182,7 @@ void main() {
       app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([a]);
       await settleShort(tester);
       final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.stop);
-      SchematicRouteMap.last!.onMarkTap!(mark.id!);
+      SchematicRouteMap.last!.onMarkTap!(mark.id);
       await settleShort(tester);
       await tester.tap(find.text("Retirer l'étape").last);
       await settleShort(tester);
@@ -227,7 +227,7 @@ void main() {
       app.container(tester).read(routeStopsControllerProvider(utrillo).notifier).set([a]);
       await settleShort(tester);
       final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.stop);
-      SchematicRouteMap.last!.onMarkTap!(mark.id!);
+      SchematicRouteMap.last!.onMarkTap!(mark.id);
       await settleShort(tester);
       // From the phone's sheet to the side panel: another map under the card.
       tester.view.physicalSize = const Size(1280, 900);
@@ -287,7 +287,7 @@ void main() {
       expect(find.textContaining('1,739 €/L · il y a 3 h'), findsOneWidget);
       expect(find.textContaining('+1,5 km · +2 min · Ouvert'), findsOneWidget);
       expect(
-        SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.station),
+        SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.fuel),
         hasLength(3),
       );
       await tester.tap(find.text('Ajouter').first);

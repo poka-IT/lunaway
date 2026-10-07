@@ -85,6 +85,7 @@ final class NavigationSettings {
     this.voice = true,
     this.units = DistanceUnits.metric,
     this.acceptedDisclaimer,
+    this.legendSeen = false,
   });
 
   /// Unknown or corrupt values fall back to the defaults, never fatal: the
@@ -101,6 +102,7 @@ final class NavigationSettings {
         voice: json['voice'] != false,
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
         acceptedDisclaimer: accepted is String ? accepted : null,
+        legendSeen: json['legendSeen'] == true,
       );
     } on FormatException {
       return const NavigationSettings();
@@ -117,16 +119,21 @@ final class NavigationSettings {
   /// `routing.disclaimer.v1`): a new version is shown again.
   final String? acceptedDisclaimer;
 
+  /// The legend of the route map was shown open once: it now opens folded.
+  final bool legendSeen;
+
   NavigationSettings copyWith({
     AvoidOptions? avoid,
     bool? voice,
     DistanceUnits? units,
     String? acceptedDisclaimer,
+    bool? legendSeen,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
     voice: voice ?? this.voice,
     units: units ?? this.units,
     acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
+    legendSeen: legendSeen ?? this.legendSeen,
   );
 
   String encode() => jsonEncode({
@@ -134,6 +141,7 @@ final class NavigationSettings {
     'voice': voice,
     'units': units.name,
     'acceptedDisclaimer': ?acceptedDisclaimer,
+    if (legendSeen) 'legendSeen': true,
   });
 
   @override
@@ -142,10 +150,11 @@ final class NavigationSettings {
       other.avoid == avoid &&
       other.voice == voice &&
       other.units == units &&
-      other.acceptedDisclaimer == acceptedDisclaimer;
+      other.acceptedDisclaimer == acceptedDisclaimer &&
+      other.legendSeen == legendSeen;
 
   @override
-  int get hashCode => Object.hash(avoid, voice, units, acceptedDisclaimer);
+  int get hashCode => Object.hash(avoid, voice, units, acceptedDisclaimer, legendSeen);
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).

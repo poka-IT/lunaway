@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -21,12 +22,16 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
@@ -198,10 +203,10 @@ void main() {
         find.text("OpenStreetMap · les sources divergent, la valeur la plus basse s'applique"),
         findsOneWidget,
       );
-      expect(
-        SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.warning),
-        hasLength(1),
-      );
+      final bridge = SchematicRouteMap.last!.marks.singleWhere((m) => m.id.startsWith('warning:'));
+      expect(bridge.kind, RouteMarkKind.clearance);
+      expect(bridge.badge, RouteBadge.sign(SignGlyph.height), reason: 'the height sign');
+      expect(bridge.side, '2,70 m', reason: 'its figure beside it');
     });
 
     testWidgets('the closures gone around and the works on the way, with their sources', (
@@ -226,8 +231,15 @@ void main() {
         findsOneWidget,
       );
       final marks = SchematicRouteMap.last!.marks;
-      expect(marks.where((m) => m.kind == RouteMarkKind.blocker), hasLength(2));
-      expect(marks.where((m) => m.kind == RouteMarkKind.event), hasLength(4));
+      final avoided = marks.where((m) => m.id.startsWith('avoided:'));
+      expect(avoided.map((m) => m.kind), [RouteMarkKind.closure, RouteMarkKind.closure]);
+      final met = marks.where((m) => m.id.startsWith('event:')).toList();
+      expect(met, hasLength(4));
+      expect(
+        met.where((m) => m.kind == RouteMarkKind.lanes).map((m) => m.minor),
+        everyElement(isTrue),
+        reason: 'lanes closed are drawn small, from a closer zoom',
+      );
     });
 
     testWidgets("a link naming a place held here routes to its own spot, not the link's point", (
@@ -351,10 +363,8 @@ void main() {
         find.text("Choisissez une arrivée avant l'obstacle : appui long sur la carte."),
         findsOneWidget,
       );
-      expect(
-        SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.blocker),
-        hasLength(1),
-      );
+      final bar = SchematicRouteMap.last!.marks.singleWhere((m) => m.id.startsWith('blocker:'));
+      expect(bar.badge, RouteBadge.sign(SignGlyph.height, blocking: true));
     });
 
     testWidgets('no road there, with unpaved roads avoided, suggests allowing them', (
@@ -1009,9 +1019,7 @@ void main() {
         expect(find.textContaining('appui long sur la carte'), findsOneWidget);
         expect(find.text("C'est parti !"), findsNothing);
         expect(find.text('Ouvrir dans…'), findsNothing);
-        final blocker = SchematicRouteMap.last!.marks.singleWhere(
-          (m) => m.kind == RouteMarkKind.blocker,
-        );
+        final blocker = SchematicRouteMap.last!.marks.singleWhere((m) => m.id.startsWith('limit:'));
         expect(blocker.position, const LatLng(43.636884, 1.482296));
       });
     }
@@ -1281,6 +1289,204 @@ void main() {
     await tester.tap(find.text('Miles'));
     await settleShort(tester);
     expect(settings.value.units, DistanceUnits.imperial);
+  });
+
+  group('the marks of the route map', () {
+    const bridge = 'warning:0:0';
+    const desktop = Size(1280, 1600);
+    // The legend, open on a first preview, would repeat the kinds.
+    MemoryRouteSettings legendSeen() =>
+        MemoryRouteSettings(const NavigationSettings(legendSeen: true));
+    Finder inTip(String text) =>
+        find.descendant(of: find.byType(MarkTip), matching: find.text(text));
+    Color? rowTint(WidgetTester tester) {
+      final box = tester.widget<AnimatedContainer>(
+        find.descendant(of: find.byType(MarkLinkedRow), matching: find.byType(AnimatedContainer)),
+      );
+      return (box.decoration as BoxDecoration?)?.color;
+    }
+
+    Color lit(WidgetTester tester) =>
+        Theme.of(tester.element(find.byType(MarkLinkedRow))).colorScheme.secondaryContainer;
+
+    testWidgets('the pointer on a mark says what it is and lights its row', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: desktop,
+        settings: legendSeen(),
+      );
+      expect(find.byType(MarkTip), findsNothing);
+      SchematicRouteMap.last!.onMarkHover!(const RouteMapHover(at: Offset(600, 400), mark: bridge));
+      await tester.pump();
+      expect(inTip('Hauteur limitée'), findsOneWidget);
+      expect(inTip('Pont bas 2,70 m'), findsOneWidget);
+      expect(inTip('à 50 m du départ'), findsOneWidget);
+      expect(inTip('OpenStreetMap'), findsOneWidget);
+      expect(SchematicRouteMap.last!.highlighted, {bridge});
+      await tester.pump(Motion.short);
+      expect(rowTint(tester), lit(tester));
+      SchematicRouteMap.last!.onMarkHover!(null);
+      await tester.pump(Motion.short);
+      expect(find.byType(MarkTip), findsNothing);
+      expect(SchematicRouteMap.last!.highlighted, isEmpty);
+      expect(rowTint(tester), isNot(lit(tester)));
+    });
+
+    testWidgets('a group under the pointer counts its marks by kind', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: desktop,
+        settings: legendSeen(),
+      );
+      SchematicRouteMap.last!.onMarkHover!(
+        const RouteMapHover(
+          at: Offset(600, 400),
+          group: {RouteMarkKind.closure: 1, RouteMarkKind.works: 2},
+        ),
+      );
+      await tester.pump();
+      expect(inTip('3 repères'), findsOneWidget);
+      expect(inTip('Route fermée : 1 · Travaux : 2'), findsOneWidget);
+      expect(inTip('Zoomez ou touchez pour les voir un par un'), findsOneWidget);
+    });
+
+    testWidgets('the pointer on a row lights its mark; a click on the row flies the map there', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: desktop,
+        settings: legendSeen(),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(WarningTile)));
+      await tester.pump();
+      expect(SchematicRouteMap.last!.highlighted, {bridge});
+      await mouse.moveTo(Offset.zero);
+      await tester.pump();
+      expect(SchematicRouteMap.last!.highlighted, isEmpty);
+      expect(SchematicRouteMap.last!.focus, isNull);
+      await tester.tap(find.byType(WarningTile));
+      await tester.pump();
+      final focus = SchematicRouteMap.last!.focus!;
+      expect(focus.marks, [bridge]);
+      expect(focus.position, routeFixture('utrillo_van').routes.first.warnings.single.position);
+      await tester.tap(find.byType(WarningTile));
+      await tester.pump();
+      expect(SchematicRouteMap.last!.focus!.serial, greaterThan(focus.serial), reason: 'again');
+    });
+
+    testWidgets('a click on a mark the pointer is on shows its row, without a callout', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: desktop,
+        settings: legendSeen(),
+      );
+      final map = SchematicRouteMap.last!;
+      map.onMarkHover!(const RouteMapHover(at: Offset(600, 400), mark: bridge));
+      await tester.pump();
+      map.onMarkTap!(bridge, at: const Offset(600, 400));
+      map.onMarkHover!(null);
+      await tester.pump(Motion.medium);
+      expect(find.byType(MarkTip), findsNothing);
+      expect(SchematicRouteMap.last!.highlighted, {bridge}, reason: 'chosen, it stays lit');
+      expect(rowTint(tester), lit(tester));
+    });
+
+    for (final (name, size) in [
+      ('a phone', tallPhone),
+      ('a tablet', const Size(700, 2000)),
+      ('a desktop', desktop),
+    ]) {
+      testWidgets('on $name a tap opens a callout that leads to the row and closes', (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: legendSeen(),
+        );
+        SchematicRouteMap.last!.onMarkTap!(bridge, at: const Offset(200, 120));
+        await tester.pump();
+        expect(inTip('Pont bas 2,70 m'), findsOneWidget);
+        await tester.tap(find.text('Voir dans la liste'));
+        await tester.pump(Motion.medium);
+        expect(find.byType(MarkTip), findsNothing);
+        expect(rowTint(tester), lit(tester), reason: 'the row is the one chosen');
+        expect(tester.getRect(find.byType(WarningTile)).top, lessThan(size.height));
+        SchematicRouteMap.last!.onMarkTap!(bridge, at: const Offset(200, 120));
+        await tester.pump();
+        expect(find.byType(MarkTip), findsOneWidget);
+        SchematicRouteMap.last!.onEmptyTap!();
+        await tester.pump();
+        expect(find.byType(MarkTip), findsNothing, reason: 'a tap elsewhere closes it');
+        SchematicRouteMap.last!.onMarkTap!('destination', at: const Offset(200, 120));
+        await tester.pump();
+        expect(inTip('Arrivée'), findsOneWidget);
+        expect(find.text('Voir dans la liste'), findsNothing, reason: 'no row for the end');
+        SchematicRouteMap.last!.onCameraMove!();
+        await tester.pump();
+        expect(find.byType(MarkTip), findsNothing, reason: 'a moved map closes it');
+      });
+
+      testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
+        final settings = MemoryRouteSettings();
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: settings,
+        );
+        final legend = find.byType(MarkLegend);
+        Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+        expect(inLegend('Départ'), findsOneWidget);
+        expect(inLegend('Arrivée'), findsOneWidget);
+        expect(inLegend('Hauteur limitée'), findsOneWidget);
+        expect(inLegend('Route fermée'), findsNothing, reason: 'none on this route');
+        expect(inLegend('Travaux'), findsNothing);
+        await settleShort(tester);
+        expect(settings.value.legendSeen, isTrue);
+        await tester.tap(find.byTooltip('Replier la légende'));
+        await settleShort(tester);
+        expect(inLegend('Hauteur limitée'), findsNothing);
+        await tester.tap(inLegend('Légende'));
+        await settleShort(tester);
+        expect(inLegend('Hauteur limitée'), findsOneWidget);
+      });
+    }
+
+    testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {
+      await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
+      final legend = find.byType(MarkLegend);
+      expect(find.descendant(of: legend, matching: find.text('Légende')), findsOneWidget);
+      expect(find.descendant(of: legend, matching: find.text('Hauteur limitée')), findsNothing);
+    });
+
+    testWidgets('in English, the tooltip and the legend', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: desktop,
+        locale: AppLocale.en,
+      );
+      expect(
+        find.descendant(of: find.byType(MarkLegend), matching: find.text('Height limit')),
+        findsOneWidget,
+      );
+      SchematicRouteMap.last!.onMarkHover!(const RouteMapHover(at: Offset(600, 400), mark: bridge));
+      await tester.pump();
+      expect(inTip('Height limit'), findsOneWidget);
+      expect(inTip('50 m from the start'), findsOneWidget);
+    });
   });
 }
 

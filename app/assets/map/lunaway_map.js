@@ -229,8 +229,14 @@
     for (var i = 0; i < features.length; i++) {
       var f = features[i];
       var p = f.properties || {};
+      // A mark of the route map (assets/map/route_marks.js).
+      if (p.mark !== undefined) {
+        send({ type: 'mark', id: p.mark, x: e.point.x, y: e.point.y });
+        return;
+      }
       if (p.point_count !== undefined) {
-        map.getSource(spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
+        // The source the group is in: the route map groups two of them.
+        map.getSource(f.source || spec.clusterSource).getClusterExpansionZoom(p.cluster_id).then(function (zoom) {
           map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 0.3, duration: reducedMotion ? 0 : 600 });
         });
         return;

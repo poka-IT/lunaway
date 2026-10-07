@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -11,8 +12,8 @@ import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
-import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -20,6 +21,7 @@ import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
@@ -27,6 +29,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.d
 import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/road_events_section.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
@@ -123,6 +126,7 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
                   builder: (context, scroll) => _SheetFrame(
                     child: CustomScrollView(
                       controller: scroll,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(_wholePanel),
                       slivers: [
                         const SliverToBoxAdapter(child: _Handle()),
                         SliverPadding(
@@ -155,6 +159,7 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
                     const Align(alignment: Alignment.centerLeft, child: _BackButton()),
                     Expanded(
                       child: CustomScrollView(
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(_wholePanel),
                         slivers: [
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.xl),
@@ -177,6 +182,11 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     );
   }
 }
+
+/// The panel is built whole, off screen too: a mark on the map can then
+/// bring any of its rows into view. Its sections are few, the long ones
+/// (the roadbook) folded.
+const _wholePanel = 100000.0;
 
 class _BackButton extends StatelessWidget {
   const new();
@@ -271,26 +281,24 @@ class _PreviewMap extends ConsumerWidget {
       stops: p?.stops ?? const [],
     );
     final now = ref.watch(clockProvider)();
-    final marks = [
-      ...points.marks,
-      if (p?.origin != null) RouteMapMark(position: p!.origin!, kind: RouteMarkKind.origin),
-      RouteMapMark(position: target.destination, kind: RouteMarkKind.destination),
-      for (final w in selected?.warnings ?? const <RouteWarning>[])
-        RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
-      for (final b in plan?.blockers ?? const <RouteWarning>[])
-        RouteMapMark(position: b.position, kind: RouteMarkKind.blocker),
-      // What keeps the vehicle out of a stop, where the server knows it.
-      for (final at in blockingPositions(p?.noRouteReasons ?? const []))
-        RouteMapMark(position: at, kind: RouteMarkKind.blocker),
-      // Road events met on the way, and the closures the route goes round:
-      // seen on the map, the detour explains itself.
-      for (final e in selected?.roadEvents ?? const <RouteRoadEvent>[])
-        RouteMapMark(position: e.position, kind: RouteMarkKind.event),
-      for (final e in plan?.roadEventBlockers ?? const <RouteRoadEvent>[])
-        RouteMapMark(position: e.position, kind: RouteMarkKind.blocker),
-      for (final e in plan?.avoidedRoadEvents ?? const <RoadEvent>[])
-        if (e.position case final at?) RouteMapMark(position: at, kind: RouteMarkKind.blocker),
-    ];
+    final t = context.t;
+    // Road events met on the way, and the closures the route goes round:
+    // seen on the map, the detour explains itself.
+    final markers = previewMarkers(
+      t: t,
+      destination: target.destination,
+      destinationLabel: target.label,
+      points: points.markers(t),
+      origin: p?.origin,
+      route: selected,
+      plan: plan,
+      noRouteReasons: p?.noRouteReasons ?? const [],
+    );
+    // Another route chosen: what was lit or asked for belongs to the old one.
+    ref.listen(
+      routePreviewControllerProvider(target).select((v) => v.value?.selected),
+      (_, _) => ref.read(routeMarkFocusProvider(target).notifier).clear(),
+    );
 
     // Every route in view, so an alternative can be compared and tapped;
     // choosing one leaves the camera where it is.
@@ -306,24 +314,25 @@ class _PreviewMap extends ConsumerWidget {
             for (final b in plan?.blockers ?? const <RouteWarning>[]) b.position,
             ...blockingPositions(p?.noRouteReasons ?? const []),
           ]);
-    return ref.watch(routeMapBuilderProvider)(
-      context,
-      RouteMapProps(
+    return RouteMarksMap(
+      target: target,
+      markers: markers,
+      plan: plan,
+      base: RouteMapProps(
         style: style,
         dark: dark,
         lines: lines,
-        marks: marks,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
         onLineTap: (i) => ref.read(routePreviewControllerProvider(target).notifier).select(i),
-        onMarkTap: (id) {
-          if (points.pointOf(id, context.t, now) case final point?) {
-            unawaited(openPreviewPoint(context, ref, target, point));
-          }
-        },
         onLongPress: (at) =>
             unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at))),
       ),
+      onPointTap: (id) {
+        if (points.pointOf(id, context.t, now) case final point?) {
+          unawaited(openPreviewPoint(context, ref, target, point));
+        }
+      },
     );
   }
 
@@ -460,7 +469,7 @@ class _Panel extends ConsumerWidget {
         const SizedBox(height: Space.l),
         _Warnings(route: p.route, units: units, target: target),
         const SizedBox(height: Space.l),
-        RoadEventsSection(plan: plan, route: p.route, units: units),
+        RoadEventsSection(plan: plan, route: p.route, units: units, target: target),
         const SizedBox(height: Space.l),
         const VehicleLine(),
         const SizedBox(height: Space.m),
@@ -473,7 +482,7 @@ class _Panel extends ConsumerWidget {
         RouteDataNote(graph: plan.graph),
       ],
       RouteStatus.noSafeRoute => [
-        _NoSafeRoute(plan: plan, units: units),
+        _NoSafeRoute(plan: plan, units: units, target: target),
         const SizedBox(height: Space.l),
         const VehicleLine(),
         const SizedBox(height: Space.m),
@@ -670,7 +679,12 @@ class _Warnings extends StatelessWidget {
       children: [
         Text(t.navigation.preview.warnings(n: warnings.length), style: theme.textTheme.titleMedium),
         const SizedBox(height: Space.xs),
-        for (final w in warnings) WarningTile(warning: w, units: units),
+        for (final (i, w) in warnings.indexed)
+          MarkLinkedRow(
+            target: target,
+            marks: [warningMarkId(route!.index, i)],
+            child: WarningTile(warning: w, units: units),
+          ),
       ],
     );
   }
@@ -679,10 +693,11 @@ class _Warnings extends StatelessWidget {
 /// No safe route: what stopped every route, the vehicle's figures, and
 /// what the user can change.
 class _NoSafeRoute extends StatelessWidget {
-  const new({required this.plan, required this.units});
+  const new({required this.plan, required this.units, required this.target});
 
   final RoutePlan plan;
   final DistanceUnits units;
+  final RouteTarget target;
 
   @override
   Widget build(BuildContext context) {
@@ -705,8 +720,13 @@ class _NoSafeRoute extends StatelessWidget {
         const SizedBox(height: Space.xs),
         Text(t.navigation.states.noSafeHint, style: theme.textTheme.bodyMedium),
         const SizedBox(height: Space.xs),
-        for (final b in plan.blockers) WarningTile(warning: b, units: units),
-        if (plan.roadEventBlockers.isNotEmpty) RoadEventBlockers(plan: plan),
+        for (final (i, b) in plan.blockers.indexed)
+          MarkLinkedRow(
+            target: target,
+            marks: [blockerMarkId(i)],
+            child: WarningTile(warning: b, units: units),
+          ),
+        if (plan.roadEventBlockers.isNotEmpty) RoadEventBlockers(plan: plan, target: target),
         const SizedBox(height: Space.m),
         Text(t.navigation.states.whatToDo, style: theme.textTheme.titleMedium),
         const SizedBox(height: Space.xs),

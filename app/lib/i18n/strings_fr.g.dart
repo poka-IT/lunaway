@@ -581,6 +581,7 @@ class _Translations$navigation$fr extends Translations$navigation$en {
 	@override late final _Translations$navigation$ferry$fr ferry = _Translations$navigation$ferry$fr._(_root);
 	@override late final _Translations$navigation$warning$fr warning = _Translations$navigation$warning$fr._(_root);
 	@override late final _Translations$navigation$roadEvents$fr roadEvents = _Translations$navigation$roadEvents$fr._(_root);
+	@override late final _Translations$navigation$marks$fr marks = _Translations$navigation$marks$fr._(_root);
 	@override late final _Translations$navigation$guidance$fr guidance = _Translations$navigation$guidance$fr._(_root);
 	@override late final _Translations$navigation$voice$fr voice = _Translations$navigation$voice$fr._(_root);
 	@override late final _Translations$navigation$units$fr units = _Translations$navigation$units$fr._(_root);
@@ -1788,6 +1789,44 @@ class _Translations$navigation$roadEvents$fr extends Translations$navigation$roa
 	@override String get reasonOverLimit => 'au-dessus de la limite de votre véhicule';
 }
 
+// Path: navigation.marks
+class _Translations$navigation$marks$fr extends Translations$navigation$marks$en {
+	_Translations$navigation$marks$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get legend => 'Légende';
+	@override String get legendHide => 'Replier la légende';
+	@override String get kindOrigin => 'Départ';
+	@override String get kindDestination => 'Arrivée';
+	@override String get kindStop => 'Étape';
+	@override String get kindClosure => 'Route fermée';
+	@override String get kindWorks => 'Travaux';
+	@override String get kindLanes => 'Voies réduites';
+	@override String get kindClearance => 'Hauteur limitée';
+	@override String get kindWeight => 'Poids limité';
+	@override String get kindLimit => 'Autre limite (largeur, longueur, interdiction)';
+	@override String get kindFuel => 'Station-service';
+	@override String get kindPlace => 'Lieu près du trajet';
+	@override String get groupLegend => 'Repères proches regroupés : zoomez ou touchez';
+	@override String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} repère',
+		other: '${n} repères',
+	);
+	@override String get groupHint => 'Zoomez ou touchez pour les voir un par un';
+	@override String count({required Object kind, required Object n}) => '${kind} : ${n}';
+	@override String stop({required Object n}) => 'Étape ${n}';
+	@override String get origin => 'Point de départ';
+	@override String get nearRoute => 'Près du trajet';
+	@override String get avoided => 'L\'itinéraire passe à côté';
+	@override String get blocking => 'Bloque chaque itinéraire';
+	@override String get showInList => 'Voir dans la liste';
+	@override String get showAll => 'Tout afficher';
+	@override String get onMap => 'montrer sur la carte';
+	@override String price({required Object price}) => '${price} €';
+}
+
 // Path: navigation.guidance
 class _Translations$navigation$guidance$fr extends Translations$navigation$guidance$en {
 	_Translations$navigation$guidance$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2883,6 +2922,34 @@ extension on TranslationsFr {
 			'navigation.roadEvents.reasonInside' => 'le trajet commence ou finit dedans',
 			'navigation.roadEvents.reasonNearLimit' => 'de justesse',
 			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
+			'navigation.marks.legend' => 'Légende',
+			'navigation.marks.legendHide' => 'Replier la légende',
+			'navigation.marks.kindOrigin' => 'Départ',
+			'navigation.marks.kindDestination' => 'Arrivée',
+			'navigation.marks.kindStop' => 'Étape',
+			'navigation.marks.kindClosure' => 'Route fermée',
+			'navigation.marks.kindWorks' => 'Travaux',
+			'navigation.marks.kindLanes' => 'Voies réduites',
+			'navigation.marks.kindClearance' => 'Hauteur limitée',
+			'navigation.marks.kindWeight' => 'Poids limité',
+			'navigation.marks.kindLimit' => 'Autre limite (largeur, longueur, interdiction)',
+			'navigation.marks.kindFuel' => 'Station-service',
+			'navigation.marks.kindPlace' => 'Lieu près du trajet',
+			'navigation.marks.groupLegend' => 'Repères proches regroupés : zoomez ou touchez',
+			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
+			'navigation.marks.groupHint' => 'Zoomez ou touchez pour les voir un par un',
+			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
+			'navigation.marks.stop' => ({required Object n}) => 'Étape ${n}',
+			'navigation.marks.origin' => 'Point de départ',
+			_ => null,
+		} ?? switch (path) {
+			'navigation.marks.nearRoute' => 'Près du trajet',
+			'navigation.marks.avoided' => 'L\'itinéraire passe à côté',
+			'navigation.marks.blocking' => 'Bloque chaque itinéraire',
+			'navigation.marks.showInList' => 'Voir dans la liste',
+			'navigation.marks.showAll' => 'Tout afficher',
+			'navigation.marks.onMap' => 'montrer sur la carte',
+			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.guidance.then' => 'Puis',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrivée ${time}',
 			'navigation.guidance.offRoute' => 'Hors itinéraire',
@@ -2902,8 +2969,6 @@ extension on TranslationsFr {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} dans ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.voiceOn' => 'Activer la voix',
 			'navigation.guidance.voiceOff' => 'Couper la voix',
 			'navigation.guidance.overview' => 'Tout le trajet',
@@ -3390,6 +3455,8 @@ extension on TranslationsFr {
 			'photoFlow.sending' => ({required Object percent}) => 'Envoi ${percent} %',
 			'photoFlow.pending' => 'Photo en attente d\'envoi',
 			'placeForm.addTitle' => 'Ajouter un lieu',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.editTitle' => 'Modifier le lieu',
 			'placeForm.proposeTitle' => 'Proposer une modification',
 			'placeForm.position' => 'Position sur la carte',
@@ -3416,8 +3483,6 @@ extension on TranslationsFr {
 			'placeForm.licence' => 'Les lieux sont publiés sous licence ODbL, crédités aux contributeurs de Lunaway.',
 			'placeForm.moderated' => 'Un site web ou un téléphone passe par un modérateur avant d\'être publié.',
 			'placeForm.direct' => 'Votre niveau applique la modification tout de suite.',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.proposal' => 'Un modérateur relira votre proposition avant qu\'elle s\'applique.',
 			'placeForm.submitAdd' => 'Ajouter le lieu',
 			'placeForm.submitEdit' => 'Enregistrer la modification',

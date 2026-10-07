@@ -129,10 +129,12 @@ abstract final class AppIcons {
   static const IconData toVerify = PhosphorRegular.sealQuestion;
   static const IconData warning = PhosphorRegular.warning;
 
-  /// A road event on a route: a closure, works, lanes closed.
+  /// A road event on a route: a closure, works, lanes closed. The same
+  /// glyphs as its badge on the route map.
   static IconData roadEvent(RoadEventClass c) => switch (c) {
     .closure || .detour => PhosphorRegular.barricade,
-    .works || .laneRestriction => PhosphorRegular.wrench,
+    .works => PhosphorRegular.wrench,
+    .laneRestriction => PhosphorRegular.arrowsMerge,
     .vehicleLimit => PhosphorRegular.arrowsVertical,
   };
 

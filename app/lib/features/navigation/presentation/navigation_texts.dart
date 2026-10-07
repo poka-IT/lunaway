@@ -346,6 +346,11 @@ extension NavigationTexts on Translations {
   String litrePrice(double euros) =>
       _t.navigation.fuel.price(price: NumberFormat('0.000', _locale).format(euros));
 
+  /// "1,789 €": a price beside its station on the map, where the litre
+  /// goes without saying.
+  String shortPrice(double euros) =>
+      _t.navigation.marks.price(price: NumberFormat('0.000', _locale).format(euros));
+
   /// "1,812 €/L avec le détour".
   String litrePriceWithDetour(double euros) =>
       _t.navigation.fuel.withDetour(price: NumberFormat('0.000', _locale).format(euros));

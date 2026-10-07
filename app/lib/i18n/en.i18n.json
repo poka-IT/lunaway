@@ -617,6 +617,37 @@
       "reasonNearLimit": "with little margin",
       "reasonOverLimit": "over your vehicle's limit"
     },
+    "marks": {
+      "legend": "Legend",
+      "legendHide": "Fold the legend",
+      "kindOrigin": "Start",
+      "kindDestination": "Destination",
+      "kindStop": "Stop",
+      "kindClosure": "Road closed",
+      "kindWorks": "Works",
+      "kindLanes": "Lanes closed",
+      "kindClearance": "Height limit",
+      "kindWeight": "Weight limit",
+      "kindLimit": "Other limit (width, length, ban)",
+      "kindFuel": "Fuel station",
+      "kindPlace": "Place near the route",
+      "groupLegend": "Marks close together: zoom in or tap",
+      "group(param=n)": {
+        "one": "$n mark",
+        "other": "$n marks"
+      },
+      "groupHint": "Zoom in or tap to see each one",
+      "count": "$kind: $n",
+      "stop": "Stop $n",
+      "origin": "Starting point",
+      "nearRoute": "Near the route",
+      "avoided": "The route goes around it",
+      "blocking": "Stops every route",
+      "showInList": "See it in the list",
+      "showAll": "Show all",
+      "onMap": "show on the map",
+      "price": "$price €"
+    },
     "guidance": {
       "then": "Then",
       "arrival": "Arrive $time",
