@@ -164,6 +164,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       camera: _camera(b.camera, _size),
       padding: b.padding,
       vehicle: b.vehicle,
+      zones: b.zones,
       marks: [for (final m in widget.markers) m.mark],
       highlighted: focus.litOnMap,
       focus: flown == null || flown.isEmpty
@@ -249,6 +250,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             alignment: Alignment.topRight,
             child: MarkLegend(
               rows: legendRows(props.marks),
+              zones: props.zones.isNotEmpty,
               onShownByItself: (size) {
                 if (size != _legend) setState(() => _legend = size);
               },
@@ -400,9 +402,12 @@ EdgeInsets legendRoom({
 /// present on this route, each with its badge. Open the first time, folded
 /// afterwards: the route settings remember it was seen.
 class MarkLegend extends ConsumerStatefulWidget {
-  const new({required this.rows, this.onShownByItself, super.key});
+  const new({required this.rows, this.zones = false, this.onShownByItself, super.key});
 
   final List<LegendRow> rows;
+
+  /// The route crosses danger zones: their band has its row.
+  final bool zones;
 
   /// The legend's size while it stands open by itself, then null once the
   /// user closed it or opened it by hand: the map frames the route clear
@@ -431,7 +436,7 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(routeSettingsControllerProvider).value;
-    if (widget.rows.isEmpty || settings == null) return const SizedBox.shrink();
+    if ((widget.rows.isEmpty && !widget.zones) || settings == null) return const SizedBox.shrink();
     final open = _open ??= _byItself = !settings.legendSeen;
     if (open && !settings.legendSeen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -498,7 +503,10 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
                           child: SingleChildScrollView(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [for (final row in widget.rows) _LegendLine(row)],
+                              children: [
+                                for (final row in widget.rows) _LegendLine(row),
+                                if (widget.zones) const _ZoneLegendLine(),
+                              ],
                             ),
                           ),
                         ),
@@ -551,6 +559,64 @@ class _LegendLine extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The legend's row of the danger zones: their band under a piece of
+/// route, as the map draws it.
+class _ZoneLegendLine extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = WindowSize.of(context) == WindowSize.compact;
+    final text = Theme.of(context).textTheme;
+    final scale = compact ? 0.62 : 0.8;
+    final side = RouteBadge.destination.extent * scale;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.hair),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: CustomPaint(size: Size(side, side), painter: _ZoneSwatch(scale)),
+          ),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(
+              context.t.navigation.marks.zoneLegend,
+              style: compact ? text.bodySmall : text.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ZoneSwatch extends CustomPainter {
+  new(this.scale);
+
+  final double scale;
+
+  Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height / 2;
+    void stroke(String color, double width, {double opacity = 1}) => canvas.drawLine(
+      Offset(width / 2, y),
+      Offset(size.width - width / 2, y),
+      Paint()
+        ..color = _hex(color).withValues(alpha: opacity)
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round,
+    );
+    stroke(RouteLook.zone, RouteLook.zoneWidth * scale, opacity: RouteLook.zoneOpacity);
+    stroke(RouteLook.casing(dark: false), RouteLook.casingWidth * scale);
+    stroke(RouteLook.line(dark: false), RouteLook.lineWidth * scale);
+  }
+
+  @override
+  bool shouldRepaint(_ZoneSwatch old) => old.scale != scale;
 }
 
 /// A row of the preview's list tied to its marks on the map: the pointer

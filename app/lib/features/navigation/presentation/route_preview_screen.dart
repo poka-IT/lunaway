@@ -13,6 +13,7 @@ import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/preview_zones.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -345,6 +346,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         lines: lines,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
+        zones: _zonesOf(ref, selected, p?.origin).spans,
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);
@@ -381,6 +383,44 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
       west: c.lon - half,
       north: c.lat + half,
       east: c.lon + half,
+    );
+  }
+}
+
+/// The danger zones the preview draws on [route] from [origin]; none
+/// before both are known or while they load.
+PreviewZones _zonesOf(WidgetRef ref, RouteOption? route, LatLng? origin) =>
+    route == null || origin == null
+    ? noPreviewZones
+    : ref.watch(previewZonesProvider(route, origin)).value ?? noPreviewZones;
+
+/// The lists the danger zones on the map come from, with their date: the
+/// French list asks to be cited with its date (docs/speed-cameras.md).
+class _ZonesNote extends ConsumerWidget {
+  const new({required this.route, required this.origin});
+
+  final RouteOption? route;
+  final LatLng? origin;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final zones = _zonesOf(ref, route, origin);
+    if (zones.spans.isEmpty) return const SizedBox.shrink();
+    final t = context.t;
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final s in zones.sources)
+          Text(
+            t.navigation.marks.zonesFrom(
+              source: s.name,
+              date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
+            ),
+            style: muted,
+          ),
+      ],
     );
   }
 }
@@ -521,6 +561,7 @@ class _Panel extends ConsumerWidget {
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
+        _ZonesNote(route: p.route, origin: p.origin),
       ],
       RouteStatus.noSafeRoute => [
         _NoSafeRoute(plan: plan, units: units, target: target),

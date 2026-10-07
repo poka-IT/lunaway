@@ -652,6 +652,8 @@
       "kindFuel": "Station-service",
       "kindPlace": "Lieu près du trajet",
       "groupLegend": "Repères proches regroupés",
+      "zoneLegend": "Zone de danger",
+      "zonesFrom": "Zones de danger : $source, liste du $date",
       "group(param=n)": {
         "one": "$n repère",
         "other": "$n repères"

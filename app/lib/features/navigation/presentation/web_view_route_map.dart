@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -47,6 +48,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   String? _style;
   Future<void> _queue = Future.value();
   List<RouteMapLine>? _sentLines;
+
+  /// The zones sent, with the lines they were cut from.
+  (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
   List<RouteMapMark>? _sentMarks;
 
   /// The marks lit, by index, as the page has them.
@@ -189,6 +193,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     'sources': [
       if (places != null) ...RoutePlaceLayers.jsonSources(places),
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
+      {'id': RouteLayers.zonesSource, 'options': <String, Object?>{}},
       for (final s in RouteLayers.markSources)
         {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
       {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
@@ -210,6 +215,15 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         RouteLook.alternative(dark: dark),
         RouteLook.alternativeWidth,
       ),
+      // Under the chosen route, the band of its danger zones.
+      {
+        ..._line(RouteLayers.zones, RouteLayers.zonesSource, RouteLook.zone, RouteLook.zoneWidth),
+        'paint': {
+          'line-color': RouteLook.zone,
+          'line-width': RouteLook.zoneWidth,
+          'line-opacity': RouteLook.zoneOpacity,
+        },
+      },
       _line(
         RouteLayers.routeCasing,
         RouteLayers.routeSource,
@@ -271,6 +285,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       case 'ready':
         _ready = true;
         _sentLines = null;
+        _sentZones = null;
         _sentMarks = null;
         _sentLit = const {};
         _sentFocus = _props.focus?.serial;
@@ -414,6 +429,16 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       await _call('return window.lunaway.setData(id, data);', {
         'id': RouteLayers.routeSource,
         'data': routeLinesCollection(p.lines, selected: true),
+      });
+    }
+    if (_sentZones case (final lines, final zones)
+        when identical(lines, p.lines) && listEquals(zones, p.zones)) {
+      // Sent already.
+    } else {
+      _sentZones = (p.lines, p.zones);
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': RouteLayers.zonesSource,
+        'data': routeZonesCollection(p.lines, p.zones),
       });
     }
     if (!listEquals(p.marks, _sentMarks)) {

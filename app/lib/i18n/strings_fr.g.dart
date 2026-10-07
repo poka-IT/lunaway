@@ -1859,6 +1859,8 @@ class _Translations$navigation$marks$fr extends Translations$navigation$marks$en
 	@override String get kindFuel => 'Station-service';
 	@override String get kindPlace => 'Lieu près du trajet';
 	@override String get groupLegend => 'Repères proches regroupés';
+	@override String get zoneLegend => 'Zone de danger';
+	@override String zonesFrom({required Object source, required Object date}) => 'Zones de danger : ${source}, liste du ${date}';
 	@override String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} repère',
 		other: '${n} repères',
@@ -3025,6 +3027,8 @@ extension on TranslationsFr {
 			'navigation.marks.kindFuel' => 'Station-service',
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
 			'navigation.marks.groupLegend' => 'Repères proches regroupés',
+			'navigation.marks.zoneLegend' => 'Zone de danger',
+			'navigation.marks.zonesFrom' => ({required Object source, required Object date}) => 'Zones de danger : ${source}, liste du ${date}',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
@@ -3522,10 +3526,10 @@ extension on TranslationsFr {
 			'reportSheet.reason.other' => 'Autre raison',
 			'reportSheet.note' => 'Dites-en plus (facultatif)',
 			'reportSheet.noteOther' => 'Dites ce qui ne va pas',
-			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
-			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
+			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
 			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
 			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',

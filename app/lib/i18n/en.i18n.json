@@ -652,6 +652,8 @@
       "kindFuel": "Fuel station",
       "kindPlace": "Place near the route",
       "groupLegend": "Marks close together, grouped",
+      "zoneLegend": "Danger zone",
+      "zonesFrom": "Danger zones: $source, list of $date",
       "group(param=n)": {
         "one": "$n mark",
         "other": "$n marks"

@@ -3998,6 +3998,12 @@ class Translations$navigation$marks$en {
 	/// en: 'Marks close together, grouped'
 	String get groupLegend => 'Marks close together, grouped';
 
+	/// en: 'Danger zone'
+	String get zoneLegend => 'Danger zone';
+
+	/// en: 'Danger zones: $source, list of $date'
+	String zonesFrom({required Object source, required Object date}) => 'Danger zones: ${source}, list of ${date}';
+
 	/// en: '(one) {$n mark} (other) {$n marks}'
 	String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
 		one: '${n} mark',
@@ -5808,6 +5814,8 @@ extension on Translations {
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
 			'navigation.marks.groupLegend' => 'Marks close together, grouped',
+			'navigation.marks.zoneLegend' => 'Danger zone',
+			'navigation.marks.zonesFrom' => ({required Object source, required Object date}) => 'Danger zones: ${source}, list of ${date}',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
@@ -6305,10 +6313,10 @@ extension on Translations {
 			'reportSheet.reason.other' => 'Another reason',
 			'reportSheet.note' => 'Tell more (optional)',
 			'reportSheet.noteOther' => 'Say what is wrong',
-			'reportSheet.sent' => 'Thank you, the moderators will take a look',
-			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.sent' => 'Thank you, the moderators will take a look',
+			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
 			'reportSheet.muteAuthor' => 'Hide this author',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Hide ${name}?',
 			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',

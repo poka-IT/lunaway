@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:meta/meta.dart';
 
 /// What a country allows an app to carry about speed cameras
@@ -35,6 +36,11 @@ enum EnforcementMode {
 
   /// Whether the guidance shows something of a camera here.
   bool get showsWhileDriving => this == zones || this == exact;
+
+  /// Whether a map read at rest (the route's preview, before setting off)
+  /// may show something of a camera where this rule holds: off forbids it
+  /// all; Germany's rule only while driving.
+  bool get showsAtRest => this != off;
 }
 
 /// The table of the rules by country, as the API last sent it or as the app
@@ -248,6 +254,29 @@ List<ItemOnRoute> itemsOnRoute(List<LatLng> line, Iterable<EnforcementItem> item
     final by = a.startM.compareTo(b.startM);
     return by != 0 ? by : order[a]!.compareTo(order[b]!);
   });
+}
+
+/// What a map of the route may draw of the items of [onRoute], [here]
+/// being the rule where the device is (the strictest of the countries
+/// around it): the stretches the danger zones cover, merged, and only
+/// where the zone's own country allows zones. Never a camera, whatever
+/// the rules: the map shows a stretch of road and nothing that places a
+/// camera (docs/speed-cameras.md). [driving] during a guidance; at rest,
+/// the rule of a country that forbids it only while driving lets them show.
+List<RouteSpan> zoneSpans(
+  Iterable<ItemOnRoute> onRoute, {
+  required EnforcementMode here,
+  required EnforcementRules rules,
+  required bool driving,
+}) {
+  if (!(driving ? here.showsWhileDriving : here.showsAtRest)) return const [];
+  return mergeSpans([
+    for (final r in onRoute)
+      if (r.item.kind == EnforcementKind.zone &&
+          rules.modeOf(r.item.country).showsWhileDriving &&
+          r.endM > r.startM)
+        RouteSpan(r.startM, r.endM),
+  ]);
 }
 
 /// The items of a trip's countries, bucketed once by the coarse cells

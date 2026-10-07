@@ -264,6 +264,102 @@ void main() {
     expect(voice.said.where((s) => s.startsWith('Vitesse')), isEmpty);
   });
 
+  group('the danger zones on the map', () {
+    final listed = EnforcementSource(
+      id: 'fr-securite-routiere',
+      name: 'Sécurité routière',
+      attribution: 'Sécurité routière',
+      fetchedAt: DateTime.utc(2026, 10, 6, 5),
+    );
+    EnforcementItem cited(EnforcementItem zone) => EnforcementItem(
+      id: zone.id,
+      kind: zone.kind,
+      category: zone.category,
+      country: zone.country,
+      line: zone.line,
+      sourceIds: [listed.id],
+    );
+
+    testWidgets('while guiding in France, the zone is a stretch of the route on the map', (
+      tester,
+    ) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
+      await drive(tester, _drive(route, fromM: 0, toM: 100));
+      final zones = SchematicRouteMap.last!.zones;
+      expect(zones, hasLength(1));
+      expect(zones.single.fromM, closeTo(1000, 15));
+      expect(zones.single.toM, closeTo(1500, 15));
+    });
+
+    for (final strict in ['DE', 'CH']) {
+      testWidgets('while guiding where $strict is the rule, no zone on the map', (tester) async {
+        final plan = _plan();
+        final route = plan.routes.first;
+        await guide(tester, plan, country: (_) => strict, items: [_zoneOn(route, 1000, 1500)]);
+        await drive(tester, _drive(route, fromM: 0, toM: 100));
+        expect(SchematicRouteMap.last!.zones, isEmpty);
+      });
+    }
+
+    /// The preview of the drive's route, read from [origin]'s country.
+    Future<void> preview(WidgetTester tester, String originCountry) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final origin = route.line.first;
+      final app = await pumpLunaway(
+        tester,
+        size: tallPhone,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: FakeLocationFeed(position: origin),
+          countries: FakeCountries(
+            (p) => p.distanceTo(origin) < 30 ? originCountry : 'FR',
+            rules: _rules,
+          ),
+          enforcement: FixedEnforcement(
+            rules: _rules,
+            items: [cited(_zoneOn(route, 1000, 1500))],
+            sources: [listed],
+          ),
+        ),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+    }
+
+    testWidgets('in France the preview highlights the zone, explains it and cites its list', (
+      tester,
+    ) async {
+      await preview(tester, 'FR');
+      expect(SchematicRouteMap.last!.zones, hasLength(1));
+      expect(find.text('Zone de danger'), findsOneWidget, reason: 'its row of the legend');
+      // At the foot of the panel, with the route's own sources.
+      expect(
+        find.text('Zones de danger : Sécurité routière, liste du 6 oct.', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Radar'), findsNothing);
+    });
+
+    testWidgets('read from Germany at rest, the preview shows the zones of France', (tester) async {
+      await preview(tester, 'DE');
+      expect(SchematicRouteMap.last!.zones, hasLength(1));
+    });
+
+    for (final off in ['CH', 'MA']) {
+      testWidgets('read from $off, the preview shows no zone and cites nothing', (tester) async {
+        await preview(tester, off);
+        expect(SchematicRouteMap.last!.zones, isEmpty);
+        expect(find.text('Zone de danger'), findsNothing);
+        expect(find.textContaining('Zones de danger', skipOffstage: false), findsNothing);
+      });
+    }
+  });
+
   testWidgets('the limit can be hidden from the profile', (tester) async {
     final app = await pumpLunaway(
       tester,

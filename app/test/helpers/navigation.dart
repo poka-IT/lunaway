@@ -26,6 +26,7 @@ import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -489,6 +490,25 @@ class _SchematicPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final project = schematicProjection(props, size);
     if (project == null) return;
+    // The band of the danger zones, under the chosen route.
+    final chosen = props.lines.where((l) => l.selected).firstOrNull?.points ?? const <LatLng>[];
+    for (final zone in props.zones) {
+      final points = lineAlong(chosen, zone);
+      if (points.length < 2) continue;
+      final path = Path()..moveTo(project(points.first).dx, project(points.first).dy);
+      for (final p in points.skip(1)) {
+        path.lineTo(project(p).dx, project(p).dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = RouteLook.zoneWidth
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = _hex(RouteLook.zone).withValues(alpha: RouteLook.zoneOpacity),
+      );
+    }
     for (final selected in [false, true]) {
       for (final l in props.lines.where((l) => l.selected == selected)) {
         if (l.points.length < 2) continue;

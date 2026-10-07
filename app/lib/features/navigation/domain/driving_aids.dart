@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:meta/meta.dart';
 
@@ -105,6 +106,7 @@ final class DrivingAids {
     this.country,
     this.words = 0,
     this.wordKind,
+    this.zones = const [],
   });
 
   static const none = DrivingAids();
@@ -133,6 +135,11 @@ final class DrivingAids {
   /// What the last word is about.
   final AidWord? wordKind;
 
+  /// The stretches of the route its danger zones cover, for the map: only
+  /// where the rule of the country the vehicle is in, and the zone's own,
+  /// allow zones.
+  final List<RouteSpan> zones;
+
   @override
   bool operator ==(Object other) =>
       other is DrivingAids &&
@@ -142,10 +149,12 @@ final class DrivingAids {
       other.mode == mode &&
       other.country == country &&
       other.words == words &&
-      other.wordKind == wordKind;
+      other.wordKind == wordKind &&
+      const ListEquality<RouteSpan>().equals(other.zones, zones);
 
   @override
-  int get hashCode => Object.hash(limit, overSpeed, alert, mode, country, words, wordKind);
+  int get hashCode =>
+      Object.hash(limit, overSpeed, alert, mode, country, words, wordKind, Object.hashAll(zones));
 }
 
 /// What a word of the aids says.
