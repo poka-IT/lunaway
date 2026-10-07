@@ -484,7 +484,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           properties: (features[i].$2['properties'] as Map<Object?, Object?>?) ?? const {},
           points: [
             for (final _ in positions[i])
-              Offset(projected[next].x.toDouble(), projected[next++].y.toDouble()) / scale,
+              if (projected[next++] case final s) Offset(s.x.toDouble(), s.y.toDouble()) / scale,
           ],
         ),
     ];

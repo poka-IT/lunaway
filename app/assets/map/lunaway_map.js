@@ -191,6 +191,8 @@
           source.setData(EMPTY);
           return;
         }
+        // Each new ring repaints the map, which then reports itself idle
+        // again: the readers of an idle map skip a camera they already read.
         var props = hit.properties;
         var lift = value(hit.shape.y, hit.zoom, props);
         var centre = map.unproject([hit.point[0], hit.point[1] - lift]);
@@ -232,6 +234,13 @@
         if (!frame) frame = requestAnimationFrame(update);
       }
 
+      // A frame still due when the map goes would touch a removed map.
+      map.on('remove', function () {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        last = null;
+      });
+
       map.on('mousemove', function (e) {
         last = e.point;
         later();
@@ -250,8 +259,11 @@
       });
       map.on('dragstart', function () { container.classList.add('lw-dragging'); });
       map.on('dragend', function () { container.classList.remove('lw-dragging'); });
-      // A new style drops the ring's layer: it comes back at the next hover.
-      map.on('style.load', function () { shownKey = null; });
+      // A new style may drop the ring's layer (loaded whole, or diffed
+      // without it on the desktop page): it comes back at the next hover.
+      map.on('styledata', function () {
+        if (!map.getLayer('lw-hover')) shownKey = null;
+      });
     }
 
     return {

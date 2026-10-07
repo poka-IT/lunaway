@@ -558,9 +558,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     // Only the layers this style holds: GL JS answers nothing at all to a
     // query that names a missing one.
     final layers = {
-      MapStyle.selectionPinLayer,
-      MapStyle.placesLayer,
-      MapStyle.clustersLayer,
+      ...MapStyle.tappableLayers,
       if (_tiles.installed) ...PlaceTiles.tappable,
       if (_props.pois != null) ...PoiMapStyle.tappable,
     };

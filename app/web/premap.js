@@ -180,6 +180,13 @@
     });
   }
 
+  // Calls f with lunawayHits once lunaway_maplibre.js has run, for ten
+  // seconds at most.
+  function whenHits(f, tries) {
+    if (window.lunawayHits) return f(window.lunawayHits);
+    if ((tries || 0) < 100 && !gone) setTimeout(function () { whenHits(f, (tries || 0) + 1); }, 100);
+  }
+
   function handOver() {
     if (gone) return;
     gone = true;
@@ -265,10 +272,13 @@
     // Its places answer the pointer as the app's do (lunawayHits in
     // lunaway_maplibre.js): a dot brings the map closer around it, a
     // place waits for the app, which opens it when it takes over.
-    var hits = window.lunawayHits;
-    if (hits) {
+    // lunaway_maplibre.js loads beside this file, almost always first.
+    whenHits(function (hits) {
       hits.hover(map);
       map.on('click', function (e) {
+        // The last click wins: a place clicked earlier, then a dot or empty
+        // map, opens nothing at the handover.
+        pendingPlace = null;
         var hit = hits.pick(map, e.point);
         if (!hit || !hit.coordinates) return;
         if (hit.properties.id !== undefined) {
@@ -277,7 +287,7 @@
           map.easeTo({ center: hit.coordinates, zoom: Math.max(map.getZoom() + 3, DEFAULTS.pinZoom + 0.5) });
         }
       });
-    }
+    });
     markPlacesDrawn();
     map.once('style.load', function () { container.classList.add('shown'); });
   }).catch(function (error) {

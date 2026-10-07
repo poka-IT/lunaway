@@ -49,11 +49,19 @@ class _MapUnderButton extends StatelessWidget {
 
 void main() {
   setUp(() => WebMapPointer.enabled = true);
+  // A desktop window: the mouse is the point.
+  Future<void> desktop(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
+
   tearDown(() => WebMapPointer.enabled = kIsWeb);
 
   testWidgets(
     'the page lets the map draw its cursor only where the app sees the map under the mouse',
     (tester) async {
+      await desktop(tester);
       final calls = <bool>[];
       await tester.pumpWidget(_MapUnderButton(onChanged: ({required on}) => calls.add(on)));
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -84,6 +92,7 @@ void main() {
   );
 
   testWidgets('a map that goes away under the mouse tells the page', (tester) async {
+    await desktop(tester);
     final calls = <bool>[];
     await tester.pumpWidget(_MapUnderButton(onChanged: ({required on}) => calls.add(on)));
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
