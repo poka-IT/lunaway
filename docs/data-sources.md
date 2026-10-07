@@ -332,9 +332,9 @@ sets:
   the review gives the key its age back. A review the reports hid stays
   stored, never shown, until the moderator decides, so the moderator
   finds it even once its author signed it anew; a moderator's or the
-  operator's hide is final, and the review goes with its source. Showing
-  again with `lunaway content hide --show` therefore needs the review
-  still at its source;
+  operator's hide is final, and the review's row goes at the next run.
+  `lunaway content hide --show`, which names a review by its Lunaway id,
+  works only before that run;
 - when Lunaway first read the review (`content_review_sightings`).
 
 A review that would add a key to a place is a new pair, whatever the
