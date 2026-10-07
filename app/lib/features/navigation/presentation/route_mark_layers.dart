@@ -64,6 +64,11 @@ abstract final class RouteMarkStyle {
   /// count; above [clusterMaxZoom] they never do.
   static const clusterRadius = 26.0;
   static const clusterMaxZoom = 13.0;
+
+  /// The zoom a row's marks are shown at. Groups are made at whole zooms up
+  /// to [clusterMaxZoom] and drawn until the next one: at 13.5 a mark could
+  /// still hide in its group (seen on Android).
+  static const double focusZoom = clusterMaxZoom + 1.5;
   static const font = ['Noto Sans Medium'];
 
   static const List<Object> _group = ['has', 'point_count'];

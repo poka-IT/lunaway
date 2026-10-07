@@ -415,7 +415,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     await _call('return window.lunawayMarks.fly(lat, lon, zoom, duration);', {
       'lat': focus.position.lat,
       'lon': focus.position.lon,
-      'zoom': RouteMarkStyle.clusterMaxZoom + 0.5,
+      'zoom': RouteMarkStyle.focusZoom,
       'duration': duration.inMilliseconds,
     });
     if (_reduced) return;

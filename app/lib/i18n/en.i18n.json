@@ -650,7 +650,7 @@
       "kindLimit": "Other limit (width, length, ban)",
       "kindFuel": "Fuel station",
       "kindPlace": "Place near the route",
-      "groupLegend": "Marks close together: zoom in to tell them apart",
+      "groupLegend": "Marks close together, grouped",
       "group(param=n)": {
         "one": "$n mark",
         "other": "$n marks"

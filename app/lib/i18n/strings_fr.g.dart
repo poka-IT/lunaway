@@ -1856,7 +1856,7 @@ class _Translations$navigation$marks$fr extends Translations$navigation$marks$en
 	@override String get kindLimit => 'Autre limite (largeur, longueur, interdiction)';
 	@override String get kindFuel => 'Station-service';
 	@override String get kindPlace => 'Lieu près du trajet';
-	@override String get groupLegend => 'Repères proches regroupés : rapprochez-vous pour les séparer';
+	@override String get groupLegend => 'Repères proches regroupés';
 	@override String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} repère',
 		other: '${n} repères',
@@ -3001,7 +3001,7 @@ extension on TranslationsFr {
 			'navigation.marks.kindLimit' => 'Autre limite (largeur, longueur, interdiction)',
 			'navigation.marks.kindFuel' => 'Station-service',
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
-			'navigation.marks.groupLegend' => 'Repères proches regroupés : rapprochez-vous pour les séparer',
+			'navigation.marks.groupLegend' => 'Repères proches regroupés',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
