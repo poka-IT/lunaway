@@ -24,7 +24,7 @@
 # Debian, crates.io) answers over IPv6, and so must this machine.
 # LUNAWAY_BUILDER_TYPE picks another server type than the cx33, a ccx23
 # when the project's shared vCPUs are all taken (dedicated ones count
-# apart; 0.118 EUR an hour excl. VAT on 2026-10-07).
+# apart; 0.1378 EUR an hour excl. VAT in fsn1 on 2026-10-07).
 
 BUILDER_NAME=lunaway-builder-1
 

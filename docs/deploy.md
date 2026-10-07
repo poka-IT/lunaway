@@ -235,7 +235,7 @@ together) or `shared core limit exceeded`, both met on 2026-10-07.
 Debian and crates.io answer over IPv6; this machine must too, and the build
 container then uses the builder's network, Podman's bridge having no
 IPv6), and `LUNAWAY_BUILDER_TYPE=ccx23` takes dedicated vCPUs, which count
-apart (0.118 EUR excl. VAT an hour; the build of 7565bb6 took 5 min 20 s on
+apart (0.1378 EUR excl. VAT an hour in fsn1; the build of 7565bb6 took 5 min 20 s on
 it). An address is still needed: when all ten are taken, a server must go
 first.
 
