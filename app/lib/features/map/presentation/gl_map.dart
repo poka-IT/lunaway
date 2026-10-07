@@ -104,6 +104,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   LunaMapProps get _props => widget.props;
 
+  /// Counts the taps and presses: a bare tap that waits (a finger in the
+  /// browser) gives way to any that came after it.
+  int _taps = 0;
+
   @override
   void dispose() {
     _stopWebLongPress?.call();
@@ -151,6 +155,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   Future<void> _onWebLongPress(double x, double y) async {
+    _taps++;
     final c = _controller;
     if (c == null || !mounted) return;
     final position = await c.toLatLng(math.Point(x, y));
@@ -546,6 +551,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// A tap at [point] (in the engine's units) on [at]: the nearest feature
   /// within reach decides ([nearestHit]), whatever the size it is drawn.
   Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
+    final seq = ++_taps;
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
     final scale = _queryScale;
@@ -606,10 +612,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (onEmptyTap == null) return;
       // On a touch screen GL JS keeps the second tap of a double tap for its
       // zoom: the first one is dropped once the camera zooms.
-      if (kIsWeb &&
-          webMapPointerKind() == PointerKind.touch &&
-          await zoomedAfterTap(() async => (await c.queryCameraPosition())?.zoom, zoom)) {
-        return;
+      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null) {
+        final stands = await touchTapStands(
+          camera: this.camera,
+          center: LatLng(camera.target.latitude, camera.target.longitude),
+          zoom: zoom,
+          superseded: () => _taps != seq,
+        );
+        if (!stands) return;
       }
       if (mounted) onEmptyTap(reference, zoom);
       return;

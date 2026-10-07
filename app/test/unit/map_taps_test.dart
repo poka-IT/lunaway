@@ -120,35 +120,79 @@ void main() {
       expect(on(TargetPlatform.windows, pointer: PointerKind.mouse), FreeTap.doubleTapWindow);
     });
 
-    test('a finger whose second tap comes 450 ms later: the zoom drops the first', () {
+    // A bare tap with a finger in the browser, at zoom 15 on the lake.
+    const lake = LatLng(45.8992, 6.1294);
+
+    bool? standsAfter(
+      FakeAsync time, {
+      required ({LatLng center, double zoom})? Function() camera,
+      bool Function()? superseded,
+      void Function()? meanwhile,
+    }) {
+      bool? stands;
+      unawaited(
+        touchTapStands(
+          camera: () async => camera(),
+          center: lake,
+          zoom: 15,
+          superseded: superseded ?? () => false,
+        ).then((v) => stands = v),
+      );
+      time.elapse(const Duration(milliseconds: 450));
+      meanwhile?.call();
+      time.elapse(FreeTap.touchDoubleTapWait);
+      return stands;
+    }
+
+    test('a second tap held 150 ms after 450 ms: its zoom still drops the first', () {
       fakeAsync((time) {
         var zoom = 15.0;
-        bool? zoomed;
-        unawaited(zoomedAfterTap(() async => zoom, 15).then((v) => zoomed = v));
-        time.elapse(const Duration(milliseconds: 450));
-        // The second tap ends: GL JS starts its zoom.
-        zoom = 15.2;
-        time.elapse(const Duration(milliseconds: 200));
-        expect(zoomed, isTrue);
+        final stands = standsAfter(
+          time,
+          camera: () => (center: lake, zoom: zoom),
+          // The second tap ends at 600 ms: GL JS starts its zoom.
+          meanwhile: () => zoom = 15.1,
+        );
+        expect(stands, isFalse);
+        expect(FreeTap.touchDoubleTapWait, greaterThan(const Duration(milliseconds: 600)));
       });
     });
 
-    test('a single tap with a finger: the camera stays, the tap acts', () {
+    test('a single tap with a finger: the camera stays, the tap stands', () {
       fakeAsync((time) {
-        bool? zoomed;
-        unawaited(zoomedAfterTap(() async => 15, 15).then((v) => zoomed = v));
-        time.elapse(FreeTap.touchDoubleTapWait);
-        expect(zoomed, isFalse);
-        expect(FreeTap.touchDoubleTapWait, greaterThan(const Duration(milliseconds: 500)));
+        expect(standsAfter(time, camera: () => (center: lake, zoom: 15)), isTrue);
       });
     });
 
-    test('a camera that cannot be read lets the tap act', () {
+    test('a pin tapped meanwhile: the bare tap gives way', () {
       fakeAsync((time) {
-        bool? zoomed;
-        unawaited(zoomedAfterTap(() async => throw StateError('gone'), 15).then((v) => zoomed = v));
-        time.elapse(FreeTap.touchDoubleTapWait);
-        expect(zoomed, isFalse);
+        var taps = 1;
+        final stands = standsAfter(
+          time,
+          camera: () => (center: lake, zoom: 15),
+          superseded: () => taps != 1,
+          meanwhile: () => taps++,
+        );
+        expect(stands, isFalse, reason: 'the card of the pin must not close');
+      });
+    });
+
+    test('a pan begun at once: the tap was the start of a drag', () {
+      fakeAsync((time) {
+        // About 50 px at zoom 15.
+        var center = lake;
+        final stands = standsAfter(
+          time,
+          camera: () => (center: center, zoom: 15),
+          meanwhile: () => center = const LatLng(45.8992, 6.1305),
+        );
+        expect(stands, isFalse);
+      });
+    });
+
+    test('a camera that cannot be read lets the tap stand', () {
+      fakeAsync((time) {
+        expect(standsAfter(time, camera: () => throw StateError('gone')), isTrue);
       });
     });
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 
 /// How far from a tap the maps look for something to open, in logical
@@ -26,11 +28,16 @@ abstract final class FreeTap {
   /// the double click.
   static const Duration doubleTapWindow = Duration(milliseconds: 250);
 
-  /// MapLibre GL JS on a touch screen counts a second tap within 500 ms as
-  /// a double tap and keeps it for its zoom: the app hears the first tap
-  /// alone. The engine waits this long after a bare tap and drops it when
-  /// the camera zoomed meanwhile ([zoomedAfterTap]).
-  static const Duration touchDoubleTapWait = Duration(milliseconds: 550);
+  /// MapLibre GL JS on a touch screen counts a second tap starting within
+  /// 500 ms as a double tap and keeps it for its zoom, which starts when that
+  /// tap ends: the app hears the first tap alone. The engine waits this long
+  /// after a bare tap (a second tap held 150 ms included) and drops it when
+  /// the camera zoomed meanwhile ([touchTapStands]).
+  static const Duration touchDoubleTapWait = Duration(milliseconds: 650);
+
+  /// A camera that moved more than this many pixels during that wait was
+  /// panned: the tap was the start of a drag.
+  static const double dragSlop = 8;
 
   /// The wait of [DoubleTapGate] for [pointer] on an engine. MapLibre
   /// Native on Android and iOS reports a tap only once it knows no second
@@ -49,23 +56,32 @@ abstract final class FreeTap {
   }
 }
 
-/// Waits [wait] after a bare tap at [zoomAtTap], then tells whether the
-/// camera zoomed meanwhile ([zoomNow]): the tap was the first of a double
-/// tap the engine kept for itself. A camera the engine cannot read counts
-/// as still.
-Future<bool> zoomedAfterTap(
-  Future<double?> Function() zoomNow,
-  double zoomAtTap, {
+/// Waits [wait] after a bare tap on a touch screen in the browser, then
+/// tells whether it still stands: no other tap or press came meanwhile
+/// ([superseded]), and the camera, read again ([camera]), neither zoomed
+/// (the engine kept a second tap for its zoom) nor moved more than
+/// [FreeTap.dragSlop] pixels from [center] (a pan begun at once). A camera
+/// the engine cannot read counts as still.
+Future<bool> touchTapStands({
+  required Future<({LatLng center, double zoom})?> Function() camera,
+  required LatLng center,
+  required double zoom,
+  required bool Function() superseded,
   Duration wait = FreeTap.touchDoubleTapWait,
 }) async {
   await Future<void>.delayed(wait);
-  double? now;
+  if (superseded()) return false;
+  ({LatLng center, double zoom})? now;
   try {
-    now = await zoomNow();
+    now = await camera();
   } on Object {
     now = null;
   }
-  return now != null && (now - zoomAtTap).abs() > 0.01;
+  if (superseded()) return false;
+  if (now == null) return true;
+  if ((now.zoom - zoom).abs() > 0.01) return false;
+  final shift = screenOf(now.center, reference: center, referenceAt: Offset.zero, zoom: zoom);
+  return shift.distance <= FreeTap.dragSlop;
 }
 
 /// What a tap at [zoom] reaches: what [pick] finds within the selection's
