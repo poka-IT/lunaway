@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -85,6 +86,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// drawn its view (`web/premap.js`).
   bool _premapShown = kIsWeb;
   Timer? _premapLater;
+
+  /// Whether the first places drawn were reported (`lunaway-places-drawn`
+  /// in the timeline, "places drawn" in the log): the start-up budget of
+  /// the phones is measured against it; the web marks it from the page.
+  bool _placesDrawn = kIsWeb;
 
   LunaMapProps get _props => widget.props;
 
@@ -567,6 +573,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         _log.info('could not read the points in view: $e');
       }
     }
+    if (!_placesDrawn) await _reportPlacesDrawn(c);
     final reportPlaces = _props.onPlacesInView;
     if (_tiles.installed && reportPlaces != null) {
       try {
@@ -575,6 +582,25 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       } on Object catch (e) {
         _log.info('could not read the places in view: $e');
       }
+    }
+  }
+
+  /// Marks, once, the first rest of the map that draws places.
+  Future<void> _reportPlacesDrawn(gl.MapLibreMapController c) async {
+    final size = mounted ? context.size : null;
+    if (size == null) return;
+    try {
+      final drawn = await c.queryRenderedFeaturesInRect(Offset.zero & size, [
+        if (_tiles.installed) ...PlaceTiles.tappable,
+        MapStyle.placesLayer,
+        MapStyle.clustersLayer,
+      ], null);
+      if (drawn.isEmpty || _placesDrawn) return;
+      _placesDrawn = true;
+      developer.Timeline.instantSync('lunaway-places-drawn');
+      _log.info('places drawn');
+    } on Object catch (e) {
+      _log.fine('could not read the places drawn: $e');
     }
   }
 
