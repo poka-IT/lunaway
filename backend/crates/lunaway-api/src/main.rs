@@ -123,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
         loop {
             if let Some(done) = refresh.refresh_route_blockers().await {
                 tracing::info!(graph = %done.graph_id, kept = ?done.kept, calls = done.calls,
-                    "restrictions kept ahead are ready");
+                    failed = done.failed, "restrictions kept ahead are ready");
             }
             tokio::time::sleep(Duration::from_secs(600)).await;
         }

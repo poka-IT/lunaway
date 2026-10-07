@@ -426,3 +426,155 @@ async fn the_corridor_holds_everything_within_its_width_far_north_and_along_a_lo
          latitude, beside a 30 km segment, past the route's end; 60 m is not"
     );
 }
+
+/// A restriction of `feature` on `shape`, as the graph build or DiaLog's
+/// import hands it over.
+fn featured(
+    source: RestrictionSource,
+    external_id: &str,
+    kind: RestrictionKind,
+    limit: Option<f64>,
+    feature: RestrictionFeature,
+    shape: &[Position],
+) -> (RestrictionRecord, Vec<Position>) {
+    let (mut r, _) = record(source, external_id, kind, limit, shape);
+    r.feature = feature;
+    let points = r.check().unwrap();
+    (r, points)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_rows_a_ring_may_exclude_and_the_version_that_says_when_they_change(pool: PgPool) {
+    let id = "20261006T0300Z-fr";
+    let road = [at(45.80, 1.25), at(45.801, 1.251)];
+    let records = vec![
+        featured(
+            RestrictionSource::Osm,
+            "node/1",
+            RestrictionKind::MaxHeight,
+            None,
+            RestrictionFeature::Barrier,
+            &[at(45.80, 1.25)],
+        ),
+        featured(
+            RestrictionSource::Osm,
+            "way/2",
+            RestrictionKind::MaxWidth,
+            Some(2.0),
+            RestrictionFeature::Road,
+            &road,
+        ),
+        featured(
+            RestrictionSource::Osm,
+            "way/3",
+            RestrictionKind::MotorhomeBan,
+            None,
+            RestrictionFeature::Road,
+            &road,
+        ),
+        // A clearance on a road and one under a bridge: a ring there would
+        // cut the road above too.
+        featured(
+            RestrictionSource::Osm,
+            "way/4",
+            RestrictionKind::MaxHeight,
+            Some(2.5),
+            RestrictionFeature::Road,
+            &road,
+        ),
+        featured(
+            RestrictionSource::Osm,
+            "way/5",
+            RestrictionKind::MaxHeight,
+            Some(2.7),
+            RestrictionFeature::Underpass,
+            &road,
+        ),
+        // Limits the vehicle respects.
+        featured(
+            RestrictionSource::Osm,
+            "node/6",
+            RestrictionKind::MaxHeight,
+            Some(4.0),
+            RestrictionFeature::Barrier,
+            &[at(45.81, 1.26)],
+        ),
+        featured(
+            RestrictionSource::Osm,
+            "way/7",
+            RestrictionKind::MaxWeight,
+            Some(7.5),
+            RestrictionFeature::Road,
+            &road,
+        ),
+    ];
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    routing::load_graph(&ingest, &graph(id), &records)
+        .await
+        .unwrap();
+    let api = as_role(&pool, "SET ROLE lunaway_app").await;
+    assert_eq!(
+        routing::restrictions_version(&api).await.unwrap(),
+        None,
+        "no graph serves yet"
+    );
+    routing::activate(&ingest, id).await.unwrap();
+    let first = routing::restrictions_version(&api).await.unwrap().unwrap();
+    assert_eq!(
+        first,
+        routing::RestrictionsVersion {
+            graph_id: id.to_owned(),
+            outside_rows: 0,
+            outside_newest: None,
+        }
+    );
+    let envelope = routing::Envelope {
+        height_m: 3.3,
+        width_m: 2.3,
+        length_m: 7.4,
+        weight_t: 3.5,
+    };
+    let ids = |rows: Vec<routing::NearRestriction>| {
+        let mut v: Vec<String> = rows.into_iter().map(|r| r.external_id).collect();
+        v.sort();
+        v
+    };
+    assert_eq!(
+        ids(routing::ring_candidates(&api, id, envelope).await.unwrap()),
+        ["node/1", "way/2", "way/3"],
+        "a bar of unknown height, a width, a ban; never a clearance on a road or \
+         under a bridge, nor a limit the vehicle respects"
+    );
+
+    let dialog = featured(
+        RestrictionSource::Dialog,
+        "dialog/019d057d-1db1-771f-b6d5-4ddb7ffd698c#0",
+        RestrictionKind::MaxLength,
+        Some(6.0),
+        RestrictionFeature::Road,
+        &road,
+    );
+    lunaway_db::road_events::replace_dialog_restrictions(&ingest, std::slice::from_ref(&dialog))
+        .await
+        .unwrap();
+    let second = routing::restrictions_version(&api).await.unwrap().unwrap();
+    assert_eq!(second.outside_rows, 1);
+    assert_ne!(
+        second, first,
+        "an import outside the graphs is a new version"
+    );
+    assert!(
+        ids(routing::ring_candidates(&api, id, envelope).await.unwrap())
+            .contains(&dialog.0.external_id),
+        "DiaLog's rows are read with the graph's"
+    );
+    lunaway_db::road_events::replace_dialog_restrictions(&ingest, &[dialog])
+        .await
+        .unwrap();
+    let third = routing::restrictions_version(&api).await.unwrap().unwrap();
+    assert_eq!(third.outside_rows, 1);
+    assert_ne!(
+        third, second,
+        "the same rows imported again are new rows, and a new version"
+    );
+}

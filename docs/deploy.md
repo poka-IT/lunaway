@@ -1985,7 +1985,7 @@ Each route writes one line to the API's journal, `route computed`, with
 where its time went: `queue_ms` (waiting for a slot), `engine_ms` and
 `engine_calls`, `corridor_ms` (the corridor queries and the sampling
 around them), `check_ms` (the matching), `limits_ms` (the wait for the
-speed-limit traces once the check is over: they are traced two at a time
+speed-limit traces once the check is over: they are traced one at a time
 during the check, in pieces of 150 km, 40 at most), the routes kept and
 `osrm_bytes`; durations and
 counts only, no position. `journalctl -u lunaway-api | grep "route

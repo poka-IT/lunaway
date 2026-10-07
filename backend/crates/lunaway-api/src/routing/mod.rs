@@ -69,9 +69,9 @@ const ROUTE_DEADLINE: Duration = Duration::from_secs(15);
 /// `infra/routing/valhalla.json` (a test reads it), and 6.2 km of
 /// perimeter within its 50 km.
 pub(crate) const MAX_EXCLUSIONS: usize = 200;
-/// Longest the speed limits of a route's answer may take, all its routes
-/// together, after the route itself: the route's deadline and this one stay
-/// under the API's request timeout (20 s by default).
+/// Longest the speed limits of an engine answer may take, all its routes
+/// together, from the answer: they are traced during its check, and their
+/// wait after it stays within the route's deadline.
 const LIMITS_DEADLINE: Duration = Duration::from_secs(3);
 /// Radius of the ring around a blocker, metres: enough to catch the road
 /// the route used, small enough to spare a road crossing a few metres away.
@@ -414,12 +414,12 @@ impl Routing {
                 }
             });
         }
-        // The pieces of every route, a few at a time under engine slots: a
-        // piece takes 15 to 25 ms of the engine, and one after the other the
-        // pieces of three 800 km routes took 0.24 s (2026-10-07). Two at a
-        // time leaves the other slots to the route calls of other trips:
-        // their waits stay short of the queue's limit, and best-effort speed
-        // limits never make a route fail.
+        // The pieces of every route, one at a time under the route call's
+        // engine slot: a piece takes 15 to 25 ms of the engine, those of a
+        // route of 3 000 km 0.3 to 0.5 s, about as long as its check,
+        // during which they run (2026-10-07). The other slots stay with
+        // the route calls of other trips, and best-effort speed limits
+        // never make a route fail.
         let pieces: Vec<(usize, &Traced, usize, usize, &Value)> = prepared
             .iter()
             .enumerate()
@@ -505,7 +505,11 @@ impl Routing {
                 &made
             };
             match self.trace_piece(engine, body).await {
-                Ok(answer) => Ok(limits::edges_of(&answer, first).unwrap_or_default()),
+                // An answer without edges says nothing of the stretch:
+                // the route goes without limits rather than with a silent
+                // gap.
+                Ok(answer) => limits::edges_of(&answer, first)
+                    .ok_or(RouteError::Malformed("a trace without edges")),
                 Err(RouteError::Engine(EngineError::Refused { status, code }))
                     if (400..500).contains(&status)
                         && refused.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -535,12 +539,12 @@ impl Routing {
         })
     }
 
-    /// One speed-limit trace, under an engine slot.
+    /// One speed-limit trace. It takes no engine slot of its own: the
+    /// traces of an answer run one at a time under the slot its route call
+    /// took, held until they end (`route_within`), while the engine would
+    /// otherwise wait for the check. A request never holds more than one
+    /// slot, and never waits for a second one while holding the first.
     async fn trace_piece(&self, engine: &Engine, body: &Value) -> Result<Value, RouteError> {
-        let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
-            .await
-            .map_err(|_| RouteError::Busy)?
-            .map_err(|_| RouteError::Busy)?;
         Ok(engine.trace(body).await?)
     }
 
@@ -696,10 +700,11 @@ impl Routing {
                 alternates,
                 &exclusions,
             );
-            // The slot is held until the answer is checked and trimmed: the
-            // memory of the answers in hand stays bounded by the slots.
+            // The slot is held until the answer is checked and its speed
+            // limits traced: the memory of the answers in hand stays bounded
+            // by the slots.
             let waited = std::time::Instant::now();
-            let _slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
+            let slot = tokio::time::timeout(self.queue_wait, self.slots.acquire())
                 .await
                 .map_err(|_| RouteError::Busy)?
                 .map_err(|_| RouteError::Busy)?;
@@ -817,6 +822,8 @@ impl Routing {
                         }),
                 };
                 work.spent.limits += waited.elapsed();
+                // The traces ran under the route's slot: it goes back now.
+                drop(slot);
                 // The checks and the traces are over and dropped their
                 // shares: no copy.
                 let osrm = Arc::try_unwrap(osrm).unwrap_or_else(|shared| (*shared).clone());
@@ -892,16 +899,17 @@ impl Routing {
     }
 }
 
-/// Speed-limit pieces traced at once for one request.
-const TRACES_AT_ONCE: usize = 2;
+/// Speed-limit pieces traced at once for one request: one, under the
+/// engine slot of its route call (`Routing::trace_piece`).
+const TRACES_AT_ONCE: usize = 1;
 /// Shape points of the shortest stretch traced again in two halves when
 /// the engine refuses it: a refused piece of 10 000 points takes at most
 /// ten levels of halves, two calls of a few milliseconds each.
 const SPLIT_DOWN_TO: usize = 16;
 /// Refusals of the engine to trace stretches of one route, after which the
 /// route gets no limits: one bad place in a piece of 10 000 points costs
-/// ten.
-const MAX_REFUSALS: usize = 12;
+/// ten, and a route may start and end on one each.
+const MAX_REFUSALS: usize = 24;
 
 /// The speed limits of an answer while its routes are checked.
 enum Traces<F> {

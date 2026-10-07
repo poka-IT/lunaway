@@ -169,7 +169,8 @@ impl ApiState {
     /// (`routing::public`), when the restrictions changed since the last
     /// time: what it did, `None` when nothing changed or it failed (the
     /// failure is logged, the lists stay as they were). Takes minutes of
-    /// one engine slot at a time, never one a client's trip waits for.
+    /// one engine slot at a time, taken only while another stays free for
+    /// the clients' trips (with a single slot, between their calls).
     pub async fn refresh_route_blockers(&self) -> Option<crate::routing::public::Refreshed> {
         let seeds = crate::routing::public::SEEDS.map(|(_, lat, lon)| (lat, lon));
         self.refresh_route_blockers_from(&seeds).await

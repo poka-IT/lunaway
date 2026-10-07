@@ -55,9 +55,13 @@ use super::{
 };
 
 /// A class of vehicles, and the typical vehicle whose routes find its
-/// restrictions: the tallest, widest and longest of the class, so that a
-/// restriction that stops any vehicle of the class stops it too. A trip
-/// excludes only those that stop its own vehicle ([`blocks`]).
+/// restrictions: the tallest of the class, as wide as the widest, and as
+/// long and heavy as most motorhomes of that height, so that a clearance
+/// or a width that stops a vehicle of the class stops it too. A longer or
+/// heavier vehicle (`integrated-heavy`, 8.99 m and 5.5 t) finds its own
+/// length and weight limits by the check, as without this list. A trip
+/// excludes only the kept restrictions that stop its own vehicle
+/// ([`blocks`]).
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Class {
     /// For the logs.
@@ -148,6 +152,10 @@ const TRIP_MARGIN_DEG: f64 = 1.0;
 /// `MAX_EXCLUSIONS`: each ring costs the engine 1 to 2 ms, more when its
 /// tiles are not in memory.
 const AHEAD_RINGS: usize = 50;
+/// Engine failures in a row (a refusal, no answer in time, no connection)
+/// after which a refresh stops and keeps the lists it had: one is a moment
+/// of load or a pair's own matter, a run of them the engine's.
+const FAILURES_IN_A_ROW: usize = 5;
 /// How long a refresh waits between two calls when the engine is busy:
 /// the trips of the clients go first.
 const BUSY_WAIT: Duration = Duration::from_millis(250);
@@ -180,6 +188,9 @@ pub struct Refreshed {
     pub graph_id: String,
     /// Restrictions kept for each class.
     pub kept: Vec<usize>,
+    /// Pairs of seeds left out because the engine refused them or did not
+    /// answer.
+    pub failed: usize,
     /// Engine calls made.
     pub calls: usize,
 }
@@ -335,10 +346,12 @@ impl Routing {
         let pairs = pairs(seeds);
         let mut classes = Vec::with_capacity(CLASSES.len());
         let mut calls = 0;
+        let mut failed = 0;
         for class in &CLASSES {
-            let (kept, n) = self
+            let (kept, n, f) = self
                 .discover(engine, pool, &version.graph_id, class, &pairs)
                 .await?;
+            failed += f;
             tracing::info!(
                 class = class.name,
                 kept = kept.len(),
@@ -352,6 +365,7 @@ impl Routing {
             graph_id: version.graph_id.clone(),
             kept: classes.iter().map(Vec::len).collect(),
             calls,
+            failed,
         };
         tracing::info!(
             graph = %refreshed.graph_id,
@@ -373,19 +387,22 @@ impl Routing {
     /// An engine slot, taken only while another one stays free for the
     /// clients' trips.
     async fn spare_slot(&self) -> SemaphorePermit<'_> {
-        let keep_free = usize::from(self.concurrency > 1);
+        let keep_free = u32::from(self.concurrency > 1);
         loop {
-            if self.slots.available_permits() > keep_free
-                && let Ok(permit) = self.slots.try_acquire()
-            {
-                return permit;
+            // Both slots taken at once, the second given back: a client's
+            // call between a count and a take cannot leave the refresh
+            // holding the last one.
+            if let Ok(mut both) = self.slots.try_acquire_many(keep_free + 1) {
+                drop(both.split(keep_free as usize));
+                return both;
             }
             tokio::time::sleep(BUSY_WAIT).await;
         }
     }
 
     /// The restrictions routes between `pairs` meet for `class`, the most
-    /// met first, and the engine calls it took.
+    /// met first, the engine calls it took, and the pairs the engine did
+    /// not answer.
     async fn discover(
         &self,
         engine: &Engine,
@@ -393,7 +410,7 @@ impl Routing {
         graph_id: &str,
         class: &Class,
         pairs: &[(Position, Position)],
-    ) -> Result<(Vec<Kept>, usize), RouteError> {
+    ) -> Result<(Vec<Kept>, usize, usize), RouteError> {
         let dims = class.dims;
         let candidates: Vec<db::NearRestriction> = db::ring_candidates(
             pool,
@@ -410,12 +427,14 @@ impl Routing {
         .filter(|c| blocks(&c.restriction, &dims))
         .collect();
         if candidates.is_empty() {
-            return Ok((Vec::new(), 0));
+            return Ok((Vec::new(), 0, 0));
         }
         let candidates = Arc::new(candidates);
         let costing = valhalla::costing_options(&dims, Avoid::default());
         let mut kept: HashMap<uuid::Uuid, Kept> = HashMap::new();
         let mut calls = 0;
+        let mut failures_in_a_row = 0;
+        let mut failed = 0;
         for &(a, b) in pairs {
             let stops = [
                 Stop {
@@ -441,13 +460,23 @@ impl Routing {
                 let osrm = match answer {
                     Ok(Answer::Routes(v)) => v,
                     Ok(Answer::NoRoute | Answer::NoSegment) => break,
-                    // A refusal concerns this pair: the others are asked.
-                    Err(error @ valhalla::EngineError::Refused { .. }) => {
-                        tracing::warn!(%error, "a route between seeds was refused");
+                    // A refusal, or a call out of time under load, concerns
+                    // this pair: the others are asked. A run of them is the
+                    // engine's, and so are failures on more than a tenth of
+                    // the pairs: the lists would miss what those pairs
+                    // cross, so the run is dropped and the lists stay as
+                    // they were.
+                    Err(error) => {
+                        failures_in_a_row += 1;
+                        failed += 1;
+                        if failures_in_a_row >= FAILURES_IN_A_ROW || failed * 10 > pairs.len() {
+                            return Err(error.into());
+                        }
+                        tracing::warn!(%error, "a route between seeds failed");
                         break;
                     }
-                    Err(error) => return Err(error.into()),
                 };
+                failures_in_a_row = 0;
                 let shapes: Vec<String> = osrm
                     .get("routes")
                     .and_then(Value::as_array)
@@ -480,7 +509,9 @@ impl Routing {
                             })
                             .met += 1;
                     }
-                    if centres.iter().all(|x| x.distance_m(middle) >= RING_M / 2.0) {
+                    if exclusions.len() < super::MAX_EXCLUSIONS
+                        && centres.iter().all(|x| x.distance_m(middle) >= RING_M / 2.0)
+                    {
                         centres.push(middle);
                         exclusions.push(exclusion_ring(middle, RING_M));
                     }
@@ -498,7 +529,7 @@ impl Routing {
                 .then(x.at.lat().total_cmp(&y.at.lat()))
                 .then(x.at.lon().total_cmp(&y.at.lon()))
         });
-        Ok((kept, calls))
+        Ok((kept, calls, failed))
     }
 }
 

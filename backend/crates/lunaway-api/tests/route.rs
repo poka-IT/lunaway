@@ -1067,3 +1067,120 @@ async fn a_trip_left_without_a_safe_route_by_restrictions_excluded_ahead_is_aske
     assert!(rings(&asked[5]).is_empty(), "then the trip from scratch");
     assert_eq!(rings(&asked[6]).len(), 1, "around the bridge it met");
 }
+
+/// An engine that answers every route with the two routes of Rue Maurice
+/// Utrillo, under the bridge first, and traces any shape as one edge, signed
+/// 30 when it is the route under the bridge and 90 otherwise.
+async fn two_routes_tracer() -> String {
+    let under = polyline::decode(ROUTE_UNDER).unwrap().len();
+    let answer = osrm(&[ROUTE_UNDER, ROUTE_AROUND]);
+    let app = Router::new()
+        .route(
+            "/route",
+            post(move || {
+                let answer = answer.clone();
+                async move { Json(answer) }
+            }),
+        )
+        .route(
+            "/trace_attributes",
+            post(move |Json(body): Json<Value>| async move {
+                let shape = polyline::decode(body["encoded_polyline"].as_str().unwrap()).unwrap();
+                let kmh = if shape.len() == under { 30 } else { 90 };
+                Json(
+                    json!({"edges": [{"speed_limit": kmh, "road_class": "secondary",
+                    "use": "road", "density": 1, "traversability": "both",
+                    "begin_shape_index": 0, "end_shape_index": shape.len() - 1}]}),
+                )
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    url
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_limits_kept_are_those_of_the_route_kept(pool: PgPool) {
+    seed(&pool).await;
+    let url = two_routes_tracer().await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    // A 3.3 m motorhome: the route under the bridge, first in the answer,
+    // is blocked; the route around it, second, is the one sent.
+    let mut v = input(3.3);
+    v["input"]["alternatives"] = 1.into();
+    let (_, body) = gql(&app, LIMITS_QUERY, v).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(r["routes"].as_array().unwrap().len(), 1, "{body}");
+    let spans = r["routes"][0]["speedLimits"].as_array().unwrap();
+    assert!(
+        !spans.is_empty() && spans.iter().all(|s| s["kmh"] == 90),
+        "the limits of the route around the bridge, not of the one under it: {spans:?}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_refresh_the_engine_fails_keeps_the_lists_it_had(pool: PgPool) {
+    seed(&pool).await;
+    as_barrier(&pool).await;
+    let mut answers = seed_answers();
+    answers.extend([
+        (
+            500,
+            json!({"code": "InvalidUrl", "message": "URL string is invalid."}),
+        ),
+        (200, osrm(&[ROUTE_AROUND])),
+    ]);
+    let (url, asked) = engine(answers, Duration::ZERO).await;
+    let state = ApiState::new(pool.clone(), config(&url));
+    let app = lunaway_api::router(state.clone());
+    state.refresh_route_blockers_from(&FAR_SEEDS).await.unwrap();
+    // An import outside the graphs: a new version to compute.
+    let mut order = tunnel_record();
+    order.0.source = RestrictionSource::Dialog;
+    order.0.external_id = "dialog/019d057d-1db1-771f-b6d5-4ddb7ffd698c#0".to_owned();
+    order.0.kind = RestrictionKind::MaxWeightGoods;
+    order.0.limit = Some(7.5);
+    order.0.feature = RestrictionFeature::Road;
+    lunaway_db::road_events::replace_dialog_restrictions(&pool, &[order])
+        .await
+        .unwrap();
+    assert!(
+        state
+            .refresh_route_blockers_from(&FAR_SEEDS)
+            .await
+            .is_none(),
+        "the engine refused the only pair: the run is dropped"
+    );
+    let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    assert_eq!(body["data"]["route"]["recalculations"], 0, "{body}");
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 6, "four calls, one refused, then the trip");
+    assert_eq!(
+        rings(&asked[5]).len(),
+        1,
+        "the trip still excludes what the last good run kept"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_route_s_traces_need_no_second_engine_slot(pool: PgPool) {
+    seed(&pool).await;
+    let trace: Value = serde_json::from_str(TRACE_LIMOGES_BRIVE).unwrap();
+    let (url, _) = traced_engine((200, trace)).await;
+    let mut one_slot = config(&url);
+    one_slot.routing.concurrency = 1;
+    let app = lunaway_api::router(ApiState::new(pool, one_slot));
+    let started = std::time::Instant::now();
+    let (_, body) = gql(&app, LIMITS_QUERY, weighing(3.5)).await;
+    assert!(
+        body["data"]["route"]["routes"][0]["speedLimits"].is_array(),
+        "traced under the route's own slot: {body}"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "no wait for a slot the route itself holds: {:?}",
+        started.elapsed()
+    );
+}
