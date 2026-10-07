@@ -2,6 +2,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
@@ -45,23 +46,39 @@ final Map<String, HitShape> mapHitShapes = () {
   };
 }();
 
+/// The pins of the guidance map's places and points, smaller than the main
+/// map's ([RoutePlaceLayers]), under the route's marks for a tap that
+/// could pick either.
+final Map<String, HitShape> routePlaceHitShapes = {
+  RoutePlaceLayers.placePins: _pin(
+    const PinGeometry(selected: false),
+    scale: RoutePlaceLayers.placeScale,
+    priority: 4,
+  ),
+  RoutePlaceLayers.poiPins: _poiPin(
+    const PoiPinGeometry(),
+    priority: 5,
+    scale: RoutePlaceLayers.poiScale,
+  ),
+};
+
 /// A place's pin, at the size [MapLook.pinSize] draws it by the zoom.
-HitShape _pin(PinGeometry g) {
-  final size = _stops(MapLook.pinSize(1));
+HitShape _pin(PinGeometry g, {double scale = 1, int priority = 1}) {
+  final size = _stops(MapLook.pinSize(scale));
   return HitShape(
     radius: StopsHit('zoom', [for (final (z, s) in size) (z, g.outer * s)]),
     lift: StopsHit('zoom', [for (final (z, s) in size) (z, g.tipDrop * s)]),
-    priority: 1,
+    priority: priority,
   );
 }
 
 /// A point's pin: a rounded square on a short tail, anchored at the bottom
 /// of its image, which leaves [PoiPinGeometry.margin] under the tip.
-HitShape _poiPin(PoiPinGeometry g, {required int priority}) {
-  final half = g.side / 2 + g.rim;
+HitShape _poiPin(PoiPinGeometry g, {required int priority, double scale = 1}) {
+  final half = (g.side / 2 + g.rim) * scale;
   return HitShape(
     radius: FixedHit(half),
-    lift: FixedHit(g.margin + g.tail + half),
+    lift: FixedHit((g.margin + g.tail) * scale + half),
     priority: priority,
   );
 }
@@ -145,6 +162,7 @@ Map<String, Object?> hitShapesJson() => {
     'gap': 2.5,
   },
   'shapes': {
-    for (final e in {...mapHitShapes, ...routeHitShapes}.entries) e.key: e.value.toJson(),
+    for (final e in {...mapHitShapes, ...routeHitShapes, ...routePlaceHitShapes}.entries)
+      e.key: e.value.toJson(),
   },
 };

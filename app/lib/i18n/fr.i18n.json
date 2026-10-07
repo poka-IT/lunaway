@@ -693,7 +693,7 @@
       "voiceOn": "Activer la voix",
       "voiceOff": "Couper la voix",
       "overview": "Tout le trajet",
-      "recenter": "Revenir au véhicule",
+      "recenter": "Recentrer",
       "end": "Terminer",
       "endTitle": "Terminer le guidage ?",
       "endConfirm": "Terminer",
@@ -720,7 +720,18 @@
       "limitEstimated": "Limite estimée",
       "overLimit": "au-dessus de la limite",
       "enforcementSource": "$source, liste du $date",
-      "demoDrive": "Trajet simulé : démonstration sans GPS"
+      "demoDrive": "Trajet simulé : démonstration sans GPS",
+      "places": {
+        "button": "Lieux sur la carte",
+        "title": "Lieux sur la carte",
+        "show": "Montrer les lieux et services",
+        "which": "Lesquels",
+        "mapFilters": "Comme sur la carte",
+        "mapFiltersHint": "Les lieux de vos filtres, et les services de la puce choisie sur la carte.",
+        "nights": "Nuit possible",
+        "fuel": "Carburant",
+        "water": "Eau et vidange"
+      }
     },
     "voice": {
       "rerouting": "Recalcul de l'itinéraire.",

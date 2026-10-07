@@ -7,17 +7,21 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_places_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
@@ -25,14 +29,19 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
+import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -60,6 +69,9 @@ class GuidanceScreen extends ConsumerWidget {
     ref.listen(guidanceControllerProvider.select((s) => s?.lastFix), (_, _) {
       unawaited(ref.read(basemapReachabilityProvider.notifier).probeIfStale());
     });
+    // Watched here, above both layouts: a free map stays free when the
+    // phone turns and the map is built again in the other one.
+    ref.listen(guidanceCameraProvider, (_, _) {});
     return PopScope(
       canPop: session.phase == GuidancePhase.arrived,
       onPopInvokedWithResult: (popped, _) async {
@@ -163,6 +175,8 @@ class _Portrait extends StatelessWidget {
             bottom: 150,
             child: _MapButtons(session: session),
           ),
+        if (!arrived)
+          const Positioned(left: 0, right: 0, bottom: 150, child: Center(child: _RecenterButton())),
         Positioned(
           left: 0,
           right: 0,
@@ -215,6 +229,13 @@ class _Landscape extends StatelessWidget {
                   bottom: Space.l,
                   child: _MapButtons(session: session),
                 ),
+              if (!arrived)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: Space.l,
+                  child: Center(child: _RecenterButton()),
+                ),
             ],
           ),
         ),
@@ -223,8 +244,10 @@ class _Landscape extends StatelessWidget {
   }
 }
 
-/// The map: the route ahead, its restrictions, the vehicle; turned with
-/// the road and tilted, or the whole route in the overview.
+/// The map: the route ahead, its restrictions, the places of the user's
+/// choice, the vehicle; turned with the road and tilted, where the user
+/// moved it, or the whole route in the overview. The guidance goes on the
+/// same whatever the map shows.
 class _GuidanceMap extends ConsumerWidget {
   const new({required this.session, required this.padding});
 
@@ -247,16 +270,45 @@ class _GuidanceMap extends ConsumerWidget {
           );
     final whole =
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
-    final camera = session.overview || vehicle == null
-        ? FitCamera(whole)
-        : FollowCamera(
-            position: vehicle.position,
-            course: vehicle.course,
-            speedMps: session.lastFix?.speedMps,
-          );
-    final places = route.line.length < 2
+    final view = ref.watch(guidanceCameraProvider);
+    final cameraModes = ref.read(guidanceCameraProvider.notifier);
+    final camera = switch (view.mode) {
+      GuidanceCameraMode.free => const FreeCamera(),
+      GuidanceCameraMode.overview => FitCamera(whole),
+      GuidanceCameraMode.follow when vehicle == null => FitCamera(whole),
+      GuidanceCameraMode.follow => FollowCamera(
+        position: vehicle!.position,
+        course: vehicle.course,
+        speedMps: session.lastFix?.speedMps,
+        ease: view.ease,
+      ),
+    };
+    final choice =
+        ref.watch(routeSettingsControllerProvider).value?.guidancePlaces ?? const GuidancePlaces();
+    final mapFilter = ref.watch(effectiveFilterProvider);
+    // Online the places and the points come from the main map's tiles;
+    // offline, the places the device holds along the route.
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final poiChip = ref.watch(poiLayerProvider);
+    final tiles = fromTiles
+        ? RouteMapPlaces(
+            placeTileJsonUrl: ref.watch(placeTileJsonUrlProvider),
+            poiTileJsonUrl: ref.watch(poiTileJsonUrlProvider),
+            placeFilter: guidancePlaceFilter(choice, mapFilter),
+            poiFilter: guidancePoiFilter(
+              choice,
+              category: poiChip.category,
+              vending: poiChip.vending,
+            ),
+          )
+        : null;
+    final places = fromTiles || route.line.length < 2
         ? const <PlaceSummary>[]
-        : ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[];
+        : [
+            for (final p
+                in ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[])
+              if (guidanceKeepsPlace(choice, mapFilter, p)) p,
+          ];
     final points = RoutePoints(
       places: places,
       stations: ref.watch(shownFuelOffersProvider(route.line)),
@@ -293,13 +345,95 @@ class _GuidanceMap extends ConsumerWidget {
         vehicle: vehicle,
         camera: camera,
         padding: padding,
+        guiding: true,
+        places: tiles,
         onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
           }
         },
+        onPlaceTap: (place) => unawaited(
+          openGuidancePoint(
+            context,
+            ref,
+            RoutePoint(
+              position: place.position,
+              title: context.t.summaryTitle(place),
+              subtitle: context.t.kind(place.kind),
+              placeId: place.id,
+            ),
+          ),
+        ),
+        onPoiTap: (poi) => unawaited(
+          openGuidancePoint(
+            context,
+            ref,
+            RoutePoint(
+              position: poi.position,
+              title: poi.name ?? context.t.poiKind(poi.kind),
+              subtitle: context.t.poiKind(poi.kind),
+              poiId: poi.id,
+              credit: context.t.navigation.preview.attributionOsm,
+            ),
+          ),
+        ),
         onLongPress: (at) => unawaited(openGuidancePoint(context, ref, RoutePoint(position: at))),
+        onGesture: cameraModes.moved,
+        onTouch: (down) => cameraModes.touching(down: down),
+        // The magnet: a view the user brought back near the driver's snaps
+        // into it.
+        onRest: (rest) {
+          if (ref.read(guidanceCameraProvider).mode != GuidanceCameraMode.free) return;
+          final now = ref.read(guidanceControllerProvider);
+          if (magnetHolds(
+            rest,
+            padding: padding,
+            followZoom: followZoom(now?.lastFix?.speedMps),
+            course: vehicle?.course,
+            followTilt: followTiltDeg,
+          )) {
+            cameraModes.snap();
+          }
+        },
       ),
+    );
+  }
+}
+
+/// Back behind the vehicle, shown as soon as the map was moved away from it.
+class _RecenterButton extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.short),
+      switchInCurve: Motion.enter,
+      switchOutCurve: Motion.exit,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
+      child: free
+          ? FilledButton.icon(
+              key: const ValueKey('recenter'),
+              onPressed: () => ref.read(guidanceCameraProvider.notifier).recenter(),
+              icon: const Icon(AppIcons.locateActive),
+              label: Text(context.t.navigation.guidance.recenter),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 56),
+                padding: const EdgeInsets.symmetric(horizontal: Space.l),
+                elevation: 3,
+                backgroundColor: scheme.primary,
+                foregroundColor: scheme.onPrimary,
+              ),
+            )
+          : const SizedBox.shrink(key: ValueKey('following')),
     );
   }
 }
@@ -318,12 +452,19 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   final controller = container.read(guidanceControllerProvider.notifier);
   final opened = container.read(guidanceControllerProvider);
   if (opened == null) return;
-  final choice = await showRoutePointCard(
-    context,
-    point: point,
-    quote: controller.quoteStop,
-    stopsFull: opened.stops.length >= maxRouteStops,
-  );
+  // The map stays where the user found the point while its card is open.
+  final release = container.read(guidanceCameraProvider.notifier).hold();
+  final RoutePointChoice? choice;
+  try {
+    choice = await showRoutePointCard(
+      context,
+      point: point,
+      quote: controller.quoteStop,
+      stopsFull: opened.stops.length >= maxRouteStops,
+    );
+  } finally {
+    release();
+  }
   // The vehicle went on while the card was open: a stop may be behind now.
   // Each change, and its way back, works on the stops of its own moment.
   final session = container.read(guidanceControllerProvider);
@@ -858,6 +999,11 @@ class _MapButtons extends ConsumerWidget {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
     final controller = ref.read(guidanceControllerProvider.notifier);
+    final overview = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
+    );
+    final placesShown =
+        ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.shown ?? true;
     final style = IconButton.styleFrom(
       backgroundColor: scheme.surfaceContainerLowest,
       foregroundColor: scheme.onSurface,
@@ -871,6 +1017,13 @@ class _MapButtons extends ConsumerWidget {
           style: style,
           onPressed: () => controller.setVoice(on: !session.voiceOn),
           icon: Icon(session.voiceOn ? AppIcons.voiceOn : AppIcons.voiceOff),
+        ),
+        const SizedBox(height: Space.s),
+        IconButton(
+          tooltip: t.navigation.guidance.places.button,
+          style: style,
+          onPressed: () => unawaited(showGuidancePlacesSheet(context)),
+          icon: Icon(placesShown ? AppIcons.point : AppIcons.address),
         ),
         const SizedBox(height: Space.s),
         IconButton(
@@ -919,12 +1072,10 @@ class _MapButtons extends ConsumerWidget {
         ),
         const SizedBox(height: Space.s),
         IconButton(
-          tooltip: session.overview
-              ? t.navigation.guidance.recenter
-              : t.navigation.guidance.overview,
+          tooltip: overview ? t.navigation.guidance.recenter : t.navigation.guidance.overview,
           style: style,
-          onPressed: () => controller.setOverview(on: !session.overview),
-          icon: Icon(session.overview ? AppIcons.locateActive : AppIcons.map),
+          onPressed: () => ref.read(guidanceCameraProvider.notifier).toggleOverview(),
+          icon: Icon(overview ? AppIcons.locateActive : AppIcons.map),
         ),
       ],
     );

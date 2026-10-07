@@ -1024,11 +1024,13 @@ class MapLibreMapController extends MapLibrePlatform
     });
   }
 
-  void _onCameraMoveStarted(_) {
+  void _onCameraMoveStarted(Event e) {
+    if (e.fromAppMotion) return;
     onCameraMoveStartedPlatform(null);
   }
 
-  void _onCameraMove(_) {
+  void _onCameraMove(Event e) {
+    if (e.fromAppMotion) return;
     final center = _map.getCenter();
     final camera = CameraPosition(
       bearing: _map.getBearing() as double,
@@ -1039,7 +1041,8 @@ class MapLibreMapController extends MapLibrePlatform
     onCameraMovePlatform(camera);
   }
 
-  void _onCameraIdle(_) {
+  void _onCameraIdle(Event e) {
+    if (e.fromAppMotion) return;
     final center = _map.getCenter();
     final camera = CameraPosition(
       bearing: _map.getBearing() as double,
