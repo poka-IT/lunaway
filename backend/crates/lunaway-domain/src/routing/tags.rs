@@ -8,6 +8,14 @@
 //! rewrites those values with [`canonical`] before Valhalla reads them, and
 //! the check after each route reads them with the same parsers, so both see
 //! the same limit.
+//!
+//! A limit may spare local access ("sauf desserte"):
+//! `maxweight:conditional=none @ destination`. Valhalla 3.9.0 honours four
+//! texts of it, byte for byte, on the key it reads, and takes "sauf
+//! livraisons" (`none @ delivery`) for one too. The graph build writes the
+//! exception a motorhome may use in the one form Valhalla reads, under the
+//! key it reads, and removes the one it may not use
+//! (`plan/research/61-limites-urbaines.md`).
 
 use std::collections::BTreeMap;
 
@@ -185,14 +193,193 @@ const ACCESS_VALUES: [&str; 11] = [
     "agricultural",
 ];
 
+/// The exception for local access as the graph build writes it: the form
+/// Valhalla 3.9.0 reads (`conditional_access_restriction` in
+/// `lua/graph.lua`, which marks the limit `except_destination`).
+pub const LOCAL_ACCESS: &str = "none @ destination";
+
+/// The texts Valhalla 3.9.0 takes for an exception for local access, byte
+/// for byte (`conditional_access_restriction` in `lua/graph.lua`). "Sauf
+/// livraisons" is among them: it lets a delivery in, never a motorhome.
+const VALHALLA_LOCAL_ACCESS: [&str; 4] = [
+    "none @ destination",
+    "none @ delivery",
+    "no @ destination",
+    "none @ (destination)",
+];
+
+/// The conditional keys of one direction's limit that Valhalla 3.9.0 reads
+/// an exception on (`access_restriction_tags` in `lua/graph.lua`, the
+/// directed ones).
+const DIRECTED_CONDITIONALS: [(RestrictionKind, &str); 8] = [
+    (RestrictionKind::MaxHeight, "maxheight:forward:conditional"),
+    (RestrictionKind::MaxHeight, "maxheight:backward:conditional"),
+    (RestrictionKind::MaxWidth, "maxwidth:forward:conditional"),
+    (RestrictionKind::MaxWidth, "maxwidth:backward:conditional"),
+    (RestrictionKind::MaxLength, "maxlength:forward:conditional"),
+    (RestrictionKind::MaxLength, "maxlength:backward:conditional"),
+    (RestrictionKind::MaxWeight, "maxweight:forward:conditional"),
+    (RestrictionKind::MaxWeight, "maxweight:backward:conditional"),
+];
+
+/// Two figures closer than this, tonnes or metres, are one sign mapped
+/// under two keys (`maxweight` and `maxweightrating` copied from each
+/// other).
+const SAME_FIGURE: f64 = 0.01;
+
+/// Changes to an element's tags: the new value of a key, or `None` to
+/// remove it.
+pub type TagFixes = BTreeMap<String, Option<String>>;
+
+/// Applies `fixes` to `tags`.
+pub fn apply_fixes(tags: &mut BTreeMap<String, String>, fixes: TagFixes) {
+    for (key, value) in fixes {
+        match value {
+            Some(v) => {
+                tags.insert(key, v);
+            }
+            None => {
+                tags.remove(&key);
+            }
+        }
+    }
+}
+
+/// `s` cut at each `sep` outside parentheses.
+fn split_outside_parentheses(s: &str, sep: char) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0_i32;
+    let mut start = 0;
+    for (i, c) in s.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            c if c == sep && depth == 0 => {
+                parts.push(&s[start..i]);
+                start = i + c.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(&s[start..]);
+    parts
+}
+
+/// Whether a `*:conditional` value lifts the limit for the traffic going
+/// to a place beyond it: a rule `none @ destination` (or `no`), the
+/// condition alone or among alternatives (`none @ (delivery; destination)`,
+/// `none @ (destination OR delivery)`, `none@destination`). A condition
+/// joined to another by `AND`, a time, a figure instead of `none`, or a
+/// delivery alone lift nothing for a motorhome: the limit stays whole.
+#[must_use]
+pub fn spares_local_access(raw: &str) -> bool {
+    split_outside_parentheses(raw, ';').into_iter().any(|rule| {
+        let Some((value, condition)) = rule.split_once('@') else {
+            return false;
+        };
+        let value = value.trim().to_ascii_lowercase();
+        if value != "none" && value != "no" {
+            return false;
+        }
+        let condition = condition.trim();
+        let condition = condition
+            .strip_prefix('(')
+            .and_then(|c| c.strip_suffix(')'))
+            .unwrap_or(condition)
+            .to_ascii_lowercase();
+        if condition.split_whitespace().any(|w| w == "and") {
+            return false;
+        }
+        condition
+            .split([',', ';'])
+            .flat_map(|part| part.split(" or "))
+            .any(|item| item.trim() == "destination")
+    })
+}
+
+/// Whether the limit of `kind` on an element spares local access. Every
+/// key that carries a figure must have the exception, its own or that of
+/// the other key when both carry the same figure (one sign mapped twice);
+/// with one figure, the exception on either key counts. A figure without
+/// it is a sign without the plate, and the limit stays whole. A measured
+/// figure (`maxwidth:physical`) is a structure: nothing lifts it, and a
+/// plate on its conditional key is not read.
+#[must_use]
+pub fn limit_spares_local_access(tags: &BTreeMap<String, String>, kind: RestrictionKind) -> bool {
+    if !kind.spares_local_access() {
+        return false;
+    }
+    let physical = |key: &str| key.ends_with(":physical");
+    let mut figures: Vec<(usize, f64)> = Vec::new();
+    for (i, key) in kind.osm_keys().iter().enumerate() {
+        let Some(figure) = tags.get(*key).and_then(|raw| parse_for(kind, raw).limit()) else {
+            continue;
+        };
+        if physical(key) {
+            return false;
+        }
+        figures.push((i, figure));
+    }
+    let spared: Vec<bool> = kind
+        .osm_keys()
+        .iter()
+        .zip(kind.conditional_keys())
+        .map(|(key, conditional)| {
+            !physical(key)
+                && tags
+                    .get(*conditional)
+                    .is_some_and(|v| spares_local_access(v))
+        })
+        .collect();
+    match figures.as_slice() {
+        [] => false,
+        [_] => spared.contains(&true),
+        many => many.iter().all(|(i, v)| {
+            spared.get(*i).copied().unwrap_or(false)
+                || many.iter().any(|(j, w)| {
+                    j != i
+                        && spared.get(*j).copied().unwrap_or(false)
+                        && (v - w).abs() < SAME_FIGURE
+                })
+        }),
+    }
+}
+
+/// Whether the limit of `kind` on an element spares local access once
+/// another source's figure `extra` for it is known: a figure lower than
+/// the mapped one beyond [`tolerance`] is another limit, without the plate.
+/// A higher one leaves the plate: the router knows one figure per road,
+/// and the check after each route still applies the other source's.
+#[must_use]
+pub fn spares_local_access_with(
+    tags: &BTreeMap<String, String>,
+    kind: RestrictionKind,
+    extra: Option<f64>,
+) -> bool {
+    limit_spares_local_access(tags, kind)
+        && match (read_limit(tags, kind).limit(), extra) {
+            (Some(mapped), Some(other)) => other >= mapped - tolerance(kind),
+            _ => true,
+        }
+}
+
 /// The tag changes that make Valhalla's `auto` mode read a way or a node as
 /// a motorhome does, given the extra limits another source (IGN) holds for
-/// it. Keys to set, with their new value; an empty map changes nothing.
+/// it. An empty map changes nothing.
 ///
 /// - Each limit becomes the most restrictive of its keys and of `extra`, in
 ///   the [`canonical`] form, under the key Valhalla reads (`maxheight`,
 ///   `maxwidth`, `maxlength`, `maxweight`, `maxaxleload`): `maxweightrating`
 ///   is copied into `maxweight` this way, and `maxheight:physical` counts.
+/// - The exception for local access a motorhome may use
+///   ([`limit_spares_local_access`]) is written as [`LOCAL_ACCESS`] under
+///   the conditional key Valhalla reads (`maxweight:conditional`), so that
+///   a "sauf desserte" mapped on `maxweightrating:conditional` alone, or in
+///   a form Valhalla does not know, still lets a trip start or end inside.
+///   An `extra` figure lower than the mapped one beyond [`tolerance`] is
+///   another limit, without the plate: the exception goes. One Valhalla
+///   would read and a motorhome may not use (`none @ delivery`, or any on a
+///   clearance) is removed.
 /// - `motorhome=*` is copied into `motorcar`, which Valhalla's `auto` mode
 ///   reads first: on this graph the `auto` mode is the motorhome mode
 ///   (`plan/research/07-navigation.md`, A.4, correction 2, where the same
@@ -201,8 +388,8 @@ const ACCESS_VALUES: [&str; 11] = [
 pub fn graph_fixes(
     tags: &BTreeMap<String, String>,
     extra: &BTreeMap<RestrictionKind, f64>,
-) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
+) -> TagFixes {
+    let mut out = TagFixes::new();
     for kind in RestrictionKind::LIMITS {
         let read = read_limit(tags, kind);
         let target = match (read.limit(), extra.get(&kind)) {
@@ -217,14 +404,40 @@ pub fn graph_fixes(
         // Anything but the canonical text is rewritten, so what Valhalla
         // reads never depends on how its parser treats a unit or a comma.
         if tags.get(key).map(String::as_str) != Some(value.as_str()) {
-            out.insert(key.to_owned(), value);
+            out.insert(key.to_owned(), Some(value));
+        }
+        let Some(conditional) = kind.conditional_keys().first() else {
+            continue;
+        };
+        let spared = spares_local_access_with(tags, kind, extra.get(&kind).copied());
+        let current = tags.get(*conditional).map(String::as_str);
+        let valhalla_spares = current.is_some_and(|c| VALHALLA_LOCAL_ACCESS.contains(&c));
+        if spared {
+            if !(valhalla_spares && current.is_some_and(spares_local_access)) {
+                out.insert((*conditional).to_owned(), Some(LOCAL_ACCESS.to_owned()));
+            }
+        } else if valhalla_spares {
+            out.insert((*conditional).to_owned(), None);
+        }
+    }
+    // Valhalla also reads the exception on one direction's limit
+    // (`maxweight:forward:conditional`, `lua/graph.lua`). Those limits are
+    // left to the router, so only an exception a motorhome may not use goes.
+    for (kind, key) in DIRECTED_CONDITIONALS {
+        let Some(current) = tags.get(key) else {
+            continue;
+        };
+        if VALHALLA_LOCAL_ACCESS.contains(&current.as_str())
+            && !(kind.spares_local_access() && spares_local_access(current))
+        {
+            out.insert(key.to_owned(), None);
         }
     }
     if let Some(v) = tags.get("motorhome").map(|v| v.trim())
         && ACCESS_VALUES.contains(&v)
         && tags.get("motorcar").map(String::as_str) != Some(v)
     {
-        out.insert("motorcar".to_owned(), v.to_owned());
+        out.insert("motorcar".to_owned(), Some(v.to_owned()));
     }
     out
 }
@@ -329,6 +542,303 @@ mod tests {
             .collect()
     }
 
+    /// The value `fixes` sets for `key`, if it sets one.
+    fn set<'a>(fixes: &'a TagFixes, key: &str) -> Option<&'a str> {
+        fixes.get(key).and_then(|v| v.as_deref())
+    }
+
+    /// The tags Valhalla reads once `fixes` are applied.
+    fn fixed(
+        pairs: &[(&str, &str)],
+        extra: &BTreeMap<RestrictionKind, f64>,
+    ) -> BTreeMap<String, String> {
+        let mut t = tags(pairs);
+        let fixes = graph_fixes(&t, extra);
+        apply_fixes(&mut t, fixes);
+        t
+    }
+
+    #[test]
+    fn local_access_reads_in_the_forms_mappers_use() {
+        // Values counted on French ways by taginfo (Geofabrik, 2026-10-06),
+        // `plan/research/61-limites-urbaines.md`.
+        for raw in [
+            "none @ destination",
+            "no @ destination",
+            "none@destination",
+            "none @ (destination)",
+            "None @ Destination",
+            "none @ (destination; delivery)",
+            "none @ (delivery, destination)",
+            "none @ (delivery OR destination)",
+            "none @ (service, destination)",
+            "none @ destination; none @ agricultural",
+            "none @ (agricultural, destination, psv)",
+        ] {
+            assert!(spares_local_access(raw), "{raw:?} spares local access");
+        }
+        for raw in [
+            "none @ delivery",
+            "none @ (delivery)",
+            "none @ (delivery AND destination)",
+            "none @ (destination AND agricultural)",
+            "7.5 @ destination",
+            "3.5 @ delivery",
+            "yes @ destination",
+            "none @ residents",
+            "none @ 20:00-12:00",
+            "no @ destination 06:00-11:00",
+            "none @ (Apr-Nov); none @ (destination AND Dec-Mar)",
+            "destination",
+            "",
+        ] {
+            assert!(
+                !spares_local_access(raw),
+                "{raw:?} lets a delivery or another vehicle in, never a motorhome going to a campsite"
+            );
+        }
+    }
+
+    #[test]
+    fn a_sauf_desserte_on_the_rating_reaches_the_key_valhalla_reads() {
+        // The French B13 is mapped with maxweightrating since 2025; a "sauf
+        // desserte" plate then sits on maxweightrating:conditional, which
+        // Valhalla never reads: without the copy, the whole street was closed
+        // to a 3.8 t motorhome, its own campsite included.
+        let t = fixed(
+            &[
+                ("highway", "residential"),
+                ("maxweightrating", "3.5"),
+                ("maxweightrating:conditional", "none @ destination"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert_eq!(t.get("maxweight").map(String::as_str), Some("3.5"));
+        assert_eq!(
+            t.get("maxweight:conditional").map(String::as_str),
+            Some(LOCAL_ACCESS)
+        );
+        // A form Valhalla does not know is written in the one it knows.
+        let t = fixed(
+            &[
+                ("maxweight", "3.5"),
+                ("maxweight:conditional", "none @ (delivery, destination)"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert_eq!(
+            t.get("maxweight:conditional").map(String::as_str),
+            Some(LOCAL_ACCESS)
+        );
+        // One sign mapped under both keys, the plate on one of them.
+        let t = fixed(
+            &[
+                ("maxweight", "3.5"),
+                ("maxweightrating", "3,5"),
+                ("maxweightrating:conditional", "no @ destination"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert_eq!(
+            t.get("maxweight:conditional").map(String::as_str),
+            Some(LOCAL_ACCESS)
+        );
+        assert!(
+            graph_fixes(
+                &tags(&[
+                    ("maxweight", "3.5"),
+                    ("maxweight:conditional", "none @ destination")
+                ]),
+                &BTreeMap::new()
+            )
+            .is_empty(),
+            "what Valhalla already reads is left alone"
+        );
+    }
+
+    #[test]
+    fn an_exception_a_motorhome_may_not_use_leaves_the_graph() {
+        // "Sauf livraisons": Valhalla 3.9.0 takes it for local access.
+        let t = fixed(
+            &[
+                ("maxweight", "3.5"),
+                ("maxweight:conditional", "none @ delivery"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert_eq!(t.get("maxweight").map(String::as_str), Some("3.5"));
+        assert!(
+            !t.contains_key("maxweight:conditional"),
+            "a delivery plate keeps a motorhome out: {t:?}"
+        );
+        // A clearance is a structure: no plate lifts it.
+        let t = fixed(
+            &[
+                ("maxheight", "2.7"),
+                ("maxheight:conditional", "none @ delivery"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert!(!t.contains_key("maxheight:conditional"), "{t:?}");
+        assert!(!limit_spares_local_access(
+            &tags(&[
+                ("maxheight", "2.7"),
+                ("maxheight:conditional", "none @ destination")
+            ]),
+            RestrictionKind::MaxHeight
+        ));
+        // Two signs: 7.5 t without a plate, 3.5 t with one. The vehicle
+        // between them is spared by one and not by the other: the limit
+        // stays whole, as the stricter reading of the two.
+        let two_signs = tags(&[
+            ("maxweight", "7.5"),
+            ("maxweightrating", "3.5"),
+            ("maxweightrating:conditional", "none @ destination"),
+        ]);
+        assert!(!limit_spares_local_access(
+            &two_signs,
+            RestrictionKind::MaxWeight
+        ));
+        let t = fixed(
+            &[
+                ("maxweight", "7.5"),
+                ("maxweightrating", "3.5"),
+                ("maxweightrating:conditional", "none @ destination"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert_eq!(t.get("maxweight").map(String::as_str), Some("3.5"));
+        assert!(!t.contains_key("maxweight:conditional"));
+    }
+
+    #[test]
+    fn a_measured_width_is_a_structure_no_plate_lifts() {
+        // Valhalla falls back on maxwidth:physical and would read the plate
+        // with it: a 2.3 m motorhome would be sent through a 2.0 m gap at a
+        // stop. The physical figure keeps the limit whole.
+        for pairs in [
+            &[
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:physical:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth", "2.0"),
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:conditional", "none @ destination"),
+            ][..],
+            &[
+                ("maxwidth", "2.0"),
+                ("maxwidth:physical", "2.0"),
+                ("maxwidth:physical:conditional", "none @ destination"),
+            ][..],
+        ] {
+            assert!(
+                !limit_spares_local_access(&tags(pairs), RestrictionKind::MaxWidth),
+                "{pairs:?}"
+            );
+            let t = fixed(pairs, &BTreeMap::new());
+            assert_eq!(
+                t.get("maxwidth").map(String::as_str),
+                Some("2"),
+                "{pairs:?}"
+            );
+            assert!(
+                !t.contains_key("maxwidth:conditional"),
+                "Valhalla must not read the plate on a measured width: {t:?}"
+            );
+        }
+        // A width sign alone, with its plate, is a traffic order.
+        assert!(limit_spares_local_access(
+            &tags(&[
+                ("maxwidth", "2.0"),
+                ("maxwidth:conditional", "none @ destination")
+            ]),
+            RestrictionKind::MaxWidth
+        ));
+    }
+
+    #[test]
+    fn a_delivery_plate_on_one_direction_leaves_the_graph_too() {
+        let t = fixed(
+            &[
+                ("maxweight:backward", "3.5"),
+                ("maxweight:backward:conditional", "none @ delivery"),
+                ("maxheight:forward", "2.5"),
+                ("maxheight:forward:conditional", "none @ delivery"),
+            ],
+            &BTreeMap::new(),
+        );
+        assert!(!t.contains_key("maxweight:backward:conditional"), "{t:?}");
+        assert!(!t.contains_key("maxheight:forward:conditional"), "{t:?}");
+        assert_eq!(
+            t.get("maxweight:backward").map(String::as_str),
+            Some("3.5"),
+            "the directional limit itself is the router's"
+        );
+        let kept = tags(&[
+            ("maxweight:forward", "3.5"),
+            ("maxweight:forward:conditional", "none @ destination"),
+        ]);
+        assert!(
+            graph_fixes(&kept, &BTreeMap::new()).is_empty(),
+            "a local access plate on one direction stays as Valhalla reads it"
+        );
+    }
+
+    #[test]
+    fn a_lower_figure_from_ign_is_another_limit_without_the_plate() {
+        let desserte = [
+            ("maxweight", "3.5"),
+            ("maxweight:conditional", "none @ destination"),
+        ];
+        let same = BTreeMap::from([(RestrictionKind::MaxWeight, 3.5)]);
+        let t = fixed(&desserte, &same);
+        assert_eq!(
+            t.get("maxweight:conditional").map(String::as_str),
+            Some(LOCAL_ACCESS),
+            "IGN's figure for the same sign keeps the plate"
+        );
+        let lower = BTreeMap::from([(RestrictionKind::MaxWeight, 2.0)]);
+        let t = fixed(&desserte, &lower);
+        assert_eq!(t.get("maxweight").map(String::as_str), Some("2"));
+        assert!(
+            !t.contains_key("maxweight:conditional"),
+            "a 2 t bridge IGN measures is not lifted by a 3.5 t zone's plate: {t:?}"
+        );
+    }
+
+    #[test]
+    fn weight_limits_for_goods_vehicles_never_reach_the_graph() {
+        // B8 with a tonnage plate (IISR 4th part, art. 57) concerns goods
+        // vehicles only; the French wiki maps it with the :hgv and :goods
+        // suffixes. A motorhome is not a goods vehicle.
+        for pairs in [
+            &[("highway", "residential"), ("maxweight:hgv", "3.5")][..],
+            &[("highway", "residential"), ("maxweightrating:hgv", "3.5")][..],
+            &[("highway", "residential"), ("maxweightrating:goods", "3.5")][..],
+            &[
+                ("highway", "residential"),
+                ("hgv:conditional", "no @ (weight>3.5)"),
+            ][..],
+            &[
+                ("highway", "residential"),
+                ("maxweight:hgv", "7.5"),
+                ("maxweight:hgv:conditional", "none @ destination"),
+            ][..],
+        ] {
+            let t = tags(pairs);
+            assert!(
+                graph_fixes(&t, &BTreeMap::new()).is_empty(),
+                "{pairs:?} changes nothing a motorhome reads"
+            );
+            assert!(!has_key(&t, RestrictionKind::MaxWeight), "{pairs:?}");
+        }
+    }
+
     #[test]
     fn the_forms_french_mappers_use_read_as_the_sign_says() {
         for (raw, metres) in [
@@ -393,15 +903,15 @@ mod tests {
             &tags(&[("highway", "residential"), ("maxweightrating", "3.5")]),
             &BTreeMap::new(),
         );
-        assert_eq!(fixes.get("maxweight").map(String::as_str), Some("3.5"));
+        assert_eq!(set(&fixes, "maxweight"), Some("3.5"));
         let both = graph_fixes(
             &tags(&[("maxweight", "7.5"), ("maxweightrating", "3,5")]),
             &BTreeMap::new(),
         );
-        assert_eq!(both.get("maxweight").map(String::as_str), Some("3.5"));
+        assert_eq!(set(&both, "maxweight"), Some("3.5"));
         let comma = graph_fixes(&tags(&[("maxweight", "3,5")]), &BTreeMap::new());
         assert_eq!(
-            comma.get("maxweight").map(String::as_str),
+            set(&comma, "maxweight"),
             Some("3.5"),
             "a decimal comma is rewritten"
         );
@@ -421,14 +931,14 @@ mod tests {
             &tags(&[("maxheight", "default"), ("maxheight:physical", "3.2")]),
             &BTreeMap::new(),
         );
-        assert_eq!(fixes.get("maxheight").map(String::as_str), Some("3.2"));
+        assert_eq!(set(&fixes, "maxheight"), Some("3.2"));
         let ign = BTreeMap::from([(RestrictionKind::MaxHeight, 3.4)]);
         // Rue Braille, Limoges: a passage IGN gives at 3.4 m, nothing in OSM.
         let fixes = graph_fixes(
             &tags(&[("highway", "residential"), ("tunnel", "building_passage")]),
             &ign,
         );
-        assert_eq!(fixes.get("maxheight").map(String::as_str), Some("3.4"));
+        assert_eq!(set(&fixes, "maxheight"), Some("3.4"));
         // Rue Maurice Utrillo: OSM 2.7, IGN 3.1; the lower stays.
         let ign = BTreeMap::from([(RestrictionKind::MaxHeight, 3.1)]);
         assert!(graph_fixes(&tags(&[("maxheight", "2.7")]), &ign).is_empty());
@@ -442,12 +952,12 @@ mod tests {
             &tags(&[("highway", "unclassified"), ("motorhome", "no")]),
             &BTreeMap::new(),
         );
-        assert_eq!(fixes.get("motorcar").map(String::as_str), Some("no"));
+        assert_eq!(set(&fixes, "motorcar"), Some("no"));
         let allowed = graph_fixes(
             &tags(&[("motor_vehicle", "no"), ("motorhome", "yes")]),
             &BTreeMap::new(),
         );
-        assert_eq!(allowed.get("motorcar").map(String::as_str), Some("yes"));
+        assert_eq!(set(&allowed, "motorcar"), Some("yes"));
         assert!(
             graph_fixes(&tags(&[("hgv", "no"), ("goods", "no")]), &BTreeMap::new()).is_empty(),
             "a B8 sign does not concern a motorhome"
@@ -484,6 +994,54 @@ mod tests {
         fn parsing_never_panics(s in ".{0,20}") {
             let _ = parse_length(&s);
             let _ = parse_weight(&s);
+        }
+
+        #[test]
+        fn local_access_needs_a_none_rule_whose_condition_admits_destination_alone(
+            rules in prop::collection::vec(
+                (
+                    prop::sample::select(vec!["none", "no", "3.5", "yes", "None"]),
+                    prop::collection::vec(
+                        prop::sample::select(vec![
+                            "destination", "delivery", "agricultural", "psv", "08:00-18:00",
+                        ]),
+                        1..4,
+                    ),
+                    prop::sample::select(vec![", ", "; ", " OR ", " AND "]),
+                    any::<bool>(),
+                ),
+                1..3,
+            )
+        ) {
+            let text: Vec<String> = rules
+                .iter()
+                .map(|(value, items, join, wrap)| {
+                    let condition = items.join(join);
+                    if *wrap {
+                        format!("{value} @ ({condition})")
+                    } else {
+                        format!("{value} @ {condition}")
+                    }
+                })
+                .collect();
+            let raw = text.join("; ");
+            // What the rules say, read without the parser under test: a
+            // rule with no figure whose condition lists destination among
+            // alternatives. A semicolon outside parentheses ends a rule, so
+            // an unwrapped "; " list is cut there.
+            let expected = rules.iter().any(|(value, items, join, wrap)| {
+                let free = value.eq_ignore_ascii_case("none") || value.eq_ignore_ascii_case("no");
+                let first_only = !*wrap && *join == "; ";
+                let alternatives = if first_only { &items[..1] } else { &items[..] };
+                let and = *join == " AND " && alternatives.len() > 1;
+                free && !and && alternatives.contains(&"destination")
+            });
+            prop_assert_eq!(spares_local_access(&raw), expected, "{}", raw);
+        }
+
+        #[test]
+        fn a_conditional_never_panics(s in ".{0,40}") {
+            let _ = spares_local_access(&s);
         }
     }
 }

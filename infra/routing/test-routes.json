@@ -190,5 +190,37 @@
     "vehicle": {"height": 2.0, "width": 2.0, "length": 5.5, "weight": 3.0},
     "use_ways": [103289002],
     "max_km": 20.0
+  },
+  {
+    "name": "Aix to Saint-Maximin: a 3.8 t motorhome keeps to the A8 at Rousset, where IGN marks 3.5 t",
+    "from": [43.5263, 5.4454],
+    "to": [43.4527, 5.8617],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 3.8},
+    "use_ways": [4448365],
+    "max_km": 46.0
+  },
+  {
+    "name": "Arles to Salon: a 3.8 t motorhome takes the A54, where IGN marks 3.5 t",
+    "from": [43.6767, 4.6278],
+    "to": [43.64, 5.097],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 3.8},
+    "use_ways": [735395154],
+    "max_km": 50.0
+  },
+  {
+    "name": "D937, Route du Boutariq: a 4.5 t motorhome reaches a place inside the 3.5 t sauf desserte mapped on maxweightrating",
+    "from": [44.56, 5.861],
+    "to": [44.5532053, 5.8643888],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 4.5},
+    "use_ways": [116697288],
+    "max_km": 1.5
+  },
+  {
+    "name": "D937, Route du Boutariq: a 4.5 t motorhome bound beyond the sauf desserte never crosses it",
+    "from": [44.547, 5.866],
+    "to": [44.5707635, 5.8630521],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 4.5},
+    "avoid_ways": [174017047, 174017049, 116697288, 1002227392],
+    "max_km": 12.0
   }
 ]
