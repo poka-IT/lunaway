@@ -13,7 +13,12 @@ part of 'place_external_providers.dart';
 final placeExternalSourceProvider = PlaceExternalSourceProvider._();
 
 final class PlaceExternalSourceProvider
-    extends $FunctionalProvider<PlaceExternalSource, PlaceExternalSource, PlaceExternalSource>
+    extends
+        $FunctionalProvider<
+          PlaceExternalSource,
+          PlaceExternalSource,
+          PlaceExternalSource
+        >
     with $Provider<PlaceExternalSource> {
   PlaceExternalSourceProvider._()
     : super(
@@ -31,8 +36,9 @@ final class PlaceExternalSourceProvider
 
   @$internal
   @override
-  $ProviderElement<PlaceExternalSource> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<PlaceExternalSource> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   PlaceExternalSource create(Ref ref) {
@@ -48,7 +54,8 @@ final class PlaceExternalSourceProvider
   }
 }
 
-String _$placeExternalSourceHash() => r'bc4bbed541a026320186ff34344ed1187394644d';
+String _$placeExternalSourceHash() =>
+    r'bc4bbed541a026320186ff34344ed1187394644d';
 
 /// What the external community source says of a place, read when its card
 /// opens and held in memory while it shows: never written to the device's
@@ -62,19 +69,22 @@ final placeExternalProvider = PlaceExternalFamily._();
 /// opens and held in memory while it shows: never written to the device's
 /// stores, so it is gone with the card. A failure surfaces without retry:
 /// the card shows Lunaway's own content and leaves the source out.
-final class PlaceExternalProvider extends $AsyncNotifierProvider<PlaceExternal, ExternalList> {
+final class PlaceExternalProvider
+    extends $AsyncNotifierProvider<PlaceExternal, ExternalList> {
   /// What the external community source says of a place, read when its card
   /// opens and held in memory while it shows: never written to the device's
   /// stores, so it is gone with the card. A failure surfaces without retry:
   /// the card shows Lunaway's own content and leaves the source out.
-  PlaceExternalProvider._({required PlaceExternalFamily super.from, required String super.argument})
-    : super(
-        retry: noRetry,
-        name: r'placeExternalProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
+  PlaceExternalProvider._({
+    required PlaceExternalFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: noRetry,
+         name: r'placeExternalProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
 
   @override
   String debugGetCreateSourceHash() => _$placeExternalHash();
@@ -177,7 +187,8 @@ final placeReviewFeedProvider = PlaceReviewFeedFamily._();
 /// card never waits on it. A muted author's reviews never show, nor the
 /// account's own, which has its own card above the list.
 
-final class PlaceReviewFeedProvider extends $FunctionalProvider<ReviewFeed, ReviewFeed, ReviewFeed>
+final class PlaceReviewFeedProvider
+    extends $FunctionalProvider<ReviewFeed, ReviewFeed, ReviewFeed>
     with $Provider<ReviewFeed> {
   /// Lunaway's reviews of a place merged with the external source's. The
   /// external list counts as empty until it arrives or when it fails: the
@@ -217,7 +228,10 @@ final class PlaceReviewFeedProvider extends $FunctionalProvider<ReviewFeed, Revi
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(ReviewFeed value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<ReviewFeed>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ReviewFeed>(value),
+    );
   }
 
   @override
