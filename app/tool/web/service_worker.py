@@ -4,16 +4,25 @@
     python3 tool/web/service_worker.py --remove build/web
 
 A second visit to the web app should not wait on the network for the app
-itself: every file of /app/ is served with `Cache-Control: no-cache` (their
-names carry no content hash, infra/caddy/lunaway.net.caddy), so without a
-service worker each visit revalidates each file, one round trip each.
+itself. The startup files renamed by tool/web/fingerprint.py (listed in the
+build's hashed.txt) are served immutable and come from the browser's HTTP
+cache, where V8 keeps their compiled code; the worker leaves them alone,
+since a script it answers from Cache Storage was measured to run without
+that code cache (main.dart.js in about 240 ms instead of 45 ms on a
+returning visit). Every other file of /app/ is served with
+`Cache-Control: no-cache` (its name carries no content hash,
+infra/caddy/lunaway.net.caddy), so without a service worker each visit
+would revalidate it, one round trip each: those the worker keeps.
 
 The worker keeps the files of one build in a cache named after the build
 (a digest of every file it serves), answers from it first, and fetches what
-it lacks once. Every file the app may need to start (its code, the CanvasKit
-of this browser, its fonts, styles and manifests) is fetched when the worker
+it lacks once. Every file it keeps that the app may need to start (its
+fonts, styles and manifests, and in a build that was not fingerprinted its
+code and the CanvasKit of this browser) is fetched when the worker
 installs, after the app's first frame (web/sw_register.js), so a
-visit never starts one build's code with another build's engine or fonts.
+visit never starts one build's code with another build's fonts. The page a
+worker serves names the renamed files of the worker's own build: the server
+keeps those of the last releases (infra/server/install-web.sh).
 What is fetched when first asked (pin images, the licences page, the fallback
 fonts) does not depend on the build. A new build has a new worker: it
 installs in the background, takes over at once, and drops the previous
@@ -37,14 +46,10 @@ import json
 import os
 import sys
 
-# Files the app needs to start, which must come from one build.
+# Files the app needs to start that the worker keeps, which must come from
+# one build.
 REQUIRED = [
     "index.html",
-    "flutter_bootstrap.js",
-    "main.dart.js",
-    "lunaway_maplibre.js",
-    "premap.js",
-    "maplibre-gl/maplibre-gl.mjs",
     "assets/FontManifest.json",
     "assets/assets/map/styles/aube.json",
 ]
@@ -68,8 +73,9 @@ LAZY = (
 CHROMIUM = "canvaskit/chromium/"
 GENERIC = ("canvaskit/canvaskit.js", "canvaskit/canvaskit.wasm")
 
-# Never served from the worker's cache: the worker itself.
-SKIP = {"lunaway_sw.js", "flutter_service_worker.js"}
+# Never served from the worker's cache: the worker itself and the list of
+# renamed files. The Brotli copies (.br) are Caddy's to pick.
+SKIP = {"lunaway_sw.js", "flutter_service_worker.js", "hashed.txt"}
 
 TEMPLATE = """// Written by app/tool/web/service_worker.py for one build; see its header.
 'use strict';
@@ -189,13 +195,18 @@ def main() -> int:
             f.write(REMOVE)
         print("lunaway_sw.js: removes the worker from every browser that has it")
         return 0
+    hashed = set()
+    listing = os.path.join(root, "hashed.txt")
+    if os.path.isfile(listing):
+        with open(listing) as f:
+            hashed = {line.strip() for line in f if line.strip()}
     files = []
     digest = hashlib.sha256()
     for directory, _, names in os.walk(root):
         for name in sorted(names):
             full = os.path.join(directory, name)
             path = os.path.relpath(full, root).replace(os.sep, "/")
-            if path in SKIP or path.endswith(".symbols"):
+            if path in SKIP or path in hashed or path.endswith((".symbols", ".br")):
                 continue
             files.append(path)
     files.sort()

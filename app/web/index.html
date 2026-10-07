@@ -44,6 +44,18 @@
   <link rel="preconnect" href="https://tiles.lunaway.net" crossorigin>
   <link rel="modulepreload" href="maplibre-gl/maplibre-gl.mjs">
   <link rel="modulepreload" href="maplibre-gl/maplibre-gl-shared.mjs">
+  <!-- MapLibre's worker module, fetched with the page rather than when the
+       first map starts its worker: served immutable, the worker then finds
+       it, and the chunk it shares with the library, in the HTTP cache. -->
+  <link rel="modulepreload" href="maplibre-gl/maplibre-gl-worker.mjs">
+  <!-- What the first map (premap.js) fetches next, asked for with the
+       page: the places' TileJSON, which names the tiles, and both basemap
+       styles (the map picks one by the hour or the theme kept), a few kB
+       each once compressed. Otherwise each waits on the library or on
+       premap.js, one round trip later. -->
+  <link rel="preload" href="https://api.lunaway.net/places/tiles.json" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/map/styles/aube.json" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/map/styles/minuit.json" as="fetch" crossorigin>
   <link rel="stylesheet" href="maplibre-gl/maplibre-gl.css">
 
   <!-- Loading screen: the mark on a cream disc over navy, in every theme,

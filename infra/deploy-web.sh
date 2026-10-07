@@ -41,8 +41,14 @@ if [ "$kind" = app ] && [ ! -s "$dir/lunaway_nav/lunaway_nav_bg.wasm" ]; then
   die "$dir has no lunaway_nav/lunaway_nav_bg.wasm; run app/packages/lunaway_nav/tool/build_web.sh before the build"
 fi
 if [ "$kind" = app ]; then
+  # The startup files get names that carry their digest (served immutable)
+  # and every text file a Brotli copy, once per build: a directory passed
+  # in that already went through it keeps its names.
+  if [ ! -f "$dir/hashed.txt" ]; then
+    python3 "$LUNAWAY_REPO_DIR/app/tool/web/fingerprint.py" --compress "$dir" || die "the build was not fingerprinted"
+  fi
   # The service worker that serves a second visit from the browser's cache
-  # names every file of this build, so it is written after the build.
+  # names every other file of this build, so it is written last.
   python3 "$LUNAWAY_REPO_DIR/app/tool/web/service_worker.py" "$dir" || die "the service worker was not written"
 fi
 

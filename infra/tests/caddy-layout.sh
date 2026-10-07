@@ -113,6 +113,12 @@ font="$(find "$SCRATCH/site/fonts" -maxdepth 1 -name 'atkinson-next-lunaway-regu
 echo '<!doctype html><base href="/app/"><title>app</title>' > "$SCRATCH/web/index.html"
 echo 'console.log(1)' > "$SCRATCH/web/main.dart.js"
 echo '{}' > "$SCRATCH/web/assets/AssetManifest.json"
+# Startup files as app/tool/web/fingerprint.py names them, one with the
+# Brotli copy it writes beside it.
+echo 'console.log(2)' > "$SCRATCH/web/main.dart.fedcba987654.js"
+printf 'BR' > "$SCRATCH/web/main.dart.fedcba987654.js.br"
+mkdir -p "$SCRATCH/web/canvaskit-fedcba987654"
+printf 'WASM' > "$SCRATCH/web/canvaskit-fedcba987654/canvaskit.wasm"
 printf 'JPEG' > "$SCRATCH/data/media/ab/0123abcd.jpg"
 # A photo as the API writes it: content-addressed WebP.
 mkdir -p "$SCRATCH/data/media/photos/ab/cd"
@@ -309,6 +315,17 @@ for missing in /app/fonts/NotoSansSymbols2-Regular.woff2 /app/assets/fonts/missi
 done
 check "/app deep link" http://lunaway.net:8080/app/place/42/reviews 200 "wasm-unsafe-eval"
 check "/app asset" http://lunaway.net:8080/app/main.dart.js 200 "content-type: text/javascript"
+check "/app asset without a digest" http://lunaway.net:8080/app/main.dart.js 200 "cache-control: no-cache"
+check "/app fingerprinted script" http://lunaway.net:8080/app/main.dart.fedcba987654.js 200 "cache-control: public, max-age=31536000, immutable"
+check "/app fingerprinted CanvasKit" http://lunaway.net:8080/app/canvaskit-fedcba987654/canvaskit.wasm 200 "cache-control: public, max-age=31536000, immutable"
+# The Brotli copy goes to a browser that accepts it, under the original's type.
+br_headers="$(curl -sS -D - -o /dev/null -H 'Accept-Encoding: br, gzip' --connect-to "lunaway.net:8080:127.0.0.1:$PORT" http://lunaway.net:8080/app/main.dart.fedcba987654.js)"
+if grep -qi '^content-encoding: br' <<<"$br_headers" && grep -qi '^content-type: text/javascript' <<<"$br_headers"; then
+  echo "ok   /app Brotli copy served as the script"
+else
+  echo "FAIL /app Brotli copy: $(tr -d '\r' <<<"$br_headers" | grep -iE '^content-(encoding|type)' | tr '\n' ' ')"
+  failures=$((failures + 1))
+fi
 check "/app nested asset" http://lunaway.net:8080/app/assets/AssetManifest.json 200 "content-type: application/json"
 check "media file" http://api.lunaway.net:8080/media/ab/0123abcd.jpg 200 "cache-control: public, max-age=31536000, immutable"
 check "media sandbox" http://api.lunaway.net:8080/media/ab/0123abcd.jpg 200 "content-security-policy: default-src 'none'; frame-ancestors 'none'; sandbox"
