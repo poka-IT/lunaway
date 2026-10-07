@@ -539,6 +539,12 @@ class Translations$map$en {
 	/// en: 'Click the map to go there or add a place'
 	String get freeTapHintClick => 'Click the map to go there or add a place';
 
+	/// en: 'Source: $attribution'
+	String addressSource({required Object attribution}) => 'Source: ${attribution}';
+
+	/// en: 'Places around'
+	String get placesAround => 'Places around';
+
 	/// en: 'Downloading the places of France'
 	String get downloading => 'Downloading the places of France';
 
@@ -682,6 +688,20 @@ class Translations$search$en {
 		one: '${n} place',
 		other: '${n} places',
 	);
+
+	/// en: 'Addresses'
+	String get addresses => 'Addresses';
+
+	/// en: 'Looking for addresses'
+	String get addressesSearching => 'Looking for addresses';
+
+	/// en: 'Addresses could not be searched just now.'
+	String get addressesFailed => 'Addresses could not be searched just now.';
+
+	/// en: 'Addresses: $sources'
+	String addressSources({required Object sources}) => 'Addresses: ${sources}';
+
+	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 }
 
 // Path: filters
@@ -1448,6 +1468,12 @@ class Translations$profile$en {
 
 	/// en: 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.'
 	String get attributionBdTopo => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.';
+
+	/// en: 'Addresses of the search in France: the Base Adresse Nationale, through IGN's Géoplateforme, under the Licence Ouverte 2.0.'
+	String get attributionAddresses => 'Addresses of the search in France: the Base Adresse Nationale, through IGN\'s Géoplateforme, under the Licence Ouverte 2.0.';
+
+	/// en: 'Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.'
+	String get attributionAddressesOsm => 'Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.';
 
 	/// en: 'Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.'
 	String get attributionPoiOdbl => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.';
@@ -3147,6 +3173,33 @@ class Translations$countries$en {
 
 	/// en: 'Vatican City'
 	String get va => 'Vatican City';
+}
+
+// Path: search.addressKind
+class Translations$search$addressKind$en {
+	Translations$search$addressKind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Address'
+	String get houseNumber => 'Address';
+
+	/// en: 'Street'
+	String get street => 'Street';
+
+	/// en: 'Locality'
+	String get locality => 'Locality';
+
+	/// en: 'Town'
+	String get town => 'Town';
+
+	/// en: 'Postcode'
+	String get postcode => 'Postcode';
+
+	/// en: 'Region'
+	String get region => 'Region';
 }
 
 // Path: place.reviewVehicle
@@ -5293,6 +5346,8 @@ extension on Translations {
 			'map.copyCoordinates' => 'Copy coordinates',
 			'map.freeTapHint' => 'Tap the map to go there or add a place',
 			'map.freeTapHintClick' => 'Click the map to go there or add a place',
+			'map.addressSource' => ({required Object attribution}) => 'Source: ${attribution}',
+			'map.placesAround' => 'Places around',
 			'map.downloading' => 'Downloading the places of France',
 			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${count} place received', other: '${count} places received', ), 
 			'map.noData' => 'No places on this device yet',
@@ -5330,6 +5385,16 @@ extension on Translations {
 			'search.places' => 'Places',
 			'search.noResult' => ({required Object query}) => 'No place or town matches "${query}".',
 			'search.townPlaces' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} place', other: '${n} places', ), 
+			'search.addresses' => 'Addresses',
+			'search.addressesSearching' => 'Looking for addresses',
+			'search.addressesFailed' => 'Addresses could not be searched just now.',
+			'search.addressSources' => ({required Object sources}) => 'Addresses: ${sources}',
+			'search.addressKind.houseNumber' => 'Address',
+			'search.addressKind.street' => 'Street',
+			'search.addressKind.locality' => 'Locality',
+			'search.addressKind.town' => 'Town',
+			'search.addressKind.postcode' => 'Postcode',
+			'search.addressKind.region' => 'Region',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
@@ -5681,6 +5746,8 @@ extension on Translations {
 			'navigation.roadEvents.reasonOverLimit' => 'over your vehicle\'s limit',
 			'navigation.marks.legend' => 'Legend',
 			'navigation.marks.legendHide' => 'Fold the legend',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.marks.kindOrigin' => 'Start',
 			'navigation.marks.kindDestination' => 'Destination',
 			'navigation.marks.kindStop' => 'Stop',
@@ -5693,8 +5760,6 @@ extension on Translations {
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
 			'navigation.marks.groupLegend' => 'Marks close together: zoom in to tell them apart',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
@@ -5891,6 +5956,8 @@ extension on Translations {
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
 			'profile.noTracking' => 'No ads, no trackers. Your account knows neither your e-mail nor your phone number.',
 			'profile.attributionBdTopo' => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',
+			'profile.attributionAddresses' => 'Addresses of the search in France: the Base Adresse Nationale, through IGN\'s Géoplateforme, under the Licence Ouverte 2.0.',
+			'profile.attributionAddressesOsm' => 'Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.',
 			'profile.attributionPoiOdbl' => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.',
 			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
@@ -6193,6 +6260,8 @@ extension on Translations {
 			'reviewSheet.starsRequired' => 'Choose a rating from 1 to 5',
 			'reviewSheet.text' => 'Your review',
 			'reviewSheet.textHint' => 'The quiet, the welcome, the room to manoeuvre, what was useful',
+			_ => null,
+		} ?? switch (path) {
 			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'At least ${n} more character', other: 'At least ${n} more characters', ), 
 			'reviewSheet.visited' => 'Date of the stay',
 			'reviewSheet.visitedNone' => 'Not given',
@@ -6207,8 +6276,6 @@ extension on Translations {
 			'gate.why' => 'Levels protect the map from abuse. They come with time and contributions, with nothing to buy.',
 			'gate.yourLevel' => ({required Object level}) => 'Your level: ${level}',
 			'gate.noAccount' => 'No account yet: an account starts at level 0.',
-			_ => null,
-		} ?? switch (path) {
 			'gate.later' => ({required Object level}) => 'Level ${level} comes after the previous ones, with time and published contributions.',
 			'gate.meanwhile' => 'Meanwhile, you can rate places, confirm they are still there or report a problem.',
 			'photoFlow.title' => 'Add a photo',

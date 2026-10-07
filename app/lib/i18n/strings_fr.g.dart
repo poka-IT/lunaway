@@ -311,6 +311,8 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
+	@override String addressSource({required Object attribution}) => 'Source : ${attribution}';
+	@override String get placesAround => 'Les lieux autour';
 	@override String get downloading => 'Téléchargement des lieux de France';
 	@override String downloadingCount({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${count} lieu reçu',
@@ -381,6 +383,11 @@ class _Translations$search$fr extends Translations$search$en {
 		one: '${n} lieu',
 		other: '${n} lieux',
 	);
+	@override String get addresses => 'Adresses';
+	@override String get addressesSearching => 'Recherche des adresses';
+	@override String get addressesFailed => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.';
+	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
+	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 }
 
 // Path: filters
@@ -725,6 +732,8 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 	@override String get noTracking => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
 	@override String get attributionBdTopo => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
+	@override String get attributionAddresses => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.';
+	@override String get attributionAddressesOsm => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.';
 	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
 	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
@@ -1482,6 +1491,21 @@ class _Translations$countries$fr extends Translations$countries$en {
 	@override String get sj => 'Svalbard';
 	@override String get sm => 'Saint-Marin';
 	@override String get va => 'Vatican';
+}
+
+// Path: search.addressKind
+class _Translations$search$addressKind$fr extends Translations$search$addressKind$en {
+	_Translations$search$addressKind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get houseNumber => 'Adresse';
+	@override String get street => 'Rue';
+	@override String get locality => 'Lieu-dit';
+	@override String get town => 'Commune';
+	@override String get postcode => 'Code postal';
+	@override String get region => 'Région';
 }
 
 // Path: place.reviewVehicle
@@ -2564,6 +2588,8 @@ extension on TranslationsFr {
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
+			'map.addressSource' => ({required Object attribution}) => 'Source : ${attribution}',
+			'map.placesAround' => 'Les lieux autour',
 			'map.downloading' => 'Téléchargement des lieux de France',
 			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu reçu', other: '${count} lieux reçus', ), 
 			'map.noData' => 'Aucun lieu sur cet appareil pour l\'instant',
@@ -2601,6 +2627,16 @@ extension on TranslationsFr {
 			'search.places' => 'Lieux',
 			'search.noResult' => ({required Object query}) => 'Aucun lieu ni aucune commune ne correspond à « ${query} ».',
 			'search.townPlaces' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} lieu', other: '${n} lieux', ), 
+			'search.addresses' => 'Adresses',
+			'search.addressesSearching' => 'Recherche des adresses',
+			'search.addressesFailed' => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.',
+			'search.addressSources' => ({required Object sources}) => 'Adresses : ${sources}',
+			'search.addressKind.houseNumber' => 'Adresse',
+			'search.addressKind.street' => 'Rue',
+			'search.addressKind.locality' => 'Lieu-dit',
+			'search.addressKind.town' => 'Commune',
+			'search.addressKind.postcode' => 'Code postal',
+			'search.addressKind.region' => 'Région',
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
@@ -2952,6 +2988,8 @@ extension on TranslationsFr {
 			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
 			'navigation.marks.legend' => 'Légende',
 			'navigation.marks.legendHide' => 'Replier la légende',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.marks.kindOrigin' => 'Départ',
 			'navigation.marks.kindDestination' => 'Arrivée',
 			'navigation.marks.kindStop' => 'Étape',
@@ -2964,8 +3002,6 @@ extension on TranslationsFr {
 			'navigation.marks.kindFuel' => 'Station-service',
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
 			'navigation.marks.groupLegend' => 'Repères proches regroupés : rapprochez-vous pour les séparer',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
@@ -3162,6 +3198,8 @@ extension on TranslationsFr {
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'profile.noTracking' => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
 			'profile.attributionBdTopo' => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
+			'profile.attributionAddresses' => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.',
+			'profile.attributionAddressesOsm' => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.',
 			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
 			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
@@ -3464,6 +3502,8 @@ extension on TranslationsFr {
 			'reviewSheet.starsRequired' => 'Choisissez une note de 1 à 5',
 			'reviewSheet.text' => 'Votre avis',
 			'reviewSheet.textHint' => 'Le calme, l\'accueil, la place pour manœuvrer, ce qui vous a servi',
+			_ => null,
+		} ?? switch (path) {
 			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Encore ${n} caractère au moins', other: 'Encore ${n} caractères au moins', ), 
 			'reviewSheet.visited' => 'Date du séjour',
 			'reviewSheet.visitedNone' => 'Non précisée',
@@ -3478,8 +3518,6 @@ extension on TranslationsFr {
 			'gate.why' => 'Les niveaux protègent la carte des abus. Ils viennent avec le temps et les contributions, sans rien à acheter.',
 			'gate.yourLevel' => ({required Object level}) => 'Votre niveau : ${level}',
 			'gate.noAccount' => 'Pas encore de compte : un compte commence au niveau 0.',
-			_ => null,
-		} ?? switch (path) {
 			'gate.later' => ({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.',
 			'gate.meanwhile' => 'En attendant, vous pouvez noter les lieux, confirmer qu\'ils sont toujours là ou signaler un problème.',
 			'photoFlow.title' => 'Ajouter une photo',

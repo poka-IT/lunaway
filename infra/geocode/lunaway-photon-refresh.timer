@@ -1,0 +1,14 @@
+# Monthly, on the first Sunday at night: OpenStreetMap's addresses change
+# slowly, and GraphHopper rebuilds the Europe dump about weekly. A run that
+# finds the dump it serves stops at once; a failed run leaves the database
+# served in place.
+[Unit]
+Description=Lunaway geocoding: refresh the Photon database monthly
+
+[Timer]
+OnCalendar=Sun *-*-01..07 02:30:00 UTC
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

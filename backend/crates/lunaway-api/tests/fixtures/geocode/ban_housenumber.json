@@ -1,0 +1,49 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     2.308628,
+     48.850699
+    ]
+   },
+   "properties": {
+    "label": "20 Avenue de Ségur 75007 Paris",
+    "score": 0.9716281818181818,
+    "housenumber": "20",
+    "name": "20 Avenue de Ségur",
+    "postcode": "75007",
+    "city": "Paris",
+    "district": "Paris 7e Arrondissement",
+    "context": "75, Paris, Île-de-France",
+    "type": "housenumber",
+    "street": "Avenue de Ségur"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     2.309833,
+     48.850425
+    ]
+   },
+   "properties": {
+    "label": "Villa de Ségur 75007 Paris",
+    "score": 0.535753422459893,
+    "name": "Villa de Ségur",
+    "postcode": "75007",
+    "city": "Paris",
+    "district": "Paris 7e Arrondissement",
+    "context": "75, Paris, Île-de-France",
+    "type": "street",
+    "street": "Villa de Ségur"
+   }
+  }
+ ],
+ "query": "20 avenue de segur 75007 paris"
+}

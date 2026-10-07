@@ -1,0 +1,89 @@
+# Photon, the geocoder of the addresses outside France (docs/deploy.md,
+# "Geocoding"), on the geocoding server: photon@europe on port 2322 and
+# photon@morocco on 2323, each with its database under
+# /srv/photon/<instance>/current, switched by lunaway-photon-refresh.
+# Installed by infra/server/geocode.sh, which writes each instance's port
+# and heap in /usr/local/share/lunaway/geocode/<instance>.env. They answer on
+# the private network only, to the backend's Caddy, which forwards the
+# API's searches.
+[Unit]
+Description=Photon geocoder (OpenStreetMap, %i)
+Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
+After=network-online.target
+Wants=network-online.target
+# Before the first refresh there is no database: skip the unit instead of
+# failing it into its start limit.
+ConditionPathExists=/srv/photon/%i/current/photon_data
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=exec
+EnvironmentFile=/usr/local/share/lunaway/geocode/%i.env
+# The heap holds OpenSearch's own structures; the index is read through the
+# page cache, which gets the rest of the memory (docs/deploy.md, the
+# measurements of 2026-10-07). A query stops after a second, near the API's
+# 700 ms, so a search the API gave up does not keep running. Photon logs no
+# request at this level: the text searched never reaches the journal.
+ExecStart=/usr/bin/java -Xms${PHOTON_HEAP} -Xmx${PHOTON_HEAP} -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError \
+  -jar /opt/photon/photon.jar serve -data-dir /srv/photon/%i/current \
+  -listen-ip 10.42.0.4 -listen-port ${PHOTON_PORT} -max-results 50 -query-timeout 1
+WorkingDirectory=/srv/photon/%i
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=5min
+TimeoutStopSec=60s
+
+User=photon
+Group=photon
+UMask=0027
+
+# Filesystem: the whole tree read-only but this instance's databases, which
+# OpenSearch writes (its lock and translog) even when it only serves.
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/photon/%i
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+# The JIT writes code it then runs: MemoryDenyWriteExecute stays off.
+# Lucene asks mincore which pages of the index are in memory; denied, every
+# search failed with "Operation not permitted" (measured 2026-10-07).
+SystemCallFilter=@system-service mincore
+SystemCallErrorNumber=EPERM
+
+# Network: it listens on the private address, for the backend and for the
+# refresh's checks on this host, and connects to nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost 10.42.0.2/32 10.42.0.4/32
+SocketBindDeny=any
+SocketBindAllow=tcp:2322-2323
+# The embedded OpenSearch binds its own ports on the loopback.
+SocketBindAllow=tcp:9200-9400
+
+LimitNOFILE=65536
+TasksMax=1024
+
+[Install]
+WantedBy=multi-user.target

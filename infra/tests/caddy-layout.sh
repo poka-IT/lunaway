@@ -142,7 +142,7 @@ head -c 100663296 /dev/zero > "$SCRATCH/big/answer.bin"
 
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
-    -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/lunaway.net.caddy|" \
+    -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/*.caddy|" \
     -e "s|/srv/data|$W/data|g" \
     -e "s|/srv/tiles|$W/tiles|g" \
     -e "s|/srv/lunaway/fdroid|$W/fdroid|g" \
@@ -177,6 +177,21 @@ http://:$API_LISTEN {
 	handle {
 		respond "{http.request.body}" 200
 	}
+}
+EOF
+# The geocoders' loopback site on its own port, its upstreams (the
+# Géoplateforme, Photon on the private network) replaced by a stand-in that
+# answers with the host and the URI it was asked.
+GEO_PORT=18486
+sed -e "s|^http://127.0.0.1:8486 {|http://127.0.0.1:$GEO_PORT {|" \
+    -e "s|https://data.geopf.fr|http://127.0.0.1:18487|" \
+    -e "s|10.42.0.4:2322|127.0.0.1:18487|; s|10.42.0.4:2323|127.0.0.1:18487|" \
+    "$INFRA/caddy/geocoders.caddy" > "$SCRATCH/geocoders.caddy"
+grep -q '18487' "$SCRATCH/geocoders.caddy" || { echo "no upstream to replace in geocoders.caddy" >&2; exit 1; }
+cat >> "$SCRATCH/Caddyfile" <<EOF
+
+http://:18487 {
+	respond "{http.request.host} {http.request.uri} xff={http.request.header.X-Forwarded-For}" 200
 }
 EOF
 sed -e "s|^api.lunaway.net {|http://api.lunaway.net:$LISTEN {|" \
@@ -637,6 +652,32 @@ done
 etag="$(grep -i '^etag:' "$SCRATCH/tile-headers.out" | sed -E 's/^[Ee][Tt][Aa][Gg]: *"?([^"]*)"?.*/\1/' | tr -d '\r')"
 curl -sS -o /dev/null --connect-to "tiles.lunaway.net:8080:127.0.0.1:$PORT" -H "If-None-Match: \"$etag\"" "$T/planet-$BUILD/0/0/0.mvt"
 sleep 1
+# The geocoders' site: each way to its upstream, path and query kept,
+# nothing else answered. Natively only: in Docker the site's loopback is the
+# container's.
+if [ "$MODE" = native ]; then
+  geo() { curl -sS -w ' %{http_code}' "http://127.0.0.1:$GEO_PORT$1"; }
+  for want in \
+    "/ban/search?q=avenue%20de%20segur&limit=5|data.geopf.fr /geocodage/search?q=avenue%20de%20segur&limit=5 xff= 200" \
+    "/photon/europe/api?q=berlin|127.0.0.1 /api?q=berlin xff= 200" \
+    "/photon/morocco/api?q=fes|127.0.0.1 /api?q=fes xff= 200"; do
+    path="${want%%|*}"
+    got="$(geo "$path")"
+    if [ "$got" = "${want#*|}" ]; then
+      echo "ok   geocoders $path: $got"
+    else
+      echo "FAIL geocoders $path: $got (want ${want#*|})"
+      failures=$((failures + 1))
+    fi
+  done
+  got="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$GEO_PORT/geocodage/search?q=x")"
+  if [ "$got" = 404 ]; then
+    echo "ok   geocoders: any other path 404"
+  else
+    echo "FAIL geocoders: another path answered $got"
+    failures=$((failures + 1))
+  fi
+fi
 if [ "$MODE" = docker ]; then
   access_log="$(docker exec lunaway-caddy-test cat /tmp/access.log)"
 else
@@ -652,6 +693,8 @@ grep -q '"uri":"/poi/3/13/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-
 grep -qE '"uri":"[^"]*(2075|1409)' <<<"$access_log" && leaks="$leaks places-coordinates"
 grep -q '"uri":"/places/7/12/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-places-line"
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
+# The text of a search sent to the geocoders.
+grep -qiE 'segur|berlin' <<<"$access_log" && leaks="$leaks geocoded-text"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
 grep -q 'fr-bre' <<<"$access_log" && leaks="$leaks pack-region"

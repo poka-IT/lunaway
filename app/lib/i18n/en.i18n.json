@@ -151,6 +151,8 @@
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
+    "addressSource": "Source: $attribution",
+    "placesAround": "Places around",
     "downloading": "Downloading the places of France",
     "downloadingCount(param=n)": {
       "one": "$count place received",
@@ -199,6 +201,18 @@
     "townPlaces(param=n)": {
       "one": "$n place",
       "other": "$n places"
+    },
+    "addresses": "Addresses",
+    "addressesSearching": "Looking for addresses",
+    "addressesFailed": "Addresses could not be searched just now.",
+    "addressSources": "Addresses: $sources",
+    "addressKind": {
+      "houseNumber": "Address",
+      "street": "Street",
+      "locality": "Locality",
+      "town": "Town",
+      "postcode": "Postcode",
+      "region": "Region"
     }
   },
   "filters": {
@@ -876,6 +890,8 @@
     "attributionIcons": "Phosphor icons, MIT licence.",
     "noTracking": "No ads, no trackers. Your account knows neither your e-mail nor your phone number.",
     "attributionBdTopo": "Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.",
+    "attributionAddresses": "Addresses of the search in France: the Base Adresse Nationale, through IGN's Géoplateforme, under the Licence Ouverte 2.0.",
+    "attributionAddressesOsm": "Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.",
     "attributionPoiOdbl": "Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.",
     "attributionPoiLo": "Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).",

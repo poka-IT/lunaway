@@ -1,5 +1,6 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -391,6 +392,82 @@ $placeSummaryFragment''',
   ],
 );
 
+/// The fields of an address the search shows.
+const _addressFields = '''
+addresses { kind name postcode city context countryCode lat lon source { id attribution } }''';
+
+/// The map's search online: the places as [searchPlacesOperation] finds
+/// them, then the addresses of the server's geocoders, in one request.
+final searchAllOperation = GraphQLOperation<SearchAnswer>(
+  name: 'SearchAll',
+  document:
+      '''
+query SearchAll(\$text: String!, \$near: LatLonInput, \$first: Int, \$language: String) {
+  searchAll(text: \$text, near: \$near, first: \$first, language: \$language) {
+    places { ...PlaceSummaryFields }
+    $_addressFields
+  }
+}
+$placeSummaryFragment''',
+  parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
+);
+
+/// The addresses alone, for a device that searches its own places.
+final searchAddressesOperation = GraphQLOperation<SearchAnswer>(
+  name: 'SearchAddresses',
+  document:
+      '''
+query SearchAddresses(\$text: String!, \$near: LatLonInput, \$language: String) {
+  searchAll(text: \$text, near: \$near, language: \$language) {
+    $_addressFields
+  }
+}''',
+  parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
+);
+
+/// What `searchAll` answered: the places (none when not asked) and the
+/// addresses.
+@immutable
+final class SearchAnswer {
+  const new({this.places = const [], this.addresses = const []});
+
+  final List<PlaceSummary> places;
+  final List<AddressMatch> addresses;
+}
+
+SearchAnswer searchAnswerFromJson(Map<String, dynamic> json) => SearchAnswer(
+  places: [
+    for (final p in (json['places'] as List<dynamic>?) ?? const [])
+      placeFromJson(p as Map<String, dynamic>).summary,
+  ],
+  addresses: [
+    for (final a in (json['addresses'] as List<dynamic>?) ?? const [])
+      ?addressMatchFromJson(a as Map<String, dynamic>),
+  ],
+);
+
+/// One address of the API; null when it lacks what the list needs.
+AddressMatch? addressMatchFromJson(Map<String, dynamic> json) {
+  final name = json['name'];
+  final lat = json['lat'];
+  final lon = json['lon'];
+  final source = json['source'];
+  if (name is! String || lat is! num || lon is! num || source is! Map<String, dynamic>) {
+    return null;
+  }
+  return AddressMatch(
+    kind: AddressKind.fromWire(json['kind'] as String?),
+    name: name,
+    postcode: json['postcode'] as String?,
+    city: json['city'] as String?,
+    context: json['context'] as String?,
+    countryCode: json['countryCode'] as String?,
+    position: LatLng(lat.toDouble(), lon.toDouble()),
+    sourceId: source['id'] as String? ?? '',
+    attribution: source['attribution'] as String? ?? '',
+  );
+}
+
 /// The box the places of [view] are asked for: the view widened to a grid
 /// of [placesGrid] degree (about 5 km), so the request says no more of where
 /// the map looks than a point rounded to that grid. Without it, the centre
@@ -475,6 +552,8 @@ final allOperations = <GraphQLOperation<Object?>>[
   placeOperation,
   nearbyPlacesOperation,
   searchPlacesOperation,
+  searchAllOperation,
+  searchAddressesOperation,
   externalOperation,
   externalReviewsOperation,
 ];

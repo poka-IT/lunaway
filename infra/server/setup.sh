@@ -5,12 +5,14 @@
 #   sudo env LUNAWAY_ROLE=backend LUNAWAY_VOLUME_ID=... bash ~/infra/server/setup.sh [step...]
 #   backend: harden data-volume postgres caddy tiles backups api pipeline routing ops-access
 #   ops:     harden data-volume ops-replica ops-status
+#   geocode: harden geocode
 . "$(dirname "$0")/common.sh"
 need_root
 case "${LUNAWAY_ROLE:-}" in
   backend) default_steps="harden data-volume postgres caddy tiles backups api pipeline routing ops-access" ;;
   ops) default_steps="harden data-volume ops-replica ops-status" ;;
-  *) die "set LUNAWAY_ROLE to backend or ops" ;;
+  geocode) default_steps="harden geocode" ;;
+  *) die "set LUNAWAY_ROLE to backend, ops or geocode" ;;
 esac
 steps="${*:-$default_steps}"
 for step in $steps; do

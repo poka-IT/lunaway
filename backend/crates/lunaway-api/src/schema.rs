@@ -14,6 +14,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, SemaphorePermit};
 use uuid::Uuid;
 
 use crate::{
+    address_types::SearchAnswer,
     auth::{self, Challenges},
     community_types::{Account, FavoriteList},
     config::ApiConfig,
@@ -67,12 +68,22 @@ pub const ROUTE_FIELD_COST: usize = 10_000;
 /// document cannot fan one request out into many engine calls.
 #[derive(Debug, Default)]
 pub(crate) struct RouteOnce(pub(crate) std::sync::atomic::AtomicBool);
+
+/// Set by the first `searchAll` of a request: a second one gets its places
+/// without asking the geocoders again, so a document of many aliases
+/// cannot fan one request out into many geocoder calls.
+#[derive(Debug, Default)]
+pub(crate) struct GeocodeOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// Largest page of `changes`.
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
 /// Largest page of `places`.
 pub const MAX_PLACES_PAGE: i32 = 500;
 /// Most results of `search`.
 pub const MAX_SEARCH_RESULTS: i32 = 50;
+/// Most addresses of `searchAll`.
+pub const MAX_SEARCH_ADDRESSES: i32 = 10;
+/// Addresses of `searchAll` when the client does not say.
+const DEFAULT_SEARCH_ADDRESSES: i32 = 5;
 /// Largest viewport of `places`, in square degrees: about 500 km by 500 km
 /// in France. A wider map shows the places' tiles. With `near`, any
 /// viewport is accepted: the page is the nearest `first` places, and
@@ -116,6 +127,8 @@ pub struct ApiState {
     pub(crate) enforcement: Arc<crate::enforcement_query::EnforcementCache>,
     /// Where the photo proxy gets a partner's photos.
     pub(crate) external_photos: crate::external_photos::PhotoSource,
+    /// The geocoders behind the addresses of the map's search.
+    pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
 }
 
 impl ApiState {
@@ -148,6 +161,7 @@ impl ApiState {
             tracing::error!(%error, "no HTTPS client: the partner's photos are not fetched");
             crate::external_photos::PhotoSource::Memory(Arc::default())
         });
+        let geocoder = Arc::new(crate::geocode::Geocoder::new(&config.geocode));
         Self {
             pool,
             config,
@@ -161,6 +175,7 @@ impl ApiState {
             road_events: Arc::default(),
             enforcement: Arc::default(),
             external_photos,
+            geocoder,
         }
     }
 
@@ -681,6 +696,69 @@ impl QueryRoot {
             .await
             .map_err(|e| internal(&e))?;
         Ok(rows.into_iter().map(Place).collect())
+    }
+
+    /// The map's search: the places of `search`, ranked as it ranks them,
+    /// then up to `addresses` postal addresses, streets, towns and
+    /// postcodes (10 at most): in France from the Base Adresse Nationale
+    /// (IGN's Géoplateforme, Licence Ouverte 2.0), elsewhere from
+    /// OpenStreetMap (Lunaway's Photon geocoder, ODbL), each with its
+    /// source. The addresses come nearest to `near` first, without a town
+    /// the places already show (a town whose name starts like the text,
+    /// with a place in it among the results); `near` is rounded by the
+    /// server to the nearest 0.05 degree (about 5 km) before any use, and
+    /// it and the text go to the geocoders and are kept nowhere. A text of
+    /// fewer than 3 letters or digits asks no geocoder. The geocoders are
+    /// asked by one `searchAll` per request, 300 times every ten minutes
+    /// per client; beyond, or when one is late or down, the places come
+    /// with the addresses that did, and `addressesComplete` is false.
+    /// `language` (`fr`, `en`, `de`, `it`) names the places outside France
+    /// in it where OpenStreetMap does; otherwise, in their local language.
+    #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
+    async fn search_all(
+        &self,
+        ctx: &Context<'_>,
+        text: String,
+        near: Option<LatLonInput>,
+        #[graphql(default = 20)] first: Option<i32>,
+        #[graphql(default = 5)] addresses: Option<i32>,
+        language: Option<String>,
+    ) -> Result<SearchAnswer> {
+        let language = language
+            .map(|l| l.trim().to_ascii_lowercase())
+            .filter(|l| !l.is_empty());
+        if language
+            .as_deref()
+            .is_some_and(|l| l.len() != 2 || !l.bytes().all(|b| b.is_ascii_lowercase()))
+        {
+            return Err(invalid_input("language: two letters, as `fr`"));
+        }
+        let first = page(first.unwrap_or(DEFAULT_SEARCH_RESULTS), MAX_SEARCH_RESULTS)?;
+        let addresses = addresses.unwrap_or(DEFAULT_SEARCH_ADDRESSES);
+        if !(0..=MAX_SEARCH_ADDRESSES).contains(&addresses) {
+            return Err(invalid_input(format!(
+                "addresses must be between 0 and {MAX_SEARCH_ADDRESSES}, got {addresses}"
+            )));
+        }
+        let text = text.trim();
+        if !SEARCH_TEXT_CHARS.contains(&text.chars().count()) {
+            return Err(invalid_input("text must hold 2 to 100 characters"));
+        }
+        // On the grid only, as every point a search ranks from; the error
+        // names no coordinate.
+        let near = near
+            .map(|p| Position::new(p.lat, p.lon).map(Position::coarsened))
+            .transpose()
+            .map_err(|_| invalid_input("near: not a valid position"))?;
+        crate::address_query::search_all(
+            ctx,
+            text,
+            near,
+            first,
+            usize::try_from(addresses).unwrap_or(0),
+            language.as_deref(),
+        )
+        .await
     }
 
     /// The signed-in account, with its level and what the next one needs.

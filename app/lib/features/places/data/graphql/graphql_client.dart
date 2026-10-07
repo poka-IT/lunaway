@@ -62,13 +62,17 @@ final class GraphQLClient {
   /// argument or an input field it does not know, gets its older form: a
   /// document the server did not validate ran nothing, so sending another
   /// one is safe.
+  ///
+  /// [abort], once complete, cancels the request in flight: a search the
+  /// user typed past.
   Future<T> execute<T>(
     GraphQLOperation<T> operation, [
     Map<String, Object?> variables = const {},
     Map<String, String> headers = const {},
+    Future<void>? abort,
   ]) async {
     try {
-      return await _execute(operation, operation.document, variables, headers);
+      return await _execute(operation, operation.document, variables, headers, abort);
     } on GraphQLResponseException catch (e, stack) {
       var refusal = e;
       var trace = stack;
@@ -79,7 +83,13 @@ final class GraphQLClient {
         final form = next;
         _log.info('${operation.name}: the API does not know all of it yet, sent in an older form');
         try {
-          return await _execute(operation, form.document, form.variables(variables), headers);
+          return await _execute(
+            operation,
+            form.document,
+            form.variables(variables),
+            headers,
+            abort,
+          );
         } on GraphQLResponseException catch (again, stack) {
           refusal = again;
           trace = stack;
@@ -106,8 +116,9 @@ final class GraphQLClient {
     GraphQLOperation<T> operation,
     String document,
     Map<String, Object?> variables,
-    Map<String, String> headers,
-  ) async {
+    Map<String, String> headers, [
+    Future<void>? abort,
+  ]) async {
     final hash = persistedQueries && !_wholeDocuments
         ? _hashes.putIfAbsent(document, () => sha256.convert(utf8.encode(document)).toString())
         : null;
@@ -133,7 +144,7 @@ final class GraphQLClient {
       if (!kIsWeb) 'user-agent': userAgent,
     };
     for (var limited = 0; ;) {
-      final response = await _post(sent, body());
+      final response = await _post(sent, body(), abort);
       final decoded = _decode(response);
       if (!withDocument) {
         if (_hashUnknown(decoded)) {
@@ -195,9 +206,17 @@ final class GraphQLClient {
             .any((e) => e.code == GraphQLError.invalidInput && e.message.contains('`query`'));
   }
 
-  Future<http.Response> _post(Map<String, String> headers, String body) async {
+  Future<http.Response> _post(Map<String, String> headers, String body, Future<void>? abort) async {
     try {
-      return await _http.post(endpoint, headers: headers, body: body).timeout(timeout);
+      if (abort == null) {
+        return await _http.post(endpoint, headers: headers, body: body).timeout(timeout);
+      }
+      final request = http.AbortableRequest('POST', endpoint, abortTrigger: abort)
+        ..headers.addAll(headers)
+        ..body = body;
+      Future<http.Response> sent() async =>
+          await http.Response.fromStream(await _http.send(request));
+      return await sent().timeout(timeout);
     } on TimeoutException catch (e) {
       throw GraphQLNetworkException('timeout after ${timeout.inSeconds} s', e);
     } on http.ClientException catch (e) {
