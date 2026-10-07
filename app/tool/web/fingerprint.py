@@ -217,6 +217,11 @@ def compress(root: str) -> int:
     for directory, _, names in os.walk(root):
         for name in names:
             full = os.path.join(directory, name)
+            # The service worker is written after this, by
+            # tool/web/service_worker.py: a copy made now would be of the
+            # previous build's worker, which Caddy would then serve.
+            if name == "lunaway_sw.js":
+                continue
             if name.endswith(COMPRESSIBLE) and os.path.getsize(full) >= 1024:
                 todo.append(full)
 

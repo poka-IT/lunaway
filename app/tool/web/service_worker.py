@@ -190,6 +190,11 @@ def main() -> int:
     if not os.path.isfile(os.path.join(root, "index.html")):
         print(f"no index.html in {root}", file=sys.stderr)
         return 1
+    # A compressed copy of an earlier worker, left in a build's output, is
+    # what Caddy would serve in its place (`precompressed br`).
+    stale = os.path.join(root, "lunaway_sw.js.br")
+    if os.path.isfile(stale):
+        os.remove(stale)
     if remove:
         with open(os.path.join(root, "lunaway_sw.js"), "w") as f:
             f.write(REMOVE)
