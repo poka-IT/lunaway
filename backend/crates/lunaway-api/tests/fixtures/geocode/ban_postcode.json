@@ -1,0 +1,47 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -4.497735,
+     48.406435
+    ]
+   },
+   "properties": {
+    "label": "Brest",
+    "score": 0.8671245454545454,
+    "type": "municipality",
+    "name": "Brest",
+    "postcode": "29200",
+    "population": 142346,
+    "city": "Brest",
+    "context": "29, Finistère, Bretagne",
+    "municipality": "Brest"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -4.519371,
+     48.382396
+    ]
+   },
+   "properties": {
+    "label": "Rue Anatole France 29200 Brest",
+    "score": 0.7111563636363636,
+    "name": "Rue Anatole France",
+    "postcode": "29200",
+    "city": "Brest",
+    "context": "29, Finistère, Bretagne",
+    "type": "street",
+    "street": "Rue Anatole France"
+   }
+  }
+ ],
+ "query": "29200"
+}

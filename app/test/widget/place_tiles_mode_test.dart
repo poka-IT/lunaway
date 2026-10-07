@@ -309,7 +309,7 @@ void main() {
       final app = await pumpLunaway(tester, places: const [], online: online);
       final results = await _watched(tester, app, searchResultsProvider('Peupliers').future);
       expect(results.places.map((p) => p.id), [campsite.id]);
-      expect(online.requests, contains('search:Peupliers'));
+      expect(online.requests, contains('searchAll:Peupliers'));
     });
 
     testWidgets('the search reads the device when it holds places, without a request', (

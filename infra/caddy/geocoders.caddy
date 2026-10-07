@@ -1,0 +1,57 @@
+# The geocoders of the map's search (docs/deploy.md, "Geocoding"), installed
+# as /etc/caddy/sites-enabled/geocoders.caddy by infra/server/caddy.sh, with
+# or without the domain. The API asks them here, on the loopback, and Caddy
+# carries each request out (backend/crates/lunaway-api/src/geocode.rs), so
+# the API itself connects to nothing outside the host
+# (infra/systemd/lunaway-api.service).
+#
+#   /ban/...             the Base Adresse Nationale, IGN's Géoplateforme
+#   /photon/europe/...   Photon on the geocoding server, Europe
+#   /photon/morocco/...  Photon on the geocoding server, Morocco
+#
+# No access log: a line would hold the text searched. An error is logged by
+# the default logger, whose filter drops every query string (Caddyfile).
+http://127.0.0.1:8486 {
+	bind 127.0.0.1
+
+	# Nothing of the API's request but the path and the query goes on: no
+	# forwarding headers (they would only say 127.0.0.1).
+	handle_path /ban/* {
+		rewrite * /geocodage{uri}
+		reverse_proxy https://data.geopf.fr {
+			header_up Host data.geopf.fr
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Proto
+			header_up -X-Forwarded-Host
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle_path /photon/europe/* {
+		reverse_proxy 10.42.0.4:2322 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Proto
+			header_up -X-Forwarded-Host
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle_path /photon/morocco/* {
+		reverse_proxy 10.42.0.4:2323 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Proto
+			header_up -X-Forwarded-Host
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+			}
+		}
+	}
+	handle {
+		respond 404
+	}
+}

@@ -30,7 +30,8 @@ FILES = {
 # Every icon the app shows, by style. Keep sorted.
 ICONS = {
     "regular": """
-        arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowSquareOut arrowsVertical
+        arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowsMerge arrowSquareOut
+        arrowsVertical
         baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
         buildings calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
         chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
@@ -49,8 +50,8 @@ ICONS = {
         wind wrench x
     """,
     "fill": """
-        barn basket bread carProfile carrot chargingStation checkCircle cheese coffee crosshair
-        cylinder drop dropHalfBottom egg envelopeSimple firstAid gasPump heart hospital
+        arrowsMerge barn barricade basket bread carProfile carrot chargingStation checkCircle cheese coffee crosshair
+        cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered gasPump heart hospital
         houseLine info jeep knife letterCircleP mapPin mapTrifold money navigationArrow package
         pawPrint picnicTable pizza recycle shoppingCart shower snowflake star stethoscope
         storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench

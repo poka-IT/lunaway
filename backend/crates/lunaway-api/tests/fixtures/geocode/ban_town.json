@@ -1,0 +1,74 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     6.125296,
+     45.901584
+    ]
+   },
+   "properties": {
+    "label": "Annecy",
+    "score": 0.9610915094143129,
+    "type": "municipality",
+    "name": "Annecy",
+    "postcode": "74000",
+    "population": 132117,
+    "city": "Annecy",
+    "context": "74, Haute-Savoie, Auvergne-Rhône-Alpes",
+    "municipality": "Annecy",
+    "distance": 1964
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     6.123817,
+     45.915951
+    ]
+   },
+   "properties": {
+    "label": "Avenue de Genève 74000 Annecy",
+    "score": 0.7314100046070046,
+    "name": "Avenue de Genève",
+    "postcode": "74000",
+    "oldcitycode": "74010",
+    "city": "Annecy",
+    "oldcity": "Annecy",
+    "context": "74, Haute-Savoie, Auvergne-Rhône-Alpes",
+    "type": "street",
+    "street": "Avenue de Genève",
+    "distance": 2556
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     6.094675,
+     45.8999
+    ]
+   },
+   "properties": {
+    "label": "Rue des Pâquerettes 74960 Annecy",
+    "score": 0.7306843434161516,
+    "name": "Rue des Pâquerettes",
+    "postcode": "74960",
+    "oldcitycode": "74093",
+    "city": "Annecy",
+    "oldcity": "Cran-Gevrier",
+    "context": "74, Haute-Savoie, Auvergne-Rhône-Alpes",
+    "type": "street",
+    "street": "Rue des Pâquerettes",
+    "distance": 411
+   }
+  }
+ ],
+ "query": "annecy"
+}

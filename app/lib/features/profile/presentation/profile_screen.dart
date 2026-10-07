@@ -556,6 +556,11 @@ class _Attributions extends ConsumerWidget {
             t.profile.attributionBdTopo,
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
+          entry(
+            t.profile.attributionAddresses,
+            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
+          ),
+          entry(t.profile.attributionAddressesOsm, 'https://opendatacommons.org/licenses/odbl/'),
           entry(t.profile.attributionPoiOdbl, 'https://opendatacommons.org/licenses/odbl/'),
           entry(
             t.profile.attributionPoiLo,

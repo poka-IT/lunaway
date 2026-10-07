@@ -15,6 +15,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
@@ -25,8 +26,8 @@ part 'map_state.g.dart';
 
 final _log = Logger('map');
 
-/// What the map points at: a place, a point the user long-pressed, or a
-/// point of interest.
+/// What the map points at: a place, a point the user long-pressed or an
+/// address the search found, or a point of interest.
 @immutable
 sealed class MapSelection {
   const new();
@@ -50,15 +51,20 @@ final class PlaceSelection extends MapSelection {
 }
 
 final class PointSelection extends MapSelection {
-  const new(this.position);
+  const new(this.position, {this.address});
 
   final LatLng position;
 
-  @override
-  bool operator ==(Object other) => other is PointSelection && other.position == position;
+  /// The address the search found there, when the point came from it: the
+  /// details name it and credit its source.
+  final AddressMatch? address;
 
   @override
-  int get hashCode => position.hashCode;
+  bool operator ==(Object other) =>
+      other is PointSelection && other.position == position && other.address == address;
+
+  @override
+  int get hashCode => Object.hash(position, address);
 }
 
 /// A point of interest, opened from the map, a place's surroundings or the

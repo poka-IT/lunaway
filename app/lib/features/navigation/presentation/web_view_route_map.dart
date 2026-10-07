@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +11,9 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('route_map');
@@ -40,6 +43,10 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   Future<void> _queue = Future.value();
   List<RouteMapLine>? _sentLines;
   List<RouteMapMark>? _sentMarks;
+
+  /// The marks lit, by index, as the page has them.
+  Set<int> _sentLit = const {};
+  int? _sentFocus;
   RouteCamera? _sentCamera;
   VehiclePuck? _sentVehicle;
   EdgeInsets? _sentFollowPadding;
@@ -112,6 +119,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final reduced = Motion.reduced(context);
     final arrow = base64Encode(await vehicleArrowPng(ratio));
+    final badges = await routeBadgePngs(ratio);
     if (!mounted) return;
     final start = switch (_props.camera) {
       FitCamera(:final bounds) => bounds.center,
@@ -123,30 +131,30 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'lat': start.lat,
         'lon': start.lon,
         'zoom': 11,
-        // The route map's one image, the vehicle's arrow, drawn at the
+        // The vehicle's arrow and the badges of the marks, drawn at the
         // screen's density.
         'pixelRatio': ratio,
-        'images': {RouteLayers.vehicleImage: arrow},
+        'images': {
+          RouteLayers.vehicleImage: arrow,
+          for (final MapEntry(:key, :value) in badges.entries) key: base64Encode(value),
+        },
         'spec': _spec(dark: _props.dark),
         'reducedMotion': reduced,
       },
     });
+    await _call('return window.lunawayMarks.listen(layers);', {'layers': RouteLayers.badges});
   }
 
-  /// The route layers in the GL JS style syntax. The marks with an id
-  /// (places, stations, stops) are tappable; the cards beside the map pick
-  /// the route.
+  /// The route layers in the GL JS style syntax. Every badge is a target
+  /// (lunawayHits.pick, by routeHitShapes): a mark reports itself, a group
+  /// zooms in; the cards beside the map pick the route.
   static Map<String, Object?> _spec({required bool dark}) => {
-    'clusterSource': RouteLayers.routeSource,
-    'selectionLayer': RouteLayers.marks,
     'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
-    // Every mark, those without an id too: a tap on the destination or a
-    // warning is no tap on bare map (the page ignores a feature without an
-    // id, and sends nothing).
-    'tappable': const [RouteLayers.tappableMarks, RouteLayers.marks],
+    'tappable': [...RouteLayers.badges],
     'sources': [
       {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
-      {'id': RouteLayers.marksSource, 'options': <String, Object?>{}},
+      for (final s in RouteLayers.markSources)
+        {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
       {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
     ],
@@ -175,12 +183,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         RouteLook.line(dark: dark),
         RouteLook.lineWidth,
       ),
-      // A start or a warning drawn over a place never hides it from a tap.
-      _marks(RouteLayers.marks, const [
-        '!',
-        ['has', 'id'],
-      ]),
-      _marks(RouteLayers.tappableMarks, const ['has', 'id']),
+      ...RouteMarkStyle.jsonLayers(),
       {
         'id': RouteLayers.vehicle,
         'type': 'symbol',
@@ -195,19 +198,6 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         },
       },
     ],
-  };
-
-  static Map<String, Object?> _marks(String id, List<Object> filter) => {
-    'id': id,
-    'type': 'circle',
-    'source': RouteLayers.marksSource,
-    'filter': filter,
-    'paint': {
-      'circle-color': ['get', 'fill'],
-      'circle-radius': ['get', 'radius'],
-      'circle-stroke-color': RouteLook.markStroke,
-      'circle-stroke-width': RouteLook.markStrokeWidth,
-    },
   };
 
   static Map<String, Object?> _line(String id, String source, String color, double width) => {
@@ -226,6 +216,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _ready = true;
         _sentLines = null;
         _sentMarks = null;
+        _sentLit = const {};
+        _sentFocus = _props.focus?.serial;
         _sentCamera = null;
         _sentVehicle = null;
         _sentFollowPadding = null;
@@ -234,8 +226,21 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         } else {
           _schedule();
         }
-      case 'place':
-        if (event['id'] case final String id) _props.onMarkTap?.call(id);
+      case 'mark':
+        if (event['id'] case final String id) {
+          _props.onMarkTap?.call(id, at: _pointOf(event));
+        }
+      case 'movestart':
+        _props.onCameraMove?.call();
+      case 'hover':
+        _props.onMarkHover?.call(switch ((_pointOf(event), event['mark'], event['group'])) {
+          (final at?, final String id, _) => RouteMapHover(at: at, mark: id),
+          (final at?, _, final Map<Object?, Object?> group) => RouteMapHover(
+            at: at,
+            group: RouteMarkStyle.groupCounts(group),
+          ),
+          _ => null,
+        });
       case 'longpress':
         // GL JS gives longitudes past 180 on the world's repeated copies.
         if ((event['lat'], event['lon']) case (final num lat, final num lon)
@@ -256,6 +261,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         }
     }
   }
+
+  /// The point of a page event, in CSS pixels, which are the app's logical
+  /// ones.
+  static Offset? _pointOf(Map<String, Object?> event) => switch ((event['x'], event['y'])) {
+    (final num x, final num y) => Offset(x.toDouble(), y.toDouble()),
+    _ => null,
+  };
 
   void _setStyle() {
     _style = _props.style;
@@ -297,12 +309,21 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'data': routeLinesCollection(p.lines, selected: true),
       });
     }
-    if (!identical(p.marks, _sentMarks)) {
+    if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
-      await _call('return window.lunaway.setData(id, data);', {
-        'id': RouteLayers.marksSource,
-        'data': routeMarksCollection(p.marks),
+      for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
+        await _call('return window.lunaway.setData(id, data);', {'id': key, 'data': value});
+      }
+      // The states name features by their index in the old marks.
+      await _call('return window.lunawayMarks.clear(sources);', {
+        'sources': RouteLayers.markSources,
       });
+      _sentLit = const {};
+    }
+    await _light(p.highlighted);
+    if (p.focus case final focus? when focus.serial != _sentFocus) {
+      _sentFocus = focus.serial;
+      unawaited(_fly(focus));
     }
     final vehicle = p.vehicle;
     if (vehicle != _sentVehicle) {
@@ -361,6 +382,54 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         },
       });
     }
+  }
+
+  /// Lights the marks of [highlighted] and puts out the others, sending
+  /// only what changed.
+  Future<void> _light(Set<String> highlighted) async {
+    final marks = _props.marks;
+    final lit = {
+      for (final (i, m) in marks.indexed)
+        if (highlighted.contains(m.id)) i,
+    };
+    if (setEquals(lit, _sentLit)) return;
+    final changed = lit.union(_sentLit).difference(lit.intersection(_sentLit));
+    _sentLit = lit;
+    await _call('return window.lunawayMarks.light(states);', {
+      'states': [
+        for (final i in changed)
+          if (i < marks.length)
+            {
+              'source': routeMarkSource(marks[i]),
+              'id': routeMarkFeatureId(i),
+              'lit': lit.contains(i),
+            },
+      ],
+    });
+  }
+
+  /// Brings the marks of [focus] into view, then three beats of their ring,
+  /// as the maplibre_gl route map does.
+  Future<void> _fly(RouteMapFocus focus) async {
+    final duration = Motion.of(context, Motion.camera);
+    await _call('return window.lunawayMarks.fly(lat, lon, zoom, duration);', {
+      'lat': focus.position.lat,
+      'lon': focus.position.lon,
+      'zoom': RouteMarkStyle.focusZoom,
+      'duration': duration.inMilliseconds,
+    });
+    if (_reduced) return;
+    await Future<void>.delayed(duration);
+    final keep = _props.highlighted;
+    for (var beat = 0; beat < 3; beat++) {
+      if (!mounted) return;
+      await _light({...keep, ...focus.marks});
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      if (!mounted) return;
+      await _light(keep.difference(focus.marks.toSet()));
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+    }
+    if (mounted) await _light(_props.highlighted);
   }
 
   @override

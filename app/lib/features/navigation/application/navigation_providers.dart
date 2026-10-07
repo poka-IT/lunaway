@@ -53,6 +53,12 @@ class RouteSettingsController extends _$RouteSettingsController {
   /// Records that the user read the disclaimer of [key].
   Future<void> acceptDisclaimer(String key) => _update((s) => s.copyWith(acceptedDisclaimer: key));
 
+  /// Records that the route map's legend was shown open.
+  Future<void> legendShown() async {
+    if (state.value?.legendSeen ?? false) return;
+    await _update((s) => s.copyWith(legendSeen: true));
+  }
+
   Future<void> _update(NavigationSettings Function(NavigationSettings) change) async {
     final next = change(state.value ?? const NavigationSettings());
     state = AsyncData(next);

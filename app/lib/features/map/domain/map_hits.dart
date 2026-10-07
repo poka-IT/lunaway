@@ -292,3 +292,15 @@ double _mercatorY(double lat) {
   final s = math.sin(lat * math.pi / 180).clamp(-0.9999, 0.9999);
   return 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi);
 }
+
+/// What the mouse is over on a map of the page, as the page's hover picked
+/// it: the layer, the feature's properties, and where the feature stands
+/// on the map, in logical pixels.
+@immutable
+final class WebMapHover {
+  const new({required this.layer, required this.properties, required this.at});
+
+  final String layer;
+  final Map<Object?, Object?> properties;
+  final Offset at;
+}

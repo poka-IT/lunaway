@@ -11,6 +11,8 @@ import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/route_marks.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -58,7 +60,29 @@ class NoRouteExplanation extends ConsumerWidget {
       children: [
         for (final (i, r) in reasons.indexed) ...[
           if (i > 0) const SizedBox(height: Space.l),
-          _Reason(reason: r, lastStop: _last, stops: stops, coveredCountries: coveredCountries),
+          // Tied to the marks of what keeps the vehicle out, where the
+          // server placed them.
+          switch ([
+            for (final l in r.limits)
+              if (l.restriction case final w?) limitMarkId(w),
+          ]) {
+            final List<String> marks when marks.isNotEmpty => MarkLinkedRow(
+              target: target,
+              marks: marks,
+              child: _Reason(
+                reason: r,
+                lastStop: _last,
+                stops: stops,
+                coveredCountries: coveredCountries,
+              ),
+            ),
+            _ => _Reason(
+              reason: r,
+              lastStop: _last,
+              stops: stops,
+              coveredCountries: coveredCountries,
+            ),
+          },
         ],
         if (actions.isNotEmpty || hints.isNotEmpty) ...[
           const SizedBox(height: Space.l),

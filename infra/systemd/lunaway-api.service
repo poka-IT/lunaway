@@ -23,6 +23,10 @@ ExecStart=/opt/lunaway/current/lunaway-api
 EnvironmentFile=/etc/lunaway/api.env
 EnvironmentFile=/etc/lunaway/media.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484
+# The geocoders of the map's search, through Caddy on the loopback
+# (infra/caddy/geocoders.caddy): the API reaches nothing off the host.
+Environment=LUNAWAY_GEOCODE_BAN_URL=http://127.0.0.1:8486/ban
+Environment="LUNAWAY_GEOCODE_PHOTON_URL=http://127.0.0.1:8486/photon/europe http://127.0.0.1:8486/photon/morocco"
 Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
@@ -80,8 +84,9 @@ SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 
 # Network: loopback only. Caddy reaches the API on 127.0.0.1:8484 and the API
-# reaches PostgreSQL on 127.0.0.1:5432; the API calls nothing outside the
-# host. Widen IPAddressAllow the day it has to.
+# reaches PostgreSQL on 127.0.0.1:5432 and the geocoders through Caddy on
+# 127.0.0.1:8486; the API calls nothing outside the host. Widen
+# IPAddressAllow the day it has to.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
 IPAddressAllow=localhost

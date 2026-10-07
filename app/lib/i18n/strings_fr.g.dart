@@ -311,6 +311,8 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
+	@override String addressSource({required Object attribution}) => 'Source : ${attribution}';
+	@override String get placesAround => 'Les lieux autour';
 	@override String get downloading => 'Téléchargement des lieux de France';
 	@override String downloadingCount({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${count} lieu reçu',
@@ -381,6 +383,11 @@ class _Translations$search$fr extends Translations$search$en {
 		one: '${n} lieu',
 		other: '${n} lieux',
 	);
+	@override String get addresses => 'Adresses';
+	@override String get addressesSearching => 'Recherche des adresses';
+	@override String get addressesFailed => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.';
+	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
+	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 }
 
 // Path: filters
@@ -586,6 +593,7 @@ class _Translations$navigation$fr extends Translations$navigation$en {
 	@override late final _Translations$navigation$ferry$fr ferry = _Translations$navigation$ferry$fr._(_root);
 	@override late final _Translations$navigation$warning$fr warning = _Translations$navigation$warning$fr._(_root);
 	@override late final _Translations$navigation$roadEvents$fr roadEvents = _Translations$navigation$roadEvents$fr._(_root);
+	@override late final _Translations$navigation$marks$fr marks = _Translations$navigation$marks$fr._(_root);
 	@override late final _Translations$navigation$guidance$fr guidance = _Translations$navigation$guidance$fr._(_root);
 	@override late final _Translations$navigation$voice$fr voice = _Translations$navigation$voice$fr._(_root);
 	@override late final _Translations$navigation$units$fr units = _Translations$navigation$units$fr._(_root);
@@ -724,6 +732,8 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 	@override String get noTracking => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
 	@override String get attributionBdTopo => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
+	@override String get attributionAddresses => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.';
+	@override String get attributionAddressesOsm => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.';
 	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
 	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
@@ -1483,6 +1493,21 @@ class _Translations$countries$fr extends Translations$countries$en {
 	@override String get va => 'Vatican';
 }
 
+// Path: search.addressKind
+class _Translations$search$addressKind$fr extends Translations$search$addressKind$en {
+	_Translations$search$addressKind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get houseNumber => 'Adresse';
+	@override String get street => 'Rue';
+	@override String get locality => 'Lieu-dit';
+	@override String get town => 'Commune';
+	@override String get postcode => 'Code postal';
+	@override String get region => 'Région';
+}
+
 // Path: place.reviewVehicle
 class _Translations$place$reviewVehicle$fr extends Translations$place$reviewVehicle$en {
 	_Translations$place$reviewVehicle$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -1809,6 +1834,44 @@ class _Translations$navigation$roadEvents$fr extends Translations$navigation$roa
 	@override String get reasonInside => 'le trajet commence ou finit dedans';
 	@override String get reasonNearLimit => 'de justesse';
 	@override String get reasonOverLimit => 'au-dessus de la limite de votre véhicule';
+}
+
+// Path: navigation.marks
+class _Translations$navigation$marks$fr extends Translations$navigation$marks$en {
+	_Translations$navigation$marks$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get legend => 'Légende';
+	@override String get legendHide => 'Replier la légende';
+	@override String get kindOrigin => 'Départ';
+	@override String get kindDestination => 'Arrivée';
+	@override String get kindStop => 'Étape';
+	@override String get kindClosure => 'Route fermée';
+	@override String get kindWorks => 'Travaux';
+	@override String get kindLanes => 'Voies réduites';
+	@override String get kindClearance => 'Hauteur limitée';
+	@override String get kindWeight => 'Poids limité';
+	@override String get kindLimit => 'Autre limite (largeur, longueur, interdiction)';
+	@override String get kindFuel => 'Station-service';
+	@override String get kindPlace => 'Lieu près du trajet';
+	@override String get groupLegend => 'Repères proches regroupés';
+	@override String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${n} repère',
+		other: '${n} repères',
+	);
+	@override String get groupHint => 'Rapprochez-vous pour les voir un par un';
+	@override String count({required Object kind, required Object n}) => '${kind} : ${n}';
+	@override String stop({required Object n}) => 'Étape ${n}';
+	@override String get origin => 'Point de départ';
+	@override String get nearRoute => 'Près du trajet';
+	@override String get avoided => 'L\'itinéraire passe à côté';
+	@override String get blocking => 'Bloque chaque itinéraire';
+	@override String get showInList => 'Voir dans la liste';
+	@override String get showAll => 'Tout afficher';
+	@override String get onMap => 'montrer sur la carte';
+	@override String price({required Object price}) => '${price} €';
 }
 
 // Path: navigation.guidance
@@ -2525,6 +2588,8 @@ extension on TranslationsFr {
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
+			'map.addressSource' => ({required Object attribution}) => 'Source : ${attribution}',
+			'map.placesAround' => 'Les lieux autour',
 			'map.downloading' => 'Téléchargement des lieux de France',
 			'map.downloadingCount' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${count} lieu reçu', other: '${count} lieux reçus', ), 
 			'map.noData' => 'Aucun lieu sur cet appareil pour l\'instant',
@@ -2562,6 +2627,16 @@ extension on TranslationsFr {
 			'search.places' => 'Lieux',
 			'search.noResult' => ({required Object query}) => 'Aucun lieu ni aucune commune ne correspond à « ${query} ».',
 			'search.townPlaces' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} lieu', other: '${n} lieux', ), 
+			'search.addresses' => 'Adresses',
+			'search.addressesSearching' => 'Recherche des adresses',
+			'search.addressesFailed' => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.',
+			'search.addressSources' => ({required Object sources}) => 'Adresses : ${sources}',
+			'search.addressKind.houseNumber' => 'Adresse',
+			'search.addressKind.street' => 'Rue',
+			'search.addressKind.locality' => 'Lieu-dit',
+			'search.addressKind.town' => 'Commune',
+			'search.addressKind.postcode' => 'Code postal',
+			'search.addressKind.region' => 'Région',
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
@@ -2911,6 +2986,34 @@ extension on TranslationsFr {
 			'navigation.roadEvents.reasonInside' => 'le trajet commence ou finit dedans',
 			'navigation.roadEvents.reasonNearLimit' => 'de justesse',
 			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
+			'navigation.marks.legend' => 'Légende',
+			'navigation.marks.legendHide' => 'Replier la légende',
+			_ => null,
+		} ?? switch (path) {
+			'navigation.marks.kindOrigin' => 'Départ',
+			'navigation.marks.kindDestination' => 'Arrivée',
+			'navigation.marks.kindStop' => 'Étape',
+			'navigation.marks.kindClosure' => 'Route fermée',
+			'navigation.marks.kindWorks' => 'Travaux',
+			'navigation.marks.kindLanes' => 'Voies réduites',
+			'navigation.marks.kindClearance' => 'Hauteur limitée',
+			'navigation.marks.kindWeight' => 'Poids limité',
+			'navigation.marks.kindLimit' => 'Autre limite (largeur, longueur, interdiction)',
+			'navigation.marks.kindFuel' => 'Station-service',
+			'navigation.marks.kindPlace' => 'Lieu près du trajet',
+			'navigation.marks.groupLegend' => 'Repères proches regroupés',
+			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
+			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
+			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
+			'navigation.marks.stop' => ({required Object n}) => 'Étape ${n}',
+			'navigation.marks.origin' => 'Point de départ',
+			'navigation.marks.nearRoute' => 'Près du trajet',
+			'navigation.marks.avoided' => 'L\'itinéraire passe à côté',
+			'navigation.marks.blocking' => 'Bloque chaque itinéraire',
+			'navigation.marks.showInList' => 'Voir dans la liste',
+			'navigation.marks.showAll' => 'Tout afficher',
+			'navigation.marks.onMap' => 'montrer sur la carte',
+			'navigation.marks.price' => ({required Object price}) => '${price} €',
 			'navigation.guidance.then' => 'Puis',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrivée ${time}',
 			'navigation.guidance.offRoute' => 'Hors itinéraire',
@@ -2925,8 +3028,6 @@ extension on TranslationsFr {
 			'navigation.guidance.eventClosure' => ({required Object distance}) => 'Route fermée dans ${distance}',
 			'navigation.guidance.eventLimit' => ({required Object distance}) => 'Gabarit limité par des travaux dans ${distance}',
 			'navigation.guidance.eventSource' => ({required Object source, required Object time}) => '${source}, données de ${time}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.eventSourceOn' => ({required Object source, required Object day, required Object time}) => '${source}, données du ${day} à ${time}',
 			'navigation.guidance.avoidedClosures' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture', other: 'Itinéraire calculé autour de ${n} fermetures', ), 
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} dans ${distance}',
@@ -3097,6 +3198,8 @@ extension on TranslationsFr {
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'profile.noTracking' => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
 			'profile.attributionBdTopo' => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
+			'profile.attributionAddresses' => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.',
+			'profile.attributionAddressesOsm' => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.',
 			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
 			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
@@ -3399,6 +3502,8 @@ extension on TranslationsFr {
 			'reviewSheet.starsRequired' => 'Choisissez une note de 1 à 5',
 			'reviewSheet.text' => 'Votre avis',
 			'reviewSheet.textHint' => 'Le calme, l\'accueil, la place pour manœuvrer, ce qui vous a servi',
+			_ => null,
+		} ?? switch (path) {
 			'reviewSheet.tooShort' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Encore ${n} caractère au moins', other: 'Encore ${n} caractères au moins', ), 
 			'reviewSheet.visited' => 'Date du séjour',
 			'reviewSheet.visitedNone' => 'Non précisée',
@@ -3439,8 +3544,6 @@ extension on TranslationsFr {
 			'placeForm.description' => 'Description',
 			'placeForm.descriptionHint' => 'Ce qui aide à trouver et à choisir le lieu',
 			'placeForm.details' => 'Précisions',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.priceNight' => 'Prix de la nuit (€)',
 			'placeForm.priceServices' => 'Prix des services (€)',
 			'placeForm.maxHeight' => 'Hauteur maximale (m)',

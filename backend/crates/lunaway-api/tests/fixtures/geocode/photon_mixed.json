@@ -1,0 +1,9 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-3.7090,40.4153]},"properties":{"osm_type":"N","osm_id":1,"osm_key":"place","osm_value":"house","type":"house","housenumber":"5","street":"Calle Mayor","postcode":"28013","city":"Madrid","state":"Comunidad de Madrid","country":"España","countrycode":"ES"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[4.3540,50.8510]},"properties":{"osm_type":"N","osm_id":2,"osm_key":"place","osm_value":"house","type":"house","housenumber":"12","street":"Rue Neuve","postcode":"1000","city":"Bruxelles - Brussel","country":"België / Belgique / Belgien","countrycode":"BE"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[4.3550,50.8520]},"properties":{"osm_type":"N","osm_id":3,"osm_key":"shop","osm_value":"bakery","type":"house","name":"Boulangerie","city":"Bruxelles - Brussel","countrycode":"BE"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[11.5750,48.1370]},"properties":{"osm_type":"W","osm_id":4,"osm_key":"highway","osm_value":"residential","type":"street","name":"Hauptstraße","postcode":"80331","city":"München","state":"Bayern","country":"Deutschland","countrycode":"DE"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[-5.2636,35.1688]},"properties":{"osm_type":"N","osm_id":5,"osm_key":"place","osm_value":"town","type":"city","name":"Chefchaouen","county":"Chefchaouen Province","country":"Morocco","countrycode":"MA"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[11.4,48.9]},"properties":{"osm_type":"R","osm_id":6,"osm_key":"boundary","osm_value":"administrative","type":"state","name":"Bayern","country":"Deutschland","countrycode":"DE"}},
+{"type":"Feature","geometry":{"type":"Point","coordinates":[2.35,48.85]},"properties":{"osm_type":"N","osm_id":7,"osm_key":"tourism","osm_value":"attraction","type":"other","name":"Something","countrycode":"FR"}}
+]}

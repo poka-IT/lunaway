@@ -5,7 +5,7 @@
 # extends and keeps this state; it installs the same files from infra/files.
 #
 # Template rendered by infra/provision.sh, which fills in the markers between
-# double at-signs: the server name, its role (backend or ops), the admin
+# double at-signs: the server name, its role (backend, ops, geocode), the admin
 # public key registered in the Hetzner project, and the base64 of each infra/
 # file named by a B64 marker, so these files have a single source. It holds
 # no secret.

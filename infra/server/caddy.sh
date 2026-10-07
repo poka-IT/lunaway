@@ -2,8 +2,9 @@
 # Caddy on the backend, run as root by setup.sh: the package (pinned signing
 # key, common.sh), the rendered Caddyfile, the lunaway.net sites (available,
 # enabled only by infra/enable-domain.sh), the web roots with a placeholder
-# page, and a sandbox drop-in for the service. Every site is a lunaway.net
-# name: until infra/enable-domain.sh links them, Caddy serves nothing.
+# page, and a sandbox drop-in for the service. Every public site is a
+# lunaway.net name: until infra/enable-domain.sh links them, Caddy serves
+# nothing but the API's loopback way to the geocoders (geocoders.caddy).
 . "$(dirname "$0")/common.sh"
 need_root
 
@@ -15,6 +16,9 @@ reload=0 restart=0
 install_file caddy/Caddyfile /etc/caddy/Caddyfile 0644 && reload=1
 install_file caddy/lunaway.net.caddy /etc/caddy/sites-available/lunaway.net.caddy 0644 && reload=1
 install -d -m 0755 /etc/caddy/sites-enabled
+# The API's way to the geocoders, on the loopback only: served with or
+# without the domain.
+install_file caddy/geocoders.caddy /etc/caddy/sites-enabled/geocoders.caddy 0644 && reload=1
 install_file systemd/caddy.service.d/lunaway.conf /etc/systemd/system/caddy.service.d/lunaway.conf 0644 && restart=1
 [ "$restart" = 1 ] && systemctl daemon-reload
 

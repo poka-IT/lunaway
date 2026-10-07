@@ -31,6 +31,119 @@ pub struct ApiConfig {
     pub keeping: KeepingConfig,
     /// The proxy that downloads a partner's photos.
     pub external_photos: ExternalPhotosConfig,
+    /// The geocoders behind the addresses of the map's search.
+    pub geocode: GeocodeConfig,
+}
+
+/// The geocoders of `Query.searchAll` (`crate::geocode`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeocodeConfig {
+    /// Base URL of the Base Adresse Nationale's geocoder, `/search` added
+    /// (`LUNAWAY_GEOCODE_BAN_URL`; none by default, production
+    /// `http://127.0.0.1:8486/ban`, Caddy's way to
+    /// `https://data.geopf.fr/geocodage`). Plain HTTP to a loopback address
+    /// or HTTPS anywhere, without user, query or fragment; any other value
+    /// turns it off.
+    pub ban_url: Option<String>,
+    /// Base URLs of the Photon geocoders, `/api` added, each asked at once
+    /// (`LUNAWAY_GEOCODE_PHOTON_URL`, separated by spaces or commas; none by
+    /// default, production `http://127.0.0.1:8486/photon/europe` and
+    /// `http://127.0.0.1:8486/photon/morocco`, Caddy's ways to the two
+    /// databases of the geocoding server on the private network). Same rules
+    /// as the BAN's; a URL that breaks them is left out.
+    pub photon_urls: Vec<String>,
+    /// Longest wait for a geocoder, connection included
+    /// (`LUNAWAY_GEOCODE_TIMEOUT_MS`, 700 ms): the places of a search wait
+    /// with its addresses, so a slow geocoder is left out rather than
+    /// waited for.
+    pub timeout: Duration,
+    /// Requests a second to the BAN, all clients together
+    /// (`LUNAWAY_GEOCODE_BAN_PER_SECOND`, 40): the Géoplateforme allows 50
+    /// per address and blocks for five seconds beyond.
+    pub ban_per_second: u32,
+    /// Photon requests at once (`LUNAWAY_GEOCODE_PHOTON_AT_ONCE`, 16).
+    pub photon_at_once: usize,
+}
+
+impl Default for GeocodeConfig {
+    fn default() -> Self {
+        Self {
+            ban_url: None,
+            photon_urls: Vec::new(),
+            timeout: Duration::from_millis(700),
+            ban_per_second: 40,
+            photon_at_once: 16,
+        }
+    }
+}
+
+/// Whether `url` may name a geocoder: plain HTTP to a loopback address
+/// (Caddy's way out) or HTTPS, with no user, query or fragment.
+#[must_use]
+pub fn is_geocoder_url(url: &str) -> bool {
+    let Ok(u) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    let loopback = u.host_str().is_some_and(|h| {
+        h == "localhost"
+            || h.trim_start_matches('[')
+                .trim_end_matches(']')
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    (u.scheme() == "https" || (u.scheme() == "http" && loopback))
+        && u.host_str().is_some()
+        && u.username().is_empty()
+        && u.password().is_none()
+        && u.query().is_none()
+        && u.fragment().is_none()
+}
+
+impl GeocodeConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let checked = |key: &str, v: &str| {
+            if is_geocoder_url(v) {
+                Some(v.trim_end_matches('/').to_owned())
+            } else {
+                tracing::error!(
+                    key,
+                    "not a loopback http or an https URL; this geocoder is off"
+                );
+                None
+            }
+        };
+        let url = |key: &str| {
+            lookup(key)
+                .map(|v| v.trim().to_owned())
+                .filter(|v| !v.is_empty())
+                .and_then(|v| checked(key, &v))
+        };
+        let urls = |key: &str| {
+            lookup(key)
+                .unwrap_or_default()
+                .split([' ', ','])
+                .filter(|v| !v.is_empty())
+                .filter_map(|v| checked(key, v))
+                .collect::<Vec<_>>()
+        };
+        Self {
+            ban_url: url("LUNAWAY_GEOCODE_BAN_URL"),
+            photon_urls: urls("LUNAWAY_GEOCODE_PHOTON_URL"),
+            timeout: lookup("LUNAWAY_GEOCODE_TIMEOUT_MS")
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|n| (1..=10_000).contains(n))
+                .map_or(d.timeout, Duration::from_millis),
+            ban_per_second: lookup("LUNAWAY_GEOCODE_BAN_PER_SECOND")
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| (1..=50).contains(n))
+                .unwrap_or(d.ban_per_second),
+            photon_at_once: lookup("LUNAWAY_GEOCODE_PHOTON_AT_ONCE")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| (1..=256).contains(n))
+                .unwrap_or(d.photon_at_once),
+        }
+    }
 }
 
 /// The photo proxy of the external community source
@@ -95,6 +208,7 @@ impl Default for ApiConfig {
             tiles: TilesConfig::default(),
             keeping: KeepingConfig::default(),
             external_photos: ExternalPhotosConfig::default(),
+            geocode: GeocodeConfig::default(),
         }
     }
 }
@@ -436,6 +550,12 @@ pub struct Quotas {
     /// or a mobile operator puts several drivers behind one address, hence
     /// more than one account's quota.
     pub road_report_client: Quota,
+    /// Searches that ask the geocoders, per client
+    /// (`LUNAWAY_QUOTA_GEOCODE`, 300 every ten minutes): a search asks once
+    /// typing pauses, so a person typing stays far below; a script using the
+    /// API as a free geocoder would spend the Géoplateforme's allowance,
+    /// which every user shares. Spent, a search still gives its places.
+    pub geocode: Quota,
 }
 
 impl Default for Quotas {
@@ -458,6 +578,7 @@ impl Default for Quotas {
             fuel_route: Quota::per(10, 10 * MINUTE),
             road_report: Quota::per(30, DAY),
             road_report_client: Quota::per(100, DAY),
+            geocode: Quota::per(300, 10 * MINUTE),
         }
     }
 }
@@ -493,6 +614,7 @@ impl Quotas {
             fuel_route: read("FUEL_ROUTE", d.fuel_route),
             road_report: read("ROAD_REPORT", d.road_report),
             road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
+            geocode: read("GEOCODE", d.geocode),
         }
     }
 }
@@ -737,6 +859,7 @@ impl ApiConfig {
             tiles: TilesConfig::from_lookup(&lookup),
             keeping: KeepingConfig::from_lookup(&lookup),
             external_photos: ExternalPhotosConfig::from_lookup(&lookup),
+            geocode: GeocodeConfig::from_lookup(&lookup),
         }
     }
 
@@ -759,6 +882,34 @@ mod tests {
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
         ApiConfig::from_lookup(|k| map.get(k).cloned())
+    }
+
+    #[test]
+    fn a_geocoder_is_reached_through_the_loopback_or_over_https_only() {
+        let g = with(&[
+            ("LUNAWAY_GEOCODE_BAN_URL", "http://127.0.0.1:8486/ban/"),
+            (
+                "LUNAWAY_GEOCODE_PHOTON_URL",
+                "http://127.0.0.1:8486/photon/europe, http://10.42.0.4:2322 https://photon.example/x",
+            ),
+        ])
+        .geocode;
+        assert_eq!(g.ban_url.as_deref(), Some("http://127.0.0.1:8486/ban"));
+        assert_eq!(
+            g.photon_urls,
+            [
+                "http://127.0.0.1:8486/photon/europe",
+                "https://photon.example/x"
+            ],
+            "plain HTTP off the host would carry the text in clear"
+        );
+        assert!(!is_geocoder_url("https://user:pw@data.geopf.fr/geocodage"));
+        assert!(!is_geocoder_url("https://data.geopf.fr/geocodage?q=x"));
+        assert_eq!(
+            with(&[]).geocode,
+            GeocodeConfig::default(),
+            "off unless configured"
+        );
     }
 
     #[test]

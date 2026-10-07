@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/presentation/address_labels.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/poi/presentation/add_vending.dart';
@@ -12,12 +15,14 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// The card of a bare point of the map, tapped at street level or held at
-/// any zoom: "Here", what can be done there, its coordinates. Compact: the
-/// way there and the copy sit in the action bar, the new place right under
-/// the title.
+/// any zoom, or of an address the search found: "Here" or the address with
+/// its source, what can be done there, its coordinates. Compact: the way
+/// there and the copy sit in the action bar, the new place right under the
+/// title; an address offers the places around it first.
 class PointDetails extends StatelessWidget {
   const new({
     required this.position,
+    this.address,
     this.scrollController,
     this.onClose,
     this.actions = false,
@@ -26,6 +31,9 @@ class PointDetails extends StatelessWidget {
   });
 
   final LatLng position;
+
+  /// The address the search found there, when the point came from it.
+  final AddressMatch? address;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
 
@@ -38,6 +46,13 @@ class PointDetails extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final address = this.address;
+    final title = address?.name ?? t.map.pointTitle;
+    final hint = switch (address) {
+      null => t.map.pointHint,
+      final a when a.detail.isEmpty => addressKindLabel(t, a.kind),
+      final a => a.detail,
+    };
     final body = ListView(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
@@ -51,19 +66,19 @@ class PointDetails extends StatelessWidget {
                 color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(52 * 0.32),
               ),
-              child: Icon(AppIcons.point, color: scheme.onPrimaryContainer),
+              child: Icon(
+                address == null ? AppIcons.point : addressIcon(address.kind),
+                color: scheme.onPrimaryContainer,
+              ),
             ),
             const SizedBox(width: Space.ml),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Semantics(
-                    header: true,
-                    child: Text(t.map.pointTitle, style: theme.textTheme.headlineSmall),
-                  ),
+                  Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
                   Text(
-                    t.map.pointHint,
+                    hint,
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
@@ -78,7 +93,27 @@ class PointDetails extends StatelessWidget {
               ),
           ],
         ),
+        if (address != null) ...[
+          const SizedBox(height: Space.s),
+          Text(
+            t.map.addressSource(attribution: address.attribution),
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
         const SizedBox(height: Space.l),
+        if (address != null) ...[
+          // The map steps back so the places around the address show, the
+          // address still marked.
+          Consumer(
+            builder: (context, ref, _) => OutlinedButton.icon(
+              onPressed: () => ref.read(mapControllerProvider)?.moveTo(position, zoom: 12),
+              icon: const Icon(AppIcons.list),
+              label: Text(t.map.placesAround),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+            ),
+          ),
+          const SizedBox(height: Space.l),
+        ],
         // A point on the map is where a missing place goes: the placement
         // and the form follow.
         Consumer(
