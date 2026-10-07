@@ -33,6 +33,7 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/motion.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
@@ -1599,6 +1600,60 @@ void main() {
       await settleShort(tester);
       expect(find.byType(MarkTip), findsNothing);
       expect(SchematicRouteMap.last!.highlighted, isEmpty);
+    });
+
+    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+      testWidgets('on $name the legend open by itself covers neither end of the route, and closing '
+          'it moves no camera', (tester) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final props = SchematicRouteMap.last!;
+        final camera = props.camera as FitCamera;
+        expect(camera.room, isNot(EdgeInsets.zero), reason: 'the fit keeps room for the legend');
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        final legend = tester.getRect(
+          find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material)).first,
+        );
+        final project = schematicProjection(props, map.size)!;
+        for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+          final at = map.topLeft + project(end.position);
+          // The badge's disc around its point, as drawn.
+          expect(legend.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+        }
+        final line = props.lines.firstWhere((l) => l.selected).points;
+        expect(
+          line.where((p) => legend.contains(map.topLeft + project(p))),
+          isEmpty,
+          reason: 'no point of the route under the legend',
+        );
+        await tester.tap(find.byTooltip('Replier la légende'));
+        await settleShort(tester);
+        expect(SchematicRouteMap.last!.camera, camera, reason: 'the camera stays where it is');
+      });
+    }
+
+    testWidgets('a legend seen before leaves the whole map to the route', (tester) async {
+      await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
+      expect((SchematicRouteMap.last!.camera as FitCamera).room, EdgeInsets.zero);
+    });
+
+    test('the room goes beside the legend or below it, whichever frames the route larger', () {
+      const map = Size(1000, 800);
+      const legend = Size(280, 300);
+      const wide = GeoBounds(south: 45, west: 0, north: 45.5, east: 5);
+      const tall = GeoBounds(south: 42, west: 2, north: 48, east: 2.5);
+      expect(
+        legendRoom(bounds: wide, map: map, padding: EdgeInsets.zero, legend: legend),
+        const EdgeInsets.only(top: 300 + Space.s),
+      );
+      expect(
+        legendRoom(bounds: tall, map: map, padding: EdgeInsets.zero, legend: legend),
+        const EdgeInsets.only(right: 280 + Space.s),
+      );
     });
 
     testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {

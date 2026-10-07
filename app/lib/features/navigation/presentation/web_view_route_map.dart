@@ -484,7 +484,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentFollowPadding = null;
         await _call('return window.lunawayRoute.overview();');
       }
-      final pad = p.padding;
+      final pad = p.padding + camera.room;
       await _call('return window.lunaway.fitBounds(s, w, n, e, padding);', {
         's': camera.bounds.south,
         'w': camera.bounds.west,

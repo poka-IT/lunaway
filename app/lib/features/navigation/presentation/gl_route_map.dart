@@ -835,7 +835,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   Future<void> _moveCamera(gl.MapLibreMapController c, RouteCamera camera) async {
     if (!mounted || camera is! FitCamera) return;
-    final pad = _props.padding;
+    final pad = _props.padding + camera.room;
     final bounds = camera.bounds;
     await c.animateCamera(
       gl.CameraUpdate.newLatLngBounds(

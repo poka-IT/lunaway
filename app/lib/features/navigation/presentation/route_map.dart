@@ -185,15 +185,20 @@ sealed class RouteCamera {
 
 /// The whole of [bounds] in view.
 final class FitCamera extends RouteCamera {
-  const new(this.bounds);
+  const new(this.bounds, {this.room = EdgeInsets.zero});
 
   final GeoBounds bounds;
 
-  @override
-  bool operator ==(Object other) => other is FitCamera && other.bounds == bounds;
+  /// Room over the map the bounds keep clear of, on top of the map's
+  /// padding: the preview's legend, open by itself the first time.
+  final EdgeInsets room;
 
   @override
-  int get hashCode => bounds.hashCode;
+  bool operator ==(Object other) =>
+      other is FitCamera && other.bounds == bounds && other.room == room;
+
+  @override
+  int get hashCode => Object.hash(bounds, room);
 }
 
 /// Behind the vehicle, the map turned to its course and tilted, as a
