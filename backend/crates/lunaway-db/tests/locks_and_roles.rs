@@ -580,8 +580,9 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         .expect("a takedown publishes the places layer with the import role");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_search_words").await,
-        ["SELECT", "INSERT"],
-        "a write of places adds their words, through the trigger that runs with the writer's role"
+        ["SELECT", "INSERT", "DELETE"],
+        "a write of places adds and removes their words, through the triggers that run with the \
+         writer's role"
     );
     sqlx::query(
         "INSERT INTO places (id, kind, name, geom, overnight, content_hash)

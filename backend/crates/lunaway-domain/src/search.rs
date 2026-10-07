@@ -293,7 +293,7 @@ impl PlaceQuery {
     /// words around a point, else the cheaper way for as many places as
     /// may match ([`lookup_path`]).
     #[must_use]
-    pub fn path(&self, shares: &WordShares, places: f64, near: bool, nearest: usize) -> LookupPath {
+    pub fn path(&self, shares: &WordShares, places: f64, near: bool, nearest: u32) -> LookupPath {
         if self.by_kind && near {
             LookupPath::Kind
         } else {
@@ -479,7 +479,7 @@ const SCAN_ROWS: f64 = LOOKUP_ROWS;
 /// `near`. Without statistics (`places` unknown, or zero), the index: it
 /// is exact, and a table never analysed is a small one.
 #[must_use]
-pub fn lookup_path(estimated_rows: f64, places: f64, near: bool, nearest: usize) -> LookupPath {
+pub fn lookup_path(estimated_rows: f64, places: f64, near: bool, nearest: u32) -> LookupPath {
     if places <= 0.0 {
         return LookupPath::Index;
     }
@@ -487,7 +487,7 @@ pub fn lookup_path(estimated_rows: f64, places: f64, near: bool, nearest: usize)
     if near {
         // Walking out from the point passes `places / rows` places per
         // match on average.
-        let walk = nearest as f64 * places / rows * NEAREST_ROW_US;
+        let walk = f64::from(nearest) * places / rows * NEAREST_ROW_US;
         if rows * INDEX_ROW_US <= walk {
             LookupPath::Index
         } else {

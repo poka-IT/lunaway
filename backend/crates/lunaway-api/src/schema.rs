@@ -678,7 +678,9 @@ impl QueryRoot {
     /// only ("aire de camping car") lists the places of that kind nearest
     /// `near` first, named so or not. Among equal matches, the nearest to
     /// `near` first, `near` rounded by the server to the nearest 0.05
-    /// degree (about 5 km) before any use.
+    /// degree (about 5 km) before any use. A search the database cannot
+    /// answer within its time limit (a fraction of a second) answers no
+    /// place rather than an error.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,

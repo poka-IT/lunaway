@@ -657,6 +657,15 @@ async fn a_word_no_place_starts_with_finds_the_word_it_was_meant_to_be(pool: PgP
         [later],
         "the words of a place written later are corrected to as well"
     );
+    tombstone(&pool, later, None).await;
+    let words: Vec<String> = sqlx::query_scalar("SELECT word FROM place_search_words")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert!(
+        !words.contains(&"grillons".to_owned()) && words.contains(&"chamonix".to_owned()),
+        "a word no live place holds leaves, one another place holds stays: {words:?}"
+    );
     assert_eq!(
         ids(search::search(&pool, "gerrardm", None, 20).await.unwrap()),
         Vec::<Uuid>::new(),
@@ -702,4 +711,34 @@ async fn every_way_of_finding_the_candidates_ranks_the_same_places(pool: PgPool)
             "{text}: the way the search picks"
         );
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_search_past_its_time_limit_answers_no_place_rather_than_an_error(pool: PgPool) {
+    let lac = put(
+        &pool,
+        &content(PlaceKind::Campsite, "Camping du Lac", 45.86, 6.17),
+    )
+    .await;
+    // Both ways read `places`: held by another transaction, each waits
+    // past its time limit.
+    let mut holder = pool.begin().await.unwrap();
+    sqlx::query("LOCK TABLE places IN ACCESS EXCLUSIVE MODE")
+        .execute(&mut *holder)
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    let blocked = search::search(&pool, "lac", None, 5).await.unwrap();
+    assert!(blocked.is_empty(), "no place, and no error");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(3),
+        "two tries, each bounded: {:?}",
+        started.elapsed()
+    );
+    holder.rollback().await.unwrap();
+    assert_eq!(
+        ids(search::search(&pool, "lac", None, 5).await.unwrap()),
+        [lac],
+        "the connections of the pool search again once the table is free"
+    );
 }

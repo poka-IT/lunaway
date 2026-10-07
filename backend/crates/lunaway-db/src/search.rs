@@ -80,6 +80,7 @@ pub async fn search(
 /// # Errors
 ///
 /// As [`search`].
+#[doc(hidden)]
 pub async fn search_by_path(
     pool: &PgPool,
     text: &str,
@@ -130,7 +131,7 @@ async fn search_on(
             &shares,
             places,
             near.is_some(),
-            usize::try_from(nearest).unwrap_or(usize::MAX),
+            u32::try_from(nearest).unwrap_or(u32::MAX),
         )
     });
     let ask = Ask {
