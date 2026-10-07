@@ -7,6 +7,9 @@
   'use strict';
 
   var MAX_GLIDE = 1500;
+  // A fix this far from the drawn vehicle is a jump (a new route from
+  // elsewhere), not a move to glide through, metres.
+  var JUMP_M = 500;
   var TILT = 55;
   var source = null;
   var from = null;
@@ -69,6 +72,13 @@
     if (!settled) frame = requestAnimationFrame(step);
   }
 
+  function metres(a, b) {
+    var r = Math.PI / 180;
+    var x = (b.lon - a.lon) * r * Math.cos(((a.lat + b.lat) / 2) * r);
+    var y = (b.lat - a.lat) * r;
+    return Math.sqrt(x * x + y * y) * 6371008.8;
+  }
+
   function kick() {
     if (frame === null) frame = requestAnimationFrame(step);
   }
@@ -81,9 +91,14 @@
       var now = performance.now();
       var shown = at(now);
       var target = { lat: lat, lon: lon, course: course === undefined ? null : course };
+      // The same fix again changes nothing: restarting would cut the glide.
+      if (!jump && to && to.lat === lat && to.lon === lon &&
+          (target.course === null || target.course === to.course)) {
+        return true;
+      }
       var gap = lastTarget === null ? 1000 : now - lastTarget;
       lastTarget = now;
-      if (!shown || jump) {
+      if (!shown || jump || metres(shown, target) > JUMP_M) {
         from = target;
         to = target;
         length = 0;

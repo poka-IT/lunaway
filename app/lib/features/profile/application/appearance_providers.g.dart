@@ -21,8 +21,7 @@ final standardOffsetProvider = StandardOffsetProvider._();
 // keepAlive: a constant of the run (the time zone does not change under a
 // running app often enough to matter for a theme).
 
-final class StandardOffsetProvider
-    extends $FunctionalProvider<Duration, Duration, Duration>
+final class StandardOffsetProvider extends $FunctionalProvider<Duration, Duration, Duration>
     with $Provider<Duration> {
   /// The device's UTC offset without summer time: the fallback the automatic
   /// theme uses before any position is known.
@@ -44,8 +43,7 @@ final class StandardOffsetProvider
 
   @$internal
   @override
-  $ProviderElement<Duration> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<Duration> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   Duration create(Ref ref) {
@@ -54,10 +52,7 @@ final class StandardOffsetProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Duration value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<Duration>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Duration>(value));
   }
 }
 
@@ -72,8 +67,7 @@ final appBrightnessProvider = AppBrightnessProvider._();
 /// Light or dark, now: the user's choice, or the sun at the last known
 /// position. Re-evaluated every minute, so the map darkens at sunset.
 
-final class AppBrightnessProvider
-    extends $FunctionalProvider<Brightness, Brightness, Brightness>
+final class AppBrightnessProvider extends $FunctionalProvider<Brightness, Brightness, Brightness>
     with $Provider<Brightness> {
   /// Light or dark, now: the user's choice, or the sun at the last known
   /// position. Re-evaluated every minute, so the map darkens at sunset.
@@ -103,10 +97,7 @@ final class AppBrightnessProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Brightness value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<Brightness>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Brightness>(value));
   }
 }
 

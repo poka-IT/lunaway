@@ -50,6 +50,9 @@ final class VehicleMotion {
   /// drawn where it is; a [jump] (a new route, the vehicle far away)
   /// too.
   void retarget(LatLng position, double? course, Duration now, {bool jump = false}) {
+    // The same fix again (a map rebuilt for another reason) changes
+    // nothing: restarting would cut the glide short and lurch.
+    if (!jump && position == _to && (course ?? _toCourse) == _toCourse) return;
     final (shown, shownCourse) = at(now);
     final last = _lastTarget;
     _lastTarget = now;

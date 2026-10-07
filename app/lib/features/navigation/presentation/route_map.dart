@@ -135,6 +135,16 @@ final class VehiclePuck {
 
   final LatLng position;
   final double? course;
+
+  /// The same fix: the guidance screen rebuilds for many reasons besides a
+  /// new position (a poll, the voice, a banner), and only a new fix may
+  /// start a glide.
+  @override
+  bool operator ==(Object other) =>
+      other is VehiclePuck && other.position == position && other.course == course;
+
+  @override
+  int get hashCode => Object.hash(position, course);
 }
 
 /// The route map's contract: data in, taps out. Built through

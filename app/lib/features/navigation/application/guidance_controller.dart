@@ -593,9 +593,11 @@ class GuidanceController extends _$GuidanceController {
     unawaited(_fixes?.cancel());
     final s = state;
     final feed = ref.read(demoDriveProvider) && s != null
-        // The demonstration drives the route at 50 km/h, its clock the
-        // wall's, so the arrival time reads true.
-        ? SimulatedFeed(path: s.route.line, speedMps: 13.9, start: DateTime.now())
+        // The debug demonstration drives the route it starts on at 50 km/h,
+        // on the app's clock so the arrival time reads true. A new route
+        // (a stop added) does not move it to the new line: it is a show,
+        // never a guidance.
+        ? SimulatedFeed(path: s.route.line, speedMps: 13.9, start: ref.read(clockProvider)())
         : ref.read(locationFeedProvider);
     _fixes = feed.guidance(words.notice).listen(_onFix, onError: _onPositionError);
   }

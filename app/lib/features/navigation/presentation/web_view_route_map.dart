@@ -293,16 +293,23 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       });
     }
     final vehicle = p.vehicle;
-    if (!identical(vehicle, _sentVehicle) && vehicle != null) {
-      final first = _sentVehicle == null;
+    if (vehicle != _sentVehicle) {
+      final before = _sentVehicle;
       _sentVehicle = vehicle;
-      await _call('return window.lunawayRoute.vehicle(id, lat, lon, course, jump);', {
-        'id': RouteLayers.vehicleSource,
-        'lat': vehicle.position.lat,
-        'lon': vehicle.position.lon,
-        'course': vehicle.course,
-        'jump': first || _reduced,
-      });
+      if (vehicle == null) {
+        await _call('return window.lunaway.setData(id, data);', {
+          'id': RouteLayers.vehicleSource,
+          'data': vehicleCollection(null),
+        });
+      } else {
+        await _call('return window.lunawayRoute.vehicle(id, lat, lon, course, jump);', {
+          'id': RouteLayers.vehicleSource,
+          'lat': vehicle.position.lat,
+          'lon': vehicle.position.lon,
+          'course': vehicle.course,
+          'jump': before == null || _reduced,
+        });
+      }
     }
     final camera = p.camera;
     if (camera is FollowCamera && camera != _sentCamera) {
@@ -324,7 +331,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       });
     }
     if (camera != _sentCamera && camera is FitCamera) {
-      if (_sentCamera is FollowCamera) {
+      // Whether the page follows is its own state: a resize clears
+      // _sentCamera while it still does.
+      if (_sentFollowPadding != null) {
         _sentFollowPadding = null;
         await _call('return window.lunawayRoute.follow(null);');
       }

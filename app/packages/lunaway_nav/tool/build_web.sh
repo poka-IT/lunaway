@@ -3,8 +3,9 @@
 # wasm-bindgen glue that flutter_rust_bridge's web bindings call, written to
 # app/web/lunaway_nav/, which the web build copies as it is.
 #
-#   sh app/packages/lunaway_nav/tool/build_web.sh           # build, then stamp
-#   sh app/packages/lunaway_nav/tool/build_web.sh --check   # is the build current?
+#   sh app/packages/lunaway_nav/tool/build_web.sh            # build, then stamp
+#   sh app/packages/lunaway_nav/tool/build_web.sh --check    # is the build current?
+#   sh app/packages/lunaway_nav/tool/build_web.sh --verify   # does it rebuild byte for byte?
 #
 # Rebuild after any change to the crate, its Cargo.lock or the backend's
 # domain crate it reuses: the stamp (SOURCES.sha256) records what the build
@@ -12,6 +13,13 @@
 # since. A stale build would also fail at run time: flutter_rust_bridge
 # compares the content hash of both sides and the web app then guides
 # nowhere.
+#
+# The stamp alone does not tie the committed binary to the sources: anyone
+# can write both. --verify (run by the CI) builds again in a scratch
+# directory and compares the files byte for byte. The paths of this machine
+# are mapped to fixed ones (--remap-path-prefix) so the build does not
+# depend on where the repository and the cargo registry lie, and the
+# maintainer's account name does not ship in a public file.
 #
 # Needs the pinned toolchain's wasm32-unknown-unknown target (rustup installs
 # it from rust-toolchain.toml) and wasm-bindgen-cli at the version of
@@ -42,6 +50,13 @@ sources_hash() {
   )
 }
 
+# Paths written into the binary (panic locations), the same on every machine.
+registry="${CARGO_HOME:-$HOME/.cargo}/registry/src"
+remap="--remap-path-prefix=$registry=/cargo/registry --remap-path-prefix=$repo=/lunaway"
+if [ -n "${RUSTUP_HOME:-}" ] || [ -d "$HOME/.rustup" ]; then
+  remap="$remap --remap-path-prefix=${RUSTUP_HOME:-$HOME/.rustup}=/rustup"
+fi
+
 if [ "${1:-}" = --check ]; then
   want=$(sources_hash)
   have=$(cat "$out/SOURCES.sha256" 2>/dev/null || echo none)
@@ -62,7 +77,12 @@ if [ "$have" != "$locked" ]; then
   exit 1
 fi
 
-(cd "$crate" && cargo build --locked --release --target wasm32-unknown-unknown)
+if [ "${1:-}" = --verify ]; then
+  out="$crate/target/web-verify"
+  rm -f "$out/lunaway_nav.js" "$out/lunaway_nav_bg.wasm"
+fi
+
+(cd "$crate" && RUSTFLAGS="$remap" cargo build --locked --release --target wasm32-unknown-unknown)
 mkdir -p "$out"
 "$bindgen" "$crate/target/wasm32-unknown-unknown/release/lunaway_nav.wasm" \
   --out-dir "$out" --target no-modules --no-typescript
@@ -76,5 +96,17 @@ if ! head -n 1 "$glue" | grep -q '^let wasm_bindgen = '; then
 fi
 sed '1s/^let wasm_bindgen = /var wasm_bindgen = /' "$glue" > "$glue.tmp"
 mv "$glue.tmp" "$glue"
+if [ "${1:-}" = --verify ]; then
+  committed="$repo/app/web/lunaway_nav"
+  for f in lunaway_nav.js lunaway_nav_bg.wasm; do
+    if ! cmp -s "$out/$f" "$committed/$f"; then
+      echo "build_web: app/web/lunaway_nav/$f is not what the crate builds to;" >&2
+      echo "run: sh app/packages/lunaway_nav/tool/build_web.sh" >&2
+      exit 1
+    fi
+  done
+  echo "build_web: app/web/lunaway_nav/ rebuilds byte for byte"
+  exit 0
+fi
 sources_hash > "$out/SOURCES.sha256"
 ls -l "$out"

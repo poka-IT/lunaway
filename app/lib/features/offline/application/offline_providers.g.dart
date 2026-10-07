@@ -19,8 +19,7 @@ final packFilesProvider = PackFilesProvider._();
 /// desktops.
 // keepAlive: one folder for the run, its path resolved once.
 
-final class PackFilesProvider
-    extends $FunctionalProvider<PackFiles, PackFiles, PackFiles>
+final class PackFilesProvider extends $FunctionalProvider<PackFiles, PackFiles, PackFiles>
     with $Provider<PackFiles> {
   /// The files of the offline maps; an empty stand-in on the web and the
   /// desktops.
@@ -41,8 +40,7 @@ final class PackFilesProvider
 
   @$internal
   @override
-  $ProviderElement<PackFiles> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<PackFiles> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   PackFiles create(Ref ref) {
@@ -51,10 +49,7 @@ final class PackFilesProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(PackFiles value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<PackFiles>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<PackFiles>(value));
   }
 }
 
@@ -67,8 +62,7 @@ final offlineMapsSupportedProvider = OfflineMapsSupportedProvider._();
 
 /// Whether this platform keeps maps offline (Android and iOS).
 
-final class OfflineMapsSupportedProvider
-    extends $FunctionalProvider<bool, bool, bool>
+final class OfflineMapsSupportedProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
   /// Whether this platform keeps maps offline (Android and iOS).
   OfflineMapsSupportedProvider._()
@@ -87,8 +81,7 @@ final class OfflineMapsSupportedProvider
 
   @$internal
   @override
-  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   bool create(Ref ref) {
@@ -97,15 +90,11 @@ final class OfflineMapsSupportedProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
   }
 }
 
-String _$offlineMapsSupportedHash() =>
-    r'fc290891edf9683a7683d648ce0961ca4f5d0738';
+String _$offlineMapsSupportedHash() => r'fc290891edf9683a7683d648ce0961ca4f5d0738';
 
 /// The outlines of the packs, from the app's assets.
 // keepAlive: a constant of the run, read by the map at every move.
@@ -117,12 +106,7 @@ final packOutlinesProvider = PackOutlinesProvider._();
 // keepAlive: a constant of the run, read by the map at every move.
 
 final class PackOutlinesProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<PackOutlines>,
-          PackOutlines,
-          FutureOr<PackOutlines>
-        >
+    extends $FunctionalProvider<AsyncValue<PackOutlines>, PackOutlines, FutureOr<PackOutlines>>
     with $FutureModifier<PackOutlines>, $FutureProvider<PackOutlines> {
   /// The outlines of the packs, from the app's assets.
   // keepAlive: a constant of the run, read by the map at every move.
@@ -142,9 +126,8 @@ final class PackOutlinesProvider
 
   @$internal
   @override
-  $FutureProviderElement<PackOutlines> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<PackOutlines> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<PackOutlines> create(Ref ref) {
@@ -161,8 +144,7 @@ final packManifestUrlProvider = PackManifestUrlProvider._();
 
 /// The manifest's address on the tile host.
 
-final class PackManifestUrlProvider extends $FunctionalProvider<Uri, Uri, Uri>
-    with $Provider<Uri> {
+final class PackManifestUrlProvider extends $FunctionalProvider<Uri, Uri, Uri> with $Provider<Uri> {
   /// The manifest's address on the tile host.
   PackManifestUrlProvider._()
     : super(
@@ -180,8 +162,7 @@ final class PackManifestUrlProvider extends $FunctionalProvider<Uri, Uri, Uri>
 
   @$internal
   @override
-  $ProviderElement<Uri> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<Uri> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   Uri create(Ref ref) {
@@ -190,10 +171,7 @@ final class PackManifestUrlProvider extends $FunctionalProvider<Uri, Uri, Uri>
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Uri value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<Uri>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Uri>(value));
   }
 }
 
@@ -209,12 +187,7 @@ final packCatalogProvider = PackCatalogProvider._();
 /// without a copy, the error reaches the screen.
 
 final class PackCatalogProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<PackCatalog>,
-          PackCatalog,
-          FutureOr<PackCatalog>
-        >
+    extends $FunctionalProvider<AsyncValue<PackCatalog>, PackCatalog, FutureOr<PackCatalog>>
     with $FutureModifier<PackCatalog>, $FutureProvider<PackCatalog> {
   /// The packs to download: the manifest online, its copy offline. Offline
   /// without a copy, the error reaches the screen.
@@ -234,9 +207,8 @@ final class PackCatalogProvider
 
   @$internal
   @override
-  $FutureProviderElement<PackCatalog> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<PackCatalog> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<PackCatalog> create(Ref ref) {
@@ -266,8 +238,7 @@ final offlinePacksProvider = OfflinePacksProvider._();
 /// again after a failure for want of network. A whole file is checked
 /// against the manifest's SHA-256 before it replaces anything.
 // keepAlive: a download outlives the screen that started it.
-final class OfflinePacksProvider
-    extends $AsyncNotifierProvider<OfflinePacks, OfflineMaps> {
+final class OfflinePacksProvider extends $AsyncNotifierProvider<OfflinePacks, OfflineMaps> {
   /// The packs on the device and their downloads, one at a time, in the
   /// order asked. A download stops when the user pauses it, when the network
   /// goes, when the app leaves the screen and at the end of the app; it
@@ -378,8 +349,7 @@ final class OfflineStyleFilesProvider
   Override overrideWithValue(({String directory, String styleAssets})? value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride:
-          $SyncValueProvider<({String directory, String styleAssets})?>(value),
+      providerOverride: $SyncValueProvider<({String directory, String styleAssets})?>(value),
     );
   }
 }
@@ -406,8 +376,7 @@ final basemapReachabilityProvider = BasemapReachabilityProvider._();
 /// when the map comes to rest or the guidance moves on with an answer older
 /// than [staleAfter] (see [probeIfStale]).
 // keepAlive: the map and its notice read it for the whole run.
-final class BasemapReachabilityProvider
-    extends $NotifierProvider<BasemapReachability, bool?> {
+final class BasemapReachabilityProvider extends $NotifierProvider<BasemapReachability, bool?> {
   /// Whether the basemap's host answers: null until the first probe, false
   /// when it does not (the device is offline, or the host is down: the map
   /// then reads a downloaded pack where there is one). A small TileJSON read,
@@ -436,15 +405,11 @@ final class BasemapReachabilityProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool? value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool?>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool?>(value));
   }
 }
 
-String _$basemapReachabilityHash() =>
-    r'5229f908c41528dca750658f8b7c306848cba591';
+String _$basemapReachabilityHash() => r'5229f908c41528dca750658f8b7c306848cba591';
 
 /// Whether the basemap's host answers: null until the first probe, false
 /// when it does not (the device is offline, or the host is down: the map
@@ -462,13 +427,7 @@ abstract class _$BasemapReachability extends $Notifier<bool?> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<bool?, bool?>;
     final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<bool?, bool?>,
-              bool?,
-              Object?,
-              Object?
-            >;
+        ref.element as $ClassProviderElement<AnyNotifier<bool?, bool?>, bool?, Object?, Object?>;
     return element.handleCreate(ref, build);
   }
 }
@@ -487,8 +446,7 @@ final activeOfflinePackProvider = ActiveOfflinePackProvider._();
 /// before its country), and the last one while the view leaves every pack;
 /// null online.
 // keepAlive: the style of the map follows it for the whole run.
-final class ActiveOfflinePackProvider
-    extends $NotifierProvider<ActiveOfflinePack, InstalledPack?> {
+final class ActiveOfflinePackProvider extends $NotifierProvider<ActiveOfflinePack, InstalledPack?> {
   /// The pack the map draws while the basemap's host does not answer: the
   /// installed one under the centre of the view (the smallest, a region
   /// before its country), and the last one while the view leaves every pack;
@@ -555,12 +513,7 @@ final favoritePositionsProvider = FavoritePositionsProvider._();
 /// The places of the favourites, for the packs to suggest.
 
 final class FavoritePositionsProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<LatLng>>,
-          List<LatLng>,
-          FutureOr<List<LatLng>>
-        >
+    extends $FunctionalProvider<AsyncValue<List<LatLng>>, List<LatLng>, FutureOr<List<LatLng>>>
     with $FutureModifier<List<LatLng>>, $FutureProvider<List<LatLng>> {
   /// The places of the favourites, for the packs to suggest.
   FavoritePositionsProvider._()
@@ -579,9 +532,8 @@ final class FavoritePositionsProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<LatLng>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<LatLng>> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<LatLng>> create(Ref ref) {

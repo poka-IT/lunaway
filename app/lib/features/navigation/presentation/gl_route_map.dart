@@ -57,6 +57,12 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   EdgeInsets? _sentInsets;
   Size _size = Size.zero;
 
+  /// Where the camera was when following began, and when: the first moments
+  /// ease from that view into the driver's, instead of a cut.
+  gl.CameraPosition? _entryFrom;
+  Duration _entryStart = Duration.zero;
+  static const _entry = Duration(milliseconds: 900);
+
   /// Native maps take each frame over a platform channel: 30 a second keeps
   /// the glide smooth without queueing calls. The browser's map is called
   /// directly and takes every frame.
@@ -246,7 +252,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentMarks = p.marks;
       await c.setGeoJsonSource(RouteLayers.marksSource, routeMarksCollection(p.marks));
     }
-    if (!identical(p.vehicle, _sentVehicle)) {
+    if (p.vehicle != _sentVehicle) {
       _sentVehicle = p.vehicle;
       final v = p.vehicle;
       if (v == null) {
@@ -259,24 +265,43 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           _clock.elapsed,
           jump: Motion.reduced(context) || (shown != null && shown.distanceTo(v.position) > _jumpM),
         );
-        if (!_ticker.isActive) _ticker.start();
+        _startTicker();
       }
     }
     final camera = p.camera;
     if (camera is FollowCamera) {
+      if (_sentCamera is! FollowCamera && mounted) {
+        _entryFrom = Motion.reduced(context) ? null : c.cameraPosition;
+        _entryStart = _clock.elapsed;
+      }
       _sentCamera = camera;
       await _followInsets(c);
-      if (!_ticker.isActive) _ticker.start();
+      _startTicker();
     } else if (camera != _sentCamera) {
       final wasFollowing = _sentCamera is FollowCamera;
       _sentCamera = camera;
       if (wasFollowing) {
         _sentInsets = EdgeInsets.zero;
         await c.updateContentInsets(EdgeInsets.zero);
+        // The overview reads north up and flat, as the preview does: the
+        // bounds below keep whatever tilt and bearing the map had.
+        if (c.cameraPosition case final at?) {
+          await c.moveCamera(
+            gl.CameraUpdate.newCameraPosition(gl.CameraPosition(target: at.target, zoom: at.zoom)),
+          );
+        }
       }
       _shownZoom = null;
       await _moveCamera(c, camera);
     }
+  }
+
+  /// Starts the frames, the first one measured from now: after a pause
+  /// (parked, a tunnel) the zoom must not catch up in one step.
+  void _startTicker() {
+    if (_ticker.isActive) return;
+    _lastFrame = Duration.zero;
+    _ticker.start();
   }
 
   /// While following, the camera's centre sits low in the free part of the
@@ -297,7 +322,12 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   void _frame() {
     final c = _controller;
     final now = _clock.elapsed;
-    if (c == null || !_ready || !mounted || _frameBusy || now - _lastFrame < _frameGap) return;
+    if (c == null || !_ready || !mounted) {
+      // No style yet (or a failed one): frames resume with the next sync.
+      _ticker.stop();
+      return;
+    }
+    if (_frameBusy || now - _lastFrame < _frameGap) return;
     final (position, course) = _motion.at(now);
     if (position == null) return;
     final dt = _lastFrame == Duration.zero ? Duration.zero : now - _lastFrame;
@@ -313,18 +343,39 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     if (camera is FollowCamera) {
       final wanted = camera.zoom;
       final shownZoom = _shownZoom;
-      final zoom = shownZoom == null ? wanted : easeZoom(shownZoom, wanted, dt);
+      var zoom = shownZoom == null ? wanted : easeZoom(shownZoom, wanted, dt);
       _shownZoom = zoom;
       if ((wanted - zoom).abs() > 0.01) settled = false;
       if (course != null) _shownBearing = course;
+      var target = position;
+      var bearing = _shownBearing;
+      var tilt = followTiltDeg;
+      // Into following: from the view the user had to the driver's.
+      if (_entryFrom case final from?) {
+        final t = (now - _entryStart).inMicroseconds / _entry.inMicroseconds;
+        if (t >= 1) {
+          _entryFrom = null;
+        } else {
+          settled = false;
+          final k = Motion.standard.transform(t.clamp(0, 1).toDouble());
+          final a = from.target;
+          target = LatLng(
+            a.latitude + (position.lat - a.latitude) * k,
+            a.longitude + (position.lon - a.longitude) * k,
+          );
+          zoom = from.zoom + (zoom - from.zoom) * k;
+          bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
+          tilt = from.tilt + (followTiltDeg - from.tilt) * k;
+        }
+      }
       calls.add(
         c.moveCamera(
           gl.CameraUpdate.newCameraPosition(
             gl.CameraPosition(
-              target: gl.LatLng(position.lat, position.lon),
+              target: gl.LatLng(target.lat, target.lon),
               zoom: zoom,
-              bearing: _shownBearing,
-              tilt: followTiltDeg,
+              bearing: bearing,
+              tilt: tilt,
             ),
           ),
         ),
@@ -417,6 +468,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       // The preview keeps north up.
       rotateGesturesEnabled: false,
       scrollGesturesEnabled: !following,
+      zoomGesturesEnabled: !following,
       tiltGesturesEnabled: false,
       attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
       attributionButtonMargins: math.Point(p.padding.left + 8, p.padding.bottom + 8),

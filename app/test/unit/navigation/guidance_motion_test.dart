@@ -49,6 +49,16 @@ void main() {
       expect(m.movingAt(const Duration(milliseconds: 7600)), isFalse);
     });
 
+    test('the same fix again leaves the glide as it was', () {
+      final m = VehicleMotion()
+        ..retarget(a, 0, Duration.zero)
+        ..retarget(b, 0, const Duration(seconds: 1))
+        // The screen rebuilt 100 ms later for another reason.
+        ..retarget(b, 0, const Duration(milliseconds: 1100));
+      expect(m.at(const Duration(milliseconds: 1500)).$1!.lat, closeTo(45.80005, 1e-7));
+      expect(m.movingAt(const Duration(milliseconds: 1900)), isTrue);
+    });
+
     test('a jump is drawn at once', () {
       final m = VehicleMotion()
         ..retarget(a, 0, Duration.zero)

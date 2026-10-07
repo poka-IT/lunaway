@@ -61,8 +61,7 @@ final class RouteStopsControllerProvider
   }
 }
 
-String _$routeStopsControllerHash() =>
-    r'e4d1279f16e1ff72f63124a8ae64680218413cf6';
+String _$routeStopsControllerHash() => r'e4d1279f16e1ff72f63124a8ae64680218413cf6';
 
 /// The stops on the way to [target], in order, as the preview edits them.
 
@@ -136,9 +135,7 @@ final class PlacesNearRouteProvider
           List<PlaceSummary>,
           FutureOr<List<PlaceSummary>>
         >
-    with
-        $FutureModifier<List<PlaceSummary>>,
-        $FutureProvider<List<PlaceSummary>> {
+    with $FutureModifier<List<PlaceSummary>>, $FutureProvider<List<PlaceSummary>> {
   /// The places of the device along [line], those the user's filters keep,
   /// nearest the route first: the pins of the route map, a tap from a stop.
   /// Asked stretch by stretch, so a long route has its places from the start
@@ -166,9 +163,8 @@ final class PlacesNearRouteProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<PlaceSummary>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<PlaceSummary>> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<PlaceSummary>> create(Ref ref) {
@@ -233,12 +229,7 @@ final fuelStationsProvider = FuelStationsProvider._();
 // keepAlive: stateless, wired once.
 
 final class FuelStationsProvider
-    extends
-        $FunctionalProvider<
-          FuelStationsSource,
-          FuelStationsSource,
-          FuelStationsSource
-        >
+    extends $FunctionalProvider<FuelStationsSource, FuelStationsSource, FuelStationsSource>
     with $Provider<FuelStationsSource> {
   /// Stations along a route: the server's search along it, the nearby
   /// search around points of it against an API without that search. Through
@@ -261,9 +252,8 @@ final class FuelStationsProvider
 
   @$internal
   @override
-  $ProviderElement<FuelStationsSource> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<FuelStationsSource> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   FuelStationsSource create(Ref ref) {
@@ -292,24 +282,18 @@ final fuelOffersProvider = FuelOffersFamily._();
 
 final class FuelOffersProvider
     extends
-        $FunctionalProvider<
-          AsyncValue<List<FuelOffer>>,
-          List<FuelOffer>,
-          FutureOr<List<FuelOffer>>
-        >
+        $FunctionalProvider<AsyncValue<List<FuelOffer>>, List<FuelOffer>, FutureOr<List<FuelOffer>>>
     with $FutureModifier<List<FuelOffer>>, $FutureProvider<List<FuelOffer>> {
   /// The stations of [query], cheapest first, the detour counted at the
   /// vehicle's consumption. A failure shows at once (`noRetry`).
-  FuelOffersProvider._({
-    required FuelOffersFamily super.from,
-    required FuelQuery super.argument,
-  }) : super(
-         retry: noRetry,
-         name: r'fuelOffersProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  FuelOffersProvider._({required FuelOffersFamily super.from, required FuelQuery super.argument})
+    : super(
+        retry: noRetry,
+        name: r'fuelOffersProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$fuelOffersHash();
@@ -323,9 +307,8 @@ final class FuelOffersProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<FuelOffer>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<FuelOffer>> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<FuelOffer>> create(Ref ref) {
@@ -363,8 +346,7 @@ final class FuelOffersFamily extends $Family
   /// The stations of [query], cheapest first, the detour counted at the
   /// vehicle's consumption. A failure shows at once (`noRetry`).
 
-  FuelOffersProvider call(FuelQuery query) =>
-      FuelOffersProvider._(argument: query, from: this);
+  FuelOffersProvider call(FuelQuery query) => FuelOffersProvider._(argument: query, from: this);
 
   @override
   String toString() => r'fuelOffersProvider';
@@ -378,8 +360,7 @@ final shownFuelOffersProvider = ShownFuelOffersFamily._();
 
 /// The stations the fuel list showed last for the route [line], drawn on
 /// its map so they can be tapped there too; another route starts without.
-final class ShownFuelOffersProvider
-    extends $NotifierProvider<ShownFuelOffers, List<FuelOffer>> {
+final class ShownFuelOffersProvider extends $NotifierProvider<ShownFuelOffers, List<FuelOffer>> {
   /// The stations the fuel list showed last for the route [line], drawn on
   /// its map so they can be tapped there too; another route starts without.
   ShownFuelOffersProvider._({
