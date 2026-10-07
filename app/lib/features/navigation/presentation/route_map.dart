@@ -1,14 +1,18 @@
 import 'dart:ui' as ui;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub.dart'
     if (dart.library.io) 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -197,13 +201,27 @@ final class FitCamera extends RouteCamera {
 /// ([followZoom]). The map glides the vehicle from fix to fix
 /// ([VehicleMotion]).
 final class FollowCamera extends RouteCamera {
-  const new({required this.position, this.course, this.speedMps});
+  const new({
+    required this.position,
+    this.course,
+    this.speedMps,
+    this.ease = FreeMap.recenterEase,
+    this.request = 0,
+  });
 
   final LatLng position;
   final double? course;
 
   /// The speed of the vehicle, which sets how far the camera looks ahead.
   final double? speedMps;
+
+  /// How long the way in takes, from the view the map had.
+  final Duration ease;
+
+  /// Which request to follow this answers ("Recentrer", the magnet, the
+  /// return after a while): a new one starts following again even when
+  /// the screen never showed the map free in between.
+  final int request;
 
   double get zoom => followZoom(speedMps);
 
@@ -212,10 +230,119 @@ final class FollowCamera extends RouteCamera {
       other is FollowCamera &&
       other.position == position &&
       other.course == course &&
-      other.speedMps == speedMps;
+      other.speedMps == speedMps &&
+      other.ease == ease &&
+      other.request == request;
 
   @override
-  int get hashCode => Object.hash(position, course, speedMps);
+  int get hashCode => Object.hash(position, course, speedMps, ease, request);
+}
+
+/// Where the user left it: the camera stays as the last gesture put it,
+/// the vehicle still glides on the map.
+final class FreeCamera extends RouteCamera {
+  const new({this.view});
+
+  /// Where the camera last rested, for a map made anew (the phone turned
+  /// and the other layout built its own map); a map that exists keeps its
+  /// camera whatever this says, so it takes no part in equality.
+  final FreeView? view;
+
+  @override
+  bool operator ==(Object other) => other is FreeCamera;
+
+  @override
+  int get hashCode => (FreeCamera).hashCode;
+}
+
+/// What an engine does with the camera the screen asks for after the one
+/// it sent ([cameraStep]): a user's gesture that stopped following keeps
+/// the map where the user puts it until the screen asks again to follow.
+enum CameraStep {
+  /// Nothing to send.
+  none,
+
+  /// Into following, easing from the view the map has.
+  enterFollow,
+
+  /// Following still: a new fix, a new zoom.
+  follow,
+
+  /// Following stops where the camera is.
+  free,
+
+  /// Flat and north up, then the whole route.
+  overview,
+
+  /// The bounds of a fitting camera.
+  fit,
+}
+
+CameraStep cameraStep({
+  required RouteCamera? sent,
+  required RouteCamera next,
+  required bool heldByUser,
+}) => switch (next) {
+  FollowCamera() when heldByUser => CameraStep.none,
+  FollowCamera() when sent is! FollowCamera || sent.request != next.request =>
+    CameraStep.enterFollow,
+  FollowCamera() => next == sent ? CameraStep.none : CameraStep.follow,
+  FreeCamera() => sent is FreeCamera ? CameraStep.none : CameraStep.free,
+  FitCamera() when next == sent => CameraStep.none,
+  FitCamera() => sent is FollowCamera || sent is FreeCamera ? CameraStep.overview : CameraStep.fit,
+};
+
+/// Whether a user's gesture still holds the camera once the screen asks
+/// for [after] instead of [before]: a new request to follow ("Recentrer",
+/// the magnet, the return after a while) lets it go, even one that came in
+/// the same frame as the gesture; a gesture after that request holds it
+/// again.
+bool heldAfter({required bool held, required RouteCamera before, required RouteCamera after}) =>
+    held &&
+    !(after is FollowCamera && (before is! FollowCamera || before.request != after.request));
+
+/// The page's report of a camera the user moved and left
+/// (`lunawayRouteMotion`, `rest`), the map's own [size] when it says none.
+FreeView freeViewOfPage(Map<Object?, Object?> event, {required Size size}) {
+  double number(String key) => (event[key] as num?)?.toDouble() ?? 0;
+  final (x, y) = (event['x'], event['y']);
+  final (width, height) = (event['width'], event['height']);
+  return FreeView(
+    size: width is num && height is num ? Size(width.toDouble(), height.toDouble()) : size,
+    center: switch ((event['lat'], event['lon'])) {
+      (final num lat, final num lon) => LatLng(lat.toDouble(), lon.toDouble()),
+      _ => null,
+    },
+    vehicle: x is num && y is num ? Offset(x.toDouble(), y.toDouble()) : null,
+    zoom: number('zoom'),
+    bearing: number('bearing'),
+    tilt: number('pitch'),
+  );
+}
+
+/// The camera a map made anew opens on: the vehicle's, the user's last
+/// rest, or the middle of the route.
+({LatLng target, double zoom, double tilt, double bearing}) initialCamera(RouteMapProps p) {
+  final camera = p.camera;
+  final route = [for (final l in p.lines) ...l.points];
+  // A map with neither a route nor a vehicle has nothing to show: it opens
+  // anywhere until one comes.
+  final middle = GeoBounds.around(route)?.center ?? const LatLng(0, 0);
+  return switch (camera) {
+    FitCamera(:final bounds) => (target: bounds.center, zoom: 12, tilt: 0, bearing: 0),
+    FollowCamera(:final position) => (
+      target: position,
+      zoom: camera.zoom,
+      tilt: followTiltDeg,
+      bearing: camera.course ?? 0,
+    ),
+    FreeCamera(:final view) => (
+      target: view?.center ?? p.vehicle?.position ?? middle,
+      zoom: view?.zoom ?? followZoom(null),
+      tilt: view?.tilt ?? followTiltDeg,
+      bearing: view?.bearing ?? p.vehicle?.course ?? 0,
+    ),
+  };
 }
 
 /// The vehicle on the map: its position on the route and its course.
@@ -237,6 +364,40 @@ final class VehiclePuck {
   int get hashCode => Object.hash(position, course);
 }
 
+/// The places and points of interest the guidance map draws from the main
+/// map's vector tiles (`RoutePlaceLayers`).
+@immutable
+final class RouteMapPlaces {
+  const new({
+    required this.placeTileJsonUrl,
+    required this.poiTileJsonUrl,
+    this.placeFilter,
+    this.poiFilter,
+  });
+
+  /// `/places/tiles.json` and `/poi/tiles.json` on the API.
+  final String placeTileJsonUrl;
+  final String poiTileJsonUrl;
+
+  /// The MapLibre filters of the places and of the points; null hides them.
+  final List<Object>? placeFilter;
+  final List<Object>? poiFilter;
+
+  static const _deep = DeepCollectionEquality();
+
+  @override
+  bool operator ==(Object other) =>
+      other is RouteMapPlaces &&
+      other.placeTileJsonUrl == placeTileJsonUrl &&
+      other.poiTileJsonUrl == poiTileJsonUrl &&
+      _deep.equals(other.placeFilter, placeFilter) &&
+      _deep.equals(other.poiFilter, poiFilter);
+
+  @override
+  int get hashCode =>
+      Object.hash(placeTileJsonUrl, poiTileJsonUrl, _deep.hash(placeFilter), _deep.hash(poiFilter));
+}
+
 /// The route map's contract: data in, taps out. Built through
 /// `routeMapBuilderProvider`, so tests draw a plain widget instead of a
 /// platform view.
@@ -252,12 +413,19 @@ final class RouteMapProps {
     this.padding = EdgeInsets.zero,
     this.highlighted = const {},
     this.focus,
+    this.guiding = false,
+    this.places,
     this.onLineTap,
     this.onMarkTap,
     this.onMarkHover,
     this.onEmptyTap,
     this.onCameraMove,
     this.onLongPress,
+    this.onGesture,
+    this.onTouch,
+    this.onRest,
+    this.onPlaceTap,
+    this.onPoiTap,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -276,6 +444,14 @@ final class RouteMapProps {
 
   /// The marks to bring into view and pulse.
   final RouteMapFocus? focus;
+
+  /// The guidance's map: the user may pan, zoom, turn and tilt it at any
+  /// time, following or not (the preview keeps north up).
+  final bool guiding;
+
+  /// The places and points of interest drawn under the route; null draws
+  /// none.
+  final RouteMapPlaces? places;
 
   /// A tap on a route that is not the chosen one.
   final ValueChanged<int>? onLineTap;
@@ -296,6 +472,25 @@ final class RouteMapProps {
 
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
+
+  /// The user started moving the map: a drag, a pinch, a turn, a tilt, the
+  /// wheel, a double tap. Following stops at once, before the screen
+  /// answers with a [FreeCamera].
+  final VoidCallback? onGesture;
+
+  /// A finger or the mouse button went down on the map (true), or the last
+  /// one came up (false).
+  final ValueChanged<bool>? onTouch;
+
+  /// The camera the user moved came to rest, with nothing pressing on the
+  /// map: where the vehicle is drawn and how the map is turned.
+  final ValueChanged<FreeView>? onRest;
+
+  /// A tap on a place of [places], with what its tile says of it.
+  final ValueChanged<PlaceSummary>? onPlaceTap;
+
+  /// A tap on a point of interest of [places].
+  final ValueChanged<PoiFeature>? onPoiTap;
 }
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);

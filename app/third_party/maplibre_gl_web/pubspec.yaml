@@ -17,6 +17,12 @@
 #     Point of doubles from the app) and the location engine's maximum age
 #     and timeout were passed or cast to int; they are now converted with
 #     toInt. A double there failed the creation of the map.
+# One more patch, for the app rather than dart2wasm: the camera events of the
+# guidance's motion, which moves the map at every frame from the page
+# (lunawayRouteMotion in app/web/lunaway_maplibre.js), carry `lunawayMotion`
+# and are not passed to Dart (lib/src/maplibre_web_gl_platform.dart,
+# _onCameraMoveStarted, _onCameraMove and _onCameraIdle): while following,
+# the app does no work at each frame.
 # Also: `resolution: workspace` and the dev_dependencies of the upstream
 # repository are dropped, as is analysis_options.yaml, which included a file
 # of that repository. Drop this copy and the override once a release carries

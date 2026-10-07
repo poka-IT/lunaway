@@ -16,7 +16,7 @@
   // shapes the app's (test/unit/map_hits_test.dart, UPDATE_MAP_HITS=1
   // rewrites them).
   var lunawayHits = (function () {
-    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5,"grow":1.12,"ms":160,"enter":[0.215,0.61,0.355,1.0],"exit":[0.55,0.055,0.675,0.19]},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-anchors-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":1,"state":"mark"},"lw-route-marks-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":2,"state":"mark"},"lw-route-minor-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":3,"state":"mark"},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true}}} /* END HIT SHAPES */;
+    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5,"grow":1.12,"ms":160,"enter":[0.215,0.61,0.355,1.0],"exit":[0.55,0.055,0.675,0.19]},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]}},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1,"a":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.72],[12.0,1.0]]}},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":1.0},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-anchors-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":1,"state":"mark"},"lw-route-marks-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":2,"state":"mark"},"lw-route-minor-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":3,"state":"mark"},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-place-pins":{"r":{"by":"zoom","stops":[[6.0,7.5168],[12.0,10.44]]},"y":{"by":"zoom","stops":[[6.0,10.749023999999999],[12.0,14.9292]]},"p":4,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":{"by":"zoom","stops":[[6.0,0.5184],[12.0,0.72]]}},"lw-route-poi-pins":{"r":8.814,"y":13.884,"p":5,"ring":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"icon":0.78}}} /* END HIT SHAPES */;
     var EPSILON = 1e-6;
 
     // What last pressed on the page: a finger asks for a wider target.
@@ -566,7 +566,8 @@
   // those inside the bounds sent).
   function probePlaces() {
     var tiles = spec && spec.placeTiles;
-    if (!tiles || !map.getSource(tiles.source)) return;
+    // The guidance's map lists no places: it only opens them.
+    if (!tiles || tiles.probe === false || !map.getSource(tiles.source)) return;
     var c = map.getCenter();
     var zoom = map.getZoom();
     var view = map.getBounds();
@@ -758,9 +759,13 @@
         style: options.style,
         center: [options.lon, options.lat],
         zoom: options.zoom,
+        bearing: options.bearing || 0,
+        pitch: options.pitch || 0,
         attributionControl: false,
+        // Turned and tilted only on the guidance's map, which enables both
+        // (route_motion.js); the mouse tilts with the turn then.
         dragRotate: false,
-        pitchWithRotate: false,
+        pitchWithRotate: true,
         touchPitch: false
       });
       // Bottom left, clear of the app's own buttons at the bottom right.
@@ -805,6 +810,20 @@
         if (tiles.layers.indexOf(layer.id) >= 0) layer.filter = filter;
       });
       placesProbed = null;
+      return true;
+    },
+    // One of the app's layers filtered and shown or hidden, kept for the
+    // next style change.
+    setLayer: function (id, filter, visible) {
+      spec.layers.forEach(function (layer) {
+        if (layer.id !== id) return;
+        layer.filter = filter;
+        layer.layout = Object.assign({}, layer.layout, { visibility: visible ? 'visible' : 'none' });
+      });
+      if (map && map.getLayer(id)) {
+        map.setFilter(id, filter);
+        map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      }
       return true;
     },
     setData: function (sourceId, collection) {

@@ -45,6 +45,10 @@ class Event extends JsObjectWrapper<EventJsImpl> {
 
   Point get point => Point.fromJsObject(jsObject.point);
 
+  /// A camera event of the app's guidance motion, which the app needs not
+  /// hear of at every frame.
+  bool get fromAppMotion => jsObject.lunawayMotion ?? false;
+
   factory Event({
     String? id,
     String? type,
