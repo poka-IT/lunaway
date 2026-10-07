@@ -37,6 +37,10 @@ class GlRouteMap extends StatefulWidget {
 class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateMixin {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
+
+  /// Counts the taps and presses: a bare tap that waits (a finger in the
+  /// browser) gives way to any that came after it.
+  int _taps = 0;
   int _styleLoads = 0;
 
   // One update runs at a time and sends the latest state: at a fix a
@@ -436,6 +440,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// a tap that reaches neither, nor a sign of the route, is a tap on bare
   /// map at [at].
   Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
+    final seq = ++_taps;
     final c = _controller;
     if (c == null || !_ready || !mounted) return;
     // The engine's units per logical pixel: Android counts physical pixels.
@@ -513,10 +518,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       if (sign != null || zoom == null || onEmptyTap == null) return;
       // On a touch screen GL JS keeps the second tap of a double tap for its
       // zoom: the first one is dropped once the camera zooms.
-      if (kIsWeb &&
-          webMapPointerKind() == PointerKind.touch &&
-          await zoomedAfterTap(() async => (await c.queryCameraPosition())?.zoom, zoom)) {
-        return;
+      if (kIsWeb && webMapPointerKind() == PointerKind.touch && camera != null) {
+        final stands = await touchTapStands(
+          camera: () async {
+            final now = await c.queryCameraPosition();
+            if (now == null) return null;
+            return (center: LatLng(now.target.latitude, now.target.longitude), zoom: now.zoom);
+          },
+          center: LatLng(camera.target.latitude, camera.target.longitude),
+          zoom: zoom,
+          superseded: () => _taps != seq,
+        );
+        if (!stands) return;
       }
       if (mounted) onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
       return;
@@ -567,7 +580,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           : _onTap,
       onMapLongClick: p.onLongPress == null
           ? null
-          : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
+          : (_, at) {
+              _taps++;
+              p.onLongPress!(LatLng(at.latitude, at.longitude));
+            },
     );
     return WebMapPointer(
       child: LayoutBuilder(
