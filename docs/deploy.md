@@ -1749,7 +1749,12 @@ stopping the build on failure:
    value winning; a "sauf desserte" plate written as the
    `maxweight:conditional=none @ destination` Valhalla reads, a "sauf
    livraisons" one removed; IGN weights on motorways and on lanes closed
-   to the public set aside), `restrictions.ndjson.gz` (841 651 restrictions
+   to the public set aside; the roads without a limit that only a "sauf
+   desserte" zone leads to, within 500 m of it, given the zone's limit and
+   plate, so that the engine grants a trip ending there the right on its
+   first pass: up to eight passes over the ways blocks, 1 152 areas and
+   2 303 roads for France on 2026-10-08, about 30 s on the maintainer's
+   Mac), `restrictions.ndjson.gz` (841 651 restrictions
    for Europe, 266 389 for France: OpenStreetMap ways and nodes, IGN
    sections, each with its geometry and certainty), `prepare.json` and
    `build.json`.
@@ -1765,7 +1770,11 @@ stopping the build on failure:
    Ussel, and trips across borders and in Spain, Portugal, Italy and
    Morocco; a 3.8 t motorhome on the A8 at Rousset and the A54, where IGN
    marks 3.5 t, and a 4.5 t one into and past the "sauf desserte" of the
-   D937 (plan/research/61-limites-urbaines.md). On the raw France graph
+   D937 (plan/research/61-limites-urbaines.md); a 3.5 t motorhome to the
+   aire of Goult and a 4.5 t one to the Calvaire aire, each behind a "sauf
+   desserte" street, found on the engine's first pass (`first_pass`: the
+   case fails on a route of the relaxed second pass, warning 401, which
+   ignores every plate). On the raw France graph
    three of the France cases fail (the porch, the weight rating,
    `motorhome=no`): what the preparation exists for;
 6. the bundle, the graph in gzip parts under 1.9 GB (a release asset may not
@@ -1992,7 +2001,8 @@ the line, or a stretch at the same heading), the first and last edge of
 each leg included. A weight, axle, length or width limit that spares local
 access ("sauf desserte", `route_restrictions.except_destination`) only
 warns on the run of such limits that reaches a stop, gaps of 500 m at most
-between them, and blocks elsewhere. A limit the vehicle exceeds blocks the
+between them and between the run and the stop (an aire on a service road
+behind the zone), and blocks elsewhere. A limit the vehicle exceeds blocks the
 route: the engine is asked again with a 5 m ring excluded at each
 blocker, three calls at most; a recalculation that moves a stop more than 30 m, or loses the road
 it lies on, ends there. A route with a blocker never reaches the app;
