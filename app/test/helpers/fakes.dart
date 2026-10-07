@@ -501,8 +501,13 @@ base class FakeMap implements LunaMapController {
   /// last viewport when null.
   LatLng? moving;
 
+  /// The zoom while the camera still moves (a double tap zooming); the last
+  /// viewport's when null.
+  double? zooming;
+
   @override
-  Future<LatLng?> center() async => moving ?? viewport.center;
+  Future<({LatLng center, double zoom})?> camera() async =>
+      (center: moving ?? viewport.center, zoom: zooming ?? viewport.zoom);
 
   /// The props of the first build: the camera the map is made with.
   LunaMapProps? firstProps;

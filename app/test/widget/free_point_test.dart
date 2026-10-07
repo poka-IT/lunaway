@@ -63,6 +63,7 @@ void main() {
   group('the double tap', () {
     testWidgets('a double click zooms and opens nothing', variant: clicks, (tester) async {
       final app = await pumpLunaway(tester, size: desktop);
+      app.map.zooming = 15;
       final seen = <MapSelection?>[];
       app.container(tester).listen(selectionProvider, (_, next) => seen.add(next));
       app.map.lastProps!.onEmptyTap!(spot, 15);
@@ -78,6 +79,7 @@ void main() {
       tester,
     ) async {
       final app = await pumpLunaway(tester, size: desktop);
+      app.map.zooming = 15;
       app.map.lastProps!.onEmptyTap!(spot, 15);
       await tester.pump(const Duration(milliseconds: 200));
       expect(app.container(tester).read(selectionProvider), isNull);
@@ -87,6 +89,7 @@ void main() {
 
     testWidgets('a pin clicked just after drops the bare click', variant: clicks, (tester) async {
       final app = await pumpLunaway(tester, size: desktop);
+      app.map.zooming = 15;
       app.map.lastProps!.onEmptyTap!(spot, 15);
       await tester.pump(const Duration(milliseconds: 50));
       app.map.lastProps!.onPlaceTap(lakeArea.id);
@@ -97,6 +100,18 @@ void main() {
         isA<PlaceSelection>().having((s) => s.id, 'id', lakeArea.id),
       );
     });
+
+    testWidgets('a double tap the browser reports as one click: the zoom tells it', (tester) async {
+      final app = await pumpLunaway(tester, size: desktop);
+      app.map.zooming = 15;
+      app.map.lastProps!.onEmptyTap!(spot, 15);
+      await tester.pump(const Duration(milliseconds: 100));
+      // The second tap went to the engine, which zooms.
+      app.map.zooming = 15.4;
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      expect(app.container(tester).read(selectionProvider), isNull);
+    }, variant: clicks);
 
     testWidgets('on a phone the engine has waited already: the card opens at once', (tester) async {
       final app = await pumpLunaway(tester);

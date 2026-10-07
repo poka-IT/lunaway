@@ -756,9 +756,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   @override
-  Future<LatLng?> center() async {
-    final target = (await _controller?.queryCameraPosition())?.target;
-    return target == null ? null : LatLng(target.latitude, target.longitude);
+  Future<({LatLng center, double zoom})?> camera() async {
+    final camera = await _controller?.queryCameraPosition();
+    if (camera == null) return null;
+    return (center: LatLng(camera.target.latitude, camera.target.longitude), zoom: camera.zoom);
   }
 
   @override

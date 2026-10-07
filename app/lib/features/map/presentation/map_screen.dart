@@ -313,7 +313,15 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap where nothing can be opened: closes what is open, or, at street
   /// level, marks the point and opens its card.
   void _onBareTap(LatLng at, double zoom) {
-    _gate.tap(() {
+    _gate.tap(() async {
+      // A double tap on a touch screen reaches the web map as one click (the
+      // engine keeps the second for its zoom): a camera that zooms since
+      // the tap tells it.
+      if (_gate.window > Duration.zero) {
+        final now = await ref.read(mapControllerProvider)?.camera();
+        if (!mounted) return;
+        if (now != null && (now.zoom - zoom).abs() > 0.01) return;
+      }
       if (!mounted) return;
       final select = ref.read(selectionProvider.notifier);
       switch (bareTapAt(zoom: zoom, open: ref.read(selectionProvider) != null)) {

@@ -106,7 +106,7 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
     _confirming = true;
     LatLng? live;
     try {
-      live = await _map?.center();
+      live = (await _map?.camera())?.center;
     } on Object catch (e) {
       // The resting centre still stands for the spot: the button must not
       // stay dead.

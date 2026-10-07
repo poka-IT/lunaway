@@ -552,12 +552,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   }
 
   @override
-  Future<LatLng?> center() async {
+  Future<({LatLng center, double zoom})?> camera() async {
     final v = await _call('return window.lunaway.viewport();');
     if (v is! Map) return null;
-    final (lat, lon) = (v['lat'], v['lon']);
-    if (lat is! num || lon is! num) return null;
-    return LatLng(lat.toDouble(), (lon + 180) % 360 - 180);
+    final (lat, lon, zoom) = (v['lat'], v['lon'], v['zoom']);
+    if (lat is! num || lon is! num || zoom is! num) return null;
+    return (center: LatLng(lat.toDouble(), (lon + 180) % 360 - 180), zoom: zoom.toDouble());
   }
 
   @override
