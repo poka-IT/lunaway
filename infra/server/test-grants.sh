@@ -51,7 +51,7 @@ spatial_ref_sys SELECT"
 # SELECT.
 #
 # The open content and the partner's reviews, ratings and photos
-# (migrations 20261007180000 to 20261008110200) are the import role's to
+# (migrations 20261007180000 to 20261008110400) are the import role's to
 # write. The API reads them; it writes no hide (content_hides SELECT only):
 # it hides a reported item and lifts the reports' hide through
 # content_hide_reported and content_unhide_reported.
@@ -243,6 +243,11 @@ content_hides INSERT
 content_hides DELETE
 content_review_keys SELECT
 content_review_keys INSERT
+content_review_strikes SELECT
+content_review_strikes INSERT
+content_review_sightings SELECT
+content_review_sightings INSERT
+content_review_sightings DELETE
 external_reviews SELECT
 external_reviews INSERT
 external_reviews UPDATE
