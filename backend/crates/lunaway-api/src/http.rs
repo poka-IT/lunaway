@@ -29,7 +29,7 @@ use crate::{
     config::Limits,
     error::{INTERNAL, INVALID_INPUT, RATE_LIMITED, retry_after_seconds},
     rate::RateLimiter,
-    schema::{CostShare, RequestDb, RouteOnce},
+    schema::{CostShare, GeocodeOnce, RequestDb, RouteOnce},
 };
 
 /// What the endpoint needs, shared by every request.
@@ -287,7 +287,8 @@ pub(crate) async fn graphql(State(endpoint): State<Arc<Endpoint>>, request: Requ
         .data(ViewerCell::default())
         .data(RequestDb(Semaphore::new(limits.db_queries_per_request)))
         .data(CostShare::default())
-        .data(RouteOnce::default());
+        .data(RouteOnce::default())
+        .data(GeocodeOnce::default());
     if let Some(variables) = body.variables {
         request = request.variables(Variables::from_json(variables));
     }

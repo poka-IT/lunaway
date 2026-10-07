@@ -547,8 +547,9 @@ class _SelectionDetails extends StatelessWidget {
       actions: actions,
       bottomPadding: bottomPadding,
     ),
-    PointSelection(:final position) => PointDetails(
+    PointSelection(:final position, :final address) => PointDetails(
       position: position,
+      address: address,
       scrollController: scrollController,
       onClose: onClose,
       actions: actions,

@@ -12,3 +12,6 @@ PointerKind webMapPointerKind() => PointerKind.touch;
 
 /// Native builds draw their cursor themselves; nothing to tell the page.
 void markPointerOnWebMap({required bool on}) {}
+
+/// Native builds have no pointer that hovers; nothing to listen for.
+void Function()? listenWebMapHover(void Function(WebMapHover? hover) onHover) => null;

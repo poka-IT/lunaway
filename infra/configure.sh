@@ -14,12 +14,14 @@
 # remote shell.
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
-role="${1:?usage: $0 backend|ops [step...]}"
+role="${1:?usage: $0 backend|ops|geocode [step...]}"
 shift
 role_get "$role" server >/dev/null
 require_host "$role"
 volume_id="$(role_var "$role" VOLUME_ID)"
-[[ "$volume_id" =~ ^[0-9]+$ ]] || die "no volume id for $role; run infra/provision.sh"
+if [ -n "$(role_get "$role" volume)" ]; then
+  [[ "$volume_id" =~ ^[0-9]+$ ]] || die "no volume id for $role; run infra/provision.sh"
+fi
 for step in "$@"; do
   [[ "$step" =~ ^[a-z-]+$ ]] || die "unexpected step name $step"
 done
@@ -91,6 +93,9 @@ case "$role" in
       "LUNAWAY_TILES_URL=$tiles_url"
       "LUNAWAY_STATUS_HOSTS=$status_hosts"
     )
+    ;;
+  geocode)
+    vars+=("LUNAWAY_GEOCODE_PRIVATE_IP=$LUNAWAY_GEOCODE_PRIVATE_IP")
     ;;
 esac
 

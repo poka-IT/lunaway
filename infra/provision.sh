@@ -6,8 +6,8 @@
 # existing resource is kept as it is, and only resources named lunaway-* are
 # ever created or changed.
 #
-#   infra/provision.sh                        both roles (backend, ops)
-#   infra/provision.sh backend                one role
+#   infra/provision.sh                        both main roles (backend, ops)
+#   infra/provision.sh backend                one role (backend, ops, geocode)
 #   infra/provision.sh --render-only ROLE FILE   only render cloud-init.yaml, for review
 #
 # Server types are tried in order of value for each role (role_get in
@@ -151,7 +151,9 @@ provision_role() {
     esac
   done
 
-  if hcloud volume describe "$volume" >/dev/null 2>&1; then
+  if [ -z "$volume" ]; then
+    : # A role whose data is all downloaded again (geocode) keeps it on the server's disk.
+  elif hcloud volume describe "$volume" >/dev/null 2>&1; then
     log "volume $volume exists"
     if [ -z "$(hcloud volume describe "$volume" -o json | json_field server)" ]; then
       hcloud volume attach --server "$server" "$volume" >/dev/null
@@ -193,7 +195,7 @@ provision_role() {
   ipv6_net="$(echo "$json" | json_field public_net.ipv6.ip)"
   env_set "${prefix}_IPV4" "$ipv4"
   env_set "${prefix}_IPV6" "${ipv6_net%%/*}1"
-  env_set "${prefix}_VOLUME_ID" "$(hcloud volume describe "$volume" -o json | json_field id)"
+  [ -z "$volume" ] || env_set "${prefix}_VOLUME_ID" "$(hcloud volume describe "$volume" -o json | json_field id)"
   env_set "${prefix}_SERVER_TYPE" "$(echo "$json" | json_field server_type.name)"
   env_set "${prefix}_LOCATION" "$(echo "$json" | json_field location.name)"
   return 0

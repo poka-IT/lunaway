@@ -24,7 +24,7 @@
   // shapes the app's (test/unit/map_hits_test.dart, UPDATE_MAP_HITS=1
   // rewrites them).
   var lunawayHits = (function () {
-    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-marks":{"r":{"prop":"radius","plus":3.0,"fallback":8.0},"y":0.0,"p":1,"needs":"id"},"lw-route-marks-tappable":{"r":{"prop":"radius","plus":3.0,"fallback":8.0},"y":0.0,"p":1,"needs":"id"},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true}}} /* END HIT SHAPES */;
+    var HITS = /* BEGIN HIT SHAPES */ {"tolerance":{"touch":22.0,"mouse":14.0},"ring":{"color":"#f2a541","width":2.5,"gap":2.5},"shapes":{"lw-selection-pin":{"r":18.85,"y":26.9555,"p":0},"lw-selection-pin/point":{"r":14.0,"y":27.0,"p":0,"inert":true},"lw-poi-selection":{"r":15.4,"y":27.9,"p":0},"lw-places":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-place-pins":{"r":{"by":"zoom","stops":[[6.0,10.44],[12.0,14.5]]},"y":{"by":"zoom","stops":[[6.0,14.9292],[12.0,20.735]]},"p":1},"lw-clusters":{"r":{"by":"point_count","stops":[[2.0,14.5],[10.0,16.5],[50.0,18.5],[200.0,21.5],[1000.0,24.5]]},"y":0.0,"p":2},"lw-place-pin-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-place-dots":{"r":{"by":"zoom","stops":[[3.0,1.9000000000000001],[6.0,3.2600000000000002],[8.0,4.3],[9.0,4.824999999999999],[12.0,6.4]]},"y":0.0,"p":3},"lw-poi-pins":{"r":11.3,"y":17.8,"p":4},"lw-poi-quiet":{"r":8.9,"y":13.9,"p":5},"lw-poi-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-poi-vending-dots":{"r":{"by":"count","stops":[[1.0,6.6],[10.0,8.8],[60.0,11.0]]},"y":0.0,"p":6},"lw-route-anchors-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":1},"lw-route-marks-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":2},"lw-route-minor-badges":{"r":{"by":"size","stops":[[0.72,11.16],[1.0,15.5]]},"y":0.0,"p":3},"lw-route-alternatives-line":{"r":0.0,"y":0.0,"p":9,"line":true},"lw-route-alternatives-casing":{"r":0.0,"y":0.0,"p":9,"line":true}}} /* END HIT SHAPES */;
     var EPSILON = 1e-6;
 
     // What last pressed on the page: a finger asks for a wider target.
@@ -227,6 +227,18 @@
         shownKey = key;
         container.classList.toggle('lw-hit', !!hit);
         ring(hit);
+        // What the mouse is over, for whoever listens on the page (the
+        // route map's tooltip: listenWebMapHover in
+        // lib/features/map/presentation/web_map_controls_web.dart).
+        container.dispatchEvent(new CustomEvent('lunawayhover', {
+          bubbles: true,
+          detail: hit && hit.point ? {
+            layer: hit.layer,
+            properties: hit.properties,
+            x: hit.point[0],
+            y: hit.point[1]
+          } : null
+        }));
       }
 
       function update() {

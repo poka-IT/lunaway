@@ -142,16 +142,20 @@ final List<_Case> _cases = [
     expected: (0, 1),
   ),
   (
-    name: 'a route mark without an id is not a target',
+    name: 'a minor route mark, drawn smaller, is a smaller target',
     at: _here,
     zoom: 0,
     tolerance: _touch,
     candidates: [
-      _c(RouteLayers.marks, [_here], {'kind': 'warning', 'radius': 8}),
       _c(
-        RouteLayers.marks,
-        [_here + const Offset(15, 0)],
-        {'kind': 'place', 'id': 'place:1', 'radius': 4},
+        RouteLayers.badgesOf(RouteLayers.minorSource),
+        [_here + const Offset(36, 0)],
+        {'kind': 'place', 'mark': 'place:1', 'size': routeMinorScale},
+      ),
+      _c(
+        RouteLayers.badgesOf(RouteLayers.marksSource),
+        [_here + const Offset(36, 0)],
+        {'kind': 'works', 'mark': 'event:0:1', 'size': 1},
       ),
     ],
     expected: (1, 0),
@@ -164,9 +168,9 @@ final List<_Case> _cases = [
     candidates: [
       _c(RouteLayers.alternatives, const [], {'index': 1}),
       _c(
-        RouteLayers.marks,
+        RouteLayers.badgesOf(RouteLayers.anchorsSource),
         [_here + const Offset(20, 0)],
-        {'kind': 'place', 'id': 'stop:0', 'radius': 8},
+        {'kind': 'stop', 'mark': 'stop:0', 'size': 1},
       ),
     ],
     expected: (1, 0),

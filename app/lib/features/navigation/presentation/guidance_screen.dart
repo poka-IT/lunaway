@@ -20,7 +20,9 @@ import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
@@ -269,17 +271,29 @@ class _GuidanceMap extends ConsumerWidget {
         dark: dark,
         lines: [RouteMapLine(index: route.index, points: route.line, selected: true)],
         marks: [
-          ...points.marks,
-          RouteMapMark(position: session.target.destination, kind: RouteMarkKind.destination),
-          for (final w in route.warnings)
-            RouteMapMark(position: w.position, kind: RouteMarkKind.warning),
+          for (final m in points.markers(context.t)) m.mark,
+          RouteMapMark(
+            id: 'destination',
+            position: session.target.destination,
+            kind: RouteMarkKind.destination,
+            badge: RouteBadge.destination,
+          ),
+          for (final (i, w) in route.warnings.indexed)
+            warningMarker(warningMarkId(route.index, i), w, context.t).mark,
           for (final e in session.eventAlerts)
-            RouteMapMark(position: e.hit.at, kind: RouteMarkKind.event),
+            if (eventLook(e.event, blocking: false) case (final kind, final badge))
+              RouteMapMark(
+                id: 'alert:${e.event.id}',
+                position: e.hit.at,
+                kind: kind,
+                badge: badge,
+                minor: kind == RouteMarkKind.lanes,
+              ),
         ],
         vehicle: vehicle,
         camera: camera,
         padding: padding,
-        onMarkTap: (id) {
+        onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
           }

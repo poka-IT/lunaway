@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:ui' show Offset;
 
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:web/web.dart' as web;
@@ -120,3 +121,38 @@ void markPointerOnWebMap({required bool on}) {
 }
 
 const _onMapClass = 'lw-on-map';
+
+/// Listens to what the mouse is over on the page's maps, as their hover
+/// picks it (`lunawayhover`, fired by lunawayHits.hover in
+/// web/lunaway_maplibre.js when the target under the mouse changes): null
+/// when it leaves every target. Returns the function that stops listening.
+void Function()? listenWebMapHover(void Function(WebMapHover? hover) onHover) {
+  final listener = ((web.CustomEvent e) {
+    final detail = e.detail.dartify();
+    if (detail is! Map) {
+      onHover(null);
+      return;
+    }
+    final (layer, properties, x, y) = (
+      detail['layer'],
+      detail['properties'],
+      detail['x'],
+      detail['y'],
+    );
+    if (layer is! String || properties is! Map || x is! num || y is! num) {
+      onHover(null);
+      return;
+    }
+    onHover(
+      WebMapHover(
+        layer: layer,
+        properties: Map<Object?, Object?>.from(properties),
+        at: Offset(x.toDouble(), y.toDouble()),
+      ),
+    );
+  }).toJS;
+  web.document.addEventListener(_hoverEvent, listener);
+  return () => web.document.removeEventListener(_hoverEvent, listener);
+}
+
+const _hoverEvent = 'lunawayhover';

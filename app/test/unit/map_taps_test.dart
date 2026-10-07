@@ -62,14 +62,14 @@ void main() {
   });
 
   group('a tap on the marks of a route', () {
-    // The destination: a mark without an id, 4 px from the tap's edge.
-    const destination = HitCandidate(
-      layer: RouteLayers.marks,
-      properties: {'kind': 'destination', 'radius': 9},
-      points: [Offset(110, 104)],
+    // The destination's badge, its centre 11 px from the tap.
+    final destination = HitCandidate(
+      layer: RouteLayers.badgesOf(RouteLayers.anchorsSource),
+      properties: const {'kind': 'destination', 'mark': 'destination', 'size': 1},
+      points: const [Offset(110, 104)],
     );
 
-    test('a mark without a card is no target', () {
+    test('every mark is a target: a tap beside the destination is no tap on bare map', () {
       final hit = nearestHit(
         const Offset(100, 100),
         [destination],
@@ -77,18 +77,7 @@ void main() {
         zoom: 0,
         tolerance: 22,
       );
-      expect(hit, isNull);
-    });
-
-    test('but it is a sign of the route: the tap is no tap on bare map', () {
-      final sign = nearestHit(
-        const Offset(100, 100),
-        [destination],
-        shapes: routeSignHitShapes,
-        zoom: 0,
-        tolerance: 22,
-      );
-      expect(sign, isNotNull);
+      expect(hit, isNotNull);
     });
   });
 

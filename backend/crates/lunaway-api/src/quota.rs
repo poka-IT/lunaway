@@ -53,6 +53,8 @@ pub(crate) enum Action {
     RoadReport,
     /// A road event reported, or said over, counted per client.
     RoadReportClient,
+    /// A search that asks the geocoders.
+    Geocode,
 }
 
 /// Who is counted.
@@ -116,6 +118,7 @@ impl QuotaLimiter {
             Action::FuelRoute => q.fuel_route,
             Action::RoadReport => q.road_report,
             Action::RoadReportClient => q.road_report_client,
+            Action::Geocode => q.geocode,
         }
     }
 

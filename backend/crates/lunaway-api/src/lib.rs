@@ -5,6 +5,8 @@
 //! bounds are in [`config::Limits`] (per deployment) and in [`schema`] and
 //! [`guard`] (the shape of a document).
 
+mod address_query;
+pub mod address_types;
 mod auth;
 mod client;
 pub mod community_types;
@@ -16,6 +18,7 @@ pub mod external_photos;
 pub mod external_types;
 mod fuel_query;
 pub mod fuel_types;
+mod geocode;
 pub mod guard;
 mod http;
 mod loaders;

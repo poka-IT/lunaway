@@ -1249,14 +1249,16 @@ abstract class _$PlaceReviews extends $AsyncNotifier<ReviewList> {
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
-/// else the API's once typing pauses.
+/// else the API's once typing pauses, with the addresses, named in
+/// [language] abroad where the data has it.
 
 @ProviderFor(searchResults)
 final searchResultsProvider = SearchResultsFamily._();
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
-/// else the API's once typing pauses.
+/// else the API's once typing pauses, with the addresses, named in
+/// [language] abroad where the data has it.
 
 final class SearchResultsProvider
     extends
@@ -1268,10 +1270,11 @@ final class SearchResultsProvider
     with $FutureModifier<SearchResults>, $FutureProvider<SearchResults> {
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
-  /// else the API's once typing pauses.
+  /// else the API's once typing pauses, with the addresses, named in
+  /// [language] abroad where the data has it.
   SearchResultsProvider._({
     required SearchResultsFamily super.from,
-    required (String, {LatLng? near}) super.argument,
+    required (String, {LatLng? near, String? language}) super.argument,
   }) : super(
          retry: null,
          name: r'searchResultsProvider',
@@ -1298,8 +1301,14 @@ final class SearchResultsProvider
 
   @override
   FutureOr<SearchResults> create(Ref ref) {
-    final argument = this.argument as (String, {LatLng? near});
-    return searchResults(ref, argument.$1, near: argument.near);
+    final argument =
+        this.argument as (String, {LatLng? near, String? language});
+    return searchResults(
+      ref,
+      argument.$1,
+      near: argument.near,
+      language: argument.language,
+    );
   }
 
   @override
@@ -1313,17 +1322,18 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'9a08d662f63eadc8a2c69985fac3b8f8adcf916b';
+String _$searchResultsHash() => r'6a8292cd62df954c896d293a87c2179bb753cf2a';
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
-/// else the API's once typing pauses.
+/// else the API's once typing pauses, with the addresses, named in
+/// [language] abroad where the data has it.
 
 final class SearchResultsFamily extends $Family
     with
         $FunctionalFamilyOverride<
           FutureOr<SearchResults>,
-          (String, {LatLng? near})
+          (String, {LatLng? near, String? language})
         > {
   SearchResultsFamily._()
     : super(
@@ -1336,11 +1346,139 @@ final class SearchResultsFamily extends $Family
 
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
-  /// else the API's once typing pauses.
+  /// else the API's once typing pauses, with the addresses, named in
+  /// [language] abroad where the data has it.
 
-  SearchResultsProvider call(String query, {LatLng? near}) =>
-      SearchResultsProvider._(argument: (query, near: near), from: this);
+  SearchResultsProvider call(String query, {LatLng? near, String? language}) =>
+      SearchResultsProvider._(
+        argument: (query, near: near, language: language),
+        from: this,
+      );
 
   @override
   String toString() => r'searchResultsProvider';
+}
+
+/// The addresses under the places of the map's search: those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, asked from the map's centre on the search
+/// grid as the places are, and given up after [addressWait]. Offline, or for
+/// fewer than three characters, none: the places and towns the device holds
+/// still answer. A query the user typed past is cancelled.
+
+@ProviderFor(addressSearch)
+final addressSearchProvider = AddressSearchFamily._();
+
+/// The addresses under the places of the map's search: those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, asked from the map's centre on the search
+/// grid as the places are, and given up after [addressWait]. Offline, or for
+/// fewer than three characters, none: the places and towns the device holds
+/// still answer. A query the user typed past is cancelled.
+
+final class AddressSearchProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<AddressMatch>>,
+          List<AddressMatch>,
+          FutureOr<List<AddressMatch>>
+        >
+    with
+        $FutureModifier<List<AddressMatch>>,
+        $FutureProvider<List<AddressMatch>> {
+  /// The addresses under the places of the map's search: those the API
+  /// gave with its places, else, for a device that searched its own places,
+  /// the API's once typing pauses, asked from the map's centre on the search
+  /// grid as the places are, and given up after [addressWait]. Offline, or for
+  /// fewer than three characters, none: the places and towns the device holds
+  /// still answer. A query the user typed past is cancelled.
+  AddressSearchProvider._({
+    required AddressSearchFamily super.from,
+    required (String, {LatLng? near, String? language}) super.argument,
+  }) : super(
+         retry: noRetry,
+         name: r'addressSearchProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$addressSearchHash();
+
+  @override
+  String toString() {
+    return r'addressSearchProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<AddressMatch>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<AddressMatch>> create(Ref ref) {
+    final argument =
+        this.argument as (String, {LatLng? near, String? language});
+    return addressSearch(
+      ref,
+      argument.$1,
+      near: argument.near,
+      language: argument.language,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AddressSearchProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$addressSearchHash() => r'6b51277b64d03facf0282ac54ddd4886aaf21695';
+
+/// The addresses under the places of the map's search: those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, asked from the map's centre on the search
+/// grid as the places are, and given up after [addressWait]. Offline, or for
+/// fewer than three characters, none: the places and towns the device holds
+/// still answer. A query the user typed past is cancelled.
+
+final class AddressSearchFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<List<AddressMatch>>,
+          (String, {LatLng? near, String? language})
+        > {
+  AddressSearchFamily._()
+    : super(
+        retry: noRetry,
+        name: r'addressSearchProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The addresses under the places of the map's search: those the API
+  /// gave with its places, else, for a device that searched its own places,
+  /// the API's once typing pauses, asked from the map's centre on the search
+  /// grid as the places are, and given up after [addressWait]. Offline, or for
+  /// fewer than three characters, none: the places and towns the device holds
+  /// still answer. A query the user typed past is cancelled.
+
+  AddressSearchProvider call(String query, {LatLng? near, String? language}) =>
+      AddressSearchProvider._(
+        argument: (query, near: near, language: language),
+        from: this,
+      );
+
+  @override
+  String toString() => r'addressSearchProvider';
 }

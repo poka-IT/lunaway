@@ -30,6 +30,19 @@ abstract interface class OnlinePlaces {
   /// The places whose name or town matches [text].
   Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20});
 
+  /// The places of [text], then the addresses the server's geocoders find
+  /// for it, in one request; with [places] false, the addresses alone (a
+  /// device that searches its own places). The addresses outside France
+  /// are named in [language] where the data has it. [abort], once complete,
+  /// cancels the request.
+  Future<SearchAnswer> searchAll(
+    String text, {
+    LatLng? near,
+    bool places = true,
+    String? language,
+    Future<void>? abort,
+  });
+
   /// One place; null when it is gone.
   Future<Place?> place(String id);
 }
@@ -63,6 +76,20 @@ final class GraphQLOnlinePlaces implements OnlinePlaces {
   Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20}) => client.execute(
     searchPlacesOperation,
     {'text': text, 'near': near == null ? null : _point(searchAnchor(near)), 'first': first},
+  );
+
+  @override
+  Future<SearchAnswer> searchAll(
+    String text, {
+    LatLng? near,
+    bool places = true,
+    String? language,
+    Future<void>? abort,
+  }) => client.execute(
+    places ? searchAllOperation : searchAddressesOperation,
+    {'text': text, 'near': near == null ? null : _point(searchAnchor(near)), 'language': language},
+    const {},
+    abort,
   );
 
   @override

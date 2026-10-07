@@ -151,6 +151,8 @@
     "copyCoordinates": "Copier les coordonnées",
     "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
     "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
+    "addressSource": "Source : $attribution",
+    "placesAround": "Les lieux autour",
     "downloading": "Téléchargement des lieux de France",
     "downloadingCount(param=n)": {
       "one": "$count lieu reçu",
@@ -199,6 +201,18 @@
     "townPlaces(param=n)": {
       "one": "$n lieu",
       "other": "$n lieux"
+    },
+    "addresses": "Adresses",
+    "addressesSearching": "Recherche des adresses",
+    "addressesFailed": "Les adresses n'ont pas pu être cherchées pour l'instant.",
+    "addressSources": "Adresses : $sources",
+    "addressKind": {
+      "houseNumber": "Adresse",
+      "street": "Rue",
+      "locality": "Lieu-dit",
+      "town": "Commune",
+      "postcode": "Code postal",
+      "region": "Région"
     }
   },
   "filters": {
@@ -622,6 +636,37 @@
       "reasonNearLimit": "de justesse",
       "reasonOverLimit": "au-dessus de la limite de votre véhicule"
     },
+    "marks": {
+      "legend": "Légende",
+      "legendHide": "Replier la légende",
+      "kindOrigin": "Départ",
+      "kindDestination": "Arrivée",
+      "kindStop": "Étape",
+      "kindClosure": "Route fermée",
+      "kindWorks": "Travaux",
+      "kindLanes": "Voies réduites",
+      "kindClearance": "Hauteur limitée",
+      "kindWeight": "Poids limité",
+      "kindLimit": "Autre limite (largeur, longueur, interdiction)",
+      "kindFuel": "Station-service",
+      "kindPlace": "Lieu près du trajet",
+      "groupLegend": "Repères proches regroupés",
+      "group(param=n)": {
+        "one": "$n repère",
+        "other": "$n repères"
+      },
+      "groupHint": "Rapprochez-vous pour les voir un par un",
+      "count": "$kind : $n",
+      "stop": "Étape $n",
+      "origin": "Point de départ",
+      "nearRoute": "Près du trajet",
+      "avoided": "L'itinéraire passe à côté",
+      "blocking": "Bloque chaque itinéraire",
+      "showInList": "Voir dans la liste",
+      "showAll": "Tout afficher",
+      "onMap": "montrer sur la carte",
+      "price": "$price €"
+    },
     "guidance": {
       "then": "Puis",
       "arrival": "Arrivée $time",
@@ -845,6 +890,8 @@
     "attributionIcons": "Icônes Phosphor, sous licence MIT.",
     "noTracking": "Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.",
     "attributionBdTopo": "Campings placés par leur nom : BD TOPO de l'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.",
+    "attributionAddresses": "Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l'IGN, sous Licence Ouverte 2.0.",
+    "attributionAddressesOsm": "Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.",
     "attributionPoiOdbl": "Commerces et services : OpenStreetMap, et le calendrier d'ouverture de La Poste, sous ODbL.",
     "attributionPoiLo": "Prix des carburants (ministère de l'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).",
