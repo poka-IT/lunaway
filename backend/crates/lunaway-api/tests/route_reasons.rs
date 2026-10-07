@@ -329,11 +329,17 @@ async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
     assert_eq!(limit["restriction"]["severity"], "BLOCKING");
 
     // The trip as the app asked, then short questions without
-    // instructions: never an alternative, never a voice.
+    // instructions: never an alternative, never a voice. The two last
+    // calls ask the trip again, below.
+    let n = asked.len();
     assert_eq!(asked[0]["alternates"], 2);
-    assert!(asked[1..].iter().all(|b| b["directions_type"] == "none"
-        && b.get("alternates").is_none()
-        && b.get("voice_instructions").is_none()));
+    assert!(
+        asked[1..n - 2]
+            .iter()
+            .all(|b| b["directions_type"] == "none"
+                && b.get("alternates").is_none()
+                && b.get("voice_instructions").is_none())
+    );
     // Each stop was set against a reference at least 30 km away.
     let at = |b: &Value, i: usize| {
         Position::new(
@@ -355,7 +361,6 @@ async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
     // farther, the origin (the vehicle's own position for an app that does
     // not tell) never; then the first answer and its reasons stand, without
     // a second diagnosis.
-    let n = asked.len();
     for (b, radius) in [(&asked[n - 2], 100), (&asked[n - 1], 150)] {
         assert_eq!(b["locations"][1]["radius"], radius, "{b}");
         assert!(b["locations"][0].get("radius").is_none());
