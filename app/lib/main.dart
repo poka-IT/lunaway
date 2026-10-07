@@ -39,8 +39,10 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
       error: r.error,
       stackTrace: r.stackTrace,
     );
-    // Debug builds also echo to the console a developer runs them from.
-    if (kDebugMode) {
+    // Debug and profile builds also echo to the console a developer runs
+    // them from: on Android that is logcat, whose timestamps time the
+    // start-up of a profile build ("places drawn").
+    if (!kReleaseMode) {
       debugPrint(
         '${r.level.name} ${r.loggerName}: ${r.message}${r.error == null ? '' : ' (${r.error})'}',
       );
