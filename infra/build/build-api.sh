@@ -3,7 +3,8 @@
 # mount is the scratch directory, read-only, at /w: the backend sources come
 # in as /w/backend-src.tar, and the results (lunaway-api, and the lunaway CLI
 # when the revision has it) stay in the container's /out, which
-# deploy-api.sh copies out with `docker cp`.
+# deploy-api.sh copies out with `docker cp`; on the Hetzner builder /out is
+# a mount of the builder's /root/out (infra/build/remote-build.sh).
 #
 #   TARGET         Rust target triple of the server
 #   CROSS_PKGS     Debian packages of the cross linker, empty for a native build

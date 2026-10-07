@@ -26,6 +26,8 @@ axum.workspace = true
 base64.workspace = true
 chrono.workspace = true
 flate2.workspace = true
+# The speed-limit traces of a route's pieces, all in flight at once.
+futures-util = { workspace = true, features = ["alloc"] }
 http-body-util.workspace = true
 lunaway-auth.workspace = true
 lunaway-db.workspace = true

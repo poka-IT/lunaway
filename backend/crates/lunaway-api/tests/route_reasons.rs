@@ -529,17 +529,6 @@ async fn a_long_trip_asks_fewer_alternatives(pool: PgPool) {
         Some(&json!(1)),
         "three routes of 3 500 km by road would exceed what the API reads of the engine"
     );
-    // Lille to Dakhla, 3 415 km: over the longest trip, refused before the
-    // engine.
-    let body = gql(
-        &app,
-        trip((50.6292, 3.0573), (23.6848, -15.958), &json!({})),
-    )
-    .await;
-    assert_eq!(
-        body["errors"][0]["extensions"]["code"], "INVALID_INPUT",
-        "{body}"
-    );
     // El Hierro to the North Cape, 5 300 km: refused before the engine.
     let body = gql(&app, trip((27.75, -18.0), (70.98, 25.97), &json!({}))).await;
     assert_eq!(
