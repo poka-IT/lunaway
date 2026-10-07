@@ -21,6 +21,15 @@ LatLng centerForPadding(LatLng target, double zoom, EdgeInsets padding) {
   return LatLng(lat, lon);
 }
 
+/// What stands in the middle of the part of the map left visible by
+/// [padding], under a camera centred on [center] at [zoom]: the inverse of
+/// [centerForPadding].
+LatLng visibleCenter(LatLng center, double zoom, EdgeInsets padding) => centerForPadding(
+  center,
+  zoom,
+  EdgeInsets.fromLTRB(padding.right, padding.bottom, padding.left, padding.top),
+);
+
 /// The camera that shows [bounds] whole in the part of a map of [size] left
 /// visible by [padding], no closer than [maxZoom].
 ///

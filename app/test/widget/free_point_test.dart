@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +8,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/widgets/floating.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
@@ -134,6 +134,67 @@ void main() {
       await settleShort(tester);
       expect(find.text('Ici'), findsOneWidget);
       expect(find.text('Créer un lieu ici'), findsOneWidget);
+    });
+  });
+
+  group('a place without a pointer', () {
+    const label = 'Ajouter un lieu au centre de la carte';
+    const centre = LatLng(45.91, 6.12);
+    void restOn(TestApp app) => app.map.viewport = const MapViewport(
+      bounds: GeoBounds(south: 45.9, west: 6.1, north: 45.92, east: 6.14),
+      center: centre,
+      zoom: 15,
+    );
+
+    /// Tabs through the screen until the keyboard reaches the control
+    /// that holds [text].
+    Future<void> tabTo(WidgetTester tester, String text) async {
+      final node = Focus.of(tester.element(find.text(text)));
+      for (var i = 0; i < 40 && FocusManager.instance.primaryFocus != node; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(FocusManager.instance.primaryFocus, node, reason: 'the keyboard reaches it');
+    }
+
+    testWidgets('the keyboard tabs to "add a place at the centre", shown only then, and it opens '
+        'the placement on the middle of the map', (tester) async {
+      final app = await pumpLunaway(tester, size: desktop, api: FakeApi(level: 2), signedIn: true);
+      restOn(app);
+      final button = find.ancestor(of: find.text(label), matching: find.byType(TextButton));
+      expect(button, findsOneWidget);
+      expect(find.ancestor(of: button, matching: find.byType(FloatingSurface)), findsNothing);
+      // Hidden, it takes no click: the map under it does.
+      expect(
+        tester
+            .hitTestOnBinding(tester.getCenter(button))
+            .path
+            .any((e) => e.target == tester.renderObject(button)),
+        isFalse,
+      );
+      await tabTo(tester, label);
+      await tester.pump();
+      expect(find.ancestor(of: button, matching: find.byType(FloatingSurface)), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settleShort(tester);
+      expect(find.text(t.placement.title), findsOneWidget);
+      expect(app.map.lastProps!.initialCenter, centre, reason: 'no panel over this map');
+    });
+
+    testWidgets('a screen reader finds it, and on a phone it starts from the middle left free', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final app = await pumpLunaway(tester, api: FakeApi(level: 2), signedIn: true);
+      restOn(app);
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+      tester.semantics.tap(find.semantics.byLabel(label));
+      await settleShort(tester);
+      expect(find.text(t.placement.title), findsOneWidget);
+      // The list's sheet covers the bottom of the phone's map: the middle
+      // of what shows stands north of the camera's.
+      expect(app.map.lastProps!.initialCenter.lat, greaterThan(centre.lat));
+      semantics.dispose();
     });
   });
 

@@ -539,6 +539,9 @@ class Translations$map$en {
 	/// en: 'Click the map to go there or add a place'
 	String get freeTapHintClick => 'Click the map to go there or add a place';
 
+	/// en: 'Add a place at the centre of the map'
+	String get addPlaceAtCenter => 'Add a place at the centre of the map';
+
 	/// en: 'Source: $attribution'
 	String addressSource({required Object attribution}) => 'Source: ${attribution}';
 
@@ -5390,6 +5393,7 @@ extension on Translations {
 			'map.copyCoordinates' => 'Copy coordinates',
 			'map.freeTapHint' => 'Tap the map to go there or add a place',
 			'map.freeTapHintClick' => 'Click the map to go there or add a place',
+			'map.addPlaceAtCenter' => 'Add a place at the centre of the map',
 			'map.addressSource' => ({required Object attribution}) => 'Source: ${attribution}',
 			'map.placesAround' => 'Places around',
 			'map.downloading' => 'Downloading the places of France',
@@ -5789,9 +5793,9 @@ extension on Translations {
 			'navigation.roadEvents.reasonNearLimit' => 'with little margin',
 			'navigation.roadEvents.reasonOverLimit' => 'over your vehicle\'s limit',
 			'navigation.marks.legend' => 'Legend',
-			'navigation.marks.legendHide' => 'Fold the legend',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.marks.legendHide' => 'Fold the legend',
 			'navigation.marks.kindOrigin' => 'Start',
 			'navigation.marks.kindDestination' => 'Destination',
 			'navigation.marks.kindStop' => 'Stop',
@@ -6303,9 +6307,9 @@ extension on Translations {
 			'reportSheet.noteOther' => 'Say what is wrong',
 			'reportSheet.sent' => 'Thank you, the moderators will take a look',
 			'reportSheet.mute' => ({required Object name}) => 'Hide reviews and photos by ${name}',
-			'reportSheet.muteAuthor' => 'Hide this author',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.muteAuthor' => 'Hide this author',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Hide ${name}?',
 			'reportSheet.muteBody' => 'Their reviews and photos will no longer show for you. You can change your mind in your profile.',
 			'reportSheet.muted' => ({required Object name}) => '${name} is hidden',

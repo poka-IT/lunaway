@@ -13,6 +13,7 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/premap.dart';
+import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -47,6 +48,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
+import 'package:lunaway/shared/widgets/focus_revealed_button.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/spring_sheet.dart';
@@ -332,6 +334,17 @@ class _MapState extends ConsumerState<_Map> {
     });
   }
 
+  /// A new place where the map is centred, for the keyboard and the screen
+  /// readers: the same placement and question as a tap on the map, from
+  /// the middle of the part of the map left visible.
+  Future<void> _addAtCenter() async {
+    final live = await ref.read(mapControllerProvider)?.camera();
+    final rest = ref.read(viewportProvider);
+    final camera = live ?? (rest == null ? null : (center: rest.center, zoom: rest.zoom));
+    if (camera == null || !mounted) return;
+    await startAddPlace(context, ref, visibleCenter(camera.center, camera.zoom, widget.padding));
+  }
+
   /// The first time the map comes down to the street, one line says that a
   /// tap there leads somewhere; never again after.
   void _hintFreeTap(MapViewport v) {
@@ -494,6 +507,17 @@ class _MapState extends ConsumerState<_Map> {
           )
         else
           MapShield(child: map),
+        // Without a pointer the map cannot be tapped: the keyboard and the
+        // screen readers reach this instead, hidden until then.
+        Positioned(
+          left: padding.left + Space.m,
+          top: padding.top + Space.s,
+          child: FocusRevealedButton(
+            icon: AppIcons.addPlace,
+            label: context.t.map.addPlaceAtCenter,
+            onPressed: () => unawaited(_addAtCenter()),
+          ),
+        ),
         Positioned(
           left: attributionInset.left + Space.s + MapCredit.leading,
           // The credit's touch padding reaches below its label, which lines

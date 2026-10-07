@@ -151,6 +151,7 @@
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
+    "addPlaceAtCenter": "Add a place at the centre of the map",
     "addressSource": "Source: $attribution",
     "placesAround": "Places around",
     "downloading": "Downloading the places of France",

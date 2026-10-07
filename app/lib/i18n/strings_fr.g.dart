@@ -311,6 +311,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
+	@override String get addPlaceAtCenter => 'Ajouter un lieu au centre de la carte';
 	@override String addressSource({required Object attribution}) => 'Source : ${attribution}';
 	@override String get placesAround => 'Les lieux autour';
 	@override String get downloading => 'Téléchargement des lieux de France';
@@ -2609,6 +2610,7 @@ extension on TranslationsFr {
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
+			'map.addPlaceAtCenter' => 'Ajouter un lieu au centre de la carte',
 			'map.addressSource' => ({required Object attribution}) => 'Source : ${attribution}',
 			'map.placesAround' => 'Les lieux autour',
 			'map.downloading' => 'Téléchargement des lieux de France',
@@ -3008,9 +3010,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.reasonNearLimit' => 'de justesse',
 			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
 			'navigation.marks.legend' => 'Légende',
-			'navigation.marks.legendHide' => 'Replier la légende',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.marks.legendHide' => 'Replier la légende',
 			'navigation.marks.kindOrigin' => 'Départ',
 			'navigation.marks.kindDestination' => 'Arrivée',
 			'navigation.marks.kindStop' => 'Étape',
@@ -3522,9 +3524,9 @@ extension on TranslationsFr {
 			'reportSheet.noteOther' => 'Dites ce qui ne va pas',
 			'reportSheet.sent' => 'Merci, les modérateurs vont regarder',
 			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
-			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			_ => null,
 		} ?? switch (path) {
+			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
 			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',
 			'reportSheet.muted' => ({required Object name}) => '${name} est masqué',

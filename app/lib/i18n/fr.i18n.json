@@ -151,6 +151,7 @@
     "copyCoordinates": "Copier les coordonnées",
     "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
     "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
+    "addPlaceAtCenter": "Ajouter un lieu au centre de la carte",
     "addressSource": "Source : $attribution",
     "placesAround": "Les lieux autour",
     "downloading": "Téléchargement des lieux de France",
