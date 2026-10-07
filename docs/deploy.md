@@ -1735,9 +1735,13 @@ stopping the build on failure:
    `fixes.osc.gz`, the tags Valhalla must read differently (limits in
    canonical form, `maxweightrating` copied into `maxweight`, `motorhome=*`
    copied into `motorcar`, IGN limits on the ways they match, the lowest
-   value winning), `restrictions.ndjson.gz` (841 651 restrictions for
-   Europe, 266 389 for France: OpenStreetMap ways and nodes, IGN sections,
-   each with its geometry and certainty), `prepare.json` and `build.json`.
+   value winning; a "sauf desserte" plate written as the
+   `maxweight:conditional=none @ destination` Valhalla reads, a "sauf
+   livraisons" one removed; IGN weights on motorways and on lanes closed
+   to the public set aside), `restrictions.ndjson.gz` (841 651 restrictions
+   for Europe, 266 389 for France: OpenStreetMap ways and nodes, IGN
+   sections, each with its geometry and certainty), `prepare.json` and
+   `build.json`.
    IGN covers France only, so its heights only reach French ways;
 3. `osmium apply-changes` (Debian's osmium-tool in `osmium.Dockerfile`);
 4. Valhalla's build in the pinned image (`valhalla-build.sh`): roads only,
@@ -1748,9 +1752,11 @@ stopping the build on failure:
    `motorhome=no` on Route de Grandchamp, an `hgv=no` road a motorhome may
    take, the 3.4 m porch of Rue Braille that only IGN measures, Brive to
    Ussel, and trips across borders and in Spain, Portugal, Italy and
-   Morocco. On the raw France graph three of the France cases fail (the
-   porch, the weight rating, `motorhome=no`): what the preparation exists
-   for;
+   Morocco; a 3.8 t motorhome on the A8 at Rousset and the A54, where IGN
+   marks 3.5 t, and a 4.5 t one into and past the "sauf desserte" of the
+   D937 (plan/research/61-limites-urbaines.md). On the raw France graph
+   three of the France cases fail (the porch, the weight rating,
+   `motorhome=no`): what the preparation exists for;
 6. the bundle, the graph in gzip parts under 1.9 GB (a release asset may not
    exceed 2 GiB).
 
@@ -1972,9 +1978,12 @@ restrictions within 15 m of each route come from one corridor query
 (260 ms for Lille to Nice, 15 234 points, 1 472 candidates, on the 266 389
 rows of France); a restriction counts when the route follows it (a node on
 the line, or a stretch at the same heading), the first and last edge of
-each leg included. A limit the vehicle exceeds blocks the route: the engine
-is asked again with a 5 m ring excluded at each blocker, three calls at
-most; a recalculation that moves a stop more than 30 m, or loses the road
+each leg included. A weight, axle, length or width limit that spares local
+access ("sauf desserte", `route_restrictions.except_destination`) only
+warns on the run of such limits that reaches a stop, gaps of 500 m at most
+between them, and blocks elsewhere. A limit the vehicle exceeds blocks the
+route: the engine is asked again with a 5 m ring excluded at each
+blocker, three calls at most; a recalculation that moves a stop more than 30 m, or loses the road
 it lies on, ends there. A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. The answer carries the OSRM JSON
 Ferrostar reads, typed warnings with their position, and the graph's dates
