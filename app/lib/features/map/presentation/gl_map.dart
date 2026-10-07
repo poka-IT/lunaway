@@ -126,24 +126,24 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   }
 
   /// Brings the map to [style]: in place when only colours and the sprite
-  /// differ and the map runs on MapLibre Native, whole otherwise.
+  /// differ and the map runs on MapLibre Native, whole otherwise. Called
+  /// from [didUpdateWidget], before the build that gives the map widget
+  /// [_style].
   void _restyle(String style) {
     if (kIsWeb) {
       // MapLibre GL JS diffs the new style against the loaded one and keeps
       // the app's sources, layers and images (`web/lunaway_maplibre.js`);
       // when it cannot, it loads the style whole and the map sets itself up
       // again on its style event.
-      setState(() => _style = _shown = style);
+      _style = _shown = style;
       return;
     }
     final diff = _ready ? StyleDiff.between(_shown, style) : null;
     if (diff == null) {
-      setState(() {
-        _style = _shown = style;
-        // The new style drops every source and layer; they come back on load.
-        _ready = false;
-        _forgetSent();
-      });
+      _style = _shown = style;
+      // The new style drops every source and layer; they come back on load.
+      _ready = false;
+      _forgetSent();
       return;
     }
     _shown = style;
