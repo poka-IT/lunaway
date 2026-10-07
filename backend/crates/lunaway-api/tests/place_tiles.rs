@@ -341,6 +341,79 @@ async fn pins_carry_every_place_with_what_the_filters_read(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn pins_carry_their_town_from_the_zoom_of_the_names(pool: PgPool) {
+    // The app's list reads the pins from that zoom on: a place without a
+    // name is titled by its kind and its town.
+    let (lat, lon) = (45.9, 6.12);
+    let cases = [
+        (Uuid::now_v7(), Some("Annecy"), None, Some("Annecy")),
+        (
+            Uuid::now_v7(),
+            None,
+            Some("Talloires-Montmin"),
+            Some("Talloires-Montmin"),
+        ),
+        (
+            Uuid::now_v7(),
+            Some("Sevrier"),
+            Some("Annecy"),
+            Some("Sevrier"),
+        ),
+        (Uuid::now_v7(), None, None, None),
+    ];
+    for (i, (id, city, municipality, _)) in cases.iter().enumerate() {
+        let offset = f64::from(u32::try_from(i).unwrap()) * 0.001;
+        sqlx::query!(
+            r#"
+            INSERT INTO places (id, kind, geom, overnight, city, municipality, content_hash)
+            VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography, 'allowed',
+                    $4, $5, 'x')
+            "#,
+            id,
+            lat + offset,
+            lon,
+            *city,
+            *municipality,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    let app = app(&pool);
+    let (v, tj) = version(&app).await;
+    assert!(
+        tj["vector_layers"][0]["fields"]["city"].is_string(),
+        "the TileJSON says what the field holds"
+    );
+    let z = u32::try_from(place_tiles::NAME_MIN_ZOOM).unwrap();
+    let (x, y) = tile_of(lat, lon, z);
+    let (_, _, body) = get(&app, &format!("/places/{v}/{z}/{x}/{y}.mvt"), &[]).await;
+    let layers = decode(&body);
+    let pins = layer(&layers, "places");
+    for (id, _, _, town) in &cases {
+        let pin = pins
+            .iter()
+            .find(|f| f.props["id"] == id.to_string())
+            .unwrap_or_else(|| panic!("{id} missing"));
+        assert_eq!(
+            pin.props.get("city").and_then(Value::as_str),
+            *town,
+            "the address's town first, else the commune's"
+        );
+    }
+    let below = u32::try_from(place_tiles::NAME_MIN_ZOOM - 1).unwrap();
+    let (x, y) = tile_of(lat, lon, below);
+    let (_, _, body) = get(&app, &format!("/places/{v}/{below}/{x}/{y}.mvt"), &[]).await;
+    let layers = decode(&body);
+    assert!(
+        layer(&layers, "places")
+            .iter()
+            .all(|f| !f.props.contains_key("city")),
+        "below the zoom of the names, no town either"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn dots_keep_a_place_per_pixel_and_set_of_properties(pool: PgPool) {
     let seeds = seeded(&pool).await;
     let app = app(&pool);

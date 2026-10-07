@@ -46,6 +46,7 @@ abstract final class PlaceTiles {
   static const price = 'price';
   static const height = 'h';
   static const name = 'name';
+  static const city = 'city';
 }
 
 /// What the map draws of the places when they come from the tiles: the
@@ -241,9 +242,11 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
   final mask = properties[PlaceTiles.services];
   final price = properties[PlaceTiles.price];
   final name = properties[PlaceTiles.name];
+  final city = properties[PlaceTiles.city];
   return PlaceSummary(
     id: id,
     name: name is String && name.isNotEmpty ? name : null,
+    city: city is String && city.isNotEmpty ? city : null,
     kind: _kindsByCode['${properties[PlaceTiles.kind]}'] ?? PlaceKind.extraService,
     overnight: _nightsByCode['${properties[PlaceTiles.night]}'] ?? OvernightStatus.unknown,
     lat: lat.toDouble(),

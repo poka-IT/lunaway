@@ -251,6 +251,7 @@ void main() {
         's': 1 | 16,
         'price': 0,
         'name': 'Le Pré',
+        'city': 'Doussard',
       },
       [6.1, 45.9],
     );
@@ -261,6 +262,7 @@ void main() {
     expect(p.services, {Service.drinkingWater, Service.toilets});
     expect(p.priceParkingEur, 0);
     expect(p.name, 'Le Pré');
+    expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
     expect((p.lat, p.lon), (45.9, 6.1));
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');
   });

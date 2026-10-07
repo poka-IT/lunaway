@@ -552,7 +552,7 @@ layer; `lunaway-db/src/place_tiles.rs`):
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
-| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` from zoom 12 |
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
 | `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
@@ -600,7 +600,10 @@ what the API's compression uses):
 
 Names add 60 to 70% to a tile at zooms 10 to 12, where a map draws no
 label for a pin anyway: they travel from zoom 12 (`NAME_MIN_ZOOM`), where
-the densest tile weighs 2.2 KB gzip. The 7 337 tiles of zoom 10 hold
+the densest tile weighs 2.2 KB gzip. The town travels with the name: from
+that zoom the app's list beside the map reads the pins in view rather than
+ask the API (nothing of the view leaves the device beyond the tiles), and a
+row names an unnamed place by its town. The 7 337 tiles of zoom 10 hold
 3.3 MB gzip in all, built in 1.9 s together (30 ms the slowest).
 
 | every tile holding a place, Europe | tiles | dots: build, all / slowest | dots: gzip, all / largest | clusters per kind: gzip, all / largest |
