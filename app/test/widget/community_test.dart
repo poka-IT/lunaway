@@ -790,15 +790,10 @@ void main() {
       expect(find.text(t.placeForm.submitAdd), findsNothing, reason: 'the placement comes first');
       expect(app.map.lastProps!.initialCenter, point);
       expect(app.map.lastProps!.initialZoom, placementZoom);
-      // The user drags the map: the crosshair now stands a little further.
+      // The user flings the map and confirms while it still glides: the
+      // spot is where the camera stands then, not where it last rested.
       const moved = LatLng(45.9103, 6.1204);
-      app.map.lastProps!.onViewportChanged(
-        const MapViewport(
-          bounds: GeoBounds(south: 45.90, west: 6.11, north: 45.92, east: 6.13),
-          center: moved,
-          zoom: placementZoom,
-        ),
-      );
+      app.map.moving = moved;
       await tester.tap(find.text(t.placement.confirm));
       await settleShort(tester);
       expect(find.text(t.placeForm.submitAdd), findsOneWidget);
@@ -822,6 +817,37 @@ void main() {
       );
       expect(find.text(t.placeForm.submitAdd), findsNothing);
       expect(api.calls.where((c) => c.operation == 'AddPlace'), isEmpty);
+    });
+
+    testWidgets("on the web, where the device keeps no places, the map's own are asked", (
+      tester,
+    ) async {
+      const near = LatLng(45.89947, 6.1294);
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 2400),
+        api: FakeApi(level: 2),
+        signedIn: true,
+        overrides: [keepsPlacesProvider.overrideWithValue(false)],
+      );
+      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(near));
+      await settleShort(tester);
+      restOn(app, near);
+      await tester.tap(find.text(t.contribute.addPlaceHere));
+      await settleShort(tester);
+      // The tiles of the placement map hold a car park 30 m away.
+      const tileParking = PlaceSummary(
+        id: 'tile-parking',
+        name: 'Parking du port',
+        kind: PlaceKind.parking,
+        lat: 45.8992,
+        lon: 6.1294,
+        overnight: OvernightStatus.unknown,
+      );
+      app.map.lastProps!.onPlacesInView!(const [tileParking], app.map.viewport.bounds);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      expect(find.textContaining('Il y a déjà « Parking du port » à 30'), findsOneWidget);
     });
 
     testWidgets('"another place" goes on to the form', (tester) async {

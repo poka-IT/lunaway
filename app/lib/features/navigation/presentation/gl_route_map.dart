@@ -436,18 +436,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       width: slop * 2 * scale,
       height: slop * 2 * scale,
     );
+    final zoom = (await c.queryCameraPosition())?.zoom;
+    if (!mounted) return;
     final onMarkTap = _props.onMarkTap;
-    if (onMarkTap != null) {
+    if (onMarkTap != null || _props.onEmptyTap != null) {
       final marks = await featuresAroundTap(
         (slop) => c.queryRenderedFeaturesInRect(box(slop), const [RouteLayers.marks], null),
+        zoom: zoom,
       );
-      for (final f in marks) {
-        final properties = (f as Map<Object?, Object?>)['properties'];
-        final id = properties is Map<Object?, Object?> ? properties['id'] : null;
-        if (id is String) {
-          onMarkTap(id);
-          return;
-        }
+      final ids = [
+        for (final f in marks)
+          switch ((f as Map<Object?, Object?>)['properties']) {
+            final Map<Object?, Object?> p => p['id'],
+            _ => null,
+          },
+      ];
+      if (markTapFor(ids) case (:final open)) {
+        if (open != null) onMarkTap?.call(open);
+        return;
       }
     }
     final onLineTap = _props.onLineTap;
@@ -457,6 +463,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           RouteLayers.alternatives,
           RouteLayers.alternativesCasing,
         ], null),
+        zoom: zoom,
       );
       if (features.isNotEmpty) {
         final properties = (features.first as Map<Object?, Object?>)['properties'];
@@ -465,11 +472,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         return;
       }
     }
-    final onEmptyTap = _props.onEmptyTap;
-    if (onEmptyTap == null || !mounted) return;
-    final zoom = (await c.queryCameraPosition())?.zoom;
     if (zoom == null || !mounted) return;
-    onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
+    _props.onEmptyTap?.call(LatLng(at.latitude, at.longitude), zoom);
   }
 
   @override

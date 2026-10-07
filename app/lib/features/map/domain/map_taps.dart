@@ -26,14 +26,29 @@ abstract final class MapHit {
   /// first one then opens nothing. The browsers report both clicks before
   /// the double click.
   static const Duration doubleTapWindow = Duration(milliseconds: 250);
+
+  /// The wait of [DoubleTapGate] on an engine: MapLibre Native on Android
+  /// and iOS reports a tap only once it knows no second one follows, so the
+  /// app adds no wait of its own there. MapLibre GL JS (the web, the desktop
+  /// page) reports every click.
+  static Duration doubleTapWindowFor({required bool web, required TargetPlatform platform}) =>
+      !web && (platform == TargetPlatform.android || platform == TargetPlatform.iOS)
+      ? Duration.zero
+      : doubleTapWindow;
 }
 
-/// The features a tap reaches: those within [MapHit.select] when there are
-/// any, else those within [MapHit.freePoint]. [query] reads the engine's
-/// rendered features in a square of that half side around the tap.
-Future<List<T>> featuresAroundTap<T>(Future<List<T>> Function(double slop) query) async {
+/// The features a tap at [zoom] reaches: those within [MapHit.select] when
+/// there are any, else, from [MapHit.freePointMinZoom] where a bare tap
+/// opens a point, those within [MapHit.freePoint]. Further out the map
+/// keeps the selection's square alone, so a click there does no more than
+/// it did. [query] reads the engine's rendered features in a square of that
+/// half side around the tap.
+Future<List<T>> featuresAroundTap<T>(
+  Future<List<T>> Function(double slop) query, {
+  required double? zoom,
+}) async {
   final near = await query(MapHit.select);
-  if (near.isNotEmpty) return near;
+  if (near.isNotEmpty || zoom == null || zoom < MapHit.freePointMinZoom) return near;
   return await query(MapHit.freePoint);
 }
 
@@ -74,6 +89,7 @@ final class DoubleTapGate {
   /// A tap on bare map: [act] runs once the window has passed without a
   /// second tap.
   void tap(VoidCallback act) {
+    if (window == Duration.zero) return act();
     if (waiting) {
       cancel();
       return;

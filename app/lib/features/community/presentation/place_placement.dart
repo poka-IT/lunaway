@@ -99,7 +99,17 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
   LunaMapController? _map;
   List<PlaceSummary> _around = const [];
 
-  void _done() => Navigator.of(context).pop<Placement>((position: _center, around: _around));
+  /// The spot is where the camera stands now: a map still gliding after a
+  /// fling has not reported its rest yet.
+  Future<void> _done() async {
+    if (_confirming) return;
+    _confirming = true;
+    final live = await _map?.center();
+    if (!mounted) return;
+    Navigator.of(context).pop<Placement>((position: live ?? _center, around: _around));
+  }
+
+  bool _confirming = false;
 
   @override
   Widget build(BuildContext context) {
@@ -119,8 +129,10 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
         places: fromTiles
             ? const <PlaceSummary>[]
             : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[],
-        // Every place, whatever the filter of the main map (the view's
-        // default): a car park hidden by a chip is still a place that exists.
+        // Online, every place whatever the filter of the main map (the
+        // view's default): a car park hidden by a chip is still a place that
+        // exists. Offline the device's places as the main map draws them;
+        // the question before the form reads them all (localPlacesAround).
         placeTiles: fromTiles
             ? PlaceTilesView(tileJsonUrl: ref.watch(placeTileJsonUrlProvider))
             : null,
@@ -251,8 +263,10 @@ class _Crosshair extends StatelessWidget {
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Container(width: 1.5, height: 28, color: scheme.onSurface),
-          Container(width: 28, height: 1.5, color: scheme.onSurface),
+          CustomPaint(
+            size: const Size.square(40),
+            painter: _CrossPainter(line: scheme.onSurface, halo: scheme.surface),
+          ),
           // Raised so the marker's tip, not its image's middle, meets the
           // cross.
           Transform.translate(
@@ -263,6 +277,45 @@ class _Crosshair extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A cross with a gap in its middle and a light halo, readable on a dark
+/// roof as on a pale car park.
+class _CrossPainter extends CustomPainter {
+  const new({required this.line, required this.halo});
+
+  final Color line;
+  final Color halo;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final reach = size.width / 2;
+    const gap = 5.0;
+    final arms = [
+      (c.translate(-reach, 0), c.translate(-gap, 0)),
+      (c.translate(gap, 0), c.translate(reach, 0)),
+      (c.translate(0, -reach), c.translate(0, -gap)),
+      (c.translate(0, gap), c.translate(0, reach)),
+    ];
+    for (final paint in [
+      Paint()
+        ..color = halo.withValues(alpha: 0.9)
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+      Paint()
+        ..color = line
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    ]) {
+      for (final (a, b) in arms) {
+        canvas.drawLine(a, b, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CrossPainter old) => old.line != line || old.halo != halo;
 }
 
 class _MarkerPainter extends CustomPainter {

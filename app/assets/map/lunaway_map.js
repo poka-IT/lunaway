@@ -223,14 +223,14 @@
     // The same two squares as featuresAroundTap in
     // lib/features/map/domain/map_taps.dart: a tap that just missed a pin
     // opens it rather than the card of a bare point.
-    var hit = spec.hit || { select: 14, freePoint: 21 };
+    var hit = spec.hit || { select: 14, freePoint: 21, freePointMinZoom: 14 };
     var layers = spec.tappable.filter(function (id) { return map.getLayer(id); });
     function around(slop) {
       var box = [[e.point.x - slop, e.point.y - slop], [e.point.x + slop, e.point.y + slop]];
       return map.queryRenderedFeatures(box, { layers: layers });
     }
     var features = around(hit.select);
-    if (features.length === 0) features = around(hit.freePoint);
+    if (features.length === 0 && map.getZoom() >= hit.freePointMinZoom) features = around(hit.freePoint);
     if (features.length === 0) {
       send({ type: 'empty', lat: e.lngLat.lat, lon: e.lngLat.lng, zoom: map.getZoom() });
       return;

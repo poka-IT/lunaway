@@ -541,6 +541,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     // A finger is wider than a pin: look in a square around the tap, then
     // in a wider one before calling it bare map (MapHit). The tap's point is
     // in the engine's units.
+    final zoom = (await c.queryCameraPosition())?.zoom;
     final features = await featuresAroundTap((logical) {
       final slop = logical * _queryScale;
       return c.queryRenderedFeaturesInRect(
@@ -548,14 +549,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         layers,
         null,
       );
-    });
+    }, zoom: zoom);
     if (!mounted) return;
     if (features.isEmpty) {
-      final onEmptyTap = _props.onEmptyTap;
-      if (onEmptyTap == null) return;
-      final zoom = (await c.queryCameraPosition())?.zoom;
-      if (!mounted || zoom == null) return;
-      onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
+      if (zoom != null) _props.onEmptyTap?.call(LatLng(at.latitude, at.longitude), zoom);
       return;
     }
     // Topmost first: the first feature that means something decides.
@@ -586,8 +583,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           _props.onPlaceTap(place.id, hint: place);
           return;
         case ZoomToTileDot():
-          final zoom = (await c.queryCameraPosition())?.zoom ?? 6;
-          await moveTo(LatLng(at.latitude, at.longitude), zoom: zoomForDot(zoom));
+          await moveTo(LatLng(at.latitude, at.longitude), zoom: zoomForDot(zoom ?? 6));
           return;
         case null:
           break;
@@ -597,8 +593,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           _props.onPoiTap?.call(feature);
           return;
         case TapPoiDot(:final lat, :final lon):
-          final zoom = (await c.queryCameraPosition())?.zoom ?? 10;
-          await moveTo(LatLng(lat, lon), zoom: math.min(zoom + 2, PoiMapStyle.pointsMinZoom + 0.5));
+          await moveTo(
+            LatLng(lat, lon),
+            zoom: math.min((zoom ?? 10) + 2, PoiMapStyle.pointsMinZoom + 0.5),
+          );
           return;
         case null:
           break;
@@ -713,6 +711,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       gl.CameraUpdate.newLatLngZoom(gl.LatLng(target.lat, target.lon), z),
       duration: Motion.of(context, Motion.camera),
     );
+  }
+
+  @override
+  Future<LatLng?> center() async {
+    final target = (await _controller?.queryCameraPosition())?.target;
+    return target == null ? null : LatLng(target.latitude, target.longitude);
   }
 
   @override

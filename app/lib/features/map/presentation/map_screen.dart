@@ -300,7 +300,9 @@ class _Map extends ConsumerStatefulWidget {
 
 class _MapState extends ConsumerState<_Map> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
-  final _gate = DoubleTapGate();
+  final _gate = DoubleTapGate(
+    window: MapHit.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
+  );
 
   @override
   void dispose() {
@@ -723,7 +725,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
       // A bare point has little to say: its card opens just high enough for
       // its title, the new place and the coordinates, and the map keeps the
       // rest.
-      ? math.min(m.size.height * 0.6, 22 + 300 + m.padding.bottom)
+      ? math.min(m.size.height * 0.6, 22 + m.textScaler.scale(300) + m.padding.bottom)
       : m.size.height * 0.6;
 
   @override

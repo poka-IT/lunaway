@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -256,7 +257,9 @@ class _PreviewMap extends ConsumerStatefulWidget {
 
 class _PreviewMapState extends ConsumerState<_PreviewMap> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
-  final _gate = DoubleTapGate();
+  final _gate = DoubleTapGate(
+    window: MapHit.doubleTapWindowFor(web: kIsWeb, platform: defaultTargetPlatform),
+  );
 
   @override
   void dispose() {
@@ -334,7 +337,10 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         marks: marks,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
-        onLineTap: (i) => ref.read(routePreviewControllerProvider(target).notifier).select(i),
+        onLineTap: (i) {
+          _gate.cancel();
+          ref.read(routePreviewControllerProvider(target).notifier).select(i);
+        },
         onMarkTap: (id) {
           _gate.cancel();
           if (points.pointOf(id, context.t, now) case final point?) {

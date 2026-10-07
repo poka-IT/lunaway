@@ -497,6 +497,13 @@ base class FakeMap implements LunaMapController {
   @override
   Future<void> showPosition(LatLng position, {double? accuracy}) async => shown.add(position);
 
+  /// Where the camera is while it still moves, before its next rest; the
+  /// last viewport when null.
+  LatLng? moving;
+
+  @override
+  Future<LatLng?> center() async => moving ?? viewport.center;
+
   /// The props of the first build: the camera the map is made with.
   LunaMapProps? firstProps;
 

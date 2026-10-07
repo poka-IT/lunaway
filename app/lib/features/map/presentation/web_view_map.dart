@@ -169,7 +169,11 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'clusterSource': MapStyle.placesSource,
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
-    'hit': {'select': MapHit.select, 'freePoint': MapHit.freePoint},
+    'hit': {
+      'select': MapHit.select,
+      'freePoint': MapHit.freePoint,
+      'freePointMinZoom': MapHit.freePointMinZoom,
+    },
     'tappable': [
       ...MapStyle.tappableLayers,
       if (tiles != null) ...PlaceTiles.tappable,
@@ -549,6 +553,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'data': pointFeatureCollection(selected, point: props.markedPoint),
       });
     }
+  }
+
+  @override
+  Future<LatLng?> center() async {
+    final v = await _call('return window.lunaway.viewport();');
+    if (v is! Map) return null;
+    final (lat, lon) = (v['lat'], v['lon']);
+    if (lat is! num || lon is! num) return null;
+    return LatLng(lat.toDouble(), (lon + 180) % 360 - 180);
   }
 
   @override

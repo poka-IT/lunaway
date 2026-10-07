@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -55,9 +56,13 @@ void main() {
     });
   }
 
+  // The desktop page and the browsers report both clicks of a double click:
+  // the app waits before acting.
+  final clicks = TargetPlatformVariant.only(TargetPlatform.macOS);
+
   group('the double tap', () {
-    testWidgets('a double tap zooms and opens nothing', (tester) async {
-      final app = await pumpLunaway(tester);
+    testWidgets('a double click zooms and opens nothing', variant: clicks, (tester) async {
+      final app = await pumpLunaway(tester, size: desktop);
       final seen = <MapSelection?>[];
       app.container(tester).listen(selectionProvider, (_, next) => seen.add(next));
       app.map.lastProps!.onEmptyTap!(spot, 15);
@@ -69,8 +74,10 @@ void main() {
       expect(seen, isEmpty, reason: 'not even a card opened and closed again');
     });
 
-    testWidgets('a single tap waits for the window before opening', (tester) async {
-      final app = await pumpLunaway(tester);
+    testWidgets('a single click waits for the window before opening', variant: clicks, (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester, size: desktop);
       app.map.lastProps!.onEmptyTap!(spot, 15);
       await tester.pump(const Duration(milliseconds: 200));
       expect(app.container(tester).read(selectionProvider), isNull);
@@ -78,8 +85,8 @@ void main() {
       expect(app.container(tester).read(selectionProvider), isA<PointSelection>());
     });
 
-    testWidgets('a pin tapped just after drops the bare tap', (tester) async {
-      final app = await pumpLunaway(tester);
+    testWidgets('a pin clicked just after drops the bare click', variant: clicks, (tester) async {
+      final app = await pumpLunaway(tester, size: desktop);
       app.map.lastProps!.onEmptyTap!(spot, 15);
       await tester.pump(const Duration(milliseconds: 50));
       app.map.lastProps!.onPlaceTap(lakeArea.id);
@@ -89,6 +96,13 @@ void main() {
         app.container(tester).read(selectionProvider),
         isA<PlaceSelection>().having((s) => s.id, 'id', lakeArea.id),
       );
+    });
+
+    testWidgets('on a phone the engine has waited already: the card opens at once', (tester) async {
+      final app = await pumpLunaway(tester);
+      app.map.lastProps!.onEmptyTap!(spot, 15);
+      await tester.pump();
+      expect(app.container(tester).read(selectionProvider), isA<PointSelection>());
     });
   });
 

@@ -44,6 +44,11 @@ abstract interface class LunaMapController {
   /// Marks [position] as the user's, a position the app read itself (the
   /// browser's, on the web), with its radius of uncertainty in metres.
   Future<void> showPosition(LatLng position, {double? accuracy});
+
+  /// The camera's centre now, read from the engine even while the map
+  /// still glides after a fling (the viewport is only reported at rest);
+  /// null when the engine cannot tell.
+  Future<LatLng?> center();
 }
 
 /// The map widget contract: data in, gestures out. A screen builds it

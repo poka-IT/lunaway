@@ -193,6 +193,17 @@ final class RouteMapProps {
 
 typedef RouteMapBuilder = Widget Function(BuildContext context, RouteMapProps props);
 
+/// What a tap reaches among the marks under it, given the `id` property of
+/// each (null or absent for a mark that opens nothing, as the start, the
+/// destination or a warning): null when there is no mark, else the first
+/// id to open, or a null `open` when the marks under the tap open nothing.
+/// A mark that opens nothing still is no bare map: the tap does nothing
+/// rather than offer the point under it.
+({String? open})? markTapFor(Iterable<Object?> ids) {
+  if (ids.isEmpty) return null;
+  return (open: ids.whereType<String>().firstOrNull);
+}
+
 /// The map engine of the platform, as for the main map: maplibre_gl on
 /// Android, iOS and the web, MapLibre GL JS in a web view on macOS and
 /// Windows.

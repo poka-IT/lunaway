@@ -1,8 +1,10 @@
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
+import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
@@ -15,7 +17,7 @@ void main() {
       final found = await featuresAroundTap((slop) async {
         asked.add(slop);
         return slop >= 18 ? ['pin'] : const <String>[];
-      });
+      }, zoom: 15);
       expect(found, ['pin']);
       expect(asked, [MapHit.select, MapHit.freePoint]);
       expect(MapHit.freePoint, MapHit.select * 1.5);
@@ -26,13 +28,37 @@ void main() {
       final found = await featuresAroundTap((slop) async {
         asked.add(slop);
         return ['pin at $slop'];
-      });
+      }, zoom: 15);
       expect(found, ['pin at ${MapHit.select}']);
       expect(asked, [MapHit.select]);
     });
 
     test('nothing in the wider square: the map is bare there', () async {
-      expect(await featuresAroundTap((_) async => const <String>[]), isEmpty);
+      expect(await featuresAroundTap((_) async => const <String>[], zoom: 15), isEmpty);
+    });
+
+    test('further out than the street, the square of a selection alone', () async {
+      final asked = <double>[];
+      final found = await featuresAroundTap((slop) async {
+        asked.add(slop);
+        return slop >= 18 ? ['dot'] : const <String>[];
+      }, zoom: 13);
+      expect(found, isEmpty, reason: 'a click there does no more than before');
+      expect(asked, [MapHit.select]);
+    });
+  });
+
+  group('a tap on the marks of a route', () {
+    test('opens the first mark that has a card', () {
+      expect(markTapFor([null, 'place:lake', 'stop:1']), (open: 'place:lake'));
+    });
+
+    test('on the destination or a warning, does nothing: no bare map there', () {
+      expect(markTapFor([null]), (open: null));
+    });
+
+    test('with no mark under it, looks further', () {
+      expect(markTapFor(const []), isNull);
     });
   });
 
@@ -50,6 +76,16 @@ void main() {
   });
 
   group('the double tap window', () {
+    test('the app waits on GL JS only: the native engines wait themselves', () {
+      Duration on(TargetPlatform p, {bool web = false}) =>
+          MapHit.doubleTapWindowFor(web: web, platform: p);
+      expect(on(TargetPlatform.android), Duration.zero);
+      expect(on(TargetPlatform.iOS), Duration.zero);
+      expect(on(TargetPlatform.android, web: true), MapHit.doubleTapWindow);
+      expect(on(TargetPlatform.macOS), MapHit.doubleTapWindow);
+      expect(on(TargetPlatform.windows), MapHit.doubleTapWindow);
+    });
+
     test('a single tap acts once the window has passed, not before', () {
       fakeAsync((time) {
         final gate = DoubleTapGate();
