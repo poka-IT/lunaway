@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:js_interop';
 
+import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:web/web.dart' as web;
 
 /// MapLibre GL JS on the web ignores the plugin's control margins, so its
@@ -84,3 +85,38 @@ void Function()? listenWebMapLongPress(void Function(double x, double y) onPress
       ..removeEventListener('touchcancel', touchEnd);
   };
 }
+
+/// What last pressed on a map of the page, as the page's map code records
+/// it (`lunawayHits.pointerType` in web/lunaway_maplibre.js): a tap with a
+/// finger asks for a wider target than a click.
+PointerKind webMapPointerKind() =>
+    _hits?.pointerType() == 'touch' ? PointerKind.touch : PointerKind.mouse;
+
+@JS('lunawayHits')
+external _Hits? get _hits;
+
+extension type _Hits._(JSObject _) implements JSObject {
+  external String? pointerType();
+}
+
+/// How many of the app's maps the mouse is over, in the app's own hit test.
+var _mapsUnderPointer = 0;
+
+/// The mouse entered ([on]) or left one of the app's maps as the app sees
+/// it. Over a map, the map draws its own cursor (the grab hand, the
+/// pointing finger over a target); anywhere else, a dialog, a sheet or a
+/// button over the map included, the cursor the app sets on the page wins.
+/// The browser would otherwise show the map's cursor wherever the map's
+/// element lies under the app's canvas (the rules in web/index.html).
+void markPointerOnWebMap({required bool on}) {
+  _mapsUnderPointer = (_mapsUnderPointer + (on ? 1 : -1)).clamp(0, 1 << 10);
+  final body = web.document.body;
+  if (body == null) return;
+  if (_mapsUnderPointer > 0) {
+    body.classList.add(_onMapClass);
+  } else {
+    body.classList.remove(_onMapClass);
+  }
+}
+
+const _onMapClass = 'lw-on-map';

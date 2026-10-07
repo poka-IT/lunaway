@@ -21,6 +21,9 @@ path = "tests/main.rs"
 
 [dependencies]
 backon.workspace = true
+# The signatures of Mangrove reviews, checked against the key each names:
+# the key's age ranks its reviews, so a review must not borrow a key.
+base64.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 csv.workspace = true
@@ -30,6 +33,7 @@ lunaway-db.workspace = true
 lunaway-domain.workspace = true
 lunaway-media.workspace = true
 osmpbf.workspace = true
+p256.workspace = true
 quick-xml.workspace = true
 reqwest.workspace = true
 rustls.workspace = true

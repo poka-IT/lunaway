@@ -294,6 +294,7 @@ class _Dock extends StatelessWidget {
                     child: Material(
                       type: MaterialType.transparency,
                       child: InkWell(
+                        mouseCursor: WidgetStateMouseCursor.clickable,
                         borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
                         onTap: () {
                           Haptics.select();
@@ -421,6 +422,7 @@ class _Rail extends StatelessWidget {
                   child: Material(
                     type: MaterialType.transparency,
                     child: InkWell(
+                      mouseCursor: WidgetStateMouseCursor.clickable,
                       borderRadius: BorderRadius.circular(LunaTokens.radiusL),
                       onTap: () => onSelected(i),
                       child: extended

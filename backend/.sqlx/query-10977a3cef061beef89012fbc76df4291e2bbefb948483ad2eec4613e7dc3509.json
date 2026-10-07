@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT content_unhide_reported($1, $2, $3) AS \"removed!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "removed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "10977a3cef061beef89012fbc76df4291e2bbefb948483ad2eec4613e7dc3509"
+}

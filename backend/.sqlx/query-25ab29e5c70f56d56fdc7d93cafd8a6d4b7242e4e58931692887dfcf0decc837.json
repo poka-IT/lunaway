@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT external_id, first_seen_at FROM content_review_sightings WHERE source_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_review_sightings",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_review_sightings",
+            "name": "first_seen_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "25ab29e5c70f56d56fdc7d93cafd8a6d4b7242e4e58931692887dfcf0decc837"
+}

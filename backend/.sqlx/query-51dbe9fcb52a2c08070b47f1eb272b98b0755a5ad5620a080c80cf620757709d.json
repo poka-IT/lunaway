@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO content_review_strikes (source_id, author_key, external_id)\n        SELECT r.source_id, r.author_key, r.external_id\n        FROM content_reviews r\n        JOIN content_hides h\n          ON h.source_id = r.source_id AND h.scope = 'review' AND h.key = r.external_id\n        WHERE r.source_id = $1 AND r.author_key IS NOT NULL\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "51dbe9fcb52a2c08070b47f1eb272b98b0755a5ad5620a080c80cf620757709d"
+}

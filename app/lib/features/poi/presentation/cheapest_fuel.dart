@@ -174,6 +174,7 @@ class _Header extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(right: Space.s),
                     child: ChoiceChip(
+                      mouseCursor: WidgetStateMouseCursor.clickable,
                       label: Text(t.fuelType(fuel)),
                       selected: chosen == fuel,
                       onSelected: (_) {
@@ -214,6 +215,7 @@ class _OfferRow extends ConsumerWidget {
     final muted = theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     final known = station.hours.opennessAt(now) != PoiOpenness.unknown;
     return InkWell(
+      mouseCursor: WidgetStateMouseCursor.clickable,
       onTap: () {
         // A station no point of interest describes has no sheet: the map
         // goes to it.

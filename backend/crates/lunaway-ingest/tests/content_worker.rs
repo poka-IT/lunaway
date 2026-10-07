@@ -279,6 +279,158 @@ async fn mangrove_is_never_replaced_from_part_of_the_map(pool: PgPool) {
     );
 }
 
+/// A page of Mangrove reviews about the point `(lat, lon)`, one per name
+/// of `authors`, written at its date and signed by a key made from the
+/// name, as the API lists them. Returns the page and the keys' hashes,
+/// as Lunaway stores them.
+fn mangrove_reviews(
+    lat: f64,
+    lon: f64,
+    authors: &[(String, i64)],
+) -> (serde_json::Value, Vec<(String, String)>) {
+    use base64::{
+        Engine,
+        engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+    };
+    use p256::ecdsa::{Signature, SigningKey, signature::Signer};
+    use sha2::{Digest, Sha256};
+    // The DER prefix of a P-256 SubjectPublicKeyInfo.
+    const SPKI: [u8; 26] = [
+        0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08,
+        0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+    ];
+    let mut kids = Vec::new();
+    let reviews: Vec<serde_json::Value> = authors
+        .iter()
+        .map(|(name, iat)| {
+            let key = SigningKey::from_slice(&Sha256::digest(name.as_bytes())).unwrap();
+            let mut der = SPKI.to_vec();
+            der.extend_from_slice(&key.verifying_key().to_sec1_bytes());
+            let kid = format!(
+                "-----BEGIN PUBLIC KEY-----{}-----END PUBLIC KEY-----",
+                STANDARD.encode(der)
+            );
+            let author_key: String = Sha256::digest(kid.as_bytes())
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            let payload = serde_json::json!({
+                "sub": format!("geo:{lat},{lon}?u=30"),
+                "rating": 80,
+                "opinion": format!("Avis de {name}."),
+                "iat": iat,
+                "metadata": {"nickname": name}
+            });
+            let header = URL_SAFE_NO_PAD.encode(serde_json::json!({"alg": "ES256"}).to_string());
+            let body = URL_SAFE_NO_PAD.encode(payload.to_string());
+            let sig: Signature = key.sign(format!("{header}.{body}").as_bytes());
+            let sig = URL_SAFE_NO_PAD.encode(sig.to_bytes());
+            kids.push((author_key, sig.clone()));
+            serde_json::json!({
+                "signature": sig,
+                "kid": kid,
+                "jwt": format!("{header}.{body}.{sig}"),
+                "payload": payload
+            })
+        })
+        .collect();
+    (serde_json::json!({ "reviews": reviews }), kids)
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn fresh_mangrove_keys_cannot_push_the_reviews_shown_off_a_place(pool: PgPool) {
+    seeded(&pool).await;
+    let (place, lat, lon): (uuid::Uuid, f64, f64) = sqlx::query_as(
+        "SELECT id, ST_Y(geom::geometry), ST_X(geom::geometry) FROM places \
+         WHERE deleted_at IS NULL ORDER BY id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    // Five reviewers shown on the place since May; ten keys never seen,
+    // whose reviews say they are newer.
+    let old: Vec<(String, i64)> = (0..5)
+        .map(|n| (format!("old-key-{n}"), 1_778_000_000 + n))
+        .collect();
+    let fresh: Vec<(String, i64)> = (0..10)
+        .map(|n| (format!("fresh-key-{n}"), 1_790_000_000 + n))
+        .collect();
+    let all: Vec<(String, i64)> = old.iter().chain(&fresh).cloned().collect();
+    let (page, keys) = mangrove_reviews(lat, lon, &all);
+    let may = Utc.with_ymd_and_hms(2026, 5, 1, 0, 0, 0).unwrap();
+    let shown: Vec<db::NewReview> = old
+        .iter()
+        .zip(&keys)
+        .map(|((name, iat), (key, sig))| db::NewReview {
+            place_id: place,
+            external_id: sig.clone(),
+            rating: Some(4),
+            text: Some(format!("Avis de {name}.")),
+            lang: None,
+            author: Some(name.clone()),
+            author_key: Some(key.clone()),
+            written_at: chrono::DateTime::from_timestamp(*iat, 0).unwrap(),
+            page_url: format!("https://mangrove.reviews/list?signature={sig}"),
+            licence: "CC BY 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            distance_m: Some(0.0),
+        })
+        .collect();
+    db::replace_reviews(&pool, "mangrove", &shown, may)
+        .await
+        .unwrap();
+    let page = page.to_string().into_bytes();
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let (_, addr) = serve(vec![
+        (StatusCode::OK, page),
+        (StatusCode::OK, br#"{"reviews":[]}"#.to_vec()),
+    ])
+    .await;
+    let reports = content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Mangrove],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    let mut kept: Vec<String> = sqlx::query_scalar(
+        "SELECT author FROM content_reviews WHERE source_id = 'mangrove' AND place_id = $1",
+    )
+    .bind(place)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    kept.sort();
+    assert_eq!(
+        kept,
+        [
+            "fresh-key-0",
+            "fresh-key-1",
+            "old-key-0",
+            "old-key-1",
+            "old-key-2",
+            "old-key-3",
+            "old-key-4"
+        ],
+        "every reviewer shown stays, and the place gains two new keys this run, \
+         in the order they were read, whatever date they claim"
+    );
+    assert_eq!(r.new_keys, 2);
+    assert_eq!(r.held_new_pairs, 8, "the others wait for a later run");
+    let known: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content_review_keys WHERE source_id = 'mangrove'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(known, 7, "a key kept once is no longer new");
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_second_refresh_does_not_start_beside_the_first(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();

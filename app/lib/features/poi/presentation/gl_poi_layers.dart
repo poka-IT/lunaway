@@ -56,6 +56,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.clustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.dotsFilter(view),
+      enableInteraction: false,
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -65,6 +66,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.vendingClustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.vendingDotsFilter(view),
+      enableInteraction: false,
     );
     if (!current()) return;
     await c.addSymbolLayer(
@@ -75,6 +77,7 @@ final class GlPoiLayers {
       minzoom: PoiMapStyle.quietMinZoom,
       filter: PoiMapStyle.quietFilter(view),
       belowLayerId: below,
+      enableInteraction: false,
     );
     if (!current()) return;
     // The prices sit under the pins: a pin keeps its room, its price shows
@@ -99,6 +102,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.pointsLayer,
       minzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.pinsFilter(view),
+      enableInteraction: false,
     );
   }
 
@@ -126,6 +130,7 @@ final class GlPoiLayers {
         iconAllowOverlap: true,
         iconIgnorePlacement: true,
       ),
+      enableInteraction: false,
     );
   }
 

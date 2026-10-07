@@ -43,6 +43,7 @@ class LunaSegmented<T> extends StatelessWidget {
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
+              mouseCursor: WidgetStateMouseCursor.clickable,
               borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
               onTap: on
                   ? null

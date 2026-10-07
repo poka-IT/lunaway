@@ -895,7 +895,7 @@ pub async fn reviews_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = e.source_id
-                AND ((h.scope = 'item' AND h.key = e.external_id)
+                AND ((h.scope = 'review' AND h.key = e.external_id)
                   OR (h.scope = 'place' AND h.key = $1::text)
                   OR h.scope = 'source'))
         ORDER BY e.id DESC
@@ -917,7 +917,7 @@ pub async fn reviews_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = e.source_id
-                AND ((h.scope = 'item' AND h.key = e.external_id)
+                AND ((h.scope = 'review' AND h.key = e.external_id)
                   OR (h.scope = 'place' AND h.key = $1::text)
                   OR h.scope = 'source'))
         "#,
@@ -1024,7 +1024,7 @@ pub async fn photos_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = e.source_id
-                AND ((h.scope = 'item' AND h.key = e.external_id)
+                AND ((h.scope = 'photo' AND h.key = e.external_id)
                   OR (h.scope = 'place' AND h.key = $1::text)
                   OR h.scope = 'source'))
         ORDER BY e.taken_at DESC NULLS LAST, e.id DESC
@@ -1086,7 +1086,7 @@ pub async fn photo_for_proxy(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = e.source_id
-                AND ((h.scope = 'item' AND h.key = e.external_id) OR h.scope = 'source'))
+                AND ((h.scope = 'photo' AND h.key = e.external_id) OR h.scope = 'source'))
         "#,
         id,
         today,

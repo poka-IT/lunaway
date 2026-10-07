@@ -33,6 +33,14 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       : s.contains(WidgetState.hovered) || s.contains(WidgetState.focused)
       ? on.withValues(alpha: 0.08)
       : Colors.transparent;
+  // The pointing hand over everything that reacts to a click, the arrow
+  // when it is disabled, on every platform. Material shows the hand only on
+  // the web and the arrow on desktop builds. The app chose the hand for its
+  // desktop builds too: the same app in a browser and in a window, for
+  // users who look for what can be clicked. One rule is also one the
+  // widget tests (headless, never the web) can check. A widget with no
+  // theme (InkWell, a chip, a gesture detector) sets it itself.
+  const clickable = WidgetStateMouseCursor.clickable;
 
   return ThemeData(
     useMaterial3: true,
@@ -61,6 +69,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.xl)),
         shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
@@ -78,6 +87,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.l)),
         shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
@@ -99,6 +109,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: Space.m)),
         shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusM)),
@@ -109,6 +120,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         minimumSize: const WidgetStatePropertyAll(Size(64, 52)),
         shape: WidgetStatePropertyAll(rounded(LunaTokens.radiusL)),
         elevation: noElevation,
@@ -120,6 +132,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         // Material 3 icon buttons keep the standard density unless told.
         visualDensity: pointer ? VisualDensity.compact : null,
         minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
@@ -138,6 +151,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       hoverElevation: 0,
       highlightElevation: 0,
       shape: rounded(LunaTokens.radiusL),
+      mouseCursor: clickable,
     ),
     chipTheme: ChipThemeData(
       shape: const StadiumBorder(),
@@ -219,8 +233,15 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       selectedColor: scheme.onSurface,
       selectedTileColor: scheme.primaryContainer,
       shape: rounded(LunaTokens.radiusL),
+      // A tile with no tap of its own (the row of a menu item) is not a
+      // control: it leaves the cursor to what holds it, where Material
+      // would draw the arrow over most of a clickable menu item.
+      mouseCursor: WidgetStateMouseCursor.resolveWith(
+        (s) => s.contains(WidgetState.disabled) ? MouseCursor.defer : SystemMouseCursors.click,
+      ),
     ),
     switchTheme: SwitchThemeData(
+      mouseCursor: clickable,
       thumbColor: states(
         (s) => s.contains(WidgetState.selected)
             ? scheme.onPrimary
@@ -235,12 +256,14 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       thumbIcon: const WidgetStatePropertyAll(null),
     ),
     checkboxTheme: CheckboxThemeData(
+      mouseCursor: clickable,
       fillColor: states((s) => s.contains(WidgetState.selected) ? scheme.primary : null),
       checkColor: WidgetStatePropertyAll(scheme.onPrimary),
       side: BorderSide(color: scheme.outline, width: 1.6),
       shape: rounded(LunaTokens.radiusXs),
     ),
     radioTheme: RadioThemeData(
+      mouseCursor: clickable,
       fillColor: states((s) => s.contains(WidgetState.selected) ? scheme.primary : scheme.outline),
     ),
     sliderTheme: SliderThemeData(
@@ -279,6 +302,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
+        mouseCursor: clickable,
         minimumSize: const WidgetStatePropertyAll(Size(64, 48)),
         textStyle: WidgetStatePropertyAll(text.labelLarge),
         shape: const WidgetStatePropertyAll(StadiumBorder()),
@@ -323,6 +347,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       selectionHandleColor: scheme.primary,
     ),
     popupMenuTheme: PopupMenuThemeData(
+      mouseCursor: clickable,
       color: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
@@ -340,6 +365,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
         ),
       ),
     ),
+    menuButtonTheme: const MenuButtonThemeData(style: ButtonStyle(mouseCursor: clickable)),
     badgeTheme: BadgeThemeData(
       backgroundColor: scheme.primary,
       textColor: scheme.onPrimary,
