@@ -533,10 +533,12 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
 pub const LOCAL_ACCESS_STOP_M: f64 = 20.0;
 
 /// Largest gap, metres, between two stretches of one run of local access:
-/// the junctions, squares and short streets a zone's mappers leave without
-/// the sign between two that carry it, or a street of a higher limit the
-/// vehicle meets no limit on.
-pub const LOCAL_ACCESS_LINK_M: f64 = 200.0;
+/// the junctions, squares and stretches a zone's mappers leave without the
+/// sign between two that carry it, or a street of a higher limit the
+/// vehicle meets no limit on. The D937 at Route du Boutariq leaves 264 m
+/// without it between the entry of its 3.5 t "sauf desserte" and the
+/// street beyond (ways 116697288 and 174017049, read 2026-10-07).
+pub const LOCAL_ACCESS_LINK_M: f64 = 500.0;
 
 /// The parts of a route where limits that spare local access let it
 /// through: the runs of `spans` (`(start_m, end_m)` along the route) that
@@ -627,17 +629,17 @@ mod tests {
     #[test]
     fn a_short_street_without_the_sign_keeps_a_zone_whole() {
         let stops = [0.0, 10_000.0];
-        // The entry street of the zone, a 150 m square left untagged, then
+        // The entry of the zone, 264 m left untagged as on the D937, then
         // the destination's street: one run, as the engine drove it.
         assert_eq!(
-            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_550.0, 10_000.0)]),
+            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_664.0, 10_000.0)]),
             vec![(9_000.0, 10_000.0)]
         );
-        // 300 m of other streets between them: the first is another zone,
+        // 700 m of other streets between them: the first is another zone,
         // crossed on the way.
         assert_eq!(
-            local_access_runs(&stops, &[(9_000.0, 9_400.0), (9_700.0, 10_000.0)]),
-            vec![(9_700.0, 10_000.0)]
+            local_access_runs(&stops, &[(8_000.0, 8_600.0), (9_300.0, 10_000.0)]),
+            vec![(9_300.0, 10_000.0)]
         );
     }
 
