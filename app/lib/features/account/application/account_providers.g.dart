@@ -180,7 +180,7 @@ final class AccountControllerProvider
   }
 }
 
-String _$accountControllerHash() => r'd8da1845330fe7a524394fc2a7314ba72d9c9a4c';
+String _$accountControllerHash() => r'45f985583da706f0b9fb1bf1ca42d717c8205811';
 
 /// The account of this device and what can be done with it. The account
 /// changes underneath when a contribution makes it, when a session is

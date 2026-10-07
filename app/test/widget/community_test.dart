@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,10 @@ import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/operations.dart';
+import 'package:lunaway/features/places/data/graphql/place_json.dart';
+import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -210,8 +215,13 @@ void main() {
   });
 
   group('the account in the profile', () {
-    Future<(TestApp, GoRouter)> openProfile(WidgetTester tester, FakeApi api, String route) async {
-      final app = await pumpLunaway(tester, api: api, signedIn: true);
+    Future<(TestApp, GoRouter)> openProfile(
+      WidgetTester tester,
+      FakeApi api,
+      String route, {
+      SyncService? syncService,
+    }) async {
+      final app = await pumpLunaway(tester, api: api, signedIn: true, syncService: syncService);
       final router = app.container(tester).read(routerProvider)..go(route);
       await settleShort(tester);
       return (app, router);
@@ -323,7 +333,13 @@ void main() {
       tester,
     ) async {
       final api = FakeApi();
-      final (app, _) = await openProfile(tester, api, AppRoutes.deleteAccount);
+      final feed = FakeChangesSource([]);
+      final (app, _) = await openProfile(
+        tester,
+        api,
+        AppRoutes.deleteAccount,
+        syncService: SyncService(source: feed, store: _FeedStore()),
+      );
       expect(find.text(t.deletion.kept), findsOneWidget);
       await tapVisible(tester, find.text(t.common.next));
       expect(find.text(t.deletion.confirmBody(name: 'Martre du Vercors')), findsOneWidget);
@@ -340,6 +356,9 @@ void main() {
       expect(await app.secrets.read('device_key'), isNull);
       expect(await app.secrets.read('session'), isNull);
       expect(find.text(t.deletion.done), findsOneWidget);
+      // Its ratings, photos and reports leave the places: the feed says how.
+      await settleShort(tester, SyncController.afterContribution);
+      expect(feed.requests, 1);
     });
 
     testWidgets('the devices list this one, and another can be removed', (tester) async {
@@ -466,6 +485,42 @@ void main() {
         'idempotencyKey': isA<String>(),
       });
       expect(await app.container(tester).read(outboxStoreProvider).all(), isEmpty);
+    });
+
+    testWidgets('contributions sent together bring one sync, then one follow-up', (tester) async {
+      final api = FakeApi()..offline = true;
+      final feed = FakeChangesSource([]);
+      final (app, _) = await openProfile(
+        tester,
+        api,
+        AppRoutes.profile,
+        syncService: SyncService(source: feed, store: _FeedStore()),
+      );
+      final runner = app.container(tester).read(outboxRunnerProvider.notifier);
+      for (final place in [lakeArea, campsite]) {
+        await runner.enqueue(
+          ContributionKind.confirm,
+          payload: {'placeId': place.id, 'status': 'STILL_OK'},
+          placeId: place.id,
+        );
+      }
+      await runner.enqueue(
+        ContributionKind.reportIssue,
+        payload: {'placeId': lakeArea.id, 'kind': 'SERVICE_BROKEN'},
+        placeId: lakeArea.id,
+      );
+      await settleShort(tester);
+      expect(feed.requests, 0, reason: 'nothing reached the server');
+
+      api.offline = false;
+      await runner.kick(now: true);
+      expect(api.operations.where((o) => o == 'Confirm' || o == 'ReportIssue'), hasLength(3));
+      await settleShort(tester, SyncController.afterContribution);
+      expect(feed.requests, 1);
+      await settleShort(tester, SyncController.followUp);
+      expect(feed.requests, 2);
+      await settleShort(tester, const Duration(minutes: 1));
+      expect(feed.requests, 2);
     });
 
     testWidgets('a contribution waiting for the network is counted in the profile', (tester) async {
@@ -735,6 +790,55 @@ void main() {
       expect(api.operations, isNot(contains('Confirm')));
     });
 
+    testWidgets('deleting a confirmation brings the place back unconfirmed from the feed', (
+      tester,
+    ) async {
+      Place confirmed(DateTime? at) => placeFromJson(
+        jsonDecode(jsonEncode({...placeToJson(lakeArea), 'lastConfirmedAt': at?.toIso8601String()}))
+            as Map<String, dynamic>,
+      );
+      final api = FakeApi();
+      api.confirmations.add({
+        'id': '00000000-0000-7000-8000-0000000000c4',
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+        'createdAt': testNow.toUtc().toIso8601String(),
+      });
+      // What the server's worker wrote once the confirmation was gone.
+      final feed = FakeChangesSource([confirmed(null)]);
+      final store = _FeedStore();
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 3000),
+        api: api,
+        signedIn: true,
+        places: [
+          for (final p in samplePlaces)
+            if (p.id == lakeArea.id) confirmed(testNow) else p,
+        ],
+        syncService: SyncService(source: feed, store: store),
+      );
+      store.places = app.places;
+      final container = app.container(tester);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(inDetails(find.text(t.freshness.unconfirmed)), findsNothing);
+
+      container.read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 1) + SyncController.afterContribution);
+      expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c4'});
+      expect(app.places.all.firstWhere((p) => p.id == lakeArea.id).lastConfirmedAt, isNull);
+
+      container.read(routerProvider).go(AppRoutes.map);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(inDetails(find.text(t.freshness.unconfirmed)), findsOneWidget);
+    });
+
     testWidgets('a deletion keeps a waiting request when another one is known to have made it', (
       tester,
     ) async {
@@ -875,4 +979,35 @@ final class _FakePreparer implements PhotoPreparer {
   @override
   Future<PreparedPhoto> prepare(Uint8List original) async =>
       PreparedPhoto(jpeg: jpeg, width: 8, height: 6);
+}
+
+/// A sync store that writes what the feed brings into the places the
+/// screens read, as the drift store does; its last run ended an hour ago.
+final class _FeedStore implements SyncStore {
+  FakePlacesRepository? places;
+  final _state = MemorySyncStore()
+    ..state = SyncState(cursor: '0', completedAt: testNow.subtract(const Duration(hours: 1)));
+
+  @override
+  Future<SyncState> stateOf(String region) => _state.stateOf(region);
+
+  @override
+  Future<void> beginFullSync(String region) => _state.beginFullSync(region);
+
+  @override
+  Future<void> beginDeltaSync(String region) => _state.beginDeltaSync(region);
+
+  @override
+  Future<void> applyPage(String region, ChangeSet page) async {
+    final into = places;
+    if (into != null) page.places.forEach(into.put);
+    await _state.applyPage(region, page);
+  }
+
+  @override
+  Future<int> completeRun(String region, GeoBounds bounds, DateTime at) =>
+      _state.completeRun(region, bounds, at);
+
+  @override
+  Future<void> reset(String region, GeoBounds bounds) => _state.reset(region, bounds);
 }

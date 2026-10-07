@@ -209,7 +209,13 @@ class AccountController extends _$AccountController {
 
   Future<void> signOut() => ref.read(accountServiceProvider).signOut();
 
-  Future<void> delete() => ref.read(accountServiceProvider).deleteAccount();
+  /// Deletes the account on the server. Its ratings without text, photos
+  /// and reports leave the places they were on: a sync brings the new
+  /// summaries.
+  Future<void> delete() async {
+    await ref.read(accountServiceProvider).deleteAccount();
+    if (ref.mounted) ref.read(syncControllerProvider.notifier).syncAfterContribution();
+  }
 
   /// Changes the mutes shown at once, before the server confirms them.
   void showMuted(List<Author> muted) {

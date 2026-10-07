@@ -247,8 +247,9 @@ String _$syncRetryDelaysHash() => r'a95d2893ba7ae768cab9842e2e9d7520b2e9f5dd';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
-/// again each time the app comes back to the foreground, and retries a
-/// failed sync on its own with a growing wait.
+/// again each time the app comes back to the foreground, after the user's
+/// contributions reach the server, and retries a failed sync on its own
+/// with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 
 @ProviderFor(SyncController)
@@ -256,15 +257,17 @@ final syncControllerProvider = SyncControllerProvider._();
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
-/// again each time the app comes back to the foreground, and retries a
-/// failed sync on its own with a growing wait.
+/// again each time the app comes back to the foreground, after the user's
+/// contributions reach the server, and retries a failed sync on its own
+/// with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 final class SyncControllerProvider
     extends $NotifierProvider<SyncController, SyncStatus> {
   /// Runs the sync of the region and reports its progress. Started once by
   /// the app: it syncs at launch when the data is old or a run was cut short,
-  /// again each time the app comes back to the foreground, and retries a
-  /// failed sync on its own with a growing wait.
+  /// again each time the app comes back to the foreground, after the user's
+  /// contributions reach the server, and retries a failed sync on its own
+  /// with a growing wait.
   // keepAlive: a sync outlives the screen that started it.
   SyncControllerProvider._()
     : super(
@@ -293,12 +296,13 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'c45f000158c1775c2c8435e3685abbe82663c4ef';
+String _$syncControllerHash() => r'93bac213b50b636c2200098581b45e6557b99b49';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
-/// again each time the app comes back to the foreground, and retries a
-/// failed sync on its own with a growing wait.
+/// again each time the app comes back to the foreground, after the user's
+/// contributions reach the server, and retries a failed sync on its own
+/// with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 
 abstract class _$SyncController extends $Notifier<SyncStatus> {

@@ -291,21 +291,17 @@ class OutboxRunner extends _$OutboxRunner {
         // Every place read with the old mutes: read again with the new.
         unawaited(extras.forgetAll());
       case ContributionKind.confirm ||
+          ContributionKind.deleteConfirmation ||
           ContributionKind.reportIssue ||
-          ContributionKind.addPlace ||
-          ContributionKind.editPlace:
-        // The worker writes what the community said in a second or so; the
-        // next sync brings it to the map.
-        Timer(const Duration(seconds: 3), () {
-          if (ref.mounted) unawaited(ref.read(syncControllerProvider.notifier).sync());
-        });
-      case ContributionKind.deleteConfirmation ||
           ContributionKind.deleteIssueReport ||
           ContributionKind.reportContent ||
+          ContributionKind.addPlace ||
+          ContributionKind.editPlace ||
           ContributionKind.deletePlaceSubmission ||
           ContributionKind.addVendingMachine ||
           ContributionKind.deletePoiConfirmation ||
-          // The guidance reads the road events again on its own rhythm.
+          // The guidance reads the road events themselves again on its own
+          // rhythm.
           ContributionKind.reportRoadEvent ||
           ContributionKind.clearRoadEvent:
         break;
@@ -319,6 +315,12 @@ class OutboxRunner extends _$OutboxRunner {
             }),
           );
         }
+    }
+    // The server's worker recomputes the summaries the contribution changed,
+    // and a level it moves changes the summaries of every place the account
+    // confirmed: the feed brings both. Mutes change no summary.
+    if (e.kind != ContributionKind.mute && e.kind != ContributionKind.unmute) {
+      ref.read(syncControllerProvider.notifier).syncAfterContribution();
     }
     ref.invalidate(myContributionsProvider);
     // Contributions move the level: read it again.

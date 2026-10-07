@@ -133,25 +133,61 @@ List<Duration> syncRetryDelays(Ref ref) => const [
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
-/// again each time the app comes back to the foreground, and retries a
-/// failed sync on its own with a growing wait.
+/// again each time the app comes back to the foreground, after the user's
+/// contributions reach the server, and retries a failed sync on its own
+/// with a growing wait.
 // keepAlive: a sync outlives the screen that started it.
 @Riverpod(keepAlive: true)
 class SyncController extends _$SyncController {
   /// A sync older than this is refreshed.
   static const staleAfter = Duration(hours: 12);
 
+  /// The wait before the sync that follows a contribution: the server's
+  /// worker recomputes a place's summary in a second or so.
+  static const afterContribution = Duration(seconds: 3);
+
+  /// The wait before a second sync, for a worker held up by the conflation
+  /// of an import, which can take longer than [afterContribution].
+  static const followUp = Duration(seconds: 30);
+
   AppLifecycleListener? _lifecycle;
   Timer? _retry;
+  Timer? _soon;
+  Timer? _later;
   var _failures = 0;
 
   @override
   SyncStatus build() {
     ref.onDispose(() {
       _retry?.cancel();
+      _soon?.cancel();
+      _later?.cancel();
       _lifecycle?.dispose();
     });
     return const SyncIdle();
+  }
+
+  /// Brings to the device what a contribution the server just accepted
+  /// changed: a sync after [afterContribution], another after [followUp].
+  /// Each call restarts both waits, so contributions sent together give
+  /// one sync and one follow-up.
+  void syncAfterContribution() {
+    _soon?.cancel();
+    _later?.cancel();
+    _soon = Timer(afterContribution, () => unawaited(_contributionSync(isFollowUp: false)));
+    _later = Timer(followUp, () => unawaited(_contributionSync(isFollowUp: true)));
+  }
+
+  /// A refused request would be refused again, and a rate limit's wait is
+  /// the server's: both keep their schedule. A contribution the server just
+  /// accepted shows the network is back, so the first sync goes ahead of a
+  /// retry still waiting out an earlier failure; the follow-up does not,
+  /// and a failure of the first one keeps its growing wait.
+  Future<void> _contributionSync({required bool isFollowUp}) async {
+    if (state case SyncFailed(:final failure)) {
+      if (isFollowUp || failure == SyncFailure.refused || failure == SyncFailure.busy) return;
+    }
+    await sync();
   }
 
   /// Starts the automatic syncs; later calls do nothing.

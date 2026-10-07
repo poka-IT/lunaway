@@ -714,7 +714,7 @@ final class OutboxRunnerProvider extends $NotifierProvider<OutboxRunner, bool> {
   }
 }
 
-String _$outboxRunnerHash() => r'04653aa51ba6080d1b439b9b13a6b44c4f5bb8ae';
+String _$outboxRunnerHash() => r'88764d57d5d09e35301b9706f58380974fb36cda';
 
 /// Runs the outbox: sends at launch, when a contribution is queued, when
 /// the app comes back to the foreground, when a sync shows the network is

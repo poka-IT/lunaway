@@ -65,8 +65,9 @@ _Fails _answer(String code) =>
 
 final _offline = _Fails(GraphQLNetworkException('connection lost', null));
 
-/// The automatic retries of a failed sync, through the controller the app
-/// runs, on a clock the test moves.
+/// The automatic retries of a failed sync and the syncs that follow a
+/// contribution, through the controller the app runs, on a clock the test
+/// moves.
 void main() {
   const waits = [Duration(seconds: 30), Duration(minutes: 2)];
 
@@ -207,6 +208,77 @@ void main() {
 
       time.elapse(waits.first);
       expect(container.read(syncControllerProvider), isA<SyncDone>());
+    });
+  });
+
+  group('after a contribution', () {
+    const soon = SyncController.afterContribution;
+    const later = SyncController.followUp;
+
+    test('contributions sent together give one sync, then one follow-up', () {
+      final server = _ScriptedServer([const _Done()]);
+      run(server, (time, container, seen) {
+        final controller = container.read(syncControllerProvider.notifier)..syncAfterContribution();
+        time.elapse(const Duration(seconds: 1));
+        controller.syncAfterContribution();
+        time.elapse(const Duration(seconds: 1));
+        controller.syncAfterContribution();
+        time.elapse(soon - const Duration(milliseconds: 1));
+        expect(server.requests, 0, reason: 'each send restarts the wait');
+        time.elapse(const Duration(milliseconds: 1));
+        expect(server.requests, 1);
+        expect(container.read(syncControllerProvider), isA<SyncDone>());
+
+        time.elapse(later - soon);
+        expect(server.requests, 2, reason: 'the worker may have been busy with an import');
+        time.elapse(const Duration(hours: 1));
+        expect(server.requests, 2);
+      });
+    });
+
+    test('offline, the follow-up leaves the retry its growing wait', () {
+      final server = _ScriptedServer([_offline, const _Done()]);
+      run(server, (time, container, seen) {
+        container.read(syncControllerProvider.notifier).syncAfterContribution();
+        time.elapse(soon);
+        expect(server.requests, 1);
+        expect(container.read(syncControllerProvider), isA<SyncFailed>());
+
+        time.elapse(later - soon);
+        expect(server.requests, 1, reason: 'no request before the retry is due');
+        time.elapse(soon + waits.first - later);
+        expect(server.requests, 2);
+        expect(container.read(syncControllerProvider), isA<SyncDone>());
+      });
+    });
+
+    test('a contribution accepted by the server ends the wait of an earlier failure', () {
+      final server = _ScriptedServer([_offline, const _Done()]);
+      run(server, (time, container, seen) {
+        final controller = container.read(syncControllerProvider.notifier);
+        unawaited(controller.sync());
+        time.flushMicrotasks();
+        expect(container.read(syncControllerProvider), isA<SyncFailed>());
+
+        controller.syncAfterContribution();
+        time.elapse(soon);
+        expect(server.requests, 2, reason: 'not left until the retry, ${waits.first} away');
+        expect(container.read(syncControllerProvider), isA<SyncDone>());
+      });
+    });
+
+    test('a rate limit holds the follow-up back until the server said', () {
+      final server = _ScriptedServer([
+        _Fails(GraphQLRateLimitedException(const Duration(minutes: 5))),
+        const _Done(),
+      ]);
+      run(server, (time, container, seen) {
+        container.read(syncControllerProvider.notifier).syncAfterContribution();
+        time.elapse(later);
+        expect(server.requests, 1);
+        time.elapse(soon + const Duration(minutes: 5) - later);
+        expect(server.requests, 2);
+      });
     });
   });
 }
