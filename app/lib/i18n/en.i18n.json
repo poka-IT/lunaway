@@ -3,7 +3,9 @@
   "nav": {
     "map": "Map",
     "favorites": "Favourites",
-    "profile": "Profile"
+    "profile": "Profile",
+    "fold": "Fold the menu",
+    "unfold": "Unfold the menu"
   },
   "common": {
     "close": "Close",
@@ -181,7 +183,10 @@
     "serviceOff": "Location is turned off on this device. Turn it on in the quick settings, then try again.",
     "notAllowed": "Position not allowed. The map works without it.",
     "noFix": "Your position cannot be found yet. Try again in the open or in a moment.",
-    "unsupported": "This device does not give its position."
+    "unsupported": "This device does not give its position.",
+    "browserDeniedTitle": "The browser blocks your position",
+    "browserDenied": "The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.",
+    "browserNoFix": "The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it."
   },
   "search": {
     "towns": "Towns",
@@ -255,8 +260,10 @@
     "coordinates": "Coordinates",
     "copy": "Copy the coordinates",
     "copyShort": "Copy",
+    "copyAs": "Copy as $format",
+    "copiesAs": "\"Copy\" copies: $format",
     "copied": "Copied: $text",
-    "otherFormats": "Other formats",
+    "otherFormats": "Choose the format to copy",
     "formatDecimal": "Decimal degrees",
     "formatDms": "Degrees, minutes, seconds",
     "formatGeo": "geo: link",
@@ -877,7 +884,7 @@
       "administration": "An appointment by the Lunaway team"
     },
     "orInstead": "Or $requirement",
-    "recoveryNone": "No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.",
+    "recoveryNone": "No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.",
     "recoveryCreate": "Make my recovery card",
     "recoveryMade": "Made on $date",
     "recoveryRemake": "Make again",
@@ -908,8 +915,12 @@
   },
   "recovery": {
     "title": "Recovery card",
-    "intro": "A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.",
-    "replaces": "A new card replaces the previous one, which stops working.",
+    "intro": "A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.",
+    "replaces": "A new card replaces the previous one: the old code will stop working.",
+    "replaceTitle": "Replace the card of $date?",
+    "replaceBody": "The new card will have another code. The code of the card of $date stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.",
+    "replaceKeep": "Keep the old one",
+    "replaceConfirm": "Make a new card",
     "make": "Make the card",
     "codeLabel": "Your recovery code",
     "shownOnce": "This code shows only once. Write it down, or save the image, before closing.",
@@ -1270,7 +1281,7 @@
   "poi": {
     "category": {
       "groceries": "Groceries",
-      "vending": "Vending machines",
+      "vending": "Food vending machines",
       "water": "Water and dump",
       "fuel": "Fuel and energy",
       "health": "Health",

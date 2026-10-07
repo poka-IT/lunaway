@@ -220,8 +220,15 @@ void main() {
       FakeApi api,
       String route, {
       SyncService? syncService,
+      DateTime? recoveryCardAt,
     }) async {
-      final app = await pumpLunaway(tester, api: api, signedIn: true, syncService: syncService);
+      final app = await pumpLunaway(
+        tester,
+        api: api,
+        signedIn: true,
+        syncService: syncService,
+        recoveryCardAt: recoveryCardAt,
+      );
       final router = app.container(tester).read(routerProvider)..go(route);
       await settleShort(tester);
       return (app, router);
@@ -276,23 +283,69 @@ void main() {
         expect(find.text(group), findsOneWidget);
       }
       expect(find.text(t.recovery.shownOnce), findsOneWidget);
+      // The server holds the new code from now on, the old one stopped
+      // working: the device knows a card exists, whichever way the user
+      // leaves the page (the rail, on a desktop).
+      final kept = await app.secrets.read('recovery_card');
+      expect(kept, testNow.toUtc().toIso8601String());
       expect(
-        await app.secrets.read('recovery_card'),
-        isNull,
-        reason: 'a card counts once the user says it is kept',
+        kept!.contains(FakeApi.recoveryCode.substring(0, 4)),
+        isFalse,
+        reason: 'the device keeps the date of the card, never its code',
       );
 
       await tapVisible(tester, find.widgetWithText(OutlinedButton, t.recovery.done));
       expect(find.text(t.recovery.doneBody), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, t.recovery.done));
       await settleShort(tester);
-      final kept = await app.secrets.read('recovery_card');
-      expect(kept, isNotNull);
-      expect(
-        kept!.contains(FakeApi.recoveryCode.substring(0, 4)),
-        isFalse,
-        reason: 'the device keeps the date of the card, never its code',
+      expect(find.text(t.account.recoveryMade(date: '6 oct. 2026')), findsOneWidget);
+    });
+
+    testWidgets('a card left by another way than its button still shows in the profile', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final (_, router) = await openProfile(tester, api, AppRoutes.recoveryCard);
+      await tapVisible(tester, find.text(t.recovery.make));
+      expect(find.text(t.recovery.shownOnce), findsOneWidget);
+      // The rail of a desktop, or a link: the page goes without its button.
+      router.go(AppRoutes.profile);
+      await settleShort(tester);
+      await tester.scrollUntilVisible(
+        find.text(t.recovery.title),
+        200,
+        scrollable: find.byType(Scrollable).first,
       );
+      expect(find.text(t.account.recoveryMade(date: '6 oct. 2026')), findsOneWidget);
+      expect(find.text(t.account.recoveryNone), findsNothing);
+    });
+
+    testWidgets('a new card first says it replaces the one made before, whose code stops working', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final (app, _) = await openProfile(
+        tester,
+        api,
+        AppRoutes.recoveryCard,
+        recoveryCardAt: DateTime.utc(2026, 9, 1, 12),
+      );
+      await tapVisible(tester, find.text(t.recovery.make));
+      expect(find.text(t.recovery.replaceTitle(date: '1 septembre 2026')), findsOneWidget);
+      expect(find.text(t.recovery.replaceBody(date: '1 septembre 2026')), findsOneWidget);
+      await tester.tap(find.text(t.recovery.replaceKeep));
+      await settleShort(tester);
+      expect(api.operations, isNot(contains('CreateRecoveryCode')), reason: 'the old card holds');
+      expect(
+        await app.secrets.read('recovery_card'),
+        DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+      );
+
+      await tapVisible(tester, find.text(t.recovery.make));
+      await tester.tap(find.text(t.recovery.replaceConfirm));
+      await settleShort(tester);
+      expect(api.operations, contains('CreateRecoveryCode'));
+      expect(await app.secrets.read('recovery_card'), testNow.toUtc().toIso8601String());
     });
 
     testWidgets('a recovery code is checked as it is typed, then brings the account back', (

@@ -9,38 +9,42 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 
-/// "Around me": the six categories of points of interest, one at a time so
-/// the night spots keep the map, and once one is on, "Open now" beside it.
-/// A second tap on the chip turns the category off. They sit in the row of
-/// the quick filters ([QuickFilters]).
-List<Widget> poiCategoryChips(BuildContext context, WidgetRef ref, {required bool floating}) {
+/// "Around me": the chip of one category of points of interest, and once it
+/// is on, "Open now" beside it. One category at a time, so the night spots
+/// keep the map; a second tap turns it off. The row of the quick filters
+/// ([QuickFilters]) places each category by how much it matters on the
+/// road.
+List<Widget> poiCategoryChip(
+  BuildContext context,
+  WidgetRef ref,
+  PoiCategory c, {
+  required bool floating,
+}) {
   final t = context.t;
   final choice = ref.watch(poiLayerProvider);
   final layer = ref.read(poiLayerProvider.notifier);
   return [
-    for (final c in PoiCategory.values) ...[
+    MapChip(
+      icon: PoiLook.category(c),
+      iconColor: PoiLook.tone(c),
+      label: t.poiCategory(c),
+      selected: choice.category == c,
+      floating: floating,
+      onTap: () {
+        Haptics.select();
+        layer.toggle(c);
+      },
+    ),
+    if (choice.category == c)
       MapChip(
-        icon: PoiLook.category(c),
-        iconColor: PoiLook.tone(c),
-        label: t.poiCategory(c),
-        selected: choice.category == c,
+        icon: AppIcons.hours,
+        label: t.poi.openNow,
+        selected: choice.openNowOnly,
         floating: floating,
         onTap: () {
           Haptics.select();
-          layer.toggle(c);
+          layer.setOpenNowOnly(on: !choice.openNowOnly);
         },
       ),
-      if (choice.category == c)
-        MapChip(
-          icon: AppIcons.hours,
-          label: t.poi.openNow,
-          selected: choice.openNowOnly,
-          floating: floating,
-          onTap: () {
-            Haptics.select();
-            layer.setOpenNowOnly(on: !choice.openNowOnly);
-          },
-        ),
-    ],
   ];
 }

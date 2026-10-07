@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
@@ -43,6 +44,14 @@ class Settings extends _$Settings {
   /// Remembers the navigation app for directions; null forgets it, so the
   /// chooser shows again.
   Future<void> setNavigationApp(String? id) => _update(state.copyWith(navigationApp: () => id));
+
+  /// Folds the desktop rail to its icons, or unfolds it.
+  Future<void> setRailCollapsed({required bool collapsed}) =>
+      _update(state.copyWith(railCollapsed: collapsed));
+
+  /// Remembers the format the "Copy" of a position copies.
+  Future<void> setCopyFormat(CoordinateFormat format) =>
+      _update(state.copyWith(copyFormat: format));
 
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;
