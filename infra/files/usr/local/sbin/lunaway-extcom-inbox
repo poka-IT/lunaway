@@ -1,0 +1,103 @@
+#!/bin/bash
+# The feed of the external community source (docs/feeds.md), taken from
+# the inbox its producer fills (/srv/data/extcom-inbox, written by the
+# write-only account extcom-drop; docs/deploy.md, "The external community
+# feed"): the newest feed whose checksum file has arrived, when it is newer
+# than the last one imported, checked against that checksum, then
+# imported. Run by lunaway-ingest-extcom.service as lunaway-ingest, with the
+# import role and the agreement's settings (/etc/lunaway/extcom.env);
+# installed by infra/server/pipeline.sh.
+#
+#   lunaway-extcom-inbox pending   exit 0 when a feed waits, 1 when none
+#                                  (the unit's ExecCondition), 255 when the
+#                                  inbox cannot be read
+#   lunaway-extcom-inbox import    checks the feed that waits and imports it
+#
+# A feed is named extcom-<UTC stamp>.jsonl.gz (extcom-20261008T105000Z.jsonl.gz)
+# and its checksum file <name>.sha256 holds "<64 hex>  <name>". The producer
+# writes the feed, then its checksum file, each under a new name (its
+# account cannot replace a file). Every feed it sends is complete
+# (`complete: true`), so only the newest one counts: an older feed still in
+# the inbox is never imported after a newer one. The name of the last feed
+# imported is kept in $LUNAWAY_DATA_DIR/extcom-inbox.last. A failed import
+# leaves it as it was: the next run takes the same feed again and the
+# importer resumes after its last stored batch, until a newer feed replaces
+# it.
+set -euo pipefail
+shopt -s nullglob
+export LC_ALL=C
+
+fail() {
+  echo "lunaway-extcom-inbox: $*" >&2
+  exit 255
+}
+
+inbox="${LUNAWAY_EXTCOM_INBOX:-/srv/data/extcom-inbox}"
+[ -n "${LUNAWAY_DATA_DIR:-}" ] || fail "LUNAWAY_DATA_DIR is not set"
+state="$LUNAWAY_DATA_DIR/extcom-inbox.last"
+cli="${LUNAWAY_CLI:-/opt/lunaway/current/lunaway}"
+name_re='^extcom-[0-9]{8}T[0-9]{6}Z\.jsonl\.gz$'
+
+[ -d "$inbox" ] && [ -r "$inbox" ] && [ -x "$inbox" ] || fail "cannot read $inbox"
+
+# The newest feed whose checksum file exists, by name (the stamp sorts as
+# the time); empty when none.
+newest() {
+  local f name found=""
+  for f in "$inbox"/extcom-*.jsonl.gz; do
+    name="${f##*/}"
+    [[ "$name" =~ $name_re ]] || continue
+    [ -f "$f" ] && [ -f "$f.sha256" ] || continue
+    found="$name"
+  done
+  printf '%s' "$found"
+}
+
+# The feed to import, when it is newer than the last one imported.
+waiting() {
+  local feed last=""
+  feed="$(newest)"
+  [ -f "$state" ] && last="$(head -n 1 "$state" | head -c 200)"
+  if [ -n "$feed" ] && [[ "$feed" > "$last" ]]; then
+    printf '%s' "$feed"
+  fi
+}
+
+case "${1:-}" in
+  pending)
+    feed="$(waiting)"
+    if [ -n "$feed" ]; then
+      echo "waiting: $feed"
+      exit 0
+    fi
+    exit 1
+    ;;
+  import)
+    feed="$(waiting)"
+    if [ -z "$feed" ]; then
+      echo "no new feed in $inbox"
+      exit 0
+    fi
+    line="$(head -n 1 "$inbox/$feed.sha256" | head -c 300)"
+    want="${line%% *}"
+    named="${line##* }"
+    if ! [[ "$want" =~ ^[0-9a-f]{64}$ ]] || [ "$named" != "$feed" ]; then
+      echo "$feed: its checksum file does not read \"<64 hex>  $feed\"; not imported" >&2
+      exit 1
+    fi
+    got="$(sha256sum < "$inbox/$feed" | cut -d ' ' -f 1)"
+    if [ "$got" != "$want" ]; then
+      echo "$feed: SHA-256 $got, its checksum file says $want; not imported" >&2
+      exit 1
+    fi
+    echo "importing $feed, SHA-256 checked (${want:0:16})"
+    "$cli" ingest extcom --file "$inbox/$feed"
+    printf '%s\n' "$feed" > "$state.new"
+    mv "$state.new" "$state"
+    echo "imported $feed"
+    ;;
+  *)
+    sed -n '2,25p' "$0" >&2
+    exit 2
+    ;;
+esac

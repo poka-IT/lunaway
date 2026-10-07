@@ -1,0 +1,67 @@
+# Removes the files of the external community source's retired photos (gone
+# from the feed, erased with their author, purged) that no other photo
+# uses, then their rows: `lunaway extcom purge-media --yes`, as the API's
+# user and role, which wrote them. An erasure the partner forwards is
+# complete once it has run (docs/feeds.md, "Erasure of one author").
+# Started after each import of the feed (lunaway-ingest-extcom.service) and
+# daily by lunaway-extcom-purge-media.timer. Installed by
+# infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway: files of the external community source's retired photos
+After=postgresql.service
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-api
+Group=lunaway-api
+UMask=0022
+EnvironmentFile=/etc/lunaway/api.env
+EnvironmentFile=/etc/lunaway/media.env
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway extcom purge-media --yes
+TimeoutStartSec=1h
+Nice=10
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# Of /srv it sees the photos only, and may write there only.
+TemporaryFileSystem=/srv:ro
+BindPaths=/srv/data/media
+ReadWritePaths=/srv/data/media
+# PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryHigh=256M
+MemoryMax=512M

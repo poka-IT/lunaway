@@ -21,12 +21,24 @@
 #   sudo lunaway-admin ingest atout-france|municipalities|fuel|laposte|finess [--refresh]
 #   sudo lunaway-admin ingest cameras [--list france,...] [--refresh]
 #   sudo lunaway-admin ingest cameras-osm [--europe | --extract NAME...]
+#   sudo lunaway-admin ingest extcom --file PATH
 #   sudo lunaway-admin stats
 #   sudo lunaway-admin pois stats|hours
 #   sudo lunaway-admin road-events poll|match|stats|dialog-permanent [...]
 #       as the imports: user lunaway-ingest, role lunaway_ingest
 #       (/etc/lunaway/ingest.env), the import cache, outbound HTTPS except
-#       private ranges
+#       private ranges; `ingest extcom` also with the agreement's settings
+#       (/etc/lunaway/extcom.env)
+#   sudo lunaway-admin extcom status|hide|show [--note TEXT]
+#   sudo lunaway-admin extcom purge [--yes] [--note TEXT]
+#   printf '%s' '<author-id>' | sudo lunaway-admin extcom erase-author - [--yes]
+#       the external community source's switch, purge and erasures
+#       (docs/feeds.md): as the imports, the import cache writable (the
+#       feeds it keeps are removed), loopback only. The id of an author to
+#       erase comes on standard input, never on the command line, which
+#       sudo writes to the journal
+#   sudo lunaway-admin extcom purge-media [--yes]
+#       as the API: the files of the source's retired photos
 #   sudo lunaway-admin conflate [--full]
 #   sudo lunaway-admin takedowns import < FILE
 #   sudo lunaway-admin takedowns replay [--dry-run] [--allow-empty]
@@ -88,10 +100,19 @@ as_api() {
     "$cli" "$@"
 }
 as_ingest() {
+  # The external community feed's import, and it alone, gets the
+  # agreement's settings.
+  local extra=()
+  if [ "${1:-}" = ingest ] && [ "${2:-}" = extcom ]; then
+    [ -f /etc/lunaway/extcom.env ] \
+      || { echo "no /etc/lunaway/extcom.env: the agreement's settings are not installed (docs/deploy.md, \"Private settings\")" >&2; exit 1; }
+    extra=(-p EnvironmentFile=/etc/lunaway/extcom.env)
+  fi
   systemd-run "${sandbox[@]}" \
     -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
     -p MemoryHigh=2560M -p MemoryMax=3G \
     -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+    ${extra[@]+"${extra[@]}"} \
     -E LUNAWAY_VALHALLA_URL=http://127.0.0.1:8002 \
     -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
     -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK" \
@@ -110,6 +131,19 @@ as_takedown() {
     -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
     -p EnvironmentFile=/etc/lunaway/takedown.env -E LUNAWAY_TAKEDOWN_JOURNAL=/srv/data/place-takedowns \
     -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest -p ReadWritePaths=/srv/data/place-takedowns \
+    -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+    -p IPAddressDeny=any -p IPAddressAllow=localhost \
+    "$cli" "$@"
+}
+# The external community source's switch, purge and erasures: the import
+# role, its cache writable (a purge or an erasure removes the feeds it
+# keeps there), no outbound network.
+as_extcom() {
+  systemd-run "${sandbox[@]}" \
+    -p User=lunaway-ingest -p Group=lunaway-ingest -p UMask=0027 \
+    -p MemoryHigh=768M -p MemoryMax=1G \
+    -p EnvironmentFile=/etc/lunaway/ingest.env -E LUNAWAY_DATA_DIR=/srv/data/ingest \
+    -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
     -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
     -p IPAddressDeny=any -p IPAddressAllow=localhost \
     "$cli" "$@"
@@ -200,6 +234,31 @@ take_down() {
   as_packs packs build --region "$region" --takedown || { echo "step 3 failed: run lunaway-admin packs build --region $region --takedown again" >&2; exit 1; }
 }
 
+# erase-author: the id of an author of the external community source who
+# asked to be erased, read from standard input ("-"). sudo writes the whole
+# command line to the journal, which keeps it for weeks: the id must not
+# outlive the erasure there. The unit's description names the command only.
+erase_author() {
+  local id="" yes=()
+  if [ "${1:-}" != - ]; then
+    echo "extcom erase-author takes the author's id on standard input: printf '%s' '<id>' | sudo lunaway-admin extcom erase-author - [--yes] (a command line goes to the journal)" >&2
+    exit 2
+  fi
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --yes) yes=(--yes); shift ;;
+      *) echo "extcom erase-author: unknown argument $1" >&2; exit 2 ;;
+    esac
+  done
+  IFS= read -r id || true
+  if [ -z "$id" ] || [ "$(printf '%s' "$id" | wc -c)" -gt 128 ]; then
+    echo "extcom erase-author: the author's id on standard input holds 1 to 128 bytes" >&2
+    exit 2
+  fi
+  as_extcom extcom erase-author "$id" ${yes[@]+"${yes[@]}"}
+}
+
 # replay-takedowns: after a restore, the takedown journal applied again
 # (docs/deploy.md, "Backups and restore"), each step under its own
 # identity: the replay as the imports, the purge of the community content
@@ -241,6 +300,17 @@ case "${1:-}" in
   ingest|stats|pois|road-events)
     as_ingest "$@"
     ;;
+  extcom)
+    # purge-media removes files the API wrote, as the API.
+    if [ "${2:-}" = purge-media ]; then
+      as_api "$@"
+    elif [ "${2:-}" = erase-author ]; then
+      shift 2
+      erase_author "$@"
+    else
+      as_extcom "$@"
+    fi
+    ;;
   conflate|takedowns)
     as_takedown "$@"
     ;;
@@ -264,7 +334,7 @@ case "${1:-}" in
     journalctl -u lunaway-migrate -n 5 --no-pager -o cat
     ;;
   *)
-    sed -n '2,53p' "$0" >&2
+    sed -n '2,65p' "$0" >&2
     exit 2
     ;;
 esac

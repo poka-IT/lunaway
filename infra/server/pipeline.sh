@@ -20,6 +20,16 @@
 #                                   offices' places, with the key of
 #                                   /etc/lunaway/datatourisme.env; off
 #                                   while no key is installed
+#   lunaway-ingest-extcom           the external community feed, when its
+#                                   producer drops one into
+#                                   /srv/data/extcom-inbox (a path unit,
+#                                   and hourly): checked, imported, then
+#                                   the conflation and the photo files;
+#                                   off while /etc/lunaway/extcom.env is
+#                                   not installed
+#   lunaway-extcom-purge-media      after each import of that feed, and
+#                                   daily 05:10 UTC: as the API's user,
+#                                   the files of its retired photos
 #   lunaway-content-refresh         weekly, Sunday 07:00 UTC, the open
 #                                   content of the places (photos,
 #                                   descriptions, reviews), then the files
@@ -63,6 +73,12 @@
 #                      generated): an age-encrypted copy goes off site like
 #                      the zone secret's, and a missing key is restored
 #                      from that copy, never asked for again silently
+#   /etc/lunaway/extcom.env   LUNAWAY_EXTCOM_AGREEMENT_REF and
+#                      LUNAWAY_EXTCOM_PHOTO_HOSTS, the settings of the
+#                      external community source's agreement, given by the
+#                      maintainer and kept out of the repository (a photo
+#                      host names the partner); an age-encrypted copy goes
+#                      off site, written again whenever the file changes
 #   /srv/data/media/external   the photos of the open sources, written by
 #                      the content refresh (lunaway-ingest, setgid caddy)
 #   /etc/lunaway/takedown.env   LUNAWAY_TAKEDOWN_SECRET, the same way: it keys
@@ -153,6 +169,37 @@ else
   datatourisme_key=0
 fi
 
+log "external community source"
+# The reference of the signed agreement and the hosts its photos come from
+# (docs/feeds.md, "Server configuration"), installed by the maintainer on
+# the server only, read by the feed's import alone. A copy is encrypted
+# again whenever the file is newer than it, so a new photo host reaches the
+# backups; a file missing beside a copy means a restore is due.
+extcom_env=/etc/lunaway/extcom.env
+extcom_copy=/srv/data/backups/offsite/extcom-env.age
+if grep -qE '^LUNAWAY_EXTCOM_AGREEMENT_REF=[A-Za-z0-9][A-Za-z0-9._/-]{0,63}$' "$extcom_env" 2>/dev/null \
+  && grep -qE '^LUNAWAY_EXTCOM_PHOTO_HOSTS=[a-z0-9.-]+(,[a-z0-9.-]+)*$' "$extcom_env"; then
+  chown root:root "$extcom_env"
+  chmod 0600 "$extcom_env"
+  if [ ! -s "$extcom_copy" ] || [ "$extcom_env" -nt "$extcom_copy" ]; then
+    age --encrypt --recipients-file /etc/lunaway/backup-recipient --output "$extcom_copy.partial" "$extcom_env"
+    chown root:lunaway-pull "$extcom_copy.partial"
+    chmod 0640 "$extcom_copy.partial"
+    mv "$extcom_copy.partial" "$extcom_copy"
+    echo "    encrypted copy: $extcom_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
+  fi
+  extcom=1
+else
+  [ -e "$extcom_copy" ] && die "$extcom_env does not hold LUNAWAY_EXTCOM_AGREEMENT_REF and LUNAWAY_EXTCOM_PHOTO_HOSTS but $extcom_copy exists: restore it from the copy (docs/deploy.md, \"Backups and restore\")"
+  echo "    no settings: the external community feed is not imported until the maintainer installs them (docs/deploy.md)"
+  extcom=0
+fi
+if [ -d /srv/data/extcom-inbox ]; then
+  echo "    inbox: $(find /srv/data/extcom-inbox -maxdepth 1 -type f -name 'extcom-*.jsonl.gz' | wc -l) feed(s) in /srv/data/extcom-inbox"
+else
+  echo "    no /srv/data/extcom-inbox yet: the producer's deployment makes it, with its write-only account"
+fi
+
 log "open content's photos"
 # Written by the content refresh with its umask 0027; setgid caddy so that
 # Caddy, which serves /media/, reads them.
@@ -202,6 +249,8 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-laposte.service lunaway-ingest-laposte.timer
   lunaway-ingest-finess.service lunaway-ingest-finess.timer
   lunaway-ingest-datatourisme.service lunaway-ingest-datatourisme.timer
+  lunaway-ingest-extcom.service lunaway-ingest-extcom.timer lunaway-ingest-extcom.path
+  lunaway-extcom-purge-media.service lunaway-extcom-purge-media.timer
   lunaway-content-refresh.service lunaway-content-refresh.timer
   lunaway-road-events.service lunaway-road-events.timer
   lunaway-road-events-dialog.service lunaway-road-events-dialog.timer
@@ -212,6 +261,7 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-cameras.service lunaway-enforcement.service lunaway-enforcement.timer
   lunaway-cameras-osm.service lunaway-enforcement-full.service"
 install_file files/usr/local/share/lunaway/osm-extracts.env /usr/local/share/lunaway/osm-extracts.env 0644 || true
+install_file files/usr/local/sbin/lunaway-extcom-inbox /usr/local/sbin/lunaway-extcom-inbox 0755 || true
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
@@ -249,15 +299,35 @@ if [ "$datatourisme_key" = 1 ]; then
 else
   systemctl disable --quiet --now lunaway-ingest-datatourisme.timer 2>/dev/null || true
 fi
+# The external community feed's triggers, once its settings are installed.
+if [ "$extcom" = 1 ]; then
+  timers="$timers lunaway-ingest-extcom.timer"
+  extcom_path=lunaway-ingest-extcom.path
+else
+  systemctl disable --quiet --now lunaway-ingest-extcom.timer lunaway-ingest-extcom.path 2>/dev/null || true
+  extcom_path=""
+fi
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
-  systemctl enable --quiet --now $timers
+  systemctl enable --quiet --now $timers $extcom_path
   # shellcheck disable=SC2086 # one unit per word
   log "timers on: $(systemctl list-timers --no-pager --no-legend $timers | awk '{ print $(NF-1) " " $1 " " $2 }' | tr '\n' ';')"
+  [ -n "$extcom_path" ] && log "$extcom_path $(systemctl is-active "$extcom_path"), watching /srv/data/extcom-inbox"
 else
   # shellcheck disable=SC2086 # one unit per word
-  systemctl disable --quiet --now $timers 2>/dev/null || true
+  systemctl disable --quiet --now $timers lunaway-ingest-extcom.path 2>/dev/null || true
   log "no lunaway CLI in the release yet: the timers stay off (infra/deploy-api.sh, then this step again)"
+fi
+# The removal of the retired photos' files, whenever the release's CLI has
+# the command, settings or not: a purge after the agreement ends needs it
+# too. Asked as the API's user, never as root.
+if [ -x /opt/lunaway/current/lunaway ] \
+  && runuser -u lunaway-api -- /opt/lunaway/current/lunaway extcom --help 2>/dev/null | grep -q 'purge-media'; then
+  systemctl enable --quiet --now lunaway-extcom-purge-media.timer
+  log "retired photo files of the external community source: daily, next $(systemctl show lunaway-extcom-purge-media.timer -p NextElapseUSecRealtime --value)"
+else
+  systemctl disable --quiet --now lunaway-extcom-purge-media.timer 2>/dev/null || true
+  log "the release's CLI has no extcom purge-media: its timer stays off"
 fi
 
 # The worker's queues, measured every minute for the health probe.
