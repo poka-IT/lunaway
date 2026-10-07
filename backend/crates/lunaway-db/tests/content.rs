@@ -630,10 +630,29 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         "a moderator who keeps it shows it again"
     );
 
-    // Reported again, then hidden by the operator before a moderator keeps it.
-    for r in reporters {
-        report(&app, r, ReportTarget::ExternalReview, id).await;
+    // Reported again by others (a dismissed report is not counted twice),
+    // then hidden by the operator before a moderator keeps it.
+    let origin = |pool: PgPool| async move {
+        sqlx::query_scalar!(
+            "SELECT origin FROM content_hides WHERE source_id = 'mangrove' AND key = 'sig'"
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap()
+    };
+    let others = [
+        account(&app, 4).await,
+        account(&app, 5).await,
+        account(&app, 6).await,
+    ];
+    for r in &others[..2] {
+        report(&app, *r, ReportTarget::ExternalReview, id).await;
     }
+    assert_eq!(
+        report(&app, others[2], ReportTarget::ExternalReview, id).await,
+        ReportOutcome::Hidden
+    );
+    assert_eq!(origin(pool.clone()).await.as_deref(), Some("reports"));
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     assert!(
         content::set_hidden(&ingest, "mangrove", &Hide::Item("sig".into()), true)
@@ -641,6 +660,7 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
             .unwrap(),
         "the operator's hide takes over the reports'"
     );
+    assert_eq!(origin(pool.clone()).await.as_deref(), Some("operator"));
     moderation::decide(&app, open_entry(&pool, id).await, Decision::Approve, None)
         .await
         .unwrap();
@@ -654,9 +674,15 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         .unwrap();
     assert_eq!(shown_reviews(&app, a).await, 1);
 
-    for r in reporters {
+    let more = [
+        account(&app, 7).await,
+        account(&app, 8).await,
+        account(&app, 9).await,
+    ];
+    for r in more {
         report(&app, r, ReportTarget::ExternalReview, id).await;
     }
+    assert_eq!(origin(pool.clone()).await.as_deref(), Some("reports"));
     moderation::decide(
         &app,
         open_entry(&pool, id).await,
@@ -666,14 +692,9 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
     .await
     .unwrap();
     assert_eq!(shown_reviews(&app, a).await, 0);
-    let origin: String = sqlx::query_scalar!(
-        "SELECT origin FROM content_hides WHERE source_id = 'mangrove' AND key = 'sig'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
     assert_eq!(
-        origin, "moderator",
+        origin(pool.clone()).await.as_deref(),
+        Some("moderator"),
         "a rejection is the moderator's, so a later approval of new reports cannot lift it"
     );
 }
