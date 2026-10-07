@@ -98,6 +98,39 @@ fn extract(dir: &std::path::Path) -> std::path::PathBuf {
     path
 }
 
+/// An aire behind the "sauf desserte" street of [`extract`]: a service
+/// road leaving its last node, 111 m long, then a track going 556 m
+/// farther; and a residential street from its first node to the primary
+/// road, open to everyone.
+fn extract_with_aire(dir: &std::path::Path) -> std::path::PathBuf {
+    let mut s = Strings(vec![String::new()]);
+    let mut nodes = Vec::new();
+    nodes.extend(street(&mut s, 1, 45.000, 1.000));
+    nodes.extend(street(&mut s, 31, 45.030, 1.000));
+    for (id, north) in [(51, 0.0005), (52, 0.001), (53, 0.004), (54, 0.006)] {
+        nodes.push(node(&mut s, id, 45.000 + north, 1.0013, &[]));
+    }
+    let ways = vec![
+        way(
+            &mut s,
+            100,
+            &[1, 2, 3],
+            &[
+                ("highway", "residential"),
+                ("maxweightrating", "3.5"),
+                ("maxweightrating:conditional", "none @ destination"),
+            ],
+        ),
+        way(&mut s, 400, &[31, 32, 33], &[("highway", "primary")]),
+        way(&mut s, 500, &[3, 51, 52], &[("highway", "service")]),
+        way(&mut s, 700, &[1, 31], &[("highway", "residential")]),
+        way(&mut s, 800, &[52, 53, 54], &[("highway", "track")]),
+    ];
+    let path = dir.join("aire.osm.pbf");
+    std::fs::write(&path, file_of(&s, &nodes, &ways)).unwrap();
+    path
+}
+
 fn sections() -> Vec<IgnSection> {
     vec![
         // The desserte street, 3.5 t at IGN too.
@@ -186,4 +219,55 @@ fn urban_limits_reach_the_graph_and_the_check_as_a_motorhome_reads_them() {
         block(300).is_empty() && block(400).is_empty(),
         "the motorway and the public road are left as mapped: {osc}"
     );
+}
+
+#[test]
+fn the_roads_enclosed_behind_a_sauf_desserte_street_take_its_limit_and_plate() {
+    let dir = tempfile::tempdir().unwrap();
+    let pbf = extract_with_aire(dir.path());
+    let at = Utc.with_ymd_and_hms(2026, 10, 6, 20, 20, 59).unwrap();
+    let prepared = routing::prepare(&pbf, &[], at, at).unwrap();
+    assert_eq!(
+        prepared.report.local_access_areas, 1,
+        "{:?}",
+        prepared.report
+    );
+    assert_eq!(
+        prepared.report.local_access_extended, 1,
+        "the service road within 500 m of the street, not the track beyond"
+    );
+    assert!(
+        records_of(&prepared, "way/500").is_empty(),
+        "no sign stands on the service road: no restriction for the check"
+    );
+    routing::write(&prepared, dir.path()).unwrap();
+    let mut osc = String::new();
+    flate2::read::GzDecoder::new(std::fs::File::open(dir.path().join("fixes.osc.gz")).unwrap())
+        .read_to_string(&mut osc)
+        .unwrap();
+    let block = |id: i64| -> String {
+        let start = osc.find(&format!("<way id=\"{id}\"")).unwrap_or(osc.len());
+        let end = osc[start..].find("</way>").map_or(osc.len(), |e| start + e);
+        osc[start..end].to_owned()
+    };
+    let aire = block(500);
+    assert!(
+        aire.contains(r#"<tag k="maxweight" v="3.5"/>"#)
+            && aire.contains(r#"<tag k="maxweight:conditional" v="none @ destination"/>"#),
+        "a trip ending at the aire gets the right from its own edge: {osc}"
+    );
+    assert!(aire.contains(r#"<tag k="highway" v="service"/>"#), "{aire}");
+    assert!(
+        aire.contains(r#"<nd ref="3"/>"#),
+        "the way keeps its nodes: {aire}"
+    );
+    assert!(
+        block(700).is_empty(),
+        "a street that leads to the primary road is open to everyone: {osc}"
+    );
+    assert!(
+        block(800).is_empty(),
+        "the track beyond 500 m stays as mapped: {osc}"
+    );
+    assert!(block(400).is_empty());
 }

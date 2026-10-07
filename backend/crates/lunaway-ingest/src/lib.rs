@@ -20,6 +20,7 @@ pub mod graph_check;
 pub mod http;
 pub mod ign;
 pub mod laposte;
+pub mod local_access;
 pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;

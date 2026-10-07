@@ -37,10 +37,10 @@ use lunaway_domain::{
 use osmpbf::{BlobDecode, BlobReader, Element as PbfElement, ElementReader};
 use serde::Serialize;
 
-use crate::{IngestError, ign::IgnSection};
+use crate::{IngestError, ign::IgnSection, local_access};
 
 /// The values of `highway` a motor vehicle may drive on.
-const ROUTABLE: [&str; 18] = [
+pub(crate) const ROUTABLE: [&str; 18] = [
     "motorway",
     "motorway_link",
     "trunk",
@@ -99,6 +99,11 @@ pub struct PrepareReport {
     /// IGN sections whose weight limit is set aside: on a motorway or a
     /// ramp, or on a lane closed to the public.
     pub ign_weight_set_aside: usize,
+    /// Areas enclosed behind a "sauf desserte" zone given its limit and
+    /// plate ([`local_access`]).
+    pub local_access_areas: usize,
+    /// Roads of those areas the change file marks.
+    pub local_access_extended: usize,
     /// Limit values no sign carries, left for a human.
     pub invalid_values: usize,
     /// IGN sections read.
@@ -385,6 +390,38 @@ impl WayPass {
     }
 }
 
+/// Reads one way of pass 2 into `out`.
+fn way_element(w: &osmpbf::Way<'_>, near_ign: &HashSet<i64>, out: &mut WayPass) {
+    // Most ways are not roads: test before copying the tags.
+    if !w
+        .tags()
+        .any(|(k, v)| k == "highway" && ROUTABLE.contains(&v))
+    {
+        return;
+    }
+    let tags = tag_map(w.tags());
+    if !is_routable(&tags) {
+        return;
+    }
+    out.routable += 1;
+    let (restrictions, invalid) = restrictions_of(&tags, false);
+    out.invalid += invalid;
+    let refs: Vec<i64> = w.refs().collect();
+    let ign_candidate = refs.iter().filter(|r| near_ign.contains(r)).count() >= 2;
+    let fixes = !tags::graph_fixes(&tags, &BTreeMap::new()).is_empty();
+    if !restrictions.is_empty() || ign_candidate || fixes {
+        out.kept.push(KeptWay {
+            id: w.id(),
+            version: w.info().version().unwrap_or(0),
+            timestamp: timestamp_of(w.info().milli_timestamp()),
+            refs,
+            tags,
+            restrictions,
+            ign_candidate,
+        });
+    }
+}
+
 fn node_element(
     id: i64,
     lat: f64,
@@ -494,50 +531,24 @@ pub fn prepare(
         "nodes read"
     );
 
-    // Pass 2: routable ways.
+    // Pass 2: routable ways. The blocks that hold ways are remembered for
+    // the search behind the "sauf desserte" zones.
     let near_ign = &nodes.near_ign;
-    let ways = ElementReader::from_path(path)
-        .map_err(&err)?
-        .par_map_reduce(
-            |element| {
-                let mut out = WayPass::default();
-                let PbfElement::Way(w) = element else {
-                    return out;
-                };
-                // Most ways are not roads: test before copying the tags.
-                if !w
-                    .tags()
-                    .any(|(k, v)| k == "highway" && ROUTABLE.contains(&v))
-                {
-                    return out;
+    let (ways, way_blocks) = local_access::par_blocks(
+        path,
+        None,
+        WayPass::default,
+        |block| {
+            let mut out = WayPass::default();
+            for group in block.groups() {
+                for w in group.ways() {
+                    way_element(&w, near_ign, &mut out);
                 }
-                let tags = tag_map(w.tags());
-                if !is_routable(&tags) {
-                    return out;
-                }
-                out.routable = 1;
-                let (restrictions, invalid) = restrictions_of(&tags, false);
-                out.invalid = invalid;
-                let refs: Vec<i64> = w.refs().collect();
-                let ign_candidate = refs.iter().filter(|r| near_ign.contains(r)).count() >= 2;
-                let fixes = !tags::graph_fixes(&tags, &BTreeMap::new()).is_empty();
-                if !restrictions.is_empty() || ign_candidate || fixes {
-                    out.kept.push(KeptWay {
-                        id: w.id(),
-                        version: w.info().version().unwrap_or(0),
-                        timestamp: timestamp_of(w.info().milli_timestamp()),
-                        refs,
-                        tags,
-                        restrictions,
-                        ign_candidate,
-                    });
-                }
-                out
-            },
-            WayPass::default,
-            WayPass::merge,
-        )
-        .map_err(&err)?;
+            }
+            out
+        },
+        WayPass::merge,
+    )?;
     report.routable_ways = ways.routable;
     report.invalid_values = ways.invalid;
     tracing::info!(
@@ -546,11 +557,29 @@ pub fn prepare(
         "ways read"
     );
 
-    // Pass 3: the coordinates of the kept ways.
+    // The roads behind the "sauf desserte" zones, by passes over the ways.
+    let seeds: Vec<(RestrictionKind, i64, Vec<i64>)> = ways
+        .kept
+        .iter()
+        .flat_map(|w| {
+            RestrictionKind::LIMITS
+                .into_iter()
+                .filter(|k| tags::limit_spares_local_access(&w.tags, *k))
+                .map(|k| (k, w.id, w.refs.clone()))
+        })
+        .collect();
+    let enclosed = if seeds.is_empty() {
+        Vec::new()
+    } else {
+        local_access::search(path, &way_blocks, &seeds)?
+    };
+
+    // Pass 3: the coordinates of the kept ways and of the enclosed roads.
     let wanted: HashSet<i64> = ways
         .kept
         .iter()
         .flat_map(|w| w.refs.iter().copied())
+        .chain(enclosed.iter().flat_map(local_access::Enclosed::nodes))
         .collect();
     let coords: HashMap<i64, Position> = ElementReader::from_path(path)
         .map_err(&err)?
@@ -740,6 +769,14 @@ pub fn prepare(
             });
         }
     }
+    extend_local_access(
+        &enclosed,
+        &ways.kept,
+        &extra,
+        &coords,
+        &mut rewrites,
+        &mut report,
+    );
     report.fixed_ways = rewrites.len() - report.fixed_nodes;
 
     for (id, at, tags) in &nodes.restricted {
@@ -816,6 +853,88 @@ pub fn prepare(
         rewrites,
         report,
     })
+}
+
+/// Marks the roads enclosed behind each "sauf desserte" zone, within reach
+/// of it, with the zone's limit and plate ([`local_access`]): the lowest
+/// figure among the zone's ways that touch them and keep their plate once
+/// IGN is read. A component on which IGN puts a limit of the kind is left
+/// as it is: that limit is its own.
+fn extend_local_access(
+    enclosed: &[local_access::Enclosed],
+    kept: &[KeptWay],
+    extra: &HashMap<usize, BTreeMap<RestrictionKind, (f64, usize)>>,
+    coords: &HashMap<i64, Position>,
+    rewrites: &mut Vec<Rewrite>,
+    report: &mut PrepareReport,
+) {
+    let kept_index: HashMap<i64, usize> = kept.iter().enumerate().map(|(i, w)| (w.id, i)).collect();
+    let ign_lowest = |wi: usize, kind: RestrictionKind| {
+        extra.get(&wi).and_then(|m| m.get(&kind)).map(|(v, _)| *v)
+    };
+    let mut by_way: HashMap<i64, usize> = rewrites
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| matches!(r.shape, RewriteShape::Way(_)))
+        .map(|(i, r)| (r.id, i))
+        .collect();
+    for e in enclosed {
+        let Some(conditional) = e.kind.conditional_keys().first() else {
+            continue;
+        };
+        if e.ways.iter().any(|w| {
+            kept_index
+                .get(&w.id)
+                .is_some_and(|wi| ign_lowest(*wi, e.kind).is_some())
+        }) {
+            continue;
+        }
+        // The zone's ways at the gates, with the figure the graph gives them.
+        let value = kept
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| w.refs.iter().any(|r| e.gates.contains(r)))
+            .filter(|(wi, w)| {
+                tags::spares_local_access_with(&w.tags, e.kind, ign_lowest(*wi, e.kind))
+            })
+            .filter_map(|(wi, w)| {
+                let osm = tags::read_limit(&w.tags, e.kind).limit()?;
+                Some(ign_lowest(wi, e.kind).map_or(osm, |ign| osm.min(ign)))
+            })
+            .reduce(f64::min);
+        let Some(value) = value else {
+            continue;
+        };
+        let reached = e.within_reach(coords);
+        if reached.is_empty() {
+            continue;
+        }
+        report.local_access_areas += 1;
+        for road in reached {
+            report.local_access_extended += 1;
+            let i = *by_way.entry(road.id).or_insert_with(|| {
+                rewrites.push(Rewrite {
+                    id: road.id,
+                    version: road.version.max(0) + 1,
+                    timestamp: road.timestamp + chrono::Duration::seconds(1),
+                    shape: RewriteShape::Way(road.refs.clone()),
+                    tags: road.tags.clone(),
+                });
+                rewrites.len() - 1
+            });
+            let tags = &mut rewrites[i].tags;
+            let figure = tags::canonical(value);
+            // Two zones of different figures around one road: the lower.
+            let lower = tags
+                .get(e.kind.graph_key())
+                .and_then(|v| v.parse::<f64>().ok())
+                .is_none_or(|v| value < v);
+            if lower {
+                tags.insert(e.kind.graph_key().to_owned(), figure);
+            }
+            tags.insert((*conditional).to_owned(), tags::LOCAL_ACCESS.to_owned());
+        }
+    }
 }
 
 /// Whether an IGN section's limit of `kind` at `value` spares local access.

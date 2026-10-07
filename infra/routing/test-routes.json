@@ -222,5 +222,23 @@
     "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 4.5},
     "avoid_ways": [174017047, 174017049, 116697288, 1002227392],
     "max_km": 12.0
+  },
+  {
+    "name": "Goult: a 3.5 t motorhome reaches the aire behind the 2.5 t sauf desserte street on the engine's first pass",
+    "from": [43.88525, 5.228524],
+    "to": [43.85825, 5.228524],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 3.5},
+    "use_ways": [109270742],
+    "first_pass": true,
+    "max_km": 6.0
+  },
+  {
+    "name": "Le Calvaire aire: a 4.5 t motorhome reaches it behind the 3.5 t sauf desserte street on the engine's first pass",
+    "from": [48.4736539, -4.258096],
+    "to": [48.4466539, -4.258096],
+    "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 4.5},
+    "use_ways": [198967532],
+    "first_pass": true,
+    "max_km": 7.0
   }
 ]
