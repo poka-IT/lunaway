@@ -358,12 +358,12 @@
     "allWeek": "24/7"
   },
   "directions": {
-    "title": "Directions with",
-    "hint": "Choose who guides you. Only Lunaway's guidance knows your vehicle's size.",
+    "title": "Open in",
+    "hint": "These apps do not know your vehicle's size.",
     "remember": "Always use this app",
     "rememberHint": "You can change it in Profile",
-    "settingTitle": "Directions",
-    "settingHint": "Who guides you when you tap Directions",
+    "settingTitle": "Open in another app",
+    "settingHint": "The app that \"Open in\" starts from a route",
     "askEachTime": "Ask each time",
     "appleMaps": "Apple Maps",
     "googleMaps": "Google Maps",
@@ -371,21 +371,15 @@
     "osmAnd": "OsmAnd",
     "organicMaps": "Organic Maps",
     "magicEarth": "Magic Earth",
-    "openStreetMap": "OpenStreetMap (browser)"
+    "openStreetMap": "OpenStreetMap (browser)",
+    "none": "No navigation app found on this device."
   },
   "navigation": {
-    "entry": {
-      "lunaway": "Lunaway guidance",
-      "lunawayHint": "A route computed for your vehicle's size",
-      "vehicleMissing": "Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.",
-      "others": "Other apps"
-    },
     "preview": {
       "titleTo": "To $name",
       "titlePoint": "To this point",
       "computing": "Computing a route for your vehicle",
-      "start": "Start",
-      "phoneOnly": "Turn-by-turn guidance starts from a phone.",
+      "start": "Let's go!",
       "recommended": "Recommended",
       "alternative": "Alternative $n",
       "toll": "Toll",
@@ -411,7 +405,7 @@
       "attributionOsm": "© OpenStreetMap contributors",
       "attributionIgn": "IGN, BD TOPO, $date edition",
       "disclaimer": "Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.",
-      "otherApps": "Open in another app",
+      "otherApps": "Open in…",
       "back": "Back"
     },
     "stops": {
@@ -664,7 +658,8 @@
       "cameraLimit": "Speed camera in $distance, $limit",
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
-      "enforcementSource": "$source, list of $date"
+      "enforcementSource": "$source, list of $date",
+      "demoDrive": "Simulated drive: a demonstration without GPS"
     },
     "voice": {
       "rerouting": "Recalculating.",

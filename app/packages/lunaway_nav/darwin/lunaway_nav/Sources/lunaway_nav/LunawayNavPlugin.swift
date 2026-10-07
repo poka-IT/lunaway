@@ -1,18 +1,27 @@
 import AVFoundation
-import Flutter
-import UIKit
 
-/// The spoken instructions of the guidance, through iOS's own speech
-/// synthesis: the voices installed on the device, nothing downloaded by the
-/// app. The audio session is the one Apple describes for navigation prompts
-/// (`voicePrompt`): music ducks under the instruction, a podcast pauses, and
-/// both come back once it is said.
+#if os(iOS)
+  import Flutter
+#else
+  import FlutterMacOS
+#endif
+
+/// The spoken instructions of the guidance, through the system's own speech
+/// synthesis on iOS and macOS: the voices installed on the device, nothing
+/// downloaded by the app. On iOS the audio session is the one Apple
+/// describes for navigation prompts (`voicePrompt`): music ducks under the
+/// instruction, a podcast pauses, and both come back once it is said. macOS
+/// has no audio session to ask for: the instruction plays over the rest.
 public class LunawayNavPlugin: NSObject, FlutterPlugin, AVSpeechSynthesizerDelegate {
   private let synthesizer = AVSpeechSynthesizer()
 
   public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(
-      name: "lunaway_nav/voice", binaryMessenger: registrar.messenger())
+    #if os(iOS)
+      let messenger = registrar.messenger()
+    #else
+      let messenger = registrar.messenger
+    #endif
+    let channel = FlutterMethodChannel(name: "lunaway_nav/voice", binaryMessenger: messenger)
     let instance = LunawayNavPlugin()
     instance.synthesizer.delegate = instance
     registrar.addMethodCallDelegate(instance, channel: channel)
@@ -73,15 +82,17 @@ public class LunawayNavPlugin: NSObject, FlutterPlugin, AVSpeechSynthesizerDeleg
   private func speak(
     text: String, language: String, voiceId: String?, rate: Double, queue: Bool
   ) -> Bool {
-    let session = AVAudioSession.sharedInstance()
-    do {
-      try session.setCategory(
-        .playback, mode: .voicePrompt,
-        options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
-      try session.setActive(true)
-    } catch {
-      // Speech still works without the session; it just does not duck.
-    }
+    #if os(iOS)
+      let session = AVAudioSession.sharedInstance()
+      do {
+        try session.setCategory(
+          .playback, mode: .voicePrompt,
+          options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers])
+        try session.setActive(true)
+      } catch {
+        // Speech still works without the session; it just does not duck.
+      }
+    #endif
     let utterance = AVSpeechUtterance(string: text)
     utterance.voice =
       voiceId.flatMap { AVSpeechSynthesisVoice(identifier: $0) }
@@ -95,8 +106,10 @@ public class LunawayNavPlugin: NSObject, FlutterPlugin, AVSpeechSynthesizerDeleg
   }
 
   private func release() {
-    guard !synthesizer.isSpeaking else { return }
-    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    #if os(iOS)
+      guard !synthesizer.isSpeaking else { return }
+      try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    #endif
   }
 
   public func speechSynthesizer(

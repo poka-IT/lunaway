@@ -247,7 +247,11 @@ class _GuidanceMap extends ConsumerWidget {
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final camera = session.overview || vehicle == null
         ? FitCamera(whole)
-        : FollowCamera(position: vehicle.position, course: vehicle.course);
+        : FollowCamera(
+            position: vehicle.position,
+            course: vehicle.course,
+            speedMps: session.lastFix?.speedMps,
+          );
     final places = route.line.length < 2
         ? const <PlaceSummary>[]
         : ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[];
@@ -585,6 +589,8 @@ class _Notices extends ConsumerWidget {
     final now = ref.watch(clockProvider)().toLocal();
     final along = session.snapshot?.distanceAlongM ?? 0;
     final notices = <Widget>[
+      if (ref.watch(demoDriveProvider))
+        _Notice(icon: AppIcons.inAppNavigation, text: t.navigation.guidance.demoDrive),
       if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),

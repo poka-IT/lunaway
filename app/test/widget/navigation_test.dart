@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -20,7 +21,6 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
-import 'package:lunaway/features/navigation/presentation/route_entry.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
@@ -86,37 +86,45 @@ void main() {
   setUp(() => SchematicRouteMap.last = null);
 
   group('the way into the guidance', () {
-    testWidgets('"Itinéraire" offers the Lunaway guidance first, then the apps', (tester) async {
+    testWidgets('"Itinéraire" opens the route for the vehicle, even with an app remembered', (
+      tester,
+    ) async {
       final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
       final app = await pumpLunaway(
         tester,
         size: const Size(1280, 2400),
+        settings: AppSettings(navigationApp: NavigationApp.waze.id),
         overrides: navigationOverrides(routes: routes),
       );
       app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
       await settleShort(tester);
       await tester.tap(find.text('Itinéraire'));
       await settleShort(tester);
-      expect(find.text('Guidage Lunaway'), findsOneWidget);
-      expect(
-        find.text(
-          'Intégral · H\u00a03,30\u00a0m · l\u00a02,30\u00a0m · L\u00a07,4\u00a0m · 3,5\u00a0t',
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Autres applications'), findsOneWidget);
-      final lunaway = tester.getTopLeft(find.text('Guidage Lunaway'));
-      expect(lunaway.dy, lessThan(tester.getTopLeft(find.text('Waze')).dy));
-      await tester.tap(find.text('Guidage Lunaway'));
-      await settleShort(tester);
       expect(routes.requests.single.destination, dayParking.position);
       expect(routes.requests.single.vehicle.heightM, 3.3);
       expect(find.textContaining('Vers Parking des Tilleuls'), findsOneWidget);
-      // Remembered: the next trip goes straight to the route.
-      expect(app.settings.value.navigationApp, lunawayDirectionsId);
+      expect(app.external.routes, isEmpty, reason: 'the apps are a step aside, never the button');
     });
 
-    testWidgets('without a vehicle, the guidance says to describe it first', (tester) async {
+    testWidgets('the preview hands the route to the remembered app, a step aside', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 2400),
+        settings: AppSettings(navigationApp: NavigationApp.waze.id),
+        overrides: navigationOverrides(routes: routes),
+      );
+      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+      await settleShort(tester);
+      await tester.tap(find.text('Itinéraire'));
+      await settleShort(tester);
+      await tester.tap(find.text('Ouvrir dans…'));
+      await settleShort(tester);
+      expect(app.external.routes.single.app, NavigationApp.waze);
+      expect(app.external.routes.single.to, dayParking.position);
+    });
+
+    testWidgets('without a vehicle, the preview asks to describe it first', (tester) async {
       final app = await pumpLunaway(
         tester,
         size: const Size(1280, 2400),
@@ -129,10 +137,8 @@ void main() {
       await settleShort(tester);
       await tester.tap(find.text('Itinéraire'));
       await settleShort(tester);
-      expect(
-        find.textContaining('Décrivez d’abord votre véhicule'.replaceAll('’', "'")),
-        findsOneWidget,
-      );
+      expect(find.text('Quel est votre véhicule ?'), findsOneWidget);
+      expect(find.text('Décrire mon véhicule'), findsOneWidget);
     });
 
     testWidgets('a long-pressed point can be guided to as well', (tester) async {
@@ -140,7 +146,6 @@ void main() {
       final app = await pumpLunaway(
         tester,
         size: const Size(1280, 2400),
-        settings: const AppSettings(navigationApp: lunawayDirectionsId),
         overrides: navigationOverrides(routes: routes),
       );
       const point = LatLng(45.7629, 4.831697);
@@ -429,13 +434,26 @@ void main() {
       );
     });
 
-    testWidgets('a desktop shows the preview beside the map, without guidance', (tester) async {
-      await openPreview(tester, size: const Size(1280, 900));
-      expect(find.text('Démarrer'), findsNothing);
-      expect(find.text('Le guidage pas à pas se lance depuis un téléphone.'), findsOneWidget);
-      expect(find.text('Ouvrir dans une autre application'), findsOneWidget);
+    testWidgets('a desktop shows the preview beside the map and starts the guidance', (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      await openPreview(tester, size: const Size(1280, 900), engine: LineEngine([plan]));
+      final start = find.ancestor(
+        of: find.text("C'est parti !"),
+        matching: find.bySubtype<FilledButton>(),
+      );
+      expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      expect(find.text('Ouvrir dans…'), findsOneWidget);
       final panel = tester.getTopLeft(find.text('Recommandé'));
       expect(panel.dx, lessThan(440), reason: 'the panel on the left');
+    });
+
+    testWidgets('where the guidance library did not load, the preview says so', (tester) async {
+      await openPreview(tester, size: const Size(1280, 900));
+      expect(find.text("C'est parti !"), findsNothing);
+      expect(find.text("Le guidage n'a pas pu démarrer sur cet appareil."), findsOneWidget);
+      expect(find.text('Ouvrir dans…'), findsOneWidget);
     });
 
     testWidgets('on a phone, it starts after the disclaimer, read once', (tester) async {
@@ -449,7 +467,7 @@ void main() {
         settings: settings,
         notifications: notifications,
       );
-      await tester.tap(find.text('Démarrer'));
+      await tester.tap(find.text("C'est parti !"));
       await settleShort(tester);
       expect(find.text('Avant de partir'), findsOneWidget);
       await tester.tap(find.text("J'ai compris"));
@@ -468,7 +486,7 @@ void main() {
       final plan = routeFixture('utrillo_motorhome');
       final (app, routes) = await openPreview(tester, engine: LineEngine([plan]));
       FilledButton start() => tester.widget<FilledButton>(
-        find.ancestor(of: find.text('Démarrer'), matching: find.bySubtype<FilledButton>()),
+        find.ancestor(of: find.text("C'est parti !"), matching: find.bySubtype<FilledButton>()),
       );
       expect(start().onPressed, isNotNull);
       routes.gate = Completer<void>();
@@ -492,7 +510,7 @@ void main() {
       await settleShort(tester);
       expect(routes.requests, hasLength(2));
       final start = find.ancestor(
-        of: find.text('Démarrer'),
+        of: find.text("C'est parti !"),
         matching: find.bySubtype<FilledButton>(),
       );
       expect(tester.widget<FilledButton>(start).onPressed, isNull, reason: 'the toll route');
@@ -556,6 +574,40 @@ void main() {
       }
       await settleShort(tester);
     }
+
+    testWidgets('the debug demonstration drives the route by itself, and says so', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final device = FakeLocationFeed(position: plan.routes.first.line.first);
+      final app = await pumpLunaway(
+        tester,
+        overrides: [
+          ...navigationOverrides(
+            routes: FakeRouteService([plan]),
+            feed: device,
+            engine: LineEngine([plan]),
+          ),
+          demoDriveProvider.overrideWithValue(true),
+        ],
+      );
+      final container = app.container(tester);
+      final t = await AppLocale.fr.build();
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(t, DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('Trajet simulé : démonstration sans GPS'), findsOneWidget);
+      expect(device.listening, isFalse, reason: 'the device position is not used');
+      final along = container.read(guidanceControllerProvider)!.snapshot!.distanceAlongM;
+      expect(along, greaterThan(20), reason: 'about 14 m a second along the route');
+      container.read(guidanceControllerProvider.notifier).stop();
+      await tester.pump(const Duration(seconds: 2));
+    });
 
     testWidgets('the next maneuver large, its road, the arrival time and the speed', (
       tester,
@@ -955,8 +1007,8 @@ void main() {
           findsOneWidget,
         );
         expect(find.textContaining('appui long sur la carte'), findsOneWidget);
-        expect(find.text('Démarrer'), findsNothing);
-        expect(find.text('Ouvrir dans une autre application'), findsNothing);
+        expect(find.text("C'est parti !"), findsNothing);
+        expect(find.text('Ouvrir dans…'), findsNothing);
         final blocker = SchematicRouteMap.last!.marks.singleWhere(
           (m) => m.kind == RouteMarkKind.blocker,
         );
@@ -1081,9 +1133,9 @@ void main() {
       );
       expect(find.textContaining('Maroc'), findsOneWidget);
       expect(find.text('Choisissez une destination dans un de ces pays.'), findsOneWidget);
-      expect(find.text('Démarrer'), findsNothing);
+      expect(find.text("C'est parti !"), findsNothing);
       expect(
-        find.text('Ouvrir dans une autre application'),
+        find.text('Ouvrir dans…'),
         findsOneWidget,
         reason: 'where Lunaway computes nothing, the other apps are the way left',
       );

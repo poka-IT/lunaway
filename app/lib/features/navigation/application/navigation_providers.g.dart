@@ -309,15 +309,72 @@ final class LocationFeedProvider
 
 String _$locationFeedHash() => r'ac7ff6a7066fbc626c14e2801afb214d48383123';
 
-/// The guidance engine; null where the device cannot guide (desktop, web,
-/// a library that failed to load).
+/// Whether the guidance drives itself along its route instead of following
+/// the device: a demonstration on a computer without GPS. Only a debug
+/// build started with `--dart-define=LUNAWAY_DEMO_DRIVE=true` has it; a
+/// profile or release build never does, whatever its defines.
+// keepAlive: a constant of the run.
+
+@ProviderFor(demoDrive)
+final demoDriveProvider = DemoDriveProvider._();
+
+/// Whether the guidance drives itself along its route instead of following
+/// the device: a demonstration on a computer without GPS. Only a debug
+/// build started with `--dart-define=LUNAWAY_DEMO_DRIVE=true` has it; a
+/// profile or release build never does, whatever its defines.
+// keepAlive: a constant of the run.
+
+final class DemoDriveProvider extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// Whether the guidance drives itself along its route instead of following
+  /// the device: a demonstration on a computer without GPS. Only a debug
+  /// build started with `--dart-define=LUNAWAY_DEMO_DRIVE=true` has it; a
+  /// profile or release build never does, whatever its defines.
+  // keepAlive: a constant of the run.
+  DemoDriveProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'demoDriveProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$demoDriveHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return demoDrive(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$demoDriveHash() => r'b39c426694d62a729a320a1c03f7d01abd18f4c5';
+
+/// The guidance engine; null where the library is missing or failed to
+/// load (Linux has no app; a web page whose WebAssembly did not load).
 // keepAlive: the native library loads once per run.
 
 @ProviderFor(guidanceEngine)
 final guidanceEngineProvider = GuidanceEngineProvider._();
 
-/// The guidance engine; null where the device cannot guide (desktop, web,
-/// a library that failed to load).
+/// The guidance engine; null where the library is missing or failed to
+/// load (Linux has no app; a web page whose WebAssembly did not load).
 // keepAlive: the native library loads once per run.
 
 final class GuidanceEngineProvider
@@ -328,8 +385,8 @@ final class GuidanceEngineProvider
           FutureOr<GuidanceEngine?>
         >
     with $FutureModifier<GuidanceEngine?>, $FutureProvider<GuidanceEngine?> {
-  /// The guidance engine; null where the device cannot guide (desktop, web,
-  /// a library that failed to load).
+  /// The guidance engine; null where the library is missing or failed to
+  /// load (Linux has no app; a web page whose WebAssembly did not load).
   // keepAlive: the native library loads once per run.
   GuidanceEngineProvider._()
     : super(
@@ -359,19 +416,22 @@ final class GuidanceEngineProvider
 
 String _$guidanceEngineHash() => r'606015d5a08b387e6155c5f407b09d1d435f7a14';
 
-/// The spoken instructions.
+/// The spoken instructions: the platform's speech engine on Android, iOS
+/// and macOS, the browser's on the web; none on Windows yet.
 // keepAlive: one speech engine for the run.
 
 @ProviderFor(voiceOutput)
 final voiceOutputProvider = VoiceOutputProvider._();
 
-/// The spoken instructions.
+/// The spoken instructions: the platform's speech engine on Android, iOS
+/// and macOS, the browser's on the web; none on Windows yet.
 // keepAlive: one speech engine for the run.
 
 final class VoiceOutputProvider
     extends $FunctionalProvider<VoiceOutput, VoiceOutput, VoiceOutput>
     with $Provider<VoiceOutput> {
-  /// The spoken instructions.
+  /// The spoken instructions: the platform's speech engine on Android, iOS
+  /// and macOS, the browser's on the web; none on Windows yet.
   // keepAlive: one speech engine for the run.
   VoiceOutputProvider._()
     : super(
@@ -406,7 +466,7 @@ final class VoiceOutputProvider
   }
 }
 
-String _$voiceOutputHash() => r'5121cddfe166d77db4c74f2ee547de30e1b8ff00';
+String _$voiceOutputHash() => r'a7a24d1af38abaebb3bd37d200961120330866a7';
 
 @ProviderFor(screenWake)
 final screenWakeProvider = ScreenWakeProvider._();

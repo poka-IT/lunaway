@@ -358,12 +358,12 @@
     "allWeek": "24 h/24, 7 j/7"
   },
   "directions": {
-    "title": "Itinéraire avec",
-    "hint": "Choisissez qui vous guide. Seul le guidage Lunaway connaît le gabarit de votre véhicule.",
+    "title": "Ouvrir dans",
+    "hint": "Ces applications ne connaissent pas le gabarit de votre véhicule.",
     "remember": "Toujours utiliser cette application",
     "rememberHint": "Modifiable dans Profil",
-    "settingTitle": "Itinéraire",
-    "settingHint": "Qui vous guide quand vous touchez Itinéraire",
+    "settingTitle": "Ouvrir dans une autre application",
+    "settingHint": "L'application que lance « Ouvrir dans » depuis un itinéraire",
     "askEachTime": "Demander à chaque fois",
     "appleMaps": "Plans",
     "googleMaps": "Google Maps",
@@ -371,21 +371,15 @@
     "osmAnd": "OsmAnd",
     "organicMaps": "Organic Maps",
     "magicEarth": "Magic Earth",
-    "openStreetMap": "OpenStreetMap (navigateur)"
+    "openStreetMap": "OpenStreetMap (navigateur)",
+    "none": "Aucune application de navigation trouvée sur cet appareil."
   },
   "navigation": {
-    "entry": {
-      "lunaway": "Guidage Lunaway",
-      "lunawayHint": "Un itinéraire calculé pour le gabarit de votre véhicule",
-      "vehicleMissing": "Décrivez d'abord votre véhicule : l'itinéraire évite les ponts trop bas et les rues trop étroites pour lui.",
-      "others": "Autres applications"
-    },
     "preview": {
       "titleTo": "Vers $name",
       "titlePoint": "Vers ce point",
       "computing": "Calcul d'un itinéraire pour votre véhicule",
-      "start": "Démarrer",
-      "phoneOnly": "Le guidage pas à pas se lance depuis un téléphone.",
+      "start": "C'est parti !",
       "recommended": "Recommandé",
       "alternative": "Variante $n",
       "toll": "Péage",
@@ -411,7 +405,7 @@
       "attributionOsm": "© les contributeurs d'OpenStreetMap",
       "attributionIgn": "IGN, BD TOPO, édition du $date",
       "disclaimer": "Lunaway calcule l'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l'application. Vous restez seul responsable de votre conduite.",
-      "otherApps": "Ouvrir dans une autre application",
+      "otherApps": "Ouvrir dans…",
       "back": "Retour"
     },
     "stops": {
@@ -664,7 +658,8 @@
       "cameraLimit": "Radar dans $distance, $limit",
       "limitEstimated": "Limite estimée",
       "overLimit": "au-dessus de la limite",
-      "enforcementSource": "$source, liste du $date"
+      "enforcementSource": "$source, liste du $date",
+      "demoDrive": "Trajet simulé : démonstration sans GPS"
     },
     "voice": {
       "rerouting": "Recalcul de l'itinéraire.",

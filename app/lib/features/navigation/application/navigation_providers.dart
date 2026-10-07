@@ -14,6 +14,8 @@ import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/data/web_voice.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/navigation/data/web_voice_web.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -85,21 +87,30 @@ Future<RoutingInfo> routingInfo(Ref ref) => ref.watch(routeServiceProvider).info
 @Riverpod(keepAlive: true)
 LocationFeed locationFeed(Ref ref) => const GeolocatorFeed();
 
-/// The guidance engine; null where the device cannot guide (desktop, web,
-/// a library that failed to load).
+/// Whether the guidance drives itself along its route instead of following
+/// the device: a demonstration on a computer without GPS. Only a debug
+/// build started with `--dart-define=LUNAWAY_DEMO_DRIVE=true` has it; a
+/// profile or release build never does, whatever its defines.
+// keepAlive: a constant of the run.
+@Riverpod(keepAlive: true)
+bool demoDrive(Ref ref) => kDebugMode && const bool.fromEnvironment('LUNAWAY_DEMO_DRIVE');
+
+/// The guidance engine; null where the library is missing or failed to
+/// load (Linux has no app; a web page whose WebAssembly did not load).
 // keepAlive: the native library loads once per run.
 @Riverpod(keepAlive: true)
 Future<GuidanceEngine?> guidanceEngine(Ref ref) => loadFerrostarEngine();
 
-/// The spoken instructions.
+/// The spoken instructions: the platform's speech engine on Android, iOS
+/// and macOS, the browser's on the web; none on Windows yet.
 // keepAlive: one speech engine for the run.
 @Riverpod(keepAlive: true)
 VoiceOutput voiceOutput(Ref ref) {
-  final phone =
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
-  return phone ? PlatformVoiceOutput() : const SilentVoice();
+  if (kIsWeb) return browserVoice();
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.macOS => PlatformVoiceOutput(),
+    _ => const SilentVoice(),
+  };
 }
 
 // keepAlive: stateless, wired once.
