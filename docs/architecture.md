@@ -90,7 +90,14 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   page states them.
 - The community summary of a place (ratings, counts, cover photos, recent
   issues, verification) lives on `places`, recomputed by the same worker,
-  so the change feed carries it.
+  so the change feed carries it. Every write that can change it queues the
+  place in `place_refresh_queue`: a contribution, its deletion, a
+  moderation decision, a deleted or banned account, and also what changes
+  whose answers count (a trust level, which decides whether an account's
+  confirmations and issue reports count; a new place detached from its
+  author, whose own confirmations then count). The points of interest
+  follow the same rule with `poi_refresh_queue`. A summary left
+  unrefreshed never reaches the devices that synced before.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
 - `changes`: a monotonic cursor the app syncs from, by box or by sync

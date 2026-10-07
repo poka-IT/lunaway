@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE accounts SET granted_level = $2, trust_level = $2\n        WHERE id = $1\n        RETURNING old.trust_level AS \"was!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "was!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "trust_level"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c92c0a4c8eabb0b571a7e9ef5f8386f5720c097d31374d19ab2a1254ec61ec73"
+}

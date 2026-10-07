@@ -6,6 +6,7 @@
 //! `lunaway-auth` before they reach this module.
 
 use chrono::{DateTime, NaiveDate, Utc};
+use sqlx::PgConnection;
 use uuid::Uuid;
 
 use crate::{DbError, PgPool};
@@ -498,42 +499,99 @@ pub async fn trust_inputs(pool: &PgPool, account: Uuid) -> Result<Option<TrustIn
     }))
 }
 
-/// Stores the level the rules computed.
+/// Stores the level the rules computed. A new level queues what counts the
+/// account's answers by level ([`queue_level_dependents`]).
 ///
 /// # Errors
 ///
-/// [`DbError`] when the statement fails.
+/// [`DbError`] when a statement fails.
 pub async fn set_trust_level(pool: &PgPool, account: Uuid, level: i16) -> Result<(), DbError> {
-    sqlx::query!(
+    let mut tx = pool.begin().await?;
+    let done = sqlx::query!(
         "UPDATE accounts SET trust_level = $2 WHERE id = $1 AND trust_level <> $2",
         account,
         level
     )
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    if done.rows_affected() > 0 {
+        queue_level_dependents(&mut tx, account).await?;
+    }
+    tx.commit().await?;
     Ok(())
 }
 
 /// Sets the floor the administration grants `account`, and its level to it
 /// at once, upward or downward: a withdrawn grant takes effect now, and the
 /// rules raise the level again at the next computation if the account earned
-/// more. Returns whether the account exists.
+/// more. A new level queues what counts the account's answers by level
+/// ([`queue_level_dependents`]). Returns whether the account exists.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the statement fails.
+/// [`DbError`] when a statement fails.
 pub async fn set_granted_level(pool: &PgPool, account: Uuid, level: i16) -> Result<bool, DbError> {
-    let done = sqlx::query!(
+    let mut tx = pool.begin().await?;
+    let was = sqlx::query_scalar!(
         r#"
         UPDATE accounts SET granted_level = $2, trust_level = $2
         WHERE id = $1
+        RETURNING old.trust_level AS "was!"
         "#,
         account,
         level
     )
-    .execute(pool)
+    .fetch_optional(&mut *tx)
     .await?;
-    Ok(done.rows_affected() > 0)
+    let Some(was) = was else {
+        return Ok(false);
+    };
+    if was != level {
+        queue_level_dependents(&mut tx, account).await?;
+    }
+    tx.commit().await?;
+    Ok(true)
+}
+
+/// Queues the places and the points whose summary counts `account`'s
+/// answers only from a level up, and wakes the worker. The summaries leave
+/// out the confirmations and issue reports of accounts below level 1
+/// (`summary::refresh`), and the "still there?" answers too when a point is
+/// hidden (`pois::refresh_community`): without a refresh, a level that
+/// crosses that line would change what the cards should show while the
+/// change feed never carries it. Every change of level queues them, not
+/// only a crossing, so a threshold moved in those queries needs no change
+/// here; a refresh that finds the summary unchanged does not move the place
+/// in the feed. The rows go in in key order: two of these inserts at once
+/// with places in common then wait on each other in one direction only,
+/// never in a deadlock.
+async fn queue_level_dependents(conn: &mut PgConnection, account: Uuid) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO place_refresh_queue (place_id)
+        SELECT place_id FROM (
+            SELECT place_id FROM confirmations WHERE account_id = $1
+            UNION SELECT place_id FROM issue_reports WHERE account_id = $1 AND status = 'published'
+        ) counted
+        ORDER BY place_id
+        ON CONFLICT DO NOTHING
+        "#,
+        account,
+    )
+    .execute(&mut *conn)
+    .await?;
+    sqlx::query!(
+        r#"
+        INSERT INTO poi_refresh_queue (poi_id)
+        SELECT DISTINCT poi_id FROM poi_confirmations WHERE account_id = $1
+        ORDER BY poi_id
+        ON CONFLICT DO NOTHING
+        "#,
+        account,
+    )
+    .execute(&mut *conn)
+    .await?;
+    crate::community::notify_worker(conn).await
 }
 
 /// What one account says of another.

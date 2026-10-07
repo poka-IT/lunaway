@@ -33,6 +33,10 @@ mod takedown_zone;
 #[path = "conflate/retention.rs"]
 mod retention;
 
+// Whatever takes something off a place's card moves it in the change feed.
+#[path = "conflate/feed.rs"]
+mod feed;
+
 /// The takedown secret of the tests.
 fn test_key() -> lunaway_domain::takedown::TakedownKey {
     lunaway_domain::takedown::TakedownKey::new(&[42; 32]).unwrap()

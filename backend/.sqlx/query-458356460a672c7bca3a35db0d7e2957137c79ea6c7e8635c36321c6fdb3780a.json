@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO poi_refresh_queue (poi_id)\n        SELECT DISTINCT poi_id FROM poi_confirmations WHERE account_id = $1\n        ORDER BY poi_id\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "458356460a672c7bca3a35db0d7e2957137c79ea6c7e8635c36321c6fdb3780a"
+}

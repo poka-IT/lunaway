@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO poi_refresh_queue (poi_id)\n                SELECT poi_id FROM place_submissions WHERE id = $1 AND poi_id IS NOT NULL\n                ON CONFLICT DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65eaf3c87fcd7233805daf98205b38dce7c7cd9220a3a167c3d90a90c0ba29c7"
+}

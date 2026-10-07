@@ -240,6 +240,38 @@ pub async fn withdraw(pool: &PgPool, account: Uuid, id: Uuid) -> Result<Withdraw
             Withdrawal::Withdrawn
         }
         Some(_) => {
+            // The summaries leave out the answers of the account that added
+            // a place or a point (`summary::refresh`,
+            // `pois::refresh_community`, which also hides the points of a
+            // banned author): without its author, those answers count, and
+            // the place's verification or the point's date and visibility
+            // may change. The worker refreshes them so the change feed and
+            // the tiles carry it.
+            let places = sqlx::query!(
+                r#"
+                INSERT INTO place_refresh_queue (place_id)
+                SELECT ps.place_id FROM place_submissions s
+                JOIN place_sources ps ON ps.record_id = s.record_id
+                WHERE s.id = $1 AND s.kind = 'create'
+                ON CONFLICT DO NOTHING
+                "#,
+                id
+            )
+            .execute(&mut *tx)
+            .await?;
+            let points = sqlx::query!(
+                r#"
+                INSERT INTO poi_refresh_queue (poi_id)
+                SELECT poi_id FROM place_submissions WHERE id = $1 AND poi_id IS NOT NULL
+                ON CONFLICT DO NOTHING
+                "#,
+                id
+            )
+            .execute(&mut *tx)
+            .await?;
+            if places.rows_affected() + points.rows_affected() > 0 {
+                crate::community::notify_worker(&mut tx).await?;
+            }
             sqlx::query!(
                 "UPDATE place_submissions SET account_id = NULL, device_key_id = NULL WHERE id = $1",
                 id

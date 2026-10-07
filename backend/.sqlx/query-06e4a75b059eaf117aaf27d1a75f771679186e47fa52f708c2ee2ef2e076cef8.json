@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO place_refresh_queue (place_id)\n                SELECT ps.place_id FROM place_submissions s\n                JOIN place_sources ps ON ps.record_id = s.record_id\n                WHERE s.id = $1 AND s.kind = 'create'\n                ON CONFLICT DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "06e4a75b059eaf117aaf27d1a75f771679186e47fa52f708c2ee2ef2e076cef8"
+}
