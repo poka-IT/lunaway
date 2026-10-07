@@ -16,6 +16,8 @@ use crate::{
     },
 };
 
+pub mod reviews;
+
 /// Photos of one place kept at most, every source together: the card shows
 /// a strip, and each photo costs a download and two files.
 pub const MAX_PHOTOS_PER_PLACE: usize = 8;

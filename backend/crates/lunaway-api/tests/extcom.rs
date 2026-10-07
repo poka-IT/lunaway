@@ -19,8 +19,12 @@ use axum::{
 use chrono::{NaiveDate, TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState, external_photos::PhotoSource};
-use lunaway_db::{PgPool, content, extcom};
-use lunaway_domain::{SourceId, extcom::Terms};
+use lunaway_db::{PgPool, accounts, community, content, extcom};
+use lunaway_domain::{
+    SourceId,
+    community::{ReportReason, ReportTarget},
+    extcom::Terms,
+};
 use lunaway_ingest::{
     cache::Cache,
     extcom::{Input, Limits, Options, import},
@@ -461,6 +465,70 @@ async fn the_switch_hides_everything_of_the_source_at_once(pool: PgPool) {
             .unwrap()
             .iter()
             .all(|s| s["id"] != "extcom")
+    );
+}
+
+/// A reporter of level 2, number `n`.
+async fn reporter(pool: &PgPool, n: u8) -> Uuid {
+    let mut key = [n; 65];
+    key[0] = 4;
+    let (a, _) = accounts::create_with_key(
+        pool,
+        accounts::NewAccount {
+            pseudonym: "Hérisson du Vercors",
+            thumbprint: &format!("{n:0>43}"),
+            public_key: &key,
+            session_hash: &[n; 32],
+            session_ttl_secs: 3_600.0,
+        },
+    )
+    .await
+    .unwrap();
+    accounts::set_trust_level(pool, a.id, 2).await.unwrap();
+    a.id
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_reported_partner_review_does_not_hide_a_photo_of_the_same_id(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, &dir.path().join("raw")).await;
+    let app = app(&pool, &dir.path().join("media"), &[]);
+    // The partner does not say its review and photo ids differ: one photo
+    // carries the id of Marie's review.
+    sqlx::query("UPDATE external_photos SET external_id = 'r-1' WHERE external_id = 'p-1'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let review: Uuid = sqlx::query_scalar(
+        "SELECT id FROM external_reviews WHERE source_id = 'extcom' AND external_id = 'r-1'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    for n in 1..=3 {
+        let who = reporter(&pool, n).await;
+        community::report_content(
+            &pool,
+            who,
+            ReportTarget::ExternalReview,
+            review,
+            ReportReason::Offensive,
+            None,
+            3,
+        )
+        .await
+        .unwrap();
+    }
+    let body = gql(&app, CARD, json!({"id": place})).await;
+    let p = &ok(&body)["place"];
+    assert_eq!(
+        p["externalReviews"]["totalCount"], 1,
+        "three reports hide the review"
+    );
+    assert_eq!(
+        p["externalPhotos"].as_array().unwrap().len(),
+        2,
+        "the photo that shares the review's id at the partner stays"
     );
 }
 

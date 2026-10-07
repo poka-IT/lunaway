@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT scope, key FROM content_hides WHERE source_id = $1 AND scope IN ('item', 'author')",
+  "query": "SELECT scope, key FROM content_hides WHERE source_id = $1 AND scope IN ('review', 'author')",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "9e9d9e2ac3c92f821d426187b49909538e5acc7af15d9551a21e9b167f8fe427"
+  "hash": "1a6717c3f52910f2fe5ba8c293905dd93edf7c5cfabaa9f04f968c7f1893dd1b"
 }

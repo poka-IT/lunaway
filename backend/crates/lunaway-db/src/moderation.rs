@@ -340,14 +340,27 @@ pub async fn decide(
         "external_review" | "external_photo" => {
             // A rejection hides the item for good; keeping it lifts the
             // hide its reports put on it, never an operator's.
-            if let Some(item) = crate::content::external_item_on(&mut tx, entry.target_id).await? {
+            let kind = if entry.target_type == "external_review" {
+                crate::content::ItemKind::Review
+            } else {
+                crate::content::ItemKind::Photo
+            };
+            if let Some(item) =
+                crate::content::external_item_on(&mut tx, kind, entry.target_id).await?
+            {
                 if approve {
-                    crate::content::unhide_reported_on(&mut tx, &item.source_id, &item.external_id)
-                        .await?;
+                    crate::content::unhide_reported_on(
+                        &mut tx,
+                        &item.source_id,
+                        kind,
+                        &item.external_id,
+                    )
+                    .await?;
                 } else {
                     crate::content::hide_item_on(
                         &mut tx,
                         &item.source_id,
+                        kind,
                         &item.external_id,
                         crate::content::HideOrigin::Moderator,
                     )

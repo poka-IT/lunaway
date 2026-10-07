@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO content_review_keys (source_id, author_key, first_kept_at)\n        SELECT $1, k, $3 FROM unnest($2::text[]) AS k\n        ON CONFLICT (source_id, author_key) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2480826204e55aef6a2a0908c7eafd106ddc7e1581db5c91d52424de079cef0f"
+}
