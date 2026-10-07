@@ -249,6 +249,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     return (native ? MediaQuery.devicePixelRatioOf(context) : 1) / _ratio;
   }
 
+  /// The apps of a phone or a tablet draw the country's dots larger, for a
+  /// finger (MapLook.touchDotRadius), and pick them by that size; the
+  /// browser keeps the mouse's dots, whatever points at it.
+  static bool get _fingerDots =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   /// The engine's screen units per logical pixel, for its feature queries.
   double get _queryScale => mapQueryScale(
     web: kIsWeb,
@@ -329,7 +337,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         );
       }
       if (_props.placeTiles case final tiles?) {
-        await _tiles.install(c, tiles, pinScale: _pinScale, dark: dark, current: current);
+        await _tiles.install(
+          c,
+          tiles,
+          pinScale: _pinScale,
+          dark: dark,
+          current: current,
+          touch: _fingerDots,
+        );
       }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
       for (final layer in [
@@ -480,6 +495,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         pinScale: _pinScale,
         dark: props.dark,
         current: () => mounted && _ready,
+        touch: _fingerDots,
         below: MapStyle.clustersLayer,
       );
     } else if (tiles == null && _tiles.installed) {
@@ -603,7 +619,13 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       );
     }
     final hit = hitAroundTap(
-      (t) => nearestHit(tapped, candidates, shapes: mapHitShapes, zoom: zoom, tolerance: t),
+      (t) => nearestHit(
+        tapped,
+        candidates,
+        shapes: _fingerDots ? touchMapHitShapes : mapHitShapes,
+        zoom: zoom,
+        tolerance: t,
+      ),
       tolerance: tolerance,
       zoom: zoom,
     );

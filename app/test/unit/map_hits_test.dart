@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
@@ -337,6 +338,40 @@ void main() {
         tolerance: _touch,
       );
       expect(hit?.marker, isTrue);
+    });
+  });
+
+  group("a finger's dots in the country view", () {
+    double at(List<Object> expression, double zoom) => interpolateStops([
+      for (var i = 3; i + 1 < expression.length; i += 2)
+        ((expression[i] as num).toDouble(), (expression[i + 1] as num).toDouble()),
+    ], zoom);
+
+    test('the phone apps draw them larger from zoom 5 to 7, as a mouse does from the street', () {
+      for (final zoom in [5.0, 6.0, 7.0]) {
+        expect(
+          at(MapLook.touchDotRadius, zoom),
+          greaterThan(at(MapLook.dotRadius, zoom) * 1.4),
+          reason: 'zoom $zoom',
+        );
+      }
+      expect(at(MapLook.touchDotRadius, 12), at(MapLook.dotRadius, 12));
+      expect(GlPlaceTiles.dots(dark: false, touch: true).circleRadius, MapLook.touchDotRadius);
+      expect(GlPlaceTiles.dots(dark: false, touch: false).circleRadius, MapLook.dotRadius);
+    });
+
+    test('a touch picks the dot within 22 px of the larger dot drawn, and no further', () {
+      const zoom = 6.0;
+      final drawn = at(MapLook.touchDotRadius, zoom) + at(MapLook.dotStrokeWidth, zoom);
+      expect(touchMapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), drawn);
+      HitCandidate dotAt(double dx) =>
+          _c(PlaceTiles.dotsLayer, [_here + Offset(dx, 0)], {'kind': 'parking'});
+      MapHit? pick(double dx) =>
+          nearestHit(_here, [dotAt(dx)], shapes: touchMapHitShapes, zoom: zoom, tolerance: _touch);
+      expect(pick(drawn + _touch), isNotNull);
+      expect(pick(drawn + _touch + 0.5), isNull);
+      // The browser keeps the mouse's dot: its pages read mapHitShapes.
+      expect(mapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), lessThan(drawn - 1));
     });
   });
 

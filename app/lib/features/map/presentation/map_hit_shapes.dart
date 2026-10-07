@@ -14,8 +14,15 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// What each layer of the map draws, for the pointer ([nearestHit]): taken
 /// from the same values that draw it (the pins' geometry, the radii and
 /// sizes of [MapLook] and [PoiMapStyle]), so a change of look moves the
-/// targets with it.
-final Map<String, HitShape> mapHitShapes = () {
+/// targets with it. The browser's and the desktop's map, the pages' copy.
+final Map<String, HitShape> mapHitShapes = _mapShapes(_dot);
+
+/// [mapHitShapes] on the apps of a phone or a tablet, whose places' dots
+/// are drawn larger for a finger ([MapLook.touchDotRadius]): the tolerance
+/// is measured from the dot drawn there.
+final Map<String, HitShape> touchMapHitShapes = _mapShapes(_touchDot);
+
+Map<String, HitShape> _mapShapes(StopsHit dot) {
   const selected = PinGeometry(selected: true);
   // The marker of a long-pressed point (`pointMarkerSize`): a drop of
   // radius 14 whose head stands 17 px under the image's top.
@@ -29,7 +36,7 @@ final Map<String, HitShape> mapHitShapes = () {
     MapStyle.selectionPinLayer: HitShape(
       radius: FixedHit(selected.outer),
       lift: FixedHit(selected.tipDrop),
-      anchor: _dot,
+      anchor: dot,
       priority: 0,
     ),
     '${MapStyle.selectionPinLayer}/point': marker,
@@ -37,30 +44,37 @@ final Map<String, HitShape> mapHitShapes = () {
       const PoiPinGeometry(selected: true),
       priority: 0,
       selection: true,
+      dot: dot,
     ),
     // The device's places: no dot under their pins.
-    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false),
-    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true),
+    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false, dot: dot),
+    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true, dot: dot),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
       priority: 2,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: _dot, priority: 3),
-    PlaceTiles.dotsLayer: HitShape(radius: _dot, priority: 3),
-    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4),
-    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 3),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 3),
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
-}();
+}
 
 /// A place's dot with its rim, by the zoom: the dot of the low zooms, the
 /// dot under each pin of the tiles, and the hover's ring under every pin.
 final StopsHit _dot = StopsHit(
   'zoom',
   _sum(_stops(MapLook.dotRadius), _stops(MapLook.dotStrokeWidth)),
+);
+
+/// [_dot] as a finger's map draws it.
+final StopsHit _touchDot = StopsHit(
+  'zoom',
+  _sum(_stops(MapLook.touchDotRadius), _stops(MapLook.dotStrokeWidth)),
 );
 
 /// The pins of the guidance map's places and points, smaller than the main
@@ -85,13 +99,20 @@ final Map<String, HitShape> routePlaceHitShapes = {
 /// from the same feature is part of it ([HitShape.anchor]); without, the
 /// hover's ring takes that dot's size ([HitShape.ring]) and the target
 /// stays the head.
-HitShape _pin(PinGeometry g, {required bool dotUnder, double scale = 1, int priority = 1}) {
+HitShape _pin(
+  PinGeometry g, {
+  required bool dotUnder,
+  double scale = 1,
+  int priority = 1,
+  StopsHit? dot,
+}) {
   final size = _stops(MapLook.pinSize(scale));
+  final under = dot ?? _dot;
   return HitShape(
     radius: StopsHit('zoom', [for (final (z, s) in size) (z, g.outer * s)]),
     lift: StopsHit('zoom', [for (final (z, s) in size) (z, g.tipDrop * s)]),
-    anchor: dotUnder ? _dot : null,
-    ring: dotUnder ? null : _dot,
+    anchor: dotUnder ? under : null,
+    ring: dotUnder ? null : under,
     icon: StopsHit('zoom', size),
     priority: priority,
   );
@@ -107,13 +128,15 @@ HitShape _poiPin(
   required int priority,
   bool selection = false,
   double scale = 1,
+  StopsHit? dot,
 }) {
   final half = (g.side / 2 + g.rim) * scale;
+  final under = dot ?? _dot;
   return HitShape(
     radius: FixedHit(half),
     lift: FixedHit((g.margin + g.tail) * scale + half),
-    anchor: selection ? _dot : null,
-    ring: selection ? null : _dot,
+    anchor: selection ? under : null,
+    ring: selection ? null : under,
     icon: selection ? null : FixedHit(scale),
     priority: priority,
   );
