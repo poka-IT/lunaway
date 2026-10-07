@@ -56,8 +56,7 @@ final class GuidanceControllerProvider
   }
 }
 
-String _$guidanceControllerHash() =>
-    r'51ee4c92ae595657a4033dfb57e4e565fce2416b';
+String _$guidanceControllerHash() => r'51ee4c92ae595657a4033dfb57e4e565fce2416b';
 
 /// The guidance: the engine fed with each fix, the spoken instructions, the
 /// recalculation when the vehicle leaves the route or a road event closes
