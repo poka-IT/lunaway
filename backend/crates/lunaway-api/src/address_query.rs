@@ -44,7 +44,15 @@ pub(crate) async fn search_all(
         && st.geocoder.would_ask(text)
         && once
         && st.quotas.take(Action::Geocode, client).is_ok();
+    // A device that searches its own places asks the addresses alone: the
+    // places query is skipped (a generic text costs it over a second,
+    // measured on production on 2026-10-07), and the device leaves out its
+    // own towns.
+    let wants_places = ctx.look_ahead().field("places").exists();
     let places = async {
+        if !wants_places {
+            return Ok(Vec::new());
+        }
         let (pool, _permit) = db(ctx).await?;
         search::search(pool, text, near, first)
             .await
