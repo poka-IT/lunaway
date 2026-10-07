@@ -868,6 +868,18 @@ switches the `/srv/lunaway/site` or `/srv/lunaway/web` symlink. Without
 which the CSP refuses. A previous release comes back with
 `sudo ln -sfn /srv/lunaway/releases/app/<name> /srv/lunaway/web` on the server.
 
+Before uploading the app, the script writes its service worker,
+`lunaway_sw.js`, with `app/tool/web/service_worker.py`: it names every file
+of the build and a digest of them all, so a second visit is served from the
+browser's cache without a round trip per file (every file of `/app/` is
+served `no-cache`, its name carrying no content hash). A new deploy is a new
+worker: browsers install it in the background at their next visit and use
+the new build from the one after. The worker also answers the TileJSON of
+the places, the points of interest and the basemap from its copy while it
+fetches a fresh one. To take it out of every browser, deploy a build whose
+`lunaway_sw.js` unregisters itself (Flutter's own `flutter_service_worker.js`
+does exactly that).
+
 ## Backups and restore
 
 Each nightly dump in four places; the plaintext stays on the backend's
