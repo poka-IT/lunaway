@@ -40,7 +40,11 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   with `ST_Y(geom::geometry) AS lat, ST_X(geom::geometry) AS lon`, filter with
   `ST_DWithin` (metres on geography) and `&&` against an envelope for a map
   viewport. Every spatial filter has a GiST index behind it.
-- Text search uses `unaccent` + `pg_trgm` (`similarity`, `%`) and a GIN index.
+- Text search: places by their words (`places.search_vector`, a `tsvector`
+  of the folded name, city and municipality kept by a trigger, GIN index),
+  a typo by the trigram index of `place_search_words`, the path chosen from
+  `pg_stats` (`lunaway_db::search`); points of interest by `unaccent` +
+  `pg_trgm` (`similarity`, `%`) and a GIN index.
 - A mutation touching more than one table runs in one transaction; two
   writers that can race take `FOR UPDATE` or run `SERIALIZABLE`.
 - Every write to the catalogue (`source_records`, `places` and what hangs on

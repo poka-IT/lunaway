@@ -14,6 +14,8 @@ use uuid::Uuid;
 
 /// The last migration before reviews and photos got a source of their own.
 const BEFORE_REVIEW_SOURCES: i64 = 20_261_006_120_200;
+/// The last migration before the places' words for the search.
+const BEFORE_SEARCH_WORDS: i64 = 20_261_008_131_100;
 
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
@@ -100,6 +102,67 @@ async fn existing_reviews_and_photos_move_to_their_cc_by_source(pool: PgPool) {
             .await
             .unwrap();
     assert_eq!(licence, "CC BY 4.0");
+    db.close().await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE {name} WITH (FORCE)"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn existing_places_get_their_search_words_and_keep_them_current(pool: PgPool) {
+    let (db, name) = database_at(&pool, BEFORE_SEARCH_WORDS).await;
+    let place = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO places (id, kind, name, city, geom, overnight, content_hash)
+         VALUES ($1, 'campsite', 'Camping des Châtaigniers', 'Saint-Étienne',
+                 ST_SetSRID(ST_MakePoint(4.39, 45.43), 4326)::geography, 'unknown', 'h')",
+    )
+    .bind(place)
+    .execute(&db)
+    .await
+    .unwrap();
+
+    MIGRATOR.run(&db).await.unwrap();
+
+    let vector = |db: PgPool| async move {
+        sqlx::query_scalar::<_, String>("SELECT search_vector::text FROM places WHERE id = $1")
+            .bind(place)
+            .fetch_one(&db)
+            .await
+            .unwrap()
+    };
+    let words = |db: PgPool| async move {
+        sqlx::query_scalar::<_, String>("SELECT word FROM place_search_words ORDER BY word")
+            .fetch_all(&db)
+            .await
+            .unwrap()
+    };
+    assert_eq!(
+        vector(db.clone()).await,
+        "'camping':1 'chataigniers':3 'des':2 'etienne':5 'saint':4",
+        "folded, split where the query is split, in order for a phrase"
+    );
+    assert_eq!(
+        words(db.clone()).await,
+        ["camping", "chataigniers", "des", "etienne", "saint"]
+    );
+    sqlx::query("UPDATE places SET name = 'Camping des Oliviers' WHERE id = $1")
+        .bind(place)
+        .execute(&db)
+        .await
+        .unwrap();
+    assert_eq!(
+        vector(db.clone()).await,
+        "'camping':1 'des':2 'etienne':5 'oliviers':3 'saint':4",
+        "a write recomputes the words"
+    );
+    assert!(
+        words(db.clone()).await.contains(&"oliviers".to_owned()),
+        "and adds the new ones to those a typo is corrected to"
+    );
     db.close().await;
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "DROP DATABASE {name} WITH (FORCE)"

@@ -45,9 +45,7 @@ pub(crate) async fn search_all(
         && once
         && st.quotas.take(Action::Geocode, client).is_ok();
     // A device that searches its own places asks the addresses alone: the
-    // places query is skipped (a generic text costs it over a second,
-    // measured on production on 2026-10-07), and the device leaves out its
-    // own towns.
+    // places query is skipped, and the device leaves out its own towns.
     let wants_places = ctx.look_ahead().field("places").exists();
     let places = async {
         if !wants_places {

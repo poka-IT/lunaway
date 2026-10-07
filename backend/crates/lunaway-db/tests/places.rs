@@ -18,7 +18,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Address, BBox, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, SourceId,
-    conflation::PlaceContent,
+    conflation::PlaceContent, search::LookupPath,
 };
 use uuid::Uuid;
 
@@ -343,12 +343,6 @@ async fn search_ignores_accents_tolerates_typos_and_prefers_the_nearest(pool: Pg
         .unwrap());
     assert_eq!(from_annecy[..2], [lac_annecy, lac_nantes]);
     assert!(from_annecy.len() <= 4 && !from_annecy.contains(&gone));
-    assert_eq!(
-        search::search_threshold("lac"),
-        0.6,
-        "short queries stay strict"
-    );
-    assert_eq!(search::search_threshold("bradere"), 0.5);
     assert!(
         search::search(&pool, "zzzzqqq", None, 20)
             .await
@@ -515,8 +509,6 @@ async fn a_town_s_name_finds_its_places_before_names_that_share_letters(pool: Pg
         prefix_rank(colmyr) > 0 && prefix_rank(anneyron) > 0 && prefix_rank(annexe) > 0,
         "Annecy, Anneyron and Annexe begin with the word"
     );
-    assert_eq!(search::search_threshold("annecy"), 0.6);
-    assert_eq!(search::search_threshold("bradiere"), 0.5);
 
     // A place written after the load takes its commune when the conflation
     // writes it.
@@ -534,4 +526,180 @@ async fn a_town_s_name_finds_its_places_before_names_that_share_letters(pool: Pg
             .as_deref(),
         Some("Annecy")
     );
+}
+
+fn ids(rows: Vec<places::PlaceRow>) -> Vec<Uuid> {
+    rows.into_iter().map(|p| p.id).collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn generic_words_rank_the_places_a_name_finds_and_never_filter_them(pool: PgPool) {
+    let camping = put(
+        &pool,
+        &content(PlaceKind::Campsite, "Camping du Lac", 45.86, 6.17),
+    )
+    .await;
+    let aire = put(
+        &pool,
+        &content(PlaceKind::MotorhomeArea, "Aire du Lac", 45.87, 6.18),
+    )
+    .await;
+    let parking = put(&pool, &content(PlaceKind::Parking, "Le Lac", 45.88, 6.16)).await;
+    let pins = put(
+        &pool,
+        &content(PlaceKind::Campsite, "Camping des Pins", 45.85, 6.15),
+    )
+    .await;
+
+    let found = ids(search::search(&pool, "camping du lac", None, 20)
+        .await
+        .unwrap());
+    assert_eq!(
+        found.first(),
+        Some(&camping),
+        "the whole name first: {found:?}"
+    );
+    assert!(
+        found.contains(&aire) && found.contains(&parking),
+        "the lake's other places match without the generic words: {found:?}"
+    );
+    assert!(
+        !found.contains(&pins),
+        "a generic word alone does not make a place match a name: {found:?}"
+    );
+
+    let near = Position::new(45.87, 6.18).unwrap();
+    assert_eq!(
+        ids(search::search(&pool, "camping", Some(near), 20)
+            .await
+            .unwrap()),
+        [camping, pins],
+        "a kind word around a point: the campsites, nearest first"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_query_of_kind_words_lists_the_nearest_places_of_that_kind(pool: PgPool) {
+    let mut unnamed = content(PlaceKind::Parking, "x", 47.20, -1.55);
+    unnamed.name = None;
+    let unnamed = put(&pool, &unnamed).await;
+    let port = put(
+        &pool,
+        &content(PlaceKind::Parking, "Parking du Port", 47.25, -1.55),
+    )
+    .await;
+    let area = put(
+        &pool,
+        &content(
+            PlaceKind::MotorhomeArea,
+            "Parking des camping-cars",
+            47.21,
+            -1.55,
+        ),
+    )
+    .await;
+    let far = put(
+        &pool,
+        &content(PlaceKind::Parking, "Parking de la Gare", 48.85, 2.35),
+    )
+    .await;
+    let nantes = Position::new(47.2, -1.55).unwrap();
+    assert_eq!(
+        ids(search::search(&pool, "parking", Some(nantes), 20)
+            .await
+            .unwrap()),
+        [unnamed, port, far],
+        "the car parks nearest first, named so or not; a motorhome area named after car parks \
+         is no car park"
+    );
+    assert_eq!(
+        ids(search::search(&pool, "parking", None, 20).await.unwrap()),
+        [port, far, area],
+        "without a point, by name, the car parks before the place of another kind"
+    );
+    let areas = ids(
+        search::search(&pool, "aire de camping car", Some(nantes), 20)
+            .await
+            .unwrap(),
+    );
+    assert_eq!(
+        areas,
+        [area],
+        "\"camping car\" names the motorhome areas, whatever their name says"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_word_no_place_starts_with_finds_the_word_it_was_meant_to_be(pool: PgPool) {
+    let mut arolles = content(PlaceKind::Campsite, "Les Arolles", 45.92, 6.87);
+    arolles.address.city = Some("Chamonix-Mont-Blanc".into());
+    let arolles = put(&pool, &arolles).await;
+    let chamois = put(
+        &pool,
+        &content(PlaceKind::Campsite, "Le Chamois", 44.9, 6.4),
+    )
+    .await;
+    let annecy = Position::new(45.9, 6.15).unwrap();
+    assert_eq!(
+        ids(search::search(&pool, "chamonis", Some(annecy), 20)
+            .await
+            .unwrap()),
+        [arolles, chamois],
+        "both words are one edit away; the nearer place first"
+    );
+    let later = put(
+        &pool,
+        &content(PlaceKind::Parking, "Parking des Grillons", 47.0, 2.0),
+    )
+    .await;
+    assert_eq!(
+        ids(search::search(&pool, "grilons", None, 20).await.unwrap()),
+        [later],
+        "the words of a place written later are corrected to as well"
+    );
+    assert_eq!(
+        ids(search::search(&pool, "gerrardm", None, 20).await.unwrap()),
+        Vec::<Uuid>::new(),
+        "nothing within reach, nothing found"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn every_way_of_finding_the_candidates_ranks_the_same_places(pool: PgPool) {
+    for (i, (kind, name)) in [
+        (PlaceKind::Campsite, "Camping du Lac"),
+        (PlaceKind::MotorhomeArea, "Aire du Lac"),
+        (PlaceKind::Parking, "Lac Bleu"),
+        (PlaceKind::Campsite, "Camping des Pins"),
+        (PlaceKind::Campsite, "Camping du Lac"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let offset = f64::from(u8::try_from(i).unwrap()) * 0.3;
+        put(&pool, &content(kind, name, 45.0 + offset, 6.0)).await;
+    }
+    let near = Position::new(45.4, 6.0).unwrap();
+    for (text, matching) in [("lac", 4), ("camping du lac", 4), ("lac bl", 1)] {
+        let index = ids(
+            search::search_by_path(&pool, text, Some(near), 20, LookupPath::Index)
+                .await
+                .unwrap(),
+        );
+        assert_eq!(index.len(), matching, "{text}");
+        for path in [LookupPath::Nearest, LookupPath::Scan] {
+            assert_eq!(
+                ids(search::search_by_path(&pool, text, Some(near), 20, path)
+                    .await
+                    .unwrap()),
+                index,
+                "{text}, {path:?}: the ways differ in cost, not in what they rank"
+            );
+        }
+        assert_eq!(
+            ids(search::search(&pool, text, Some(near), 20).await.unwrap()),
+            index,
+            "{text}: the way the search picks"
+        );
+    }
 }

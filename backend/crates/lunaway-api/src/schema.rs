@@ -669,9 +669,16 @@ impl QueryRoot {
     }
 
     /// Searches names, address cities and municipalities, without accents:
-    /// whole words first, then word prefixes, then typo-tolerant matches;
-    /// among equal matches, the nearest to `near` first, `near` rounded by
-    /// the server to the nearest 0.05 degree (about 5 km) before any use.
+    /// the words in their order first, then the last one as a prefix, then
+    /// all the words in any order, then the words that name a place only;
+    /// a word that starts no word of any place is read as the closest words
+    /// that do (a typo). Words that only say what kind of place is wanted
+    /// ("aire", "camping", "parking", "de") rank the places and never make
+    /// one match alone, places of that kind first. A text of such words
+    /// only ("aire de camping car") lists the places of that kind nearest
+    /// `near` first, named so or not. Among equal matches, the nearest to
+    /// `near` first, `near` rounded by the server to the nearest 0.05
+    /// degree (about 5 km) before any use.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity)")]
     async fn search(
         &self,

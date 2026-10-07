@@ -337,6 +337,11 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ["SELECT"],
         "lunaway_app on place_layer: the API names the places' tiles version, the worker moves it"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_search_words").await,
+        ["SELECT"],
+        "the search corrects a typo to the words of places, which only their writers add"
+    );
     for (column, granted) in [
         ("id", true),
         ("line", true),
@@ -410,6 +415,9 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         "the API reads the sources, with their agreements' terms"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
+    lunaway_db::search::search(&app, "grilon", None, 5)
+        .await
+        .expect("the API role reads the words of places and their statistics");
     denied(
         sqlx::query!("UPDATE source_records SET needs_conflation = false")
             .execute(&app)
@@ -570,6 +578,20 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     lunaway_db::place_tiles::publish_layer_now(&ingest)
         .await
         .expect("a takedown publishes the places layer with the import role");
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_search_words").await,
+        ["SELECT", "INSERT"],
+        "a write of places adds their words, through the trigger that runs with the writer's role"
+    );
+    sqlx::query(
+        "INSERT INTO places (id, kind, name, geom, overnight, content_hash)
+         VALUES ($1, 'parking', 'Parking des Grillons',
+                 ST_SetSRID(ST_MakePoint(2, 47), 4326)::geography, 'unknown', 'h')",
+    )
+    .bind(uuid::Uuid::now_v7())
+    .execute(&ingest)
+    .await
+    .expect("the import role writes a place, and its words with it");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "source_reads").await,
         ["SELECT", "INSERT", "UPDATE"],
