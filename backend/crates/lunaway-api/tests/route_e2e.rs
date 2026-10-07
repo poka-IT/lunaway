@@ -187,9 +187,9 @@ async fn weight_and_motorhome_limits_hold(pool: PgPool) {
     );
 }
 
-/// The duration of the recommended route from Limoges to Brive (the A20,
+/// The duration and length of the recommended route from Limoges to Brive (the A20,
 /// posted 130 and 110) for a motorhome of `weight_t` keeping to `cruise`.
-async fn limoges_brive_s(app: &Router, weight_t: f64, cruise: Option<i32>) -> f64 {
+async fn limoges_brive(app: &Router, weight_t: f64, cruise: Option<i32>) -> (f64, f64) {
     let mut vehicle = json!({"kind": "OVERCAB", "heightM": 3.0, "widthM": 2.3, "lengthM": 7.4, "weightT": weight_t});
     if let Some(kmh) = cruise {
         vehicle["cruiseSpeedKph"] = kmh.into();
@@ -199,8 +199,7 @@ async fn limoges_brive_s(app: &Router, weight_t: f64, cruise: Option<i32>) -> f6
         "destination": {"lat": 45.1589, "lon": 1.5331},
         "vehicle": vehicle,
     }});
-    let query =
-        "query R($input: RouteInput!) { route(input: $input) { status routes { durationS } } }";
+    let query = "query R($input: RouteInput!) { route(input: $input) { status routes { durationS distanceM } } }";
     let request = Request::post("/graphql")
         .header("content-type", "application/json")
         .body(Body::from(
@@ -211,9 +210,11 @@ async fn limoges_brive_s(app: &Router, weight_t: f64, cruise: Option<i32>) -> f6
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
-    body["data"]["route"]["routes"][0]["durationS"]
-        .as_f64()
-        .unwrap()
+    let r = &body["data"]["route"]["routes"][0];
+    (
+        r["durationS"].as_f64().unwrap(),
+        r["distanceM"].as_f64().unwrap(),
+    )
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -221,15 +222,19 @@ async fn limoges_brive_s(app: &Router, weight_t: f64, cruise: Option<i32>) -> f6
 async fn a_driver_keeping_to_90_gets_a_longer_trip(pool: PgPool) {
     let (url, file) = setup();
     let app = app(pool, &url, &file).await;
-    let free = limoges_brive_s(&app, 3.5, None).await;
-    let at_90 = limoges_brive_s(&app, 3.5, Some(90)).await;
+    let (free, free_m) = limoges_brive(&app, 3.5, None).await;
+    let (at_90, at_90_m) = limoges_brive(&app, 3.5, Some(90)).await;
     assert!(
         at_90 > free * 1.05,
         "90 km/h on a motorway open at 130 takes longer: {at_90} s against {free} s"
     );
-    let heavy = limoges_brive_s(&app, 4.5, None).await;
+    assert!(
+        (at_90_m - free_m).abs() < free_m * 0.02,
+        "the same motorway, only slower: {at_90_m} m against {free_m} m"
+    );
+    let (heavy, _) = limoges_brive(&app, 4.5, None).await;
     assert!(heavy > free, "the 110 cap of a heavy motorhome: {heavy} s");
-    let heavy_at_130 = limoges_brive_s(&app, 4.5, Some(130)).await;
+    let (heavy_at_130, _) = limoges_brive(&app, 4.5, Some(130)).await;
     assert!(
         (heavy_at_130 - heavy).abs() < 1.0,
         "130 never lifts the 110 cap: {heavy_at_130} s against {heavy} s"

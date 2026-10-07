@@ -312,6 +312,13 @@ async fn every_engine_call_of_a_route_assumes_the_lower_of_the_cruising_speed_an
                 top.map(|t: i32| json!(t)),
                 "{case}: {call}"
             );
+            assert_eq!(
+                call["costing_options"]["auto"]
+                    .get("speed_penalty_factor")
+                    .cloned(),
+                top.map(|_| json!(0.0)),
+                "a top speed never pushes the trip off fast roads: {case}"
+            );
         }
     }
 }

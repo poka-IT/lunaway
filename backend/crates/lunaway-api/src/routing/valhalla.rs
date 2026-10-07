@@ -136,6 +136,13 @@ pub(crate) fn costing_options(dims: &RoutingDimensions, avoid: Avoid) -> Value {
     });
     if let Some(speed) = dims.top_speed_kph {
         auto["top_speed"] = speed.into();
+        // Valhalla 3.9 also adds (road speed - top_speed) x 0.05 to the cost
+        // factor of every faster road, so a 3.8 t motorhome capped at 110
+        // left the A7 and a driver keeping to 90 was sent 80 km round by
+        // national roads (Lyon to Marseille, production engine, 2026-10-07:
+        // 396 km in 5 h 32 against 316 km in 3 h 41 without the penalty).
+        // The top speed is meant to time the trip, not to avoid fast roads.
+        auto["speed_penalty_factor"] = 0.0.into();
     }
     if avoid.tolls {
         auto["use_tolls"] = 0.0.into();
@@ -607,6 +614,10 @@ mod tests {
             },
         );
         assert_eq!(c["auto"]["top_speed"], 110);
+        assert_eq!(
+            c["auto"]["speed_penalty_factor"], 0.0,
+            "a top speed times the trip and never pushes it off the motorway"
+        );
         assert_eq!(c["auto"]["use_tolls"], 0.0);
         assert_eq!(c["auto"]["use_highways"], 0.0);
         assert_eq!(c["auto"]["use_ferry"], 0.0);
