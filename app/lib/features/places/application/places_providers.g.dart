@@ -245,7 +245,7 @@ final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool>
   }
 }
 
-String _$keepsPlacesHash() => r'bea16bf775ddabfc13271d421da67cef11d3bd26';
+String _$keepsPlacesHash() => r'2e13fbf018579399196d94ecc411b0caea4d83f4';
 
 /// How long the first sync of a run waits behind the map: `afterMap` once
 /// the map has drawn its first view (the tiles of that view load first),
@@ -1313,7 +1313,7 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'4566919231a9c9a6ca4f32eb7398b7df6ee7eee8';
+String _$searchResultsHash() => r'9a08d662f63eadc8a2c69985fac3b8f8adcf916b';
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),

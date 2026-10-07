@@ -808,24 +808,36 @@ final class SelectedPlaceProvider
 
 String _$selectedPlaceHash() => r'9fbc396825f64453c59b7642d9448d365a4826ca';
 
-/// The list beside the map. With the places from the tiles, a page of the
-/// API at a time, nearest to the map's centre (the device's position is
-/// never sent), sorted again on the device from the user when the map
-/// shows them; otherwise the places the device holds.
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
 
 @ProviderFor(NearbyPlacesPage)
 final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
 
-/// The list beside the map. With the places from the tiles, a page of the
-/// API at a time, nearest to the map's centre (the device's position is
-/// never sent), sorted again on the device from the user when the map
-/// shows them; otherwise the places the device holds.
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
 final class NearbyPlacesPageProvider
     extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
-  /// The list beside the map. With the places from the tiles, a page of the
-  /// API at a time, nearest to the map's centre (the device's position is
-  /// never sent), sorted again on the device from the user when the map
-  /// shows them; otherwise the places the device holds.
+  /// The list beside the map. With the places from the tiles: from the zoom
+  /// of their names, the places the tiles hold inside the view, read on the
+  /// device without a request (exact, at once, and nothing of where the user
+  /// looks leaves it beyond the tiles themselves); below it, a page of the
+  /// API at a time, the view widened to a grid of 0.05 degree and ranked
+  /// from a point of that grid, never the device's position. Either way
+  /// sorted again on the device from the user when the map shows them.
+  /// Otherwise the places the device holds.
   NearbyPlacesPageProvider._()
     : super(
         from: null,
@@ -845,12 +857,16 @@ final class NearbyPlacesPageProvider
   NearbyPlacesPage create() => NearbyPlacesPage();
 }
 
-String _$nearbyPlacesPageHash() => r'26d21c8fa301467ecf636d01c367879d1ed35901';
+String _$nearbyPlacesPageHash() => r'255f1d8fac7c5d63646d5436ed644609aada6a69';
 
-/// The list beside the map. With the places from the tiles, a page of the
-/// API at a time, nearest to the map's centre (the device's position is
-/// never sent), sorted again on the device from the user when the map
-/// shows them; otherwise the places the device holds.
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
 
 abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
   FutureOr<NearbyPage> build();
@@ -870,24 +886,11 @@ abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
   }
 }
 
-/// The places of the tiles under the map's view, as the map reported them
-/// once it settled at the zoom of the pins: what the points of interest
-/// leave room for.
-// keepAlive: the map reports them; the points' state reads them at each tick.
-
 @ProviderFor(PlacesInView)
 final placesInViewProvider = PlacesInViewProvider._();
 
-/// The places of the tiles under the map's view, as the map reported them
-/// once it settled at the zoom of the pins: what the points of interest
-/// leave room for.
-// keepAlive: the map reports them; the points' state reads them at each tick.
 final class PlacesInViewProvider
-    extends $NotifierProvider<PlacesInView, List<LatLng>> {
-  /// The places of the tiles under the map's view, as the map reported them
-  /// once it settled at the zoom of the pins: what the points of interest
-  /// leave room for.
-  // keepAlive: the map reports them; the points' state reads them at each tick.
+    extends $NotifierProvider<PlacesInView, PlacesInViewReport> {
   PlacesInViewProvider._()
     : super(
         from: null,
@@ -907,32 +910,27 @@ final class PlacesInViewProvider
   PlacesInView create() => PlacesInView();
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(List<LatLng> value) {
+  Override overrideWithValue(PlacesInViewReport value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<List<LatLng>>(value),
+      providerOverride: $SyncValueProvider<PlacesInViewReport>(value),
     );
   }
 }
 
-String _$placesInViewHash() => r'6b3423fcfde9d088e232b640abaae4b20c16034d';
+String _$placesInViewHash() => r'fd5d77ca6e24c4555213a7bb1e5265e9320c9cf2';
 
-/// The places of the tiles under the map's view, as the map reported them
-/// once it settled at the zoom of the pins: what the points of interest
-/// leave room for.
-// keepAlive: the map reports them; the points' state reads them at each tick.
-
-abstract class _$PlacesInView extends $Notifier<List<LatLng>> {
-  List<LatLng> build();
+abstract class _$PlacesInView extends $Notifier<PlacesInViewReport> {
+  PlacesInViewReport build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<List<LatLng>, List<LatLng>>;
+    final ref = this.ref as $Ref<PlacesInViewReport, PlacesInViewReport>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<List<LatLng>, List<LatLng>>,
-              List<LatLng>,
+              AnyNotifier<PlacesInViewReport, PlacesInViewReport>,
+              PlacesInViewReport,
               Object?,
               Object?
             >;

@@ -287,6 +287,11 @@ void main() {
       reason: "the device's own pins (GeoJSON) are the map's",
     );
     expect(placeTileTapFor({'kind': 'point'}, [6.1, 45.9]), isNull);
+    expect(
+      placeTileTapFor({'id': 'p1', 'kind': 'fuel_station', 'category': 'fuel'}, [6.1, 45.9]),
+      isNull,
+      reason: 'a point of interest is left to its own layer, never opened as a place',
+    );
   });
 
   test('the tile codes are the domain codes of the server', () {

@@ -1,6 +1,7 @@
 """Writes the service worker of a web build: lunaway_sw.js in BUILD_DIR.
 
     python3 tool/web/service_worker.py build/web
+    python3 tool/web/service_worker.py --remove build/web
 
 A second visit to the web app should not wait on the network for the app
 itself: every file of /app/ is served with `Cache-Control: no-cache` (their
@@ -9,12 +10,18 @@ service worker each visit revalidates each file, one round trip each.
 
 The worker keeps the files of one build in a cache named after the build
 (a digest of every file it serves), answers from it first, and fetches what
-it lacks once. The files the app needs to start are fetched when the worker
-installs, after the first visit has drawn its map (web/sw_register.js); the
-others (pin images, fonts, the CanvasKit variant of another browser) when
-first asked. A new build has a new worker: it installs in the background,
-takes over at once, and drops the previous build's cache; the page that was
-open goes on with what it loaded.
+it lacks once. Every file the app may need to start (its code, the CanvasKit
+of this browser, its fonts, styles and manifests) is fetched when the worker
+installs, after the first visit has drawn its map (web/sw_register.js), so a
+visit never starts one build's code with another build's engine or fonts.
+What is fetched when first asked (pin images, the licences page, the fallback
+fonts) does not depend on the build. A new build has a new worker: it
+installs in the background, takes over at once, and drops the previous
+build's cache; the page that was open goes on with what it loaded.
+
+`--remove` writes a worker that empties its caches and unregisters itself
+instead: the way to take the worker out of every browser. Never delete
+lunaway_sw.js from a build: the browsers keep the worker they have.
 
 It also keeps the TileJSON files of the API and of the tile host
 (`.../tiles.json`, `.../planet.json`), served from the copy while a fresh one
@@ -30,30 +37,36 @@ import json
 import os
 import sys
 
-# Fetched at install: what the app needs before its first frame and its map.
-START = [
+# Files the app needs to start, which must come from one build.
+REQUIRED = [
     "index.html",
     "flutter_bootstrap.js",
     "main.dart.js",
-    "splash.js",
     "lunaway_maplibre.js",
     "premap.js",
-    "sw_register.js",
-    "manifest.json",
-    "version.json",
-    "sqlite3.wasm",
-    "drift_worker.js",
     "maplibre-gl/maplibre-gl.mjs",
-    "maplibre-gl/maplibre-gl-shared.mjs",
-    "maplibre-gl/maplibre-gl-worker.mjs",
-    "maplibre-gl/maplibre-gl.css",
-    "assets/AssetManifest.bin.json",
-    "assets/AssetManifest.bin",
     "assets/FontManifest.json",
     "assets/assets/map/styles/aube.json",
-    "assets/assets/map/styles/minuit.json",
-    "icons/lunaway-mark.svg",
 ]
+
+# Fetched when first asked rather than at install: they do not depend on the
+# build (pins, licences, the engine's fallback fonts) or are not the web's
+# (the desktop map page, the offline map files of the phones).
+LAZY = (
+    "assets/assets/map/pins/",
+    "assets/assets/map/offline/",
+    "assets/assets/map/maplibre-gl",
+    "assets/assets/map/lunaway_map.js",
+    "assets/assets/map/map.html",
+    "assets/assets/map/LICENSE",
+    "assets/NOTICES",
+    "fonts/",
+)
+
+# CanvasKit comes in two builds: Chromium's and the others'. The worker
+# fetches the one of its browser at install.
+CHROMIUM = "canvaskit/chromium/"
+GENERIC = ("canvaskit/canvaskit.js", "canvaskit/canvaskit.wasm")
 
 # Never served from the worker's cache: the worker itself.
 SKIP = {"lunaway_sw.js", "flutter_service_worker.js"}
@@ -65,13 +78,22 @@ const BUILD = '{build}';
 const CACHE = 'lunaway-app-' + BUILD;
 const TILEJSON = 'lunaway-tilejson';
 const START = {start};
+const CHROMIUM = {chromium};
+const GENERIC = {generic};
 const FILES = new Set({files});
 const SCOPE = new URL('./', self.location).href;
 
+// The CanvasKit build the Flutter loader picks for this browser.
+function isChromium() {{
+  const brands = (self.navigator.userAgentData && self.navigator.userAgentData.brands) || [];
+  return brands.some((b) => /Chromium|Google Chrome|Microsoft Edge/.test(b.brand));
+}}
+
 self.addEventListener('install', (event) => {{
+  const files = START.concat(isChromium() ? CHROMIUM : GENERIC);
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.addAll(START.map((path) => new Request(SCOPE + path, {{ cache: 'no-cache' }}))))
+      .then((cache) => cache.addAll(files.map((path) => new Request(SCOPE + path, {{ cache: 'no-cache' }}))))
       .then(() => self.skipWaiting())
   );
 }});
@@ -132,14 +154,41 @@ self.addEventListener('fetch', (event) => {{
 """
 
 
+REMOVE = """// Written by app/tool/web/service_worker.py --remove: takes the app's
+// service worker out of the browser. It empties its caches, unregisters
+// itself and reloads the pages it held, which then load from the network.
+'use strict';
+
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key.startsWith('lunaway-')).map((key) => caches.delete(key)));
+    await self.registration.unregister();
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach((client) => client.navigate(client.url));
+  })());
+});
+"""
+
+
 def main() -> int:
-    if len(sys.argv) != 2:
-        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
+    args = sys.argv[1:]
+    remove = "--remove" in args
+    args = [a for a in args if a != "--remove"]
+    if len(args) != 1:
+        print("usage: service_worker.py [--remove] BUILD_DIR", file=sys.stderr)
         return 2
-    root = sys.argv[1]
+    root = args[0]
     if not os.path.isfile(os.path.join(root, "index.html")):
         print(f"no index.html in {root}", file=sys.stderr)
         return 1
+    if remove:
+        with open(os.path.join(root, "lunaway_sw.js"), "w") as f:
+            f.write(REMOVE)
+        print("lunaway_sw.js: removes the worker from every browser that has it")
+        return 0
     files = []
     digest = hashlib.sha256()
     for directory, _, names in os.walk(root):
@@ -153,18 +202,32 @@ def main() -> int:
     for path in files:
         with open(os.path.join(root, path), "rb") as f:
             digest.update(path.encode() + b"\0" + hashlib.sha256(f.read()).digest())
-    missing = [p for p in START if p not in files]
+    missing = [p for p in REQUIRED if p not in files]
     if missing:
         print("missing from the build: " + ", ".join(missing), file=sys.stderr)
         return 1
+    chromium = [p for p in files if p.startswith(CHROMIUM)]
+    generic = [p for p in files if p in GENERIC]
+    start = [
+        p
+        for p in files
+        if not p.startswith(LAZY)
+        and not p.startswith("canvaskit/")
+        and not p.endswith(".LICENSE.txt")
+    ]
     out = TEMPLATE.format(
         build=digest.hexdigest()[:16],
-        start=json.dumps(START),
+        start=json.dumps(start),
+        chromium=json.dumps(chromium),
+        generic=json.dumps(generic),
         files=json.dumps(files),
     )
     with open(os.path.join(root, "lunaway_sw.js"), "w") as f:
         f.write(out)
-    print(f"lunaway_sw.js: build {digest.hexdigest()[:16]}, {len(files)} files, {len(START)} at install")
+    print(
+        f"lunaway_sw.js: build {digest.hexdigest()[:16]}, {len(files)} files, "
+        f"{len(start)} at install with {len(chromium)} or {len(generic)} of CanvasKit"
+    )
     return 0
 
 

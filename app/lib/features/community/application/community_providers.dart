@@ -164,6 +164,9 @@ class OutboxRunner extends _$OutboxRunner {
       _timer?.cancel();
       _lifecycle?.dispose();
       unawaited(_sent?.cancel());
+      for (final t in _rereads.values) {
+        t.cancel();
+      }
     });
     // A sync that succeeds says the network is back.
     ref.listen(syncControllerProvider, (previous, next) {
@@ -321,10 +324,28 @@ class OutboxRunner extends _$OutboxRunner {
     // confirmed: the feed brings both. Mutes change no summary.
     if (e.kind != ContributionKind.mute && e.kind != ContributionKind.unmute) {
       ref.read(syncControllerProvider.notifier).syncAfterContribution();
+      // A place read online (the web, a region not kept) has no feed: its
+      // copy goes, so its page asks the API again once the worker has run.
+      if (placeId != null) unawaited(_rereadPlace(placeId));
     }
     ref.invalidate(myContributionsProvider);
     // Contributions move the level: read it again.
     unawaited(ref.read(accountControllerProvider.notifier).refresh());
+  }
+
+  /// The rereads of places waiting for the server's worker.
+  final Map<String, Timer> _rereads = {};
+
+  /// Forgets the copy of [placeId] read online and reads it again when the
+  /// server's worker has had time to recompute it.
+  Future<void> _rereadPlace(String placeId) async {
+    await ref.read(placeReaderProvider).forget(placeId);
+    if (!ref.mounted) return;
+    _rereads[placeId]?.cancel();
+    _rereads[placeId] = Timer(SyncController.afterContribution, () {
+      _rereads.remove(placeId);
+      if (ref.mounted) ref.invalidate(placeProvider(placeId));
+    });
   }
 }
 

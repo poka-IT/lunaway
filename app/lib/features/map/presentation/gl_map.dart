@@ -67,6 +67,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
   Object? _sentSelected;
+  String? _sentSelectedId;
   LatLng? _sentPoint;
   bool? _sentDark;
 
@@ -109,12 +110,22 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     _premapLater?.cancel();
     final c = _controller;
     final camera = Premap.camera();
-    if (c != null && camera != null) {
-      await c.moveCamera(
-        gl.CameraUpdate.newLatLngZoom(gl.LatLng(camera.center.lat, camera.center.lon), camera.zoom),
-      );
+    try {
+      if (c != null && camera != null) {
+        await c.moveCamera(
+          gl.CameraUpdate.newLatLngZoom(
+            gl.LatLng(camera.center.lat, camera.center.lon),
+            camera.zoom,
+          ),
+        );
+      }
+    } on Object catch (e) {
+      _log.info("the first map's camera was not taken: $e");
+    } finally {
+      // Whatever happened to the camera, the first map must not stay over
+      // the app.
+      Premap.handOver();
     }
-    Premap.handOver();
   }
 
   Future<void> _onWebLongPress(double x, double y) async {
@@ -181,6 +192,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   void _forgetSent() {
     _sentPlaces = null;
     _sentSelected = null;
+    _sentSelectedId = null;
     _sentPoint = null;
     _sentDark = null;
     _poi.forget();
@@ -465,11 +477,9 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         ? null
         : (selected.id, selected.lat, selected.lon, selected.kind, selected.overnight);
     if (selectedKey != _sentSelected || props.markedPoint != _sentPoint) {
-      final sameId =
-          selected != null &&
-          _sentSelected is (String, double, double, Object, Object) &&
-          (_sentSelected! as (String, double, double, Object, Object)).$1 == selected.id;
+      final sameId = selected != null && selected.id == _sentSelectedId;
       _sentSelected = selectedKey;
+      _sentSelectedId = selected?.id;
       _sentPoint = props.markedPoint;
       await c.setGeoJsonSource(
         MapStyle.selectionSource,
@@ -524,9 +534,12 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           await moveTo(at, zoom: zoom + 0.3);
           return;
         case TapPlace(:final id):
+          final selected = _props.selectedPlace;
           _props.onPlaceTap(
             id,
-            hint: _props.places.where((p) => p.id == id).firstOrNull ?? _props.selectedPlace,
+            hint:
+                _props.places.where((p) => p.id == id).firstOrNull ??
+                (selected?.id == id ? selected : null),
           );
           return;
         case TapNothing():
@@ -583,8 +596,15 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final reportPlaces = _props.onPlacesInView;
     if (_tiles.installed && reportPlaces != null) {
       try {
-        final found = await _tiles.probe(c, zoom: camera.zoom, camera: key);
-        if (found != null && mounted) reportPlaces(found);
+        final region = await c.getVisibleRegion();
+        final bounds = GeoBounds(
+          south: region.southwest.latitude,
+          west: region.southwest.longitude,
+          north: region.northeast.latitude,
+          east: region.northeast.longitude,
+        );
+        final found = await _tiles.probe(c, zoom: camera.zoom, camera: key, bounds: bounds);
+        if (found != null && mounted) reportPlaces(found, bounds);
       } on Object catch (e) {
         _log.info('could not read the places in view: $e');
       }

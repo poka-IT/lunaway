@@ -66,10 +66,12 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
   }
 
   Timer? _syncLater;
+  Timer? _syncLatest;
 
   @override
   void dispose() {
     _syncLater?.cancel();
+    _syncLatest?.cancel();
     super.dispose();
   }
 
@@ -94,14 +96,16 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
     }
     void start() {
       _syncLater?.cancel();
+      _syncLatest?.cancel();
       if (mounted) ref.read(syncControllerProvider.notifier).start();
     }
 
     final delays = ref.read(syncStartDelaysProvider);
-    _syncLater = Timer(delays.atLatest, start);
+    _syncLatest = Timer(delays.atLatest, start);
+    // The first view starts the short wait, once: a map that keeps moving
+    // does not put the download off past the latest start.
     ref.listenManual(viewportProvider, (_, view) {
-      if (view != null && (_syncLater?.isActive ?? false)) {
-        _syncLater?.cancel();
+      if (view != null && _syncLater == null && (_syncLatest?.isActive ?? false)) {
         _syncLater = Timer(delays.afterMap, start);
       }
     }, fireImmediately: true);

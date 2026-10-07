@@ -345,12 +345,27 @@ $placeSummaryFragment''',
   ],
 );
 
-/// A point rounded to a hundredth of a degree (about 1 km), as the API
-/// rounds `near` before any use: what the app sends of the map's centre.
-Map<String, Object?> roundedPointInput(LatLng point) => {
-  'lat': (point.lat * 100).round() / 100,
-  'lon': (point.lon * 100).round() / 100,
-};
+/// The box the places of [view] are asked for: the view widened to a grid
+/// of [placesGrid] degree (about 5 km), so the request says no more of where
+/// the map looks than a point rounded to that grid. Without it, the centre
+/// of a map the user brought to their position is that position.
+GeoBounds placesQueryBox(GeoBounds view) {
+  double down(double v) => _onGrid((v / placesGrid).floorToDouble() * placesGrid);
+  double up(double v) => _onGrid((v / placesGrid).ceilToDouble() * placesGrid);
+  return GeoBounds(
+    south: down(view.south).clamp(-90, 90),
+    west: down(view.west).clamp(-180, 180),
+    north: up(view.north).clamp(-90, 90),
+    east: up(view.east).clamp(-180, 180),
+  );
+}
+
+/// The grid of [placesQueryBox], the same as the search's (`searchGrid`).
+const placesGrid = 0.05;
+
+/// [v] written with two decimals, so the floating point of the grid leaves
+/// no trace (0.15000000000000002) in the request.
+double _onGrid(double v) => double.parse(v.toStringAsFixed(2));
 
 Map<String, Object?> bboxInput(GeoBounds b) => {
   'south': b.south,

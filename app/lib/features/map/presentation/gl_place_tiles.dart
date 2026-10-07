@@ -50,6 +50,9 @@ final class GlPlaceTiles {
     required bool Function() current,
     String? below,
   }) async {
+    // A newer style load or install may own the layers by now: this one
+    // leaves them alone.
+    if (!current()) return;
     await remove(c);
     if (!current()) return;
     await c.addSource(PlaceTiles.source, gl.VectorSourceProperties(url: view.tileJsonUrl));
@@ -123,13 +126,14 @@ final class GlPlaceTiles {
     _sent = view;
   }
 
-  /// The positions of the places drawn under the view once the map rests,
-  /// at the zoom of the pins; null when nothing changed since the last
-  /// report (the same camera and filter).
-  Future<List<LatLng>?> probe(
+  /// The places of the tiles inside [bounds] once the map rests, at the
+  /// zoom of the pins, the filter applied; null when nothing changed since
+  /// the last report (the same camera and filter).
+  Future<List<PlaceSummary>?> probe(
     gl.MapLibreMapController c, {
     required double zoom,
     required Object camera,
+    required GeoBounds bounds,
   }) async {
     final view = _sent;
     if (view == null) return null;
@@ -142,21 +146,7 @@ final class GlPlaceTiles {
       PlaceTiles.pinsSourceLayer,
       placeTileFilter(view.filter),
     );
-    final seen = <String>{};
-    final out = <LatLng>[];
-    for (final item in raw) {
-      var feature = item;
-      // The web answers maps, Android and iOS GeoJSON text or maps.
-      if (feature is String) feature = jsonDecode(feature);
-      if (feature is! Map) continue;
-      final geometry = feature['geometry'];
-      final place = placeFromTile(
-        feature['properties'] as Map<Object?, Object?>?,
-        geometry is Map ? geometry['coordinates'] as List<Object?>? : null,
-      );
-      if (place != null && seen.add(place.id)) out.add(place.position);
-    }
-    return out;
+    return placesOfFeatures(raw, bounds);
   }
 
   static gl.CircleLayerProperties _dots({required bool dark}) => gl.CircleLayerProperties(
@@ -209,12 +199,34 @@ final class ZoomToTileDot extends PlaceTileTap {
   const new();
 }
 
+/// The places among the features of a `querySourceFeatures` answer of the
+/// pins' layer that stand inside [bounds], each once (a place on the edge of
+/// two tiles comes twice, and a tile carries a margin beyond its edge).
+List<PlaceSummary> placesOfFeatures(List<Object?> raw, GeoBounds bounds) {
+  final seen = <String>{};
+  final out = <PlaceSummary>[];
+  for (final item in raw) {
+    var feature = item;
+    // The web answers maps, Android and iOS GeoJSON text or maps.
+    if (feature is String) feature = jsonDecode(feature);
+    if (feature is! Map) continue;
+    final geometry = feature['geometry'];
+    final place = placeFromTile(
+      feature['properties'] as Map<Object?, Object?>?,
+      geometry is Map ? geometry['coordinates'] as List<Object?>? : null,
+    );
+    if (place != null && bounds.contains(place.position) && seen.add(place.id)) out.add(place);
+  }
+  return out;
+}
+
 /// The action for a tap on a feature with [properties] at [coordinates]
-/// (`[lon, lat]`); null when it is no feature of the tiles (the map's own
-/// GeoJSON layers mark theirs with the kinds `place` and `point`).
+/// (`[lon, lat]`); null when it is no feature of the places' tiles: the
+/// map's own GeoJSON layers mark theirs with the kinds `place` and `point`,
+/// and the points of interest carry kinds of their own.
 PlaceTileTap? placeTileTapFor(Map<Object?, Object?>? properties, List<Object?>? coordinates) {
   final kind = properties?[PlaceTiles.kind];
-  if (kind is! String || kind == 'place' || kind == 'point') return null;
+  if (kind is! String || !isTilePlaceKind(kind)) return null;
   final place = placeFromTile(properties, coordinates);
   if (place != null) return OpenTilePlace(place);
   // A dot of the low zooms: no id, the map comes closer.

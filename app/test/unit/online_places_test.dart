@@ -32,7 +32,7 @@ void main() {
     expect(input['vehicleHeightM'], 3.2);
   });
 
-  test('the list sends the map centre rounded to a hundredth of a degree', () async {
+  test('the list sends the view and its centre on a grid of 0.05 degree', () async {
     Map<String, dynamic>? sent;
     final client = GraphQLClient(
       endpoint: Uri.parse('https://api.example.org/graphql'),
@@ -61,7 +61,19 @@ void main() {
       near: const LatLng(45.86789, 6.12345),
     );
     final variables = sent!['variables'] as Map<String, dynamic>;
-    expect(variables['near'], {'lat': 45.87, 'lon': 6.12});
+    expect(variables['near'], {'lat': 45.85, 'lon': 6.1}, reason: 'a point of the 0.05 grid');
     expect(variables['filter'], isNull);
+
+    await GraphQLOnlinePlaces(client).inBounds(
+      const GeoBounds(south: 45.8612, west: 6.1034, north: 45.9123, east: 6.1789),
+      PlaceFilter.none,
+      near: const LatLng(45.8868, 6.1411),
+    );
+    expect((sent!['variables'] as Map<String, dynamic>)['bbox'], {
+      'south': 45.85,
+      'west': 6.1,
+      'north': 45.95,
+      'east': 6.2,
+    }, reason: 'the view widened to the grid: its centre is not the user');
   });
 }

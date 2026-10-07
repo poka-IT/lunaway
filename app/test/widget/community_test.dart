@@ -892,6 +892,55 @@ void main() {
       expect(inDetails(find.text(t.freshness.unconfirmed)), findsOneWidget);
     });
 
+    testWidgets('online, a place read from the API is read again after a contribution to it', (
+      tester,
+    ) async {
+      Place confirmed(DateTime? at) => placeFromJson(
+        jsonDecode(jsonEncode({...placeToJson(lakeArea), 'lastConfirmedAt': at?.toIso8601String()}))
+            as Map<String, dynamic>,
+      );
+      final api = FakeApi();
+      api.confirmations.add({
+        'id': '00000000-0000-7000-8000-0000000000c5',
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+        'createdAt': testNow.toUtc().toIso8601String(),
+      });
+      // The web: no place on the device, every page read from the API.
+      final online = FakeOnlinePlaces([confirmed(testNow)]);
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 3000),
+        api: api,
+        signedIn: true,
+        places: const [],
+        online: online,
+      );
+      final container = app.container(tester);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(inDetails(find.text(t.freshness.unconfirmed)), findsNothing);
+
+      container.read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      // What the server's worker writes once the confirmation is gone.
+      online.put(confirmed(null));
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 1) + SyncController.afterContribution);
+      expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c5'});
+
+      container.read(routerProvider).go(AppRoutes.map);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(
+        inDetails(find.text(t.freshness.unconfirmed)),
+        findsOneWidget,
+        reason: 'the copy read before the contribution is not shown again',
+      );
+    });
+
     testWidgets('a deletion keeps a waiting request when another one is known to have made it', (
       tester,
     ) async {

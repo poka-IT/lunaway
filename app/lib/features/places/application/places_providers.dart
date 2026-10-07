@@ -59,7 +59,7 @@ SyncService syncService(Ref ref) => SyncService(
 /// tiles and queries and keeps only what the user opened.
 // keepAlive: a constant of the run.
 @Riverpod(keepAlive: true)
-bool keepsPlaces(Ref ref) => !kIsWeb;
+bool keepsPlaces(Ref ref) => !kIsWeb || ref.watch(appConfigProvider).demo;
 
 /// How long the first sync of a run waits behind the map: `afterMap` once
 /// the map has drawn its first view (the tiles of that view load first),
@@ -501,9 +501,12 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near}) async
   }
   final text = query.trim();
   if (text.length < 2) return SearchResults.empty;
+  // Ranked from the map's centre on the search grid, never from the user,
+  // as the shops are: the text goes with it.
+  final centre = ref.read(viewportProvider)?.center;
   await Future<void>.delayed(const Duration(milliseconds: 300));
   if (!ref.mounted) return SearchResults.empty;
-  final places = await ref.read(onlinePlacesProvider).search(text, near: near);
+  final places = await ref.read(onlinePlacesProvider).search(text, near: centre);
   return SearchResults(places: places, municipalities: townsOf(places, text));
 }
 

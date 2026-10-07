@@ -88,9 +88,13 @@ PoiLayerState poiLayerState(Ref ref) {
   final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
   // The places of the tiles in view, or those the device holds when the
   // map draws them.
-  final places = ref.watch(placesFromTilesProvider)
-      ? ref.watch(placesInViewProvider)
-      : [for (final p in ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[]) p.position];
+  final places = [
+    for (final p
+        in ref.watch(placesFromTilesProvider)
+            ? ref.watch(placesInViewProvider).places
+            : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[])
+      p.position,
+  ];
   return computePoiLayerState(features, now, places: places);
 }
 

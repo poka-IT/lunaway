@@ -341,7 +341,8 @@ class _Map extends ConsumerWidget {
           select.select(PlaceSelection(id, hint: hint));
           onPlaceTapped?.call();
         },
-        onPlacesInView: (positions) => ref.read(placesInViewProvider.notifier).report(positions),
+        onPlacesInView: (places, bounds) =>
+            ref.read(placesInViewProvider.notifier).report(places, bounds),
         onEmptyTap: () => select.select(null),
         onLongPress: (p) {
           select.select(PointSelection(p));

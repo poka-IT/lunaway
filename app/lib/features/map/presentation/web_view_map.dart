@@ -13,6 +13,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_page_policy.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/place_tile_layers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -416,13 +417,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           hint: hint ?? _props.places.where((p) => p.id == '${event['id']}').firstOrNull,
         );
       case 'places':
-        final positions = event['positions'];
-        if (positions is List<Object?>) {
-          _props.onPlacesInView?.call([
-            for (final p in positions)
-              if (p is List && p.length == 2 && p[0] is num && p[1] is num)
-                LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()),
-          ]);
+        final features = event['features'];
+        final bounds = event['bounds'];
+        if (features is List<Object?> && bounds is List && bounds.length == 4) {
+          final b = [for (final v in bounds) (v as num).toDouble()];
+          final view = GeoBounds(south: b[1], west: b[0], north: b[3], east: b[2]);
+          _props.onPlacesInView?.call(placesOfFeatures(features, view), view);
         }
       case 'poi':
         final feature = PoiFeature.fromTile(

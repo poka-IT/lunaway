@@ -9,11 +9,15 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_view.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -232,6 +236,7 @@ final class NearbyPage {
     this.total,
     this.hasMore = false,
     this.cursor,
+    this.query,
     this.loadingMore = false,
     this.moreFailed = false,
   });
@@ -245,6 +250,10 @@ final class NearbyPage {
   /// Another page follows ([NearbyPlacesPage.loadMore]).
   final bool hasMore;
   final String? cursor;
+
+  /// The request this page answers, which the next page repeats with
+  /// [cursor]: never the view or the filters of a later moment.
+  final NearbyQuery? query;
   final bool loadingMore;
 
   /// The last attempt at the next page failed; the list offers a retry.
@@ -255,10 +264,16 @@ final class NearbyPage {
     total: total,
     hasMore: hasMore,
     cursor: cursor,
+    query: query,
     loadingMore: loadingMore ?? this.loadingMore,
     moreFailed: moreFailed ?? this.moreFailed,
   );
 }
+
+/// What the list asks the API: the view and the point it ranks from, and
+/// the filters. The client snaps the view and the point to a grid
+/// ([placesQueryBox], [searchAnchor]) before they leave the device.
+typedef NearbyQuery = ({GeoBounds bounds, LatLng near, PlaceFilter filter});
 
 /// Rows per page of the list asked of the API: three screens of a phone.
 const nearbyPageSize = 30;
@@ -267,10 +282,14 @@ const nearbyPageSize = 30;
 /// for a useful list.
 const nearbyLocalLimit = 200;
 
-/// The list beside the map. With the places from the tiles, a page of the
-/// API at a time, nearest to the map's centre (the device's position is
-/// never sent), sorted again on the device from the user when the map
-/// shows them; otherwise the places the device holds.
+/// The list beside the map. With the places from the tiles: from the zoom
+/// of their names, the places the tiles hold inside the view, read on the
+/// device without a request (exact, at once, and nothing of where the user
+/// looks leaves it beyond the tiles themselves); below it, a page of the
+/// API at a time, the view widened to a grid of 0.05 degree and ranked
+/// from a point of that grid, never the device's position. Either way
+/// sorted again on the device from the user when the map shows them.
+/// Otherwise the places the device holds.
 @riverpod
 class NearbyPlacesPage extends _$NearbyPlacesPage {
   LatLng _from = initialMapCenter;
@@ -282,15 +301,29 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     final user = ref.watch(userLocationProvider);
     _from = user != null && viewport.bounds.contains(user) ? user : viewport.center;
     if (ref.watch(placesFromTilesProvider)) {
+      if (viewport.zoom >= PlaceTiles.nameZoom) {
+        final report = ref.watch(placesInViewProvider);
+        // The map reports the places of a view once its tiles are in: until
+        // it has for this one, the list keeps the rows it shows.
+        if (!report.covers(viewport)) return await Completer<NearbyPage>().future;
+        final places = _sorted(report.places.where((p) => viewport.bounds.contains(p.position)));
+        return NearbyPage(places, total: places.length);
+      }
+      final query = (
+        bounds: placesQueryBox(viewport.bounds),
+        near: searchAnchor(viewport.center),
+        filter: filter,
+      );
       try {
         final page = await ref
             .read(onlinePlacesProvider)
-            .inBounds(viewport.bounds, filter, near: viewport.center, first: nearbyPageSize);
+            .inBounds(query.bounds, filter, near: query.near, first: nearbyPageSize);
         return NearbyPage(
           _sorted(page.places),
           total: page.total,
           hasMore: page.hasNextPage,
           cursor: page.endCursor,
+          query: query,
         );
       } on GraphQLNetworkException {
         // The network went before the map noticed: the places the device
@@ -309,25 +342,38 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
       places.toList()
         ..sort((a, b) => a.position.distanceTo(_from).compareTo(b.position.distanceTo(_from)));
 
-  /// Appends the next page of the API's list.
+  /// Appends the next page of the API's list: the same request as the page
+  /// shown, from its cursor. Nothing while the list reloads for another
+  /// view or other filters, whose first page replaces this one.
   Future<void> loadMore() async {
     final current = state.value;
     final cursor = current?.cursor;
-    if (current == null || cursor == null || !current.hasMore || current.loadingMore) return;
-    final viewport = ref.read(viewportProvider) ?? initialViewport;
-    final filter = ref.read(effectiveFilterProvider);
-    state = AsyncData(current.copyWith(loadingMore: true, moreFailed: false));
+    final query = current?.query;
+    if (state.isLoading ||
+        current == null ||
+        cursor == null ||
+        query == null ||
+        !current.hasMore ||
+        current.loadingMore) {
+      return;
+    }
+    final asking = current.copyWith(loadingMore: true, moreFailed: false);
+    state = AsyncData(asking);
+    // Whether the list still shows what this request continues: a pan or a
+    // filter rebuilds it meanwhile, and the next page of the old request
+    // would then land on the new list.
+    bool still() => ref.mounted && identical(state.value, asking) && !state.isLoading;
     try {
       final next = await ref
           .read(onlinePlacesProvider)
           .inBounds(
-            viewport.bounds,
-            filter,
-            near: viewport.center,
+            query.bounds,
+            query.filter,
+            near: query.near,
             first: nearbyPageSize,
             after: cursor,
           );
-      if (!ref.mounted) return;
+      if (!still()) return;
       final seen = {for (final p in current.places) p.id};
       state = AsyncData(
         NearbyPage(
@@ -337,27 +383,54 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
           total: next.total,
           hasMore: next.hasNextPage,
           cursor: next.endCursor,
+          query: query,
         ),
       );
     } on Object catch (e) {
       _log.info('the next page of the list failed: $e');
-      if (!ref.mounted) return;
+      if (!still()) return;
       state = AsyncData(current.copyWith(moreFailed: true));
     }
   }
 }
 
-/// The places of the tiles under the map's view, as the map reported them
-/// once it settled at the zoom of the pins: what the points of interest
-/// leave room for.
-// keepAlive: the map reports them; the points' state reads them at each tick.
+/// The places of the tiles inside a view of the map, as the map reported
+/// them once it settled: the list beside the map from the zoom of their
+/// names, and what the points of interest leave room for.
+@immutable
+final class PlacesInViewReport {
+  const new(this.places, {this.bounds});
+
+  static const none = PlacesInViewReport([]);
+
+  final List<PlaceSummary> places;
+
+  /// The view they are the places of; null before the first report.
+  final GeoBounds? bounds;
+
+  /// Whether this report is of [viewport]: the map reports once its tiles
+  /// are in, after the camera has come to rest.
+  bool covers(MapViewport viewport) {
+    final b = bounds;
+    if (b == null) return false;
+    // The same rest of the camera: within a hundredth of the view's size.
+    final tolerance = (viewport.bounds.north - viewport.bounds.south).abs() / 100;
+    return (b.south - viewport.bounds.south).abs() <= tolerance &&
+        (b.north - viewport.bounds.north).abs() <= tolerance &&
+        (b.west - viewport.bounds.west).abs() <= tolerance &&
+        (b.east - viewport.bounds.east).abs() <= tolerance;
+  }
+}
+
+// keepAlive: the map reports them; the list and the points' state read them.
 @Riverpod(keepAlive: true)
 class PlacesInView extends _$PlacesInView {
   @override
-  List<LatLng> build() => const [];
+  PlacesInViewReport build() => PlacesInViewReport.none;
 
-  void report(List<LatLng> positions) {
-    if (!listEquals(positions, state)) state = positions;
+  void report(List<PlaceSummary> places, GeoBounds bounds) {
+    if (state.bounds == bounds && listEquals(places, state.places)) return;
+    state = PlacesInViewReport(places, bounds: bounds);
   }
 }
 

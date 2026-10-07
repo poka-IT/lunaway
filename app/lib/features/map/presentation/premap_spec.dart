@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/location/last_position.dart';
+import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/place_tile_layers.dart';
@@ -13,7 +17,10 @@ const premapVersion = 1;
 /// basemap (Aube or Minuit, in the reader's language) and the places' layers
 /// with the filters in force. The app writes it as the user moves the map;
 /// the page reads it at the next visit, and draws the map while the engine
-/// loads.
+/// loads. The view is kept as coarse as the phones keep theirs
+/// (`DriftLastViewStore`): a tenth of a degree, zoom 10 at most, since the
+/// map often rests on the user, and a finer copy in the browser would say
+/// where the van spent the night.
 Map<String, Object?> premapState({
   required String basemapBase,
   required String placesTileJson,
@@ -28,13 +35,16 @@ Map<String, Object?> premapState({
   'places': placesTileJson,
   'style': dark ? 'minuit' : 'aube',
   'lang': basemapLanguage(language),
-  'center': [center.lon, center.lat],
-  'zoom': zoom,
+  'center': [coarse(center).lon, coarse(center).lat],
+  'zoom': math.min(zoom, DriftLastViewStore.maxZoom),
   'layers': placeTileStyleLayers(
     PlaceTilesView(tileJsonUrl: placesTileJson, filter: filter),
     dark: dark,
   ),
 };
+
+/// [p] as the phones keep a position: to a tenth of a degree.
+LatLng coarse(LatLng p) => DriftLastPositionStore.coarsen(p);
 
 /// What the page draws at a first visit, nothing kept yet: the public hosts,
 /// France, no filter, both basemaps' layers (the page picks by the hour).
@@ -48,6 +58,7 @@ Map<String, Object?> premapDefaults() {
     'base': AppConfig.publicBasemap,
     'places': places,
     'bounds': [france.west, france.south, france.east, france.north],
+    'maxZoom': DriftLastViewStore.maxZoom,
     'layers': {
       'aube': placeTileStyleLayers(view, dark: false),
       'minuit': placeTileStyleLayers(view, dark: true),

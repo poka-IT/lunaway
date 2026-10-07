@@ -136,6 +136,9 @@ final class FakeOnlinePlaces implements OnlinePlaces {
 
   final Map<String, Place> _places = {};
 
+  /// What the server holds from now on for [place]'s id.
+  void put(Place place) => _places[place.id] = place;
+
   /// Every request, as `kind:argument` (`page:<after>`, `search:<text>`,
   /// `place:<id>`).
   final List<String> requests = [];
@@ -146,6 +149,10 @@ final class FakeOnlinePlaces implements OnlinePlaces {
 
   /// Makes every request fail as a lost network would.
   bool offline = false;
+
+  /// Holds the answers of the next pages (a cursor given) until it
+  /// completes: a page on its way while the map moves.
+  Completer<void>? holdPages;
 
   void _ask(String request) {
     requests.add(request);
@@ -162,6 +169,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   }) async {
     _ask('page:${after ?? ''}');
     nears.add(near);
+    if (after != null) await holdPages?.future;
     final inside = [
       for (final p in _places.values)
         if (bounds.contains(p.position) && filter.matches(p.summary, maxHeightM: p.maxHeightM))

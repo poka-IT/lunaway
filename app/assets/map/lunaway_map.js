@@ -121,9 +121,10 @@
     });
   }
 
-  // Once the map rests at the zoom of the pins: where the places of the
-  // tiles stand, for the points of interest that leave them room (the same
-  // reading as GlPlaceTiles.probe in the app).
+  // Once the map rests at the zoom of the pins: the places of the tiles,
+  // for the list beside the map and the points of interest that leave them
+  // room (the same reading as GlPlaceTiles.probe in the app, which keeps
+  // those inside the bounds sent).
   function probePlaces() {
     var tiles = spec && spec.placeTiles;
     if (!tiles || !map.getSource(tiles.source)) return;
@@ -133,17 +134,18 @@
     if (key === placesProbed) return;
     placesProbed = key;
     var seen = {};
-    var positions = [];
+    var features = [];
     if (zoom >= tiles.pinZoom) {
       map.querySourceFeatures(tiles.source, { sourceLayer: tiles.sourceLayer, filter: tiles.filter })
         .forEach(function (f) {
           var id = f.properties && f.properties.id;
           if (id === undefined || seen[id]) return;
           seen[id] = true;
-          positions.push(f.geometry.coordinates);
+          features.push({ geometry: { coordinates: f.geometry.coordinates }, properties: f.properties });
         });
     }
-    send({ type: 'places', positions: positions });
+    var b = map.getBounds();
+    send({ type: 'places', features: features, bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
   }
 
   function applyPois() {

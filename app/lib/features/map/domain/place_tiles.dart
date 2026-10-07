@@ -31,6 +31,10 @@ abstract final class PlaceTiles {
   /// levels count 512 px tiles, so a map at zoom z draws the tiles of z.
   static const pinZoom = 10.0;
 
+  /// The first zoom whose pins carry their name (`NAME_MIN_ZOOM` on the
+  /// server): from it the list beside the map reads the tiles in view.
+  static const nameZoom = 12.0;
+
   /// Topmost first, for a tap.
   static const List<String> tappable = [pinsLayer, pinDotsLayer, dotsLayer];
 
@@ -69,6 +73,10 @@ final class PlaceTilesView {
 /// The domain code a tile carries for [kind] (`motorhome_area`): the GraphQL
 /// value in lower case.
 String tileKindCode(PlaceKind kind) => kind.wire.toLowerCase();
+
+/// Whether [code] is the kind of a place as the tiles write it: a point of
+/// interest's kinds (`fuel_station`, `bakery`) are none of them.
+bool isTilePlaceKind(String code) => _kindsByCode.containsKey(code);
 
 /// The domain code a tile carries for [status] (`day_only`).
 String tileNightCode(OvernightStatus status) => status.wire.toLowerCase();

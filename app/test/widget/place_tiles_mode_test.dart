@@ -1,15 +1,18 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
@@ -126,7 +129,10 @@ void main() {
       await settleShort(tester);
       final viewport = container.read(viewportProvider)!;
       expect(online.nears, isNotEmpty);
-      expect(online.nears.toSet(), {viewport.center}, reason: 'the position is never sent');
+      expect(online.nears.toSet(), {
+        searchAnchor(viewport.center),
+      }, reason: 'the map centre on a grid of 0.05 degree, never the position');
+      expect(online.nears, isNot(contains(many.first.position)));
       final page = container.read(nearbyPlacesPageProvider).value!;
       expect(page.places, hasLength(nearbyPageSize));
       expect(page.total, many.where((p) => viewport.bounds.contains(p.position)).length);
@@ -139,7 +145,7 @@ void main() {
     testWidgets('the list says when the next page failed, and asks again on a tap', (tester) async {
       final many = demoPlaces(count: 70, now: testNow);
       final online = FakeOnlinePlaces(many);
-      final app = await pumpLunaway(tester, places: const [], online: online);
+      final app = await pumpLunaway(tester, places: const [], online: online, size: desktop);
       final container = app.container(tester);
       online.offline = true;
       await _settled(tester, container.read(nearbyPlacesPageProvider.notifier).loadMore());
@@ -148,6 +154,91 @@ void main() {
         container.read(nearbyPlacesPageProvider).value!.places,
         hasLength(nearbyPageSize),
         reason: 'the rows shown stay',
+      );
+      online.offline = false;
+      final retry = find.text("La suite de la liste n'a pas pu s'afficher. Réessayer");
+      await tester.scrollUntilVisible(
+        retry,
+        400,
+        scrollable: find.descendant(of: find.byType(NearbyList), matching: find.byType(Scrollable)),
+      );
+      await tester.tap(retry);
+      await settleShort(tester);
+      expect(
+        container.read(nearbyPlacesPageProvider).value!.places.length,
+        greaterThan(nearbyPageSize),
+      );
+    });
+
+    testWidgets('a page asked before the map moved never lands on the list of the new view', (
+      tester,
+    ) async {
+      final many = demoPlaces(count: 70, now: testNow);
+      final online = FakeOnlinePlaces(many);
+      final app = await pumpLunaway(tester, places: const [], online: online);
+      final container = app.container(tester);
+      final before = container.read(nearbyPlacesPageProvider).value!;
+      online.holdPages = Completer<void>();
+      final more = container.read(nearbyPlacesPageProvider.notifier).loadMore();
+      await tester.pump();
+      // The map moves to another view while the next page is on its way.
+      container
+          .read(viewportProvider.notifier)
+          .update(
+            const MapViewport(
+              bounds: GeoBounds(south: 45, west: 5, north: 46.5, east: 7),
+              center: LatLng(45.75, 6),
+              zoom: 8,
+            ),
+          );
+      await tester.pump();
+      online.holdPages!.complete();
+      await _settled(tester, more);
+      final after = container.read(nearbyPlacesPageProvider).value!;
+      expect(after.query!.bounds, const GeoBounds(south: 45, west: 5, north: 46.5, east: 7));
+      expect(
+        after.places.length,
+        lessThanOrEqualTo(nearbyPageSize),
+        reason: 'the first page of the new view only, not the old list and its next page',
+      );
+      expect(before.query!.bounds, isNot(after.query!.bounds));
+    });
+
+    testWidgets('from the zoom of the names the list reads the tiles in view, without a request', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap()
+        ..viewport = const MapViewport(
+          bounds: GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25),
+          center: LatLng(45.9, 6.15),
+          zoom: 13,
+        );
+      final app = await pumpLunaway(tester, places: const [], online: online, map: map);
+      // Before the map reports its first camera, the list covers France from
+      // the API; from then on, nothing.
+      online.requests.clear();
+      const view = MapViewport(
+        bounds: GeoBounds(south: 45.86, west: 6.06, north: 45.94, east: 6.24),
+        center: LatLng(45.9, 6.15),
+        zoom: 13.2,
+      );
+      map.lastProps!.onViewportChanged(view);
+      await settleShort(tester);
+      // The map reports the places of its tiles once they are in.
+      map.lastProps!.onPlacesInView!([lakeArea.summary, campsite.summary], view.bounds);
+      await settleShort(tester);
+      final page = app.container(tester).read(nearbyPlacesPageProvider).value!;
+      expect(page.places.map((p) => p.id), containsAll([lakeArea.id]));
+      expect(
+        page.places.every((p) => view.bounds.contains(p.position)),
+        isTrue,
+        reason: 'only the places inside the view',
+      );
+      expect(
+        online.requests.where((r) => r.startsWith('page:')),
+        isEmpty,
+        reason: 'nothing of the view leaves the device beyond the tiles',
       );
     });
 
@@ -203,6 +294,35 @@ void main() {
   });
 
   group('a phone online', () {
+    testWidgets('a map that keeps moving does not put the download off', (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        places: const [],
+        online: FakeOnlinePlaces(samplePlaces),
+        neverSynced: true,
+        syncStartDelays: (
+          afterMap: const Duration(seconds: 3),
+          atLatest: const Duration(seconds: 15),
+        ),
+        settle: false,
+      );
+      final states = _syncStates(app, tester);
+      final container = app.container(tester);
+      for (var i = 0; i < 5; i++) {
+        container
+            .read(viewportProvider.notifier)
+            .update(
+              MapViewport(
+                bounds: GeoBounds(south: 45, west: 5 + i * 0.1, north: 46, east: 6 + i * 0.1),
+                center: LatLng(45.5, 5.5 + i * 0.1),
+                zoom: 9,
+              ),
+            );
+        await settleShort(tester, const Duration(seconds: 1));
+      }
+      expect(states.whereType<SyncRunning>(), isNotEmpty, reason: '3 s after the first view');
+    });
+
     testWidgets('downloads its regions behind the map, after its first view', (tester) async {
       final app = await pumpLunaway(
         tester,
@@ -221,30 +341,5 @@ void main() {
       await settleShort(tester, const Duration(seconds: 2));
       expect(states.whereType<SyncRunning>(), isNotEmpty);
     });
-  });
-
-  test('the props of a place from the tiles carry its id', () {
-    const props = PlaceSummary(
-      id: 'x',
-      kind: PlaceKind.parking,
-      lat: 1,
-      lon: 2,
-      overnight: OvernightStatus.unknown,
-    );
-    expect(
-      LunaMapProps(
-        style: '{}',
-        dark: false,
-        initialCenter: const LatLng(0, 0),
-        initialZoom: 1,
-        places: const [],
-        selectedPlace: props,
-        onPlaceTap: (_, {hint}) {},
-        onLongPress: (_) {},
-        onViewportChanged: (_) {},
-        onMapReady: (_) {},
-      ).selectedId,
-      'x',
-    );
   });
 }

@@ -48,7 +48,17 @@ void main() {
     expect(state['style'], 'minuit');
     expect(state['lang'], 'fr');
     expect(state['center'], [6.1, 45.9], reason: 'MapLibre reads longitude first');
-    expect(state['zoom'], 11.5);
+    expect(state['zoom'], 10, reason: 'no finer than the phones keep their last view');
+    final fine = premapState(
+      basemapBase: 'https://tiles.example.org',
+      placesTileJson: 'https://api.example.org/places/tiles.json',
+      dark: false,
+      language: 'en',
+      center: const LatLng(45.91234, 6.12891),
+      zoom: 16,
+    );
+    expect(fine['center'], [6.1, 45.9], reason: 'a tenth of a degree, never the spot');
+    expect(fine['zoom'], 10);
     final layers = (state['layers']! as List).cast<Map<String, Object?>>();
     expect(layers.map((l) => l['id']), PlaceTiles.tappable.reversed);
     for (final layer in layers) {

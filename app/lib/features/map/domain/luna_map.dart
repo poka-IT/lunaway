@@ -137,9 +137,10 @@ final class LunaMapProps {
   /// [pois] draws them.
   final ValueChanged<List<PoiFeature>>? onPoisInView;
 
-  /// The places of the tiles under the view, reported when the map rests at
-  /// the zoom of the pins: the points of interest leave room for them.
-  final ValueChanged<List<LatLng>>? onPlacesInView;
+  /// The places of the tiles inside the view, reported when the map rests
+  /// at the zoom of the pins: the list beside the map shows them, and the
+  /// points of interest leave room for them.
+  final void Function(List<PlaceSummary> places, GeoBounds bounds)? onPlacesInView;
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);

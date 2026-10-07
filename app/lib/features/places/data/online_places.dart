@@ -9,6 +9,7 @@ import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 
 final _log = Logger('places');
 
@@ -46,19 +47,22 @@ final class GraphQLOnlinePlaces implements OnlinePlaces {
     int first = 50,
     String? after,
   }) => client.execute(nearbyPlacesOperation, {
-    'bbox': bboxInput(bounds),
+    // The box and the point on a grid of about 5 km: a view brought to the
+    // user is centred on them, and its exact edges would say where they
+    // stand.
+    'bbox': bboxInput(placesQueryBox(bounds)),
     'filter': placeFilterInput(filter),
-    // The map's centre, never the device's position: the tiles the map
-    // asks for already name the area, a kilometre says nothing more.
-    'near': roundedPointInput(near),
+    'near': _point(searchAnchor(near)),
     'first': first,
     'after': after,
   });
 
+  static Map<String, Object?> _point(LatLng p) => {'lat': p.lat, 'lon': p.lon};
+
   @override
   Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20}) => client.execute(
     searchPlacesOperation,
-    {'text': text, 'near': near == null ? null : roundedPointInput(near), 'first': first},
+    {'text': text, 'near': near == null ? null : _point(searchAnchor(near)), 'first': first},
   );
 
   @override
@@ -116,8 +120,13 @@ final class PlaceReader {
     }
   }
 
-  /// The place once: what a list of favourites or a link needs.
-  Future<Place?> read(String id) => watch(id).last;
+  /// The place once, as settled: the synced copy, else the API's answer,
+  /// else the copy kept (a link opened offline).
+  Future<Place?> read(String id) async {
+    final synced = await local.watchPlace(id).first;
+    if (synced != null) return synced;
+    return await watch(id).last;
+  }
 
   /// Forgets the copy of [id]: after a contribution to it, the next
   /// opening asks the server.
