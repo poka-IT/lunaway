@@ -52,7 +52,10 @@ CREATE TABLE vehicles (
   -- the living area heats on LPG (added in version 3).
   fuel TEXT,
   consumption_l100 REAL,
-  lpg_heating BOOLEAN NOT NULL DEFAULT FALSE
+  lpg_heating BOOLEAN NOT NULL DEFAULT FALSE,
+  -- The highest speed the driver keeps to, km/h; null for the router's
+  -- usual speeds (added in version 4).
+  cruise_speed_kph INTEGER
 ) AS VehicleRow;
 
 -- The account's lists as the last favourites sync left them: the common

@@ -29,13 +29,15 @@ void main() {
     final vars = routeVariables(
       origin: const LatLng(45.84719, 1.28476),
       destination: const LatLng(45.84510, 1.28637),
-      vehicle: checkVehicle(motorhome).profile!,
+      vehicle: checkVehicle(motorhome.copyWith(cruiseSpeedKph: () => 95)).profile!,
       avoid: const AvoidOptions(tolls: true),
       language: RouteLanguage.fr,
       headingDeg: 132,
       alternatives: 2,
     );
     expect(validator.checkVariables(routeOperation.document, vars), isEmpty);
+    final vehicle = (vars['input']! as Map<String, Object?>)['vehicle']! as Map<String, Object?>;
+    expect(vehicle['cruiseSpeedKph'], 95, reason: 'the route is timed at the speed set');
   });
 
   test('a route with stops sends them as the schema asks', () {
@@ -81,7 +83,7 @@ void main() {
       ) as Map<String, dynamic>;
       expect(
         validator.checkResponse(
-          routeOperation.older!.older!.document,
+          routeOperation.older!.older!.older!.document,
           body['data'] as Map<String, dynamic>,
         ),
         isEmpty,
@@ -96,7 +98,7 @@ void main() {
     ) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     // Recorded before the reasons and the crossings: the form without them.
-    expect(validator.checkResponse(routeOperation.older!.document, data), isEmpty);
+    expect(validator.checkResponse(routeOperation.older!.older!.document, data), isEmpty);
     final route = routePlanFromJson(data['route'] as Map<String, dynamic>).routes.single;
     final limits = route.speedLimits!;
     expect(limits.first.kmh, 50);
@@ -106,7 +108,7 @@ void main() {
   });
 
   test('the route request without the speed limits is valid too, for an API without them', () {
-    final older = routeOperation.older!.older!;
+    final older = routeOperation.older!.older!.older!;
     expect(older.withoutFields, isTrue);
     expect(validator.validate(older.document), isEmpty);
     expect(older.document, isNot(contains('speedLimits')));
@@ -121,9 +123,13 @@ void main() {
       File('test/fixtures/schema_before_europe.graphql').readAsStringSync(),
     );
 
-    for (final op in navigationOperations) {
+    // The route's form for that API comes after the one for the API
+    // before the cruising speed.
+    for (final (op, older) in [
+      (routeOperation, routeOperation.older!.older!),
+      (routingInfoOperation, routingInfoOperation.older!),
+    ]) {
       test('${op.name} needs its older form there, which is valid on both APIs', () {
-        final older = op.older!;
         expect(before.validate(op.document), isNotEmpty, reason: 'else no older form is needed');
         expect(before.validate(older.document), isEmpty);
         expect(validator.validate(older.document), isEmpty);
@@ -131,11 +137,49 @@ void main() {
       });
     }
 
-    test('the route keeps its speed limits in the first older form', () {
-      expect(routeOperation.older!.document, contains('speedLimits'));
-      expect(routeOperation.older!.document, isNot(contains('noRouteReasons')));
-      expect(routeOperation.older!.document, isNot(contains('notices')));
+    test('the route keeps its speed limits in the form for that API', () {
+      final older = routeOperation.older!.older!.document;
+      expect(older, contains('speedLimits'));
+      expect(older, isNot(contains('noRouteReasons')));
+      expect(older, isNot(contains('notices')));
       expect(routingInfoOperation.older!.document, isNot(contains('coveredCountries')));
+    });
+  });
+
+  // The API in production before the cruising speed (schema of 72fa47c):
+  // the route falls back one step, without the speed, and keeps the rest.
+  group('against the API before the cruising speed', () {
+    final before = SchemaValidator(
+      File('test/fixtures/schema_before_cruise.graphql').readAsStringSync(),
+    );
+    final vars = routeVariables(
+      origin: const LatLng(45.84719, 1.28476),
+      destination: const LatLng(45.84510, 1.28637),
+      vehicle: checkVehicle(motorhome.copyWith(cruiseSpeedKph: () => 90)).profile!,
+      avoid: const AvoidOptions(),
+      language: RouteLanguage.fr,
+    );
+
+    test('a route with a cruising speed needs the older form there', () {
+      expect(before.validate(routeOperation.document), isNotEmpty);
+      expect(before.checkVariables(routeOperation.older!.document, vars), isNotEmpty);
+    });
+
+    test('the older form leaves the speed out and keeps the reasons and the limits', () {
+      final older = routeOperation.older!;
+      expect(older.withoutFields, isTrue);
+      expect(before.validate(older.document), isEmpty);
+      expect(validator.validate(older.document), isEmpty);
+      final sent = older.variables(vars);
+      expect(before.checkVariables(older.document, sent), isEmpty);
+      final vehicle = (sent['input']! as Map<String, Object?>)['vehicle']! as Map<String, Object?>;
+      expect(vehicle, isNot(contains('cruiseSpeedKph')));
+      expect(vehicle['heightM'], 3.3, reason: 'the rest of the vehicle goes');
+      expect(older.document, contains('noRouteReasons'));
+      expect(older.document, contains('speedLimits'));
+      for (var form = older.older; form != null; form = form.older) {
+        expect(form.variables(vars).toString(), isNot(contains('cruiseSpeedKph')));
+      }
     });
   });
 
@@ -146,12 +190,16 @@ void main() {
     'sea_off_network',
     'elba_ferry',
   ]) {
+    // Recorded before the cruising speed: the form without it.
     test('the answer $name, built from the backend recordings, matches the selection', () {
       final body = jsonDecode(
         File('test/fixtures/navigation/route_$name.json').readAsStringSync(),
       ) as Map<String, dynamic>;
       expect(
-        validator.checkResponse(routeOperation.document, body['data'] as Map<String, dynamic>),
+        validator.checkResponse(
+          routeOperation.older!.document,
+          body['data'] as Map<String, dynamic>,
+        ),
         isEmpty,
       );
     });

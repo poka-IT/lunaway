@@ -63,6 +63,9 @@ const _v4Indexes = {'places_region'};
 /// The columns version 3 of the user store added to the vehicle.
 const _fuelColumns = ['fuel', 'consumption_l100', 'lpg_heating'];
 
+/// The column version 4 of the user store added to the vehicle.
+const _cruiseColumns = ['cruise_speed_kph'];
+
 final class _Raw extends GeneratedDatabase {
   new(super.executor);
 
@@ -90,7 +93,7 @@ void main() {
       file,
       dropColumns: {
         'favorite_lists': ['server_id'],
-        'vehicles': _fuelColumns,
+        'vehicles': [..._fuelColumns, ..._cruiseColumns],
       },
       dropTables: {'favorite_sync_base', 'outbox', 'outbox_files'},
     );
@@ -276,7 +279,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'vehicles': _fuelColumns},
+      dropColumns: const {
+        'vehicles': [..._fuelColumns, ..._cruiseColumns],
+      },
       dropTables: const {},
       version: 2,
     );
@@ -302,6 +307,40 @@ void main() {
     final saved = await repo.watch().first;
     expect(saved?.fuel, FuelType.lpg);
     expect(saved?.lpgHeating, isTrue);
+    await upgraded.close();
+  });
+
+  test('a version 3 user database keeps its vehicle and gains its cruising speed, unset', () async {
+    final fresh = UserDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/user3.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'vehicles': _cruiseColumns},
+      dropTables: const {},
+      version: 3,
+    );
+    final old = sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO vehicles (id, type, towing, height_m, updated_at, fuel) '
+        "VALUES (1, 'overcab', 'none', 3.1, 1, 'DIESEL')",
+      );
+    expect(
+      old.select('PRAGMA table_info(vehicles)').map((r) => r['name']),
+      isNot(contains('cruise_speed_kph')),
+    );
+    old.close();
+
+    final upgraded = UserDatabase(NativeDatabase(file));
+    final repo = DriftVehicleRepository(upgraded, clock: () => DateTime.utc(2026, 10, 7));
+    final vehicle = await repo.watch().first;
+    expect(vehicle?.fuel, FuelType.diesel);
+    expect(vehicle?.cruiseSpeedKph, isNull, reason: 'the usual speeds until set');
+    await repo.save(vehicle!.copyWith(cruiseSpeedKph: () => 95));
+    expect((await repo.watch().first)?.cruiseSpeedKph, 95);
+    await repo.save(vehicle.copyWith(cruiseSpeedKph: () => null));
+    expect((await repo.watch().first)?.cruiseSpeedKph, isNull, reason: '"no limit" is kept too');
     await upgraded.close();
   });
 }

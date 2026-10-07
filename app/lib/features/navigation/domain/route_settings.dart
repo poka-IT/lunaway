@@ -210,6 +210,7 @@ final class VehicleProfile {
     required this.lengthM,
     required this.weightT,
     this.trailer,
+    this.cruiseSpeedKph,
   });
 
   final RouterVehicleType type;
@@ -221,6 +222,10 @@ final class VehicleProfile {
   final double weightT;
   final TrailerProfile? trailer;
 
+  /// The highest speed the driver keeps to, km/h: the server times the
+  /// route at it, never above the vehicle's legal ceiling.
+  final int? cruiseSpeedKph;
+
   Map<String, Object?> toJson() => {
     'kind': type.wire,
     'heightM': heightM,
@@ -228,6 +233,7 @@ final class VehicleProfile {
     'lengthM': lengthM,
     'weightT': weightT,
     if (trailer != null) 'trailer': trailer!.toJson(),
+    'cruiseSpeedKph': ?cruiseSpeedKph,
   };
 
   @override
@@ -241,11 +247,20 @@ final class VehicleProfile {
       other.trailer?.lengthM == trailer?.lengthM &&
       other.trailer?.weightT == trailer?.weightT &&
       other.trailer?.heightM == trailer?.heightM &&
-      other.trailer?.widthM == trailer?.widthM;
+      other.trailer?.widthM == trailer?.widthM &&
+      other.cruiseSpeedKph == cruiseSpeedKph;
 
   @override
-  int get hashCode =>
-      Object.hash(type, heightM, widthM, lengthM, weightT, trailer?.lengthM, trailer?.weightT);
+  int get hashCode => Object.hash(
+    type,
+    heightM,
+    widthM,
+    lengthM,
+    weightT,
+    trailer?.lengthM,
+    trailer?.weightT,
+    cruiseSpeedKph,
+  );
 }
 
 /// Which figure of the vehicle a route cannot go without.
@@ -333,6 +348,7 @@ VehicleCheck checkVehicle(Vehicle? vehicle, {VehicleBounds bounds = const Vehicl
       lengthM: own,
       weightT: vehicle.weightT!,
       trailer: trailer,
+      cruiseSpeedKph: vehicle.cruiseSpeedKph,
     ),
   );
 }

@@ -675,6 +675,9 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get consumptionUnit => 'L/100 km';
 	@override String get lpgHeating => 'Chauffage au GPL';
 	@override String get lpgHeatingHint => 'Le prix du GPL s\'affiche aussi sur les stations.';
+	@override String get cruiseTitle => 'Vitesse de croisière max';
+	@override String get cruiseHint => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.';
+	@override String get cruiseNone => 'Pas de limite';
 }
 
 // Path: profile
@@ -1572,6 +1575,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override String get vehicle => 'Votre véhicule';
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, avec attelage';
 	@override String get editVehicle => 'Modifier';
+	@override String cruise({required Object speed}) => 'Calculé à ${speed} max';
 	@override String get avoid => 'Éviter';
 	@override String get avoidTolls => 'Péages';
 	@override String get avoidMotorways => 'Autoroutes';
@@ -2762,6 +2766,7 @@ extension on TranslationsFr {
 			'navigation.preview.vehicle' => 'Votre véhicule',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, avec attelage',
 			'navigation.preview.editVehicle' => 'Modifier',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Calculé à ${speed} max',
 			'navigation.preview.avoid' => 'Éviter',
 			'navigation.preview.avoidTolls' => 'Péages',
 			'navigation.preview.avoidMotorways' => 'Autoroutes',
@@ -2959,9 +2964,9 @@ extension on TranslationsFr {
 			'navigation.marks.kindFuel' => 'Station-service',
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
 			'navigation.marks.groupLegend' => 'Repères proches regroupés : rapprochez-vous pour les séparer',
-			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			_ => null,
 		} ?? switch (path) {
+			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
 			'navigation.marks.stop' => ({required Object n}) => 'Étape ${n}',
@@ -3119,6 +3124,9 @@ extension on TranslationsFr {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Chauffage au GPL',
 			'vehicle.lpgHeatingHint' => 'Le prix du GPL s\'affiche aussi sur les stations.',
+			'vehicle.cruiseTitle' => 'Vitesse de croisière max',
+			'vehicle.cruiseHint' => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.',
+			'vehicle.cruiseNone' => 'Pas de limite',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.',
 			'profile.language' => 'Langue',
@@ -3470,12 +3478,12 @@ extension on TranslationsFr {
 			'gate.why' => 'Les niveaux protègent la carte des abus. Ils viennent avec le temps et les contributions, sans rien à acheter.',
 			'gate.yourLevel' => ({required Object level}) => 'Votre niveau : ${level}',
 			'gate.noAccount' => 'Pas encore de compte : un compte commence au niveau 0.',
+			_ => null,
+		} ?? switch (path) {
 			'gate.later' => ({required Object level}) => 'Le niveau ${level} vient après les précédents, avec le temps et les contributions publiées.',
 			'gate.meanwhile' => 'En attendant, vous pouvez noter les lieux, confirmer qu\'ils sont toujours là ou signaler un problème.',
 			'photoFlow.title' => 'Ajouter une photo',
 			'photoFlow.camera' => 'Prendre une photo',
-			_ => null,
-		} ?? switch (path) {
 			'photoFlow.gallery' => 'Choisir dans la galerie',
 			'photoFlow.preparing' => 'Préparation de la photo',
 			'photoFlow.licence' => 'Publiée sous licence CC BY 4.0, avec votre pseudonyme. Évitez les visages et les plaques d\'immatriculation.',

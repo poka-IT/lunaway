@@ -1322,6 +1322,15 @@ class Translations$vehicle$en {
 
 	/// en: 'LPG prices also show on the stations.'
 	String get lpgHeatingHint => 'LPG prices also show on the stations.';
+
+	/// en: 'Top cruising speed'
+	String get cruiseTitle => 'Top cruising speed';
+
+	/// en: 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.'
+	String get cruiseHint => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.';
+
+	/// en: 'No limit'
+	String get cruiseNone => 'No limit';
 }
 
 // Path: profile
@@ -3321,6 +3330,9 @@ class Translations$navigation$preview$en {
 
 	/// en: 'Edit'
 	String get editVehicle => 'Edit';
+
+	/// en: 'Timed at $speed max'
+	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
@@ -5483,6 +5495,7 @@ extension on Translations {
 			'navigation.preview.vehicle' => 'Your vehicle',
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
+			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -5680,9 +5693,9 @@ extension on Translations {
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
 			'navigation.marks.groupLegend' => 'Marks close together: zoom in to tell them apart',
-			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			_ => null,
 		} ?? switch (path) {
+			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
 			'navigation.marks.stop' => ({required Object n}) => 'Stop ${n}',
@@ -5840,6 +5853,9 @@ extension on Translations {
 			'vehicle.consumptionUnit' => 'L/100 km',
 			'vehicle.lpgHeating' => 'Heating on LPG',
 			'vehicle.lpgHeatingHint' => 'LPG prices also show on the stations.',
+			'vehicle.cruiseTitle' => 'Top cruising speed',
+			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
+			'vehicle.cruiseNone' => 'No limit',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6191,12 +6207,12 @@ extension on Translations {
 			'gate.why' => 'Levels protect the map from abuse. They come with time and contributions, with nothing to buy.',
 			'gate.yourLevel' => ({required Object level}) => 'Your level: ${level}',
 			'gate.noAccount' => 'No account yet: an account starts at level 0.',
+			_ => null,
+		} ?? switch (path) {
 			'gate.later' => ({required Object level}) => 'Level ${level} comes after the previous ones, with time and published contributions.',
 			'gate.meanwhile' => 'Meanwhile, you can rate places, confirm they are still there or report a problem.',
 			'photoFlow.title' => 'Add a photo',
 			'photoFlow.camera' => 'Take a photo',
-			_ => null,
-		} ?? switch (path) {
 			'photoFlow.gallery' => 'Choose from the gallery',
 			'photoFlow.preparing' => 'Preparing the photo',
 			'photoFlow.licence' => 'Published under CC BY 4.0, with your pseudonym. Avoid faces and number plates.',

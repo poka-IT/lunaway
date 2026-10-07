@@ -190,6 +190,46 @@ void main() {
       );
     });
 
+    testWidgets('its cruising speed is picked from a list, kept, and can go back to none', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      await openTab(tester, 'Profil');
+      await showInProfile(tester, find.text('Décrire mon véhicule'));
+      await tester.tap(find.text('Décrire mon véhicule'));
+      await settleShort(tester);
+      final control = find.byType(DropdownButtonFormField<int?>);
+      await tester.scrollUntilVisible(control, 200, scrollable: editorList);
+      expect(
+        find.descendant(of: control, matching: find.text('Pas de limite')),
+        findsOneWidget,
+        reason: 'the usual speeds by default',
+      );
+      await tester.tap(control);
+      await settleShort(tester);
+      await tester.tap(find.text('95 km/h').last);
+      await settleShort(tester);
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      Vehicle? stored() => app.container(tester).read(vehicleProvider).value;
+      expect(stored()?.cruiseSpeedKph, 95);
+
+      // The vehicle's card in the profile opens it again.
+      await showInProfile(tester, find.text('Fourgon aménagé'));
+      await tester.tap(find.text('Fourgon aménagé'));
+      await settleShort(tester);
+      await tester.scrollUntilVisible(control, 200, scrollable: editorList);
+      expect(find.descendant(of: control, matching: find.text('95 km/h')), findsOneWidget);
+      await tester.tap(control);
+      await settleShort(tester);
+      await tester.tap(find.text('Pas de limite').last);
+      await settleShort(tester);
+      await tester.tap(find.text('Enregistrer').last);
+      await settleShort(tester);
+      expect(stored()?.cruiseSpeedKph, isNull);
+      expect(stored(), isNotNull, reason: 'the vehicle stays, without a speed');
+    });
+
     testWidgets('the profile shows the vehicle described, its type and size', (tester) async {
       final app = await pumpLunaway(tester);
       await app

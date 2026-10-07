@@ -408,6 +408,7 @@
       "vehicle": "Votre véhicule",
       "vehicleTowing": "$vehicle, avec attelage",
       "editVehicle": "Modifier",
+      "cruise": "Calculé à $speed max",
       "avoid": "Éviter",
       "avoidTolls": "Péages",
       "avoidMotorways": "Autoroutes",
@@ -831,7 +832,10 @@
     "consumption": "Consommation",
     "consumptionUnit": "L/100 km",
     "lpgHeating": "Chauffage au GPL",
-    "lpgHeatingHint": "Le prix du GPL s'affiche aussi sur les stations."
+    "lpgHeatingHint": "Le prix du GPL s'affiche aussi sur les stations.",
+    "cruiseTitle": "Vitesse de croisière max",
+    "cruiseHint": "Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.",
+    "cruiseNone": "Pas de limite"
   },
   "profile": {
     "title": "Profil",
