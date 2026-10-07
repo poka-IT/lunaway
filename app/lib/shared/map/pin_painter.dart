@@ -144,10 +144,13 @@ Path teardrop(Offset center, double radius, Offset tip) {
 /// The geometry of the long-press marker: an amber drop with a navy dot.
 const pointMarkerSize = Size(34, 44);
 
+/// How far down [pointMarkerSize] the marker's tip lies, the point it marks.
+const double pointMarkerTip = 17 + 14 * 1.43;
+
 void paintPointMarker(Canvas canvas) {
   const c = Offset(17, 17);
   const outer = 14.0;
-  const tip = Offset(17, 17 + outer * 1.43);
+  const tip = Offset(17, pointMarkerTip);
   Path drop(double r) => teardrop(c, r, r < outer ? tip - const Offset(0, 3.5) : tip);
 
   canvas

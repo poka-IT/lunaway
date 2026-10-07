@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
@@ -431,10 +432,12 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   }
 
   /// The nearest mark within reach (a place, a station, a stop), else
-  /// another route that passes within reach ([nearestHit]).
-  Future<void> _onTap(math.Point<double> point) async {
+  /// another route that passes within reach ([nearestHit]); at street level
+  /// a tap that reaches neither, nor a sign of the route, is a tap on bare
+  /// map at [at].
+  Future<void> _onTap(math.Point<double> point, gl.LatLng at) async {
     final c = _controller;
-    if (c == null || !_ready) return;
+    if (c == null || !_ready || !mounted) return;
     // The engine's units per logical pixel: Android counts physical pixels.
     final scale = mapQueryScale(
       web: kIsWeb,
@@ -442,15 +445,19 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
     final tolerance = hitTolerance(webMapPointerKind());
+    // Wide enough for the reach of a free point (FreeTap); the selection's
+    // own tolerance is applied below.
+    final reach = tolerance * FreeTap.wider;
     final box = Rect.fromCenter(
       center: Offset(point.x, point.y),
-      width: tolerance * 2 * scale,
-      height: tolerance * 2 * scale,
+      width: reach * 2 * scale,
+      height: reach * 2 * scale,
     );
     final onMarkTap = _props.onMarkTap;
     final onLineTap = _props.onLineTap;
-    final (marks, lines) = await (
-      onMarkTap == null
+    final onEmptyTap = _props.onEmptyTap;
+    final (marks, lines, camera) = await (
+      onMarkTap == null && onEmptyTap == null
           ? Future.value(const <Object?>[])
           : c.queryRenderedFeaturesInRect(box, const [RouteLayers.marks], null),
       onLineTap == null
@@ -459,14 +466,16 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
               RouteLayers.alternatives,
               RouteLayers.alternativesCasing,
             ], null),
+      c.queryCameraPosition(),
     ).wait;
+    if (!mounted) return;
+    final zoom = camera?.zoom;
     final features = [
       for (final f in marks)
         if (f is Map) (RouteLayers.marks, f),
       for (final f in lines)
         if (f is Map) (RouteLayers.alternatives, f),
     ];
-    if (features.isEmpty || !mounted) return;
     final positions = [
       for (final (_, f) in features) pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?),
     ];
@@ -488,14 +497,30 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           ],
         ),
     ];
-    final hit = nearestHit(
-      Offset(point.x, point.y) / scale,
-      candidates,
-      shapes: routeHitShapes,
-      zoom: 0,
-      tolerance: tolerance,
-    );
-    if (hit == null) return;
+    final tapped = Offset(point.x, point.y) / scale;
+    MapHit? pick(Map<String, HitShape> shapes, double t) =>
+        nearestHit(tapped, candidates, shapes: shapes, zoom: 0, tolerance: t);
+    final hit = hitAroundTap((t) => pick(routeHitShapes, t), tolerance: tolerance, zoom: zoom);
+    if (hit == null) {
+      // A sign that opens nothing (the start, the destination, a warning)
+      // is still no bare map: the tap does nothing rather than offer the
+      // point under it.
+      final sign = hitAroundTap(
+        (t) => pick(routeSignHitShapes, t),
+        tolerance: tolerance,
+        zoom: zoom,
+      );
+      if (sign != null || zoom == null || onEmptyTap == null) return;
+      // On a touch screen GL JS keeps the second tap of a double tap for its
+      // zoom: the first one is dropped once the camera zooms.
+      if (kIsWeb &&
+          webMapPointerKind() == PointerKind.touch &&
+          await zoomedAfterTap(() async => (await c.queryCameraPosition())?.zoom, zoom)) {
+        return;
+      }
+      if (mounted) onEmptyTap(LatLng(at.latitude, at.longitude), zoom);
+      return;
+    }
     final properties = candidates[hit.index].properties;
     switch ((properties['id'], properties['index'])) {
       case (final String id, _):
@@ -537,9 +562,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
       onMapCreated: (c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
-      onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null
+      onMapClick: kIsWeb && p.onLineTap == null && p.onMarkTap == null && p.onEmptyTap == null
           ? null
-          : (point, _) => _onTap(point),
+          : _onTap,
       onMapLongClick: p.onLongPress == null
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),

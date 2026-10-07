@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image/image.dart' as img;
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
@@ -18,7 +19,9 @@ import 'package:lunaway/features/community/data/picture_picker.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
+import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
@@ -750,10 +753,23 @@ void main() {
   group('adding a place', () {
     const point = LatLng(45.91, 6.12);
 
-    Future<TestApp> openPoint(WidgetTester tester, FakeApi api) async {
+    /// The map of the placement rests on [at]: the spot under its crosshair.
+    void restOn(TestApp app, LatLng at) => app.map.viewport = MapViewport(
+      bounds: GeoBounds(
+        south: at.lat - 0.002,
+        west: at.lon - 0.003,
+        north: at.lat + 0.002,
+        east: at.lon + 0.003,
+      ),
+      center: at,
+      zoom: placementZoom,
+    );
+
+    Future<TestApp> openPoint(WidgetTester tester, FakeApi api, {LatLng at = point}) async {
       final app = await pumpLunaway(tester, size: const Size(1280, 2400), api: api, signedIn: true);
-      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(point));
+      app.container(tester).read(selectionProvider.notifier).select(PointSelection(at));
       await settleShort(tester);
+      restOn(app, at);
       await tester.tap(find.text(t.contribute.addPlaceHere));
       await settleShort(tester);
       return app;
@@ -762,12 +778,102 @@ void main() {
     testWidgets('below level 2 the gate says which level opens it', (tester) async {
       await openPoint(tester, FakeApi(level: 1));
       expect(find.text(t.gate.addPlace), findsOneWidget);
+      expect(find.text(t.placement.title), findsNothing, reason: 'no placement for nothing');
       expect(find.text(t.placeForm.submitAdd), findsNothing);
+    });
+
+    testWidgets('the spot is set under the crosshair, at street detail, before the form', (
+      tester,
+    ) async {
+      final app = await openPoint(tester, FakeApi(level: 2));
+      expect(find.text(t.placement.title), findsOneWidget);
+      expect(find.text(t.placeForm.submitAdd), findsNothing, reason: 'the placement comes first');
+      expect(app.map.lastProps!.initialCenter, point);
+      expect(app.map.lastProps!.initialZoom, placementZoom);
+      // The user flings the map and confirms while it still glides: the
+      // spot is where the camera stands then, not where it last rested.
+      const moved = LatLng(45.9103, 6.1204);
+      app.map.moving = moved;
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      expect(find.text(t.placeForm.submitAdd), findsOneWidget);
+      expect(find.text(CoordinateFormat.decimal.format(moved)), findsOneWidget);
+    });
+
+    testWidgets('a place within 50 m is offered before a second one is made', (tester) async {
+      // About 30 m north of the lake's area.
+      const near = LatLng(45.89947, 6.1294);
+      final api = FakeApi(level: 2);
+      final app = await openPoint(tester, api, at: near);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      expect(find.textContaining('Il y a déjà « Aire du Lac Bleu (démo) » à 30'), findsOneWidget);
+      expect(find.textContaining('est-ce le même endroit ?'), findsOneWidget);
+      await tester.tap(find.text(t.placement.same));
+      await settleShort(tester);
+      expect(
+        app.container(tester).read(selectionProvider),
+        isA<PlaceSelection>().having((s) => s.id, 'id', lakeArea.id),
+      );
+      expect(find.text(t.placeForm.submitAdd), findsNothing);
+      expect(api.calls.where((c) => c.operation == 'AddPlace'), isEmpty);
+    });
+
+    testWidgets("on the web, where the device keeps no places, the map's own are asked", (
+      tester,
+    ) async {
+      const near = LatLng(45.89947, 6.1294);
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 2400),
+        api: FakeApi(level: 2),
+        signedIn: true,
+        overrides: [keepsPlacesProvider.overrideWithValue(false)],
+      );
+      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(near));
+      await settleShort(tester);
+      restOn(app, near);
+      await tester.tap(find.text(t.contribute.addPlaceHere));
+      await settleShort(tester);
+      // The tiles of the placement map hold a car park 30 m away.
+      const tileParking = PlaceSummary(
+        id: 'tile-parking',
+        name: 'Parking du port',
+        kind: PlaceKind.parking,
+        lat: 45.8992,
+        lon: 6.1294,
+        overnight: OvernightStatus.unknown,
+      );
+      app.map.lastProps!.onPlacesInView!(const [tileParking], app.map.viewport.bounds);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      expect(find.textContaining('Il y a déjà « Parking du port » à 30'), findsOneWidget);
+    });
+
+    testWidgets('"another place" goes on to the form', (tester) async {
+      const near = LatLng(45.89947, 6.1294);
+      await openPoint(tester, FakeApi(level: 2), at: near);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      await tester.tap(find.text(t.placement.notSame));
+      await settleShort(tester);
+      expect(find.text(t.placeForm.submitAdd), findsOneWidget);
+    });
+
+    testWidgets('a place 80 m away is no duplicate: straight to the form', (tester) async {
+      const further = LatLng(45.89992, 6.1294);
+      await openPoint(tester, FakeApi(level: 2), at: further);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
+      expect(find.textContaining('est-ce le même endroit ?'), findsNothing);
+      expect(find.text(t.placeForm.submitAdd), findsOneWidget);
     });
 
     testWidgets('from level 2 the form sends the kind, the point and the name', (tester) async {
       final api = FakeApi(level: 2);
       await openPoint(tester, api);
+      await tester.tap(find.text(t.placement.confirm));
+      await settleShort(tester);
       expect(find.text(t.placeForm.toVerify), findsOneWidget);
       await tester.tap(find.text(t.placeForm.submitAdd));
       await tester.pump();
