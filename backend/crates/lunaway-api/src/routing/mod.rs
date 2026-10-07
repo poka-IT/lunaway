@@ -36,8 +36,9 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, Restriction, RestrictionFeature, RestrictionSource, RouteLine,
-        RoutingDimensions, Severity, VehicleProfile, assess, exclusion_ring, match_route, polyline,
+        Finding, Hit, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        RouteLine, RoutingDimensions, Severity, VehicleProfile, assess, exclusion_ring,
+        match_route, polyline,
     },
 };
 use serde_json::Value;
@@ -302,19 +303,23 @@ pub(crate) struct Routing {
 /// Only the rows of OpenStreetMap and the IGN, which belong to a graph and
 /// end with it: DiaLog's and the community's live outside the graphs, and
 /// DiaLog's come back under new ids at every reading, so a remembered copy
-/// would outlive the order it stood for. Only barriers and limits on the
-/// road itself: a ring under a bridge or over an underpass would also cut
-/// the road at the other level, for trips that never needed it.
+/// would outlive the order it stood for. Only barriers, and the limits of
+/// a road that nothing overhangs (width, length, weight, bans): a ring
+/// under a bridge or over an underpass would also cut the road at the other
+/// level, for trips that never needed it, and OpenStreetMap often maps a
+/// bridge's clearance on the plain road segment under it.
 ///
 /// Only a meeting more than [`CLEAR_OF_STOPS_M`] from every stop of the
 /// trip counts, so trips from and to a home near a restriction leave no
 /// trace, and a blocker serves ahead once two requests have met it. What
 /// the list still tells (privacy audit of 2026-10-07): a client sending
 /// trips through a restriction learns from the answer's recalculations, or
-/// its time, whether a vehicle at least that tall passed through it on a
-/// longer trip, since the graph was built or since the client pushed older
-/// entries out with trips of its own. Public restrictions only, in memory,
-/// never logged.
+/// its time, whether another request, for a vehicle the restriction
+/// blocks and with every stop more than 10 km away, had a route through it
+/// whose alternatives were all blocked, since the graph was built or since
+/// the client pushed older entries out with trips of its own. Closing that
+/// would take a list frozen at fixed times and counted by distinct
+/// clients. Public restrictions only, in memory, never logged.
 #[derive(Default)]
 struct Remembered {
     graph_id: String,
@@ -334,6 +339,16 @@ struct RememberedBlocker {
 /// Blockers remembered at most: a few hundred places in Europe hold the
 /// limits the engine misses on the main roads.
 const REMEMBERED: usize = 512;
+/// Whether a ring around `restriction`'s place cuts only its own road: a
+/// barrier, or a road limit other than a height (see [`Remembered`]).
+fn overhangs_nothing(restriction: &Restriction) -> bool {
+    match restriction.feature {
+        RestrictionFeature::Barrier => true,
+        RestrictionFeature::Road => restriction.kind != RestrictionKind::MaxHeight,
+        _ => false,
+    }
+}
+
 /// Requests that must have met a blocker before it is excluded ahead.
 const MET_BEFORE_AHEAD: u32 = 2;
 /// Remembered blockers excluded from a first call at most, under
@@ -590,12 +605,10 @@ impl Routing {
             if !matches!(
                 r.restriction.source,
                 RestrictionSource::Osm | RestrictionSource::Ign
-            ) || !matches!(
-                r.restriction.feature,
-                RestrictionFeature::Barrier | RestrictionFeature::Road
-            ) || stops
-                .iter()
-                .any(|s| s.at.distance_m(b.hit.middle) <= CLEAR_OF_STOPS_M)
+            ) || !overhangs_nothing(&r.restriction)
+                || stops
+                    .iter()
+                    .any(|s| s.at.distance_m(b.hit.middle) <= CLEAR_OF_STOPS_M)
                 || counted.contains(&r.id)
             {
                 continue;
@@ -1441,7 +1454,7 @@ mod tests {
     /// A height barrier of 2.7 m from `source`, met by a route at `at`.
     fn met(source: RestrictionSource, id: u128, at: Position) -> Met {
         let restriction = Restriction {
-            kind: lunaway_domain::routing::RestrictionKind::MaxHeight,
+            kind: RestrictionKind::MaxHeight,
             limit: Some(2.7),
             source,
             certainty: lunaway_domain::routing::Certainty::Known,
@@ -1519,13 +1532,20 @@ mod tests {
             "the barrier of the graph, met by two requests; never DiaLog's \
              order, which a later reading may end"
         );
-        // An underpass: its ring would cut the road above it too.
+        // An underpass, and a clearance mapped on the plain road under a
+        // bridge: their rings would cut the road above too.
         let mut under = met(
             RestrictionSource::Osm,
             3,
             Position::new(45.86, 1.30).unwrap(),
         );
         under.restriction.restriction.feature = RestrictionFeature::Underpass;
+        let mut clearance = met(
+            RestrictionSource::Osm,
+            5,
+            Position::new(45.87, 1.31).unwrap(),
+        );
+        clearance.restriction.restriction.feature = RestrictionFeature::Road;
         // A barrier met by trips that start next to it, from a home there.
         let home = met(
             RestrictionSource::Osm,
@@ -1533,12 +1553,18 @@ mod tests {
             Position::new(45.705, 1.105).unwrap(),
         );
         for _ in 0..3 {
-            routing.remember(g, &trip, &[under.clone(), home.clone()], &mut Vec::new());
+            routing.remember(
+                g,
+                &trip,
+                &[under.clone(), clearance.clone(), home.clone()],
+                &mut Vec::new(),
+            );
         }
         assert_eq!(
             routing.remembered_for(g, &stops(&[(45.30, 0.70), (46.30, 1.90)]), &dims(3.3)),
             [bridge],
-            "neither an underpass nor a barrier met only near a trip's stops"
+            "neither an underpass, nor a clearance on a road, nor a barrier met \
+             only near a trip's stops"
         );
         routing.remember(g, &trip, &blockers, &mut Vec::new());
         assert_eq!(routing.remembered_for(g, &trip, &dims(3.3)), [bridge]);

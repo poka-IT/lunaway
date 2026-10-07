@@ -1963,6 +1963,27 @@ and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
 never on the maintainer's Mac).
 
+A blocker the engine does not see by itself (a height barrier mapped on a
+node, a port's lane) costs a second engine call. The API remembers, in
+memory and per graph, the OpenStreetMap and IGN barriers and road limits
+that blocked routes more than 10 km from their stops; once two requests
+have met one, the first call of a later trip it may lie on (box of the
+stops widened by 1 degree, stops more than 10 km away) excludes it ahead,
+and a trip left without a safe route that way is asked again without
+them. What the list still reveals, and the options to close it, are in
+the comment of `routing::Remembered`.
+
+Each route writes one line to the API's journal, `route computed`, with
+where its time went: `queue_ms` (waiting for a slot), `engine_ms` and
+`engine_calls`, `corridor_ms` (the corridor queries and the sampling
+around them), `check_ms` (the matching), `limits_ms` (the speed-limit
+traces, two at a time), the routes kept and `osrm_bytes`; durations and
+counts only, no position. `journalctl -u lunaway-api | grep "route
+computed"` reads them. On 2026-10-07 the engine took most of the time of
+a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9
+times what a ccx23 (dedicated vCPU) took for the same calls on the same
+graph (`plan/research/48-latence-itineraires.md`).
+
 ## F-Droid repository
 
 Until the official F-Droid carries the app, Lunaway publishes its own
