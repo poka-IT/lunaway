@@ -236,7 +236,15 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
 - **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
   of the events that can block, in every country with a feed, without the
   phone's position (only the sources on the routing graph,
-  `road_event_sources.routed`, all of them since the graph covers Europe);
+  `road_event_sources.routed`, all of them since the graph covers Europe),
+  only those in force or starting within 48 hours
+  (`road_events.in_window`, `road_events_feed_window()`): NDW publishes
+  two weeks of planned works. The poller's lifecycle pass, every three
+  minutes, lets an event into the window when its start comes within it
+  and gives it a new revision, so the cursor a phone holds delivers it
+  then; an event outside the window keeps its revision while it changes,
+  and one postponed past it comes back as a removal. Routes read every
+  event, whatever the window;
   the phone checks its remaining route itself and asks for a new route
   when a blocker appears ahead (the contract is in
   `plan/research/21-backend-travaux.md`, part 5).
