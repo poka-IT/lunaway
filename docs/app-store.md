@@ -82,8 +82,11 @@ Not collected, with the reason:
   list sends the position or the map centre rounded to 0.05 degree
   (`app/lib/features/poi/application/fuel_feed_providers.dart`), the fuel
   layer the visible area widened to a 0.05 degree grid
-  (`poi_providers.dart`); nothing is stored, the access log keeps no query
-  content (`infra/caddy/Caddyfile`, `access_log`).
+  (`poi_providers.dart`), and so do the list of places beside the map
+  below zoom 12, the count of the filters and the places along a route
+  on a device without places (`app/lib/features/places/data/online_places.dart`);
+  nothing is stored, the access log keeps no query content
+  (`infra/caddy/Caddyfile`, `access_log`).
 - Precise Location for routes: the start of each route, the reroutes of a
   guidance and the route line sent for its fuel stations reach the server
   and are used for that request only; nothing is stored, the API logs no
@@ -91,9 +94,10 @@ Not collected, with the reason:
   routing engine's journal holds none (14 days of `journalctl -u valhalla`
   read on 2026-10-07: no coordinate, no request body). Under Apple's
   definition this adds no type.
-- Search History: the search of places runs on the device; the search of
-  shops and services sends the text and the map centre rounded to 0.05
-  degree, neither stored nor logged.
+- Search History: the search of places runs on the device when it holds
+  places, otherwise it sends the text and the map centre rounded to 0.05
+  degree, as the search of shops and services always does; neither is
+  stored nor logged.
 - Contact Info (no e-mail, phone or real name is asked), Diagnostics and
   crash data (none), Browsing History (none).
 - Speed cameras and road events: asked by country and by cursor, without

@@ -1067,9 +1067,12 @@ served `no-cache`, its name carrying no content hash). A new deploy is a new
 worker: browsers install it in the background at their next visit and use
 the new build from the one after. The worker also answers the TileJSON of
 the places, the points of interest and the basemap from its copy while it
-fetches a fresh one. To take it out of every browser, deploy a build whose
-`lunaway_sw.js` unregisters itself (Flutter's own `flutter_service_worker.js`
-does exactly that).
+fetches a fresh one, so a place taken down may show one visit longer on the
+web. The worker of a build never comes out by deleting `lunaway_sw.js`:
+browsers keep the worker they have when its file answers 404. To take it out
+of every browser, deploy a build after `python3
+app/tool/web/service_worker.py --remove <build dir>`, whose worker empties its
+caches, unregisters itself and reloads the pages it held.
 
 ## Backups and restore
 
