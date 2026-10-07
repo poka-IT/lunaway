@@ -83,6 +83,57 @@ enum ContributionStatus {
       values.where((v) => v.wire == wire).firstOrNull;
 }
 
+/// What a photo of another source shows of a place, as the API names it.
+enum PhotoKind {
+  /// The place itself.
+  place('PLACE'),
+
+  /// A street-level picture looking at the place.
+  streetView('STREET_VIEW'),
+
+  /// A picture taken nearby, in no particular direction.
+  surroundings('SURROUNDINGS');
+
+  new(this.wire);
+
+  final String wire;
+
+  /// Null for a value this version does not know: the photo still shows.
+  static PhotoKind? fromWire(Object? wire) => values.where((v) => v.wire == wire).firstOrNull;
+}
+
+/// Where an item of another source comes from and under what terms: its
+/// licence and, for an open source, the page it is published on (none for
+/// the partner's community, which the app never links out to).
+@immutable
+final class ItemTerms {
+  const new({this.licence, this.licenceUrl, this.pageUrl, this.publisher, this.updatedOn});
+
+  final String? licence;
+  final String? licenceUrl;
+  final String? pageUrl;
+
+  /// Who published it when that is not the author: a tourist office, a
+  /// Panoramax instance.
+  final String? publisher;
+
+  /// The source's own date of its last update, which the Licence Ouverte
+  /// asks to show.
+  final DateTime? updatedOn;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ItemTerms &&
+      other.licence == licence &&
+      other.licenceUrl == licenceUrl &&
+      other.pageUrl == pageUrl &&
+      other.publisher == publisher &&
+      other.updatedOn == updatedOn;
+
+  @override
+  int get hashCode => Object.hash(licence, licenceUrl, pageUrl, publisher, updatedOn);
+}
+
 /// A photo of a place, served by the Lunaway image proxy.
 @immutable
 final class Photo {
@@ -98,7 +149,15 @@ final class Photo {
     this.authorName,
     this.createdAt,
     this.status,
+    this.kind,
+    this.terms,
   });
+
+  /// What it shows of the place, for a photo of another source.
+  final PhotoKind? kind;
+
+  /// Its licence and page, for a photo of another source.
+  final ItemTerms? terms;
 
   final String id;
   final String sourceId;
@@ -132,10 +191,12 @@ final class Photo {
       other.authorId == authorId &&
       other.authorName == authorName &&
       other.createdAt == createdAt &&
-      other.status == status;
+      other.status == status &&
+      other.kind == kind &&
+      other.terms == terms;
 
   @override
-  int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId);
+  int get hashCode => Object.hash(id, sourceId, thumbUrl, largeUrl, thumbhash, authorId, kind);
 }
 
 /// The source of what Lunaway users contribute to the places database
@@ -184,10 +245,14 @@ final class Review {
     this.visitedAt,
     this.placeId,
     this.status,
+    this.terms,
   });
 
   final String id;
   final String sourceId;
+
+  /// Its licence and page, for a review of another source.
+  final ItemTerms? terms;
 
   /// The place it was written for; set on the author's own reviews.
   final String? placeId;
@@ -226,7 +291,8 @@ final class Review {
       other.visitedAt == visitedAt &&
       other.createdAt == createdAt &&
       other.placeId == placeId &&
-      other.status == status;
+      other.status == status &&
+      other.terms == terms;
 
   @override
   int get hashCode => Object.hash(id, sourceId, rating, createdAt);
@@ -323,3 +389,141 @@ final class PlaceExtras {
   final fallback = texts.where((t) => t.lang == 'en').firstOrNull ?? texts.first;
   return (text: fallback, inUserLanguage: false);
 }
+
+/// The external community source: a partner community's reviews, ratings
+/// and photos, shown under a written agreement with its own label and
+/// attribution, read online when a place opens and never stored with the
+/// places.
+const extcomSourceId = 'extcom';
+
+/// What the external community source says of a place: its photos, its
+/// ratings as a whole (it counts more ratings than the reviews it hands
+/// over) and a page of its reviews, newest first.
+@immutable
+final class ExternalContent {
+  const new({
+    required this.photos,
+    required this.ratings,
+    required this.reviews,
+    this.descriptions = const [],
+  });
+
+  /// A place the sources say nothing of, or an API that does not serve them.
+  static const empty = ExternalContent(photos: [], ratings: [], reviews: ReviewPage.empty);
+
+  final List<Photo> photos;
+  final List<SourceRating> ratings;
+  final ReviewPage reviews;
+
+  /// The texts of the open sources (Wikipedia, the tourist offices), one
+  /// per source and language.
+  final List<ExternalDescription> descriptions;
+
+  ExternalContent withReviews(ReviewPage reviews) => ExternalContent(
+    photos: photos,
+    ratings: ratings,
+    reviews: reviews,
+    descriptions: descriptions,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExternalContent &&
+      const ListEquality<Photo>().equals(other.photos, photos) &&
+      const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
+      const ListEquality<ExternalDescription>().equals(other.descriptions, descriptions) &&
+      other.reviews == reviews;
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(photos),
+    Object.hashAll(ratings),
+    Object.hashAll(descriptions),
+    reviews,
+  );
+}
+
+/// A text of an open source about a place, in one language, with what its
+/// licence asks to show beside it.
+@immutable
+final class ExternalDescription {
+  const new({required this.text, required this.terms, this.title});
+
+  /// The text, its language and its source.
+  final LocalizedText text;
+  final ItemTerms terms;
+
+  /// The title of the page it comes from (the article's).
+  final String? title;
+
+  /// Whether Lunaway cut it: the whole text is on its page.
+  bool get shortened => text.text.endsWith('\u2026');
+
+  @override
+  bool operator ==(Object other) =>
+      other is ExternalDescription &&
+      other.text == text &&
+      other.terms == terms &&
+      other.title == title;
+
+  @override
+  int get hashCode => Object.hash(text, terms, title);
+}
+
+/// Which of the two review lists a place shows the next page should come
+/// from.
+enum ReviewOrigin { lunaway, external }
+
+/// Lunaway's reviews and the external source's in one list, newest first.
+/// Both arrive a page at a time: a review is shown only once no unread page
+/// can hold a newer one, so the order never changes as pages come in, and
+/// `next` names the list whose next page unblocks the rest (null when both
+/// are read to the end). At the same instant, Lunaway's comes first.
+({List<Review> reviews, ReviewOrigin? next}) mergeReviews(ReviewPage lunaway, ReviewPage external) {
+  DateTime? limit(ReviewPage page) {
+    if (!page.hasNextPage) return null;
+    // A page that announces more but brought nothing blocks everything:
+    // its next page may start with the newest review of all.
+    return page.nodes.isEmpty ? _farFuture : page.nodes.last.createdAt;
+  }
+
+  final ours = limit(lunaway);
+  final theirs = limit(external);
+  final DateTime? boundary;
+  final ReviewOrigin? next;
+  if (ours == null && theirs == null) {
+    boundary = null;
+    next = null;
+  } else if (theirs == null || (ours != null && !ours.isBefore(theirs))) {
+    boundary = ours;
+    next = ReviewOrigin.lunaway;
+  } else {
+    boundary = theirs;
+    next = ReviewOrigin.external;
+  }
+  bool shown(Review r) => boundary == null || !r.createdAt.isBefore(boundary);
+  final merged = <Review>[];
+  var i = 0;
+  var j = 0;
+  final a = lunaway.nodes;
+  final b = external.nodes;
+  while (i < a.length || j < b.length) {
+    final takeOurs = j >= b.length || (i < a.length && !a[i].createdAt.isBefore(b[j].createdAt));
+    final r = takeOurs ? a[i++] : b[j++];
+    if (!shown(r)) {
+      // Both lists are newest first: everything after is older still,
+      // but the other list may hold reviews on the right side of the
+      // boundary.
+      if (takeOurs) {
+        i = a.length;
+      } else {
+        j = b.length;
+      }
+      continue;
+    }
+    merged.add(r);
+  }
+  return (reviews: merged, next: next);
+}
+
+final _farFuture = DateTime.utc(9999);

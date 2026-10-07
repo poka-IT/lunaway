@@ -85,16 +85,10 @@ class PlaceActionBar extends ConsumerWidget {
     final saved = defaultId != null && lists.contains(defaultId);
 
     final directions = FilledButton.icon(
-      onPressed: () =>
-          openDirections(context, ref, place.position, label: title, placeId: place.id),
-      onLongPress: () => openDirections(
-        context,
-        ref,
-        place.position,
-        label: title,
-        placeId: place.id,
-        choose: true,
-      ),
+      onPressed: () => openDirections(context, place.position, label: title, placeId: place.id),
+      // The navigation apps, a long press away: the button itself always
+      // opens the route computed for the vehicle.
+      onLongPress: () => openInOtherApp(context, ref, place.position, label: title, choose: true),
       icon: const Icon(AppIcons.directions),
       label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
       style: FilledButton.styleFrom(
@@ -138,7 +132,7 @@ class PlaceActionBar extends ConsumerWidget {
       _ActionTile(
         icon: AppIcons.copy,
         label: t.place.copyShort,
-        onPressed: () => copyCoordinates(context, place.position),
+        onPressed: () => copyCoordinates(context, ref, place.position),
       ),
     ];
 

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos e\n        SET url = NULL, author = NULL, author_id = NULL, retired_at = now()\n        FROM source_records r\n        WHERE r.id = e.record_id AND e.source_id = $1 AND r.deleted_at IS NOT NULL\n          AND e.retired_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "aa1a1ba0d98f66c6860df99da8826d5f8c11fa65f5087ff1ca195ce930f9f99f"
+}

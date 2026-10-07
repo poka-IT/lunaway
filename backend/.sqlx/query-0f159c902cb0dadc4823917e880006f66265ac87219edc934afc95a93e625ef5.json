@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT author_hash FROM source_erasures WHERE source_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "author_hash",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_erasures",
+            "name": "author_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0f159c902cb0dadc4823917e880006f66265ac87219edc934afc95a93e625ef5"
+}

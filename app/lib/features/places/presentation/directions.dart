@@ -7,7 +7,6 @@ import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
-import 'package:lunaway/features/navigation/presentation/route_entry.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -48,31 +47,29 @@ Future<List<NavigationApp>> availableNavigationApps(
   ];
 }
 
-/// Takes the user to [to]: Lunaway's own guidance, computed for the
-/// vehicle, or a navigation app. The choice the user remembered applies at
-/// once; otherwise a short chooser offers Lunaway first, then the apps
-/// installed, and to remember the choice. [choose] shows the chooser
-/// whatever was remembered (a long press on the button, or the setting in
-/// the profile).
-Future<void> openDirections(
+/// "Itinéraire": Lunaway's own route preview, computed for the vehicle,
+/// then the guidance from it. The navigation apps are a secondary way out
+/// ([openInOtherApp]), never what this button does.
+void openDirections(BuildContext context, LatLng to, {String? label, String? placeId}) =>
+    openRoutePreview(context, RouteTarget(destination: to, label: label, placeId: placeId));
+
+/// "Ouvrir dans...": the route to [to] handed to a navigation app, which
+/// knows nothing of the vehicle's size. The app the user remembered opens
+/// at once; otherwise, or when [choose] (a long press, the setting in the
+/// profile), a short chooser lists those installed.
+Future<void> openInOtherApp(
   BuildContext context,
   WidgetRef ref,
   LatLng to, {
   String? label,
-  String? placeId,
   bool choose = false,
 }) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final actions = ref.read(externalActionsProvider);
   final settings = ref.read(settingsProvider.notifier);
-  final rememberedId = ref.read(settingsProvider).navigationApp;
-  final remembered = NavigationApp.fromId(rememberedId);
+  final remembered = NavigationApp.fromId(ref.read(settingsProvider).navigationApp);
   final platform = Theme.of(context).platform;
-  void guide() =>
-      openRoutePreview(context, RouteTarget(destination: to, label: label, placeId: placeId));
-
-  if (!choose && rememberedId == lunawayDirectionsId) return guide();
   NavigationApp? app;
   if (!choose && remembered != null && await actions.canNavigateWith(remembered)) {
     app = remembered;
@@ -82,17 +79,11 @@ Future<void> openDirections(
       NavigationApp.offeredOn(platform, web: kIsWeb),
     );
     if (!context.mounted) return;
-    final picked = await showNavigationAppChooser(
-      context,
-      available,
-      selected: remembered,
-      lunawaySelected: rememberedId == lunawayDirectionsId,
-    );
+    final picked = await showNavigationAppChooser(context, available, selected: remembered);
     if (picked == null || !context.mounted) return;
-    if (picked.remember) await settings.setNavigationApp(picked.app?.id ?? lunawayDirectionsId);
+    if (picked.remember) await settings.setNavigationApp(picked.app.id);
     if (!context.mounted) return;
     app = picked.app;
-    if (app == null) return guide();
   }
   final opened = await actions.navigate(
     app,
@@ -103,32 +94,30 @@ Future<void> openDirections(
   if (!opened) showMessage(messenger, t.place.openFailed);
 }
 
-/// The user's pick in the chooser; a null `app` is Lunaway's own guidance.
-typedef NavigationPick = ({NavigationApp? app, bool remember});
+/// The user's pick in the chooser.
+typedef NavigationPick = ({NavigationApp app, bool remember});
 
-/// The chooser: Lunaway's guidance first, then the navigation apps, with the
-/// option to remember the choice (on by default: most users always drive
-/// with the same app).
+/// The chooser of the navigation apps, with the option to remember the
+/// choice (on by default: most users always drive with the same app).
+/// Null when dismissed.
 Future<NavigationPick?> showNavigationAppChooser(
   BuildContext context,
   List<NavigationApp> apps, {
   NavigationApp? selected,
-  bool lunawaySelected = false,
 }) => showModalBottomSheet<NavigationPick>(
   context: context,
   // Above the dock and the panels: the shell holds the branches.
   useRootNavigator: true,
   useSafeArea: true,
   isScrollControlled: true,
-  builder: (context) => _Chooser(apps: apps, selected: selected, lunawaySelected: lunawaySelected),
+  builder: (context) => _Chooser(apps: apps, selected: selected),
 );
 
 class _Chooser extends StatefulWidget {
-  const new({required this.apps, this.selected, this.lunawaySelected = false});
+  const new({required this.apps, this.selected});
 
   final List<NavigationApp> apps;
   final NavigationApp? selected;
-  final bool lunawaySelected;
 
   @override
   State<_Chooser> createState() => _ChooserState();
@@ -159,11 +148,11 @@ class _ChooserState extends State<_Chooser> {
                 style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ),
-            LunawayGuidanceTile(
-              selected: widget.lunawaySelected,
-              onTap: () => Navigator.of(context).pop((app: null, remember: _remember)),
-            ),
-            if (widget.apps.isNotEmpty) const OtherAppsHeading(),
+            if (widget.apps.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.xxl, vertical: Space.m),
+                child: Text(t.directions.none, style: theme.textTheme.bodyLarge),
+              ),
             for (final app in widget.apps)
               ListTile(
                 leading: CircleAvatar(

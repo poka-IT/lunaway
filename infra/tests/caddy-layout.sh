@@ -129,6 +129,10 @@ head -c 2000000 /dev/zero > "$SCRATCH/body-2mb"
 head -c 60000 /dev/zero > "$SCRATCH/body-60kb"
 head -c 70000 /dev/zero > "$SCRATCH/body-70kb"
 head -c 11000000 /dev/zero > "$SCRATCH/body-11mb"
+# An answer of 96 MiB from the stand-in API, for the write bound:
+# larger than the socket buffers of a loopback connection on macOS.
+mkdir -p "$SCRATCH/big"
+head -c 100663296 /dev/zero > "$SCRATCH/big/answer.bin"
 
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
@@ -139,7 +143,9 @@ sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e "s|127.0.0.1:8485|$PMTILES_UP|g" \
     -e "s|127.0.0.1:8484|$API_UP|g" \
     -e "s|output file /var/log/caddy/access.log|output file $ACCESS_LOG|" \
+    -e "s|write_idle 3m 32768|write_idle 2s 4194304|" \
     "$INFRA/caddy/Caddyfile" > "$SCRATCH/Caddyfile"
+grep -q 'write_idle 2s 4194304' "$SCRATCH/Caddyfile" || { echo "no write_idle 3m 32768 in the Caddyfile to shorten" >&2; exit 1; }
 # Natively, nothing listens beyond loopback.
 if [ "$MODE" = native ]; then
   python3 - "$SCRATCH/Caddyfile" <<'EOF'
@@ -150,12 +156,21 @@ EOF
 fi
 # A stand-in for the API on its port: it reads the whole body (the
 # placeholder does), so the body limits in front of it act as they do in
-# production, and it names itself in a header.
+# production, and it names itself in a header. With X-Test-Big it sends a
+# 96 MiB answer instead, as the API sends a long route.
 cat >> "$SCRATCH/Caddyfile" <<EOF
 
 http://:$API_LISTEN {
 	header X-Test-Upstream api
-	respond "{http.request.body}" 200
+	@big header X-Test-Big 1
+	handle @big {
+		root * $W/big
+		rewrite * /answer.bin
+		file_server
+	}
+	handle {
+		respond "{http.request.body}" 200
+	}
 }
 EOF
 sed -e "s|^api.lunaway.net {|http://api.lunaway.net:$LISTEN {|" \
@@ -400,6 +415,20 @@ sent "fdroid repository by PUT" PUT "$L/fdroid/repo/index-v1.jar" 405 -d x
 sent "graphql body of 2 MB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-2mb" -H 'Content-Type: application/json'
 sent "graphql body of 60 KB" POST "$A/graphql" 200 --data-binary @"$SCRATCH/body-60kb" -H 'Content-Type: application/json'
 sent "graphql body of 70 KB" POST "$A/graphql" 413 --data-binary @"$SCRATCH/body-70kb" -H 'Content-Type: application/json'
+# The write bound, shortened above to 2 s plus a second per 4 MiB sent: a
+# client reading /graphql at full speed gets the whole 96 MiB answer, one
+# reading at 1 MiB/s is cut well before the 96 s it would need. curl sees
+# the cut once it has drained the socket buffers, a few MiB.
+big_fast="$(curl -sS -o /dev/null -w '%{size_download}' -H 'X-Test-Big: 1' \
+  --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/graphql" || true)"
+big_slow="$(curl -sS -o /dev/null -w '%{size_download} %{time_total}' --limit-rate 1m --max-time 150 \
+  -H 'X-Test-Big: 1' --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/graphql" 2>/dev/null || true)"
+if [ "$big_fast" = 100663296 ] && awk -v b="${big_slow%% *}" -v t="${big_slow#* }" 'BEGIN { exit !(b < 100663296 && t < 90) }'; then
+  echo "ok   write bound: a fast reader gets 96 MiB, a reader at 1 MiB/s is cut ($big_slow: bytes, seconds)"
+else
+  echo "FAIL write bound: fast reader $big_fast bytes (want 100663296), slow reader $big_slow (want cut)"
+  failures=$((failures + 1))
+fi
 # The tiles of the points of interest: reads only, all to the API.
 sent "poi tile routed to the API" GET "$A/poi/3/13/4149/2815.mvt" 200
 sent "poi TileJSON routed to the API" GET "$A/poi/tiles.json" 200
@@ -407,6 +436,13 @@ sent "poi tile by HEAD" HEAD "$A/poi/3/13/4149/2815.mvt" 200 -I
 sent "poi preflight routed" OPTIONS "$A/poi/3/13/4149/2815.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
 sent "poi by POST" POST "$A/poi/tiles.json" 405 --data-binary '{}'
 sent "poi with a body over 1 KiB" GET "$A/poi/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
+# The tiles of the places: the same contract.
+sent "places tile routed to the API" GET "$A/places/7/12/2075/1409.mvt" 200
+sent "places TileJSON routed to the API" GET "$A/places/tiles.json" 200
+sent "places tile by HEAD" HEAD "$A/places/7/12/2075/1409.mvt" 200 -I
+sent "places preflight routed" OPTIONS "$A/places/7/12/2075/1409.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
+sent "places by POST" POST "$A/places/tiles.json" 405 --data-binary '{}'
+sent "places with a body over 1 KiB" GET "$A/places/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
 sent "places pack by POST" POST "$A/packs/places/$PLACES_PACK" 405 --data-binary '{}'
 sent "places pack by HEAD" HEAD "$A/packs/places/$PLACES_PACK" 200 -I
 if curl -sS -D - -o /dev/null -X PUT --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/packs/places/$PLACES_PACK" \
@@ -421,6 +457,13 @@ if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0
   echo "ok   poi by DELETE says what it allows: GET, HEAD, OPTIONS"
 else
   echo "FAIL poi by DELETE: no Allow: GET, HEAD, OPTIONS"
+  failures=$((failures + 1))
+fi
+if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/places/tiles.json" \
+  | grep -qi '^allow: GET, HEAD, OPTIONS'; then
+  echo "ok   places by DELETE says what it allows: GET, HEAD, OPTIONS"
+else
+  echo "FAIL places by DELETE: no Allow: GET, HEAD, OPTIONS"
   failures=$((failures + 1))
 fi
 check "photo type" http://api.lunaway.net:8080/media/photos/ab/cd/abcd0000000000000000000000000000000000000000000000000000000000ff.webp 200 "content-type: image/webp"
@@ -588,6 +631,9 @@ grep -qE '"uri":"[^"]*(8345|5678)' <<<"$access_log" && leaks="$leaks coordinates
 # The tiles of the points of interest, requested above through the API.
 grep -qE '"uri":"[^"]*(4149|2815)' <<<"$access_log" && leaks="$leaks poi-coordinates"
 grep -q '"uri":"/poi/3/13/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-poi-line"
+# The tiles of the places, the same way.
+grep -qE '"uri":"[^"]*(2075|1409)' <<<"$access_log" && leaks="$leaks places-coordinates"
+grep -q '"uri":"/places/7/12/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-masked-places-line"
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
@@ -608,7 +654,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt, /places/7/12/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

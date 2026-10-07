@@ -60,6 +60,10 @@ impl SourceId {
     /// DATAtourisme: the descriptions French tourist offices publish
     /// (Licence Ouverte 2.0).
     pub const DATATOURISME: Self = Self(Cow::Borrowed("datatourisme"));
+    /// The external community source: a partner's places, reviews and
+    /// photos, received as a feed under a written agreement
+    /// (`docs/feeds.md`), shown as "Source communautaire externe".
+    pub const EXTCOM: Self = Self(Cow::Borrowed("extcom"));
 
     /// A source id, if `id` follows the format.
     ///
@@ -131,6 +135,7 @@ mod tests {
             SourceId::PANORAMAX,
             SourceId::MANGROVE,
             SourceId::DATATOURISME,
+            SourceId::EXTCOM,
         ] {
             assert_eq!(
                 SourceId::new(id.as_str()).unwrap(),

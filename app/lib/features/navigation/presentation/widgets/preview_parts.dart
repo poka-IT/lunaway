@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
@@ -51,10 +52,13 @@ class VehicleLine extends ConsumerWidget {
 /// The steps of a route, folded by default: the map tells most of it, the
 /// list is there for those who like to read the road ahead.
 class Roadbook extends StatefulWidget {
-  const new({required this.steps, required this.units, super.key});
+  const new({required this.steps, required this.units, this.ferries = const [], super.key});
 
   final List<RouteStep> steps;
   final DistanceUnits units;
+
+  /// The route's crossings, each shown among the steps where it begins.
+  final List<FerryCrossing> ferries;
 
   @override
   State<Roadbook> createState() => _RoadbookState();
@@ -107,7 +111,7 @@ class _RoadbookState extends State<Roadbook> {
           ),
         ),
         if (_open)
-          for (final step in widget.steps)
+          for (final (step, crossings) in _withCrossings()) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: Space.xs),
               child: Row(
@@ -138,8 +142,34 @@ class _RoadbookState extends State<Roadbook> {
                 ],
               ),
             ),
+            for (final f in crossings) FerryTile(crossing: f, units: widget.units, iconSize: 32),
+          ],
       ],
     );
+  }
+
+  /// Each step with the crossings that begin along its road: a step runs
+  /// from its maneuver over [RouteStep.distanceM]. The boarding falls on
+  /// the start of the ferry's own step; a few metres of rounding between
+  /// the two sums would put it on the step before, hence the margin.
+  List<(RouteStep, List<FerryCrossing>)> _withCrossings() {
+    final steps = widget.steps;
+    final left = [...widget.ferries]
+      ..sort((a, b) => a.distanceFromStartM.compareTo(b.distanceFromStartM));
+    final out = <(RouteStep, List<FerryCrossing>)>[];
+    var start = 0.0;
+    for (final (i, step) in steps.indexed) {
+      final end = start + step.distanceM;
+      final last = i == steps.length - 1;
+      final here = [
+        for (final f in left)
+          if (last || f.distanceFromStartM < end - 5) f,
+      ];
+      left.removeWhere(here.contains);
+      out.add((step, here));
+      start = end;
+    }
+    return out;
   }
 }
 

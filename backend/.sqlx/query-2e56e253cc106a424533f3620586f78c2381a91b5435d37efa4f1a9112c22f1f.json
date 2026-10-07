@@ -1,0 +1,380 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH pieces AS (\n            SELECT g AS line, g::geography AS piece,\n                1.05 / (110574.0 * cos(radians(least(89.0,\n                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS deg_per_m\n            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($1::text[]) AS s) t\n        )\n        SELECT DISTINCT ON (e.id)\n            e.id, e.source, e.external_id, e.class, e.detail, e.carriageway, e.direction,\n            e.heading_deg, e.road_number, e.road_name, e.max_height_m, e.max_width_m,\n            e.max_length_m, e.max_weight_t, e.applies_to, e.valid_from, e.valid_to,\n            e.schedule, ST_AsGeoJSON(e.geom_source::geometry, 7) AS \"shape!\",\n            ST_AsGeoJSON(e.geom_matched::geometry, 7) AS matched, e.match_quality,\n            e.confidence, e.description, e.detour, e.url, e.source_updated_at,\n            e.first_seen_at, e.last_seen_at, e.revision, e.ended_at, e.in_window\n        FROM pieces p\n        JOIN road_events e ON e.ended_at IS NULL AND (\n            (e.geom_matched && _ST_Expand(p.piece, $2)\n                AND ST_DWithin(e.geom_matched::geometry, p.line, p.deg_per_m * $2))\n            OR (e.geom_source && _ST_Expand(p.piece, $3)\n                AND ST_DWithin(e.geom_source::geometry, p.line, p.deg_per_m * $3)))\n        ORDER BY e.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "class",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "class"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "detail",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "detail"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "carriageway",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "carriageway"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "direction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "direction"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "heading_deg",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "heading_deg"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "road_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "road_number"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "road_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "road_name"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "max_height_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_height_m"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "max_width_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_width_m"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "max_length_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_length_m"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "max_weight_t",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "max_weight_t"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "applies_to",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "applies_to"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "valid_from",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "valid_from"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "valid_to",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "valid_to"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "schedule",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "schedule"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "shape!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 19,
+        "name": "matched",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 20,
+        "name": "match_quality",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "match_quality"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "confidence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "confidence"
+          }
+        }
+      },
+      {
+        "ordinal": 22,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 23,
+        "name": "detour",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "detour"
+          }
+        }
+      },
+      {
+        "ordinal": 24,
+        "name": "url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "url"
+          }
+        }
+      },
+      {
+        "ordinal": 25,
+        "name": "source_updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "source_updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 26,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "first_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 27,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "last_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 28,
+        "name": "revision",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "revision"
+          }
+        }
+      },
+      {
+        "ordinal": 29,
+        "name": "ended_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "ended_at"
+          }
+        }
+      },
+      {
+        "ordinal": 30,
+        "name": "in_window",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "road_events",
+            "name": "in_window"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "2e56e253cc106a424533f3620586f78c2381a91b5435d37efa4f1a9112c22f1f"
+}

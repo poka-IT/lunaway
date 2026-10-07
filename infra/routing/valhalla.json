@@ -227,7 +227,7 @@
   },
   "service_limits": {
     "auto": {
-      "max_distance": 4500000.0,
+      "max_distance": 3000000.0,
       "max_locations": 7,
       "max_matrix_distance": 60000.0,
       "max_matrix_location_pairs": 2500

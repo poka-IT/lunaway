@@ -16,6 +16,7 @@ abstract final class PhosphorRegular {
   static const basket = IconData(0xe964, fontFamily: 'PhosphorRegular');
   static const bicycle = IconData(0xe0d6, fontFamily: 'PhosphorRegular');
   static const binoculars = IconData(0xea64, fontFamily: 'PhosphorRegular');
+  static const boat = IconData(0xe786, fontFamily: 'PhosphorRegular');
   static const bookmarkSimple = IconData(0xe0ea, fontFamily: 'PhosphorRegular');
   static const bookmarksSimple = IconData(0xe5f0, fontFamily: 'PhosphorRegular');
   static const bread = IconData(0xe81c, fontFamily: 'PhosphorRegular');

@@ -6,8 +6,8 @@ screen. `--geo lat,lon` gives the browser a position, for the route's start.
 
     python3 tool/screens/capture_web.py --url http://127.0.0.1:18791/app/ --out ../plan/screenshots/web
 
-Serve the web build first (`fvm flutter build web --base-href /app/
---dart-define=LUNAWAY_DEMO=true`, then any static server over a directory
+Serve the web build first (`sh packages/lunaway_nav/tool/build_web.sh`, `fvm
+flutter build web --base-href /app/ --dart-define=LUNAWAY_DEMO=true`, then any static server over a directory
 whose `app/` is build/web). Uses Brave or Chrome with a profile of its own;
 needs the `websockets` Python package.
 """

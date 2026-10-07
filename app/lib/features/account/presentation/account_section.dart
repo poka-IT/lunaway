@@ -178,7 +178,7 @@ class _SignedIn extends ConsumerWidget {
             const Divider(height: 1),
             _Level(account: account),
             const Divider(height: 1),
-            _RecoveryCard(made: state.recoveryCardAt),
+            _RecoveryCard(made: state.recoveryCardAt, checked: state.recoveryCardChecked),
             const Divider(height: 1),
             if (pending > 0)
               link(
@@ -271,9 +271,13 @@ class _Level extends StatelessWidget {
 }
 
 class _RecoveryCard extends StatelessWidget {
-  const new({required this.made});
+  const new({required this.made, required this.checked});
 
   final DateTime? made;
+
+  /// The server said whether the account has a card; else only this
+  /// device's memory speaks.
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +303,7 @@ class _RecoveryCard extends StatelessWidget {
                 const SizedBox(width: Space.m),
                 Expanded(
                   child: Text(
-                    t.account.recoveryNone,
+                    checked ? t.account.recoveryNoneAccount : t.account.recoveryNone,
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onPrimaryContainer),
                   ),
                 ),

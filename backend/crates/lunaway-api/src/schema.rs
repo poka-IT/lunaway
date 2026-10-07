@@ -74,8 +74,14 @@ pub const MAX_PLACES_PAGE: i32 = 500;
 /// Most results of `search`.
 pub const MAX_SEARCH_RESULTS: i32 = 50;
 /// Largest viewport of `places`, in square degrees: about 500 km by 500 km
-/// in France. A wider map shows clusters synced through `changes`.
+/// in France. A wider map shows the places' tiles. With `near`, any
+/// viewport is accepted: the page is the nearest `first` places, and
+/// counting the 86 111 places of a European viewport took 38 ms
+/// (`docs/deploy.md`, "Places layer").
 pub const MAX_PLACES_AREA_DEG2: f64 = 25.0;
+/// Most groups in `PlaceFilter.serviceGroups`, and most services in one:
+/// as many as there are services.
+const MAX_SERVICE_GROUPS: usize = 17;
 /// Largest region of `changes`, in square degrees: metropolitan France and
 /// Corsica (about 165) fit with room to spare.
 pub const MAX_CHANGES_AREA_DEG2: f64 = 400.0;
@@ -108,6 +114,8 @@ pub struct ApiState {
     pub(crate) road_events: Arc<crate::road_events_query::RoadEventsCache>,
     /// The speed cameras feed's head and first pages, in memory.
     pub(crate) enforcement: Arc<crate::enforcement_query::EnforcementCache>,
+    /// Where the photo proxy gets a partner's photos.
+    pub(crate) external_photos: crate::external_photos::PhotoSource,
 }
 
 impl ApiState {
@@ -133,6 +141,13 @@ impl ApiState {
         let media = Arc::new(lunaway_media::MediaStore::new(config.media.dir.clone()));
         let media_workers = Arc::new(Semaphore::new(config.media.workers));
         let routing = Arc::new(crate::routing::Routing::new(&config.routing));
+        let external_photos = crate::external_photos::PhotoSource::network(
+            config.external_photos.timeout,
+        )
+        .unwrap_or_else(|error| {
+            tracing::error!(%error, "no HTTPS client: the partner's photos are not fetched");
+            crate::external_photos::PhotoSource::Memory(Arc::default())
+        });
         Self {
             pool,
             config,
@@ -145,7 +160,17 @@ impl ApiState {
             routing,
             road_events: Arc::default(),
             enforcement: Arc::default(),
+            external_photos,
         }
+    }
+
+    /// The same state with the partner's photos read from `source`
+    /// instead of the network: for the tests, and for a development server
+    /// that must not reach a partner.
+    #[must_use]
+    pub fn with_external_photos(mut self, source: crate::external_photos::PhotoSource) -> Self {
+        self.external_photos = source;
+        self
     }
 }
 
@@ -232,6 +257,9 @@ const CHANGES_CURSOR: &str = "c2.";
 /// Cursors issued before the epoch existed.
 const CHANGES_CURSOR_V1: &str = "c1.";
 const PLACES_CURSOR: &str = "p1.";
+/// The cursor of `places(near:)`: the last place's distance (the bits of
+/// the database's float, so the next page starts exactly after it) and id.
+const PLACES_NEAR_CURSOR: &str = "n1.";
 
 pub(crate) fn changes_cursor(head: &places::FeedHead, seq: i64) -> String {
     format!("{CHANGES_CURSOR}{}.{seq}", head.identity())
@@ -286,6 +314,85 @@ fn since_seq(since: &Since, head: &places::FeedHead) -> Result<i64> {
         }
         Since::After { .. } | Since::Legacy => Err(resync()),
     }
+}
+
+/// The filter of `places`, checked: positive vehicle sizes, and lists no
+/// longer than what the enums hold.
+fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
+    for (name, v) in [
+        ("vehicleHeightM", f.vehicle_height_m),
+        ("vehicleLengthM", f.vehicle_length_m),
+        ("vehicleWidthM", f.vehicle_width_m),
+        ("vehicleWeightT", f.vehicle_weight_t),
+    ] {
+        if let Some(v) = v
+            && !(v.is_finite() && v > 0.0)
+        {
+            return Err(invalid_input(format!("{name} must be a positive number")));
+        }
+    }
+    if f.overnight
+        .as_ref()
+        .is_some_and(|o| o.is_empty() || o.len() > lunaway_domain::OvernightStatus::ALL.len())
+    {
+        // Empty would keep nothing: absent means every status.
+        return Err(invalid_input(
+            "overnight lists 1 to 5 statuses; leave it out for every status",
+        ));
+    }
+    let groups = f.service_groups.unwrap_or_default();
+    if groups.len() > MAX_SERVICE_GROUPS
+        || groups
+            .iter()
+            .any(|g| g.is_empty() || g.len() > lunaway_domain::Service::ALL.len())
+    {
+        return Err(invalid_input(format!(
+            "serviceGroups holds 1 to {MAX_SERVICE_GROUPS} groups of 1 to {} services",
+            lunaway_domain::Service::ALL.len()
+        )));
+    }
+    Ok(places::PlaceFilter {
+        kinds: f.kinds.map(|k| k.into_iter().map(Into::into).collect()),
+        services: f
+            .services
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        overnight_ok: f.overnight_ok.unwrap_or(false),
+        vehicle_height_m: f.vehicle_height_m,
+        vehicle_length_m: f.vehicle_length_m,
+        vehicle_width_m: f.vehicle_width_m,
+        vehicle_weight_t: f.vehicle_weight_t,
+        overnight: f.overnight.map(|o| o.into_iter().map(Into::into).collect()),
+        service_groups: groups
+            .into_iter()
+            .map(|g| g.into_iter().map(Into::into).collect())
+            .collect(),
+        free_only: f.free_only.unwrap_or(false),
+    })
+}
+
+fn near_cursor(distance_m: f64, id: Uuid) -> String {
+    format!("{PLACES_NEAR_CURSOR}{:016x}.{id}", distance_m.to_bits())
+}
+
+fn parse_near_after(after: Option<&str>) -> Result<Option<places::NearAfter>> {
+    after
+        .map(|s| {
+            s.strip_prefix(PLACES_NEAR_CURSOR)
+                .and_then(|rest| rest.split_once('.'))
+                .and_then(|(bits, id)| {
+                    let distance_m = f64::from_bits(u64::from_str_radix(bits, 16).ok()?);
+                    (distance_m.is_finite() && distance_m >= 0.0).then_some(())?;
+                    Some(places::NearAfter {
+                        distance_m,
+                        id: Uuid::parse_str(id).ok()?,
+                    })
+                })
+                .ok_or_else(|| invalid_input("after is not a cursor this API returned"))
+        })
+        .transpose()
 }
 
 fn parse_after(after: Option<&str>) -> Result<Option<Uuid>> {
@@ -442,8 +549,13 @@ impl QueryRoot {
             .collect())
     }
 
-    /// The places of a viewport (500 per page at most, viewport area
-    /// bounded), for the web or a device that has not synced yet.
+    /// The places of a viewport (500 per page at most), for the web or a
+    /// device that has not synced yet. Without `near`, by id, the viewport
+    /// 25 square degrees at most. With `near` (the map's centre, never the
+    /// device's position), nearest first, any viewport; `near` is rounded by
+    /// the server to 0.01 degree (about 1 km) before any use, and the cursor
+    /// of a page continues the same order. `filter` keeps the same places
+    /// as the map's filter on the places' tiles (`GET /places/tiles.json`).
     #[graphql(complexity = "cost(first, DEFAULT_PLACES_PAGE, child_complexity)")]
     async fn places(
         &self,
@@ -452,46 +564,38 @@ impl QueryRoot {
         filter: Option<PlaceFilterInput>,
         #[graphql(default = 200)] first: Option<i32>,
         after: Option<String>,
+        near: Option<LatLonInput>,
     ) -> Result<PlaceConnection> {
-        let area = self::bbox(bbox, MAX_PLACES_AREA_DEG2)?;
-        let first = page(first.unwrap_or(DEFAULT_PLACES_PAGE), MAX_PLACES_PAGE)?;
-        let after = parse_after(after.as_deref())?;
-        let f = filter.unwrap_or_default();
-        for (name, v) in [
-            ("vehicleHeightM", f.vehicle_height_m),
-            ("vehicleLengthM", f.vehicle_length_m),
-            ("vehicleWidthM", f.vehicle_width_m),
-            ("vehicleWeightT", f.vehicle_weight_t),
-        ] {
-            if let Some(v) = v
-                && !(v.is_finite() && v > 0.0)
-            {
-                return Err(invalid_input(format!("{name} must be a positive number")));
-            }
-        }
-        let filter = places::PlaceFilter {
-            kinds: f.kinds.map(|k| k.into_iter().map(Into::into).collect()),
-            services: f
-                .services
-                .unwrap_or_default()
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-            overnight_ok: f.overnight_ok.unwrap_or(false),
-            vehicle_height_m: f.vehicle_height_m,
-            vehicle_length_m: f.vehicle_length_m,
-            vehicle_width_m: f.vehicle_width_m,
-            vehicle_weight_t: f.vehicle_weight_t,
+        // On the grid only; the error names no coordinate.
+        let near = near
+            .map(|p| Position::new(p.lat, p.lon).map(Position::on_list_grid))
+            .transpose()
+            .map_err(|_| invalid_input("near: not a valid position"))?;
+        let max_area = if near.is_some() {
+            f64::INFINITY
+        } else {
+            MAX_PLACES_AREA_DEG2
         };
-        let (pool, _permit) = db(ctx).await?;
-        let page = places::in_bbox(pool, area, &filter, first, after)
-            .await
-            .map_err(|e| internal(&e))?;
+        let area = self::bbox(bbox, max_area)?;
+        let first = page(first.unwrap_or(DEFAULT_PLACES_PAGE), MAX_PLACES_PAGE)?;
+        let filter = place_filter(filter.unwrap_or_default())?;
+        let page = if let Some(near) = near {
+            let after = parse_near_after(after.as_deref())?;
+            let (pool, _permit) = db(ctx).await?;
+            places::near_in_bbox(pool, area, &filter, near, first, after).await
+        } else {
+            let after = parse_after(after.as_deref())?;
+            let (pool, _permit) = db(ctx).await?;
+            places::in_bbox(pool, area, &filter, first, after).await
+        }
+        .map_err(|e| internal(&e))?;
+        let end_cursor = match (page.end_near, page.nodes.last()) {
+            (Some(n), _) => Some(near_cursor(n.distance_m, n.id)),
+            (None, Some(p)) => Some(format!("{PLACES_CURSOR}{}", p.id)),
+            (None, None) => None,
+        };
         Ok(PlaceConnection {
-            end_cursor: page
-                .nodes
-                .last()
-                .map(|p| format!("{PLACES_CURSOR}{}", p.id)),
+            end_cursor,
             nodes: page.nodes.into_iter().map(Place).collect(),
             has_next_page: page.has_next_page,
             total_count: i32::try_from(page.total_count).unwrap_or(i32::MAX),
@@ -566,14 +670,18 @@ impl QueryRoot {
         crate::routing_query::routing_info(ctx).await
     }
 
-    /// The road events of France (closures, works, lane restrictions,
-    /// temporary vehicle limits, detours) changed since the cursor `since`
+    /// The road events of the countries the routing graph covers and a
+    /// feed serves (France, the Netherlands, Spain: closures, works, lane
+    /// restrictions, temporary vehicle limits, detours) in force or
+    /// starting within the next 48 hours, changed since the cursor `since`
     /// (null for the whole set), of `classes` (closures and vehicle limits
     /// by default), with `blockingOnly` (the default) only those that can
     /// block a route (placed on the graph, official or confirmed, for every
     /// vehicle), at most `first` (1000 by default, 2000 at most); `hasMore`
-    /// asks for the next page at once. An event leaving the selection comes
-    /// back in `removals`. No position is sent: a phone in guidance polls
+    /// asks for the next page at once. An event starting later comes in the
+    /// changes once it enters those 48 hours; one leaving the selection or
+    /// postponed past them comes back in `removals`. `route` reads every
+    /// event, whatever its start. No position is sent: a phone in guidance polls
     /// this every `pollIntervalSeconds` and checks its remaining route
     /// itself. A cursor of another copy of the database, or too old, gets
     /// the whole set again (`full`).

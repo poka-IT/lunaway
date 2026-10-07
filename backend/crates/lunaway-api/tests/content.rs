@@ -65,15 +65,17 @@ const CARD: &str = r#"
 query($id: UUID!) {
   place(id: $id) {
     externalPhotos {
-      sourceId relation distanceM thumbUrl largeUrl width height thumbhash
-      title author publisher sourceUpdatedOn licence licenceUrl pageUrl
+      id sourceId sourceLabel kind distanceM thumbUrl largeUrl width height thumbhash
+      title authorName publisher sourceUpdatedOn licence licenceUrl pageUrl
     }
     externalDescriptions {
-      sourceId lang text title publisher licence licenceUrl pageUrl
+      sourceId sourceLabel lang text title publisher licence licenceUrl pageUrl
     }
     externalReviews(first: 5) {
-      sourceId rating text authorName writtenAt licence licenceUrl pageUrl
+      totalCount
+      nodes { id sourceId sourceLabel rating text authorName writtenAt licence licenceUrl pageUrl }
     }
+    externalRatings { sourceId average count }
   }
 }"#;
 
@@ -159,20 +161,25 @@ async fn the_card_reads_open_content_with_its_attribution(pool: PgPool) {
     assert!(body.get("errors").is_none(), "{body}");
     let p = &body["data"]["place"];
     let photo = &p["externalPhotos"][0];
-    assert_eq!(photo["relation"], "FACING");
+    assert_eq!(photo["kind"], "STREET_VIEW");
+    assert_eq!(photo["sourceLabel"], "Panoramax");
     assert_eq!(
         photo["largeUrl"],
         format!("https://media.test/external/ab/ab/{h}.webp"),
         "served from Lunaway's media host, never the source's"
     );
-    assert_eq!(photo["author"], "PanierAvide");
+    assert_eq!(photo["authorName"], "PanierAvide");
     assert_eq!(photo["licence"], "CC BY-SA 4.0");
     assert_eq!(photo["publisher"], "Panoramax OpenStreetMap France");
     let d = &p["externalDescriptions"][0];
     assert_eq!(d["sourceId"], "datatourisme");
     assert_eq!(d["lang"], "fr");
     assert_eq!(d["publisher"], "Corrèze Tourisme");
-    let r = &p["externalReviews"][0];
+    assert_eq!(p["externalReviews"]["totalCount"], 1);
+    let r = &p["externalReviews"]["nodes"][0];
+    assert_eq!(r["sourceLabel"], "Mangrove Reviews");
+    assert_eq!(p["externalRatings"][0]["sourceId"], "mangrove");
+    assert_eq!(p["externalRatings"][0]["count"], 1);
     assert_eq!(r["rating"], 4);
     assert_eq!(r["authorName"], "Surreality");
     assert_eq!(r["licence"], "CC BY 4.0");
@@ -213,7 +220,7 @@ async fn open_content_is_too_dear_to_read_for_a_whole_viewport(pool: PgPool) {
     );
     let bad = gql(
         &app,
-        "query($id: UUID!) { place(id: $id) { externalReviews(first: 500) { text } } }",
+        "query($id: UUID!) { place(id: $id) { externalReviews(first: 500) { nodes { text } } } }",
         json!({"id": place}),
     )
     .await;

@@ -23,6 +23,12 @@ type Account {
 	"""
 	createdAt: DateTime!
 	"""
+	When the account's current recovery code was made (the date of its
+	paper card, the same on every device); null when it has none. Only
+	the account itself reads it: `Account` is always the viewer's.
+	"""
+	recoveryCodeCreatedAt: DateTime
+	"""
 	The authors this account mutes.
 	"""
 	mutedAuthors: [Author!]!
@@ -707,7 +713,7 @@ type EnforcementZoneLengths {
 }
 
 """
-A description of a place from an open source (Wikipedia, DATAtourisme),
+A description of a place by an open source (Wikipedia, DATAtourisme),
 in one language: show its source, licence and link with it.
 """
 type ExternalDescription {
@@ -715,6 +721,10 @@ type ExternalDescription {
 	Its source (`wikipedia`, `datatourisme`).
 	"""
 	sourceId: String!
+	"""
+	The source's name to show with the text.
+	"""
+	sourceLabel: String!
 	"""
 	Its language, BCP 47.
 	"""
@@ -777,136 +787,172 @@ type ExternalLink {
 }
 
 """
-A photo of a place from an open source (Wikimedia Commons, Panoramax,
-DATAtourisme), stored and served by Lunaway: show its author and
-licence with it, and link to its page.
+A photo from another source than Lunaway's community, stored and
+served by Lunaway: a device never reaches the source. A partner's photo
+is downloaded the first time a device asks for it (its URLs lead to the
+API's photo proxy until then); an open source's is downloaded by the
+weekly content worker.
 """
 type ExternalPhoto {
 	"""
-	Stable while the source offers it.
+	Stable identifier, also what `reportContent(target:
+	EXTERNAL_PHOTO)` takes.
 	"""
 	id: UUID!
 	"""
-	Its source (`wikimedia-commons`, `panoramax`, `datatourisme`):
-	`Query.sources` gives its name.
+	The source (`extcom`, `wikimedia-commons`, `panoramax`,
+	`datatourisme`).
 	"""
 	sourceId: String!
 	"""
-	Why it is shown on this place.
+	The source's name to show with the photo.
 	"""
-	relation: PhotoRelation!
+	sourceLabel: String!
 	"""
-	From the place to where it was taken, metres; null when unknown.
+	What it shows of the place.
 	"""
-	distanceM: Float
+	kind: PhotoKind!
 	"""
-	The 512-pixel thumbnail, on Lunaway's media host.
+	The author's pseudonym or credit at the source.
 	"""
-	thumbUrl: String!
+	authorName: String
 	"""
-	The image, 1280 pixels on its long side at most, on Lunaway's
-	media host.
+	Who published it when that is not the author: the tourist office on
+	DATAtourisme, the Panoramax instance.
 	"""
-	largeUrl: String!
+	publisher: String
 	"""
-	Width of the large image, pixels.
+	Its licence (`CC BY-SA 4.0`), or the reference of the agreement it
+	came under.
 	"""
-	width: Int!
+	licence: String!
 	"""
-	Height of the large image, pixels.
+	The text of its licence; null under a written agreement.
 	"""
-	height: Int!
+	licenceUrl: String
 	"""
-	ThumbHash of the image, base64: a placeholder while it loads.
+	Its page at the source, to link to; null for a partner's photo,
+	which the app never links out to.
 	"""
-	thumbhash: String!
+	pageUrl: String
 	"""
 	Its title at the source.
 	"""
 	title: String
 	"""
-	Its author as the source credits them (a name, a pseudonym, a
-	photographer's credit); null when the source names none (public
-	domain).
-	"""
-	author: String
-	"""
-	Who published it when that is not the author: the tourist office
-	on DATAtourisme, the Panoramax instance.
-	"""
-	publisher: String
-	"""
-	The source's own date of its last update, which the Licence
-	Ouverte asks to show; null when the source gives none.
+	The source's own date of its last update, which the Licence Ouverte
+	asks to show (DATAtourisme).
 	"""
 	sourceUpdatedOn: NaiveDate
 	"""
-	Its licence's short name (`CC BY-SA 4.0`, `Licence Ouverte 2.0`).
+	From the place to where it was taken, metres; null when unknown.
 	"""
-	licence: String!
+	distanceM: Float
 	"""
-	Its licence's text.
-	"""
-	licenceUrl: String!
-	"""
-	Its page at the source: open it from the photo.
-	"""
-	pageUrl: String!
-	"""
-	When it was taken; null when unknown.
+	When it was taken, when the source says.
 	"""
 	takenAt: DateTime
 	"""
-	When Lunaway last read it.
+	The 512-pixel thumbnail.
 	"""
-	fetchedAt: DateTime!
+	thumbUrl: String!
+	"""
+	The large image (2048 pixels for a partner's, 1280 for an open
+	source's).
+	"""
+	largeUrl: String!
+	"""
+	Width of the large image, pixels; null until first downloaded.
+	"""
+	width: Int
+	"""
+	Height of the large image, pixels; null until first downloaded.
+	"""
+	height: Int
+	"""
+	ThumbHash of the image, base64; null until first downloaded.
+	"""
+	thumbhash: String
 }
 
-"""
-A review published elsewhere under an open licence (Mangrove Reviews):
-show its author's pseudonym, its source and its licence with it.
-"""
 type ExternalReview {
 	"""
-	Stable while the source offers it.
+	Stable identifier, also what `reportContent(target:
+	EXTERNAL_REVIEW)` takes.
 	"""
 	id: UUID!
 	"""
-	Its source (`mangrove`).
+	The source (`extcom`, `mangrove`); `Query.sources` gives its
+	licence and attribution.
 	"""
 	sourceId: String!
 	"""
-	Stars, 1 to 5; null for a text alone.
+	The source's name to show beside the review ("Source communautaire
+	externe", "Mangrove Reviews"); the app may translate it by
+	`sourceId`.
+	"""
+	sourceLabel: String!
+	"""
+	The author's pseudonym at the source; null when it gave none.
+	"""
+	authorName: String
+	"""
+	Stars, 1 to 5; null for a text without a rating.
 	"""
 	rating: Int
 	"""
-	The text; null for a rating alone.
+	The text, plain.
 	"""
-	text: String
+	text: String!
 	"""
 	The language of the text (BCP 47), when the source says.
 	"""
 	lang: String
 	"""
-	The pseudonym the reviewer chose at the source; null when none.
+	The author's vehicle, when the source says.
 	"""
-	authorName: String
+	authorVehicle: VehicleKind
 	"""
 	When it was written.
 	"""
 	writtenAt: DateTime!
 	"""
-	Its licence's short name (`CC BY 4.0`).
+	Its licence (`CC BY 4.0`), or the reference of the agreement it
+	came under.
 	"""
 	licence: String!
 	"""
-	Its licence's text.
+	The text of its licence; null for a partner's review, which comes
+	under a written agreement.
 	"""
-	licenceUrl: String!
+	licenceUrl: String
 	"""
-	Its page at the source.
+	Where it is published, to link to; null for a partner's review,
+	which the app never links out to.
 	"""
-	pageUrl: String!
+	pageUrl: String
+}
+
+"""
+A page of reviews of other sources, newest first.
+"""
+type ExternalReviewConnection {
+	"""
+	The reviews.
+	"""
+	nodes: [ExternalReview!]!
+	"""
+	Pass it as `after` for the next page; null on an empty page.
+	"""
+	endCursor: String
+	"""
+	Whether another page follows.
+	"""
+	hasNextPage: Boolean!
+	"""
+	Reviews in the whole list.
+	"""
+	totalCount: Int!
 }
 
 """
@@ -2174,24 +2220,22 @@ type PhotoConnection {
 }
 
 """
-Why a photo of an open source is shown on a place.
+What a photo of another source shows of a place.
 """
-enum PhotoRelation {
+enum PhotoKind {
 	"""
-	The place's own data names it (OpenStreetMap, Wikidata, the tourist
-	office's record): it shows the place.
+	The place itself: a visitor's photo, or one the place's data names.
 	"""
-	LINKED
+	PLACE
 	"""
-	A street-level picture taken near the place, its camera pointing at
-	it.
+	A street-level picture looking at the place ("Vue de la rue").
 	"""
-	FACING
+	STREET_VIEW
 	"""
-	A picture taken near the place, in no particular direction: the
-	app labels it as the surroundings.
+	A picture taken nearby, in no particular direction ("Aux
+	alentours").
 	"""
-	NEARBY
+	SURROUNDINGS
 }
 
 type Place {
@@ -2378,28 +2422,38 @@ type Place {
 	"""
 	reviews(first: Int = 20, after: String): ReviewConnection!
 	"""
-	Photos of the place from open sources (Wikimedia Commons,
-	Panoramax, the tourist offices on DATAtourisme), served from
-	Lunaway's media host: those the place's own data names first, then
-	those looking at it, then those taken around it (24 at most). Each
-	carries its author, licence and page, to show with it. Read per
-	place, for the card: it costs a database query, and neither the
-	change feed nor the offline packs carry it.
+	The reviews with text of other sources than Lunaway's community,
+	newest first, 50 per page at most, each with its author's pseudonym
+	and its source's id and label: the partner's community (`extcom`)
+	and the open reviews of Mangrove (`mangrove`, with their licence and
+	a link). Read per place when its card opens: the change feed, the
+	packs and the map tiles never carry them. A hidden source shows
+	nothing; neither does an item an operator or the reports hid.
+	"""
+	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
+	"""
+	What other sources say of the place's ratings as a whole, by
+	source: the partner's summaries (more ratings than the reviews it
+	hands over) and the mean of Mangrove's ratings. Read per place, like
+	`externalReviews`; empty while a source is hidden.
+	"""
+	externalRatings: [SourceRating!]!
+	"""
+	The photos of other sources than Lunaway's community, served from
+	Lunaway's host (50 at most): the partner's community's first, newest
+	first, then those of the open sources, the ones of the place itself
+	before the street views and the surroundings (`kind`). Each carries
+	its source's id and label, its author and licence, and for an open
+	source a link to its page. Read per place, like `externalReviews`.
 	"""
 	externalPhotos: [ExternalPhoto!]!
 	"""
-	Descriptions of the place from open sources (the introduction of
-	its Wikipedia article, the tourist office's text on DATAtourisme),
-	one per source and language, each with its licence and page. Read
-	per place, for the card.
+	Descriptions of the place by open sources (the introduction of its
+	Wikipedia article, the tourist office's text on DATAtourisme), one
+	per source and language, each with its source's label, licence and
+	page. Read per place, like `externalReviews`.
 	"""
 	externalDescriptions: [ExternalDescription!]!
-	"""
-	Reviews of the place published under an open licence elsewhere
-	(Mangrove Reviews), newest first (50 at most), each with its
-	author's pseudonym, licence and page. Read per place, for the card.
-	"""
-	externalReviews(first: Int = 20): [ExternalReview!]!
 	"""
 	The caller's own rating or review of the place, whatever its status;
 	null when anonymous or when there is none.
@@ -2582,6 +2636,28 @@ input PlaceFilter {
 	tonnes; places of unknown weight stay.
 	"""
 	vehicleWeightT: Float
+	"""
+	Keeps only places whose overnight status is one of these (absent:
+	every status; at most 5). The places' map tiles carry the status as
+	`night`, so the map's filter `["in", ["get", "night"], ...]` keeps
+	the same places.
+	"""
+	overnight: [OvernightStatus!]
+	"""
+	Keeps only places that have at least one service of each group: the
+	app's dump station is `[[GREY_WATER, BLACK_WATER]]` (at most 17
+	groups of 17). The tiles carry the services as the mask `s`, so the
+	map keeps the same places with `(s & group mask) != 0` for each
+	group; below the pin zoom the dots carry bits 0 to 8 only (drinking
+	water to laundry, the services the app's filters offer).
+	"""
+	serviceGroups: [[Service!]!]
+	"""
+	`true` keeps only places whose parking is known to be free
+	(`priceParkingEur` 0); an unknown price is not free. The tiles say
+	the same with `price` 0. `false` or absent does not filter.
+	"""
+	freeOnly: Boolean
 }
 
 """
@@ -3171,7 +3247,8 @@ type PoiLayer {
 	"""
 	Lowest zoom served: clusters per category and grid cell below
 	`pointMinZoom` (layer `poi_clusters`, properties `category`,
-	`count`).
+	`count`), and the food vending machines per kind (layer
+	`poi_vending_clusters`, properties `kind`, `count`).
 	"""
 	minZoom: Int!
 	"""
@@ -3247,10 +3324,15 @@ type Query {
 	"""
 	regions: [SyncRegion!]!
 	"""
-	The places of a viewport (500 per page at most, viewport area
-	bounded), for the web or a device that has not synced yet.
+	The places of a viewport (500 per page at most), for the web or a
+	device that has not synced yet. Without `near`, by id, the viewport
+	25 square degrees at most. With `near` (the map's centre, never the
+	device's position), nearest first, any viewport; `near` is rounded by
+	the server to 0.01 degree (about 1 km) before any use, and the cursor
+	of a page continues the same order. `filter` keeps the same places
+	as the map's filter on the places' tiles (`GET /places/tiles.json`).
 	"""
-	places(bbox: BBoxInput!, filter: PlaceFilter, first: Int = 200, after: String): PlaceConnection!
+	places(bbox: BBoxInput!, filter: PlaceFilter, first: Int = 200, after: String, near: LatLonInput): PlaceConnection!
 	"""
 	One place. A place merged into another answers with the place that
 	absorbed it (whose id differs); a deleted place answers null.
@@ -3284,14 +3366,18 @@ type Query {
 	"""
 	routing: RoutingInfo!
 	"""
-	The road events of France (closures, works, lane restrictions,
-	temporary vehicle limits, detours) changed since the cursor `since`
+	The road events of the countries the routing graph covers and a
+	feed serves (France, the Netherlands, Spain: closures, works, lane
+	restrictions, temporary vehicle limits, detours) in force or
+	starting within the next 48 hours, changed since the cursor `since`
 	(null for the whole set), of `classes` (closures and vehicle limits
 	by default), with `blockingOnly` (the default) only those that can
 	block a route (placed on the graph, official or confirmed, for every
 	vehicle), at most `first` (1000 by default, 2000 at most); `hasMore`
-	asks for the next page at once. An event leaving the selection comes
-	back in `removals`. No position is sent: a phone in guidance polls
+	asks for the next page at once. An event starting later comes in the
+	changes once it enters those 48 hours; one leaving the selection or
+	postponed past them comes back in `removals`. `route` reads every
+	event, whatever its start. No position is sent: a phone in guidance polls
 	this every `pollIntervalSeconds` and checks its remaining route
 	itself. A cursor of another copy of the database, or too old, gets
 	the whole set again (`full`).
@@ -3513,6 +3599,14 @@ enum ReportTarget {
 	A place.
 	"""
 	PLACE
+	"""
+	A review of an external source (`Place.externalReviews`).
+	"""
+	EXTERNAL_REVIEW
+	"""
+	A photo of an external source (`Place.externalPhotos`).
+	"""
+	EXTERNAL_PHOTO
 }
 
 """
@@ -3979,7 +4073,8 @@ type RoadEventDelta {
 	"""
 	upserts: [RoadEvent!]!
 	"""
-	Ids of events ended, or no longer of the classes asked: drop them.
+	Ids of events ended, no longer of the classes asked, or postponed
+	past the 48 hours the feed carries: drop them.
 	"""
 	removals: [UUID!]!
 	"""

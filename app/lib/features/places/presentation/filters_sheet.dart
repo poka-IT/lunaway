@@ -104,28 +104,9 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.xxl),
             children: [
-              _Title(t.filters.families, hint: t.filters.familiesHint),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final w = (constraints.maxWidth - Space.s) / 2;
-                  return Wrap(
-                    spacing: Space.s,
-                    runSpacing: Space.s,
-                    children: [
-                      for (final f in KindFamily.values)
-                        SizedBox(
-                          width: w,
-                          child: _FamilyCard(
-                            family: f,
-                            selected: _draft.families.contains(f),
-                            onTap: () => _set(_draft.toggleFamily(f)),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: Space.xxl),
+              // What a night on the road needs first: may one sleep there,
+              // with water and a dump station, will the vehicle fit; then the
+              // kind of place and the price.
               _Title(t.filters.night, hint: t.filters.nightHint),
               Wrap(
                 spacing: Space.s,
@@ -153,18 +134,6 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                       selected: _draft.amenities.contains(a),
                       onTap: () => _set(_draft.toggleAmenity(a)),
                     ),
-                ],
-              ),
-              const SizedBox(height: Space.xxl),
-              _Title(t.filters.price, hint: t.filters.freeHint),
-              Wrap(
-                children: [
-                  _ToggleChip(
-                    leading: const Icon(AppIcons.free, size: 20),
-                    label: t.filters.freeOnly,
-                    selected: _draft.freeOnly,
-                    onTap: () => _set(_draft.copyWith(freeOnly: !_draft.freeOnly)),
-                  ),
                 ],
               ),
               const SizedBox(height: Space.xxl),
@@ -210,6 +179,40 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                       ),
                   ],
                 ),
+              ),
+              const SizedBox(height: Space.xxl),
+              _Title(t.filters.families, hint: t.filters.familiesHint),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = (constraints.maxWidth - Space.s) / 2;
+                  return Wrap(
+                    spacing: Space.s,
+                    runSpacing: Space.s,
+                    children: [
+                      for (final f in KindFamily.values)
+                        SizedBox(
+                          width: w,
+                          child: _FamilyCard(
+                            family: f,
+                            selected: _draft.families.contains(f),
+                            onTap: () => _set(_draft.toggleFamily(f)),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: Space.xxl),
+              _Title(t.filters.price, hint: t.filters.freeHint),
+              Wrap(
+                children: [
+                  _ToggleChip(
+                    leading: const Icon(AppIcons.free, size: 20),
+                    label: t.filters.freeOnly,
+                    selected: _draft.freeOnly,
+                    onTap: () => _set(_draft.copyWith(freeOnly: !_draft.freeOnly)),
+                  ),
+                ],
               ),
             ],
           ),

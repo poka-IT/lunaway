@@ -117,6 +117,10 @@ pub enum GqlReportTarget {
     Photo,
     /// A place.
     Place,
+    /// A review of an external source (`Place.externalReviews`).
+    ExternalReview,
+    /// A photo of an external source (`Place.externalPhotos`).
+    ExternalPhoto,
 }
 
 /// Why a user reports something.
@@ -722,6 +726,17 @@ impl Account {
     /// When the account was created.
     async fn created_at(&self) -> DateTime<Utc> {
         self.viewer.account.created_at
+    }
+
+    /// When the account's current recovery code was made (the date of its
+    /// paper card, the same on every device); null when it has none. Only
+    /// the account itself reads it: `Account` is always the viewer's.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn recovery_code_created_at(&self, ctx: &Context<'_>) -> Result<Option<DateTime<Utc>>> {
+        let (pool, _permit) = db(ctx).await?;
+        lunaway_db::accounts::recovery_code_created_at(pool, self.viewer.id())
+            .await
+            .map_err(|e| internal(&e))
     }
 
     /// The authors this account mutes.

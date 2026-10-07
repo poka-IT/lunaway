@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n          (SELECT count(*) FROM source_records WHERE source_id = $1 AND deleted_at IS NULL)\n              AS \"records!\",\n          (SELECT count(*) FROM source_records r JOIN place_sources ps ON ps.record_id = r.id\n           WHERE r.source_id = $1) AS \"linked!\",\n          (SELECT count(*) FROM external_reviews WHERE source_id = $1) AS \"reviews!\",\n          (SELECT count(*) FROM external_ratings WHERE source_id = $1) AS \"ratings!\",\n          (SELECT count(*) FROM external_photos WHERE source_id = $1 AND retired_at IS NULL)\n              AS \"photos!\",\n          (SELECT count(*) FROM external_photos\n           WHERE source_id = $1 AND retired_at IS NULL AND processed_at IS NOT NULL)\n              AS \"photos_stored!\",\n          (SELECT count(*) FROM external_photos WHERE source_id = $1 AND retired_at IS NOT NULL)\n              AS \"photos_retired!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "records!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "linked!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "reviews!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "ratings!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "photos!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "photos_stored!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "photos_retired!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "baa4a3caf1d137fd2823a8ef1bcf4bfb3d7207c80efcfdad9a159329a6ee60b9"
+}

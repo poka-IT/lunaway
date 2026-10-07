@@ -132,6 +132,15 @@ CREATE TABLE place_extras_cache (
   fetched_at INTEGER NOT NULL
 ) AS PlaceExtrasCacheRow;
 
+-- The places the user opened whose region the device does not keep (every
+-- place on the web, which keeps no region), as the API's `place` answered
+-- (added in version 5): a place opened once still shows without network.
+CREATE TABLE place_cache (
+  place_id TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+) AS PlaceCacheRow;
+
 -- Values about this device that are not the user's to keep: the coarse last
 -- known position (for the automatic theme at the next launch). Out of the
 -- backups with the rest of this file.

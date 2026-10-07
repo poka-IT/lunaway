@@ -1,0 +1,12 @@
+# Sunday at 04:30 UTC, after the Atout France import: the offices update
+# their pages over the week, and the content refresh reads them at 07:00.
+[Unit]
+Description=Lunaway import: DATAtourisme, weekly
+
+[Timer]
+OnCalendar=Sun 04:30
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

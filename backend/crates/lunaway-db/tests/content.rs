@@ -9,11 +9,17 @@
 
 use chrono::{Duration, Utc};
 use lunaway_db::{
-    PgPool,
+    PgPool, accounts,
+    community::{self, ReportOutcome},
     conflation::{self, OpeningEval, PlaceWrite},
     content::{self, DueQuery, Hide, NewDescription, NewPhoto, NewReview, PhotoFiles, RunLock},
+    moderation::{self, Decision},
 };
-use lunaway_domain::{Address, OvernightStatus, PlaceKind, Position, conflation::PlaceContent};
+use lunaway_domain::{
+    Address, OvernightStatus, PlaceKind, Position,
+    community::{ReportReason, ReportTarget},
+    conflation::PlaceContent,
+};
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
 
@@ -424,7 +430,10 @@ async fn reviews_are_replaced_as_a_whole_and_an_author_stays_hidden(pool: PgPool
     )
     .await
     .unwrap();
-    let shown = content::reviews_of_place(&pool, a, 20).await.unwrap();
+    let shown = content::reviews_of_place(&pool, a, 20, None)
+        .await
+        .unwrap()
+        .nodes;
     assert_eq!(
         shown
             .iter()
@@ -442,9 +451,10 @@ async fn reviews_are_replaced_as_a_whole_and_an_author_stays_hidden(pool: PgPool
         .unwrap();
     assert_eq!(r.removed, 2, "a review gone from the source goes");
     assert!(
-        content::reviews_of_place(&pool, a, 20)
+        content::reviews_of_place(&pool, a, 20, None)
             .await
             .unwrap()
+            .nodes
             .is_empty(),
         "an author hidden once stays hidden through an edit or a new review"
     );
@@ -494,9 +504,146 @@ async fn the_worker_writes_the_content_and_the_api_only_reads_it(pool: PgPool) {
         1
     );
     content::descriptions_of_place(&app, a).await.unwrap();
-    content::reviews_of_place(&app, a, 20).await.unwrap();
+    content::reviews_of_place(&app, a, 20, None).await.unwrap();
     let write = content::replace_photos(&app, a, "panoramax", &[], now, 0).await;
     assert!(write.is_err(), "the API never writes the open content");
-    let hide = content::set_hidden(&app, "panoramax", &Hide::Source, true).await;
-    assert!(hide.is_err(), "nor what is hidden");
+    let hide = content::set_hidden(&app, "panoramax", &Hide::Item("y".into()), true).await;
+    assert!(
+        hide.is_ok(),
+        "the API hides an item its reports or a moderator's rejection hide"
+    );
+}
+
+/// Account number `n`, at level 2 (it may report).
+async fn account(app: &PgPool, n: u8) -> Uuid {
+    let mut key = [n; 65];
+    key[0] = 4;
+    let (a, _) = accounts::create_with_key(
+        app,
+        accounts::NewAccount {
+            pseudonym: "Hérisson du Vercors",
+            thumbprint: &format!("{n:0>43}"),
+            public_key: &key,
+            session_hash: &[n; 32],
+            session_ttl_secs: 3_600.0,
+        },
+    )
+    .await
+    .unwrap();
+    accounts::set_trust_level(app, a.id, 2).await.unwrap();
+    a.id
+}
+
+async fn shown_reviews(pool: &PgPool, place: Uuid) -> usize {
+    content::reviews_of_place(pool, place, 20, None)
+        .await
+        .unwrap()
+        .nodes
+        .len()
+}
+
+async fn report(app: &PgPool, reporter: Uuid, target: ReportTarget, id: Uuid) -> ReportOutcome {
+    community::report_content(app, reporter, target, id, ReportReason::Offensive, None, 3)
+        .await
+        .unwrap()
+}
+
+async fn open_entry(pool: &PgPool, target: Uuid) -> Uuid {
+    sqlx::query_scalar!(
+        "SELECT id FROM moderation_queue WHERE target_id = $1 AND status = 'open'",
+        target
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
+    let a = place(&pool, "A", 47.0, 2.0).await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    content::replace_reviews(
+        &pool,
+        "mangrove",
+        &[NewReview {
+            place_id: a,
+            external_id: "sig".into(),
+            rating: Some(1),
+            text: Some("Insulte le gérant.".into()),
+            lang: None,
+            author: Some("Surreality".into()),
+            author_key: Some("ab".repeat(32)),
+            written_at: Utc::now(),
+            page_url: "https://mangrove.reviews/list?signature=sig".into(),
+            licence: "CC BY 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            distance_m: Some(8.0),
+        }],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    let id = content::reviews_of_place(&app, a, 20, None)
+        .await
+        .unwrap()
+        .nodes[0]
+        .id;
+    let reporters = [
+        account(&app, 1).await,
+        account(&app, 2).await,
+        account(&app, 3).await,
+    ];
+    assert_eq!(
+        report(&app, reporters[0], ReportTarget::ExternalPhoto, id).await,
+        ReportOutcome::NoTarget,
+        "a review reported as a photo is no target"
+    );
+    for r in &reporters[..2] {
+        assert_eq!(
+            report(&app, *r, ReportTarget::ExternalReview, id).await,
+            ReportOutcome::Queued
+        );
+    }
+    assert_eq!(
+        shown_reviews(&app, a).await,
+        1,
+        "two reports leave it visible"
+    );
+    assert_eq!(
+        report(&app, reporters[2], ReportTarget::ExternalReview, id).await,
+        ReportOutcome::Hidden
+    );
+    assert_eq!(shown_reviews(&app, a).await, 0, "the third report hides it");
+
+    moderation::decide(&app, open_entry(&pool, id).await, Decision::Approve, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        shown_reviews(&app, a).await,
+        1,
+        "a moderator who keeps it shows it again"
+    );
+
+    for r in reporters {
+        report(&app, r, ReportTarget::ExternalReview, id).await;
+    }
+    moderation::decide(
+        &app,
+        open_entry(&pool, id).await,
+        Decision::Reject,
+        Some("insulte"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(shown_reviews(&app, a).await, 0);
+    let origin: String = sqlx::query_scalar!(
+        "SELECT origin FROM content_hides WHERE source_id = 'mangrove' AND key = 'sig'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        origin, "moderator",
+        "a rejection is the moderator's, so a later approval of new reports cannot lift it"
+    );
 }

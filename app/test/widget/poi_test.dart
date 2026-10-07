@@ -45,8 +45,10 @@ void main() {
       expect(find.text('Santé'), findsOneWidget);
       expect(map.lastProps!.pois!.category, isNull, reason: 'none on by default');
 
-      await tester.ensureVisible(find.text('Distributeurs'));
-      await tester.tap(find.text('Distributeurs'));
+      await tester.ensureVisible(find.text('Distributeurs alimentaires'));
+      await tester.tap(find.text('Distributeurs alimentaires'));
+      await settleShort(tester);
+      await tester.tap(find.text(t.poi.vendingAll));
       await settleShort(tester);
       expect(map.lastProps!.pois!.category, PoiCategory.vending);
       await tester.ensureVisible(find.text('Santé'));
@@ -55,6 +57,52 @@ void main() {
       expect(map.lastProps!.pois!.category, PoiCategory.health, reason: 'it replaces the first');
       await tester.ensureVisible(find.text('Santé'));
       await tester.tap(find.text('Santé'));
+      await settleShort(tester);
+      expect(map.lastProps!.pois!.category, isNull);
+    });
+
+    testWidgets('the vending chip asks what the machines sell, and names the pizza once chosen', (
+      tester,
+    ) async {
+      final map = FakeMap();
+      await pumpLunaway(tester, map: map);
+      await tester.ensureVisible(find.text('Distributeurs alimentaires'));
+      await tester.tap(find.text('Distributeurs alimentaires'));
+      await settleShort(tester);
+      expect(map.lastProps!.pois!.category, isNull, reason: 'the menu first, nothing on yet');
+      final listed = [
+        for (final k in PoiKind.vendingChoices) t.poiVendingSells(k),
+        t.poi.vendingAll,
+      ];
+      expect(listed.first, 'Pizza');
+      for (final label in listed) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(
+        tester.getTopLeft(find.text('Pizza')).dy,
+        lessThan(tester.getTopLeft(find.text('Pain')).dy),
+        reason: 'pizza first',
+      );
+
+      await tester.tap(find.text('Pizza'));
+      await settleShort(tester);
+      final pois = map.lastProps!.pois!;
+      expect(pois.category, PoiCategory.vending);
+      expect(pois.vending, PoiKind.vendingPizza);
+      expect(find.text('Distributeurs de pizza'), findsOneWidget);
+      expect(find.text('Distributeurs alimentaires'), findsNothing);
+
+      // A second tap turns the machines off, as for any chip.
+      await tester.tap(find.text('Distributeurs de pizza'));
+      await settleShort(tester);
+      expect(map.lastProps!.pois!.category, isNull);
+      expect(find.text('Distributeurs alimentaires'), findsOneWidget);
+
+      // Dismissed, the menu turns nothing on.
+      await tester.ensureVisible(find.text('Distributeurs alimentaires'));
+      await tester.tap(find.text('Distributeurs alimentaires'));
+      await settleShort(tester);
+      await tester.tapAt(const Offset(5, 5));
       await settleShort(tester);
       expect(map.lastProps!.pois!.category, isNull);
     });

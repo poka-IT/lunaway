@@ -16,6 +16,14 @@
 #   lunaway-ingest-fuel             every 15 minutes, the fuel price feed
 #   lunaway-ingest-laposte          daily 04:10 UTC, La Poste's calendar
 #   lunaway-ingest-finess           monthly, the 2nd at 04:20 UTC
+#   lunaway-ingest-datatourisme     weekly, Sunday 04:30 UTC, the tourist
+#                                   offices' places, with the key of
+#                                   /etc/lunaway/datatourisme.env; off
+#                                   while no key is installed
+#   lunaway-content-refresh         weekly, Sunday 07:00 UTC, the open
+#                                   content of the places (photos,
+#                                   descriptions, reviews), then the files
+#                                   no photo points at
 #   lunaway-road-events             every 3 minutes, the road event feeds
 #                                   (closures, works), matched on the
 #                                   routing engine at 127.0.0.1:8002
@@ -50,6 +58,13 @@
 #                      again: a new secret moves every danger zone the phones
 #                      hold. An age-encrypted copy goes to the off-site
 #                      directory, pulled to the ops server and the Mac
+#   /etc/lunaway/datatourisme.env   LUNAWAY_DATATOURISME_KEY, the free key of
+#                      the DATAtourisme API, given by the maintainer (never
+#                      generated): an age-encrypted copy goes off site like
+#                      the zone secret's, and a missing key is restored
+#                      from that copy, never asked for again silently
+#   /srv/data/media/external   the photos of the open sources, written by
+#                      the content refresh (lunaway-ingest, setgid caddy)
 #   /etc/lunaway/takedown.env   LUNAWAY_TAKEDOWN_SECRET, the same way: it keys
 #                      the cells of every takedown's exclusion zone, so a new
 #                      one would free every zone taken down before it. Loaded
@@ -114,6 +129,36 @@ if [ ! -s "$zone_copy" ]; then
   echo "    encrypted copy: $zone_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
 fi
 
+log "DATAtourisme key"
+# The free key of the DATAtourisme API (docs/data-sources.md), installed by
+# the maintainer, read by the DATAtourisme import alone. Its encrypted copy
+# is made once and never overwritten; a key missing beside a copy means a
+# restore is due (docs/deploy.md, "Backups and restore").
+datatourisme_env=/etc/lunaway/datatourisme.env
+datatourisme_copy=/srv/data/backups/offsite/datatourisme-key.env.age
+if grep -qE '^LUNAWAY_DATATOURISME_KEY=[^[:space:]]{8,}$' "$datatourisme_env" 2>/dev/null; then
+  chown root:root "$datatourisme_env"
+  chmod 0600 "$datatourisme_env"
+  if [ ! -s "$datatourisme_copy" ]; then
+    age --encrypt --recipients-file /etc/lunaway/backup-recipient --output "$datatourisme_copy.partial" "$datatourisme_env"
+    chown root:lunaway-pull "$datatourisme_copy.partial"
+    chmod 0640 "$datatourisme_copy.partial"
+    mv "$datatourisme_copy.partial" "$datatourisme_copy"
+    echo "    encrypted copy: $datatourisme_copy (the ops server pulls it at 01:15 UTC, the Mac at 04:30)"
+  fi
+  datatourisme_key=1
+else
+  [ -e "$datatourisme_copy" ] && die "$datatourisme_env holds no LUNAWAY_DATATOURISME_KEY but $datatourisme_copy exists: restore the key from it (docs/deploy.md, \"Backups and restore\")"
+  echo "    no key: the DATAtourisme import stays off until the maintainer installs one (docs/deploy.md)"
+  datatourisme_key=0
+fi
+
+log "open content's photos"
+# Written by the content refresh with its umask 0027; setgid caddy so that
+# Caddy, which serves /media/, reads them.
+[ -d /srv/data/media ] || die "no /srv/data/media; run the api step first"
+install -d -m 2750 -o lunaway-ingest -g caddy /srv/data/media/external
+
 log "takedown secret and journal"
 # The key of the cells around each place taken down (plan/research/34,
 # 9.1): the conflation holds a new or moving place in them. Generated once,
@@ -156,6 +201,8 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-fuel.service lunaway-ingest-fuel.timer
   lunaway-ingest-laposte.service lunaway-ingest-laposte.timer
   lunaway-ingest-finess.service lunaway-ingest-finess.timer
+  lunaway-ingest-datatourisme.service lunaway-ingest-datatourisme.timer
+  lunaway-content-refresh.service lunaway-content-refresh.timer
   lunaway-road-events.service lunaway-road-events.timer
   lunaway-road-events-dialog.service lunaway-road-events-dialog.timer
   lunaway-road-events-ndw.service lunaway-road-events-ndw.timer
@@ -196,7 +243,12 @@ done
 timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-ingest-pois.timer
   lunaway-ingest-fuel.timer lunaway-ingest-laposte.timer lunaway-ingest-finess.timer
   lunaway-road-events.timer lunaway-road-events-dialog.timer lunaway-road-events-ndw.timer
-  lunaway-packs.timer lunaway-enforcement.timer $weekly"
+  lunaway-packs.timer lunaway-enforcement.timer lunaway-content-refresh.timer $weekly"
+if [ "$datatourisme_key" = 1 ]; then
+  timers="$timers lunaway-ingest-datatourisme.timer"
+else
+  systemctl disable --quiet --now lunaway-ingest-datatourisme.timer 2>/dev/null || true
+fi
 if [ -x /opt/lunaway/current/lunaway ]; then
   # shellcheck disable=SC2086 # one unit per word
   systemctl enable --quiet --now $timers

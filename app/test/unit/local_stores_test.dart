@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
@@ -28,8 +29,8 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 4 (the region of each place), the user store at 3 (fuel)', () {
-    expect(db.schemaVersion, 4);
+  test('the cache is at version 5 (the places opened online), the user store at 3 (fuel)', () {
+    expect(db.schemaVersion, 5);
     expect(user.schemaVersion, 3);
   });
 
@@ -58,6 +59,8 @@ void main() {
             filter: filter,
             theme: ThemePreference.dark,
             navigationApp: 'waze',
+            railCollapsed: true,
+            copyFormat: CoordinateFormat.dms,
           ),
         );
         final loaded = await SettingsRepository(user).load();
@@ -65,6 +68,8 @@ void main() {
         expect(loaded.filter, filter);
         expect(loaded.theme, ThemePreference.dark);
         expect(loaded.navigationApp, 'waze');
+        expect(loaded.railCollapsed, isTrue);
+        expect(loaded.copyFormat, CoordinateFormat.dms);
       },
     );
 

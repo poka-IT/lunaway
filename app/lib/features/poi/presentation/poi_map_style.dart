@@ -7,15 +7,22 @@ import 'package:lunaway/features/poi/presentation/poi_look.dart';
 
 /// The ids, filters and looks of the points layers, the same for maplibre_gl
 /// and the desktop page. The tiles (`/poi/{version}/{z}/{x}/{y}.mvt`) hold
-/// two layers: `poi_clusters` (a point per category and grid cell, with
-/// `count`) up to zoom 12, and `pois` (every point) from zoom 13.
+/// three layers: `poi_clusters` (a point per category and grid cell, with
+/// `count`) and `poi_vending_clusters` (the vending machines again, a point
+/// per `kind` and grid cell) up to zoom 12, and `pois` (every point) from
+/// zoom 13.
 abstract final class PoiMapStyle {
   static const source = 'lw-pois';
   static const pointsLayer = 'pois';
   static const clustersLayer = 'poi_clusters';
+  static const vendingClustersLayer = 'poi_vending_clusters';
 
   /// Where the category's points gather, below the zoom of the points.
   static const dotsLayerId = 'lw-poi-dots';
+
+  /// Where the vending machines of the chosen kind gather, while the
+  /// vending chip shows one kind alone.
+  static const vendingDotsLayerId = 'lw-poi-vending-dots';
 
   /// The points of the chosen category.
   static const pinsLayerId = 'lw-poi-pins';
@@ -39,7 +46,13 @@ abstract final class PoiMapStyle {
   static const quietMinZoom = 15.0;
 
   /// Topmost first, for a tap.
-  static const List<String> tappable = [selectionLayerId, pinsLayerId, quietLayerId, dotsLayerId];
+  static const List<String> tappable = [
+    selectionLayerId,
+    pinsLayerId,
+    quietLayerId,
+    dotsLayerId,
+    vendingDotsLayerId,
+  ];
 
   /// The image of a point of [kind]: its glyph on the category's tone, or
   /// grey and smaller when [quiet], or larger and ringed in amber when
@@ -50,6 +63,9 @@ abstract final class PoiMapStyle {
   /// The dot of a category where its points gather.
   static String dotImageId(PoiCategory category) => 'poi-dot-${category.code}';
 
+  /// The dot where the vending machines of [kind] gather, with its glyph.
+  static String vendingDotImageId(PoiKind kind) => 'poi-dot-${kind.code}';
+
   /// Every image the layers use, for the sprite loader.
   static List<String> allImageIds() => [
     for (final kind in PoiKind.values) ...[
@@ -58,6 +74,7 @@ abstract final class PoiMapStyle {
       imageId(kind, selected: true),
     ],
     for (final c in PoiCategory.values) dotImageId(c),
+    for (final k in PoiKind.vendingChoices) vendingDotImageId(k),
   ];
 
   /// The image of each feature by its `kind` property. A `match` rather than
@@ -76,15 +93,26 @@ abstract final class PoiMapStyle {
     ['literal', ids.toList()..sort()],
   ];
 
-  /// The points of the chosen category, less those a place stands for, and
-  /// only the open ones when asked.
-  static List<Object> pinsFilter(PoiLayerView view) => [
-    'all',
-    [
+  /// What the chosen chip shows: its category, or the one kind of vending
+  /// machine chosen.
+  static List<Object> _chosen(PoiLayerView view) => switch (_vendingKind(view)) {
+    final kind? => [
+      '==',
+      ['get', 'kind'],
+      kind.code,
+    ],
+    null => [
       '==',
       ['get', 'category'],
       view.category?.code ?? '',
     ],
+  };
+
+  /// The points of the chosen category, less those a place stands for, and
+  /// only the open ones when asked.
+  static List<Object> pinsFilter(PoiLayerView view) => [
+    'all',
+    _chosen(view),
     ['!', _inIds(view.state.hidden)],
     if (view.openNowOnly)
       [
@@ -107,12 +135,24 @@ abstract final class PoiMapStyle {
     ['!', _inIds(view.state.hidden)],
   ];
 
-  /// The gathering dots of the chosen category.
+  /// The gathering dots of the chosen category; none while one kind of
+  /// vending machine is shown alone, whose dots are
+  /// [vendingDotsFilter]'s.
   static List<Object> dotsFilter(PoiLayerView view) => [
     '==',
     ['get', 'category'],
-    view.category?.code ?? '',
+    if (_vendingKind(view) == null) view.category?.code ?? '' else '',
   ];
+
+  /// The gathering dots of the one kind of vending machine shown alone.
+  static List<Object> vendingDotsFilter(PoiLayerView view) => [
+    '==',
+    ['get', 'kind'],
+    _vendingKind(view)?.code ?? '',
+  ];
+
+  static PoiKind? _vendingKind(PoiLayerView view) =>
+      view.category == PoiCategory.vending ? view.vending : null;
 
   /// A closed point is drawn faded: it stays on the map, an information when
   /// arriving in the evening.
@@ -145,6 +185,14 @@ abstract final class PoiMapStyle {
     dotImageId(PoiCategory.services),
   ];
 
+  /// The dot of each vending gathering by its `kind` property.
+  static List<Object> get vendingDotImage => [
+    'match',
+    ['get', 'kind'],
+    for (final k in PoiKind.vendingChoices) ...[k.code, vendingDotImageId(k)],
+    dotImageId(PoiCategory.vending),
+  ];
+
   /// A gathering dot grows with the number of points it stands for; [scale]
   /// brings the image to the engine's unit, as for the pins.
   static List<Object> dotSize(double scale) => [
@@ -164,12 +212,7 @@ abstract final class PoiMapStyle {
   /// around the clock needs no report (`alwaysOpen` is in the tiles).
   static List<Object> probeFilter(PoiLayerView view) => [
     'all',
-    if (view.category != null)
-      [
-        '==',
-        ['get', 'category'],
-        view.category!.code,
-      ],
+    if (view.category != null) _chosen(view),
     [
       'any',
       ['has', 'hours'],

@@ -704,7 +704,8 @@ pub struct PoiLayer {
     pub tile_json_url: String,
     /// Lowest zoom served: clusters per category and grid cell below
     /// `pointMinZoom` (layer `poi_clusters`, properties `category`,
-    /// `count`).
+    /// `count`), and the food vending machines per kind (layer
+    /// `poi_vending_clusters`, properties `kind`, `count`).
     pub min_zoom: i32,
     /// Zoom from which every point is in the tiles (layer `pois`).
     pub point_min_zoom: i32,

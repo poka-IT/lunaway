@@ -34,7 +34,13 @@ enum IssueKind {
 enum ReportTarget {
   review('REVIEW'),
   photo('PHOTO'),
-  place('PLACE');
+  place('PLACE'),
+
+  /// A review of another source (`Place.externalReviews`).
+  externalReview('EXTERNAL_REVIEW'),
+
+  /// A photo of another source (`Place.externalPhotos`).
+  externalPhoto('EXTERNAL_PHOTO');
 
   new(this.wire);
 

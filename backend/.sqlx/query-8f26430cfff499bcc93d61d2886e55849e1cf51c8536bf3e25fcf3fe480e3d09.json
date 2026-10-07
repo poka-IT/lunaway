@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH bounds AS (\n            SELECT ST_TileEnvelope($1, $2, $3) AS merc,\n                   ST_Transform(ST_TileEnvelope($1, $2, $3), 4326) AS geo\n        ),\n        cells AS (\n            SELECT p.category, count(*)::int AS count,\n                   ST_Centroid(ST_Collect(ST_Transform(p.geom::geometry, 3857))) AS c\n            FROM pois p, bounds b\n            WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo\n            GROUP BY p.category, ST_SnapToGrid(ST_Transform(p.geom::geometry, 3857), $4)\n        ),\n        features AS (\n            SELECT c.category, c.count, ST_AsMVTGeom(c.c, b.merc, $5, 0, true) AS geom\n            FROM cells c, bounds b\n        ),\n        -- The vending machines once more, per kind, in a layer of their own:\n        -- a map filtering on what the machines sell (pizza) draws clusters\n        -- where those machines stand, and a map that knows only\n        -- `poi_clusters` gets the same counts as before. `vending_other` is\n        -- left out: no filter picks it, the category's clusters count it.\n        vending_cells AS (\n            SELECT p.kind, count(*)::int AS count,\n                   ST_Centroid(ST_Collect(ST_Transform(p.geom::geometry, 3857))) AS c\n            FROM pois p, bounds b\n            WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo\n              AND p.category = 'vending' AND p.kind <> 'vending_other'\n            GROUP BY p.kind, ST_SnapToGrid(ST_Transform(p.geom::geometry, 3857), $4)\n        ),\n        vending_features AS (\n            SELECT v.kind, v.count, ST_AsMVTGeom(v.c, b.merc, $5, 0, true) AS geom\n            FROM vending_cells v, bounds b\n        )\n        SELECT coalesce((SELECT ST_AsMVT(features, 'poi_clusters', $5, 'geom') FROM features),\n                        ''::bytea)\n            || coalesce((SELECT ST_AsMVT(vending_features, 'poi_vending_clusters', $5, 'geom')\n                         FROM vending_features), ''::bytea) AS \"mvt!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8f26430cfff499bcc93d61d2886e55849e1cf51c8536bf3e25fcf3fe480e3d09"
+}

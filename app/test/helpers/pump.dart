@@ -25,6 +25,7 @@ import 'package:lunaway/features/favorites/application/favorites_providers.dart'
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -100,12 +101,14 @@ final class TestApp {
     required this.map,
     required this.settings,
     required this.extras,
+    required this.externalSource,
     required this.cache,
     required this.user,
     required this.location,
     required this.secrets,
     required this.files,
     this.api,
+    this.online,
   });
 
   final FakePlacesRepository places;
@@ -114,6 +117,9 @@ final class TestApp {
   final FakeMap map;
   final MemorySettings settings;
   final FakeExtrasSource extras;
+
+  /// The external community source; nothing from it by default.
+  final FakeExternalSource externalSource;
   final CacheDatabase cache;
   final UserDatabase user;
   final FakeLocationPermissions location;
@@ -122,6 +128,9 @@ final class TestApp {
 
   /// The account and community API, when the test talks to one.
   final FakeApi? api;
+
+  /// The API's places, when the map draws them from the tiles.
+  final FakeOnlinePlaces? online;
 
   ProviderContainer container(WidgetTester tester) =>
       ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
@@ -148,6 +157,7 @@ Future<TestApp> pumpLunaway(
   bool neverSynced = false,
   Brightness brightness = Brightness.light,
   FakeExtrasSource? extras,
+  FakeExternalSource? external,
   SyncService? syncService,
   FakeMap? map,
   double textScale = 1,
@@ -156,7 +166,8 @@ Future<TestApp> pumpLunaway(
   AppConfig? config,
   FakeApi? api,
   bool signedIn = false,
-  // When the signed-in account's recovery card was made; none by default.
+  // When the signed-in account's recovery card was made, on the server and
+  // on the device; none by default.
   DateTime? recoveryCardAt,
   FakePoiSource? pois,
   MemoryPackFiles? packFiles,
@@ -171,6 +182,15 @@ Future<TestApp> pumpLunaway(
   List<Override> overrides = const [],
   // Whether the system shows what was copied (Android 13 and later).
   bool systemShowsCopies = false,
+  // The places come from the API's tiles and queries, as on the web and on a
+  // phone online; null keeps them on the device, as offline.
+  FakeOnlinePlaces? online,
+  // How long the first sync waits behind the map; at once by default, so the
+  // tests of the download see it start.
+  ({Duration afterMap, Duration atLatest}) syncStartDelays = (
+    afterMap: Duration.zero,
+    atLatest: Duration.zero,
+  ),
 }) async {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   tester.view.physicalSize = size;
@@ -211,18 +231,21 @@ Future<TestApp> pumpLunaway(
     map: map ?? FakeMap(),
     settings: MemorySettings(initial),
     extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
+    externalSource: external ?? FakeExternalSource(),
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
     location: FakeLocationPermissions()..current = locationAccess,
     secrets: MemorySecretStore(),
     files: MemoryPendingFiles(),
     api: api,
+    online: online,
   );
   if (api != null) {
     addTearDown(() => expect(api.violations, isEmpty, reason: 'the API schema'));
     if (signedIn) await seedAccount(app.secrets, api);
     if (signedIn && recoveryCardAt != null) {
       await app.secrets.write('recovery_card', recoveryCardAt.toIso8601String());
+      api.recoveryCodeCreatedAt ??= recoveryCardAt;
     }
   }
   // The in-memory databases are left to the garbage collector: closing one
@@ -246,6 +269,7 @@ Future<TestApp> pumpLunaway(
         userDatabaseProvider.overrideWithValue(app.user),
         locationPermissionsProvider.overrideWithValue(app.location),
         syncRetryDelaysProvider.overrideWithValue(const []),
+        syncStartDelaysProvider.overrideWithValue(syncStartDelays),
         // The account's secrets in memory: no keychain in a widget test.
         secretStoreProvider.overrideWithValue(app.secrets),
         pendingFilesProvider.overrideWithValue(app.files),
@@ -254,6 +278,7 @@ Future<TestApp> pumpLunaway(
         placeExtrasRepositoryProvider.overrideWithValue(
           PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
+        placeExternalSourceProvider.overrideWithValue(app.externalSource),
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),
@@ -266,6 +291,8 @@ Future<TestApp> pumpLunaway(
         packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
         regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(regions)),
         deviceCountryProvider.overrideWithValue('FR'),
+        placesFromTilesProvider.overrideWithValue(online != null),
+        if (online != null) onlinePlacesProvider.overrideWithValue(online),
         ...overrides,
       ],
       child: TranslationProvider(child: const LunawayApp()),

@@ -18,8 +18,8 @@ use crate::{
         GqlVerification, IssueSummary, Photo, Review, ReviewConnection, SourceRating,
         parse_item_cursor,
     },
-    content_types::{ExternalDescription, ExternalPhoto, ExternalReview},
     error::{internal, invalid_input},
+    external_types::{ExternalDescription, ExternalPhoto, ExternalReviewConnection},
     loaders::PlaceSourcesLoader,
     schema::{DB_FIELD_COST, cost, db, state},
 };
@@ -186,6 +186,22 @@ pub struct PlaceFilterInput {
     /// Leaves out places whose known maximum weight is below this, in
     /// tonnes; places of unknown weight stay.
     pub vehicle_weight_t: Option<f64>,
+    /// Keeps only places whose overnight status is one of these (absent:
+    /// every status; at most 5). The places' map tiles carry the status as
+    /// `night`, so the map's filter `["in", ["get", "night"], ...]` keeps
+    /// the same places.
+    pub overnight: Option<Vec<GqlOvernightStatus>>,
+    /// Keeps only places that have at least one service of each group: the
+    /// app's dump station is `[[GREY_WATER, BLACK_WATER]]` (at most 17
+    /// groups of 17). The tiles carry the services as the mask `s`, so the
+    /// map keeps the same places with `(s & group mask) != 0` for each
+    /// group; below the pin zoom the dots carry bits 0 to 8 only (drinking
+    /// water to laundry, the services the app's filters offer).
+    pub service_groups: Option<Vec<Vec<GqlService>>>,
+    /// `true` keeps only places whose parking is known to be free
+    /// (`priceParkingEur` 0); an unknown price is not free. The tiles say
+    /// the same with `price` 0. `false` or absent does not filter.
+    pub free_only: Option<bool>,
 }
 
 /// A data source and its terms.
@@ -330,15 +346,10 @@ pub struct ExternalLink {
 
 /// Most photos `Place.photos` returns.
 pub const MAX_PLACE_PHOTOS: i64 = 100;
+/// Most photos `Place.externalPhotos` returns.
+pub const MAX_EXTERNAL_PHOTOS: i64 = 50;
 /// Largest page of `Place.reviews`.
 pub const MAX_REVIEWS_PAGE: i32 = 50;
-/// Most photos of open sources returned for a place: every source keeps
-/// eight at most, and few places have more than two sources.
-pub const MAX_EXTERNAL_PHOTOS: i64 = 24;
-/// Most reviews of open sources returned for a place at once.
-pub const MAX_EXTERNAL_REVIEWS: i32 = 50;
-/// Reviews of open sources returned when the client does not say.
-const DEFAULT_EXTERNAL_REVIEWS: i32 = 20;
 /// Reviews per page when the client does not say.
 const DEFAULT_REVIEWS_PAGE: i32 = 20;
 
@@ -662,30 +673,105 @@ impl Place {
         .into())
     }
 
-    /// Photos of the place from open sources (Wikimedia Commons,
-    /// Panoramax, the tourist offices on DATAtourisme), served from
-    /// Lunaway's media host: those the place's own data names first, then
-    /// those looking at it, then those taken around it (24 at most). Each
-    /// carries its author, licence and page, to show with it. Read per
-    /// place, for the card: it costs a database query, and neither the
-    /// change feed nor the offline packs carry it.
-    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
-    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+    /// The reviews with text of other sources than Lunaway's community,
+    /// newest first, 50 per page at most, each with its author's pseudonym
+    /// and its source's id and label: the partner's community (`extcom`)
+    /// and the open reviews of Mangrove (`mangrove`, with their licence and
+    /// a link). Read per place when its card opens: the change feed, the
+    /// packs and the map tiles never carry them. A hidden source shows
+    /// nothing; neither does an item an operator or the reports hid.
+    #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
+    async fn external_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<ExternalReviewConnection> {
+        let first = first.unwrap_or(DEFAULT_REVIEWS_PAGE);
+        if !(1..=MAX_REVIEWS_PAGE).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_REVIEWS_PAGE}"
+            )));
+        }
+        let after = parse_item_cursor(after.as_deref())?;
         let (pool, _permit) = db(ctx).await?;
-        let rows = lunaway_db::content::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
+        let partner =
+            lunaway_db::extcom::reviews_of_place(pool, self.0.id, i64::from(first), after)
+                .await
+                .map_err(|e| internal(&e))?;
+        let open = lunaway_db::content::reviews_of_place(pool, self.0.id, i64::from(first), after)
             .await
             .map_err(|e| internal(&e))?;
-        let media = &state(ctx).config.media;
-        Ok(rows
+        Ok(ExternalReviewConnection::merge(
+            partner,
+            open,
+            usize::try_from(first).unwrap_or(0),
+        ))
+    }
+
+    /// What other sources say of the place's ratings as a whole, by
+    /// source: the partner's summaries (more ratings than the reviews it
+    /// hands over) and the mean of Mangrove's ratings. Read per place, like
+    /// `externalReviews`; empty while a source is hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_ratings(&self, ctx: &Context<'_>) -> Result<Vec<SourceRating>> {
+        let (pool, _permit) = db(ctx).await?;
+        let partner = lunaway_db::extcom::ratings_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?;
+        let open = lunaway_db::content::ratings_of_place(pool, self.0.id)
+            .await
+            .map_err(|e| internal(&e))?;
+        Ok(partner
             .into_iter()
-            .map(|r| ExternalPhoto::from_row(r, media))
+            .map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            })
+            .chain(open.into_iter().map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            }))
             .collect())
     }
 
-    /// Descriptions of the place from open sources (the introduction of
-    /// its Wikipedia article, the tourist office's text on DATAtourisme),
-    /// one per source and language, each with its licence and page. Read
-    /// per place, for the card.
+    /// The photos of other sources than Lunaway's community, served from
+    /// Lunaway's host (50 at most): the partner's community's first, newest
+    /// first, then those of the open sources, the ones of the place itself
+    /// before the street views and the surroundings (`kind`). Each carries
+    /// its source's id and label, its author and licence, and for an open
+    /// source a link to its page. Read per place, like `externalReviews`.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+        let (pool, _permit) = db(ctx).await?;
+        let partner = lunaway_db::extcom::photos_of_place(pool, self.0.id, MAX_EXTERNAL_PHOTOS)
+            .await
+            .map_err(|e| internal(&e))?;
+        let room = MAX_EXTERNAL_PHOTOS - i64::try_from(partner.len()).unwrap_or(0);
+        let open = if room > 0 {
+            lunaway_db::content::photos_of_place(pool, self.0.id, room)
+                .await
+                .map_err(|e| internal(&e))?
+        } else {
+            Vec::new()
+        };
+        let config = &state(ctx).config;
+        Ok(partner
+            .into_iter()
+            .map(|r| ExternalPhoto::from_row(r, &config.media, &config.tiles.public_url))
+            .chain(
+                open.into_iter()
+                    .map(|r| ExternalPhoto::from_content(r, &config.media)),
+            )
+            .collect())
+    }
+
+    /// Descriptions of the place by open sources (the introduction of its
+    /// Wikipedia article, the tourist office's text on DATAtourisme), one
+    /// per source and language, each with its source's label, licence and
+    /// page. Read per place, like `externalReviews`.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn external_descriptions(&self, ctx: &Context<'_>) -> Result<Vec<ExternalDescription>> {
         let (pool, _permit) = db(ctx).await?;
@@ -695,32 +781,6 @@ impl Place {
             .into_iter()
             .map(ExternalDescription::from)
             .collect())
-    }
-
-    /// Reviews of the place published under an open licence elsewhere
-    /// (Mangrove Reviews), newest first (50 at most), each with its
-    /// author's pseudonym, licence and page. Read per place, for the card.
-    #[graphql(complexity = "cost(first, DEFAULT_EXTERNAL_REVIEWS, child_complexity)")]
-    async fn external_reviews(
-        &self,
-        ctx: &Context<'_>,
-        #[graphql(default = 20)] first: Option<i32>,
-    ) -> Result<Vec<ExternalReview>> {
-        let first = first.unwrap_or(DEFAULT_EXTERNAL_REVIEWS);
-        if !(1..=MAX_EXTERNAL_REVIEWS).contains(&first) {
-            return Err(invalid_input(format!(
-                "first must be between 1 and {MAX_EXTERNAL_REVIEWS}"
-            )));
-        }
-        let (pool, _permit) = db(ctx).await?;
-        Ok(
-            lunaway_db::content::reviews_of_place(pool, self.0.id, i64::from(first))
-                .await
-                .map_err(|e| internal(&e))?
-                .into_iter()
-                .map(ExternalReview::from)
-                .collect(),
-        )
     }
 
     /// The caller's own rating or review of the place, whatever its status;

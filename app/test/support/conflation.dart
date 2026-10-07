@@ -72,10 +72,14 @@ abstract final class Conflation {
   static const genericWords = {
     'a', 'au', 'aux', 'd', 'de', 'des', 'du', 'en', 'et', 'l', 'la', 'le', 'les', 'sur', 'sous', //
     'and', 'of', 'the', //
+    'am', 'an', 'auf', 'bei', 'beim', 'das', 'dem', 'den', 'der', 'die', 'im', 'in', 'und', //
+    'zum', 'zur', 'al', 'del', 'el', 'las', 'los', 'y', 'da', 'dei', 'della', 'delle', 'dello', //
+    'di', 'il', //
     'aire', 'aires', 'area', 'camp', 'camper', 'campers', 'camperplaats', 'camping', 'campings', //
     'campingcar', 'campingcars', 'car', 'cars', 'caravan', 'caravane', 'caravanes', 'caravaning', //
     'cc', 'motorhome', 'motorhomes', 'parking', 'parkings', 'site', 'sosta', 'stationnement', //
-    'stellplatz', //
+    'stellplatz', 'aparcamiento', 'autocaravana', 'autocaravanas', 'campeggio', 'campingplatz', //
+    'parcheggio', 'parkplatz', 'wohnmobil', 'wohnmobile', 'wohnmobilstellplatz', //
     'accueil', 'communal', 'communale', 'municipal', 'municipale', 'municipaux', 'naturel', //
     'naturelle', 'service', 'services',
   };
@@ -256,8 +260,11 @@ abstract final class Conflation {
     final kind = kindCompatibility(a.kind, b.kind);
     final municipality = _same(a.cityCode, b.cityCode) ?? _same(a.postcode, b.postcode);
 
-    var weighted = weightDistance * distance + weightName * name;
-    var weights = weightDistance + weightName;
+    // A missing name is neutral: it leaves the mean, as an unknown
+    // municipality does.
+    final named = a.folded != null && b.folded != null;
+    var weighted = weightDistance * distance + (named ? weightName * name : 0);
+    var weights = weightDistance + (named ? weightName : 0);
     if (municipality != null) {
       weighted += weightMunicipality * (municipality ? 1 : 0);
       weights += weightMunicipality;

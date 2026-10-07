@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/domain/account.dart';
@@ -407,7 +408,9 @@ class ReviewMenu extends ConsumerWidget {
     final mine = account is SignedIn && account.account.id == review.authorId;
     final author = review.authorId;
     final name = review.authorName;
-    if (mine || !isLunawayCommunity(review.sourceId)) return const SizedBox.shrink();
+    if (mine) return const SizedBox.shrink();
+    final community = isLunawayCommunity(review.sourceId);
+    final page = review.terms?.pageUrl;
     return PopupMenuButton<String>(
       tooltip: t.contribute.more,
       icon: const Icon(AppIcons.moreVertical),
@@ -415,20 +418,30 @@ class ReviewMenu extends ConsumerWidget {
         if (action == 'report') {
           await showReportSheet(
             context,
-            target: ReportTarget.review,
+            target: community ? ReportTarget.review : ReportTarget.externalReview,
             id: review.id,
             placeId: placeId,
           );
+        } else if (action == 'source') {
+          if (webLink(page) case final uri?) await ref.read(externalActionsProvider).openUrl(uri);
         } else if (author != null && name != null) {
           await confirmMute(context, ref, Author(id: author, pseudonym: name));
         }
       },
       itemBuilder: (context) => [
+        if (!community && page != null)
+          PopupMenuItem(
+            value: 'source',
+            child: ListTile(
+              leading: const Icon(AppIcons.openExternal),
+              title: Text(t.place.viewSource),
+            ),
+          ),
         PopupMenuItem(
           value: 'report',
           child: ListTile(leading: const Icon(AppIcons.report), title: Text(t.reportSheet.review)),
         ),
-        if (author != null && name != null)
+        if (community && author != null && name != null)
           PopupMenuItem(
             value: 'mute',
             child: ListTile(

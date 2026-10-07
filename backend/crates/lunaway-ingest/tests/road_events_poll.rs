@@ -146,8 +146,16 @@ async fn feeds() -> (Feeds, SocketAddr) {
     (f, addr)
 }
 
+/// The instant the passes run at: the day the feeds were recorded, so that
+/// an event the recordings show as current stays current whatever the date
+/// the tests run on (one DiaLog order ended 2026-10-07 10:00 UTC).
+fn clock() -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(2026, 10, 6, 12, 0, 0).unwrap()
+}
+
 fn config(addr: SocketAddr) -> PollConfig {
     PollConfig {
+        now: Some(clock()),
         dir_base: format!("http://{addr}/dir/"),
         dir_hosts: vec!["127.0.0.1".into()],
         dir_pace: Duration::ZERO,
@@ -247,13 +255,13 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
         state.waiting_since.is_some(),
         "the wait for 3572541 is remembered"
     );
-    state.waiting_since = Some(Utc::now() - chrono::Duration::minutes(20));
+    state.waiting_since = Some(clock() - chrono::Duration::minutes(20));
     let read = db::Read {
         state: &serde_json::to_value(&state).unwrap(),
         full: false,
         data_at: None,
     };
-    db::record_read(&pool, "dir", Utc::now(), Ok(read))
+    db::record_read(&pool, "dir", clock(), Ok(read))
         .await
         .unwrap();
     let report = poll::poll(&pool, &client, &cache, &config(addr), engine)
@@ -269,6 +277,9 @@ async fn the_dir_feed_is_read_whole_then_followed_and_resumed(pool: PgPool) {
     let mut forced = config(addr);
     forced.force = true;
     forced.only = vec!["dialog".into()];
+    // A quarter of an hour later: a publication read at the instant of the
+    // last one is not newer, and ends nothing.
+    forced.now = Some(clock() + chrono::Duration::minutes(15));
     // An order disappears from DiaLog: it ended.
     let gone = {
         let start = DIALOG.find("<trafficRegulationOrder ").unwrap();

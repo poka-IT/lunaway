@@ -402,3 +402,93 @@ Address? _withCommune(Address? address, String? municipality) {
     countryCode: address?.countryCode,
   );
 }
+
+/// The terms an item of another source carries; null when it carries none
+/// (an API older than the open sources).
+ItemTerms? _termsFromJson(Map<String, dynamic> m) {
+  final terms = ItemTerms(
+    licence: _nonEmpty(m['licence']),
+    licenceUrl: _https(m['licenceUrl']),
+    pageUrl: _https(m['pageUrl']),
+    publisher: _nonEmpty(m['publisher']),
+    updatedOn: _day(m['sourceUpdatedOn']),
+  );
+  return terms == const ItemTerms() ? null : terms;
+}
+
+/// An `https` address the API gave; anything else is no link.
+String? _https(Object? value) =>
+    value is String && Uri.tryParse(value)?.scheme == 'https' ? value : null;
+
+/// The texts of the open sources: each in its language, with its source,
+/// licence and page.
+List<ExternalDescription> externalDescriptionsFromJson(Object? json) => [
+  for (final m in _maps(json))
+    if ((m['sourceId'], _nonEmpty(m['lang']), _nonEmpty(m['text'])) case (
+      final String source,
+      final String lang,
+      final String text,
+    ))
+      ExternalDescription(
+        text: LocalizedText(lang: lang, text: text, sourceId: source),
+        terms: _termsFromJson(m) ?? const ItemTerms(),
+        title: _nonEmpty(m['title']),
+      ),
+];
+
+/// The photos of the other sources: `takenAt` stands where a Lunaway photo
+/// has its upload date, and no author id ever comes (the pseudonym or
+/// credit is all the API serves of another source's authors).
+List<Photo> externalPhotosFromJson(Object? json) => [
+  for (final m in _maps(json))
+    if ((m['id'], m['sourceId'], m['thumbUrl'], m['largeUrl']) case (
+      final Object id,
+      final String source,
+      final String thumb,
+      final String large,
+    ))
+      Photo(
+        id: '$id',
+        sourceId: source,
+        thumbUrl: thumb,
+        largeUrl: large,
+        thumbhash: _nonEmpty(m['thumbhash']),
+        width: (m['width'] as num?)?.toInt(),
+        height: (m['height'] as num?)?.toInt(),
+        authorName: _nonEmpty(m['authorName']),
+        createdAt: _date(m['takenAt']),
+        kind: PhotoKind.fromWire(m['kind']),
+        terms: _termsFromJson(m),
+      ),
+];
+
+/// A page of the external community source's reviews: `writtenAt` is
+/// their writing time, as `createdAt` is a Lunaway review's.
+ReviewPage externalReviewPageFromJson(Object? json) {
+  if (json is! Map<String, dynamic>) return ReviewPage.empty;
+  return ReviewPage(
+    nodes: [
+      for (final m in _maps(json['nodes']))
+        if ((m['id'], m['sourceId'], _nonEmpty(m['text']), _date(m['writtenAt'])) case (
+          final Object id,
+          final String source,
+          final String text,
+          final written?,
+        ))
+          Review(
+            id: '$id',
+            sourceId: source,
+            rating: (m['rating'] as num?)?.toInt(),
+            text: text,
+            lang: _nonEmpty(m['lang']),
+            authorName: _nonEmpty(m['authorName']),
+            authorVehicle: ReviewVehicle.fromWire(m['authorVehicle']),
+            createdAt: written,
+            terms: _termsFromJson(m),
+          ),
+    ],
+    endCursor: json['endCursor'] as String?,
+    hasNextPage: json['hasNextPage'] == true,
+    totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
+  );
+}

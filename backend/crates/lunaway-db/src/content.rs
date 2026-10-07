@@ -625,7 +625,7 @@ pub async fn replace_reviews(
                 distance_m = excluded.distance_m, fetched_at = excluded.fetched_at,
                 author_key = excluded.author_key
             "#,
-            Uuid::now_v7(),
+            crate::extcom::review_id(r.written_at),
             r.place_id,
             source,
             r.external_id,
@@ -990,6 +990,8 @@ pub struct ContentPhotoRow {
     pub id: Uuid,
     /// Its source.
     pub source_id: String,
+    /// The source's display name.
+    pub source_label: String,
     /// `linked`, `facing` or `nearby`.
     pub relation: String,
     /// From the place to where it was taken, metres.
@@ -1044,11 +1046,13 @@ pub async fn photos_of_place(
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
                   WHERE p.taken_down_at IS NULL
         )
-        SELECT c.id, c.source_id, c.relation, c.distance_m, c.page_url, c.title, c.author,
-               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.taken_at, c.path,
-               c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at
+        SELECT c.id, c.source_id, s.name AS source_label, c.relation, c.distance_m, c.page_url,
+               c.title, c.author, c.publisher, c.source_updated_on, c.licence, c.licence_url,
+               c.taken_at, c.path, c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at
         FROM content_photos c
-        WHERE c.place_id IN (SELECT id FROM family)
+        JOIN sources s ON s.id = c.source_id
+        LEFT JOIN source_switches w ON w.source_id = c.source_id
+        WHERE c.place_id IN (SELECT id FROM family) AND w.hidden_at IS NULL
           AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
@@ -1072,6 +1076,8 @@ pub async fn photos_of_place(
 pub struct ContentDescriptionRow {
     /// Its source.
     pub source_id: String,
+    /// The source's display name.
+    pub source_label: String,
     /// BCP 47 tag.
     pub lang: String,
     /// The text.
@@ -1114,10 +1120,12 @@ pub async fn descriptions_of_place(
                   WHERE p.taken_down_at IS NULL
         )
         SELECT DISTINCT ON (c.source_id, c.lang)
-               c.source_id, c.lang, c.text, c.title, c.page_url, c.author, c.publisher,
-               c.source_updated_on, c.licence, c.licence_url, c.fetched_at
+               c.source_id, s.name AS source_label, c.lang, c.text, c.title, c.page_url, c.author,
+               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.fetched_at
         FROM content_descriptions c
-        WHERE c.place_id IN (SELECT id FROM family)
+        JOIN sources s ON s.id = c.source_id
+        LEFT JOIN source_switches w ON w.source_id = c.source_id
+        WHERE c.place_id IN (SELECT id FROM family) AND w.hidden_at IS NULL
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
@@ -1130,17 +1138,20 @@ pub async fn descriptions_of_place(
     .await?)
 }
 
-/// A review as the card shows it.
+/// A review with text as the card shows it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContentReviewRow {
-    /// Its id.
+    /// Its id, a UUID v7 stamped with its date: the newest first in id
+    /// order, as the community's and the partner's reviews.
     pub id: Uuid,
     /// Its source.
     pub source_id: String,
+    /// The source's display name.
+    pub source_label: String,
     /// Stars, 1 to 5.
     pub rating: Option<i16>,
     /// Its text.
-    pub text: Option<String>,
+    pub text: String,
     /// The language of the text.
     pub lang: Option<String>,
     /// The reviewer's pseudonym.
@@ -1155,19 +1166,21 @@ pub struct ContentReviewRow {
     pub licence_url: String,
 }
 
-/// The reviews of `place` and of the places merged into it (not those
-/// taken down), newest first, at most `limit`, without what an operator
-/// hid.
+/// The reviews with text of `place` and of the places merged into it (not
+/// those taken down), newest first, after the review `after`, without
+/// what an operator or the reports hid. A rating without text counts in
+/// [`ratings_of_place`] only.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the query fails.
+/// [`DbError`] when a query fails.
 pub async fn reviews_of_place(
     pool: &PgPool,
     place: Uuid,
-    limit: i64,
-) -> Result<Vec<ContentReviewRow>, DbError> {
-    Ok(sqlx::query_as!(
+    first: i64,
+    after: Option<Uuid>,
+) -> Result<crate::community::Page<ContentReviewRow>, DbError> {
+    let rows = sqlx::query_as!(
         ContentReviewRow,
         r#"
         WITH RECURSIVE family(id) AS (
@@ -1175,10 +1188,14 @@ pub async fn reviews_of_place(
             UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
                   WHERE p.taken_down_at IS NULL
         )
-        SELECT c.id, c.source_id, c.rating, c.text, c.lang, c.author, c.written_at,
-               c.page_url, c.licence, c.licence_url
+        SELECT c.id, c.source_id, s.name AS source_label, c.rating, c.text AS "text!", c.lang,
+               c.author, c.written_at, c.page_url, c.licence, c.licence_url
         FROM content_reviews c
-        WHERE c.place_id IN (SELECT id FROM family)
+        JOIN sources s ON s.id = c.source_id
+        LEFT JOIN source_switches w ON w.source_id = c.source_id
+        WHERE c.place_id IN (SELECT id FROM family) AND c.text IS NOT NULL
+          AND w.hidden_at IS NULL
+          AND ($2::uuid IS NULL OR c.id < $2)
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
@@ -1186,11 +1203,87 @@ pub async fn reviews_of_place(
                   OR (h.scope = 'author' AND h.key = c.author_key)
                   OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
                   OR h.scope = 'source'))
-        ORDER BY c.written_at DESC, c.id
-        LIMIT $2
+        ORDER BY c.id DESC
+        LIMIT $3
         "#,
         place,
-        limit,
+        after,
+        first + 1,
+    )
+    .fetch_all(pool)
+    .await?;
+    let total = sqlx::query_scalar!(
+        r#"
+        WITH RECURSIVE family(id) AS (
+            SELECT $1::uuid
+            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
+                  WHERE p.taken_down_at IS NULL
+        )
+        SELECT count(*) AS "n!"
+        FROM content_reviews c
+        LEFT JOIN source_switches w ON w.source_id = c.source_id
+        WHERE c.place_id IN (SELECT id FROM family) AND c.text IS NOT NULL
+          AND w.hidden_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = c.source_id
+                AND ((h.scope = 'item' AND h.key = c.external_id)
+                  OR (h.scope = 'author' AND h.key = c.author_key)
+                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
+                  OR h.scope = 'source'))
+        "#,
+        place,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(crate::community::page(rows, first, total))
+}
+
+/// What the reviews of a source say of a place as a whole.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContentRatingRow {
+    /// Its source.
+    pub source_id: String,
+    /// Mean stars.
+    pub average: f64,
+    /// Ratings counted.
+    pub count: i32,
+}
+
+/// The mean of the ratings of the reviews of each source on `place` and
+/// the places merged into it, without the hidden ones.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn ratings_of_place(
+    pool: &PgPool,
+    place: Uuid,
+) -> Result<Vec<ContentRatingRow>, DbError> {
+    Ok(sqlx::query_as!(
+        ContentRatingRow,
+        r#"
+        WITH RECURSIVE family(id) AS (
+            SELECT $1::uuid
+            UNION SELECT p.id FROM places p JOIN family f ON p.merged_into = f.id
+                  WHERE p.taken_down_at IS NULL
+        )
+        SELECT c.source_id, avg(c.rating)::float8 AS "average!", count(*)::int4 AS "count!"
+        FROM content_reviews c
+        LEFT JOIN source_switches w ON w.source_id = c.source_id
+        WHERE c.place_id IN (SELECT id FROM family) AND c.rating IS NOT NULL
+          AND w.hidden_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = c.source_id
+                AND ((h.scope = 'item' AND h.key = c.external_id)
+                  OR (h.scope = 'author' AND h.key = c.author_key)
+                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
+                  OR h.scope = 'source'))
+        GROUP BY c.source_id
+        ORDER BY c.source_id
+        "#,
+        place,
     )
     .fetch_all(pool)
     .await?)
@@ -1270,4 +1363,111 @@ pub async fn coverage(
         with_review: r.with_review,
         with_any: r.with_any,
     })
+}
+
+/// A photo or a review of an external source, as a report names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalItem {
+    /// Its source.
+    pub source_id: String,
+    /// Its id at the source.
+    pub external_id: String,
+    /// A review rather than a photo.
+    pub is_review: bool,
+}
+
+/// The external photo or review `id` (`ExternalPhoto.id`,
+/// `ExternalReview.id`), whichever source it came from.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn external_item_on(
+    conn: &mut PgConnection,
+    id: Uuid,
+) -> Result<Option<ExternalItem>, DbError> {
+    Ok(sqlx::query_as!(
+        ExternalItem,
+        r#"
+        SELECT source_id AS "source_id!", external_id AS "external_id!", is_review AS "is_review!"
+        FROM (
+            SELECT source_id, external_id, false AS is_review FROM content_photos WHERE id = $1
+            UNION ALL
+            SELECT source_id, external_id, true FROM content_reviews WHERE id = $1
+            UNION ALL
+            SELECT source_id, external_id, false FROM external_photos
+            WHERE id = $1 AND retired_at IS NULL
+            UNION ALL
+            SELECT source_id, external_id, true FROM external_reviews WHERE id = $1
+        ) i
+        LIMIT 1
+        "#,
+        id,
+    )
+    .fetch_optional(conn)
+    .await?)
+}
+
+/// Who hides an item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HideOrigin {
+    /// The users' reports, until a moderator decides.
+    Reports,
+    /// A moderator's rejection.
+    Moderator,
+}
+
+/// Hides one item of a source wherever it shows; a moderator's hide
+/// replaces one the reports made. Returns the rows written.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn hide_item_on(
+    conn: &mut PgConnection,
+    source: &str,
+    external_id: &str,
+    origin: HideOrigin,
+) -> Result<u64, DbError> {
+    let origin = match origin {
+        HideOrigin::Reports => "reports",
+        HideOrigin::Moderator => "moderator",
+    };
+    Ok(sqlx::query!(
+        r#"
+        INSERT INTO content_hides (source_id, scope, key, origin) VALUES ($1, 'item', $2, $3)
+        ON CONFLICT (source_id, scope, key) DO UPDATE SET origin = excluded.origin
+        WHERE content_hides.origin = 'reports'
+        "#,
+        source,
+        external_id,
+        origin,
+    )
+    .execute(conn)
+    .await?
+    .rows_affected())
+}
+
+/// Lifts the hide the reports put on an item; an operator's or a
+/// moderator's stays.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn unhide_reported_on(
+    conn: &mut PgConnection,
+    source: &str,
+    external_id: &str,
+) -> Result<u64, DbError> {
+    Ok(sqlx::query!(
+        r#"
+        DELETE FROM content_hides
+        WHERE source_id = $1 AND scope = 'item' AND key = $2 AND origin = 'reports'
+        "#,
+        source,
+        external_id,
+    )
+    .execute(conn)
+    .await?
+    .rows_affected())
 }

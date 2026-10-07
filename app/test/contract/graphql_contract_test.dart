@@ -17,6 +17,7 @@ import 'package:lunaway/features/poi/data/fuel_feed.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 
+import '../fixtures/place_external.dart';
 import 'graphql_validator.dart';
 
 /// Every operation the app sends must be valid against the schema the
@@ -61,6 +62,10 @@ void main() {
       });
     }
   }
+
+  test('the recorded answer of the external community source is what the schema promises', () {
+    expect(validator.checkResponse(externalOperation.document, externalFixture()), isEmpty);
+  });
 
   group('the demo server answers as the schema says', () {
     final apiBase = Uri.parse('https://api.example.org');
@@ -131,6 +136,15 @@ void main() {
         'after': extras.reviews.endCursor,
       });
       expect(next.nodes, isNotEmpty);
+      conforms();
+    });
+
+    test('the external community source of a place, then its next reviews', () async {
+      final place = demoPlaces().first;
+      final content = await client.execute(externalOperation, {'id': place.id, 'first': 20});
+      // The demo invents nothing under that source's label.
+      expect(content, ExternalContent.empty);
+      await client.execute(externalReviewsOperation, {'id': place.id, 'first': 20, 'after': 'MjA'});
       conforms();
     });
 

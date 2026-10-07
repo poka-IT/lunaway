@@ -220,8 +220,15 @@ void main() {
       FakeApi api,
       String route, {
       SyncService? syncService,
+      DateTime? recoveryCardAt,
     }) async {
-      final app = await pumpLunaway(tester, api: api, signedIn: true, syncService: syncService);
+      final app = await pumpLunaway(
+        tester,
+        api: api,
+        signedIn: true,
+        syncService: syncService,
+        recoveryCardAt: recoveryCardAt,
+      );
       final router = app.container(tester).read(routerProvider)..go(route);
       await settleShort(tester);
       return (app, router);
@@ -276,23 +283,169 @@ void main() {
         expect(find.text(group), findsOneWidget);
       }
       expect(find.text(t.recovery.shownOnce), findsOneWidget);
+      // The server holds the new code from now on, the old one stopped
+      // working: the device knows a card exists, whichever way the user
+      // leaves the page (the rail, on a desktop).
+      final kept = await app.secrets.read('recovery_card');
+      expect(kept, testNow.toUtc().toIso8601String());
       expect(
-        await app.secrets.read('recovery_card'),
-        isNull,
-        reason: 'a card counts once the user says it is kept',
+        kept!.contains(FakeApi.recoveryCode.substring(0, 4)),
+        isFalse,
+        reason: 'the device keeps the date of the card, never its code',
       );
 
       await tapVisible(tester, find.widgetWithText(OutlinedButton, t.recovery.done));
       expect(find.text(t.recovery.doneBody), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, t.recovery.done));
       await settleShort(tester);
-      final kept = await app.secrets.read('recovery_card');
-      expect(kept, isNotNull);
-      expect(
-        kept!.contains(FakeApi.recoveryCode.substring(0, 4)),
-        isFalse,
-        reason: 'the device keeps the date of the card, never its code',
+      expect(find.text(t.account.recoveryMade(date: '6 oct. 2026')), findsOneWidget);
+    });
+
+    testWidgets('a card left by another way than its button still shows in the profile', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final (_, router) = await openProfile(tester, api, AppRoutes.recoveryCard);
+      await tapVisible(tester, find.text(t.recovery.make));
+      expect(find.text(t.recovery.shownOnce), findsOneWidget);
+      // The rail of a desktop, or a link: the page goes without its button.
+      router.go(AppRoutes.profile);
+      await settleShort(tester);
+      await tester.scrollUntilVisible(
+        find.text(t.recovery.title),
+        200,
+        scrollable: find.byType(Scrollable).first,
       );
+      expect(find.text(t.account.recoveryMade(date: '6 oct. 2026')), findsOneWidget);
+      expect(find.text(t.account.recoveryNone), findsNothing);
+    });
+
+    group('the date of the card comes from the server', () {
+      Future<void> seeCard(WidgetTester tester) => tester.scrollUntilVisible(
+        find.text(t.recovery.title),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      testWidgets('a card made on another device shows here with its date, and is kept', (
+        tester,
+      ) async {
+        final api = FakeApi()..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '1 sept. 2026')), findsOneWidget);
+        expect(
+          await app.secrets.read('recovery_card'),
+          DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+          reason: 'offline later, the device still knows the card',
+        );
+      });
+
+      testWidgets('the server corrects the date this device kept', (tester) async {
+        final api = FakeApi()..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '1 sept. 2026')), findsOneWidget);
+      });
+
+      testWidgets('an account without a code says so for the account, not for the device', (
+        tester,
+      ) async {
+        await openProfile(tester, FakeApi(), AppRoutes.profile);
+        await tester.scrollUntilVisible(
+          find.text(t.account.recoveryNoneAccount),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(find.text(t.account.recoveryNone), findsNothing);
+      });
+
+      testWidgets('a read sent before a new card does not bring back the old card date', (
+        tester,
+      ) async {
+        final old = DateTime.utc(2026, 9, 1, 12);
+        final api = FakeApi()..recoveryCodeCreatedAt = old;
+        final (app, _) = await openProfile(tester, api, AppRoutes.profile);
+        final service = app.container(tester).read(accountServiceProvider);
+        api
+          ..hold = Completer<void>()
+          ..held = {'MyAccount'};
+        final reading = service.refresh();
+        await tester.pump();
+        await service.createRecoveryCode();
+        // The read was answered before the new card, with the old date.
+        api.recoveryCodeCreatedAt = old;
+        api.hold!.complete();
+        final read = await reading;
+        expect(read.recoveryCode, isNull, reason: 'the answer predates the new card');
+        expect(await app.secrets.read('recovery_card'), testNow.toUtc().toIso8601String());
+      });
+
+      testWidgets('offline, the date this device kept shows', (tester) async {
+        final api = FakeApi()
+          ..offline = true
+          ..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(find.text(t.account.recoveryMade(date: '2 oct. 2026')), findsOneWidget);
+        expect(api.operations, isNot(contains('MyAccount')), reason: 'nothing reached the API');
+      });
+
+      testWidgets('an API older than the date is asked without it, and the device date holds', (
+        tester,
+      ) async {
+        final api = FakeApi()
+          ..older = true
+          ..recoveryCodeCreatedAt = DateTime.utc(2026, 9, 1, 12);
+        await openProfile(
+          tester,
+          api,
+          AppRoutes.profile,
+          recoveryCardAt: DateTime.utc(2026, 10, 2, 12),
+        );
+        await seeCard(tester);
+        expect(api.olderRefusals, contains('MyAccount'));
+        expect(api.operations, contains('MyAccount'), reason: 'its older form went through');
+        expect(find.text(t.account.recoveryMade(date: '2 oct. 2026')), findsOneWidget);
+      });
+    });
+
+    testWidgets('a new card first says it replaces the one made before, whose code stops working', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final (app, _) = await openProfile(
+        tester,
+        api,
+        AppRoutes.recoveryCard,
+        recoveryCardAt: DateTime.utc(2026, 9, 1, 12),
+      );
+      await tapVisible(tester, find.text(t.recovery.make));
+      expect(find.text(t.recovery.replaceTitle(date: '1 septembre 2026')), findsOneWidget);
+      expect(find.text(t.recovery.replaceBody(date: '1 septembre 2026')), findsOneWidget);
+      await tester.tap(find.text(t.recovery.replaceKeep));
+      await settleShort(tester);
+      expect(api.operations, isNot(contains('CreateRecoveryCode')), reason: 'the old card holds');
+      expect(
+        await app.secrets.read('recovery_card'),
+        DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+      );
+
+      await tapVisible(tester, find.text(t.recovery.make));
+      await tester.tap(find.text(t.recovery.replaceConfirm));
+      await settleShort(tester);
+      expect(api.operations, contains('CreateRecoveryCode'));
+      expect(await app.secrets.read('recovery_card'), testNow.toUtc().toIso8601String());
     });
 
     testWidgets('a recovery code is checked as it is typed, then brings the account back', (
@@ -837,6 +990,55 @@ void main() {
       container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inDetails(find.text(t.freshness.unconfirmed)), findsOneWidget);
+    });
+
+    testWidgets('online, a place read from the API is read again after a contribution to it', (
+      tester,
+    ) async {
+      Place confirmed(DateTime? at) => placeFromJson(
+        jsonDecode(jsonEncode({...placeToJson(lakeArea), 'lastConfirmedAt': at?.toIso8601String()}))
+            as Map<String, dynamic>,
+      );
+      final api = FakeApi();
+      api.confirmations.add({
+        'id': '00000000-0000-7000-8000-0000000000c5',
+        'placeId': lakeArea.id,
+        'status': 'STILL_OK',
+        'createdAt': testNow.toUtc().toIso8601String(),
+      });
+      // The web: no place on the device, every page read from the API.
+      final online = FakeOnlinePlaces([confirmed(testNow)]);
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 3000),
+        api: api,
+        signedIn: true,
+        places: const [],
+        online: online,
+      );
+      final container = app.container(tester);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(inDetails(find.text(t.freshness.unconfirmed)), findsNothing);
+
+      container.read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      await tester.tap(find.byTooltip(t.common.delete).first);
+      await settleShort(tester);
+      // What the server's worker writes once the confirmation is gone.
+      online.put(confirmed(null));
+      await tester.tap(find.widgetWithText(FilledButton, t.common.delete));
+      await settleShort(tester, const Duration(seconds: 1) + SyncController.afterContribution);
+      expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c5'});
+
+      container.read(routerProvider).go(AppRoutes.map);
+      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      expect(
+        inDetails(find.text(t.freshness.unconfirmed)),
+        findsOneWidget,
+        reason: 'the copy read before the contribution is not shown again',
+      );
     });
 
     testWidgets('a deletion keeps a waiting request when another one is known to have made it', (

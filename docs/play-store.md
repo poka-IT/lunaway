@@ -128,10 +128,12 @@ at 93ba876 on 2026-10-07):
 
 - Users can hide every contribution of an author (a mute synced with the
   account) and report a review, a photo or a place.
-- Place and town search run on the device, with no third-party geocoder.
-  The search of shops and services sends its text to our server, which
-  neither stores nor logs it: declared as In-app search history, processed
-  ephemerally.
+- Place and town search run on the device when it holds places, with no
+  third-party geocoder; on a device without places (the web, a phone
+  before its regions arrive) the text and the map centre snapped to a 0.05
+  degree grid go to our server. The search of shops and services sends its
+  text to our server. The server neither stores nor logs either: declared
+  as In-app search history, processed ephemerally.
 - Every build uses the self-hosted basemap on tiles.lunaway.net; the app
   has no other tile host (`app/lib/core/config/app_config.dart`,
   `tool/allowed_hosts.txt`).
@@ -206,9 +208,13 @@ Android/<version> Android/<API level> (<ABI>)`, read in the access log on
 
 | Datum | Sent when | Kept on the server | Source |
 |---|---|---|---|
-| Regions of the place sync | at launch (data older than 12 h) and on resume, with or without account: the list of regions, the pack of each region kept (its URL names the region), then the changes of each region by its code; never a position | nothing in the database; the access log writes every pack path as `/packs/places/[pack]` | `app/lib/features/regions/`, `app/lib/features/places/application/places_providers.dart`, `infra/caddy/Caddyfile` (`access_log`) |
+| Regions of the place sync | phones and computers (the web keeps no places), a few seconds after the map's first view, then when data is older than 12 h and on resume, with or without account: the list of regions, the pack of each region kept (its URL names the region), then the changes of each region by its code; never a position | nothing in the database; the access log writes every pack path as `/packs/places/[pack]` | `app/lib/features/regions/`, `app/lib/features/places/application/places_providers.dart`, `infra/caddy/Caddyfile` (`access_log`) |
 | Offline basemap packs | the user downloads a region's map (phones and tablets) | nothing; logged as `/packs/[pack].pmtiles` | `app/lib/features/offline/`, `Caddyfile` |
-| Map area viewed | basemap tiles (tiles.lunaway.net) and point of interest tiles (`/poi/<v>/<z>/<x>/<y>.mvt`, api.lunaway.net) | nothing; the access log and the API's request span keep the zoom only | `Caddyfile`, `backend/crates/lunaway-api/src/tiles.rs` |
+| Map area viewed | basemap tiles (tiles.lunaway.net), place tiles (`/places/<v>/<z>/<x>/<y>.mvt`) and point of interest tiles (`/poi/<v>/<z>/<x>/<y>.mvt`, api.lunaway.net) | nothing; the access log and the API's request span keep the zoom only | `Caddyfile`, `backend/crates/lunaway-api/src/tiles.rs` |
+| List of places beside the map, count of the filter sheet | online, the map zoomed out below 12 (from 12 on, the list reads the place tiles on the device and sends nothing): the visible area widened to a 0.05 degree grid, the point the list ranks from (the map centre snapped to the same grid, never the device position) and the filters | nothing: a POST body | `app/lib/features/map/application/map_state.dart` (`NearbyPlacesPage`), `app/lib/features/places/data/online_places.dart` (`placesQueryBox`, `searchAnchor`) |
+| Search of places and towns, on a device without places | the web, or a phone before its regions arrive: the text and the map centre snapped to a 0.05 degree grid; never the device position | nothing: a POST body | `app/lib/features/places/application/places_providers.dart` (`searchResults`) |
+| A place's page, on a device without its region | the place is opened: its id | nothing | `app/lib/features/places/data/online_places.dart` (`PlaceReader`) |
+| Places along a route, on a device without places | the route's map opens: up to 20 stretches of the route as boxes widened to a 0.05 degree grid, and the filters | nothing: a POST body | `app/lib/features/navigation/application/route_extras.dart` |
 | Fuel stations of the view | the fuel layer is on and the zoom is 10 or more: the visible area widened to a 0.05 degree grid, at most 1.95 degree a side | nothing: a POST body | `app/lib/features/poi/application/poi_providers.dart` (`FuelStations`) |
 | The point of the cheapest fuel list | the list of the cheapest around the user, when the view is zoomed out below 10 or holds too many stations: the user's position, else the map centre, rounded on the device to a twentieth of a degree (about 5 km), the fuel, a 20 km radius | nothing: a POST body; the server does not round, the device does | `app/lib/features/poi/application/fuel_feed_providers.dart` |
 | Price history of a station | a station's page opens: its id and one fuel | nothing | `fuel_feed_providers.dart` (`FuelTrend`) |
@@ -236,8 +242,8 @@ Android/<version> Android/<API level> (<ABI>)`, read in the access log on
 | Client address | every request | not stored: rate limits count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
 | Request line and headers | every request | access log: date, method, host, path without query string, status, duration, User-Agent and the other request headers but `Authorization`, `Cookie`, `X-Forwarded-For` and the cache and range headers; IP truncated to /16 (IPv4) or /32 (IPv6); photo paths, tile coordinates and pack names masked. Files roll at 50 MiB and go 14 days after they roll; system journal, files deleted once their last entry is a month old (two months at most); both also in Hetzner's 7 daily images of the root disk | `infra/caddy/Caddyfile` (`roll_size`, `roll_keep_for`), `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` |
 
-Not sent: place and town search (on the device, web included,
-`app/lib/features/places/data/drift_places_repository.dart`), contacts,
+Not sent: place and town search on a device that holds places
+(`app/lib/features/places/data/drift_places_repository.dart`), contacts,
 e-mail, phone number, crash data. Road event reports (`reportRoadEvent`,
 `clearRoadEvent`) exist in the API but no screen of the app sends one at
 93ba876 (no such operation in `app/lib`). The position also goes, on the
@@ -287,8 +293,9 @@ favourites sync.
 What each line covers:
 
 - Approximate location: the point of the cheapest fuel list, the device
-  position rounded to about 5 km; the fuel stations of the view; nothing
-  stored.
+  position rounded to about 5 km; the fuel stations of the view; the list
+  of places beside the map, the count of the filters and the places along
+  a route, each an area widened to a 0.05 degree grid; nothing stored.
 - Precise location: the start of each route and of each reroute of a
   guidance, and the route line sent for its stations, processed for the
   request only; and the position of a new place or vending machine, which
@@ -301,7 +308,8 @@ What each line covers:
   last-use dates of sessions and device keys (trust levels, abuse
   control).
 - In-app search history: the text of the search of shops and services,
-  processed for the request only.
+  and of places on a device without places, processed for the request
+  only.
 - Other user-generated content: reviews, new places, vending machines and
   edits, notes attached to confirmations and reports, favourite list
   names.

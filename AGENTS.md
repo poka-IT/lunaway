@@ -28,6 +28,7 @@ Official website https://lunaway.net, public API https://api.lunaway.net
 fvm flutter pub get
 fvm dart run slang                      # after editing lib/i18n/*.i18n.json
 fvm dart run build_runner build         # after changing a @riverpod provider
+sh packages/lunaway_nav/tool/build_web.sh  # before a web run or build (guidance WebAssembly)
 fvm flutter run -d macos                # or chrome, or a device
 fvm flutter test
 fvm dart analyze --fatal-infos          # dart, not flutter: only dart analyze runs riverpod_lint
@@ -73,7 +74,8 @@ explains why, never by `--no-verify`.
 
 - **Sources are ingested by the server, never fetched by the app.** Every
   source goes through the ingestion workers: paced, resumable, cached, no
-  proxy or IP rotation; proprietary databases are never crawled. The app talks only to
+  proxy or IP rotation; a proprietary database is crawled only under a written
+  licence that allows it (the `extcom` feed). The app talks only to
   our hosts; third-party images come through the API's image proxy. Gate:
   `structure_check` rule `allowed-hosts`. Depth:
   `.claude/rules/data-sources.md`.

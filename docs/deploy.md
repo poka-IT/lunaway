@@ -95,6 +95,7 @@ Secrets live where they are used and nowhere else:
 | secret | where |
 |---|---|
 | database passwords | backend, `/etc/lunaway/{api,ingest,owner}.env` (root, 0600) |
+| the DATAtourisme key (`LUNAWAY_DATATOURISME_KEY`) | backend, `/etc/lunaway/datatourisme.env` (root, 0600), given by the maintainer (a free key, `docs/data-sources.md`) and copied without being shown: `{ printf 'LUNAWAY_DATATOURISME_KEY='; cat ~/.config/lunaway/datatourisme.key; } \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'`; loaded by `lunaway-ingest-datatourisme.service` alone; an age-encrypted copy, `datatourisme-key.env.age`, in the backup chain, made once by the `pipeline` step and never overwritten. To restore it: `age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/datatourisme-key.env.age \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'` |
 | the takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) | backend, `/etc/lunaway/takedown.env` (root, 0600), loaded only by the conflation units (`lunaway-conflate-worker`, `lunaway-conflate`) and `lunaway-admin conflate|takedowns|take-down|replay-takedowns` (the import role without outbound network), never by the imports nor the API; an age-encrypted copy, `takedown-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: the cells stored around every place taken down are keyed with it, and the step refuses to generate another while the copy exists (see "Backups and restore") |
 | the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
@@ -228,6 +229,17 @@ took 5 min 44 s on 2026-10-06. A builder left by an interrupted run is
 refused by the next one; delete it with `hcloud --context lunaway server
 delete lunaway-builder-1`.
 
+The project's quotas can stop the builder's creation while throwaway
+servers run: `Primary IP limit exceeded` (ten addresses, IPv4 and IPv6
+together) or `shared core limit exceeded`, both met on 2026-10-07.
+`LUNAWAY_BUILDER_IPV6=1` creates it without an IPv4 address (Docker Hub,
+Debian and crates.io answer over IPv6; this machine must too, and the build
+container then uses the builder's network, Podman's bridge having no
+IPv6), and `LUNAWAY_BUILDER_TYPE=ccx23` takes dedicated vCPUs, which count
+apart (0.1378 EUR excl. VAT an hour in fsn1; the build of 7565bb6 took 5 min 20 s on
+it). An address is still needed: when all ten are taken, a server must go
+first.
+
 ## Photos
 
 The API takes a photo on `POST /upload` (`multipart/form-data`, a place and
@@ -247,6 +259,19 @@ under `/media/` with a year of cache.
   server's `read_body` is 3 minutes for every request; headers still have
   10 seconds. The API gives an upload 120 seconds to arrive, so a 10 MiB
   photo needs about 700 kbit/s; the app should shrink photos first.
+- Every answer must reach its client within 3 minutes of the request plus
+  one second per 32 KiB already sent (`write_idle 3m 32768`): the API holds
+  a whole answer (a route reaches 12 MB) until Caddy has passed it on, and
+  Caddy's default only cuts a write stalled for a minute, so a client
+  reading a few KB a second held it for an hour. 3 minutes covers an
+  upload's 120 s before the API answers; past it 256 kbit/s still receives
+  anything, and a slower offline pack download is cut and resumes by
+  range (measured on 2026-10-07: a pack read at 16 KiB/s cut after 486 s
+  over HTTP/1.1, 513 s over HTTP/2, 416 s over HTTP/3). Server-wide
+  because the per-route `timeouts` handler of Caddy 2.11.7 has no effect:
+  the server's own writer, on by default, arms the connection's deadline
+  again on each write. `infra/tests/caddy-layout.sh` checks the bound with
+  shorter values.
 - The API runs as the static user `lunaway-api`, which owns
   `/srv/data/media` (0755, files 0644 for Caddy). Its unit sees nothing else
   of `/srv` and may write only there. `/etc/lunaway/media.env` gives it
@@ -284,11 +309,13 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
+| `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
+| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
 | `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
-| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day. The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
+| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most) and the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
 | `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
@@ -498,6 +525,177 @@ The places import reads the extract with the same reader and peaked at
 The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
+
+### Places layer
+
+The places as map tiles, so the web app shows them without syncing every
+place into its WebAssembly SQLite (about a minute at the first load on
+2026-10-07, 15 s before the points showed on a second load). The app filters
+the tiles with a MapLibre filter expression, on the device, without a
+request; a tap reads `place(id)`; the list beside the map is
+`places(bbox, near:)`, nearest to the map's centre first. The API serves
+(`lunaway-api/src/tiles.rs`, the same code as the points, one endpoint per
+layer; `lunaway-db/src/place_tiles.rs`):
+
+- `GET /places/tiles.json`: the TileJSON (3.0.0), cached 60 s, its tile
+  URL under `LUNAWAY_PUBLIC_URL`, `minzoom` 2, `maxzoom` 14, the layer's
+  bounds (`BOUNDS`, every place on 2026-10-07 lies inside), the attribution
+  of the sources places are made of (OpenStreetMap, Lunaway contributors,
+  Atout France with its positions from the Base Adresse Nationale and IGN
+  BD TOPO) and every field of both layers.
+- `GET /places/{version}/{z}/{x}/{y}.mvt`, as `/poi/`: the current
+  version cached a year (`immutable`), an older version the current data
+  for 5 minutes, a version newer than the one the API read (it reads again
+  at most every 200 ms) the current data with `no-store`, so a tile that
+  still shows a place taken down is kept by nobody; an ETag and 304, 204
+  for an empty tile or outside the bounds, 404 below zoom 2, above 14 (maps
+  draw zoom 14 beyond) and for coordinates not written in digits (`+12`
+  would escape Caddy's log mask); the CORS headers of `https://lunaway.net`,
+  gzip when the client accepts it.
+
+| layer | zooms | one feature per | properties |
+|---|---|---|---|
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
+
+`kind` and `night` are the domain's codes (`motorhome_area`,
+`tolerated`...). `s` is the services mask, bit i for the i-th
+`lunaway_domain::Service` (drinking water 0 ... winter caravanning 16; the
+stored column `places.services_mask`, and a test pins every bit). `price`
+is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
+is the height limit in whole centimetres, absent when unknown. A taken-down
+or deleted place is in no tile.
+
+**Filters on the dots.** A server cluster with a count cannot answer the
+app's filters: any subset of kinds, a subset of overnight statuses, groups
+of services where one of each must be present (a dump station is grey or
+black water), free only, a vehicle height. So the low zooms carry every
+place, and two places merge into one dot only when they fall in the same
+pixel with the same properties. A filter on those properties keeps a dot
+exactly when it keeps at least one of the places it stands for, and a
+pixel shows a dot exactly when one of its places passes: the map is the
+same as with every place drawn. `s` keeps bits 0 to 8 in the dots, the
+services the filters offer; a filter on another service would be wrong
+below zoom 10, and the app offers none. The length, width and weight
+limits are in no tile; the app filters on the height only. The same
+semantics hold in `places(filter:)` (`overnight`, `serviceGroups`,
+`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`), and
+`lunaway-api/tests/place_tiles.rs` checks, filter by filter, that the list
+and the tile keep the same places.
+
+**Measurements** (2026-10-07, a throwaway cpx22 with PostgreSQL 18.1 and
+PostGIS 3.6.1, the 86 111 places of the 34 public regional packs loaded
+into `places`; build times measured inside the database; gzip at level 6,
+what the API's compression uses):
+
+| pins, densest tile of Europe | places | with names, raw / gzip | without names, raw / gzip |
+|---|---|---|---|
+| z10 | 197 | 17 932 / 6 828 B | 12 736 / 4 136 B |
+| z11 | 100 | 8 828 / 3 716 B | 6 576 / 2 218 B |
+| z12 | 57 | 5 116 / 2 169 B | 3 740 / 1 368 B |
+| z14 | 29 | 2 288 / 866 B | 1 909 / 667 B |
+
+| pins at z10, over | with names, raw / gzip | without, raw / gzip |
+|---|---|---|
+| Annecy | 4 690 / 2 277 B | 3 434 / 1 430 B |
+| the Gulf of Morbihan | 7 496 / 3 318 B | 5 448 / 2 027 B |
+| Paris | 1 978 / 978 B | 1 722 / 739 B |
+
+Names add 60 to 70% to a tile at zooms 10 to 12, where a map draws no
+label for a pin anyway: they travel from zoom 12 (`NAME_MIN_ZOOM`), where
+the densest tile weighed 2.2 KB gzip on 2026-10-07, before the town
+travelled with the name. The town travels with it: from
+that zoom the app's list beside the map reads the pins in view rather than
+ask the API (nothing of the view leaves the device beyond the tiles), and a
+row names an unnamed place by its town. The 7 337 tiles of zoom 10 hold
+3.3 MB gzip in all, built in 1.9 s together (30 ms the slowest).
+
+| every tile holding a place, Europe | tiles | dots: build, all / slowest | dots: gzip, all / largest | clusters per kind: gzip, all / largest |
+|---|---|---|---|---|
+| z2 | 3 | 391 ms / 245 ms | 62.9 / 46.6 KB | 7.8 / 4.9 KB |
+| z3 | 5 | 625 / 519 ms | 90.8 / 63.0 KB | 19.1 / 11.4 KB |
+| z4 | 13 | 680 / 410 ms | 122.8 / 67.4 KB | 45.3 / 17.4 KB |
+| z5 | 26 | 689 / 149 ms | 160.8 / 32.9 KB | 100.8 / 16.6 KB |
+| z6 | 78 | 686 / 58 ms | 212.4 / 16.3 KB | 192.4 / 12.9 KB |
+| z7 | 236 | 753 / 24 ms | 295.9 / 6.6 KB | 302.0 / 6.3 KB |
+| z8 | 745 | 854 / 8 ms | 454.0 / 3.4 KB | 441.0 / 3.6 KB |
+| z9 | 2 416 | 1 226 / 3 ms | 795.9 / 1.4 KB | 703.6 / 1.4 KB |
+
+The clusters are those of the points (a 32 by 32 grid per kind, with a
+count), measured for comparison only. From zoom 6 the dots weigh what the
+clusters do; below, two to five times more, for a map that stays right
+under every filter. The choices behind these numbers, on the tile of zoom 2
+to 5 over France:
+
+- one MultiPoint per set of properties instead of one point feature per
+  dot: 47 KB gzip at zoom 2 instead of 132 KB;
+- the points of a MultiPoint row by row: 33 KB gzip at zoom 5 instead of
+  51 KB in the database's order (a Morton order gave about the same size
+  and cost three times the time);
+- a 512 unit extent (one per pixel); 256 units would save a third at
+  zooms 2 to 4 but merge places two pixels apart;
+- the services mask stored (`places.services_mask`, migration
+  `20261008090000`, 1.5 s on the 86 111 places): computing it per place
+  took 230 of the 390 ms of the zoom 2 tile.
+
+Zoom 2 is the lowest because its three tiles weigh less than those of zoom
+3 or 4 (pixels merge more places) and show the whole of Europe; zoom 10 is
+the first with pins because the densest tile there holds 197 places, 4.1
+KB gzip, against 7.7 KB (360 places) at zoom 9.
+
+**Built ahead.** A dots tile of zoom 2 to 4 takes 250 to 520 ms to build,
+above the 300 ms a first view should wait. When the API sees a new version
+of the layer, it builds every dots tile that holds a place (3 522 tiles,
+listed from the tiles of zoom 9 and their parents), lowest zoom first, into
+its memory, one at a time and only while another builder stays free for the
+clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers); it stops
+when a newer version arrives. About 6 s of database time per version, about
+3 MB of memory (64 MiB per layer, `LUNAWAY_POI_TILE_CACHE_MB`).
+`LUNAWAY_PLACE_TILE_WARM=0` turns it off. From the Mac through an SSH
+tunnel the same run took 289 s, the round trip of each query; the backend
+reaches its database on loopback.
+
+**The list.** `places(bbox, filter, first, after, near)`: with `near`
+(rounded by the server to 0.01 degree before any use), the places come
+nearest first from the GiST index (`ORDER BY geom <-> point, id`), the
+cursor carries the last place's distance and id, and the viewport may be
+any size, `first` (500 at most) bounding the page. The cursor's condition
+is not served by the index: a page walks every place nearer than its
+cursor, so the last page of Europe reads all of them. Measured on the same
+database: the first page of 200 around Lyon over all of Europe in 10 ms, a
+page 500 km out in 40 ms, `totalCount` of France (32 549 places) 51 ms and
+of Europe (86 111) 38 ms, 30 ms with three filters. No cap on the count;
+the statement timeout and the per-client budget bound the rest.
+`overnight: []` and an empty group of `serviceGroups` are refused: they
+would keep nothing.
+
+**Version.** `place_layer` holds the version and the change feed's
+position it covers. The conflation worker publishes a new version after a
+run when a place was written since (`max(places.updated_seq)` past the
+stored position, so no writer marks anything) and the last version is
+older than `--place-layer-every-mins` (15 by default, the unit keeps the
+default). `conflate --take-down` (and `takedowns replay`) publishes at
+once after its commit, so a place taken down leaves every tile of the new
+version; a device shows it until its TileJSON (60 s) names that version.
+After a restore, the restored version number comes back with the dump: a
+device may hold tiles of a later version built before the restore, until
+the next version. The API's tile cache is keyed by version, as for the
+points.
+
+**Compression.** The API gzips a tile when the client accepts gzip (every
+browser and MapLibre Native do): measured through Caddy 2.11.7 in front of
+the API, the zoom 3 tile went out as 63 123 B gzip instead of 107 112 B.
+Caddy's `encode zstd gzip` leaves an encoded answer alone and does not
+encode the vector tile type at all, so a client that accepts only zstd or
+brotli gets the tile as is; zstd would save 0.5% on that tile and 7% on a
+pin tile, not worth a C dependency in the API. `api.lunaway.net` answers
+HTTP/2 (`curl --http2`: `2 200`) and advertises HTTP/3
+(`alt-svc: h3=":443"`); the Mac's curl has no HTTP/3 to try it.
+
+Caddy passes `GET`, `HEAD` and `OPTIONS` under `/places/` to the API with
+a body of 1 KiB at most, 405 otherwise, and logs the zoom only
+(`/places/{version}/{z}/x/y.mvt`), like `/poi/`; the API's own request
+span masks the same (`tiles::loggable_path`).
 
 ### Europe, the regional packs, fuel and speed cameras
 
@@ -810,7 +1008,7 @@ Encrypt certificates for the five names, valid until 2027-01-04):
 
 | address | served from | notes |
 |---|---|---|
-| `api.lunaway.net` | lunaway-api | `/health` and `/graphql`; `/media/` below; anything else 404 |
+| `api.lunaway.net` | lunaway-api | `/health`, `/graphql`, `/upload`, the tiles under `/poi/` and `/places/`; `/media/` below; anything else 404 |
 | `api.lunaway.net/media/` | `/srv/data/media` | a present file is served with a one-year immutable cache and a sandboxing CSP; a missing file or a directory is a plain 404, never listed |
 | `api.lunaway.net/packs/places/` | `/srv/data/packs/places` | the regional packs of places (`docs/region-packs.md`): only a name of the form `<region>-<seq>-<12 hex>.sqlite.gz`, written exactly so in the request (no `//`, `./`, percent-encoding or query string), a year of immutable cache, byte ranges, CORS for `https://lunaway.net`; GET, HEAD, OPTIONS; the work directory, a listing or any other name is a 404; logged as `/packs/places/[pack]` |
 | `lunaway.net/` | `/srv/lunaway/site` | website, script-free except `/account/delete` (its own CSP); `/privacy`, `/account/delete`, `/about` map to `privacy.html` or `privacy/index.html`; hashed assets cached a year, the rest five minutes |
@@ -858,7 +1056,8 @@ same way. On a new backend nothing is served until `infra/enable-domain.sh`.
 ```bash
 python3 tool/site/build.py                 # regenerates infra/web/site/ from tool/site/src/
 infra/deploy-web.sh site infra/web/site     # index.html at the root
-infra/deploy-web.sh app --build           # fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
+infra/deploy-web.sh app --build           # build_web.sh, fvm flutter build web --base-href /app/ --no-web-resources-cdn, then deploy
+LUNAWAY_DRY_RUN=1 infra/deploy-web.sh app --build   # the same build and checks, nothing uploaded
 infra/deploy-web.sh app app/build/web     # an existing build
 ```
 
@@ -867,6 +1066,26 @@ switches the `/srv/lunaway/site` or `/srv/lunaway/web` symlink. Without
 `--no-web-resources-cdn` the app would load CanvasKit from `www.gstatic.com`,
 which the CSP refuses. A previous release comes back with
 `sudo ln -sfn /srv/lunaway/releases/app/<name> /srv/lunaway/web` on the server.
+The guidance engine's WebAssembly (`app/web/lunaway_nav/`) is not committed:
+`--build` makes it from source first (`app/packages/lunaway_nav/tool/build_web.sh`,
+which needs the `wasm-bindgen` CLI of the crate's `Cargo.lock`), and the
+script refuses an app build that lacks it, since such an app runs but cannot
+guide.
+
+Before uploading the app, the script writes its service worker,
+`lunaway_sw.js`, with `app/tool/web/service_worker.py`: it names every file
+of the build and a digest of them all, so a second visit is served from the
+browser's cache without a round trip per file (every file of `/app/` is
+served `no-cache`, its name carrying no content hash). A new deploy is a new
+worker: browsers install it in the background at their next visit and use
+the new build from the one after. The worker also answers the TileJSON of
+the places, the points of interest and the basemap from its copy while it
+fetches a fresh one, so a place taken down may show one visit longer on the
+web. The worker of a build never comes out by deleting `lunaway_sw.js`:
+browsers keep the worker they have when its file answers 404. To take it out
+of every browser, deploy a build after `python3
+app/tool/web/service_worker.py --remove <build dir>`, whose worker empties its
+caches, unregisters itself and reloads the pages it held.
 
 ## Backups and restore
 
@@ -1722,9 +1941,10 @@ sudo /usr/local/sbin/lunaway-routing-refresh --rollback
 ### The check after each route
 
 `Query.route` validates the request (points in the area the API declares
-covered, `lunaway_domain::routing::covered_area`: still metropolitan France
-and Corsica on 2026-10-07, although the graph covers the 25 countries of
-`infra/routing/europe-extracts.txt`; 5 waypoints, 2 alternatives, 2 500 km in a straight line, the
+covered, `lunaway_domain::routing::coverage`: the Geofabrik outlines of
+the 25 extracts of `infra/routing/europe-extracts.txt`; 5 waypoints, 2
+alternatives, `MAX_TRIP_M` in a straight line, at most the engine's
+`service_limits.auto.max_distance` in `infra/routing/valhalla.json`, the
 vehicle's bounds; one route per request), takes one use of the client's
 route quota (`LUNAWAY_QUOTA_ROUTE`, 30 every ten minutes, given back when
 the server fails), waits at most `LUNAWAY_ROUTING_QUEUE_WAIT_MS` (1 s) for
@@ -1745,6 +1965,27 @@ Ferrostar reads, typed warnings with their position, and the graph's dates
 and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
 never on the maintainer's Mac).
+
+A blocker the engine does not see by itself (a height barrier mapped on a
+node, a port's lane) costs a second engine call. The API remembers, in
+memory and per graph, the OpenStreetMap and IGN barriers and road limits
+that blocked routes more than 10 km from their stops; once two requests
+have met one, the first call of a later trip it may lie on (box of the
+stops widened by 1 degree, stops more than 10 km away) excludes it ahead,
+and a trip left without a safe route that way is asked again without
+them. What the list still reveals, and the options to close it, are in
+the comment of `routing::Remembered`.
+
+Each route writes one line to the API's journal, `route computed`, with
+where its time went: `queue_ms` (waiting for a slot), `engine_ms` and
+`engine_calls`, `corridor_ms` (the corridor queries and the sampling
+around them), `check_ms` (the matching), `limits_ms` (the speed-limit
+traces, two at a time), the routes kept and `osrm_bytes`; durations and
+counts only, no position. `journalctl -u lunaway-api | grep "route
+computed"` reads them. On 2026-10-07 the engine took most of the time of
+a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9
+times what a ccx23 (dedicated vCPU) took for the same calls on the same
+graph (`plan/research/48-latence-itineraires.md`).
 
 ## F-Droid repository
 
@@ -2008,7 +2249,7 @@ sudo lunaway-admin road-events poll --force --only dir
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
 | API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |

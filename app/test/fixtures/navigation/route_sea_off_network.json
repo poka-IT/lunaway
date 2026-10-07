@@ -1,0 +1,48 @@
+{
+ "source": "Built for the app on 2026-10-07 from the backend's recorded engine answers (backend/crates/lunaway-api/tests/fixtures/no_route/sea.json, graph 20261006T2326Z-eu) and the values backend/crates/lunaway-api/tests/route_reasons.rs asserts on the API's answer; a restriction's distance and index along the diagnosis route are not asserted there and are left at 0.",
+ "data": {
+  "route": {
+   "status": "OFF_NETWORK",
+   "osrmJson": null,
+   "noRouteReasons": [
+    {
+     "kind": "NO_ROAD_NEARBY",
+     "stopIndex": 1,
+     "limits": []
+    }
+   ],
+   "routes": [],
+   "blockers": [],
+   "roadEventBlockers": [],
+   "avoidedRoadEvents": [],
+   "roadEventSources": [],
+   "recalculations": 0,
+   "reroute": {
+    "vehicle": {
+     "kind": "INTEGRATED",
+     "heightM": 3.3,
+     "widthM": 2.3,
+     "lengthM": 7.4,
+     "weightT": 3.5,
+     "axleLoadT": null,
+     "trailer": null
+    },
+    "options": {
+     "avoidTolls": false,
+     "avoidMotorways": false,
+     "avoidFerries": false,
+     "avoidUnpaved": false
+    },
+    "language": "FR"
+   },
+   "graph": {
+    "id": "20261006T2326Z-eu",
+    "osmDataAt": "2026-10-05T20:21:35+00:00",
+    "ignFetchedAt": null,
+    "ignEdition": "2026-06-15",
+    "builtAt": "2026-10-06T23:35:20+00:00"
+   },
+   "disclaimerKey": "routing.disclaimer.v1"
+  }
+ }
+}

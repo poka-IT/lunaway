@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
@@ -39,6 +40,10 @@ abstract interface class LunaMapController {
   /// time. The location permission is the screen's business: it asks,
   /// with an explanation, before calling this.
   Future<LatLng?> locateUser();
+
+  /// Marks [position] as the user's, a position the app read itself (the
+  /// browser's, on the web), with its radius of uncertainty in metres.
+  Future<void> showPosition(LatLng position, {double? accuracy});
 }
 
 /// The map widget contract: data in, gestures out. A screen builds it
@@ -52,7 +57,7 @@ final class LunaMapProps {
     required this.initialCenter,
     required this.initialZoom,
     required this.places,
-    required this.selectedId,
+    required this.selectedPlace,
     required this.onPlaceTap,
     required this.onLongPress,
     required this.onViewportChanged,
@@ -66,6 +71,8 @@ final class LunaMapProps {
     this.pois,
     this.onPoiTap,
     this.onPoisInView,
+    this.placeTiles,
+    this.onPlacesInView,
   });
 
   /// The basemap: a style URL or a style document (JSON text).
@@ -75,12 +82,26 @@ final class LunaMapProps {
   final bool dark;
   final LatLng initialCenter;
   final double initialZoom;
+
+  /// The places the device holds, drawn in a clustered source when
+  /// [placeTiles] is null (offline, a demo build); empty otherwise.
   final List<PlaceSummary> places;
-  final String? selectedId;
+
+  /// The places from the API's vector tiles, with the filter the map
+  /// applies to them; null draws [places] instead.
+  final PlaceTilesView? placeTiles;
+
+  /// The open place, drawn large on top: what was read of it, or what the
+  /// tap or the row knew before.
+  final PlaceSummary? selectedPlace;
+
+  String? get selectedId => selectedPlace?.id;
 
   /// A point the user long-pressed, marked until the selection changes.
   final LatLng? markedPoint;
-  final ValueChanged<String> onPlaceTap;
+
+  /// A tap on a place, with what the tile said of it as `hint`.
+  final void Function(String id, {PlaceSummary? hint}) onPlaceTap;
   final ValueChanged<LatLng> onLongPress;
   final ValueChanged<MapViewport> onViewportChanged;
 
@@ -115,6 +136,11 @@ final class LunaMapProps {
   /// settles after a move: their hours and their neighbours decide how
   /// [pois] draws them.
   final ValueChanged<List<PoiFeature>>? onPoisInView;
+
+  /// The places of the tiles inside the view, reported when the map rests
+  /// at the zoom of the pins: the list beside the map shows them, and the
+  /// points of interest leave room for them.
+  final void Function(List<PlaceSummary> places, GeoBounds bounds)? onPlacesInView;
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);

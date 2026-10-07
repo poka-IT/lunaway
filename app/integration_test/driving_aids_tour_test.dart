@@ -69,7 +69,9 @@ final class _Once implements RouteService {
   Future<RoutePlan> route(RouteRequest request) async => plan;
 
   @override
-  Future<RoutingInfo> info() => throw UnimplementedError();
+  // An answer that fails, as a server without the query: the preview then
+  // leaves the trip to the route request (a synchronous throw would fail it).
+  Future<RoutingInfo> info() async => throw UnimplementedError();
 }
 
 /// The fixes of the drive at a pace the test sets.

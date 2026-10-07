@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM external_ratings e USING source_records r\n        WHERE r.id = e.record_id AND e.source_id = $1 AND r.deleted_at IS NOT NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c60bb1f267a45591d4e5af8970aae41d013941dc5add81421a9c25b17a55739e"
+}

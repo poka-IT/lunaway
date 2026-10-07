@@ -29,6 +29,56 @@ pub struct ApiConfig {
     pub tiles: TilesConfig,
     /// What is kept of the accounts deleted, and of the contributions sent.
     pub keeping: KeepingConfig,
+    /// The proxy that downloads a partner's photos.
+    pub external_photos: ExternalPhotosConfig,
+}
+
+/// The photo proxy of the external community source
+/// (`GET /external-photos/{id}/{size}`): how hard it may use the partner's
+/// photo host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExternalPhotosConfig {
+    /// Downloads at once (`LUNAWAY_EXTERNAL_PHOTO_FETCHES`, 2): the
+    /// partner's host is asked politely, and each download is then
+    /// decoded by one of the media workers.
+    pub fetches_at_once: usize,
+    /// Longest download, redirects included
+    /// (`LUNAWAY_EXTERNAL_PHOTO_TIMEOUT_MS`, 20 s).
+    pub timeout: Duration,
+    /// Downloads per UTC day, all clients together
+    /// (`LUNAWAY_EXTERNAL_PHOTO_DAILY`, 5000): at about 300 kB stored per
+    /// photo, 1.5 GB a day at most.
+    pub downloads_per_day: u32,
+}
+
+impl Default for ExternalPhotosConfig {
+    fn default() -> Self {
+        Self {
+            fetches_at_once: 2,
+            timeout: Duration::from_secs(20),
+            downloads_per_day: 5_000,
+        }
+    }
+}
+
+impl ExternalPhotosConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        Self {
+            fetches_at_once: lookup("LUNAWAY_EXTERNAL_PHOTO_FETCHES")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| (1..=16).contains(n))
+                .unwrap_or(d.fetches_at_once),
+            timeout: lookup("LUNAWAY_EXTERNAL_PHOTO_TIMEOUT_MS")
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|ms| (1_000..=120_000).contains(ms))
+                .map_or(d.timeout, Duration::from_millis),
+            downloads_per_day: lookup("LUNAWAY_EXTERNAL_PHOTO_DAILY")
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|n| (1..=1_000_000).contains(n))
+                .unwrap_or(d.downloads_per_day),
+        }
+    }
 }
 
 impl Default for ApiConfig {
@@ -44,6 +94,7 @@ impl Default for ApiConfig {
             routing: RoutingConfig::default(),
             tiles: TilesConfig::default(),
             keeping: KeepingConfig::default(),
+            external_photos: ExternalPhotosConfig::default(),
         }
     }
 }
@@ -125,25 +176,33 @@ impl KeepingConfig {
     }
 }
 
-/// The vector tiles of the points of interest (`GET /poi/...`): where the
-/// API says they are, and how much work they may take.
+/// The vector tiles of the points of interest (`GET /poi/...`) and of the
+/// places (`GET /places/...`): where the API says they are, and how much
+/// work they may take. The two layers share the builders; each keeps its
+/// own cache of `cache_bytes`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilesConfig {
     /// The API's public URL, without a trailing slash, which the TileJSON
     /// names in its tile URLs (`LUNAWAY_PUBLIC_URL`, default
     /// `https://api.lunaway.net`).
     pub public_url: String,
-    /// Bytes of tiles kept in memory, the oldest evicted first
-    /// (`LUNAWAY_POI_TILE_CACHE_MB`, 64 MiB): the same tiles of a city are
-    /// asked by every device that looks at it.
+    /// Bytes of tiles kept in memory by each layer, the oldest evicted
+    /// first (`LUNAWAY_POI_TILE_CACHE_MB`, 64 MiB): the same tiles of a city
+    /// are asked by every device that looks at it.
     pub cache_bytes: usize,
-    /// Tiles built at once by the database (`LUNAWAY_POI_TILE_CONCURRENCY`,
-    /// 4): a tile of a dense city takes tens of milliseconds, a cluster
-    /// tile of a whole region a few hundred.
+    /// Tiles built at once by the database, both layers together
+    /// (`LUNAWAY_POI_TILE_CONCURRENCY`, 4): a tile of a dense city takes
+    /// tens of milliseconds, a cluster or dots tile of a whole region a few
+    /// hundred.
     pub concurrency: usize,
     /// Most points in one tile (`LUNAWAY_POI_TILE_MAX_FEATURES`, 4000): the
-    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06.
+    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06; the
+    /// densest places tile at the pin zoom, 197 on 2026-10-07.
     pub max_features: i64,
+    /// Whether the places' dots tiles of a new version are built ahead
+    /// (`LUNAWAY_PLACE_TILE_WARM`, on; `0` turns it off). It needs two
+    /// builders at least: one always stays for the clients.
+    pub warm: bool,
 }
 
 impl Default for TilesConfig {
@@ -153,6 +212,7 @@ impl Default for TilesConfig {
             cache_bytes: 64 * 1024 * 1024,
             concurrency: 4,
             max_features: 4_000,
+            warm: true,
         }
     }
 }
@@ -176,6 +236,7 @@ impl TilesConfig {
                 .and_then(|n| i64::try_from(n).ok())
                 .filter(|n| (100..=50_000).contains(n))
                 .unwrap_or(d.max_features),
+            warm: lookup("LUNAWAY_PLACE_TILE_WARM").is_none_or(|v| v.trim() != "0"),
         }
     }
 }
@@ -675,6 +736,7 @@ impl ApiConfig {
             routing: RoutingConfig::from_lookup(&lookup),
             tiles: TilesConfig::from_lookup(&lookup),
             keeping: KeepingConfig::from_lookup(&lookup),
+            external_photos: ExternalPhotosConfig::from_lookup(&lookup),
         }
     }
 

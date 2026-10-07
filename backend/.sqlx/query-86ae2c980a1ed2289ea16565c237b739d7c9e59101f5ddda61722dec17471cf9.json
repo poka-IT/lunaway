@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT origin FROM content_hides WHERE source_id = 'mangrove' AND key = 'sig'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "origin",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_hides",
+            "name": "origin"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "86ae2c980a1ed2289ea16565c237b739d7c9e59101f5ddda61722dec17471cf9"
+}

@@ -1,0 +1,12 @@
+# Sunday at 07:00 UTC, once the DATAtourisme import and its conflation
+# are done.
+[Unit]
+Description=Lunaway open content of the places, weekly
+
+[Timer]
+OnCalendar=Sun 07:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

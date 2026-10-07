@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO external_photos AS e\n            (id, source_id, record_id, external_id, url, author_id, author, licence, taken_at,\n             fetched_at)\n        SELECT u.id, $1, $2, u.external_id, u.url, u.author_id, u.author, u.licence,\n               u.taken_at, $3\n        FROM UNNEST($4::uuid[], $5::text[], $6::text[], $10::text[], $7::text[], $8::text[],\n                    $9::timestamptz[])\n             AS u(id, external_id, url, author_id, author, licence, taken_at)\n        ON CONFLICT (source_id, external_id) WHERE retired_at IS NULL DO UPDATE SET\n            record_id = EXCLUDED.record_id, author_id = EXCLUDED.author_id,\n            author = EXCLUDED.author, licence = EXCLUDED.licence, taken_at = EXCLUDED.taken_at,\n            fetched_at = EXCLUDED.fetched_at\n        WHERE (e.record_id, e.author_id, e.author, e.licence, e.taken_at)\n              IS DISTINCT FROM\n              (EXCLUDED.record_id, EXCLUDED.author_id, EXCLUDED.author, EXCLUDED.licence,\n               EXCLUDED.taken_at)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Timestamptz",
+        "UuidArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "78d072366cb32999fa38c5188446e482966b11b73333e28e10f09c8e83f91c93"
+}

@@ -1,0 +1,121 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH pieces AS (\n            SELECT g AS line, g::geography AS piece,\n                $3::float8 * 1.05 / (110574.0 * cos(radians(least(89.0,\n                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS within_deg\n            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($2::text[]) AS s) t\n        )\n        SELECT DISTINCT ON (r.id)\n            r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,\n            r.name, ST_AsGeoJSON(r.geom::geometry, 7) AS \"shape!\"\n        FROM pieces p\n        JOIN route_restrictions r\n            ON r.geom && _ST_Expand(p.piece, $3)\n            AND ST_DWithin(r.geom::geometry, p.line, p.within_deg)\n        WHERE r.graph_id = $1 OR r.graph_id IS NULL\n        ORDER BY r.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "limit_value",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "limit_value"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "certainty",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "certainty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "feature",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "feature"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "route_restrictions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "shape!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "0d7fb74170206afea3d30866e11b46fbac04e1414561aca0479c37a3437e354e"
+}

@@ -17,9 +17,15 @@
 //! lunaway content hide photo|review <id> [--author] [--show]
 //! lunaway content hide-place <place> <source> [--show]
 //! lunaway content hide-source <source> [--show]
+//! lunaway ingest extcom --file <path|url> [--refresh]
+//! lunaway extcom status|hide|show [--note TEXT]
+//! lunaway extcom purge [--yes] [--note TEXT]
+//! lunaway extcom purge-media [--yes]
+//! lunaway extcom erase-author <author-id> [--yes]
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
+//!                  [--place-layer-every-mins 15]
 //! lunaway conflate --take-down <place> --reason-code CODE [--with-nearby] [--yes]
 //! lunaway takedowns import < FILE
 //! lunaway takedowns replay [--dry-run] [--allow-empty]
@@ -99,6 +105,7 @@
 //! timer or a script sees it.
 
 mod content;
+mod extcom;
 mod extracts;
 mod packs;
 
@@ -171,6 +178,12 @@ enum Command {
         /// tiles again at most this often (`pois::publish_layer`).
         #[arg(long, default_value_t = 360)]
         poi_layer_every_mins: u64,
+        /// Shortest time between two versions of the places layer's tiles,
+        /// minutes: the places written meanwhile wait for the next one, so
+        /// devices fetch their tiles again at most this often
+        /// (`place_tiles::publish_layer`). A takedown publishes at once.
+        #[arg(long, default_value_t = 15)]
+        place_layer_every_mins: u64,
         /// Takes this place down for good instead of conflating: a private
         /// home listed as a spot, a request under the GDPR, a court order.
         /// It, the places merged into it and the records that describe them
@@ -251,6 +264,13 @@ enum Command {
     Enforcement {
         #[command(subcommand)]
         action: Enforcement,
+    },
+    /// The switch of the external community source: hide, show or purge
+    /// everything it brought (with the import role; `purge-media` with the
+    /// API's).
+    Extcom {
+        #[command(subcommand)]
+        action: extcom::Extcom,
     },
 }
 
@@ -686,6 +706,78 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// The external community source: a partner's feed received under a
+    /// written agreement (`docs/feeds.md`), JSON Lines, gzip accepted. A
+    /// feed without an agreement in force is refused; a stopped run
+    /// resumes after the last batch it stored.
+    Extcom {
+        /// The feed: a file, or the `https://` URL the partner gave.
+        #[arg(long)]
+        file: String,
+        /// Downloads a URL again instead of reading the cache.
+        #[arg(long)]
+        refresh: bool,
+        /// The reference of the signed agreement, set at deploy time: the
+        /// feed must name it, and every row stores it as its licence.
+        #[arg(long, env = "LUNAWAY_EXTCOM_AGREEMENT_REF", hide_env_values = true)]
+        agreement_ref: Option<String>,
+        /// The hosts photos may be downloaded from, comma separated.
+        #[arg(
+            long,
+            env = "LUNAWAY_EXTCOM_PHOTO_HOSTS",
+            value_delimiter = ',',
+            hide_env_values = true
+        )]
+        photo_hosts: Vec<String>,
+    },
+}
+
+/// Prints what an import of the external community feed did.
+fn print_extcom(r: &lunaway_ingest::extcom::Report) {
+    println!(
+        "agreement {}, feed {}{}{}",
+        r.agreement,
+        &r.feed_sha256[..r.feed_sha256.len().min(16)],
+        if r.cached { ", from the cache" } else { "" },
+        if r.resumed_after > 0 {
+            format!(", resumed after line {}", r.resumed_after)
+        } else {
+            String::new()
+        }
+    );
+    println!(
+        "lines: {}, places: {}, dropped: {:?}, reviews dropped: {}, photos dropped: {}",
+        r.lines, r.places, r.dropped, r.reviews_dropped, r.photos_dropped
+    );
+    if !r.unmapped.is_empty() {
+        println!(
+            "codes no table maps (add them to lunaway_ingest::extcom): {:?}",
+            r.unmapped
+        );
+    }
+    println!(
+        "{} feed; records: {} inserted, {} changed, {} unchanged; {} marked deleted, {} retired; \
+         licences set: {}",
+        if r.complete { "complete" } else { "delta" },
+        r.records.inserted,
+        r.records.changed,
+        r.records.unchanged,
+        r.marked_deleted,
+        r.retired,
+        r.licences_set
+    );
+    let f = &r.forgotten;
+    println!(
+        "forgotten with the retired spots: {} records emptied, {} reviews, {} ratings, {} \
+         photos; skipped of erased authors: {}",
+        f.records, f.reviews, f.ratings, f.photos, r.erased_skipped
+    );
+    let x = &r.extras;
+    println!(
+        "reviews: {} written, {} removed; rating summaries: {} written; photos: {} written, {} \
+         retired",
+        x.reviews_written, x.reviews_removed, x.ratings_written, x.photos_written, x.photos_retired
+    );
 }
 
 /// Prints what a store of joined rows did.
@@ -1042,6 +1134,40 @@ async fn main() -> anyhow::Result<()> {
                     );
                     println!("places whose commune changed: {}", r.places_changed);
                 }
+                Source::Extcom {
+                    file,
+                    refresh,
+                    agreement_ref,
+                    photo_hosts,
+                } => {
+                    let reference = agreement_ref.context(
+                        "LUNAWAY_EXTCOM_AGREEMENT_REF is not set: a feed is imported only under \
+                         the agreement the server is configured with",
+                    )?;
+                    let hosts: Vec<String> = photo_hosts
+                        .into_iter()
+                        .filter(|h| !h.trim().is_empty())
+                        .collect();
+                    let terms = lunaway_domain::extcom::Terms::new(&reference, &hosts)
+                        .context("LUNAWAY_EXTCOM_AGREEMENT_REF or LUNAWAY_EXTCOM_PHOTO_HOSTS")?;
+                    let options = lunaway_ingest::extcom::Options {
+                        terms,
+                        limits: lunaway_ingest::extcom::Limits::default(),
+                        refresh,
+                        today: chrono::Utc::now().date_naive(),
+                    };
+                    let r = lunaway_ingest::extcom::import(
+                        &pool,
+                        &client,
+                        &cache,
+                        &lunaway_ingest::extcom::Input::parse(&file),
+                        &options,
+                    )
+                    .await
+                    .context("extcom import failed")?;
+                    print_extcom(&r);
+                    check_retirement(if r.retire_refused { &["extcom"] } else { &[] })?;
+                }
                 Source::AtoutFrance { refresh } => {
                     let r = run::atout_france(
                         &pool,
@@ -1130,9 +1256,11 @@ async fn main() -> anyhow::Result<()> {
             watch,
             every_secs,
             poi_layer_every_mins,
+            place_layer_every_mins,
             ..
         } => {
             let poi_layer_every = Duration::from_secs(poi_layer_every_mins.saturating_mul(60));
+            let place_layer_every = Duration::from_secs(place_layer_every_mins.saturating_mul(60));
             if full {
                 let n = lunaway_db::records::mark_all_dirty(&pool).await?;
                 println!("{n} records flagged for a full rebuild");
@@ -1144,6 +1272,7 @@ async fn main() -> anyhow::Result<()> {
                     &pool,
                     Duration::from_secs(every_secs.max(1)),
                     poi_layer_every,
+                    place_layer_every,
                     chrono::Utc::now,
                     key.as_ref(),
                 )
@@ -1159,6 +1288,12 @@ async fn main() -> anyhow::Result<()> {
                 .context("publishing the points layer failed")?
             {
                 println!("points layer: tiles version {v}");
+            }
+            if let Some(v) = lunaway_conflate::publish_place_layer(&pool, place_layer_every)
+                .await
+                .context("publishing the places layer failed")?
+            {
+                println!("places layer: tiles version {v}");
             }
             println!("records flagged: {}", s.dirty);
             println!(
@@ -1332,6 +1467,10 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,
         Command::Enforcement { action } => enforcement(&pool, action).await?,
+        Command::Extcom { action } => {
+            let media = lunaway_media::MediaStore::new(cli.media_dir);
+            extcom::run(&pool, &media, &cache.root().join("extcom"), action).await?;
+        }
         Command::Routing { .. } => unreachable!("handled before connecting"),
     }
     Ok(())
@@ -1386,8 +1525,9 @@ fn print_poll(report: &lunaway_ingest::road_events::poll::PollReport) {
     }
     if let Some(l) = &report.lifecycle {
         println!(
-            "lifecycle: {} past their end, {} expired, {} purged, {} reports purged",
-            l.past_end, l.expired, l.purged, l.reports_purged
+            "lifecycle: {} past their end, {} expired, {} entered the phones' window, \
+             {} purged, {} reports purged",
+            l.past_end, l.expired, l.entered_window, l.purged, l.reports_purged
         );
     }
 }

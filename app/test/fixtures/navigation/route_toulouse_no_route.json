@@ -1,0 +1,69 @@
+{
+ "source": "Built for the app on 2026-10-07 from the backend's recorded engine answers (backend/crates/lunaway-api/tests/fixtures/no_route/toulouse.json, graph 20261006T2326Z-eu) and the values backend/crates/lunaway-api/tests/route_reasons.rs asserts on the API's answer; a restriction's distance and index along the diagnosis route are not asserted there and are left at 0.",
+ "data": {
+  "route": {
+   "status": "NO_ROUTE",
+   "osrmJson": null,
+   "noRouteReasons": [
+    {
+     "kind": "DESTINATION_UNREACHABLE",
+     "stopIndex": 1,
+     "limits": [
+      {
+       "kind": "HEIGHT",
+       "limit": 3.2,
+       "vehicleValue": 3.3,
+       "restriction": {
+        "kind": "LOW_CLEARANCE",
+        "severity": "BLOCKING",
+        "limit": 3.2,
+        "vehicleValue": 3.3,
+        "distanceFromStartM": 0.0,
+        "geometryIndex": 0,
+        "lat": 43.636884,
+        "lon": 1.482296,
+        "source": "IGN",
+        "certainty": "KNOWN",
+        "place": "ROAD",
+        "name": "Chemin de Gabardie",
+        "externalId": "ign/TRONROUT0000000073480284"
+       }
+      }
+     ]
+    }
+   ],
+   "routes": [],
+   "blockers": [],
+   "roadEventBlockers": [],
+   "avoidedRoadEvents": [],
+   "roadEventSources": [],
+   "recalculations": 0,
+   "reroute": {
+    "vehicle": {
+     "kind": "INTEGRATED",
+     "heightM": 3.3,
+     "widthM": 2.3,
+     "lengthM": 7.4,
+     "weightT": 3.5,
+     "axleLoadT": null,
+     "trailer": null
+    },
+    "options": {
+     "avoidTolls": false,
+     "avoidMotorways": false,
+     "avoidFerries": false,
+     "avoidUnpaved": false
+    },
+    "language": "FR"
+   },
+   "graph": {
+    "id": "20261006T2326Z-eu",
+    "osmDataAt": "2026-10-05T20:21:35+00:00",
+    "ignFetchedAt": null,
+    "ignEdition": "2026-06-15",
+    "builtAt": "2026-10-06T23:35:20+00:00"
+   },
+   "disclaimerKey": "routing.disclaimer.v1"
+  }
+ }
+}

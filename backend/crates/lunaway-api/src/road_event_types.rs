@@ -680,7 +680,8 @@ pub struct RoadEventDelta {
     pub as_of: DateTime<Utc>,
     /// Events new or changed, of the classes asked.
     pub upserts: Vec<RoadEvent>,
-    /// Ids of events ended, or no longer of the classes asked: drop them.
+    /// Ids of events ended, no longer of the classes asked, or postponed
+    /// past the 48 hours the feed carries: drop them.
     pub removals: Vec<Uuid>,
     /// Every source and its freshness.
     pub sources: Vec<RoadEventSourceStatus>,

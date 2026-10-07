@@ -246,8 +246,8 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
     final t = context.t;
     return FormSheetFrame(
       title: switch (widget.target) {
-        ReportTarget.review => t.reportSheet.review,
-        ReportTarget.photo => t.reportSheet.photo,
+        ReportTarget.review || ReportTarget.externalReview => t.reportSheet.review,
+        ReportTarget.photo || ReportTarget.externalPhoto => t.reportSheet.photo,
         ReportTarget.place => t.reportSheet.place,
       },
       subtitle: t.reportSheet.body,

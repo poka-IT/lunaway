@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos SET attempts = least(attempts + 1, 1000), retry_after = $2\n        WHERE id = $1 AND processed_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "52dcf340a94d3c0dfd5a178d3c90bd8dc3a1a819b132fdcf2022052d82813e3c"
+}

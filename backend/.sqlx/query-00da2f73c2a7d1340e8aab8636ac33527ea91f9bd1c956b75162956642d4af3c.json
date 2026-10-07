@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE source_agreements SET photo_hosts = '{}'\n        WHERE source_id = $1 AND reference <> $2 AND photo_hosts <> '{}'\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "00da2f73c2a7d1340e8aab8636ac33527ea91f9bd1c956b75162956642d4af3c"
+}

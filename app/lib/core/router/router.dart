@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:lunaway/core/router/popup_routes.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/presentation/account_pages.dart';
 import 'package:lunaway/features/account/presentation/contributions_screen.dart';
@@ -17,8 +18,13 @@ part 'router.g.dart';
 // the navigation stack of every branch.
 @Riverpod(keepAlive: true)
 GoRouter router(Ref ref) {
+  final popups = ref.read(openPopupsProvider.notifier);
   final router = GoRouter(
     initialLocation: AppRoutes.map,
+    // Counts the dialogs, sheets and menus of every navigator: go_router
+    // hands the root observers what the branches' navigators push too
+    // (`notifyRootObserver`, on by default).
+    observers: [PopupObserver(popups)],
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(shell: shell),

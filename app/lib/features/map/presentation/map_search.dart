@@ -30,6 +30,9 @@ class MapSearch extends ConsumerStatefulWidget {
   /// shows the brand leaves it out.
   final bool brand;
 
+  /// The pill's height: 56 to a finger, 48 to a mouse.
+  static double heightOf(BuildContext context) => controlHeight(context, 56);
+
   @override
   ConsumerState<MapSearch> createState() => _MapSearchState();
 }
@@ -89,7 +92,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
       }
     });
     final row = SizedBox(
-      height: 56,
+      height: MapSearch.heightOf(context),
       child: Row(
         children: [
           const SizedBox(width: Space.ml),

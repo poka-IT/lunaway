@@ -10,7 +10,6 @@ import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
-import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/licences.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/providers.dart';
@@ -50,13 +49,10 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
   registerBundledLicences();
   if (kIsWeb) {
     // Shipped with the web build: no CDN sees the visitors, and the map loads
-    // from the same origin as the app.
-    // Absolute URLs: a module import refuses a bare relative path, and the
-    // app may be served under a sub-path (/app/).
-    MapLibreMap.webLibrarySource = MapLibreJsSource.urls(
-      scriptUrl: Uri.base.resolve('maplibre-gl/maplibre-gl.mjs').toString(),
-      styleUrl: Uri.base.resolve('maplibre-gl/maplibre-gl.css').toString(),
-    );
+    // from the same origin as the app. The page imports it while the engine
+    // starts (web/lunaway_maplibre.js), and publishes a map that keeps the
+    // app's layers across a change of theme.
+    MapLibreMap.webLibrarySource = const MapLibreJsSource.preloaded();
   }
   // The status bar floats over the map, which runs under it edge to edge.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -64,31 +60,27 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
   final config = AppConfig.fromEnvironment();
   final cache = CacheDatabase.open(demo: config.demo);
   final user = UserDatabase.open(demo: config.demo);
-  final settings = await SettingsRepository(user).load();
-  // The last position only tunes the automatic theme: a cache that cannot be
-  // read (a damaged file, a full disk) must not hold the app on its splash.
-  LatLng? position;
-  try {
-    position = await DriftLastPositionStore(cache).load();
-  } on Object catch (error, stack) {
-    Logger('startup').warning('the last position could not be read', error, stack);
-  }
-  // Where the map was left, for the same reason: a damaged row opens the
-  // map on France.
-  SavedView? view;
-  try {
-    view = await DriftLastViewStore(cache).load();
-  } on Object catch (error, stack) {
-    Logger('startup').warning('the last view could not be read', error, stack);
-  }
-  final basemap = await BasemapTemplates.load();
+  // Read together, not one after the other: on the web each is a round trip
+  // to the database's worker or to the server, and the first frame waits
+  // for all of them.
+  final (settings, position, view, basemap, version) = await (
+    SettingsRepository(user).load(),
+    // The last position only tunes the automatic theme: a cache that cannot
+    // be read (a damaged file, a full disk) must not hold the app on its
+    // splash.
+    _orNull(DriftLastPositionStore(cache).load(), 'the last position'),
+    // Where the map was left, for the same reason: a damaged row opens the
+    // map on France.
+    _orNull(DriftLastViewStore(cache).load(), 'the last view'),
+    BasemapTemplates.load(),
+    PackageInfo.fromPlatform().then((info) => info.version),
+  ).wait;
   final locale = settings.localeCode;
   if (locale == null) {
     await LocaleSettings.useDeviceLocale();
   } else {
     await LocaleSettings.setLocale(AppLocaleUtils.parse(locale));
   }
-  final version = (await PackageInfo.fromPlatform()).version;
   // The map engine's own requests (tiles, style, fonts) name the app as the
   // app's other requests do, rather than the device's system and model.
   if (!kIsWeb &&
@@ -123,4 +115,14 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
       child: TranslationProvider(child: const LunawayApp()),
     ),
   );
+}
+
+/// [read]'s value, or null when it fails (logged as [what]).
+Future<T?> _orNull<T>(Future<T?> read, String what) async {
+  try {
+    return await read;
+  } on Object catch (error, stack) {
+    Logger('startup').warning('$what could not be read', error, stack);
+    return null;
+  }
 }

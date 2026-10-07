@@ -57,6 +57,7 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
             "community",
             "community-cc-by",
             "datatourisme",
+            "extcom",
             "finess",
             "laposte",
             "lu-pch-radars",

@@ -84,8 +84,8 @@ final class StoredAccount {
 
   final Account account;
 
-  /// When a recovery card was made or used on this device; null when the
-  /// device never saw one (the server does not say whether a code exists).
+  /// When the recovery card was made, as last read from the server or kept
+  /// when a card was made or used on this device; null when none is known.
   final DateTime? recoveryCardAt;
 }
 
@@ -352,13 +352,36 @@ final class AccountService {
     return (await refresh()).account;
   }
 
-  /// The account as the server sees it now, kept on the device.
-  Future<({Account account, List<Author> muted})> refresh() async {
+  /// The account as the server sees it now, kept on the device, with the
+  /// date of its recovery card when the server gave it: that date then
+  /// replaces the device's, which only knew the cards made or used here.
+  /// [ServerRecoveryCode] is null when the API is older than the date, or
+  /// when this device made or used a card while the read was under way
+  /// (the answer predates that card).
+  Future<({Account account, List<Author> muted, ServerRecoveryCode? recoveryCode})>
+  refresh() async {
+    final cards = _cardWrites;
     final read = await run(myAccountOperation);
     await secrets.write(_accountSlot, jsonEncode(read.account.toJson()));
+    var card = read.recoveryCode;
+    if (card != null && cards == _cardWrites) {
+      final at = card.createdAt;
+      if (at == null) {
+        await secrets.delete(_recoverySlot);
+      } else {
+        await secrets.write(_recoverySlot, at.toUtc().toIso8601String());
+      }
+    } else {
+      card = null;
+    }
     _events.add(AccountSignedIn(read.account, created: false));
-    return read;
+    return (account: read.account, muted: read.muted, recoveryCode: card);
   }
+
+  /// Counts the cards this device made or used, so a read of the account
+  /// sent before one of them does not bring back the date of the card it
+  /// replaced.
+  int _cardWrites = 0;
 
   Future<Account> rename(String pseudonym) async {
     final account = await run(updateProfileOperation, variables: {'pseudonym': pseudonym});
@@ -367,21 +390,24 @@ final class AccountService {
     return account;
   }
 
-  /// A new recovery code, replacing any earlier one. It is shown once; the
-  /// device keeps only the date, to say a card exists.
-  Future<String> createRecoveryCode() async {
+  /// A new recovery code, shown once, and the date the device remembers it
+  /// by (never the code). From this moment the server holds the new code's
+  /// hash only, and the earlier card stops working: the date is written at
+  /// once, so the profile says a card exists however the user leaves its
+  /// page.
+  Future<(String, DateTime)> createRecoveryCode() async {
     final code = await run(createRecoveryCodeOperation, fresh: true);
-    // The earlier card stopped working: until the new one is kept, the
-    // device holds none.
-    await secrets.delete(_recoverySlot);
-    return code;
+    _cardWrites++;
+    final at = clock();
+    try {
+      await secrets.write(_recoverySlot, at.toUtc().toIso8601String());
+    } on Object catch (e) {
+      // The old card is already dead: the new code is shown whatever the
+      // storage says, the date is what is lost.
+      _log.warning('the date of the recovery card was not kept: $e');
+    }
+    return (code, at);
   }
-
-  /// The user has the card in hand: from now on the device says a card
-  /// exists. Written only then, so a card closed before it was kept is not
-  /// counted.
-  Future<void> recoveryCardKept() =>
-      secrets.write(_recoverySlot, clock().toUtc().toIso8601String());
 
   /// Attaches a new key of this device to the account of [code] and signs
   /// in with it; with [revokeOthers], every other device of the account is
@@ -399,6 +425,7 @@ final class AccountService {
       'signature': signature,
       'revokeOtherDevices': revokeOthers,
     });
+    _cardWrites++;
     await keys.save(key);
     await _keep(result);
     await secrets.write(_recoverySlot, clock().toUtc().toIso8601String());

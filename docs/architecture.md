@@ -98,6 +98,18 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   author, whose own confirmations then count). The points of interest
   follow the same rule with `poi_refresh_queue`. A summary left
   unrefreshed never reaches the devices that synced before.
+- The external community source (`extcom`, `docs/feeds.md`): a partner's
+  places arrive as records like any source's, their licence column the
+  agreement's reference; its reviews, rating summaries and photos have
+  tables of their own (`external_reviews`, `external_ratings`,
+  `external_photos`), hung on the record that carried them and read per
+  place when its card opens, never in the change feed or a pack.
+  `source_agreements` keeps who granted what and when; `source_switches`
+  hides or purges a source at once (the conflation then counts its
+  records as retired); `source_erasures` keeps the hashes of the authors
+  erased at the partner's request. A photo is downloaded the first time a
+  device asks for it, by the API's photo proxy, through the upload's
+  pipeline.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
 - `changes`: a monotonic cursor the app syncs from, by box or by sync
@@ -105,6 +117,9 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file
   the app downloads once before it follows the feed
   (`docs/region-packs.md`).
+- `place_layer`: the version of the places' map tiles and the change
+  feed's position it covers; `places.services_mask`, the services as the
+  bits the tiles carry.
 - `pois`: the points of interest around the places (shops, food vending
   machines, water and sanitation, fuel and energy, health, services), one
   source each, never conflated with the places; `poi_join_records`: what
@@ -183,6 +198,30 @@ content").
 - **API.** `Place.externalPhotos`, `Place.externalDescriptions` and
   `Place.externalReviews`, read per place for the card (each costs a
   database query in the request's budget).
+## Places on the map
+
+How a place reaches the screen, by platform (`docs/deploy.md`, "Places
+layer"):
+
+- **Map, every platform.** Vector tiles of the places built by PostGIS at
+  `GET /places/{version}/{z}/{x}/{y}.mvt`, described by
+  `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
+  overnight status, services mask, free or paid, height limit (and its
+  name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
+  and set of those properties. The app filters them with a map expression
+  on the device, with the same meaning as the `places` query's filter, so
+  a change of filter costs no request. The worker publishes a new version
+  at most every 15 minutes, and at once after a takedown; the version in
+  the URL lets a tile be cached for good.
+- **Details.** A tap on a pin reads `place(id)` (a persisted query, by its
+  hash).
+- **List.** `places(bbox, filter, near:)`: the places nearest to the map's
+  centre first, page by page, the centre rounded by the server to 0.01
+  degree; the device's own position is never sent.
+- **Offline, native apps.** The regions a user keeps come as packs, then
+  the change feed (`docs/region-packs.md`), into the local SQLite (drift),
+  for the screens and the search without network. The web app keeps no
+  copy of the places: it reads the tiles, `place(id)` and the list.
 
 ## Routing
 
@@ -198,10 +237,12 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   together): a stop outside every cut is answered `NO_ROUTE`
   (`OUTSIDE_COVERAGE`) without asking the engine. `Query.routing` gives the
   countries (`coveredCountries`) and a box around them.
-- **Length.** 4 500 km at most in a straight line from stop to stop, the
-  engine's `auto` limit raised to match; one alternative at most beyond
-  2 000 km, none beyond 3 000 km, so that the engine's answer stays within
-  16 MB and the route sent within 11 MB.
+- **Length.** 3 000 km at most in a straight line from stop to stop, the
+  engine's `auto` limit set to match (`infra/routing/valhalla.json`, tied by a
+  test): 8 of 10 trips between 2 645 and 4 166 km took 7 to 15 s on the
+  production server on 2026-10-07. One alternative at most beyond 2 000 km,
+  so that the engine's answer stays within 16 MB and the route sent within
+  11 MB.
 - **Stops.** A stop is snapped to the nearest road the vehicle may drive,
   never onto a ferry line (`search_filter.exclude_ferry`), except the
   vehicle's own position during a recalculation (it may be on board).
@@ -219,7 +260,13 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   events of its corridor; a recalculation or an alternative queries only
   the stretches no earlier query of the request covered, and a long
   stretch is read in two halves at once (two pool connections at most per
-  route).
+  route). The query takes the route as short encoded pieces and filters
+  by a planar distance that only widens the corridor; the matcher then
+  applies each source's tolerance.
+- **Remembered blockers.** Barriers and road limits of the graph that the
+  engine does not apply by itself, met by two requests away from their
+  stops, are excluded from the first call of later trips that may meet
+  them, in memory and per graph (`routing::Remembered`, `docs/deploy.md`).
 - **Ferries.** Avoiding ferries is a preference of the engine; a route
   that still takes one carries a `ROUTE_USES_FERRY` notice per crossing
   (`routing::ferries`: the line's name and ports, where it is boarded and
@@ -266,7 +313,15 @@ zone's limit (`plan/research/20-travaux-temps-reel.md`,
 - **Phones in guidance.** `Query.roadEvents(since)` hands out the changes
   of the events that can block, in every country with a feed, without the
   phone's position (only the sources on the routing graph,
-  `road_event_sources.routed`, all of them since the graph covers Europe);
+  `road_event_sources.routed`, all of them since the graph covers Europe),
+  only those in force or starting within 48 hours
+  (`road_events.in_window`, `road_events_feed_window()`): NDW publishes
+  two weeks of planned works. The poller's lifecycle pass, every three
+  minutes, lets an event into the window when its start comes within it
+  and gives it a new revision, so the cursor a phone holds delivers it
+  then; an event outside the window keeps its revision while it changes,
+  and one postponed past it comes back as a removal. Routes read every
+  event, whatever the window;
   the phone checks its remaining route itself and asks for a new route
   when a blocker appears ahead (the contract is in
   `plan/research/21-backend-travaux.md`, part 5).
@@ -345,14 +400,42 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 
 `app/`, Flutter, Riverpod 3 with code generation, go_router, slang, drift.
 
-- **Offline first**: the synced places live in a local SQLite database with an
-  R*Tree index for the viewport and FTS5 for search; contributions queue
-  locally and replay when the network returns; regions can be downloaded
-  (places, basemap, municipality names for offline search).
-- **Map**: MapLibre (`maplibre_gl` on Android, iOS and the web; `maplibre`
-  through a WebView on macOS and Windows), behind one interface; the visible
-  places feed a clustered GeoJSON source, never one widget per spot.
-  Basemap: self-hosted Protomaps PMTiles. Linux users use the web app.
+- **Online, nothing waits for a download**: while the network answers, the
+  map draws the places from the API's vector tiles (`/places/`, "Places
+  layer" in `docs/deploy.md`), and the filters are MapLibre expressions on
+  their properties (`placeTileFilter`, the same rule as
+  `PlaceFilter.matches`), applied without a request. A tap opens the page
+  at once with what the tile said (name, kind, night) while `place(id)`
+  reads the rest (a persisted query; the copy is kept in `place_cache` for
+  a later opening offline). The list beside the map is `places(bbox,
+  filter, near)` a page at a time, nearest to the map's centre (the device's
+  position is never sent); the search is `search` when the device holds no
+  place.
+- **Offline kept on phones and computers**: the regions' packs and their
+  change feed fill a local SQLite database (R*Tree for the viewport, FTS5
+  for search) in the background, a few seconds after the map's first view
+  (`docs/region-packs.md`). When the network does not answer, the map, the
+  list and the search read it, the map through a clustered GeoJSON source.
+  Contributions queue locally and replay when the network returns.
+- **The web keeps no places**: no pack, no feed; a copy of what an earlier
+  version synced into the browser is dropped. Favourites, the vehicle and
+  the user's contributions stay in the browser.
+- **Map**: MapLibre (`maplibre_gl` on Android, iOS and the web; MapLibre GL
+  JS in a WebView on macOS and Windows), behind one interface; never one
+  widget per spot. The camera is read when the map rests, never at each
+  frame. A change of theme turns the colours in place: on Android and iOS
+  the paint properties that differ between Aube and Minuit and the
+  basemap's icons (`StyleDiff`, `BasemapIcons`); in the browser and the
+  WebView, MapLibre GL JS diffs the new style with the app's layers kept
+  (`web/lunaway_maplibre.js`, `assets/map/lunaway_map.js`). Basemap:
+  self-hosted Protomaps PMTiles. Linux users use the web app.
+- **Web start**: the page loads MapLibre GL JS with itself and draws a first
+  map (`web/premap.js`) from the view, theme and filters the app kept in
+  `localStorage`, its places before its basemap, while the Flutter engine
+  downloads; the app's map takes its camera and replaces it once it has
+  drawn the same view. Pin images load when a layer first draws them. A
+  service worker written for each build (`app/tool/web/service_worker.py`)
+  serves a second visit from the browser's cache.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
 - **Coordinates in one gesture**: every place shows its coordinates with a
@@ -417,5 +500,7 @@ Anti-abuse measures:
 - Reviews and photos: CC BY 4.0, under a source of their own
   (`community-cc-by`); the community's places, edits and reports stay
   under the ODbL (`community`).
+- The external community source: the terms of its written agreement,
+  whose reference every row carries (`docs/feeds.md`).
 
 The sources and their terms are listed in `docs/data-sources.md`.

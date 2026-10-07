@@ -6,6 +6,7 @@ import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -99,7 +100,14 @@ class PlaceDetails extends ConsumerWidget {
           ),
         ],
       ),
-      AsyncLoading() => _DetailsSkeleton(scrollController: scrollController),
+      AsyncLoading() => _DetailsSkeleton(
+        scrollController: scrollController,
+        hint: switch (ref.watch(selectionProvider)) {
+          PlaceSelection(:final id, :final hint) when id == placeId => hint,
+          _ => null,
+        },
+        onClose: onClose,
+      ),
     };
   }
 }
@@ -158,6 +166,10 @@ class PlaceDetailsBody extends ConsumerWidget {
     // themselves.
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     const gap = SizedBox(height: Space.l);
+    // The open sources' texts come with the card's other external content;
+    // the section waits for them without holding the rest back.
+    final externalTexts =
+        ref.watch(placeExternalProvider(place.id)).value?.content.descriptions ?? const [];
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
@@ -186,10 +198,22 @@ class PlaceDetailsBody extends ConsumerWidget {
         PlaceSurroundings(place: place),
         gap,
         CoordinatesCard(position: place.position),
-        if (place.descriptions.isNotEmpty || place.description != null)
+        if (place.descriptions.isNotEmpty || place.description != null || externalTexts.isNotEmpty)
           _Section(
             title: t.place.description,
-            child: _Description(place: place),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (place.descriptions.isNotEmpty || place.description != null)
+                  _Description(place: place),
+                if (externalTexts.isNotEmpty)
+                  _ExternalDescription(
+                    texts: externalTexts,
+                    sources: place.sources,
+                    afterOwn: place.descriptions.isNotEmpty || place.description != null,
+                  ),
+              ],
+            ),
           ),
         if (place.website != null || place.phone != null)
           _Section(
@@ -209,6 +233,7 @@ class PlaceDetailsBody extends ConsumerWidget {
             ),
           ),
         PlaceReviewsSection(place: place),
+        ...placeReviewItems(context, ref, place),
         if (place.externalLinks.isNotEmpty)
           _Section(
             title: t.place.links,
@@ -658,7 +683,21 @@ class _Description extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final chosen = descriptionFor(place.descriptions, t.$meta.locale.languageCode);
-    if (chosen == null) return Text(place.description!, style: theme.textTheme.bodyLarge);
+    if (chosen == null) {
+      // Without the texts by language, the field's provenance still says
+      // where the one description came from.
+      final source = place.provenance.where((p) => p.field == 'description').firstOrNull;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(place.description!, style: theme.textTheme.bodyLarge),
+          if (source != null) ...[
+            const SizedBox(height: Space.s),
+            SourceBadge(label: sourceName(t, source.sourceId, sources: place.sources), maxLines: 2),
+          ],
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -669,7 +708,10 @@ class _Description extends StatelessWidget {
           runSpacing: Space.xxs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SourceBadge(label: sourceName(t, chosen.text.sourceId, sources: place.sources)),
+            SourceBadge(
+              label: sourceName(t, chosen.text.sourceId, sources: place.sources),
+              maxLines: 2,
+            ),
             if (!chosen.inUserLanguage)
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
@@ -680,6 +722,84 @@ class _Description extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The text of an open source (Wikipedia, a tourist office) in the user's
+/// language when one wrote it, with its source, licence and the date the
+/// licence asks for, and a link to the whole text. Read online when the
+/// card opens; never stored with the place.
+class _ExternalDescription extends ConsumerWidget {
+  const new({required this.texts, required this.sources, required this.afterOwn});
+
+  final List<ExternalDescription> texts;
+  final List<PlaceSource> sources;
+
+  /// A description of the place's own sources stands above.
+  final bool afterOwn;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final chosen = descriptionFor([for (final d in texts) d.text], t.$meta.locale.languageCode);
+    if (chosen == null) return const SizedBox.shrink();
+    final item = texts.firstWhere((d) => identical(d.text, chosen.text));
+    final page = item.terms.pageUrl;
+    final terms = termsLine(t, item.terms);
+    return Padding(
+      padding: EdgeInsets.only(top: afterOwn ? Space.l : 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (afterOwn) ...[
+            Text(
+              t.place.otherSources,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: Space.s),
+          ],
+          Text(chosen.text.text, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: Space.s),
+          Wrap(
+            spacing: Space.s,
+            runSpacing: Space.xxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SourceBadge(
+                label: sourceName(t, chosen.text.sourceId, sources: sources),
+                maxLines: 2,
+              ),
+              if (terms != null)
+                Text(
+                  terms,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              if (!chosen.inUserLanguage)
+                Text(
+                  t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          if (webLink(page) case final uri?)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                icon: const Icon(AppIcons.openExternal, size: 18),
+                label: Text(item.shortened ? t.place.readMore : t.place.viewSource),
+                onPressed: () => ref.read(externalActionsProvider).openUrl(uri),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -815,7 +935,10 @@ class _Sources extends ConsumerWidget {
                     runSpacing: Space.xs,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      SourceBadge(label: s.source.name),
+                      SourceBadge(
+                        label: sourceName(t, s.source.id, sources: place.sources),
+                        maxLines: 2,
+                      ),
                       Text(s.source.licence, style: theme.textTheme.labelMedium),
                     ],
                   ),
@@ -823,15 +946,19 @@ class _Sources extends ConsumerWidget {
                   Text(s.source.attribution, style: theme.textTheme.bodyMedium),
                   const SizedBox(height: Space.xs),
                   Text(t.place.fetched(when: t.ago(s.fetchedAt, now)), style: _muted(context)),
-                  if (webLink(s.externalUrl) case final url?) ...[
-                    const SizedBox(height: Space.xxs),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                      onPressed: () => ref.read(externalActionsProvider).openUrl(url),
-                      icon: const Icon(AppIcons.openExternal, size: 18),
-                      label: Text(t.place.viewSource),
-                    ),
-                  ],
+                  // No link out for the external community source: its
+                  // label stands for it, and the card never sends readers
+                  // to the partner as if it vouched for it.
+                  if (s.source.id != extcomSourceId)
+                    if (webLink(s.externalUrl) case final url?) ...[
+                      const SizedBox(height: Space.xxs),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () => ref.read(externalActionsProvider).openUrl(url),
+                        icon: const Icon(AppIcons.openExternal, size: 18),
+                        label: Text(t.place.viewSource),
+                      ),
+                    ],
                 ],
               ),
             ),
@@ -841,36 +968,90 @@ class _Sources extends ConsumerWidget {
   }
 }
 
+/// The page while the place is read. When the tap or the row already
+/// said what the place is ([hint]: from the tiles, or a row of the list),
+/// its pin, name and kind show at once and only the rest waits.
 class _DetailsSkeleton extends StatelessWidget {
-  const new({this.scrollController});
+  const new({this.scrollController, this.hint, this.onClose});
 
   final ScrollController? scrollController;
+  final PlaceSummary? hint;
+  final VoidCallback? onClose;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    controller: scrollController,
-    padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
-    children: const [
-      Row(
-        children: [
-          Skeleton(width: 52, height: 52, radius: 16),
-          SizedBox(width: Space.ml),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Skeleton(width: 220, height: 24),
-                SizedBox(height: Space.s),
-                Skeleton(width: 140),
+  Widget build(BuildContext context) {
+    final hint = this.hint;
+    final t = context.t;
+    final theme = Theme.of(context);
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
+      children: [
+        if (hint == null)
+          const Row(
+            children: [
+              Skeleton(width: 52, height: 52, radius: 16),
+              SizedBox(width: Space.ml),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Skeleton(width: 220, height: 24),
+                    SizedBox(height: Space.s),
+                    Skeleton(width: 140),
+                  ],
+                ),
+              ),
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xxs),
+                child: PlaceHeroTarget(
+                  placeId: hint.id,
+                  kind: hint.kind,
+                  overnight: hint.overnight,
+                  size: 52,
+                ),
+              ),
+              const SizedBox(width: Space.ml),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
+                        style: theme.textTheme.headlineSmall,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: Space.xxs),
+                    Text(
+                      [t.kind(hint.kind), ?hint.city].join(' · '),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onClose != null) ...[
+                const SizedBox(width: Space.xs),
+                _CloseButton(onClose: onClose!),
               ],
-            ),
+            ],
           ),
-        ],
-      ),
-      SizedBox(height: Space.l),
-      Skeleton(height: 112, radius: LunaTokens.radiusXl),
-      SizedBox(height: Space.l),
-      Skeleton(height: 88, radius: LunaTokens.radiusL),
-    ],
-  );
+        const SizedBox(height: Space.l),
+        const Skeleton(height: 112, radius: LunaTokens.radiusXl),
+        const SizedBox(height: Space.l),
+        const Skeleton(height: 88, radius: LunaTokens.radiusL),
+      ],
+    );
+  }
 }

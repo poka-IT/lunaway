@@ -65,6 +65,7 @@ routing_graphs SELECT
 pois SELECT
 poi_join_records SELECT
 poi_layer SELECT
+place_layer SELECT
 poi_confirmations SELECT
 poi_confirmations INSERT
 poi_confirmations UPDATE
@@ -139,6 +140,8 @@ poi_join_records UPDATE
 poi_layer INSERT
 poi_layer SELECT
 poi_layer UPDATE
+place_layer SELECT
+place_layer UPDATE
 poi_confirmations DELETE
 poi_confirmations SELECT
 poi_refresh_queue DELETE
@@ -264,6 +267,7 @@ allowed "lunaway_app reads the routing graphs" /etc/lunaway/api.env "SELECT 'rou
 allowed "lunaway_app reads the points of interest" /etc/lunaway/api.env "SELECT 'points: ' || count(*) FROM pois"
 refused "lunaway_app writes a point of interest" /etc/lunaway/api.env "UPDATE pois SET name = name WHERE false"
 refused "lunaway_app moves the point layer's version" /etc/lunaway/api.env "UPDATE poi_layer SET version = version WHERE false"
+refused "lunaway_app moves the places layer's version" /etc/lunaway/api.env "UPDATE place_layer SET version = version WHERE false"
 refused "lunaway_app writes a fuel price" /etc/lunaway/api.env "UPDATE poi_join_records SET ref = ref WHERE false"
 refused "lunaway_app deletes a road report" /etc/lunaway/api.env "DELETE FROM road_event_reports WHERE false"
 refused "lunaway_app deletes a road event" /etc/lunaway/api.env "DELETE FROM road_events WHERE false"

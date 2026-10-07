@@ -3,7 +3,9 @@
   "nav": {
     "map": "Map",
     "favorites": "Favourites",
-    "profile": "Profile"
+    "profile": "Profile",
+    "fold": "Fold the menu",
+    "unfold": "Unfold the menu"
   },
   "common": {
     "close": "Close",
@@ -181,7 +183,10 @@
     "serviceOff": "Location is turned off on this device. Turn it on in the quick settings, then try again.",
     "notAllowed": "Position not allowed. The map works without it.",
     "noFix": "Your position cannot be found yet. Try again in the open or in a moment.",
-    "unsupported": "This device does not give its position."
+    "unsupported": "This device does not give its position.",
+    "browserDeniedTitle": "The browser blocks your position",
+    "browserDenied": "The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.",
+    "browserNoFix": "The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it."
   },
   "search": {
     "towns": "Towns",
@@ -255,8 +260,10 @@
     "coordinates": "Coordinates",
     "copy": "Copy the coordinates",
     "copyShort": "Copy",
+    "copyAs": "Copy as $format",
+    "copiesAs": "\"Copy\" copies: $format",
     "copied": "Copied: $text",
-    "otherFormats": "Other formats",
+    "otherFormats": "Choose the format to copy",
     "formatDecimal": "Decimal degrees",
     "formatDms": "Degrees, minutes, seconds",
     "formatGeo": "geo: link",
@@ -295,7 +302,18 @@
     "photoPosition": "Photo $index of $count",
     "links": "On other sites",
     "sourceWithLicence": "$source · $licence",
-    "licenceCcBy": "CC BY 4.0"
+    "licenceCcBy": "CC BY 4.0",
+    "photoCredit": "$source · $author",
+    "photoStreetView": "Street view",
+    "photoSurroundings": "Surroundings",
+    "readMore": "Read more",
+    "updatedOn": "updated $date",
+    "otherSources": "From other sources"
+  },
+  "sources": {
+    "extcom": {
+      "label": "External community source"
+    }
   },
   "hours": {
     "open": "Open now",
@@ -351,12 +369,12 @@
     "allWeek": "24/7"
   },
   "directions": {
-    "title": "Directions with",
-    "hint": "Choose who guides you. Only Lunaway's guidance knows your vehicle's size.",
+    "title": "Open in",
+    "hint": "These apps do not know your vehicle's size.",
     "remember": "Always use this app",
     "rememberHint": "You can change it in Profile",
-    "settingTitle": "Directions",
-    "settingHint": "Who guides you when you tap Directions",
+    "settingTitle": "Open in another app",
+    "settingHint": "The app that \"Open in\" starts from a route",
     "askEachTime": "Ask each time",
     "appleMaps": "Apple Maps",
     "googleMaps": "Google Maps",
@@ -364,21 +382,15 @@
     "osmAnd": "OsmAnd",
     "organicMaps": "Organic Maps",
     "magicEarth": "Magic Earth",
-    "openStreetMap": "OpenStreetMap (browser)"
+    "openStreetMap": "OpenStreetMap (browser)",
+    "none": "No navigation app found on this device."
   },
   "navigation": {
-    "entry": {
-      "lunaway": "Lunaway guidance",
-      "lunawayHint": "A route computed for your vehicle's size",
-      "vehicleMissing": "Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.",
-      "others": "Other apps"
-    },
     "preview": {
       "titleTo": "To $name",
       "titlePoint": "To this point",
       "computing": "Computing a route for your vehicle",
-      "start": "Start",
-      "phoneOnly": "Turn-by-turn guidance starts from a phone.",
+      "start": "Let's go!",
       "recommended": "Recommended",
       "alternative": "Alternative $n",
       "toll": "Toll",
@@ -404,7 +416,7 @@
       "attributionOsm": "© OpenStreetMap contributors",
       "attributionIgn": "IGN, BD TOPO, $date edition",
       "disclaimer": "Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.",
-      "otherApps": "Open in another app",
+      "otherApps": "Open in…",
       "back": "Back"
     },
     "stops": {
@@ -471,7 +483,7 @@
       "unavailableTitle": "Routing is down",
       "unavailableHint": "The route service is stopped for now. Try again later.",
       "refusedTitle": "No route here",
-      "refusedHint": "Routes cover France for now. Pick a destination in France.",
+      "refusedHint": "Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle's figures.",
       "noSafeTitle": "No safe route for your vehicle",
       "noSafeHint": "Every possible road meets a limit your vehicle exceeds:",
       "whatToDo": "What you can do",
@@ -482,6 +494,73 @@
       "allowUnpaved": "Unpaved roads are avoided: allow them if the destination is on a track.",
       "offNetworkTitle": "Too far from a road",
       "offNetworkHint": "Pick a destination on a road."
+    },
+    "noRoute": {
+      "originUnreachable": "Your vehicle cannot leave from here",
+      "originUnreachableBy": "Your vehicle cannot leave from here: $limit",
+      "destinationUnreachable": "Destination out of reach for your vehicle",
+      "destinationUnreachableBy": "Destination out of reach for your vehicle: $limit",
+      "waypointUnreachable": "Stop $n out of reach for your vehicle",
+      "waypointUnreachableBy": "Stop $n out of reach for your vehicle: $limit",
+      "blockedOnTheWay": "No way through for your vehicle between the stops",
+      "blockedOnTheWayBy": "No way through for your vehicle between the stops: $limit",
+      "blockedHint": "Each stop can be reached, but every road between them passes a limit your vehicle exceeds.",
+      "notConnectedOrigin": "No road leads away from your position",
+      "notConnectedDestination": "No road leads to the destination",
+      "notConnectedWaypoint": "No road leads to stop $n",
+      "notConnectedTrip": "No road joins your stops",
+      "notConnectedHint": "Whatever the vehicle: an island without a car ferry, or a way closed to traffic.",
+      "outsideOrigin": "Your position is outside the area routes cover",
+      "outsideDestination": "Destination outside the area routes cover",
+      "outsideWaypoint": "Stop $n outside the area routes cover",
+      "outsideHint": "Lunaway computes routes in these countries: $countries.",
+      "outsideHintUnknown": "Lunaway does not compute routes in this country yet.",
+      "noRoadOrigin": "Your position is too far from a road",
+      "noRoadDestination": "Destination too far from a road",
+      "noRoadWaypoint": "Stop $n too far from a road",
+      "noRoadHint": "No road your vehicle may take within 5 km of this point.",
+      "tooLong": "Trip too long",
+      "tooLongHint": "$trip in a straight line from stop to stop: Lunaway computes trips of $max at most.",
+      "vehicleValue": "Your vehicle: $value",
+      "limit": {
+        "underpass": "low bridge at $limit",
+        "tunnel": "tunnel at $limit",
+        "buildingPassage": "archway at $limit",
+        "bridge": "bridge at $limit",
+        "barrier": "height bar at $limit",
+        "height": "height limit $limit",
+        "heightUnknown": "height limit",
+        "width": "narrow passage of $limit",
+        "widthUnknown": "narrow passage",
+        "length": "length limit $limit",
+        "lengthUnknown": "length limit",
+        "weight": "weight limit $limit",
+        "weightUnknown": "weight limit",
+        "unpaved": "unpaved road"
+      },
+      "editVehicle": "Edit the vehicle",
+      "allowUnpaved": "Allow unpaved roads",
+      "removeStop": "Remove stop $n",
+      "removeStopNamed": "Remove the stop \"$name\"",
+      "placesAround": "See the places around the destination",
+      "moveDestination": "Or pick another arrival: long press on the map, then \"Go there directly\".",
+      "moveStop": "For another stop: long press on the map, then \"Add a stop\".",
+      "moveOrigin": "The start is your position: get to a road your vehicle may take, then try again.",
+      "pickInside": "Pick a destination in one of these countries.",
+      "shorter": "Pick a closer destination, or make the trip in several legs."
+    },
+    "ferry": {
+      "title(param=n)": {
+        "one": "Ferry crossing",
+        "other": "$n ferry crossings"
+      },
+      "unnamed": "Ferry",
+      "named": "Ferry $name",
+      "ports": "Ports: $ports",
+      "countries": "Boarding: $from · Landing: $to",
+      "country": "Country: $country",
+      "where": "$distance from the start · $sea at sea, about $duration",
+      "needed": "The destination cannot be reached without a ferry: the route takes one, even though you avoid ferries."
     },
     "warning": {
       "lowClearance": {
@@ -590,7 +669,8 @@
       "cameraLimit": "Speed camera in $distance, $limit",
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
-      "enforcementSource": "$source, list of $date"
+      "enforcementSource": "$source, list of $date",
+      "demoDrive": "Simulated drive: a demonstration without GPS"
     },
     "voice": {
       "rerouting": "Recalculating.",
@@ -651,7 +731,8 @@
     "emptyHint": "Move the map, zoom out or loosen the filters.",
     "downloading": "Places are on their way",
     "downloadingHint": "The list fills in while they download.",
-    "error": "The list could not be loaded."
+    "error": "The list could not be loaded.",
+    "moreFailed": "More places could not be loaded. Try again"
   },
   "favorites": {
     "title": "Favourites",
@@ -810,7 +891,8 @@
       "administration": "An appointment by the Lunaway team"
     },
     "orInstead": "Or $requirement",
-    "recoveryNone": "No recovery card yet. Without one, this account stays on this phone: lose the phone, and the account goes with it.",
+    "recoveryNone": "No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.",
+    "recoveryNoneAccount": "No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.",
     "recoveryCreate": "Make my recovery card",
     "recoveryMade": "Made on $date",
     "recoveryRemake": "Make again",
@@ -841,8 +923,12 @@
   },
   "recovery": {
     "title": "Recovery card",
-    "intro": "A code that brings your account to a new device. Lunaway does not keep this code: nobody can give it back to you.",
-    "replaces": "A new card replaces the previous one, which stops working.",
+    "intro": "A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.",
+    "replaces": "A new card replaces the previous one: the old code will stop working.",
+    "replaceTitle": "Replace the card of $date?",
+    "replaceBody": "The new card will have another code. The code of the card of $date stops working right now. It cannot be shown again: Lunaway kept only a fingerprint of it.",
+    "replaceKeep": "Keep the old one",
+    "replaceConfirm": "Make a new card",
     "make": "Make the card",
     "codeLabel": "Your recovery code",
     "shownOnce": "This code shows only once. Write it down, or save the image, before closing.",
@@ -1203,7 +1289,7 @@
   "poi": {
     "category": {
       "groceries": "Groceries",
-      "vending": "Vending machines",
+      "vending": "Food vending machines",
       "water": "Water and dump",
       "fuel": "Fuel and energy",
       "health": "Health",
@@ -1246,6 +1332,22 @@
     },
     "chipsLabel": "Shops and services around",
     "openNow": "Open now",
+    "vendingSells": {
+      "pizza": "Pizza",
+      "bread": "Bread",
+      "farmProducts": "Farm produce",
+      "eggsMilk": "Eggs and milk",
+      "ice": "Ice"
+    },
+    "vendingAll": "All food vending machines",
+    "vendingMenu": "What the machines sell",
+    "vendingChip": {
+      "pizza": "Pizza vending machines",
+      "bread": "Bread vending machines",
+      "farmProducts": "Farm produce vending machines",
+      "eggsMilk": "Egg and milk vending machines",
+      "ice": "Ice vending machines"
+    },
     "alwaysOpen": "Open day and night",
     "hoursUnknown": "Opening hours unknown",
     "maybeClosed": "Closed according to the official register of health facilities (FINESS).",
@@ -1471,8 +1573,43 @@
     "over": "It's over",
     "overSent": "Thank you: noted.",
     "fromMap": "Report a problem here",
+    "notHereTitle": "No report here",
     "lower": "10 cm lower",
     "higher": "10 cm higher",
-    "passed": "You just passed: $what. Still there?"
+    "passed": "You just passed: $what. Still there?",
+    "notHere": "Lunaway takes reports where an official feed cross-checks them: $countries."
+  },
+  "countries": {
+    "ad": "Andorra",
+    "at": "Austria",
+    "ax": "Åland",
+    "be": "Belgium",
+    "ch": "Switzerland",
+    "cz": "Czechia",
+    "de": "Germany",
+    "dk": "Denmark",
+    "eh": "Western Sahara",
+    "es": "Spain",
+    "fi": "Finland",
+    "fr": "France",
+    "gb": "United Kingdom",
+    "gi": "Gibraltar",
+    "gr": "Greece",
+    "hr": "Croatia",
+    "ie": "Ireland",
+    "it": "Italy",
+    "li": "Liechtenstein",
+    "lu": "Luxembourg",
+    "ma": "Morocco",
+    "mc": "Monaco",
+    "nl": "Netherlands",
+    "no": "Norway",
+    "pl": "Poland",
+    "pt": "Portugal",
+    "se": "Sweden",
+    "si": "Slovenia",
+    "sj": "Svalbard",
+    "sm": "San Marino",
+    "va": "Vatican City"
   }
 }

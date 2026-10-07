@@ -2,6 +2,8 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
 /// One GraphQL operation the app sends: its document and how to read its
@@ -31,12 +33,15 @@ final class OlderForm {
     required this.variables,
     this.usable = _always,
     this.withoutFields = false,
+    this.older,
   });
 
   /// [document] for an API that lacks fields it selects (`speedLimits` on
   /// a route): sent when the server answers that it does not know a field.
-  factory selecting(String document) =>
-      OlderForm(document: document, variables: _same, withoutFields: true);
+  /// [older] is the form for an API older still, tried when this one is
+  /// refused in turn.
+  factory selecting(String document, {OlderForm? older}) =>
+      OlderForm(document: document, variables: _same, withoutFields: true, older: older);
 
   /// The form of [document] without [arguments]: their variables and their
   /// uses, wherever they stand on a line. [usable] says which requests may
@@ -70,6 +75,11 @@ final class OlderForm {
   /// The older form leaves out fields, not only arguments: an unknown
   /// field also calls for it.
   final bool withoutFields;
+
+  /// The form for an API older than the one this form is for: fields
+  /// added over two releases fall back one release at a time, so an API
+  /// that knows the first keeps it.
+  final OlderForm? older;
 
   static bool _always(Map<String, Object?> _) => true;
 
@@ -243,9 +253,228 @@ $_reviewFields''',
   },
 );
 
+/// One place for its page, read when it is opened and the device holds no
+/// copy of its region (the web, or a region not kept); null when it is
+/// gone. A place merged into another answers with that one.
+final placeOperation = GraphQLOperation<Place?>(
+  name: 'Place',
+  document: '''
+query Place(\$id: UUID!) {
+  place(id: \$id) { ...PlaceFields }
+}
+$placeFieldsFragment''',
+  parse: (data) => switch (data['place']) {
+    final Map<String, dynamic> place => placeFromJson(place),
+    _ => null,
+  },
+);
+
+/// What a row of a list shows of a place.
+const placeSummaryFragment = '''
+fragment PlaceSummaryFields on Place {
+  id
+  name
+  kind
+  lat
+  lon
+  overnight
+  services
+  priceParkingEur
+  address { city }
+  municipality
+  ratings { sourceId average count }
+  verification
+}
+''';
+
+/// A page of the places of a viewport, the total they make, and the cursor
+/// of the next page.
+@immutable
+final class PlacePage {
+  const new({required this.places, required this.total, required this.hasNextPage, this.endCursor});
+
+  static const empty = PlacePage(places: [], total: 0, hasNextPage: false);
+
+  final List<PlaceSummary> places;
+
+  /// Every place of the viewport the filter keeps, beyond this page.
+  final int total;
+  final bool hasNextPage;
+  final String? endCursor;
+}
+
+/// The places of a viewport passing a filter, nearest to `near` first: the
+/// list beside the map when the places come from the tiles.
+final nearbyPlacesOperation = GraphQLOperation<PlacePage>(
+  name: 'NearbyPlaces',
+  document: '''
+query NearbyPlaces(\$bbox: BBoxInput!, \$filter: PlaceFilter, \$near: LatLonInput, \$first: Int, \$after: String) {
+  places(bbox: \$bbox, filter: \$filter, near: \$near, first: \$first, after: \$after) {
+    nodes { ...PlaceSummaryFields }
+    endCursor
+    hasNextPage
+    totalCount
+  }
+}
+$placeSummaryFragment''',
+  parse: (data) {
+    final page = data['places'] as Map<String, dynamic>;
+    return PlacePage(
+      places: [
+        for (final p in page['nodes'] as List<dynamic>)
+          placeFromJson(p as Map<String, dynamic>).summary,
+      ],
+      total: (page['totalCount'] as num?)?.toInt() ?? 0,
+      hasNextPage: page['hasNextPage'] == true,
+      endCursor: page['endCursor'] as String?,
+    );
+  },
+);
+
+const _externalReviewFields = '''
+fragment ExternalReviewFields on ExternalReviewConnection {
+  nodes {
+    id sourceId authorName rating text lang authorVehicle writtenAt licence licenceUrl pageUrl
+  }
+  endCursor
+  hasNextPage
+  totalCount
+}
+''';
+
+/// What other sources than Lunaway's community say of a place (the partner's
+/// community, Commons, Panoramax, Wikipedia, the tourist offices,
+/// Mangrove), read when its card opens and kept in memory only: the change
+/// feed, the packs and the device's stores never carry it. Null when the
+/// place no longer exists.
+final externalOperation = GraphQLOperation<ExternalContent?>(
+  name: 'PlaceExternal',
+  document: '''
+query PlaceExternal(\$id: UUID!, \$first: Int) {
+  place(id: \$id) {
+    id
+    externalPhotos {
+      id sourceId kind authorName publisher sourceUpdatedOn licence licenceUrl pageUrl takenAt
+      thumbUrl largeUrl width height thumbhash
+    }
+    externalRatings { sourceId average count }
+    externalReviews(first: \$first) { ...ExternalReviewFields }
+    externalDescriptions {
+      sourceId lang text title publisher sourceUpdatedOn licence licenceUrl pageUrl
+    }
+  }
+}
+$_externalReviewFields''',
+  parse: (data) {
+    final place = data['place'];
+    if (place is! Map<String, dynamic>) return null;
+    return ExternalContent(
+      photos: externalPhotosFromJson(place['externalPhotos']),
+      ratings: ratingsFromJson(place['externalRatings']),
+      reviews: externalReviewPageFromJson(place['externalReviews']),
+      descriptions: externalDescriptionsFromJson(place['externalDescriptions']),
+    );
+  },
+);
+
+/// The places whose name or town matches what the user typed, online.
+final searchPlacesOperation = GraphQLOperation<List<PlaceSummary>>(
+  name: 'SearchPlaces',
+  document: '''
+query SearchPlaces(\$text: String!, \$near: LatLonInput, \$first: Int) {
+  search(text: \$text, near: \$near, first: \$first) { ...PlaceSummaryFields }
+}
+$placeSummaryFragment''',
+  parse: (data) => [
+    for (final p in data['search'] as List<dynamic>)
+      placeFromJson(p as Map<String, dynamic>).summary,
+  ],
+);
+
+/// The box the places of [view] are asked for: the view widened to a grid
+/// of [placesGrid] degree (about 5 km), so the request says no more of where
+/// the map looks than a point rounded to that grid. Without it, the centre
+/// of a map the user brought to their position is that position.
+GeoBounds placesQueryBox(GeoBounds view) {
+  // A hair inside the cell, so that an edge already on the grid (a box
+  // snapped once, 0.15000000000000002) stays where it is.
+  const hair = 1e-9;
+  double down(double v) => _onGrid((v / placesGrid + hair).floorToDouble() * placesGrid);
+  double up(double v) => _onGrid((v / placesGrid - hair).ceilToDouble() * placesGrid);
+  return GeoBounds(
+    south: down(view.south).clamp(-90, 90),
+    west: down(view.west).clamp(-180, 180),
+    north: up(view.north).clamp(-90, 90),
+    east: up(view.east).clamp(-180, 180),
+  );
+}
+
+/// The grid of [placesQueryBox], the same as the search's (`searchGrid`).
+const placesGrid = 0.05;
+
+/// [v] written with two decimals, so the floating point of the grid leaves
+/// no trace (0.15000000000000002) in the request.
+double _onGrid(double v) => double.parse(v.toStringAsFixed(2));
+
+Map<String, Object?> bboxInput(GeoBounds b) => {
+  'south': b.south,
+  'west': b.west,
+  'north': b.north,
+  'east': b.east,
+};
+
+/// [filter] as the API's `PlaceFilter`, with the same meaning as
+/// [PlaceFilter.matches]; null for the empty filter.
+Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
+  final input = <String, Object?>{
+    if (filter.families.isNotEmpty)
+      'kinds': [
+        for (final k in PlaceKind.values)
+          if (filter.families.contains(k.family)) k.wire,
+      ],
+    if (filter.overnight.isNotEmpty)
+      'overnight': [
+        for (final o in OvernightStatus.values)
+          if (filter.overnight.contains(o)) o.wire,
+      ],
+    if (filter.amenities.isNotEmpty)
+      'serviceGroups': [
+        for (final a in Amenity.values)
+          if (filter.amenities.contains(a)) [for (final s in a.services) s.wire],
+      ],
+    if (filter.freeOnly) 'freeOnly': true,
+    'vehicleHeightM': ?filter.vehicleHeightM,
+  };
+  return input.isEmpty ? null : input;
+}
+
+/// The next page of the external community source's reviews.
+final externalReviewsOperation = GraphQLOperation<ReviewPage>(
+  name: 'PlaceExternalReviews',
+  document: '''
+query PlaceExternalReviews(\$id: UUID!, \$first: Int, \$after: String) {
+  place(id: \$id) {
+    id
+    externalReviews(first: \$first, after: \$after) { ...ExternalReviewFields }
+  }
+}
+$_externalReviewFields''',
+  parse: (data) {
+    final place = data['place'];
+    return place is Map<String, dynamic>
+        ? externalReviewPageFromJson(place['externalReviews'])
+        : ReviewPage.empty;
+  },
+);
+
 /// Every operation the app can send, for the contract test.
 final allOperations = <GraphQLOperation<Object?>>[
   changesOperation,
   extrasOperation,
   reviewsOperation,
+  placeOperation,
+  nearbyPlacesOperation,
+  searchPlacesOperation,
+  externalOperation,
+  externalReviewsOperation,
 ];

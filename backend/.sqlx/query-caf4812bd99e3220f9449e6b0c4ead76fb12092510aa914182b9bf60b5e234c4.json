@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE recovery_codes SET created_at = '2025-10-07T08:00:00Z' WHERE account_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "caf4812bd99e3220f9449e6b0c4ead76fb12092510aa914182b9bf60b5e234c4"
+}

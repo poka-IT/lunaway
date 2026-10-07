@@ -22,7 +22,10 @@
 use std::{collections::BTreeMap, fmt, time::Duration};
 
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_domain::{NormalizedRecord, OvernightStatus, PlaceKind, Position, content};
+use lunaway_domain::{
+    NormalizedRecord, OvernightStatus, PlaceKind, Position, conflation::normalize::normalize_name,
+    content,
+};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -62,6 +65,15 @@ const MAX_PAGES: usize = 400;
 
 /// The manifest of the cached pages.
 const MANIFEST_KEY: &str = "datatourisme/catalog-latest.json";
+
+/// How far an office's point may sit from the spot, metres: offices place
+/// their points by hand on a map, often on the town's street rather than
+/// the area itself (measured on 2026-10-07 over France: 1 741 records left
+/// alone had a mapped place within 300 m). The conflation credits it to the
+/// distance: at 240 m, an unnamed area 300 m from a mapped area of the same
+/// commune merges (0.87) and one in the next commune goes to review (0.69),
+/// which `schema/conflation-vectors.json` pins.
+pub const POSITION_ACCURACY_M: f64 = 240.0;
 
 /// Metropolitan France and Corsica, south, west, north, east: the overseas
 /// departments are left out, like the overseas OpenStreetMap regions.
@@ -538,7 +550,13 @@ pub fn record_of(o: &Value, fetched_at: DateTime<Utc>) -> Result<FetchedRecord, 
     }
     let position = Position::new(lat, lon).map_err(|_| Skip::Position)?;
     let mut r = NormalizedRecord::new(kind, position);
+    r.accuracy_m = POSITION_ACCURACY_M;
+    // A label of generic words only ("Aire de stationnement pour
+    // camping-car", about one motorhome area in seven) names no place: the
+    // record goes without a name, which the conflation weighs as unknown
+    // (neutral) rather than as a different name.
     r.name = preferred(&localized(o.get("label")))
+        .filter(|n| !normalize_name(n).is_empty())
         .map(|n| content::truncate_chars(n, content::MAX_LABEL_CHARS));
     r.overnight = match kind {
         PlaceKind::MotorhomeArea | PlaceKind::Campsite => OvernightStatus::Allowed,

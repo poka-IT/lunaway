@@ -1,0 +1,259 @@
+import 'package:flutter/foundation.dart';
+import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
+
+/// The places as the API's vector tiles carry them (`GET /places/tiles.json`,
+/// `docs/deploy.md`, "Places layer"): a map shows a country at once without
+/// the device holding a single place, and the filters are expressions the
+/// map engine applies to what it already has, without a request.
+///
+/// Below [pinZoom] a tile holds dots (`place_dots`): every place, without
+/// its id or name, two places on one pixel with the same properties drawn
+/// once. From [pinZoom] it holds the places themselves (`places`), with
+/// their id and name, so a tap opens one.
+abstract final class PlaceTiles {
+  static const source = 'lw-place-tiles';
+
+  /// The tile layers of the source.
+  static const dotsSourceLayer = 'place_dots';
+  static const pinsSourceLayer = 'places';
+
+  /// Map layers: the dots of the low zooms, a dot under every place from
+  /// [pinZoom] (a pin that has no room is not drawn, its dot still is),
+  /// and the pins.
+  static const dotsLayer = 'lw-place-dots';
+  static const pinDotsLayer = 'lw-place-pin-dots';
+  static const pinsLayer = 'lw-place-pins';
+
+  /// The first zoom whose tiles carry [pinsSourceLayer]. MapLibre's zoom
+  /// levels count 512 px tiles, so a map at zoom z draws the tiles of z.
+  static const pinZoom = 10.0;
+
+  /// The first zoom whose pins carry their name (`NAME_MIN_ZOOM` on the
+  /// server): from it the list beside the map reads the tiles in view.
+  static const nameZoom = 12.0;
+
+  /// Topmost first, for a tap.
+  static const List<String> tappable = [pinsLayer, pinDotsLayer, dotsLayer];
+
+  /// The properties of a tile feature (the contract of the API).
+  static const id = 'id';
+  static const kind = 'kind';
+  static const night = 'night';
+  static const services = 's';
+  static const price = 'price';
+  static const height = 'h';
+  static const name = 'name';
+  static const city = 'city';
+}
+
+/// What the map draws of the places when they come from the tiles: the
+/// TileJSON and the filter. The map props carry none when the map draws
+/// the places the device holds instead (offline, or a demo build).
+@immutable
+final class PlaceTilesView {
+  const new({required this.tileJsonUrl, this.filter = PlaceFilter.none});
+
+  /// `/places/tiles.json` on the API.
+  final String tileJsonUrl;
+
+  /// Resolved: [PlaceFilter.vehicleHeightM] set when "fits my vehicle" is
+  /// on and a height is known.
+  final PlaceFilter filter;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PlaceTilesView && other.tileJsonUrl == tileJsonUrl && other.filter == filter;
+
+  @override
+  int get hashCode => Object.hash(tileJsonUrl, filter);
+}
+
+/// The domain code a tile carries for [kind] (`motorhome_area`): the GraphQL
+/// value in lower case.
+String tileKindCode(PlaceKind kind) => kind.wire.toLowerCase();
+
+/// Whether [code] is the kind of a place as the tiles write it: a point of
+/// interest's kinds (`fuel_station`, `bakery`) are none of them.
+bool isTilePlaceKind(String code) => _kindsByCode.containsKey(code);
+
+/// The domain code a tile carries for [status] (`day_only`).
+String tileNightCode(OvernightStatus status) => status.wire.toLowerCase();
+
+final Map<String, PlaceKind> _kindsByCode = {for (final k in PlaceKind.values) tileKindCode(k): k};
+final Map<String, OvernightStatus> _nightsByCode = {
+  for (final o in OvernightStatus.values) tileNightCode(o): o,
+};
+
+/// The MapLibre filter that keeps the tile features [filter] keeps: the same
+/// rule as [PlaceFilter.matches], written on the tiles' properties.
+///
+/// - a family keeps its kinds;
+/// - an overnight set keeps its statuses;
+/// - an amenity needs one of its services: a bit of the services mask, read
+///   with arithmetic since the expression language has no bitwise operator;
+/// - "free only" needs a known price of zero (`price` 0);
+/// - a vehicle height keeps the places of unknown height and those at least
+///   as high, in centimetres.
+List<Object> placeTileFilter(PlaceFilter filter) {
+  final conditions = <Object>[
+    if (filter.families.isNotEmpty)
+      [
+        'match',
+        ['get', PlaceTiles.kind],
+        [
+          for (final k in PlaceKind.values)
+            if (filter.families.contains(k.family)) tileKindCode(k),
+        ],
+        true,
+        false,
+      ],
+    if (filter.overnight.isNotEmpty)
+      [
+        'match',
+        ['get', PlaceTiles.night],
+        [
+          for (final o in OvernightStatus.values)
+            if (filter.overnight.contains(o)) tileNightCode(o),
+        ],
+        true,
+        false,
+      ],
+    for (final amenity in Amenity.values)
+      if (filter.amenities.contains(amenity))
+        ['any', for (final s in amenity.services) _hasService(s)],
+    if (filter.freeOnly)
+      [
+        '==',
+        ['get', PlaceTiles.price],
+        0,
+      ],
+    // An unknown height reads as no limit, so the place stays.
+    if (filter.vehicleHeightM case final height?)
+      [
+        '>=',
+        [
+          'coalesce',
+          ['get', PlaceTiles.height],
+          _noLimitCm,
+        ],
+        heightCentimetres(height),
+      ],
+  ];
+  // True for every feature (each carries its kind): the empty filter keeps
+  // everything, and an `all` without arguments may read as a legacy filter.
+  if (conditions.isEmpty) return const ['has', PlaceTiles.kind];
+  return ['all', ...conditions];
+}
+
+/// Higher than any vehicle, for a place whose height limit is unknown.
+const _noLimitCm = 100000;
+
+/// A height in metres as the tiles carry it.
+int heightCentimetres(double metres) => (metres * 100).round();
+
+/// Whether the services mask holds [service]: `floor(s / 2^bit)` is odd,
+/// written `floor(s / 2^bit) - 2 * floor(s / 2^(bit + 1)) == 1` because the
+/// expression language has no bitwise operator and the iOS plugin cannot
+/// convert `%` (`test/unit/cluster_label_test.dart`).
+List<Object> _hasService(Service service) {
+  const mask = [
+    'coalesce',
+    ['get', PlaceTiles.services],
+    0,
+  ];
+  List<Object> shifted(int bits) => [
+    'floor',
+    ['/', mask, 1 << bits],
+  ];
+  return [
+    '==',
+    [
+      '-',
+      shifted(service.position),
+      ['*', 2, shifted(service.position + 1)],
+    ],
+    1,
+  ];
+}
+
+/// The pin image of a tile feature, from its kind and overnight status: a
+/// lookup rather than text built at draw time, which the iOS plugin cannot
+/// convert. A kind or status this version does not know gets the neutral
+/// pin.
+List<Object> placeTilePinImage() => [
+  'match',
+  ['get', PlaceTiles.kind],
+  for (final kind in PlaceKind.values) ...[
+    tileKindCode(kind),
+    [
+      'match',
+      ['get', PlaceTiles.night],
+      for (final night in OvernightStatus.values) ...[
+        tileNightCode(night),
+        pinImageId(kind, night),
+      ],
+      pinImageId(kind, OvernightStatus.unknown),
+    ],
+  ],
+  pinImageId(PlaceKind.extraService, OvernightStatus.unknown),
+];
+
+/// The order of a tile feature where features compete: a night allowed
+/// before a night tolerated, and so on. Drawn on top for dots (a higher
+/// circle sort key draws later); placed first for pins that must not
+/// overlap ([placement]), which MapLibre gives to the lower sort key.
+List<Object> placeTileRank({bool placement = false}) {
+  int rank(OvernightStatus night) => placement ? -placeRank(night) : placeRank(night);
+  return [
+    'match',
+    ['get', PlaceTiles.night],
+    for (final night in OvernightStatus.values) ...[tileNightCode(night), rank(night)],
+    rank(OvernightStatus.unknown),
+  ];
+}
+
+/// The colour of a dot: its family's, as the pins' heads.
+List<Object> placeTileDotColor(String Function(KindFamily family) colour) => [
+  'match',
+  ['get', PlaceTiles.kind],
+  for (final family in KindFamily.values) ...[
+    [
+      for (final k in PlaceKind.values)
+        if (k.family == family) tileKindCode(k),
+    ],
+    colour(family),
+  ],
+  colour(KindFamily.services),
+];
+
+/// A place as a tile describes it, enough to open its page at once (its
+/// name, kind and night) and to draw its pin as selected while the rest
+/// arrives. Null when the feature is not a place of the tiles (a dot has no
+/// id).
+PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? coordinates) {
+  if (properties == null || coordinates == null || coordinates.length < 2) return null;
+  final id = properties[PlaceTiles.id];
+  final lon = coordinates[0];
+  final lat = coordinates[1];
+  if (id is! String || id.isEmpty || lon is! num || lat is! num) return null;
+  final mask = properties[PlaceTiles.services];
+  final price = properties[PlaceTiles.price];
+  final name = properties[PlaceTiles.name];
+  final city = properties[PlaceTiles.city];
+  return PlaceSummary(
+    id: id,
+    name: name is String && name.isNotEmpty ? name : null,
+    city: city is String && city.isNotEmpty ? city : null,
+    kind: _kindsByCode['${properties[PlaceTiles.kind]}'] ?? PlaceKind.extraService,
+    overnight: _nightsByCode['${properties[PlaceTiles.night]}'] ?? OvernightStatus.unknown,
+    lat: lat.toDouble(),
+    lon: lon.toDouble(),
+    services: mask is num ? Service.fromMask(mask.toInt()) : const {},
+    // The tile says free or paid, not how much: a paid place's price waits
+    // for its page.
+    priceParkingEur: price == 0 ? 0 : null,
+  );
+}

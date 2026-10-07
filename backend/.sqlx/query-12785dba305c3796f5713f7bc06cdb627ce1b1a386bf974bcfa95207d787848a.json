@@ -1,0 +1,149 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.id, e.source_id, s.name AS source_label, e.author, e.licence, e.taken_at,\n               e.path, e.thumb_path, e.width, e.height, e.thumbhash\n        FROM place_sources ps\n        JOIN external_photos e ON e.record_id = ps.record_id AND e.retired_at IS NULL\n        JOIN sources s ON s.id = e.source_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = $1 AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'item' AND h.key = e.external_id)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ORDER BY e.taken_at DESC NULLS LAST, e.id DESC\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "source_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sources",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "author",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "author"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "licence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "licence"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "taken_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "taken_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "thumb_path"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "thumbhash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "external_photos",
+            "name": "thumbhash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "12785dba305c3796f5713f7bc06cdb627ce1b1a386bf974bcfa95207d787848a"
+}

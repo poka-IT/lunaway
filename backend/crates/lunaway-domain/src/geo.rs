@@ -95,15 +95,35 @@ impl Position {
     /// "about 5 km" holds whatever the client rounded.
     #[must_use]
     pub fn coarsened(self) -> Self {
+        self.snapped(COARSE_STEPS_PER_DEG)
+    }
+
+    /// The nearest node of the [`LIST_GRID_DEG`] grid: what the API keeps of
+    /// the point a list of places is sorted around (the map's centre), so no
+    /// finer position is ever used, whatever the client sent.
+    #[must_use]
+    pub fn on_list_grid(self) -> Self {
+        self.snapped(LIST_STEPS_PER_DEG)
+    }
+
+    fn snapped(self, steps_per_deg: f64) -> Self {
         // A multiple of the step within [-90, 90] and [-180, 180] stays in
         // range: the extremes are multiples themselves.
-        let snap = |v: f64| (v * COARSE_STEPS_PER_DEG).round() / COARSE_STEPS_PER_DEG;
+        let snap = |v: f64| (v * steps_per_deg).round() / steps_per_deg;
         Self {
             lat: snap(self.lat),
             lon: snap(self.lon),
         }
     }
 }
+
+/// The step of the grid a list of places sorted by distance is anchored
+/// on, degrees: 0.01, about 1.1 km of latitude. The map's tiles already
+/// tell the server which area is viewed; the anchor adds nothing finer.
+pub const LIST_GRID_DEG: f64 = 0.01;
+
+/// Nodes of [`LIST_GRID_DEG`] per degree, for an exact rounding.
+const LIST_STEPS_PER_DEG: f64 = 100.0;
 
 /// The step of the grid searches are anchored on, degrees: 0.05, about
 /// 5.6 km of latitude and 3.9 km of longitude at 45° N. The app rounds to
@@ -364,6 +384,17 @@ mod tests {
             (0.05, -0.05),
             "half a step rounds away from zero, as Dart's round() does"
         );
+    }
+
+    #[test]
+    fn a_list_anchor_keeps_a_hundredth_of_a_degree() {
+        let p = Position::new(45.123_456, -4.876_543)
+            .unwrap()
+            .on_list_grid();
+        assert_eq!((p.lat(), p.lon()), (45.12, -4.88));
+        assert_eq!(p.on_list_grid(), p, "already on the grid, unchanged");
+        let edge = Position::new(90.0, -180.0).unwrap().on_list_grid();
+        assert_eq!((edge.lat(), edge.lon()), (90.0, -180.0));
     }
 
     /// A line north from (45, 3), one point every 100 m, `km` long.

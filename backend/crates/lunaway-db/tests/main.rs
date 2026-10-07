@@ -8,6 +8,7 @@ mod fuel;
 mod idempotency;
 mod locks_and_roles;
 mod migrations_on_data;
+mod place_tiles;
 mod places;
 mod pois;
 mod regions;

@@ -39,6 +39,11 @@ http.Client demoApiClient(
     if (request.method == 'GET' && path.startsWith('${apiBase.path}/media/')) {
       return await _photo(path.substring('${apiBase.path}/media/'.length));
     }
+    // The photo proxy of the external community source, which the demo
+    // does not have: answered as when the server's daily budget is spent.
+    if (request.method == 'GET' && path.startsWith('${apiBase.path}/external-photos/')) {
+      return http.Response('', 503, headers: {'retry-after': '3600'});
+    }
     final body = jsonDecode(request.body) as Map<String, dynamic>;
     final String? document;
     try {
@@ -75,6 +80,12 @@ http.Client demoApiClient(
         },
       },
       'PlaceExtras' || 'PlaceReviews' => _extras(byId[variables['id']], variables, apiBase),
+      // The demo invents nothing for the external community source: its
+      // label must only ever stand on what that source said.
+      final String op when op.startsWith('PlaceExternal') => _external(
+        byId[variables['id']],
+        reviewsOnly: op == 'PlaceExternalReviews',
+      ),
       final other => throw StateError('the demo API does not serve $other'),
     };
     return http.Response(
@@ -123,6 +134,25 @@ Map<String, Object?> _extras(Place? place, Map<String, dynamic> variables, Uri a
     },
   };
 }
+
+Map<String, Object?> _external(Place? place, {required bool reviewsOnly}) => {
+  'place': place == null
+      ? null
+      : {
+          'id': place.id,
+          if (!reviewsOnly) ...{
+            'externalPhotos': <Object>[],
+            'externalRatings': <Object>[],
+            'externalDescriptions': <Object>[],
+          },
+          'externalReviews': {
+            'nodes': <Object>[],
+            'endCursor': null,
+            'hasNextPage': false,
+            'totalCount': 0,
+          },
+        },
+};
 
 /// `demo-<n>/<thumb|large>`: an invented landscape, drawn on demand. No
 /// picture ships with the app, so a release build carries none.

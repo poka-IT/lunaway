@@ -7,6 +7,7 @@ pub mod community;
 pub mod conflation;
 pub mod content;
 pub mod enforcement;
+pub mod extcom;
 pub mod fuel;
 pub mod geo;
 pub mod opening;

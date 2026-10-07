@@ -19,6 +19,7 @@
   // the open point), put back after each style change.
   var poiUpdate = null;
   var poiProbed = null;
+  var placesProbed = null;
 
   function send(event) {
     if (window.flutter_inappwebview && window.flutter_inappwebview.callHandler) {
@@ -58,8 +59,8 @@
     return Promise.all(ids.map(function (id) { return loadImage(id, images[id]); })).then(function () {
       spec.sources.forEach(function (source) {
         if (map.getSource(source.id)) return;
-        // The points of interest are vector tiles named by a TileJSON; the
-        // rest is GeoJSON the app sends.
+        // The places and the points of interest are vector tiles named by a
+        // TileJSON; the rest is GeoJSON the app sends.
         var options = source.vector
           ? { type: 'vector', url: source.url }
           : Object.assign({ type: 'geojson', data: data[source.id] || emptyCollection() }, source.options);
@@ -73,8 +74,79 @@
         map.addLayer(copy, before && map.getLayer(before) ? before : undefined);
       });
       poiProbed = null;
+      placesProbed = null;
       applyPois();
     });
+  }
+
+  // The app's own sources and layers in the GL JS form, from the current
+  // spec, the GeoJSON with the last data the app sent.
+  function ownSources() {
+    var out = {};
+    spec.sources.forEach(function (source) {
+      out[source.id] = source.vector
+        ? { type: 'vector', url: source.url }
+        : Object.assign({ type: 'geojson', data: data[source.id] || emptyCollection() }, source.options);
+    });
+    return out;
+  }
+
+  // A new style given with the app's layers kept: each of them goes before
+  // the basemap layer it names (`before`), the others on top in the spec's
+  // order. MapLibre then turns the loaded style into it in place when only
+  // paint properties and the sprite differ (a theme), keeping the tiles and
+  // the images; otherwise it loads it whole and style.load sets it up.
+  function withOwnLayers(previous, next) {
+    var before = {};
+    var top = [];
+    spec.layers.forEach(function (layer) {
+      var copy = Object.assign({}, layer);
+      var anchor = copy.before;
+      delete copy.before;
+      if (anchor) {
+        (before[anchor] = before[anchor] || []).push(copy);
+      } else {
+        top.push(copy);
+      }
+    });
+    var layers = [];
+    next.layers.forEach(function (layer) {
+      (before[layer.id] || []).forEach(function (own) { layers.push(own); });
+      layers.push(layer);
+    });
+    top.forEach(function (own) { layers.push(own); });
+    return Object.assign({}, next, {
+      sources: Object.assign({}, next.sources, ownSources()),
+      layers: layers
+    });
+  }
+
+  // Once the map rests at the zoom of the pins: the places of the tiles,
+  // for the list beside the map and the points of interest that leave them
+  // room (the same reading as GlPlaceTiles.probe in the app, which keeps
+  // those inside the bounds sent).
+  function probePlaces() {
+    var tiles = spec && spec.placeTiles;
+    if (!tiles || !map.getSource(tiles.source)) return;
+    var c = map.getCenter();
+    var zoom = map.getZoom();
+    var view = map.getBounds();
+    // The view too: a resize keeps the camera and changes what is in view.
+    var key = [c.lat, c.lng, zoom, view.toArray().join(','), JSON.stringify(tiles.filter)].join(',');
+    if (key === placesProbed) return;
+    placesProbed = key;
+    var seen = {};
+    var features = [];
+    if (zoom >= tiles.pinZoom) {
+      map.querySourceFeatures(tiles.source, { sourceLayer: tiles.sourceLayer, filter: tiles.filter })
+        .forEach(function (f) {
+          var id = f.properties && f.properties.id;
+          if (id === undefined || seen[id]) return;
+          seen[id] = true;
+          features.push({ geometry: { coordinates: f.geometry.coordinates }, properties: f.properties });
+        });
+    }
+    send({ type: 'places', features: features, bounds: [view.getWest(), view.getSouth(), view.getEast(), view.getNorth()] });
   }
 
   function applyPois() {
@@ -142,8 +214,10 @@
     };
   }
 
-  // The same rule as mapTapFor in lib/features/map/domain/map_geojson.dart:
-  // a cluster zooms in, a place opens, the long-press marker does nothing.
+  // The same rule as mapTapFor in lib/features/map/domain/map_geojson.dart
+  // and placeTileTapFor in gl_place_tiles.dart: a cluster zooms in, a place
+  // opens (a pin or a dot that carries its id), a dot of the low zooms
+  // zooms in, the long-press marker does nothing.
   function onClick(e) {
     if (suppressClick) { suppressClick = false; return; }
     var slop = 14;
@@ -166,6 +240,18 @@
         return;
       }
       if (p.kind === 'point') return;
+      var tiles = spec.placeTiles;
+      if (tiles && f.layer && tiles.layers.indexOf(f.layer.id) >= 0) {
+        if (p.id !== undefined) {
+          send({ type: 'place', id: p.id, properties: p, coordinates: f.geometry.coordinates });
+        } else {
+          // A dot of the low zooms: one feature for the dots that share
+          // their properties (a MultiPoint), so around the click.
+          var closer = Math.max(map.getZoom() + 3, tiles.pinZoom + 0.5);
+          map.easeTo({ center: e.lngLat, zoom: closer, duration: reducedMotion ? 0 : 600 });
+        }
+        return;
+      }
       // A point of interest, or where a category's points gather (the
       // same rule as poiTapFor in lib/features/poi/presentation).
       if (p.count !== undefined && p.id === undefined && spec.pois) {
@@ -238,6 +324,7 @@
       });
       map.on('moveend', function () { send(viewport()); });
       map.on('idle', probePois);
+      map.on('idle', probePlaces);
       map.on('click', onClick);
       map.on('contextmenu', function (e) { send({ type: 'longpress', lat: e.lngLat.lat, lon: e.lngLat.lng }); });
       map.on('mousedown', startLongPress);
@@ -249,7 +336,22 @@
     },
     setStyle: function (style, newSpec) {
       spec = newSpec;
-      map.setStyle(style);
+      poiProbed = null;
+      placesProbed = null;
+      map.setStyle(style, { diff: true, transformStyle: withOwnLayers });
+      return true;
+    },
+    setPlaceTiles: function (filter) {
+      var tiles = spec && spec.placeTiles;
+      if (!tiles || !map) return true;
+      tiles.filter = filter;
+      tiles.layers.forEach(function (id) {
+        if (map.getLayer(id)) map.setFilter(id, filter);
+      });
+      spec.layers.forEach(function (layer) {
+        if (tiles.layers.indexOf(layer.id) >= 0) layer.filter = filter;
+      });
+      placesProbed = null;
       return true;
     },
     setData: function (sourceId, collection) {
@@ -292,6 +394,8 @@
       }
       return true;
     },
-    viewport: function () { return viewport(); }
+    viewport: function () { return viewport(); },
+    // The map itself, for the guidance's motion (route_motion.js).
+    map: function () { return map; }
   };
 })();

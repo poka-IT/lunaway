@@ -21,7 +21,8 @@ String syncFailureText(Translations t, SyncFailure failure) => switch (failure) 
 
 /// Over an empty map, says why it is empty: the first download running, its
 /// failure with a retry, or the invitation to download. Gone once the device
-/// holds places.
+/// holds places, and while the map draws them from the API's tiles: the map
+/// is then full, and the download runs behind it.
 class SyncBanner extends ConsumerWidget {
   const new({this.compact = false, this.picture = true, super.key});
 
@@ -35,6 +36,7 @@ class SyncBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(placesFromTilesProvider)) return const SizedBox.shrink();
     final count = ref.watch(placeCountProvider).value;
     if (count == null || count > 0) return const SizedBox.shrink();
     final t = context.t;
@@ -117,11 +119,13 @@ class SyncBanner extends ConsumerWidget {
 
 /// A slim notice while the first full download of the region has not ended:
 /// the map holds only part of the places, and says so, with a way to resume.
+/// Not while the map draws them from the API's tiles, which hold them all.
 class IncompleteSyncNotice extends ConsumerWidget {
   const new({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(placesFromTilesProvider)) return const SizedBox.shrink();
     final count = ref.watch(placeCountProvider).value ?? 0;
     final state = ref.watch(syncStateProvider).value;
     if (count == 0 || state == null || state.completedAt != null) return const SizedBox.shrink();

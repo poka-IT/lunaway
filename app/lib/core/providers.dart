@@ -49,12 +49,14 @@ http.Client httpClient(Ref ref) {
 String userAgent(Ref ref) => AppConfig.userAgent(ref.watch(appVersionProvider));
 
 /// Downloads the photos of the API's image proxy.
-// keepAlive: a stateless service over the shared client.
+// keepAlive: it remembers which proxied photos may not be asked for yet,
+// across every place opened.
 @Riverpod(keepAlive: true)
 ImageFetcher imageFetcher(Ref ref) => ImageFetcher(
   client: ref.watch(httpClientProvider),
   config: ref.watch(appConfigProvider),
   userAgent: ref.watch(userAgentProvider),
+  clock: ref.watch(clockProvider),
 );
 
 /// The clock, injectable so freshness and "open now" are testable.

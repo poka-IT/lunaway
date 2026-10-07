@@ -34,6 +34,12 @@ const BATCH: usize = 500;
 pub const COMMUNITY: &str = "community";
 /// Most route points a corridor query takes, as for the restrictions.
 pub const MAX_ROUTE_POINTS: usize = crate::routing::MAX_ROUTE_POINTS;
+/// How far ahead phones receive an event, hours: the feed carries the
+/// events in force or starting within this window, and the lifecycle pass
+/// ([`lifecycle`]) lets one in once its start comes within it. The figure
+/// lives in SQL (`road_events_feed_window()`, read by the revision trigger
+/// and by the pass); this copy is for the tests and the documentation.
+pub const FEED_WINDOW_HOURS: i64 = 48;
 
 /// A transaction that holds the road events writers' lock.
 pub struct EventWriter(Transaction<'static, Postgres>);
@@ -1147,6 +1153,9 @@ pub struct Lifecycle {
     pub past_end: u64,
     /// Events without an end not seen for the expiry.
     pub expired: u64,
+    /// Events whose start came within the feed's window: phones receive
+    /// them from now on.
+    pub entered_window: u64,
     /// Ended events purged after their audit time.
     pub purged: u64,
     /// Reports purged after their time.
@@ -1154,8 +1163,11 @@ pub struct Lifecycle {
 }
 
 /// Ends the events past their end (a margin of an hour), expires those
-/// without an end not seen for `expire_after`, purges the events ended
-/// more than `keep_ended` ago and the reports older than `keep_reports`.
+/// without an end not seen for `expire_after`, lets into the phones' feed
+/// the events whose start came within [`FEED_WINDOW_HOURS`] of `now` (a
+/// new revision each, so a cursor already past their last change still
+/// delivers them), purges the events ended more than `keep_ended` ago and
+/// the reports older than `keep_reports`.
 /// The community's events are weighed again by the API
 /// ([`reweigh_community`]), never here: the importers' role does not read
 /// who reported what.
@@ -1192,6 +1204,17 @@ pub async fn lifecycle(
     .execute(&mut *w.0)
     .await?
     .rows_affected();
+    let entered_window = sqlx::query!(
+        r#"
+        UPDATE road_events SET in_window = true
+        WHERE ended_at IS NULL AND NOT in_window
+          AND valid_from <= $1::timestamptz + road_events_feed_window()
+        "#,
+        now
+    )
+    .execute(&mut *w.0)
+    .await?
+    .rows_affected();
     let purged = sqlx::query_scalar!(
         r#"DELETE FROM road_events WHERE ended_at < $1 RETURNING revision"#,
         now - keep_ended
@@ -1217,6 +1240,7 @@ pub async fn lifecycle(
     Ok(Lifecycle {
         past_end,
         expired,
+        entered_window,
         purged: purged.len() as u64,
         reports_purged,
     })
@@ -1277,6 +1301,9 @@ pub struct EventRow {
     pub revision: i64,
     /// When it ended, if it did.
     pub ended_at: Option<DateTime<Utc>>,
+    /// Whether phones receive it: in force, or starting within the feed's
+    /// window ([`FEED_WINDOW_HOURS`]).
+    pub in_window: bool,
 }
 
 /// The raw columns of an event row, as every read selects them.
@@ -1311,6 +1338,7 @@ struct RawRow {
     last_seen_at: DateTime<Utc>,
     revision: i64,
     ended_at: Option<DateTime<Utc>>,
+    in_window: bool,
 }
 
 impl RawRow {
@@ -1355,6 +1383,7 @@ impl RawRow {
             last_seen_at: self.last_seen_at,
             revision: self.revision,
             ended_at: self.ended_at,
+            in_window: self.in_window,
         })
     }
 }
@@ -1362,7 +1391,9 @@ impl RawRow {
 /// The live events near a route: those whose matched lines lie within
 /// `within_m` of it, and those whose own geometry lies within `wide_m`
 /// (slip road events are placed on the main road up to a kilometre from
-/// the slip roads; unmatched events warn from a little farther).
+/// the slip roads; unmatched events warn from a little farther), and a few
+/// more a little farther still: the caller matches each with its own
+/// tolerance, under these distances.
 ///
 /// # Errors
 ///
@@ -1382,19 +1413,19 @@ pub async fn events_near(
             limit: MAX_ROUTE_POINTS,
         });
     }
-    let lons: Vec<f64> = route.iter().map(|p| p.lon()).collect();
-    let lats: Vec<f64> = route.iter().map(|p| p.lat()).collect();
+    let pieces = crate::routing::corridor_pieces(route);
+    // The same pieces and the same two-step test as the restrictions
+    // (`routing::restrictions_near`): the index box, then a planar
+    // distance in degrees that only ever widens the corridor. 0.22 s down
+    // to 0.06 s on a route of 3 200 km (2026-10-07).
     let rows = sqlx::query_as!(
         RawRow,
         r#"
-        WITH line AS (
-            SELECT ST_SetSRID(ST_MakeLine(ARRAY(
-                SELECT ST_MakePoint(lon, lat)
-                FROM UNNEST($1::float8[], $2::float8[]) WITH ORDINALITY AS u(lon, lat, n)
-                ORDER BY n
-            )), 4326) AS geom
-        ), pieces AS (
-            SELECT ST_Subdivide(geom, 32)::geography AS piece FROM line
+        WITH pieces AS (
+            SELECT g AS line, g::geography AS piece,
+                1.05 / (110574.0 * cos(radians(least(89.0,
+                    0.01 + greatest(abs(ST_YMin(g)), abs(ST_YMax(g))))))) AS deg_per_m
+            FROM (SELECT ST_LineFromEncodedPolyline(s, 6) AS g FROM UNNEST($1::text[]) AS s) t
         )
         SELECT DISTINCT ON (e.id)
             e.id, e.source, e.external_id, e.class, e.detail, e.carriageway, e.direction,
@@ -1403,14 +1434,16 @@ pub async fn events_near(
             e.schedule, ST_AsGeoJSON(e.geom_source::geometry, 7) AS "shape!",
             ST_AsGeoJSON(e.geom_matched::geometry, 7) AS matched, e.match_quality,
             e.confidence, e.description, e.detour, e.url, e.source_updated_at,
-            e.first_seen_at, e.last_seen_at, e.revision, e.ended_at
+            e.first_seen_at, e.last_seen_at, e.revision, e.ended_at, e.in_window
         FROM pieces p
         JOIN road_events e ON e.ended_at IS NULL AND (
-            ST_DWithin(e.geom_matched, p.piece, $3) OR ST_DWithin(e.geom_source, p.piece, $4))
+            (e.geom_matched && _ST_Expand(p.piece, $2)
+                AND ST_DWithin(e.geom_matched::geometry, p.line, p.deg_per_m * $2))
+            OR (e.geom_source && _ST_Expand(p.piece, $3)
+                AND ST_DWithin(e.geom_source::geometry, p.line, p.deg_per_m * $3)))
         ORDER BY e.id
         "#,
-        &lons,
-        &lats,
+        &pieces,
         within_m,
         wide_m,
     )
@@ -1531,7 +1564,9 @@ pub async fn feed_head(pool: &PgPool) -> Result<FeedHead, DbError> {
 /// within 12 m, and their points are most of the feed's weight. Only the
 /// feeds the routing graph covers (`road_event_sources.routed`): a phone
 /// in guidance has nothing to do with 17 000 Dutch events, and the changes
-/// of [`changed_since`] leave them out too.
+/// of [`changed_since`] leave them out too. Only the events in the window
+/// (`in_window`, [`FEED_WINDOW_HOURS`]): an event starting later reaches
+/// the phones through [`changed_since`] when it enters it.
 ///
 /// # Errors
 ///
@@ -1555,9 +1590,10 @@ pub async fn live_events(
             ST_AsGeoJSON(ST_SimplifyPreserveTopology(e.geom_source::geometry, 0.00004), 6) AS "shape!",
             ST_AsGeoJSON(ST_SimplifyPreserveTopology(e.geom_matched::geometry, 0.00004), 6) AS matched,
             e.match_quality, e.confidence, e.description, e.detour, e.url,
-            e.source_updated_at, e.first_seen_at, e.last_seen_at, e.revision, e.ended_at
+            e.source_updated_at, e.first_seen_at, e.last_seen_at, e.revision, e.ended_at,
+            e.in_window
         FROM road_events e
-        WHERE e.ended_at IS NULL AND e.class = ANY($1)
+        WHERE e.ended_at IS NULL AND e.in_window AND e.class = ANY($1)
           AND e.revision > $3 AND e.revision <= $4
           AND e.source IN (SELECT id FROM road_event_sources WHERE routed)
           AND (NOT $2 OR (
@@ -1580,10 +1616,14 @@ pub async fn live_events(
 
 /// The events changed since revision `since`, live or ended, up to
 /// `until` (the head read with them), oldest first, at most `limit`, lines
-/// simplified as in [`live_events`]. `None` when events ended after
-/// `since` were purged meanwhile: their ends are lost, and the client
-/// takes the whole set again. The horizon and the rows are read in one
-/// snapshot, so a purge between them cannot hide an end.
+/// simplified as in [`live_events`]. A live event outside the window
+/// (`in_window` false) is here only when it left it (its start moved
+/// later): the phones that hold it drop it. One that enters the window
+/// takes a new revision, so it is here even when nothing else changed.
+/// `None` when events ended after `since` were purged meanwhile: their
+/// ends are lost, and the client takes the whole set again. The horizon
+/// and the rows are read in one snapshot, so a purge between them cannot
+/// hide an end.
 ///
 /// # Errors
 ///
@@ -1614,7 +1654,8 @@ pub async fn changed_since(
             ST_AsGeoJSON(ST_SimplifyPreserveTopology(e.geom_source::geometry, 0.00004), 6) AS "shape!",
             ST_AsGeoJSON(ST_SimplifyPreserveTopology(e.geom_matched::geometry, 0.00004), 6) AS matched,
             e.match_quality, e.confidence, e.description, e.detour, e.url,
-            e.source_updated_at, e.first_seen_at, e.last_seen_at, e.revision, e.ended_at
+            e.source_updated_at, e.first_seen_at, e.last_seen_at, e.revision, e.ended_at,
+            e.in_window
         FROM road_events e
         WHERE e.revision > $1 AND e.revision <= $2
           AND e.source IN (SELECT id FROM road_event_sources WHERE routed)
