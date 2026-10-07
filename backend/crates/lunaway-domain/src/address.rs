@@ -122,7 +122,8 @@ const WEAK_SHARE: f64 = 0.75;
 /// likeness ("Neuhof Hinter Den Gaerten, Berling" rated 0.34 for "unter den
 /// linden 77 berlin"), while a text still being typed rates its right
 /// match low ("Boulevard du Port, Amiens" 0.42 for "bd du po amiens");
-/// measured on 2026-10-07.
+/// measured on 2026-10-07. Wrong partial answers reach 0.39: the threshold
+/// trades some of them shown against right ones lost.
 const MIN_SCORE: f64 = 0.35;
 
 /// The list shown under the places: `matches` without the weak matches of

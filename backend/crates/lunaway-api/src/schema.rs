@@ -712,6 +712,8 @@ impl QueryRoot {
     /// asked by one `searchAll` per request, 300 times every ten minutes
     /// per client; beyond, or when one is late or down, the places come
     /// with the addresses that did, and `addressesComplete` is false.
+    /// A selection without `places` searches no place, and leaves out no
+    /// town: a device that searches its own places leaves out its own.
     /// `language` (`fr`, `en`, `de`, `it`) names the places outside France
     /// in it where OpenStreetMap does; otherwise, in their local language.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
