@@ -38,6 +38,14 @@
 #   -vrgfE71 c90fbe98152bbb119a7e521a048c6aa6fc367879d6e3dae6db5a17582de25ead.
 #   A Flutter upgrade can move these paths: test/unit/web_index_test.dart
 #   fails until the files follow.
+# app/third_party/maplibre_gl_web/: maplibre_gl_web 0.27.1 from pub.dev
+#   (lib/, LICENSE and pubspec.yaml of the hosted archive, archive sha256
+#   3c0e9084edbe7d860f2366f8d6658722c79f3722a4e1234f3e49251a57f8297a as
+#   pub.dev lists it), with the dart2wasm fixes listed in the header of its
+#   pubspec.yaml: the one exception to "as published" here, each change
+#   described there. BSD-3-Clause (its LICENSE). Wired by
+#   dependency_overrides in app/pubspec.yaml; moves with maplibre_gl, and
+#   goes once a release carries the fixes.
 app/web/maplibre-gl/
 app/assets/map/maplibre-gl.js
 app/assets/map/maplibre-gl.css
@@ -47,3 +55,4 @@ app/web/sqlite3.wasm
 app/web/sqlite3.wasm.LICENSE.txt
 app/web/fonts/
 app/third_party/sqlite/
+app/third_party/maplibre_gl_web/

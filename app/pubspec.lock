@@ -756,12 +756,11 @@ packages:
     source: hosted
     version: "0.27.1"
   maplibre_gl_web:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: maplibre_gl_web
-      sha256: "3c0e9084edbe7d860f2366f8d6658722c79f3722a4e1234f3e49251a57f8297a"
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/maplibre_gl_web"
+      relative: true
+    source: path
     version: "0.27.1"
   matcher:
     dependency: transitive
