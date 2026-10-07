@@ -631,12 +631,12 @@
       "kindLimit": "Other limit (width, length, ban)",
       "kindFuel": "Fuel station",
       "kindPlace": "Place near the route",
-      "groupLegend": "Marks close together: zoom in or tap",
+      "groupLegend": "Marks close together: zoom in to tell them apart",
       "group(param=n)": {
         "one": "$n mark",
         "other": "$n marks"
       },
-      "groupHint": "Zoom in or tap to see each one",
+      "groupHint": "Zoom in to see each one",
       "count": "$kind: $n",
       "stop": "Stop $n",
       "origin": "Starting point",

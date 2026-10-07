@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
@@ -14,6 +15,8 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+
+final _log = Logger('route_marks');
 
 /// The preview's map with its marks explained: a tooltip under the pointer,
 /// a callout pinned to a tapped mark, the legend of the kinds on this
@@ -106,6 +109,11 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
 
   @override
   Widget build(BuildContext context) {
+    // The choice cleared elsewhere (another route chosen): the callout of
+    // the old one goes with it.
+    ref.listen(routeMarkFocusProvider(widget.target).select((f) => f.selected), (_, selected) {
+      if (_callout case (:final id, at: _) when id != selected) setState(() => _callout = null);
+    });
     final focus = ref.watch(routeMarkFocusProvider(widget.target));
     final b = widget.base;
     final flight = focus.flight;
@@ -175,10 +183,16 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
               ),
             ),
           ),
+        // Never taller than the map left free: a phone held sideways
+        // scrolls the legend rather than clipping it.
         Positioned(
           top: pad.top + Space.s,
           right: pad.right + Space.s,
-          child: MarkLegend(rows: legendRows(props.marks)),
+          bottom: pad.bottom + Space.s,
+          child: Align(
+            alignment: Alignment.topRight,
+            child: MarkLegend(rows: legendRows(props.marks)),
+          ),
         ),
       ],
     );
@@ -326,7 +340,16 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
     final open = _open ??= !settings.legendSeen;
     if (open && !settings.legendSeen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(ref.read(routeSettingsControllerProvider.notifier).legendShown());
+        if (!mounted) return;
+        unawaited(
+          ref.read(routeSettingsControllerProvider.notifier).legendShown().catchError((
+            Object e,
+            StackTrace st,
+          ) {
+            // Not saved: it opens again next time, nothing worse.
+            _log.warning('the legend could not be marked as seen', e, st);
+          }),
+        );
       });
     }
     final t = context.t;

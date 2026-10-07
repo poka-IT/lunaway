@@ -48,8 +48,7 @@ final class SettingsRepositoryProvider
   }
 }
 
-String _$settingsRepositoryHash() =>
-    r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
+String _$settingsRepositoryHash() => r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
 
 /// The settings as read before the first frame, overridden in `main`, so the
 /// app never flashes a default language, theme or filter.
@@ -173,8 +172,7 @@ final placeFilterProvider = PlaceFilterProvider._();
 /// The user's place filter, a slice of the settings. Screens query with
 /// `effectiveFilterProvider`, which adds the vehicle's size.
 
-final class PlaceFilterProvider
-    extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
+final class PlaceFilterProvider extends $FunctionalProvider<PlaceFilter, PlaceFilter, PlaceFilter>
     with $Provider<PlaceFilter> {
   /// The user's place filter, a slice of the settings. Screens query with
   /// `effectiveFilterProvider`, which adds the vehicle's size.

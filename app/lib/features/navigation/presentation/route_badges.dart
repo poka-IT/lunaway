@@ -282,11 +282,17 @@ final Map<double, Future<Map<String, Uint8List>>> _drawn = {};
 /// Every badge as a PNG at [ratio], drawn once per density and run: a new
 /// style or a second map reuses them.
 Future<Map<String, Uint8List>> routeBadgePngs(double ratio) => _drawn[ratio] ??= () async {
-  final out = <String, Uint8List>{};
-  for (final b in RouteBadge.all) {
-    out[b.id] = await routeBadgePng(b, ratio);
+  try {
+    final out = <String, Uint8List>{};
+    for (final b in RouteBadge.all) {
+      out[b.id] = await routeBadgePng(b, ratio);
+    }
+    return out;
+  } on Object {
+    // A drawing that failed is tried again by the next map.
+    _drawn.remove(ratio)?.ignore();
+    rethrow;
   }
-  return out;
 }();
 
 /// A badge as a widget: the legend and the tooltips draw the mark as the map

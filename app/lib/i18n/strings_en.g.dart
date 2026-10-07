@@ -3887,8 +3887,8 @@ class Translations$navigation$marks$en {
 	/// en: 'Place near the route'
 	String get kindPlace => 'Place near the route';
 
-	/// en: 'Marks close together: zoom in or tap'
-	String get groupLegend => 'Marks close together: zoom in or tap';
+	/// en: 'Marks close together: zoom in to tell them apart'
+	String get groupLegend => 'Marks close together: zoom in to tell them apart';
 
 	/// en: '(one) {$n mark} (other) {$n marks}'
 	String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
@@ -3896,8 +3896,8 @@ class Translations$navigation$marks$en {
 		other: '${n} marks',
 	);
 
-	/// en: 'Zoom in or tap to see each one'
-	String get groupHint => 'Zoom in or tap to see each one';
+	/// en: 'Zoom in to see each one'
+	String get groupHint => 'Zoom in to see each one';
 
 	/// en: '$kind: $n'
 	String count({required Object kind, required Object n}) => '${kind}: ${n}';
@@ -5638,9 +5638,9 @@ extension on Translations {
 			'navigation.marks.kindLimit' => 'Other limit (width, length, ban)',
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
-			'navigation.marks.groupLegend' => 'Marks close together: zoom in or tap',
+			'navigation.marks.groupLegend' => 'Marks close together: zoom in to tell them apart',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
-			'navigation.marks.groupHint' => 'Zoom in or tap to see each one',
+			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
 			'navigation.marks.stop' => ({required Object n}) => 'Stop ${n}',
 			'navigation.marks.origin' => 'Starting point',

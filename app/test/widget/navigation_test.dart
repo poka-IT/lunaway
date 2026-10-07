@@ -24,6 +24,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -1349,7 +1350,7 @@ void main() {
       await tester.pump();
       expect(inTip('3 repères'), findsOneWidget);
       expect(inTip('Route fermée : 1 · Travaux : 2'), findsOneWidget);
-      expect(inTip('Zoomez ou touchez pour les voir un par un'), findsOneWidget);
+      expect(inTip('Rapprochez-vous pour les voir un par un'), findsOneWidget);
     });
 
     testWidgets('the pointer on a row lights its mark; a click on the row flies the map there', (
@@ -1463,6 +1464,90 @@ void main() {
         expect(inLegend('Hauteur limitée'), findsOneWidget);
       });
     }
+
+    testWidgets('what keeps the vehicle out of the destination leads to its reason', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('toulouse_no_route')],
+        settings: legendSeen(),
+      );
+      const id = 'limit:ign/TRONROUT0000000073480284';
+      SchematicRouteMap.last!.onMarkTap!(id, at: const Offset(200, 120));
+      await tester.pump();
+      expect(inTip('Bloque chaque itinéraire'), findsNothing, reason: 'not a road event');
+      expect(inTip('Chemin de Gabardie'), findsOneWidget);
+      await tester.tap(find.text('Voir dans la liste'));
+      await tester.pump(Motion.medium);
+      expect(rowTint(tester), lit(tester), reason: 'the reason it stands for');
+    });
+
+    /// [plan]'s first route with [n] road events met, copies of its first.
+    RoutePlan manyEvents(int n) => routeFixture(
+      'aix_marseille_closures',
+      edit: (answer) {
+        final route = (answer['routes'] as List<Object?>).first! as Map<String, dynamic>;
+        final first = (route['roadEvents'] as List<Object?>).first! as Map<String, dynamic>;
+        route['roadEvents'] = [
+          for (var i = 0; i < n; i++)
+            {
+              ...first,
+              'distanceFromStartM': 1000.0 * (i + 1),
+              'event': {
+                ...first['event']! as Map<String, dynamic>,
+                'id': 'ev$i',
+                'roadNumber': 'D$i',
+              },
+            },
+        ];
+      },
+    );
+
+    testWidgets('a mark beyond the first rows opens the list and shows its row', (tester) async {
+      await openPreview(tester, answers: [manyEvents(8)], settings: legendSeen());
+      expect(find.text('D6 · Voies réduites'), findsNothing, reason: 'five rows at first');
+      expect(find.text('Tout afficher'), findsOneWidget);
+      SchematicRouteMap.last!.onMarkTap!(eventMarkId(0, 'ev6'), at: const Offset(200, 120));
+      await tester.pump();
+      await tester.tap(find.text('Voir dans la liste'));
+      await settleShort(tester);
+      final row = find.text('D6 · Voies réduites');
+      expect(row, findsOneWidget);
+      expect(tester.getRect(row).top, inInclusiveRange(0, tallPhone.height));
+      expect(find.text('Tout afficher'), findsNothing);
+      // A later mark among the first rows leaves the list open.
+      SchematicRouteMap.last!.onMarkTap!(eventMarkId(0, 'ev0'), at: const Offset(200, 120));
+      await tester.pump();
+      await tester.tap(find.text('Voir dans la liste'));
+      await settleShort(tester);
+      expect(find.text('D6 · Voies réduites'), findsOneWidget);
+    });
+
+    testWidgets('"Tout afficher" shows the rows past the first five', (tester) async {
+      await openPreview(tester, answers: [manyEvents(8)], settings: legendSeen());
+      expect(find.text('D7 · Voies réduites'), findsNothing);
+      await tester.ensureVisible(find.text('Tout afficher'));
+      await tester.pump();
+      await tester.tap(find.text('Tout afficher'));
+      await tester.pump();
+      expect(find.text('D7 · Voies réduites'), findsOneWidget);
+      expect(find.text('Tout afficher'), findsNothing);
+    });
+
+    testWidgets('choosing another route puts out what was lit and closes the callout', (
+      tester,
+    ) async {
+      await openPreview(tester, size: desktop, settings: legendSeen());
+      SchematicRouteMap.last!.onMarkTap!('destination', at: const Offset(600, 300));
+      await tester.pump();
+      expect(find.byType(MarkTip), findsOneWidget);
+      expect(SchematicRouteMap.last!.highlighted, {'destination'});
+      await tester.tap(find.text('Variante 1'));
+      await settleShort(tester);
+      expect(find.byType(MarkTip), findsNothing);
+      expect(SchematicRouteMap.last!.highlighted, isEmpty);
+    });
 
     testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {
       await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());

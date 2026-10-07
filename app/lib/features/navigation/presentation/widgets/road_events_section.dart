@@ -53,12 +53,15 @@ class _RoadEventsSectionState extends ConsumerState<RoadEventsSection> {
     final revealed = target == null
         ? null
         : ref.watch(routeMarkFocusProvider(target).select((f) => f.reveal));
-    final all =
-        _all ||
-        (route != null &&
-            met
-                .skip(RoadEventsSection.shown)
-                .any((e) => eventMarkId(route.index, e.event.id) == revealed));
+    // Once open, it stays open: a later mark among the first rows would
+    // otherwise fold it under the reader.
+    if (route != null &&
+        met
+            .skip(RoadEventsSection.shown)
+            .any((e) => eventMarkId(route.index, e.event.id) == revealed)) {
+      _all = true;
+    }
+    final all = _all;
     if (met.isEmpty && avoided.isEmpty) {
       // A server without road events says nothing of them; sources gone
       // stale make "none known" a weak promise, and say so.

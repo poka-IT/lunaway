@@ -241,12 +241,23 @@ List<RouteMarker> previewMarkers({
     for (final e in plan.avoidedRoadEvents)
       if (e.position case final at?) avoidedMarker(e, at),
   ],
-  // What keeps the vehicle out of a stop, where the server knows it.
-  for (final (i, r) in noRouteReasons.indexed)
-    for (final (j, l) in r.limits.indexed)
-      if (l.restriction case final w?)
-        warningMarker('limit:$i:$j', w, t, blocking: true, fromStart: false),
+  // What keeps the vehicle out of a stop, where the server knows it; a
+  // restriction that keeps out two stops is one mark.
+  for (final w in _restrictions(noRouteReasons))
+    warningMarker(limitMarkId(w), w, t, blocking: true, fromStart: false),
 ];
+
+/// The restrictions behind [reasons], each once.
+Iterable<RouteWarning> _restrictions(List<NoRouteReason> reasons) {
+  final byId = <String, RouteWarning>{};
+  for (final r in reasons) {
+    for (final l in r.limits) {
+      final w = l.restriction;
+      if (w != null) byId.putIfAbsent(limitMarkId(w), () => w);
+    }
+  }
+  return byId.values;
+}
 
 // The ids of the marks a row of the list stands for: the rows and the
 // marks are built apart and meet through them.
@@ -255,6 +266,7 @@ String eventMarkId(int route, String event) => 'event:$route:$event';
 String blockerMarkId(int index) => 'blocker:$index';
 String eventBlockerMarkId(String event) => 'eventblocker:$event';
 String avoidedMarkId(String event) => 'avoided:$event';
+String limitMarkId(RouteWarning restriction) => 'limit:${restriction.externalId}';
 
 /// The mark of a closure the routes go around.
 RouteMarker avoidedMarker(RoadEvent e, LatLng at) {

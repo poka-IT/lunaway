@@ -701,12 +701,17 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         (s) => RouteLayers.badgesOf(s) == hit.layer,
         orElse: () => RouteLayers.marksSource,
       );
-      final zoom = await c.getClusterExpansionZoom(source, cluster.toInt());
-      if (hit.at case final at? when mounted) {
-        await c.animateCamera(
-          gl.CameraUpdate.newLatLngZoom(gl.LatLng(at.lat, at.lon), zoom + 0.3),
-          duration: Motion.of(context, Motion.camera),
-        );
+      try {
+        final zoom = await c.getClusterExpansionZoom(source, cluster.toInt());
+        if (hit.at case final at? when mounted) {
+          await c.animateCamera(
+            gl.CameraUpdate.newLatLngZoom(gl.LatLng(at.lat, at.lon), zoom + 0.3),
+            duration: Motion.of(context, Motion.camera),
+          );
+        }
+      } on Object catch (e, st) {
+        // The group went with new data between the tap and the answer.
+        _log.fine('could not open a group of marks', e, st);
       }
       return;
     }

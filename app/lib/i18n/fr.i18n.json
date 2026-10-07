@@ -631,12 +631,12 @@
       "kindLimit": "Autre limite (largeur, longueur, interdiction)",
       "kindFuel": "Station-service",
       "kindPlace": "Lieu près du trajet",
-      "groupLegend": "Repères proches regroupés : zoomez ou touchez",
+      "groupLegend": "Repères proches regroupés : rapprochez-vous pour les séparer",
       "group(param=n)": {
         "one": "$n repère",
         "other": "$n repères"
       },
-      "groupHint": "Zoomez ou touchez pour les voir un par un",
+      "groupHint": "Rapprochez-vous pour les voir un par un",
       "count": "$kind : $n",
       "stop": "Étape $n",
       "origin": "Point de départ",
