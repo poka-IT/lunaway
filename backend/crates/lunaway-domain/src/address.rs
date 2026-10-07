@@ -120,14 +120,16 @@ const WEAK_SHARE: f64 = 0.75;
 /// A rating below this is no match at all, whatever the others: the BAN
 /// answers a text naming a street abroad with a French one of a remote
 /// likeness ("Neuhof Hinter Den Gaerten, Berling" rated 0.34 for "unter den
-/// linden 77 berlin"; a real match rated 0.68 or more on 2026-10-07).
-const MIN_SCORE: f64 = 0.5;
+/// linden 77 berlin"), while a text still being typed rates its right
+/// match low ("Boulevard du Port, Amiens" 0.42 for "bd du po amiens");
+/// measured on 2026-10-07.
+const MIN_SCORE: f64 = 0.35;
 
 /// The list shown under the places: `matches` without the weak matches of
-/// a rated geocoder (under [`MIN_SCORE`], or far below its best), without the towns already in `towns`, without the same
-/// address twice (the first kept), then nearest to `near` first (the order
-/// of the geocoders, each already biased towards `near`, when there is no
-/// point), at most `max`.
+/// a rated geocoder (under [`MIN_SCORE`], or far below its best), without
+/// the towns already in `towns`, without the same address twice (the first
+/// kept), then nearest to `near` first (the order of the geocoders, each
+/// already biased towards `near`, when there is no point), at most `max`.
 #[must_use]
 pub fn rank(
     matches: Vec<AddressMatch>,
