@@ -191,10 +191,15 @@ content").
   from its pixels (`lunaway-media`) and stored under `external/` in the
   media directory, which the API's host serves; the app never loads a
   source's own URL. A place gone (deleted, merged, taken down) loses its
-  content at the next run. An operator hides an item, a review author's
-  key, a source on a place or a whole source (`lunaway content hide`,
-  `content_hides`); the card reads every row through the hides, so no
-  refresh brings back what was hidden.
+  content at the next run. An operator hides a photo or a review (each
+  hide names its kind, as a source may give both the same id), a review
+  author's key, a source on a place or a whole source (`lunaway content
+  hide`, `content_hides`); the card reads every row through the hides, so
+  no refresh brings back what was hidden. The API's role only reads
+  `content_hides`: it hides a reported photo or review and lifts the
+  hide the reports made through two functions that run with their
+  owner's rights (`content_hide_reported`, `content_unhide_reported`),
+  and can lift no other hide.
 - **API.** `Place.externalPhotos`, `Place.externalDescriptions` and
   `Place.externalReviews`, read per place for the card (each costs a
   database query in the request's budget).

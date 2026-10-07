@@ -279,6 +279,108 @@ async fn mangrove_is_never_replaced_from_part_of_the_map(pool: PgPool) {
     );
 }
 
+/// A page of Mangrove reviews about the point `(lat, lon)`, one per key
+/// of `keys`, written at `iat`.
+fn mangrove_reviews(lat: f64, lon: f64, keys: &[(String, i64)]) -> serde_json::Value {
+    let reviews: Vec<serde_json::Value> = keys
+        .iter()
+        .map(|(kid, iat)| {
+            serde_json::json!({
+                "signature": format!("sig{}", kid.replace('-', "")).repeat(3),
+                "kid": kid,
+                "payload": {
+                    "sub": format!("geo:{lat},{lon}?u=30"),
+                    "rating": 80,
+                    "opinion": format!("Avis de {kid}."),
+                    "iat": iat,
+                    "metadata": {"nickname": kid}
+                }
+            })
+        })
+        .collect();
+    serde_json::json!({ "reviews": reviews })
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn fresh_mangrove_keys_cannot_push_the_reviews_shown_off_a_place(pool: PgPool) {
+    seeded(&pool).await;
+    let (place, lat, lon): (uuid::Uuid, f64, f64) = sqlx::query_as(
+        "SELECT id, ST_Y(geom::geometry), ST_X(geom::geometry) FROM places \
+         WHERE deleted_at IS NULL ORDER BY id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    // Five reviewers Lunaway kept before, writing in May; ten keys never
+    // seen, all newer.
+    let old: Vec<(String, i64)> = (0..5)
+        .map(|n| (format!("old-key-{n}"), 1_778_000_000 + n))
+        .collect();
+    let fresh: Vec<(String, i64)> = (0..10)
+        .map(|n| (format!("fresh-key-{n}"), 1_790_000_000 + n))
+        .collect();
+    let kids: Vec<String> = old.iter().map(|(k, _)| k.clone()).collect();
+    sqlx::query(
+        "INSERT INTO content_review_keys (source_id, author_key, first_kept_at) \
+         SELECT 'mangrove', encode(sha256(convert_to(k, 'UTF8')), 'hex'), '2026-05-01T00:00:00Z' \
+         FROM unnest($1::text[]) AS k",
+    )
+    .bind(&kids)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let all: Vec<(String, i64)> = old.iter().chain(&fresh).cloned().collect();
+    let page = mangrove_reviews(lat, lon, &all).to_string().into_bytes();
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let (_, addr) = serve(vec![
+        (StatusCode::OK, page),
+        (StatusCode::OK, br#"{"reviews":[]}"#.to_vec()),
+    ])
+    .await;
+    let reports = content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Mangrove],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    let mut kept: Vec<String> = sqlx::query_scalar(
+        "SELECT author FROM content_reviews WHERE source_id = 'mangrove' AND place_id = $1",
+    )
+    .bind(place)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    kept.sort();
+    assert_eq!(
+        kept,
+        [
+            "fresh-key-8",
+            "fresh-key-9",
+            "old-key-0",
+            "old-key-1",
+            "old-key-2",
+            "old-key-3",
+            "old-key-4"
+        ],
+        "every reviewer kept before stays, and the place gains two new keys this run, the newest"
+    );
+    assert_eq!(r.new_keys, 2);
+    assert_eq!(r.held_new_keys, 8, "the others wait for a later run");
+    let known: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content_review_keys WHERE source_id = 'mangrove'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(known, 7, "a key kept once is no longer new");
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_second_refresh_does_not_start_beside_the_first(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();

@@ -12,7 +12,9 @@ use lunaway_db::{
     PgPool, accounts,
     community::{self, ReportOutcome},
     conflation::{self, OpeningEval, PlaceWrite},
-    content::{self, DueQuery, Hide, NewDescription, NewPhoto, NewReview, PhotoFiles, RunLock},
+    content::{
+        self, DueQuery, Hide, ItemKind, NewDescription, NewPhoto, NewReview, PhotoFiles, RunLock,
+    },
     moderation::{self, Decision},
 };
 use lunaway_domain::{
@@ -205,12 +207,22 @@ async fn a_hidden_item_stays_hidden_whatever_a_refresh_does(pool: PgPool) {
     };
     put(vec![photo("p1", "facing", 1), photo("p2", "facing", 2)]).await;
     let shown = content::photos_of_place(&pool, a, 24).await.unwrap();
-    let item = content::item(&pool, shown[0].id).await.unwrap().unwrap();
+    assert!(
+        content::item(&pool, ItemKind::Review, shown[0].id)
+            .await
+            .unwrap()
+            .is_none(),
+        "a photo's id names no review"
+    );
+    let item = content::item(&pool, ItemKind::Photo, shown[0].id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
         content::set_hidden(
             &pool,
             &item.source_id,
-            &Hide::Item(item.external_id.clone()),
+            &Hide::Item(ItemKind::Photo, item.external_id.clone()),
             true
         )
         .await
@@ -496,9 +508,14 @@ async fn the_worker_writes_the_content_and_the_api_only_reads_it(pool: PgPool) {
         .await
         .expect("the content worker runs with the import role");
     content::purge_gone_places(&ingest).await.unwrap();
-    content::set_hidden(&ingest, "panoramax", &Hide::Item("x".into()), true)
-        .await
-        .expect("the operator hides with the import role");
+    content::set_hidden(
+        &ingest,
+        "panoramax",
+        &Hide::Item(ItemKind::Photo, "x".into()),
+        true,
+    )
+    .await
+    .expect("the operator hides with the import role");
     assert_eq!(
         content::photos_of_place(&app, a, 24).await.unwrap().len(),
         1
@@ -507,10 +524,168 @@ async fn the_worker_writes_the_content_and_the_api_only_reads_it(pool: PgPool) {
     content::reviews_of_place(&app, a, 20, None).await.unwrap();
     let write = content::replace_photos(&app, a, "panoramax", &[], now, 0).await;
     assert!(write.is_err(), "the API never writes the open content");
-    let hide = content::set_hidden(&app, "panoramax", &Hide::Item("y".into()), true).await;
+}
+
+async fn hides(pool: &PgPool) -> Vec<(String, String, String)> {
+    sqlx::query_as("SELECT scope, key, origin FROM content_hides ORDER BY scope, key")
+        .fetch_all(pool)
+        .await
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_api_lifts_only_the_hides_the_reports_made(pool: PgPool) {
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let a = Uuid::now_v7();
+    for hide in [
+        Hide::Item(ItemKind::Photo, "op".into()),
+        Hide::Author("ab".repeat(32)),
+        Hide::Place(a),
+        Hide::Source,
+    ] {
+        content::set_hidden(&ingest, "mangrove", &hide, true)
+            .await
+            .unwrap();
+    }
+    let before = hides(&pool).await;
+    assert_eq!(before.len(), 4);
+
+    for sql in [
+        "DELETE FROM content_hides",
+        "UPDATE content_hides SET origin = 'reports'",
+        "INSERT INTO content_hides (source_id, scope, key) VALUES ('mangrove', 'review', 'z')",
+    ] {
+        let err = sqlx::query(sql).execute(&app).await.unwrap_err();
+        assert!(
+            err.to_string().contains("permission denied"),
+            "the API writes no hide directly, or its credentials would lift an operator's: {err}"
+        );
+    }
+    let err = content::set_hidden(&app, "mangrove", &Hide::Place(a), false)
+        .await
+        .unwrap_err();
     assert!(
-        hide.is_ok(),
-        "the API hides an item its reports or a moderator's rejection hide"
+        format!("{err:?}").contains("permission denied"),
+        "an operator's hide is lifted by the import role only: {err:?}"
+    );
+    for (scope, origin) in [
+        ("place", "reports"),
+        ("source", "moderator"),
+        ("photo", "operator"),
+    ] {
+        let err = sqlx::query("SELECT content_hide_reported('mangrove', $1, 'k', $2)")
+            .bind(scope)
+            .bind(origin)
+            .execute(&app)
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("one photo or review"),
+            "the API hides one item for the reports or a moderator, nothing wider: {err}"
+        );
+    }
+
+    let mut conn = app.acquire().await.unwrap();
+    let operator_photo = "op";
+    assert_eq!(
+        content::hide_item_on(
+            &mut conn,
+            "mangrove",
+            ItemKind::Photo,
+            operator_photo,
+            content::HideOrigin::Reports
+        )
+        .await
+        .unwrap(),
+        0,
+        "reports never take over an operator's hide"
+    );
+    assert_eq!(
+        content::unhide_reported_on(&mut conn, "mangrove", ItemKind::Photo, operator_photo)
+            .await
+            .unwrap(),
+        0,
+        "the API never lifts an operator's hide"
+    );
+    assert_eq!(hides(&pool).await, before);
+
+    content::hide_item_on(
+        &mut conn,
+        "mangrove",
+        ItemKind::Review,
+        "r",
+        content::HideOrigin::Reports,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        content::unhide_reported_on(&mut conn, "mangrove", ItemKind::Review, "r")
+            .await
+            .unwrap(),
+        1,
+        "the API lifts the hide its reports made"
+    );
+    assert_eq!(hides(&pool).await, before);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_review_and_a_photo_of_the_same_id_are_hidden_apart(pool: PgPool) {
+    let a = place(&pool, "A", 47.0, 2.0).await;
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    content::replace_photos(
+        &pool,
+        a,
+        "mangrove",
+        &[photo("same", "linked", 1)],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    content::replace_reviews(
+        &pool,
+        "mangrove",
+        &[NewReview {
+            place_id: a,
+            external_id: "same".into(),
+            rating: Some(2),
+            text: Some("Bruyant.".into()),
+            lang: None,
+            author: None,
+            author_key: None,
+            written_at: Utc::now(),
+            page_url: "https://mangrove.reviews/list?signature=same".into(),
+            licence: "CC BY 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            distance_m: None,
+        }],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    let review = content::reviews_of_place(&app, a, 20, None)
+        .await
+        .unwrap()
+        .nodes[0]
+        .id;
+    let reporters = [
+        account(&app, 1).await,
+        account(&app, 2).await,
+        account(&app, 3).await,
+    ];
+    for r in reporters {
+        report(&app, r, ReportTarget::ExternalReview, review).await;
+    }
+    assert_eq!(
+        shown_reviews(&app, a).await,
+        0,
+        "three reports hide the review"
+    );
+    assert_eq!(
+        content::photos_of_place(&app, a, 24).await.unwrap().len(),
+        1,
+        "the photo that shares the review's id at its source stays"
     );
 }
 
@@ -655,9 +830,14 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
     assert_eq!(origin(pool.clone()).await.as_deref(), Some("reports"));
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
     assert!(
-        content::set_hidden(&ingest, "mangrove", &Hide::Item("sig".into()), true)
-            .await
-            .unwrap(),
+        content::set_hidden(
+            &ingest,
+            "mangrove",
+            &Hide::Item(ItemKind::Review, "sig".into()),
+            true
+        )
+        .await
+        .unwrap(),
         "the operator's hide takes over the reports'"
     );
     assert_eq!(origin(pool.clone()).await.as_deref(), Some("operator"));
@@ -669,9 +849,14 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         0,
         "a moderator who keeps it never lifts the operator's hide"
     );
-    content::set_hidden(&ingest, "mangrove", &Hide::Item("sig".into()), false)
-        .await
-        .unwrap();
+    content::set_hidden(
+        &ingest,
+        "mangrove",
+        &Hide::Item(ItemKind::Review, "sig".into()),
+        false,
+    )
+    .await
+    .unwrap();
     assert_eq!(shown_reviews(&app, a).await, 1);
 
     let more = [

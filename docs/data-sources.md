@@ -291,7 +291,7 @@ no-derivatives licence is refused. Research and measurements:
 | Wikidata (no row of its own) | which article and which image an item names | CC0: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero" (https://www.wikidata.org/wiki/Wikidata:Licensing) | none required | read weekly, nothing stored |
 | Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
 | DATAtourisme (`datatourisme`) | the descriptions (long, else short, per language) and the photos of the objects the conflation linked to a place | Licence Ouverte 2.0 (the row above). For photos, the CGU put every published file under it unless its annotation says otherwise: "un producteur de données n'est supposé publier sur DATAtourisme que les liens vers les photos publiables en open data sous licence ouverte", and the reuser must "mentionner, en plus de la source et de la date de MAJ, le crédit photo (propriété HasCredit) à proximité immédiate du visuel et [...] respecter la date de fin de droits quand celle ci est mentionnée" (https://support.datatourisme.fr/t/2341, read 2026-10-07). A photo without a credit, with a licence of its own that is refused (11 644 of 24 377 say `By-NC-ND 4.0`), or whose rights end within 8 days is left out | the office, the update date, the photo's credit and licence, the object's page | ingested weekly, from the records |
-| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, the newest. Anyone can sign a review with a new key, so an operator hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
+| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, chosen by the age of their keys ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
 
 Not used:
 
@@ -313,6 +313,38 @@ Not used:
   (https://wiki.openstreetmap.org/wiki/Key:image).
 - The other Panoramax instances, until their terms are read
   (`content::panoramax::INSTANCES`).
+
+### Mangrove reviews
+
+A Mangrove review is signed with a key its author makes in a second, and
+the date it carries is the author's: neither says whether a real person
+wrote it. Lunaway weighs a key by the history it earned on Lunaway, which
+no one can backdate: `content_review_keys` records, per key (its
+SHA-256), when a review it signed was first kept, on any place. A key
+absent from it is new. Each weekly run then chooses the reviews of each
+place (`lunaway_domain::content::reviews::pick_reviews`, caps in
+`MANGROVE_CAPS`):
+
+1. hidden reviews and hidden keys take no room (`content_hides`);
+2. one review per key and place, its newest;
+3. keys kept before first, the oldest key first, then the newest review;
+4. then new keys: those whose reviews this run matches to several places
+   first, then the newest; at most 2 new keys per place and per run, and
+   50 new keys per run over every place (a key on several places counts
+   once);
+5. ten reviews per place at most.
+
+A review kept makes its key known, and the key stays known when the
+review goes. Ten fresh keys therefore never push the reviews shown off a
+place: the reviewers kept before keep their slots, and new keys fill only
+the free ones, two per week, where the reports and the operator's hides
+reach them. A legitimate new reviewer of a place that already shows ten
+reviews by older keys waits until one of them goes. The keys of the
+reviews already shown when the rule arrived (migration
+`20261008110200_content_review_keys.sql`) start known, dated from when
+they were fetched. Each run prints the new keys it let in and the reviews
+of new keys it held for a later run (`lunaway content refresh`, "new
+author keys").
 
 ### Hosts the content worker calls
 

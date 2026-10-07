@@ -10,6 +10,8 @@
 //! the other hand, exclude each other ([`RunLock`]): they share files and
 //! the sources' rate limits.
 
+use std::collections::HashMap;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{Connection, PgConnection, PgPool};
 use uuid::Uuid;
@@ -587,9 +589,31 @@ pub struct NewReview {
     pub distance_m: Option<f32>,
 }
 
+/// The keys of `source` whose reviews Lunaway kept, with when it first
+/// kept one: a key absent from it is new.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn review_keys(
+    pool: &PgPool,
+    source: &str,
+) -> Result<HashMap<String, DateTime<Utc>>, DbError> {
+    let rows = sqlx::query!(
+        "SELECT author_key, first_kept_at FROM content_review_keys WHERE source_id = $1",
+        source,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.author_key, r.first_kept_at))
+        .collect())
+}
+
 /// Replaces every review of `source` with `reviews`, the whole of what the
 /// source holds (a review gone from it goes from Lunaway), in one
-/// transaction.
+/// transaction, and records the keys of the reviews kept.
 ///
 /// # Errors
 ///
@@ -644,6 +668,24 @@ pub async fn replace_reviews(
         .execute(&mut *tx)
         .await?;
     }
+    // A key earns its history by a kept review, and keeps it when the
+    // review goes (`content_review_keys`).
+    let keys: Vec<String> = reviews
+        .iter()
+        .filter_map(|r| r.author_key.clone())
+        .collect();
+    sqlx::query!(
+        r#"
+        INSERT INTO content_review_keys (source_id, author_key, first_kept_at)
+        SELECT $1, k, $3 FROM unnest($2::text[]) AS k
+        ON CONFLICT (source_id, author_key) DO NOTHING
+        "#,
+        source,
+        &keys,
+        at,
+    )
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(Replaced {
         kept: reviews.len(),
@@ -863,11 +905,34 @@ pub async fn purge_unlinked(pool: &PgPool, source: &str) -> Result<Replaced, DbE
     })
 }
 
+/// Whether an item of a source is a photo or a review. A hide and a
+/// report name it, because a source may give a photo and a review the
+/// same id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ItemKind {
+    /// A photo.
+    Photo,
+    /// A review.
+    Review,
+}
+
+impl ItemKind {
+    /// The scope of its hides in `content_hides`.
+    #[must_use]
+    pub const fn scope(self) -> &'static str {
+        match self {
+            Self::Photo => "photo",
+            Self::Review => "review",
+        }
+    }
+}
+
 /// What an operator hides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Hide {
-    /// One photo or review, by its id at the source, wherever it shows.
-    Item(String),
+    /// One photo or review, by its kind and its id at the source,
+    /// wherever it shows.
+    Item(ItemKind, String),
     /// Every review signed by one key, by the SHA-256 of the key.
     Author(String),
     /// Everything the source shows on one place.
@@ -879,7 +944,7 @@ pub enum Hide {
 impl Hide {
     fn scope_and_key(&self) -> (&'static str, String) {
         match self {
-            Self::Item(id) => ("item", id.clone()),
+            Self::Item(kind, id) => (kind.scope(), id.clone()),
             Self::Author(key) => ("author", key.clone()),
             Self::Place(id) => ("place", id.to_string()),
             Self::Source => ("source", "*".to_owned()),
@@ -928,8 +993,8 @@ pub async fn set_hidden(
     Ok(done.rows_affected() > 0)
 }
 
-/// The ids and author keys an operator hid of `source`, so a refresh
-/// leaves hidden reviews out before it counts what a place may show.
+/// The review ids and author keys hidden of `source`, so a refresh leaves
+/// hidden reviews out before it counts what a place may show.
 ///
 /// # Errors
 ///
@@ -939,12 +1004,12 @@ pub async fn hidden_keys(
     source: &str,
 ) -> Result<(Vec<String>, Vec<String>), DbError> {
     let rows = sqlx::query!(
-        "SELECT scope, key FROM content_hides WHERE source_id = $1 AND scope IN ('item', 'author')",
+        "SELECT scope, key FROM content_hides WHERE source_id = $1 AND scope IN ('review', 'author')",
         source,
     )
     .fetch_all(pool)
     .await?;
-    let (items, authors): (Vec<_>, Vec<_>) = rows.into_iter().partition(|r| r.scope == "item");
+    let (items, authors): (Vec<_>, Vec<_>) = rows.into_iter().partition(|r| r.scope == "review");
     Ok((
         items.into_iter().map(|r| r.key).collect(),
         authors.into_iter().map(|r| r.key).collect(),
@@ -962,27 +1027,36 @@ pub struct ItemRef {
     pub author_key: Option<String>,
 }
 
-/// The photo or review `id` (`ExternalPhoto.id`, `ExternalReview.id`).
+/// The photo or review `id` (`ExternalPhoto.id`, `ExternalReview.id`), of
+/// the kind named.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn item(pool: &PgPool, id: Uuid) -> Result<Option<ItemRef>, DbError> {
-    Ok(sqlx::query_as!(
-        ItemRef,
-        r#"
-        SELECT source_id AS "source_id!", external_id AS "external_id!", author_key
-        FROM (
-            SELECT source_id, external_id, NULL::text AS author_key FROM content_photos WHERE id = $1
-            UNION ALL
-            SELECT source_id, external_id, author_key FROM content_reviews WHERE id = $1
-        ) i
-        LIMIT 1
-        "#,
-        id,
-    )
-    .fetch_optional(pool)
-    .await?)
+pub async fn item(pool: &PgPool, kind: ItemKind, id: Uuid) -> Result<Option<ItemRef>, DbError> {
+    Ok(match kind {
+        ItemKind::Photo => {
+            sqlx::query_as!(
+                ItemRef,
+                r#"
+                SELECT source_id, external_id, NULL::text AS author_key
+                FROM content_photos WHERE id = $1
+                "#,
+                id,
+            )
+            .fetch_optional(pool)
+            .await?
+        }
+        ItemKind::Review => {
+            sqlx::query_as!(
+                ItemRef,
+                "SELECT source_id, external_id, author_key FROM content_reviews WHERE id = $1",
+                id,
+            )
+            .fetch_optional(pool)
+            .await?
+        }
+    })
 }
 
 /// A photo as the card shows it.
@@ -1059,7 +1133,7 @@ pub async fn photos_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
-                AND ((h.scope = 'item' AND h.key = c.external_id)
+                AND ((h.scope = 'photo' AND h.key = c.external_id)
                   OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
                   OR h.scope = 'source'))
         ORDER BY CASE c.relation WHEN 'linked' THEN 0 WHEN 'facing' THEN 1 ELSE 2 END,
@@ -1201,7 +1275,7 @@ pub async fn reviews_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
-                AND ((h.scope = 'item' AND h.key = c.external_id)
+                AND ((h.scope = 'review' AND h.key = c.external_id)
                   OR (h.scope = 'author' AND h.key = c.author_key)
                   OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
                   OR h.scope = 'source'))
@@ -1229,7 +1303,7 @@ pub async fn reviews_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
-                AND ((h.scope = 'item' AND h.key = c.external_id)
+                AND ((h.scope = 'review' AND h.key = c.external_id)
                   OR (h.scope = 'author' AND h.key = c.author_key)
                   OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
                   OR h.scope = 'source'))
@@ -1278,7 +1352,7 @@ pub async fn ratings_of_place(
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
-                AND ((h.scope = 'item' AND h.key = c.external_id)
+                AND ((h.scope = 'review' AND h.key = c.external_id)
                   OR (h.scope = 'author' AND h.key = c.author_key)
                   OR (h.scope = 'place' AND h.key IN (c.place_id::text, $1::text))
                   OR h.scope = 'source'))
@@ -1374,40 +1448,57 @@ pub struct ExternalItem {
     pub source_id: String,
     /// Its id at the source.
     pub external_id: String,
-    /// A review rather than a photo.
-    pub is_review: bool,
 }
 
 /// The external photo or review `id` (`ExternalPhoto.id`,
-/// `ExternalReview.id`), whichever source it came from.
+/// `ExternalReview.id`) of the kind named, whichever source it came from:
+/// a report of a review never reaches a photo, whatever their ids.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
 pub async fn external_item_on(
     conn: &mut PgConnection,
+    kind: ItemKind,
     id: Uuid,
 ) -> Result<Option<ExternalItem>, DbError> {
-    Ok(sqlx::query_as!(
-        ExternalItem,
-        r#"
-        SELECT source_id AS "source_id!", external_id AS "external_id!", is_review AS "is_review!"
-        FROM (
-            SELECT source_id, external_id, false AS is_review FROM content_photos WHERE id = $1
-            UNION ALL
-            SELECT source_id, external_id, true FROM content_reviews WHERE id = $1
-            UNION ALL
-            SELECT source_id, external_id, false FROM external_photos
-            WHERE id = $1 AND retired_at IS NULL
-            UNION ALL
-            SELECT source_id, external_id, true FROM external_reviews WHERE id = $1
-        ) i
-        LIMIT 1
-        "#,
-        id,
-    )
-    .fetch_optional(conn)
-    .await?)
+    Ok(match kind {
+        ItemKind::Photo => {
+            sqlx::query_as!(
+                ExternalItem,
+                r#"
+                SELECT source_id AS "source_id!", external_id AS "external_id!"
+                FROM (
+                    SELECT source_id, external_id FROM content_photos WHERE id = $1
+                    UNION ALL
+                    SELECT source_id, external_id FROM external_photos
+                    WHERE id = $1 AND retired_at IS NULL
+                ) i
+                LIMIT 1
+                "#,
+                id,
+            )
+            .fetch_optional(conn)
+            .await?
+        }
+        ItemKind::Review => {
+            sqlx::query_as!(
+                ExternalItem,
+                r#"
+                SELECT source_id AS "source_id!", external_id AS "external_id!"
+                FROM (
+                    SELECT source_id, external_id FROM content_reviews WHERE id = $1
+                    UNION ALL
+                    SELECT source_id, external_id FROM external_reviews WHERE id = $1
+                ) i
+                LIMIT 1
+                "#,
+                id,
+            )
+            .fetch_optional(conn)
+            .await?
+        }
+    })
 }
 
 /// Who hides an item.
@@ -1419,8 +1510,10 @@ pub enum HideOrigin {
     Moderator,
 }
 
-/// Hides one item of a source wherever it shows; a moderator's hide
-/// replaces one the reports made. Returns the rows written.
+/// Hides one photo or review of a source wherever it shows; a moderator's
+/// hide replaces one the reports made, and neither replaces an operator's.
+/// Returns the rows written. The API's role writes no hide directly: this
+/// goes through `content_hide_reported`, which can write nothing else.
 ///
 /// # Errors
 ///
@@ -1428,6 +1521,7 @@ pub enum HideOrigin {
 pub async fn hide_item_on(
     conn: &mut PgConnection,
     source: &str,
+    kind: ItemKind,
     external_id: &str,
     origin: HideOrigin,
 ) -> Result<u64, DbError> {
@@ -1435,23 +1529,20 @@ pub async fn hide_item_on(
         HideOrigin::Reports => "reports",
         HideOrigin::Moderator => "moderator",
     };
-    Ok(sqlx::query!(
-        r#"
-        INSERT INTO content_hides (source_id, scope, key, origin) VALUES ($1, 'item', $2, $3)
-        ON CONFLICT (source_id, scope, key) DO UPDATE SET origin = excluded.origin
-        WHERE content_hides.origin = 'reports'
-        "#,
+    let written = sqlx::query_scalar!(
+        r#"SELECT content_hide_reported($1, $2, $3, $4) AS "written!""#,
         source,
+        kind.scope(),
         external_id,
         origin,
     )
-    .execute(conn)
-    .await?
-    .rows_affected())
+    .fetch_one(conn)
+    .await?;
+    Ok(u64::try_from(written).unwrap_or(0))
 }
 
-/// Lifts the hide the reports put on an item; an operator's or a
-/// moderator's stays.
+/// Lifts the hide the reports put on one photo or review; an operator's
+/// or a moderator's stays (`content_unhide_reported`).
 ///
 /// # Errors
 ///
@@ -1459,17 +1550,16 @@ pub async fn hide_item_on(
 pub async fn unhide_reported_on(
     conn: &mut PgConnection,
     source: &str,
+    kind: ItemKind,
     external_id: &str,
 ) -> Result<u64, DbError> {
-    Ok(sqlx::query!(
-        r#"
-        DELETE FROM content_hides
-        WHERE source_id = $1 AND scope = 'item' AND key = $2 AND origin = 'reports'
-        "#,
+    let removed = sqlx::query_scalar!(
+        r#"SELECT content_unhide_reported($1, $2, $3) AS "removed!""#,
         source,
+        kind.scope(),
         external_id,
     )
-    .execute(conn)
-    .await?
-    .rows_affected())
+    .fetch_one(conn)
+    .await?;
+    Ok(u64::try_from(removed).unwrap_or(0))
 }
