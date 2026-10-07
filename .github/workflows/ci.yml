@@ -226,20 +226,61 @@ jobs:
         run: cargo test --locked
       - name: clippy for the browser (WebAssembly)
         run: cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
-      - name: the committed web build comes from this crate (stamp)
-        working-directory: .
-        run: sh app/packages/lunaway_nav/tool/build_web.sh --check
-      # The stamp can be written by hand: the binary is rebuilt and compared
-      # byte for byte, with the wasm-bindgen of Cargo.lock.
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-bindgen@0.2.129
-      - name: the committed web build rebuilds byte for byte
-        working-directory: .
-        run: sh app/packages/lunaway_nav/tool/build_web.sh --verify
       - name: licences, sources, advisories
         # cargo-deny itself: in `cargo deny --config`, cargo reads the flag.
         run: cargo-deny --log-level error --config ../../../../backend/deny.toml check bans licenses sources advisories
+
+  web:
+    # The web app as it is deployed: the guidance crate built to WebAssembly
+    # from source with the pinned toolchain (it is not committed: a build
+    # made on macOS did not come out byte for byte the same on Linux), then
+    # the Flutter web build that serves it. The build fails if either does,
+    # and the release must hold the two files the app loads.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: pinned toolchain (rust-toolchain.toml)
+        working-directory: app/packages/lunaway_nav/rust
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/packages/lunaway_nav/rust
+          # As in the backend job: the automatic key follows Cargo.lock and
+          # the toolchain, not the release profile of Cargo.toml.
+          key: ${{ hashFiles('app/packages/lunaway_nav/rust/Cargo.toml') }}
+      # wasm-bindgen-cli must match the wasm-bindgen of Cargo.lock.
+      - name: wasm-bindgen version of Cargo.lock
+        run: |
+          echo "WASM_BINDGEN_VERSION=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/version = |"/, ""); print; exit }' app/packages/lunaway_nav/rust/Cargo.lock)" >> "$GITHUB_ENV"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
+      - name: guidance engine for the browser, from source
+        run: sh app/packages/lunaway_nav/tool/build_web.sh
+      - name: pinned Flutter version
+        run: |
+          echo "FLUTTER_VERSION=$(sed -n 's/.*"flutter": "\([^"]*\)".*/\1/p' .fvmrc)" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: packages
+        working-directory: app
+        run: flutter pub get
+      - name: build (the flags of infra/deploy-web.sh)
+        working-directory: app
+        run: flutter build web --release --no-pub --base-href /app/ --no-web-resources-cdn
+      # lib/src/load_web.dart loads lunaway_nav/lunaway_nav.js, then
+      # lunaway_nav_bg.wasm, and finds the module on `window` only if the
+      # glue declares it with `var` (build_web.sh rewrites it).
+      - name: the release holds the guidance engine the app loads
+        working-directory: app/build/web
+        run: |
+          test -s lunaway_nav/lunaway_nav_bg.wasm
+          head -n 1 lunaway_nav/lunaway_nav.js | grep -q '^var wasm_bindgen = '
+          grep -q "'lunaway_nav/lunaway_nav'" ../../packages/lunaway_nav/lib/src/load_web.dart
 
   backend:
     runs-on: ubuntu-latest

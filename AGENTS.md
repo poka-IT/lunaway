@@ -28,6 +28,7 @@ Official website https://lunaway.net, public API https://api.lunaway.net
 fvm flutter pub get
 fvm dart run slang                      # after editing lib/i18n/*.i18n.json
 fvm dart run build_runner build         # after changing a @riverpod provider
+sh packages/lunaway_nav/tool/build_web.sh  # before a web run or build (guidance WebAssembly)
 fvm flutter run -d macos                # or chrome, or a device
 fvm flutter test
 fvm dart analyze --fatal-infos          # dart, not flutter: only dart analyze runs riverpod_lint

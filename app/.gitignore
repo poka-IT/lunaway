@@ -49,3 +49,7 @@ app.*.map.json
 
 # Differences a failed golden comparison writes, for review.
 test/goldens/failures/
+
+# The guidance crate's WebAssembly build, made from source by
+# packages/lunaway_nav/tool/build_web.sh before every web build.
+/web/lunaway_nav/
