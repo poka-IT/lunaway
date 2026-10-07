@@ -138,7 +138,7 @@ final class PoiLayerProvider
   }
 }
 
-String _$poiLayerHash() => r'6ee30d8eafab9067c8993c1a3e3bbad680ee481c';
+String _$poiLayerHash() => r'0c227fcd94d8771bbfd67a4a532b3ae95f094462';
 
 abstract class _$PoiLayer extends $Notifier<PoiLayerChoice> {
   PoiLayerChoice build();

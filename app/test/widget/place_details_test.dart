@@ -222,13 +222,11 @@ void main() {
     expect(find.byTooltip('Copier les coordonnées'), findsOneWidget);
   });
 
-  testWidgets('directions offer the installed navigation apps and remember the choice', (
-    tester,
-  ) async {
+  testWidgets('a long press on directions offers the installed navigation apps', (tester) async {
     final app = await openPlace(tester, dayParking);
-    await tester.tap(find.text('Itinéraire'));
+    await tester.longPress(find.text('Itinéraire'));
     await settleShort(tester);
-    expect(find.text('Itinéraire avec'), findsOneWidget);
+    expect(find.text('Ouvrir dans'), findsOneWidget);
     expect(find.text('Google Maps'), findsOneWidget);
     expect(find.text('Waze'), findsOneWidget);
     expect(find.text('OsmAnd'), findsNothing, reason: 'not installed');
@@ -237,16 +235,11 @@ void main() {
     expect(app.external.routes.single.app, NavigationApp.waze);
     expect(app.external.routes.single.to, dayParking.position);
     expect(app.settings.value.navigationApp, NavigationApp.waze.id);
-    // Remembered: the next trip goes straight to Waze.
-    await tester.tap(find.text('Itinéraire'));
-    await settleShort(tester);
-    expect(find.text('Itinéraire avec'), findsNothing);
-    expect(app.external.routes.map((r) => r.app), [NavigationApp.waze, NavigationApp.waze]);
   });
 
-  testWidgets('with the switch off, the chooser asks again next time', (tester) async {
+  testWidgets('with the switch off, the chooser forgets the app', (tester) async {
     final app = await openPlace(tester, dayParking);
-    await tester.tap(find.text('Itinéraire'));
+    await tester.longPress(find.text('Itinéraire'));
     await settleShort(tester);
     await tester.tap(find.text('Toujours utiliser cette application'));
     await settleShort(tester);
@@ -259,7 +252,7 @@ void main() {
   testWidgets('when no app opens the route, the user is told', (tester) async {
     final app = await openPlace(tester, dayParking);
     app.external.openSucceeds = false;
-    await tester.tap(find.text('Itinéraire'));
+    await tester.longPress(find.text('Itinéraire'));
     await settleShort(tester);
     await tester.tap(find.text('Waze'));
     await settleShort(tester);

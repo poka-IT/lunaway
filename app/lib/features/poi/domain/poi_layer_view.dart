@@ -8,6 +8,7 @@ final class PoiLayerView {
   const new({
     required this.tileJsonUrl,
     this.category,
+    this.vending,
     this.openNowOnly = false,
     this.state = PoiLayerState.empty,
     this.night = false,
@@ -20,6 +21,10 @@ final class PoiLayerView {
 
   /// The chip turned on; null shows every point quietly at street zoom.
   final PoiCategory? category;
+
+  /// With the vending machines on, the one kind drawn alone; null draws
+  /// them all.
+  final PoiKind? vending;
   final bool openNowOnly;
   final PoiLayerState state;
 
@@ -38,6 +43,7 @@ final class PoiLayerView {
       other is PoiLayerView &&
       other.tileJsonUrl == tileJsonUrl &&
       other.category == category &&
+      other.vending == vending &&
       other.openNowOnly == openNowOnly &&
       other.state == state &&
       other.night == night &&
@@ -46,5 +52,6 @@ final class PoiLayerView {
       listEquals(other.fuelLabels, fuelLabels);
 
   @override
-  int get hashCode => Object.hash(tileJsonUrl, category, openNowOnly, state, night, selected);
+  int get hashCode =>
+      Object.hash(tileJsonUrl, category, vending, openNowOnly, state, night, selected);
 }

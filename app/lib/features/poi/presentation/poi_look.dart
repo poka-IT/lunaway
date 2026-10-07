@@ -165,7 +165,15 @@ const poiDotSize = Size(22, 22);
 
 /// A category's gathering dot: its tone in a cream ring, with the
 /// category's glyph, so dots of two categories never read alike.
-void paintPoiDot(Canvas canvas, PoiCategory category) {
+void paintPoiDot(Canvas canvas, PoiCategory category) =>
+    _paintDot(canvas, category, PoiLook.category(category));
+
+/// The gathering dot of one kind of vending machine shown alone: the
+/// category's dot with the kind's glyph (a loaf for bread).
+void paintPoiVendingDot(Canvas canvas, PoiKind kind) =>
+    _paintDot(canvas, kind.category, PoiLook.kind(kind));
+
+void _paintDot(Canvas canvas, PoiCategory category, IconData glyph) {
   const c = Offset(11, 11);
   canvas
     ..drawCircle(
@@ -177,7 +185,7 @@ void paintPoiDot(Canvas canvas, PoiCategory category) {
     )
     ..drawCircle(c, 9.6, Paint()..color = LunaTokens.pinRim)
     ..drawCircle(c, 8, Paint()..color = PoiLook.tone(category));
-  _paintGlyph(canvas, PoiLook.category(category), c, 10.5, LunaTokens.pinGlyph);
+  _paintGlyph(canvas, glyph, c, 10.5, LunaTokens.pinGlyph);
 }
 
 void _paintGlyph(Canvas canvas, IconData icon, Offset center, double size, Color color) {

@@ -1,20 +1,24 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/shared/theme/motion.dart';
-import 'package:lunaway/shared/theme/palette.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 final _log = Logger('route_map');
 
 /// The route map on Android, iOS and the web (maplibre_gl): the routes, the
 /// restrictions and the vehicle as layers of their own over the basemap.
+///
+/// While guiding, the vehicle glides between fixes ([VehicleMotion]) and the
+/// camera rides with it, frame by frame: tilted, turned to the course, the
+/// vehicle in the lower part of the free map so the road ahead shows.
 class GlRouteMap extends StatefulWidget {
   const new(this.props, {super.key});
 
@@ -24,7 +28,7 @@ class GlRouteMap extends StatefulWidget {
   State<GlRouteMap> createState() => _GlRouteMapState();
 }
 
-class _GlRouteMapState extends State<GlRouteMap> {
+class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateMixin {
   gl.MapLibreMapController? _controller;
   bool _ready = false;
   int _styleLoads = 0;
@@ -42,10 +46,46 @@ class _GlRouteMapState extends State<GlRouteMap> {
 
   RouteMapProps get _props => widget.props;
 
+  // The drawn vehicle and the camera that rides with it.
+  final _motion = VehicleMotion();
+  final _clock = Stopwatch()..start();
+  late final Ticker _ticker = createTicker((_) => _frame());
+  bool _frameBusy = false;
+  Duration _lastFrame = Duration.zero;
+  double? _shownZoom;
+  double _shownBearing = 0;
+  EdgeInsets? _sentInsets;
+  Size _size = Size.zero;
+
+  /// Where the camera was when following began, and when: the first moments
+  /// ease from that view into the driver's, instead of a cut.
+  gl.CameraPosition? _entryFrom;
+  Duration _entryStart = Duration.zero;
+
+  /// The insets following asks for; during the entry they grow from none
+  /// with the rest of the camera, so the view does not drop at once.
+  EdgeInsets _followTarget = EdgeInsets.zero;
+  static const _entry = Duration(milliseconds: 900);
+
+  /// Native maps take each frame over a platform channel: 30 a second keeps
+  /// the glide smooth without queueing calls. The browser's map is called
+  /// directly and takes every frame.
+  static const Duration _frameGap = kIsWeb ? Duration.zero : Duration(milliseconds: 33);
+
+  /// A fix this far from the drawn vehicle is a jump (a new route from
+  /// elsewhere), not a move to glide through.
+  static const _jumpM = 500.0;
+
   /// The arrow is drawn at the screen's density. MapLibre on Android and
   /// iOS reads an image pixel as a physical one (maplibre_gl 0.27.1 makes
   /// the iOS image at the screen's scale), the web as a CSS pixel.
   double get _arrowScale => kIsWeb ? 1 / MediaQuery.devicePixelRatioOf(context) : 1;
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(GlRouteMap old) {
@@ -96,7 +136,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
     final dark = _props.dark;
     const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
     try {
-      final arrow = await _vehicleArrow(MediaQuery.devicePixelRatioOf(context));
+      final arrow = await vehicleArrowPng(MediaQuery.devicePixelRatioOf(context));
       if (!current()) return;
       await c.addImage(RouteLayers.vehicleImage, arrow);
       for (final id in [
@@ -190,6 +230,7 @@ class _GlRouteMapState extends State<GlRouteMap> {
       _sentMarks = null;
       _sentVehicle = null;
       _sentCamera = null;
+      _sentInsets = null;
       _schedule();
     } on Object catch (e, st) {
       _log.warning('could not set up the route layers', e, st);
@@ -215,63 +256,167 @@ class _GlRouteMapState extends State<GlRouteMap> {
       _sentMarks = p.marks;
       await c.setGeoJsonSource(RouteLayers.marksSource, routeMarksCollection(p.marks));
     }
-    if (!identical(p.vehicle, _sentVehicle)) {
+    if (p.vehicle != _sentVehicle) {
       _sentVehicle = p.vehicle;
-      await c.setGeoJsonSource(RouteLayers.vehicleSource, vehicleCollection(p.vehicle));
+      final v = p.vehicle;
+      if (v == null) {
+        await c.setGeoJsonSource(RouteLayers.vehicleSource, vehicleCollection(null));
+      } else if (mounted) {
+        final shown = _motion.target;
+        _motion.retarget(
+          v.position,
+          v.course,
+          _clock.elapsed,
+          jump: Motion.reduced(context) || (shown != null && shown.distanceTo(v.position) > _jumpM),
+        );
+        _startTicker();
+      }
     }
-    if (p.camera != _sentCamera) {
-      final previous = _sentCamera;
-      _sentCamera = p.camera;
-      await _moveCamera(c, p.camera, follow: previous is FollowCamera);
+    final camera = p.camera;
+    if (camera is FollowCamera) {
+      if (_sentCamera is! FollowCamera && mounted) {
+        _entryFrom = Motion.reduced(context) ? null : c.cameraPosition;
+        _entryStart = _clock.elapsed;
+      }
+      _sentCamera = camera;
+      await _followInsets(c);
+      _startTicker();
+    } else if (camera != _sentCamera) {
+      final wasFollowing = _sentCamera is FollowCamera;
+      _sentCamera = camera;
+      if (wasFollowing) {
+        _sentInsets = EdgeInsets.zero;
+        await c.updateContentInsets(EdgeInsets.zero);
+        // The overview reads north up and flat, as the preview does: the
+        // bounds below keep whatever tilt and bearing the map had.
+        if (c.cameraPosition case final at?) {
+          await c.moveCamera(
+            gl.CameraUpdate.newCameraPosition(gl.CameraPosition(target: at.target, zoom: at.zoom)),
+          );
+        }
+      }
+      _shownZoom = null;
+      await _moveCamera(c, camera);
     }
   }
 
-  Future<void> _moveCamera(
-    gl.MapLibreMapController c,
-    RouteCamera camera, {
-    required bool follow,
-  }) async {
-    if (!mounted) return;
+  /// Starts the frames, the first one measured from now: after a pause
+  /// (parked, a tunnel) the zoom must not catch up in one step.
+  void _startTicker() {
+    if (_ticker.isActive) return;
+    _lastFrame = Duration.zero;
+    _ticker.start();
+  }
+
+  /// While following, the camera's centre sits low in the free part of the
+  /// map (under the banner, above the bar): the vehicle near the bottom,
+  /// the road ahead above it.
+  Future<void> _followInsets(gl.MapLibreMapController c) async {
     final pad = _props.padding;
-    switch (camera) {
-      case FitCamera(:final bounds):
-        await c.animateCamera(
-          gl.CameraUpdate.newLatLngBounds(
-            gl.LatLngBounds(
-              southwest: gl.LatLng(bounds.south, bounds.west),
-              northeast: gl.LatLng(bounds.north, bounds.east),
-            ),
-            left: pad.left + 48,
-            top: pad.top + 48,
-            right: pad.right + 48,
-            bottom: pad.bottom + 48,
-          ),
-          duration: Motion.of(context, Motion.camera),
-        );
-      case FollowCamera(:final position, :final course, :final zoom):
-        final update = gl.CameraUpdate.newCameraPosition(
-          gl.CameraPosition(
-            target: gl.LatLng(position.lat, position.lon),
-            zoom: zoom,
-            bearing: course ?? c.cameraPosition?.bearing ?? 0,
-            tilt: 45,
-          ),
-        );
-        // A fix a second: the camera glides from one to the next instead of
-        // jumping, which reads calmer at the wheel. Not awaited: the next
-        // fix's glide takes over from this one.
-        final glide = Motion.reduced(context)
-            ? Duration.zero
-            : follow
-            ? const Duration(milliseconds: 950)
-            : Motion.camera;
-        unawaited(
-          c.animateCamera(update, duration: glide).catchError((Object e, StackTrace st) {
-            _log.warning('camera move failed', e, st);
-            return null;
-          }),
-        );
+    final free = math.max(0, _size.height - pad.top - pad.bottom);
+    final insets = EdgeInsets.fromLTRB(pad.left, pad.top + free * 0.45, pad.right, pad.bottom);
+    _followTarget = insets;
+    // During the entry the frames move the insets along with the camera.
+    if (insets == _sentInsets || _entryFrom != null) return;
+    _sentInsets = insets;
+    await c.updateContentInsets(insets);
+  }
+
+  /// One frame of the glide: the vehicle where [VehicleMotion] draws it,
+  /// and the camera on it while following. A frame waits for the previous
+  /// one's calls, so a slow map drops frames instead of queueing them.
+  void _frame() {
+    final c = _controller;
+    final now = _clock.elapsed;
+    if (c == null || !_ready || !mounted) {
+      // No style yet (or a failed one): frames resume with the next sync.
+      _ticker.stop();
+      return;
     }
+    if (_frameBusy || now - _lastFrame < _frameGap) return;
+    final (position, course) = _motion.at(now);
+    if (position == null) return;
+    final dt = _lastFrame == Duration.zero ? Duration.zero : now - _lastFrame;
+    _lastFrame = now;
+    final camera = _props.camera;
+    var settled = !_motion.movingAt(now);
+    final calls = <Future<Object?>>[
+      c.setGeoJsonSource(
+        RouteLayers.vehicleSource,
+        vehicleCollection(VehiclePuck(position: position, course: course)),
+      ),
+    ];
+    if (camera is FollowCamera) {
+      final wanted = camera.zoom;
+      final shownZoom = _shownZoom;
+      var zoom = shownZoom == null ? wanted : easeZoom(shownZoom, wanted, dt);
+      _shownZoom = zoom;
+      if ((wanted - zoom).abs() > 0.01) settled = false;
+      if (course != null) _shownBearing = course;
+      var target = position;
+      var bearing = _shownBearing;
+      var tilt = followTiltDeg;
+      // Into following: from the view the user had to the driver's.
+      if (_entryFrom case final from?) {
+        final t = (now - _entryStart).inMicroseconds / _entry.inMicroseconds;
+        if (t >= 1) {
+          _entryFrom = null;
+          _sentInsets = _followTarget;
+          calls.add(c.updateContentInsets(_followTarget));
+        } else {
+          settled = false;
+          final k = Motion.standard.transform(t.clamp(0, 1).toDouble());
+          final a = from.target;
+          target = LatLng(
+            a.latitude + (position.lat - a.latitude) * k,
+            a.longitude + (position.lon - a.longitude) * k,
+          );
+          zoom = from.zoom + (zoom - from.zoom) * k;
+          bearing = (from.bearing + angleDelta(from.bearing, bearing) * k) % 360;
+          tilt = from.tilt + (followTiltDeg - from.tilt) * k;
+          calls.add(c.updateContentInsets(EdgeInsets.lerp(EdgeInsets.zero, _followTarget, k)!));
+        }
+      }
+      calls.add(
+        c.moveCamera(
+          gl.CameraUpdate.newCameraPosition(
+            gl.CameraPosition(
+              target: gl.LatLng(target.lat, target.lon),
+              zoom: zoom,
+              bearing: bearing,
+              tilt: tilt,
+            ),
+          ),
+        ),
+      );
+    }
+    _frameBusy = true;
+    unawaited(
+      Future.wait(calls)
+          .then<void>((_) {})
+          .catchError((Object e, StackTrace st) => _log.warning('route map frame failed', e, st))
+          .whenComplete(() => _frameBusy = false),
+    );
+    if (settled) _ticker.stop();
+  }
+
+  Future<void> _moveCamera(gl.MapLibreMapController c, RouteCamera camera) async {
+    if (!mounted || camera is! FitCamera) return;
+    final pad = _props.padding;
+    final bounds = camera.bounds;
+    await c.animateCamera(
+      gl.CameraUpdate.newLatLngBounds(
+        gl.LatLngBounds(
+          southwest: gl.LatLng(bounds.south, bounds.west),
+          northeast: gl.LatLng(bounds.north, bounds.east),
+        ),
+        left: pad.left + 48,
+        top: pad.top + 48,
+        right: pad.right + 48,
+        bottom: pad.bottom + 48,
+      ),
+      duration: Motion.of(context, Motion.camera),
+    );
   }
 
   /// A mark first (a place, a station, a stop), then another route.
@@ -316,17 +461,23 @@ class _GlRouteMapState extends State<GlRouteMap> {
       FitCamera(:final bounds) => bounds.center,
       FollowCamera(:final position) => position,
     };
-    return gl.MapLibreMap(
+    final following = camera is FollowCamera;
+    final map = gl.MapLibreMap(
       styleString: p.style,
       initialCameraPosition: gl.CameraPosition(
         target: gl.LatLng(start.lat, start.lon),
-        zoom: camera is FollowCamera ? camera.zoom : 12,
+        zoom: following ? camera.zoom : 12,
+        tilt: following ? followTiltDeg : 0,
       ),
       trackCameraPosition: true,
       annotationOrder: const [],
       compassEnabled: false,
-      // The guidance turns the map with the road; the preview keeps north up.
-      rotateGesturesEnabled: camera is FollowCamera,
+      // While following, the camera rides with the vehicle and a drag
+      // would be undone at the next frame: the overview frees the map.
+      // The preview keeps north up.
+      rotateGesturesEnabled: false,
+      scrollGesturesEnabled: !following,
+      zoomGesturesEnabled: !following,
       tiltGesturesEnabled: false,
       attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
       attributionButtonMargins: math.Point(p.padding.left + 8, p.padding.bottom + 8),
@@ -341,32 +492,16 @@ class _GlRouteMapState extends State<GlRouteMap> {
           ? null
           : (_, at) => p.onLongPress!(LatLng(at.latitude, at.longitude)),
     );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final size = box.biggest;
+        if (size != _size) {
+          _size = size;
+          // The follow camera's insets follow the map's height.
+          if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
+        }
+        return map;
+      },
+    );
   }
-}
-
-/// The vehicle's arrow, drawn once per screen density: a lantern-amber
-/// chevron with a navy rim, pointing north (the layer turns it).
-Future<Uint8List> _vehicleArrow(double ratio) async {
-  final size = 30 * ratio;
-  final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder);
-  final path = Path()
-    ..moveTo(size / 2, size * 0.08)
-    ..lineTo(size * 0.86, size * 0.88)
-    ..lineTo(size / 2, size * 0.68)
-    ..lineTo(size * 0.14, size * 0.88)
-    ..close();
-  canvas
-    ..drawPath(
-      path,
-      Paint()
-        ..color = Palette.minuit
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3 * ratio
-        ..strokeJoin = StrokeJoin.round,
-    )
-    ..drawPath(path, Paint()..color = Palette.lanterne);
-  final image = await recorder.endRecording().toImage(size.ceil(), size.ceil());
-  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-  return bytes!.buffer.asUint8List();
 }

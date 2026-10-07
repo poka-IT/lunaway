@@ -73,8 +73,11 @@ final class GeolocatorFeed implements LocationFeed {
   }
 
   @override
-  Stream<Fix> guidance(BackgroundNotice notice) =>
-      GeolocatorPlatform.instance.getPositionStream(locationSettings: _settings(notice)).map(_fix);
+  Stream<Fix> guidance(BackgroundNotice notice) => kIsWeb
+      ? webFixes()
+      : GeolocatorPlatform.instance
+            .getPositionStream(locationSettings: _settings(notice))
+            .map(_fix);
 
   /// A fix a second at full precision, standing still too (no distance
   /// filter): the arrival time and the alerts follow the fixes' clock,

@@ -298,6 +298,15 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'layout': _poiDotsLayout,
     },
     {
+      'id': PoiMapStyle.vendingDotsLayerId,
+      'type': 'symbol',
+      'source': PoiMapStyle.source,
+      'source-layer': PoiMapStyle.vendingClustersLayer,
+      'maxzoom': PoiMapStyle.pointsMinZoom,
+      'filter': PoiMapStyle.vendingDotsFilter(view),
+      'layout': {..._poiDotsLayout, 'icon-image': PoiMapStyle.vendingDotImage},
+    },
+    {
       'id': PoiMapStyle.quietLayerId,
       'type': 'symbol',
       'source': PoiMapStyle.source,
@@ -358,6 +367,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   static Map<String, Object?> _poiUpdate(PoiLayerView view) => {
     'filters': {
       PoiMapStyle.dotsLayerId: PoiMapStyle.dotsFilter(view),
+      PoiMapStyle.vendingDotsLayerId: PoiMapStyle.vendingDotsFilter(view),
       PoiMapStyle.quietLayerId: PoiMapStyle.quietFilter(view),
       PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
     },
@@ -371,7 +381,14 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     },
     'selection': PoiMapStyle.selectionCollection(view.selected),
     'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},
-    'probe': {'category': view.category?.code, 'filter': PoiMapStyle.probeFilter(view)},
+    // The page reads the points again when this key changes at the same
+    // camera: a kind of vending machine chosen changes what is drawn.
+    'probe': {
+      'category': view.category == PoiCategory.vending
+          ? view.vending?.code ?? view.category!.code
+          : view.category?.code,
+      'filter': PoiMapStyle.probeFilter(view),
+    },
   };
 
   void _onEvent(List<dynamic> arguments) {

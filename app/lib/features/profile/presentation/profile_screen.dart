@@ -10,7 +10,6 @@ import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
-import 'package:lunaway/features/navigation/presentation/route_entry.dart';
 import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -360,18 +359,11 @@ class _Directions extends ConsumerWidget {
     final t = context.t;
     final id = ref.watch(settingsProvider.select((s) => s.navigationApp));
     final app = NavigationApp.fromId(id);
-    final lunaway = id == lunawayDirectionsId;
     return _Section(
       title: t.directions.settingTitle,
       icon: AppIcons.navigationApps,
       child: ListTile(
-        title: Text(
-          lunaway
-              ? t.navigation.entry.lunaway
-              : app == null
-              ? t.directions.askEachTime
-              : app.label(t),
-        ),
+        title: Text(app == null ? t.directions.askEachTime : app.label(t)),
         subtitle: Text(t.directions.settingHint),
         trailing: const Icon(AppIcons.chevron),
         onTap: () async {
@@ -382,16 +374,9 @@ class _Directions extends ConsumerWidget {
             NavigationApp.offeredOn(Theme.of(context).platform, web: kIsWeb),
           );
           if (!context.mounted) return;
-          final picked = await showNavigationAppChooser(
-            context,
-            available,
-            selected: app,
-            lunawaySelected: lunaway,
-          );
+          final picked = await showNavigationAppChooser(context, available, selected: app);
           if (picked == null) return;
-          await settings.setNavigationApp(
-            picked.remember ? picked.app?.id ?? lunawayDirectionsId : null,
-          );
+          await settings.setNavigationApp(picked.remember ? picked.app.id : null);
         },
       ),
     );

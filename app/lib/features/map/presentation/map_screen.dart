@@ -314,6 +314,7 @@ class _Map extends ConsumerWidget {
     final pois = PoiLayerView(
       tileJsonUrl: ref.watch(poiTileJsonUrlProvider),
       category: poiChoice.category,
+      vending: poiChoice.vending,
       openNowOnly: poiChoice.openNowOnly,
       state: ref.watch(poiLayerStateProvider),
       night: ref.watch(poiNightProvider),

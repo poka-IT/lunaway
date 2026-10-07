@@ -23,6 +23,12 @@ type Account {
 	"""
 	createdAt: DateTime!
 	"""
+	When the account's current recovery code was made (the date of its
+	paper card, the same on every device); null when it has none. Only
+	the account itself reads it: `Account` is always the viewer's.
+	"""
+	recoveryCodeCreatedAt: DateTime
+	"""
 	The authors this account mutes.
 	"""
 	mutedAuthors: [Author!]!
@@ -2964,7 +2970,8 @@ type PoiLayer {
 	"""
 	Lowest zoom served: clusters per category and grid cell below
 	`pointMinZoom` (layer `poi_clusters`, properties `category`,
-	`count`).
+	`count`), and the food vending machines per kind (layer
+	`poi_vending_clusters`, properties `kind`, `count`).
 	"""
 	minZoom: Int!
 	"""

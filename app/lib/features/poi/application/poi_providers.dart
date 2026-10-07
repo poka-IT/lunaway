@@ -36,17 +36,24 @@ String poiTileJsonUrl(Ref ref) {
 /// only the open ones.
 @immutable
 final class PoiLayerChoice {
-  const new({this.category, this.openNowOnly = false});
+  const new({this.category, this.vending, this.openNowOnly = false});
 
   final PoiCategory? category;
+
+  /// With the vending machines on, the one kind shown alone (one of
+  /// [PoiKind.vendingChoices]); null shows them all.
+  final PoiKind? vending;
   final bool openNowOnly;
 
   @override
   bool operator ==(Object other) =>
-      other is PoiLayerChoice && other.category == category && other.openNowOnly == openNowOnly;
+      other is PoiLayerChoice &&
+      other.category == category &&
+      other.vending == vending &&
+      other.openNowOnly == openNowOnly;
 
   @override
-  int get hashCode => Object.hash(category, openNowOnly);
+  int get hashCode => Object.hash(category, vending, openNowOnly);
 }
 
 // keepAlive: the chip stays on while the user visits another tab.
@@ -60,8 +67,18 @@ class PoiLayer extends _$PoiLayer {
       ? const PoiLayerChoice()
       : PoiLayerChoice(category: category, openNowOnly: state.openNowOnly);
 
+  /// Turns the vending machines on, only those of [kind] when given.
+  void showVending(PoiKind? kind) {
+    assert(kind == null || PoiKind.vendingChoices.contains(kind), 'not a vending choice: $kind');
+    state = PoiLayerChoice(
+      category: PoiCategory.vending,
+      vending: kind,
+      openNowOnly: state.openNowOnly,
+    );
+  }
+
   void setOpenNowOnly({required bool on}) =>
-      state = PoiLayerChoice(category: state.category, openNowOnly: on);
+      state = PoiLayerChoice(category: state.category, vending: state.vending, openNowOnly: on);
 
   void clear() => state = const PoiLayerChoice();
 }

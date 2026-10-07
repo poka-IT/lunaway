@@ -81,6 +81,17 @@ enum PoiKind {
   /// The machines a traveller adds in two gestures: the three the add sheet
   /// offers.
   static const List<PoiKind> addable = [vendingPizza, vendingBread, vendingOther];
+
+  /// What the vending chip lets one show alone, in the order of its menu,
+  /// pizza first. The tiles count these per kind below the zoom of the
+  /// points (`poi_vending_clusters`); [vendingOther] is not among them.
+  static const List<PoiKind> vendingChoices = [
+    vendingPizza,
+    vendingBread,
+    vendingFarmProducts,
+    vendingEggsMilk,
+    vendingIce,
+  ];
 }
 
 /// Whether a point is open at a moment, read from what is known of its

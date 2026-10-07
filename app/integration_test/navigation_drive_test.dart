@@ -43,7 +43,7 @@ import 'fixtures/drive_routes.dart';
 /// the moments the test looks at, real speed around them, so a capture
 /// shows what a driver sees (an alert lasts ten seconds of the drive):
 ///
-/// 1. the preview of the Limoges drive, "Démarrer", the disclaimer;
+/// 1. the preview of the Limoges drive, "C'est parti !", the disclaimer;
 /// 2. 680 m in, a closure of Port du Naveix appears in the road events
 ///    (no position sent): a new route avoids it, from the vehicle;
 /// 3. the driver then misses the right turn into Rue Aristide Briand: off
@@ -117,7 +117,9 @@ final class _Routes implements RouteService {
   }
 
   @override
-  Future<RoutingInfo> info() => throw UnimplementedError();
+  // An answer that fails, as a server without the query: the preview then
+  // leaves the trip to the route request (a synchronous throw would fail it).
+  Future<RoutingInfo> info() async => throw UnimplementedError();
 }
 
 /// No road event, then the closure once the test publishes it.

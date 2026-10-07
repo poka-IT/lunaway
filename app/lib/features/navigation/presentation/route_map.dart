@@ -1,7 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
+import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub.dart'
     if (dart.library.io) 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -100,23 +103,29 @@ final class FitCamera extends RouteCamera {
 }
 
 /// Behind the vehicle, the map turned to its course and tilted, as a
-/// driver sees the road.
+/// driver sees the road; closer in town, further out on a fast road
+/// ([followZoom]). The map glides the vehicle from fix to fix
+/// ([VehicleMotion]).
 final class FollowCamera extends RouteCamera {
-  const new({required this.position, this.course, this.zoom = 16.5});
+  const new({required this.position, this.course, this.speedMps});
 
   final LatLng position;
   final double? course;
-  final double zoom;
+
+  /// The speed of the vehicle, which sets how far the camera looks ahead.
+  final double? speedMps;
+
+  double get zoom => followZoom(speedMps);
 
   @override
   bool operator ==(Object other) =>
       other is FollowCamera &&
       other.position == position &&
       other.course == course &&
-      other.zoom == zoom;
+      other.speedMps == speedMps;
 
   @override
-  int get hashCode => Object.hash(position, course, zoom);
+  int get hashCode => Object.hash(position, course, speedMps);
 }
 
 /// The vehicle on the map: its position on the route and its course.
@@ -126,6 +135,16 @@ final class VehiclePuck {
 
   final LatLng position;
   final double? course;
+
+  /// The same fix: the guidance screen rebuilds for many reasons besides a
+  /// new position (a poll, the voice, a banner), and only a new fix may
+  /// start a glide.
+  @override
+  bool operator ==(Object other) =>
+      other is VehiclePuck && other.position == position && other.course == course;
+
+  @override
+  int get hashCode => Object.hash(position, course);
 }
 
 /// The route map's contract: data in, taps out. Built through
@@ -305,4 +324,31 @@ abstract final class RouteLayers {
   static const tappableMarks = 'lw-route-marks-tappable';
   static const vehicle = 'lw-route-vehicle';
   static const vehicleImage = 'lw-vehicle-arrow';
+}
+
+/// The vehicle's arrow, drawn once per screen density: a lantern-amber
+/// chevron with a navy rim, pointing north (the layer turns it).
+Future<Uint8List> vehicleArrowPng(double ratio) async {
+  final size = 30 * ratio;
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final path = Path()
+    ..moveTo(size / 2, size * 0.08)
+    ..lineTo(size * 0.86, size * 0.88)
+    ..lineTo(size / 2, size * 0.68)
+    ..lineTo(size * 0.14, size * 0.88)
+    ..close();
+  canvas
+    ..drawPath(
+      path,
+      Paint()
+        ..color = Palette.minuit
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 * ratio
+        ..strokeJoin = StrokeJoin.round,
+    )
+    ..drawPath(path, Paint()..color = Palette.lanterne);
+  final image = await recorder.endRecording().toImage(size.ceil(), size.ceil());
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return bytes!.buffer.asUint8List();
 }

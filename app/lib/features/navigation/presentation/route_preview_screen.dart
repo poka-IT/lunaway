@@ -44,9 +44,8 @@ import 'package:lunaway/shared/widgets/status_views.dart';
 /// The route to a place or a point, before setting off: the route on the
 /// map with its alternatives, its time and length, what it uses, the limits
 /// to watch along it, the vehicle it was computed for (editable in place),
-/// the options to avoid, the data's date and the disclaimer. On a phone,
-/// "Démarrer" starts the guidance; on a desktop or the web the preview is
-/// the whole of it.
+/// the options to avoid, the data's date and the disclaimer; then "C'est
+/// parti !" starts the guidance, on every platform the app ships on.
 class RoutePreviewScreen extends ConsumerStatefulWidget {
   const new({required this.target, super.key});
 
@@ -835,8 +834,8 @@ class _Failure extends StatelessWidget {
   }
 }
 
-/// The foot of the preview: "Démarrer" where the device guides; elsewhere
-/// the note that guidance starts from a phone, and the other apps.
+/// The foot of the preview: "C'est parti !", and the navigation apps a
+/// step aside ("Ouvrir dans...").
 class _ActionBar extends ConsumerStatefulWidget {
   const new({required this.target, required this.preview, required this.computing});
 
@@ -889,14 +888,10 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     }
     if (!elsewhere && (preview?.unreachable.isNotEmpty ?? false)) return const SizedBox.shrink();
     final others = TextButton(
-      onPressed: () => openDirections(
-        context,
-        ref,
-        target.destination,
-        label: target.label,
-        placeId: target.placeId,
-        choose: true,
-      ),
+      onPressed: () => openInOtherApp(context, ref, target.destination, label: target.label),
+      onLongPress: () =>
+          openInOtherApp(context, ref, target.destination, label: target.label, choose: true),
+      style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
       child: Text(t.navigation.preview.otherApps),
     );
     return LiftsMessages(
@@ -927,7 +922,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                   )
                 else
                   Text(
-                    t.navigation.preview.phoneOnly,
+                    t.navigation.guidance.unavailable,
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
                   ),

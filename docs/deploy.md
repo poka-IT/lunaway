@@ -2087,7 +2087,7 @@ reviews and routes come from api.lunaway.net, whose address is fixed at
 build time), and a build of the `fdroid` flavour from the source with the
 Flutter srclib at 3.47.6, NDK 28.2.13676358 (Flutter's, which compiles the
 vendored SQLite amalgamation through the sqlite3 build hook, `hooks:` in
-`app/pubspec.yaml`), JDK 21, the prebuilt web files (`sqlite3.wasm`,
+`app/pubspec.yaml`), JDK 21, the prebuilt web files (`sqlite3.wasm`, the guidance crate's WebAssembly build in `web/lunaway_nav/`,
 `drift_worker.js`) and the iOS, macOS and Windows trees removed, and the
 pub cache scanned then deleted. It passes `fdroid lint` against
 fdroiddata's own category and anti-feature lists and is unchanged by

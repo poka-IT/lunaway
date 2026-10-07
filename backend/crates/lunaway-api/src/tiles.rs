@@ -199,6 +199,16 @@ impl Layer {
                             "category": "String",
                             "count": "Number of points in the cell"
                         }
+                    },
+                    {
+                        "id": "poi_vending_clusters",
+                        "description": "Food vending machines counted per kind and grid cell, below the point zoom; poi_clusters counts them too",
+                        "minzoom": MIN_ZOOM,
+                        "maxzoom": pois::POINT_MIN_ZOOM - 1,
+                        "fields": {
+                            "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice",
+                            "count": "Number of machines of that kind in the cell"
+                        }
                     }
                 ]
             }),

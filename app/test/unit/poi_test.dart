@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -259,6 +261,80 @@ void main() {
         ]);
       },
     );
+
+    test('one kind of vending machine alone: its pins, its own dots, nothing of the others', () {
+      const pizza = PoiLayerView(
+        tileJsonUrl: 'x',
+        category: PoiCategory.vending,
+        vending: PoiKind.vendingPizza,
+      );
+      final byKind = [
+        '==',
+        ['get', 'kind'],
+        'vending_pizza',
+      ];
+      expect(PoiMapStyle.pinsFilter(pizza)[1], byKind);
+      expect(PoiMapStyle.probeFilter(pizza)[1], byKind);
+      expect(PoiMapStyle.vendingDotsFilter(pizza), byKind);
+      expect(PoiMapStyle.dotsFilter(pizza), [
+        '==',
+        ['get', 'category'],
+        '',
+      ], reason: 'the category dots count every machine, the pizza dots replace them');
+
+      const every = PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.vending);
+      expect(PoiMapStyle.dotsFilter(every)[2], 'vending');
+      expect(PoiMapStyle.vendingDotsFilter(every)[2], '', reason: 'no kind dot then');
+      expect(PoiMapStyle.pinsFilter(every)[1], [
+        '==',
+        ['get', 'category'],
+        'vending',
+      ]);
+      // A kind left over from the vending chip never narrows another one.
+      const water = PoiLayerView(
+        tileJsonUrl: 'x',
+        category: PoiCategory.water,
+        vending: PoiKind.vendingPizza,
+      );
+      expect(PoiMapStyle.pinsFilter(water)[1], [
+        '==',
+        ['get', 'category'],
+        'water',
+      ]);
+      expect(PoiMapStyle.vendingDotsFilter(water)[2], '');
+
+      final images = PoiMapStyle.vendingDotImage;
+      expect(images.sublist(2, 4), ['vending_pizza', 'poi-dot-vending_pizza']);
+      expect(PoiMapStyle.tappable, contains(PoiMapStyle.vendingDotsLayerId));
+      expect(
+        poiTapFor({'kind': 'vending_pizza', 'count': 3}, [6.1, 45.9]),
+        isA<TapPoiDot>(),
+        reason: 'a pizza dot zooms in, as a category dot does',
+      );
+    });
+
+    test('the vending kind holds with "Open now" and goes with the chip', () {
+      final container = ProviderContainer.test();
+      final layer = container.read(poiLayerProvider.notifier)
+        ..showVending(PoiKind.vendingPizza)
+        ..setOpenNowOnly(on: true);
+      expect(
+        container.read(poiLayerProvider),
+        const PoiLayerChoice(
+          category: PoiCategory.vending,
+          vending: PoiKind.vendingPizza,
+          openNowOnly: true,
+        ),
+      );
+      layer.toggle(PoiCategory.vending);
+      expect(container.read(poiLayerProvider).category, isNull);
+      layer
+        ..showVending(PoiKind.vendingBread)
+        ..toggle(PoiCategory.water);
+      expect(container.read(poiLayerProvider).vending, isNull, reason: 'another chip, no kind');
+      layer.showVending(null);
+      expect(container.read(poiLayerProvider).vending, isNull, reason: 'every machine');
+    });
 
     test('every kind has its image, drawn for every pixel ratio the app ships', () {
       final match = PoiMapStyle.iconImage();

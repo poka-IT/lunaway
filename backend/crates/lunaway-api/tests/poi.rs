@@ -11,7 +11,7 @@
     reason = "a test states its preconditions with unwrap"
 )]
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use axum::{
     body::Body,
@@ -357,6 +357,97 @@ async fn cluster_tiles_count_every_point_and_caching_follows_the_version(pool: P
     assert_eq!(status, StatusCode::NO_CONTENT, "nothing there");
     let (status, _, _) = get(&app, "/poi/x/14/1/1.mvt", &[]).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// Saumur, where the sample's food vending machines stand.
+const SAUMUR: (f64, f64) = (47.26, -0.08);
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn cluster_tiles_count_the_vending_machines_per_kind_in_their_own_layer(pool: PgPool) {
+    seeded(&pool).await;
+    let app = app(&pool);
+    let v = version(&app).await;
+    let (x, y) = tile_of(SAUMUR.0, SAUMUR.1, 10);
+    let (xi, yi) = (i32::try_from(x).unwrap(), i32::try_from(y).unwrap());
+    let (status, _, body) = get(&app, &format!("/poi/{v}/10/{x}/{y}.mvt"), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let layers = decode(&body);
+
+    let kinds = sqlx::query!(
+        r#"SELECT kind, count(*) AS "n!" FROM pois
+           WHERE deleted_at IS NULL AND NOT hidden AND category = 'vending'
+             AND geom::geometry && ST_Transform(ST_TileEnvelope(10, $1, $2), 4326)
+           GROUP BY kind"#,
+        xi,
+        yi,
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let in_db: BTreeMap<String, u64> = kinds
+        .into_iter()
+        .map(|r| (r.kind, u64::try_from(r.n).unwrap()))
+        .collect();
+    assert!(
+        in_db.contains_key("vending_pizza") && in_db.contains_key("vending_other"),
+        "the sample holds a pizza machine and one of no known kind there: {in_db:?}"
+    );
+
+    let mut per_kind = BTreeMap::<String, u64>::new();
+    for f in &layers["poi_vending_clusters"].1 {
+        *per_kind
+            .entry(f.props["kind"].as_str().unwrap().to_owned())
+            .or_default() += f.props["count"].as_u64().unwrap();
+        assert!(
+            !f.props.contains_key("category"),
+            "a map that knows only the category clusters must not draw these"
+        );
+    }
+    let wanted: BTreeMap<String, u64> = in_db
+        .iter()
+        .filter(|(k, _)| k.as_str() != "vending_other")
+        .map(|(k, n)| (k.clone(), *n))
+        .collect();
+    assert_eq!(
+        per_kind, wanted,
+        "every machine a kind filter can pick is counted under its kind, and no other"
+    );
+
+    let vending_in_clusters: u64 = layers["poi_clusters"]
+        .1
+        .iter()
+        .filter(|f| f.props["category"] == "vending")
+        .map(|f| f.props["count"].as_u64().unwrap())
+        .sum();
+    assert_eq!(
+        vending_in_clusters,
+        in_db.values().sum::<u64>(),
+        "the category's clusters still count every machine, those of no known kind too"
+    );
+
+    // Zoomed in, the points carry their kind and no kind layer is sent.
+    let (x, y) = tile_of(47.267_784_4, -0.069_596_8, 14);
+    let (_, _, body) = get(&app, &format!("/poi/{v}/14/{x}/{y}.mvt"), &[]).await;
+    let points = decode(&body);
+    assert!(!points.contains_key("poi_vending_clusters"));
+    assert!(
+        points["pois"]
+            .1
+            .iter()
+            .any(|f| f.props["kind"] == "vending_pizza"),
+        "a pizza machine's point names its kind, for the filter"
+    );
+
+    let (_, _, body) = get(&app, "/poi/tiles.json", &[]).await;
+    let tj: Value = serde_json::from_slice(&body).unwrap();
+    assert!(
+        tj["vector_layers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["id"] == "poi_vending_clusters" && l["fields"]["kind"].is_string()),
+        "the TileJSON describes the new layer"
+    );
 }
 
 const POI_FIELDS: &str = r"

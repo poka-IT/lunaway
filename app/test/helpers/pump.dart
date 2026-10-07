@@ -160,7 +160,8 @@ Future<TestApp> pumpLunaway(
   AppConfig? config,
   FakeApi? api,
   bool signedIn = false,
-  // When the signed-in account's recovery card was made; none by default.
+  // When the signed-in account's recovery card was made, on the server and
+  // on the device; none by default.
   DateTime? recoveryCardAt,
   FakePoiSource? pois,
   MemoryPackFiles? packFiles,
@@ -237,6 +238,7 @@ Future<TestApp> pumpLunaway(
     if (signedIn) await seedAccount(app.secrets, api);
     if (signedIn && recoveryCardAt != null) {
       await app.secrets.write('recovery_card', recoveryCardAt.toIso8601String());
+      api.recoveryCodeCreatedAt ??= recoveryCardAt;
     }
   }
   // The in-memory databases are left to the garbage collector: closing one

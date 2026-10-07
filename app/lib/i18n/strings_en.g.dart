@@ -1026,11 +1026,11 @@ class Translations$directions$en {
 
 	// Translations
 
-	/// en: 'Directions with'
-	String get title => 'Directions with';
+	/// en: 'Open in'
+	String get title => 'Open in';
 
-	/// en: 'Choose who guides you. Only Lunaway's guidance knows your vehicle's size.'
-	String get hint => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.';
+	/// en: 'These apps do not know your vehicle's size.'
+	String get hint => 'These apps do not know your vehicle\'s size.';
 
 	/// en: 'Always use this app'
 	String get remember => 'Always use this app';
@@ -1038,11 +1038,11 @@ class Translations$directions$en {
 	/// en: 'You can change it in Profile'
 	String get rememberHint => 'You can change it in Profile';
 
-	/// en: 'Directions'
-	String get settingTitle => 'Directions';
+	/// en: 'Open in another app'
+	String get settingTitle => 'Open in another app';
 
-	/// en: 'Who guides you when you tap Directions'
-	String get settingHint => 'Who guides you when you tap Directions';
+	/// en: 'The app that "Open in" starts from a route'
+	String get settingHint => 'The app that "Open in" starts from a route';
 
 	/// en: 'Ask each time'
 	String get askEachTime => 'Ask each time';
@@ -1067,6 +1067,9 @@ class Translations$directions$en {
 
 	/// en: 'OpenStreetMap (browser)'
 	String get openStreetMap => 'OpenStreetMap (browser)';
+
+	/// en: 'No navigation app found on this device.'
+	String get none => 'No navigation app found on this device.';
 }
 
 // Path: navigation
@@ -1076,7 +1079,6 @@ class Translations$navigation$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
-	late final Translations$navigation$entry$en entry = Translations$navigation$entry$en.internal(_root);
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
@@ -1524,6 +1526,9 @@ class Translations$account$en {
 
 	/// en: 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.'
 	String get recoveryNone => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.';
+
+	/// en: 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.'
+	String get recoveryNoneAccount => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.';
 
 	/// en: 'Make my recovery card'
 	String get recoveryCreate => 'Make my recovery card';
@@ -2506,6 +2511,16 @@ class Translations$poi$en {
 	/// en: 'Open now'
 	String get openNow => 'Open now';
 
+	late final Translations$poi$vendingSells$en vendingSells = Translations$poi$vendingSells$en.internal(_root);
+
+	/// en: 'All food vending machines'
+	String get vendingAll => 'All food vending machines';
+
+	/// en: 'What the machines sell'
+	String get vendingMenu => 'What the machines sell';
+
+	late final Translations$poi$vendingChip$en vendingChip = Translations$poi$vendingChip$en.internal(_root);
+
 	/// en: 'Open day and night'
 	String get alwaysOpen => 'Open day and night';
 
@@ -3175,27 +3190,6 @@ class Translations$hours$months$en {
 	String get dec => 'Dec';
 }
 
-// Path: navigation.entry
-class Translations$navigation$entry$en {
-	Translations$navigation$entry$en.internal(this._root);
-
-	final Translations _root; // ignore: unused_field
-
-	// Translations
-
-	/// en: 'Lunaway guidance'
-	String get lunaway => 'Lunaway guidance';
-
-	/// en: 'A route computed for your vehicle's size'
-	String get lunawayHint => 'A route computed for your vehicle\'s size';
-
-	/// en: 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.'
-	String get vehicleMissing => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.';
-
-	/// en: 'Other apps'
-	String get others => 'Other apps';
-}
-
 // Path: navigation.preview
 class Translations$navigation$preview$en {
 	Translations$navigation$preview$en.internal(this._root);
@@ -3213,11 +3207,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Computing a route for your vehicle'
 	String get computing => 'Computing a route for your vehicle';
 
-	/// en: 'Start'
-	String get start => 'Start';
-
-	/// en: 'Turn-by-turn guidance starts from a phone.'
-	String get phoneOnly => 'Turn-by-turn guidance starts from a phone.';
+	/// en: 'Let's go!'
+	String get start => 'Let\'s go!';
 
 	/// en: 'Recommended'
 	String get recommended => 'Recommended';
@@ -3288,8 +3279,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
 	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
 
-	/// en: 'Open in another app'
-	String get otherApps => 'Open in another app';
+	/// en: 'Open in…'
+	String get otherApps => 'Open in…';
 
 	/// en: 'Back'
 	String get back => 'Back';
@@ -3964,6 +3955,9 @@ class Translations$navigation$guidance$en {
 
 	/// en: '$source, list of $date'
 	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
+
+	/// en: 'Simulated drive: a demonstration without GPS'
+	String get demoDrive => 'Simulated drive: a demonstration without GPS';
 }
 
 // Path: navigation.voice
@@ -4611,6 +4605,54 @@ class Translations$poi$kind$en {
 	String get motorhomeShop => 'Motorhome dealer and workshop';
 }
 
+// Path: poi.vendingSells
+class Translations$poi$vendingSells$en {
+	Translations$poi$vendingSells$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Bread'
+	String get bread => 'Bread';
+
+	/// en: 'Farm produce'
+	String get farmProducts => 'Farm produce';
+
+	/// en: 'Eggs and milk'
+	String get eggsMilk => 'Eggs and milk';
+
+	/// en: 'Ice'
+	String get ice => 'Ice';
+}
+
+// Path: poi.vendingChip
+class Translations$poi$vendingChip$en {
+	Translations$poi$vendingChip$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza vending machines'
+	String get pizza => 'Pizza vending machines';
+
+	/// en: 'Bread vending machines'
+	String get bread => 'Bread vending machines';
+
+	/// en: 'Farm produce vending machines'
+	String get farmProducts => 'Farm produce vending machines';
+
+	/// en: 'Egg and milk vending machines'
+	String get eggsMilk => 'Egg and milk vending machines';
+
+	/// en: 'Ice vending machines'
+	String get ice => 'Ice vending machines';
+}
+
 // Path: poi.fuel
 class Translations$poi$fuel$en {
 	Translations$poi$fuel$en.internal(this._root);
@@ -5232,12 +5274,12 @@ extension on Translations {
 			'hours.dayOfMonth' => ({required Object month, required Object day}) => '${month} ${day}',
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
-			'directions.title' => 'Directions with',
-			'directions.hint' => 'Choose who guides you. Only Lunaway\'s guidance knows your vehicle\'s size.',
+			'directions.title' => 'Open in',
+			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
 			'directions.rememberHint' => 'You can change it in Profile',
-			'directions.settingTitle' => 'Directions',
-			'directions.settingHint' => 'Who guides you when you tap Directions',
+			'directions.settingTitle' => 'Open in another app',
+			'directions.settingHint' => 'The app that "Open in" starts from a route',
 			'directions.askEachTime' => 'Ask each time',
 			'directions.appleMaps' => 'Apple Maps',
 			'directions.googleMaps' => 'Google Maps',
@@ -5246,15 +5288,11 @@ extension on Translations {
 			'directions.organicMaps' => 'Organic Maps',
 			'directions.magicEarth' => 'Magic Earth',
 			'directions.openStreetMap' => 'OpenStreetMap (browser)',
-			'navigation.entry.lunaway' => 'Lunaway guidance',
-			'navigation.entry.lunawayHint' => 'A route computed for your vehicle\'s size',
-			'navigation.entry.vehicleMissing' => 'Describe your vehicle first: the route avoids bridges too low and streets too narrow for it.',
-			'navigation.entry.others' => 'Other apps',
+			'directions.none' => 'No navigation app found on this device.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
 			'navigation.preview.titlePoint' => 'To this point',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
-			'navigation.preview.start' => 'Start',
-			'navigation.preview.phoneOnly' => 'Turn-by-turn guidance starts from a phone.',
+			'navigation.preview.start' => 'Let\'s go!',
 			'navigation.preview.recommended' => 'Recommended',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternative ${n}',
 			'navigation.preview.toll' => 'Toll',
@@ -5277,7 +5315,7 @@ extension on Translations {
 			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, ${date} edition',
 			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
-			'navigation.preview.otherApps' => 'Open in another app',
+			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.stops.title' => 'Stops',
 			'navigation.stops.add' => 'Add a stop',
@@ -5470,12 +5508,12 @@ extension on Translations {
 			'navigation.guidance.voiceOn' => 'Turn the voice on',
 			'navigation.guidance.voiceOff' => 'Turn the voice off',
 			'navigation.guidance.overview' => 'Whole route',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.recenter' => 'Back to the vehicle',
 			'navigation.guidance.end' => 'End',
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
@@ -5499,6 +5537,7 @@ extension on Translations {
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
+			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -5673,6 +5712,7 @@ extension on Translations {
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
+			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
@@ -5984,10 +6024,10 @@ extension on Translations {
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
 			'favoritesSync.local' => 'On this device only',
@@ -6039,6 +6079,18 @@ extension on Translations {
 			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
 			'poi.chipsLabel' => 'Shops and services around',
 			'poi.openNow' => 'Open now',
+			'poi.vendingSells.pizza' => 'Pizza',
+			'poi.vendingSells.bread' => 'Bread',
+			'poi.vendingSells.farmProducts' => 'Farm produce',
+			'poi.vendingSells.eggsMilk' => 'Eggs and milk',
+			'poi.vendingSells.ice' => 'Ice',
+			'poi.vendingAll' => 'All food vending machines',
+			'poi.vendingMenu' => 'What the machines sell',
+			'poi.vendingChip.pizza' => 'Pizza vending machines',
+			'poi.vendingChip.bread' => 'Bread vending machines',
+			'poi.vendingChip.farmProducts' => 'Farm produce vending machines',
+			'poi.vendingChip.eggsMilk' => 'Egg and milk vending machines',
+			'poi.vendingChip.ice' => 'Ice vending machines',
 			'poi.alwaysOpen' => 'Open day and night',
 			'poi.hoursUnknown' => 'Opening hours unknown',
 			'poi.maybeClosed' => 'Closed according to the official register of health facilities (FINESS).',

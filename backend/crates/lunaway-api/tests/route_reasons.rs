@@ -525,8 +525,9 @@ async fn a_long_trip_asks_fewer_alternatives(pool: PgPool) {
     assert_eq!(body["data"]["route"]["status"], "OFF_NETWORK", "{body}");
     let first = asked.lock().unwrap()[0].clone();
     assert_eq!(
-        first["alternates"], 1,
-        "three routes of 3 000 km would exceed what the API reads of the engine"
+        first.get("alternates"),
+        Some(&json!(1)),
+        "three routes of 3 500 km by road would exceed what the API reads of the engine"
     );
     // Lille to Dakhla, 3 415 km: over the longest trip, refused before the
     // engine.
