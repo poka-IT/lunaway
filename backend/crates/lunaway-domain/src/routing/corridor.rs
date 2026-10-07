@@ -9,7 +9,7 @@
 //! count, square or oblique: the headings differ, and the route's position
 //! barely moves while it passes the other road.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{Position, geo::EARTH_RADIUS_M};
 
@@ -253,51 +253,95 @@ impl RouteLine {
     fn nearest(&self, p: Position, max_m: f64, from_m: f64, to_m: f64) -> Option<(f64, f64, f64)> {
         let (r, c) = cell(p);
         let mut best: Option<(f64, f64, f64)> = None;
-        let mut seen: HashSet<u32> = HashSet::new();
-        for dr in -1..=1 {
-            for dc in -1..=1 {
-                let Some(list) = self.grid.get(&(r + dr, c + dc)) else {
-                    continue;
-                };
-                for &seg in list {
-                    if !seen.insert(seg) {
+        SEEN.with_borrow_mut(|seen| {
+            seen.start(self.points.len());
+            for dr in -1..=1 {
+                for dc in -1..=1 {
+                    let Some(list) = self.grid.get(&(r + dr, c + dc)) else {
                         continue;
-                    }
-                    let i = seg as usize;
-                    if self.along[i + 1] < from_m || self.along[i] > to_m {
-                        continue;
-                    }
-                    let (a, b) = (self.points[i], self.points[i + 1]);
-                    let (ax, ay) = offset(p, a);
-                    let (bx, by) = offset(p, b);
-                    let (dx, dy) = (bx - ax, by - ay);
-                    let len2 = dx * dx + dy * dy;
-                    // The part of the segment inside the range asked.
-                    let span = self.along[i + 1] - self.along[i];
-                    let (t0, t1) = if span > 0.0 {
-                        (
-                            ((from_m - self.along[i]) / span).clamp(0.0, 1.0),
-                            ((to_m - self.along[i]) / span).clamp(0.0, 1.0),
-                        )
-                    } else {
-                        (0.0, 1.0)
                     };
-                    let t = if len2 > 0.0 {
-                        (-(ax * dx + ay * dy) / len2).clamp(t0, t1)
-                    } else {
-                        0.0
-                    };
-                    let (qx, qy) = (ax + t * dx, ay + t * dy);
-                    let d = (qx * qx + qy * qy).sqrt();
-                    if d <= max_m && best.is_none_or(|(_, bd, _)| d < bd) {
-                        let s = self.along[i] + t * span;
-                        best = Some((s, d, dx.atan2(dy).to_degrees()));
+                    for &seg in list {
+                        if !seen.first(seg) {
+                            continue;
+                        }
+                        let i = seg as usize;
+                        if self.along[i + 1] < from_m || self.along[i] > to_m {
+                            continue;
+                        }
+                        let (a, b) = (self.points[i], self.points[i + 1]);
+                        let (ax, ay) = offset(p, a);
+                        let (bx, by) = offset(p, b);
+                        let (dx, dy) = (bx - ax, by - ay);
+                        let len2 = dx * dx + dy * dy;
+                        // The part of the segment inside the range asked.
+                        let span = self.along[i + 1] - self.along[i];
+                        let (t0, t1) = if span > 0.0 {
+                            (
+                                ((from_m - self.along[i]) / span).clamp(0.0, 1.0),
+                                ((to_m - self.along[i]) / span).clamp(0.0, 1.0),
+                            )
+                        } else {
+                            (0.0, 1.0)
+                        };
+                        let t = if len2 > 0.0 {
+                            (-(ax * dx + ay * dy) / len2).clamp(t0, t1)
+                        } else {
+                            0.0
+                        };
+                        let (qx, qy) = (ax + t * dx, ay + t * dy);
+                        let d = (qx * qx + qy * qy).sqrt();
+                        if d <= max_m && best.is_none_or(|(_, bd, _)| d < bd) {
+                            let s = self.along[i] + t * span;
+                            best = Some((s, d, dx.atan2(dy).to_degrees()));
+                        }
                     }
                 }
             }
-        }
+        });
         best
     }
+}
+
+/// The segments a query of [`RouteLine::nearest`] has read, by the call
+/// that read them last: a segment sits in several of the nine lists a query
+/// reads, and skipping it after the first gives the answer of a set
+/// without a set's allocation and hashing on every query. Matching the
+/// restrictions of 30 production routes took 4.29 s with a set per query,
+/// 1.21 s with these marks, the same hits on every route (2026-10-07,
+/// `plan/research/48-latence-itineraires.md`). One mark per point of the
+/// longest line a thread has read: 800 kB for 200 000 points.
+struct Seen {
+    call: u32,
+    marks: Vec<u32>,
+}
+
+impl Seen {
+    /// Starts a query of a line of `points` points.
+    fn start(&mut self, points: usize) {
+        if self.marks.len() < points {
+            self.marks.resize(points, 0);
+        }
+        self.call = self.call.wrapping_add(1);
+        if self.call == 0 {
+            // Every mark is stale again after four billion queries.
+            self.marks.fill(0);
+            self.call = 1;
+        }
+    }
+
+    /// Whether this query meets `segment` for the first time.
+    fn first(&mut self, segment: u32) -> bool {
+        let mark = &mut self.marks[segment as usize];
+        let first = *mark != self.call;
+        *mark = self.call;
+        first
+    }
+}
+
+thread_local! {
+    static SEEN: std::cell::RefCell<Seen> = const {
+        std::cell::RefCell::new(Seen { call: 0, marks: Vec::new() })
+    };
 }
 
 /// Where a point projects onto a route.

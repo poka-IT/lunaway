@@ -266,7 +266,10 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         }
         Err(RouteError::Deadline) => {
             refund_unworked();
+            // The phase the deadline cut is not counted: its time is the
+            // route's deadline less the sum of these.
             tracing::warn!(
+                queue_ms = spent.queue.as_millis(),
                 engine_ms = spent.engine.as_millis(),
                 engine_calls = spent.engine_calls,
                 corridor_ms = spent.corridor.as_millis(),
