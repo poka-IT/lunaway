@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT e.id, e.url AS \"url!\", e.path, e.thumb_path, e.attempts, e.retry_after,\n               coalesce((\n                   SELECT array_agg(DISTINCT h ORDER BY h)\n                   FROM source_agreements g, unnest(g.photo_hosts) AS h\n                   WHERE g.source_id = e.source_id AND 'photos' = ANY(g.scope)\n                     AND g.signed_on <= $2 AND (g.valid_until IS NULL OR g.valid_until >= $2)\n               ), '{}') AS \"hosts!\"\n        FROM external_photos e\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE e.id = $1 AND e.retired_at IS NULL AND e.url IS NOT NULL AND w.hidden_at IS NULL\n        ",
+  "query": "\n        SELECT e.id, e.url AS \"url!\", e.path, e.thumb_path, e.attempts, e.retry_after,\n               coalesce((\n                   SELECT array_agg(DISTINCT h ORDER BY h)\n                   FROM source_agreements g, unnest(g.photo_hosts) AS h\n                   WHERE g.source_id = e.source_id AND 'photos' = ANY(g.scope)\n                     AND g.signed_on <= $2 AND (g.valid_until IS NULL OR g.valid_until >= $2)\n               ), '{}') AS \"hosts!\"\n        FROM external_photos e\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE e.id = $1 AND e.retired_at IS NULL AND e.url IS NOT NULL AND w.hidden_at IS NULL\n          -- A photo the reports, a moderator or the operator hid is no\n          -- longer served, even to a client that kept its address.\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'item' AND h.key = e.external_id) OR h.scope = 'source'))\n        ",
   "describe": {
     "columns": [
       {
@@ -92,5 +92,5 @@
       null
     ]
   },
-  "hash": "aa97cfff21c271049e6b698d2cf619f0fc9e11c0bb6e72e778ae9d8a162558a2"
+  "hash": "457a195f92febae5fcdf8e805132e91ae4ce639a965ca14dedc696680b46dae9"
 }

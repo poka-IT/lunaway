@@ -1,0 +1,77 @@
+# The open content of the places (docs/data-sources.md, "Open content"):
+# Wikimedia Commons and Panoramax photos, Wikipedia introductions, the
+# tourist offices' texts and photos from the DATAtourisme records, Mangrove
+# reviews. Each source is asked about the places it has not been asked
+# about for a week, so a run stopped by its timeout resumes at the next;
+# then the files no photo points at go. Weekly, Sunday, by
+# lunaway-content-refresh.timer; installed by infra/server/pipeline.sh.
+# The photos it keeps are written under /srv/data/media/external, which
+# Caddy serves with the community's under /media/.
+[Unit]
+Description=Lunaway open content of the places
+After=postgresql.service network-online.target lunaway-conflate.service
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=LUNAWAY_MEDIA_DIR=/srv/data/media
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway content refresh
+ExecStartPost=/opt/lunaway/current/lunaway content gc
+# The first run over Europe takes a day; the next ones read only what
+# changed and reuse the files they made.
+TimeoutStartSec=20h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest /srv/data/media/external
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), and PostgreSQL on loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# One picture decoded at a time: a 40-megapixel panorama and its copies
+# take about 400 MB.
+MemoryHigh=1G
+MemoryMax=1536M

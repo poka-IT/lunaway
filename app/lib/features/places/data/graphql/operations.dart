@@ -333,25 +333,35 @@ $placeSummaryFragment''',
 
 const _externalReviewFields = '''
 fragment ExternalReviewFields on ExternalReviewConnection {
-  nodes { id sourceId authorName rating text lang authorVehicle writtenAt }
+  nodes {
+    id sourceId authorName rating text lang authorVehicle writtenAt licence licenceUrl pageUrl
+  }
   endCursor
   hasNextPage
   totalCount
 }
 ''';
 
-/// What the external community source says of a place, read when its card
-/// opens and kept in memory only: the change feed, the packs and the
-/// device's stores never carry it. Null when the place no longer exists.
+/// What other sources than Lunaway's community say of a place (the partner's
+/// community, Commons, Panoramax, Wikipedia, the tourist offices,
+/// Mangrove), read when its card opens and kept in memory only: the change
+/// feed, the packs and the device's stores never carry it. Null when the
+/// place no longer exists.
 final externalOperation = GraphQLOperation<ExternalContent?>(
   name: 'PlaceExternal',
   document: '''
 query PlaceExternal(\$id: UUID!, \$first: Int) {
   place(id: \$id) {
     id
-    externalPhotos { id sourceId authorName takenAt thumbUrl largeUrl width height thumbhash }
+    externalPhotos {
+      id sourceId kind authorName publisher sourceUpdatedOn licence licenceUrl pageUrl takenAt
+      thumbUrl largeUrl width height thumbhash
+    }
     externalRatings { sourceId average count }
     externalReviews(first: \$first) { ...ExternalReviewFields }
+    externalDescriptions {
+      sourceId lang text title publisher sourceUpdatedOn licence licenceUrl pageUrl
+    }
   }
 }
 $_externalReviewFields''',
@@ -362,6 +372,7 @@ $_externalReviewFields''',
       photos: externalPhotosFromJson(place['externalPhotos']),
       ratings: ratingsFromJson(place['externalRatings']),
       reviews: externalReviewPageFromJson(place['externalReviews']),
+      descriptions: externalDescriptionsFromJson(place['externalDescriptions']),
     );
   },
 );

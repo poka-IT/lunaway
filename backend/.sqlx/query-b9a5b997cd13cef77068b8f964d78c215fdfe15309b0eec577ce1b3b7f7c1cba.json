@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_checks c USING places p\n        WHERE p.id = c.place_id AND (p.deleted_at IS NOT NULL OR p.taken_down_at IS NOT NULL)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b9a5b997cd13cef77068b8f964d78c215fdfe15309b0eec577ce1b3b7f7c1cba"
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/domain/account.dart';
@@ -429,10 +430,16 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
       case 'report':
         await showReportSheet(
           context,
-          target: ReportTarget.photo,
+          target: isLunawayCommunity(photo.sourceId)
+              ? ReportTarget.photo
+              : ReportTarget.externalPhoto,
           id: photo.id,
           placeId: widget.placeId,
         );
+      case 'source':
+        if (webLink(photo.terms?.pageUrl) case final uri?) {
+          await ref.read(externalActionsProvider).openUrl(uri);
+        }
       case 'mute':
         final author = photo.authorId;
         final name = photo.authorName;
@@ -602,12 +609,37 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                       ],
                     )
                   else
-                    const SizedBox(width: Space.s),
+                    // Another source's photo: reported to Lunaway's
+                    // moderators, and opened at its source when it has a
+                    // page (the partner's never does).
+                    PopupMenuButton<String>(
+                      tooltip: t.contribute.more,
+                      icon: Icon(AppIcons.moreVertical, color: onBackdrop),
+                      onSelected: (action) => _act(action, photo),
+                      itemBuilder: (context) => [
+                        if (photo.terms?.pageUrl != null && photo.sourceId != extcomSourceId)
+                          PopupMenuItem(
+                            value: 'source',
+                            child: ListTile(
+                              leading: const Icon(AppIcons.openExternal),
+                              title: Text(t.place.viewSource),
+                            ),
+                          ),
+                        PopupMenuItem(
+                          value: 'report',
+                          child: ListTile(
+                            leading: const Icon(AppIcons.report),
+                            title: Text(t.reportSheet.photo),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
           ),
-          if (photo.authorName != null)
+          if ([?photo.authorName, ?termsLine(t, photo.terms)] case final credit
+              when credit.isNotEmpty)
             Positioned(
               left: Space.l,
               right: Space.l,
@@ -615,7 +647,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
               child: SafeArea(
                 top: false,
                 child: Text(
-                  photo.authorName!,
+                  credit.join(' · '),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: onBackdrop),
                 ),
               ),
@@ -837,7 +869,12 @@ class ReviewCard extends StatelessWidget {
             ],
             const SizedBox(height: Space.s),
             Text(
-              [?author, if (vehicle != null) t.reviewVehicle(vehicle), date].join(' · '),
+              [
+                ?author,
+                if (vehicle != null) t.reviewVehicle(vehicle),
+                date,
+                ?termsLine(t, review.terms),
+              ].join(' · '),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ],

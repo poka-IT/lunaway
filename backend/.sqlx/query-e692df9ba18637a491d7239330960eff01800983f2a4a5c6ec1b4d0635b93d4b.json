@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT path, thumb_path FROM content_photos\n            WHERE place_id = $1 AND source_id = $2 AND external_id = $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumb_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "e692df9ba18637a491d7239330960eff01800983f2a4a5c6ec1b4d0635b93d4b"
+}

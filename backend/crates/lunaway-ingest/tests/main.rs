@@ -4,6 +4,8 @@
 //! here (`autotests = false` in Cargo.toml), so a new file needs its line.
 
 mod cameras;
+mod content_fixtures;
+mod content_worker;
 mod enforcement_build;
 mod extcom;
 mod fixtures_parse;

@@ -19,7 +19,7 @@ use axum::{
 use chrono::{NaiveDate, TimeZone, Utc};
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState, external_photos::PhotoSource};
-use lunaway_db::{PgPool, extcom};
+use lunaway_db::{PgPool, content, extcom};
 use lunaway_domain::{SourceId, extcom::Terms};
 use lunaway_ingest::{
     cache::Cache,
@@ -253,6 +253,76 @@ async fn a_place_card_reads_the_partner_s_reviews_ratings_and_photos(pool: PgPoo
         assert_eq!(photo["width"], Value::Null);
         assert_eq!(photo["sourceLabel"], "Source communautaire externe");
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_partner_s_and_the_open_reviews_page_as_one_list(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, &dir.path().join("raw")).await;
+    let app = app(&pool, &dir.path().join("media"), &[]);
+    // Around the partner's Marie (14 August) and Hans (2 July).
+    let open = |sig: &str, day: (u32, u32)| content::NewReview {
+        place_id: place,
+        external_id: sig.to_owned(),
+        rating: Some(4),
+        text: Some(format!("Avis ouvert {sig}.")),
+        lang: None,
+        author: Some(sig.to_owned()),
+        author_key: Some(sig.repeat(64)),
+        written_at: Utc.with_ymd_and_hms(2026, day.0, day.1, 12, 0, 0).unwrap(),
+        page_url: format!("https://mangrove.reviews/list?signature={sig}"),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: Some(5.0),
+    };
+    content::replace_reviews(
+        &pool,
+        "mangrove",
+        &[open("a", (9, 1)), open("b", (7, 20)), open("c", (6, 1))],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+
+    let mut read = Vec::new();
+    let mut after = Value::Null;
+    let mut pages = 0;
+    loop {
+        let body = gql(
+            &app,
+            r"query($id: UUID!, $after: String) { place(id: $id) {
+                externalReviews(first: 2, after: $after) {
+                  nodes { authorName sourceId sourceLabel pageUrl licenceUrl }
+                  endCursor hasNextPage totalCount } } }",
+            json!({"id": place, "after": after}),
+        )
+        .await;
+        let page = ok(&body)["place"]["externalReviews"].clone();
+        assert_eq!(page["totalCount"], 5, "both sources count");
+        pages += 1;
+        for n in page["nodes"].as_array().unwrap() {
+            if n["sourceId"] == "extcom" {
+                assert_eq!(n["sourceLabel"], "Source communautaire externe");
+                assert_eq!(n["pageUrl"], Value::Null, "the partner's has no link");
+                assert_eq!(n["licenceUrl"], Value::Null);
+            } else {
+                assert_eq!(n["sourceLabel"], "Mangrove Reviews");
+                assert!(n["pageUrl"].as_str().unwrap().starts_with("https://"));
+            }
+            read.push(n["authorName"].as_str().unwrap().to_owned());
+        }
+        if page["hasNextPage"] == false {
+            break;
+        }
+        after = page["endCursor"].clone();
+        assert!(pages < 5, "the pages end");
+    }
+    assert_eq!(
+        read,
+        ["a", "Marie", "b", "Hans", "c"],
+        "newest first across the sources, each once"
+    );
+    assert_eq!(pages, 3);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

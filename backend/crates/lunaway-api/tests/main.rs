@@ -5,6 +5,7 @@
 
 mod budget;
 mod community;
+mod content;
 mod enforcement;
 mod extcom;
 mod fuel;

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO content_hides (source_id, scope, key) VALUES ($1, $2, $3)\n            ON CONFLICT (source_id, scope, key) DO UPDATE SET origin = 'operator'\n            WHERE content_hides.origin <> 'operator'\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b0ea23ae8a28790ac12eca322cda6485226e5c224853a7f3cf140826ec85e63"
+}

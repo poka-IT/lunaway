@@ -6,6 +6,7 @@ import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -165,6 +166,13 @@ class PlaceDetailsBody extends ConsumerWidget {
     // themselves.
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     const gap = SizedBox(height: Space.l);
+    // The open sources' texts come with the card's other external content;
+    // the section waits for them without holding the rest back.
+    // Only the texts: loading more reviews leaves the details list alone.
+    final externalTexts =
+        ref.watch(placeExternalProvider(place.id).select((s) => s.value?.content.descriptions)) ??
+        const [];
+    final ownText = place.descriptions.isNotEmpty || place.description != null;
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
@@ -193,7 +201,7 @@ class PlaceDetailsBody extends ConsumerWidget {
         PlaceSurroundings(place: place),
         gap,
         CoordinatesCard(position: place.position),
-        if (place.descriptions.isNotEmpty || place.description != null)
+        if (ownText)
           _Section(
             title: t.place.description,
             child: _Description(place: place),
@@ -214,6 +222,13 @@ class PlaceDetailsBody extends ConsumerWidget {
                   _IconChip(icon: AppIcons.activity(a), label: t.activity(a)),
               ],
             ),
+          ),
+        // Read online after the card shows: placed with the reviews, which
+        // arrive the same way, so what the user is reading does not move.
+        if (externalTexts.isNotEmpty)
+          _Section(
+            title: ownText ? t.place.otherSources : t.place.description,
+            child: _ExternalDescription(texts: externalTexts, sources: place.sources),
           ),
         PlaceReviewsSection(place: place),
         ...placeReviewItems(context, ref, place),
@@ -704,6 +719,67 @@ class _Description extends StatelessWidget {
               ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+/// The text of an open source (Wikipedia, a tourist office) in the user's
+/// language when one wrote it, with its source, licence and the date the
+/// licence asks for, and a link to the whole text. One text at most, in
+/// the best language: two sources of a place mostly say the same thing.
+/// Read online when the card opens; never stored with the place.
+class _ExternalDescription extends ConsumerWidget {
+  const new({required this.texts, required this.sources});
+
+  final List<ExternalDescription> texts;
+  final List<PlaceSource> sources;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final chosen = descriptionFor([for (final d in texts) d.text], t.$meta.locale.languageCode);
+    if (chosen == null) return const SizedBox.shrink();
+    final item = texts.firstWhere((d) => identical(d.text, chosen.text));
+    final page = item.terms.pageUrl;
+    final terms = termsLine(t, item.terms);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(chosen.text.text, style: theme.textTheme.bodyLarge),
+        const SizedBox(height: Space.s),
+        Wrap(
+          spacing: Space.s,
+          runSpacing: Space.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SourceBadge(label: sourceName(t, chosen.text.sourceId, sources: sources), maxLines: 2),
+            if (terms != null)
+              Text(
+                terms,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            if (!chosen.inUserLanguage)
+              Text(
+                t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+        if (webLink(page) case final uri?)
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              icon: const Icon(AppIcons.openExternal, size: 18),
+              label: Text(item.shortened ? t.place.readMore : t.place.viewSource),
+              onPressed: () => ref.read(externalActionsProvider).openUrl(uri),
+            ),
+          ),
       ],
     );
   }

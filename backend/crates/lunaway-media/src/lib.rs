@@ -16,7 +16,7 @@
 mod pipeline;
 mod store;
 
-pub use pipeline::process;
+pub use pipeline::{process, process_with};
 pub use store::MediaStore;
 
 /// Bounds on an upload, checked before any pixel is allocated.
@@ -57,6 +57,62 @@ pub const THUMB_LONG_SIDE: u32 = 512;
 pub const EXTENSION: &str = "webp";
 /// Content type of every stored file.
 pub const CONTENT_TYPE: &str = "image/webp";
+
+/// How [`process_with`] sizes and frames a picture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Options {
+    /// Long side of the stored photo, pixels.
+    pub full_long_side: u32,
+    /// Long side of the thumbnail, pixels.
+    pub thumb_long_side: u32,
+    /// For a 360-degree picture, the part to keep.
+    pub panorama_view: Option<PanoramaView>,
+}
+
+impl Default for Options {
+    /// The sizes of a photo sent by a user: [`FULL_LONG_SIDE`] and
+    /// [`THUMB_LONG_SIDE`], the whole picture.
+    fn default() -> Self {
+        Self {
+            full_long_side: FULL_LONG_SIDE,
+            thumb_long_side: THUMB_LONG_SIDE,
+            panorama_view: None,
+        }
+    }
+}
+
+/// A window into an equirectangular 360-degree picture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PanoramaView {
+    /// Where the window's centre points, degrees clockwise from the
+    /// direction the picture's centre faces.
+    pub offset_deg: f64,
+    /// Horizontal field of the window, degrees.
+    pub width_deg: f64,
+    /// Vertical field of the window, degrees, centred on the horizon.
+    pub height_deg: f64,
+}
+
+/// Where a stored file belongs under the media root.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Collection {
+    /// Photos sent by users (`photos/`), written by the API.
+    Photos,
+    /// Photos read from open sources (`external/`), written by the content
+    /// worker under its own account.
+    External,
+}
+
+impl Collection {
+    /// The directory under the media root.
+    #[must_use]
+    pub const fn dir(self) -> &'static str {
+        match self {
+            Self::Photos => "photos",
+            Self::External => "external",
+        }
+    }
+}
 
 /// The format an upload arrived in, read from its first bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,11 +162,19 @@ impl Encoded {
     /// path, so storing it twice writes nothing.
     #[must_use]
     pub fn relative_path(&self) -> String {
+        self.relative_path_in(Collection::Photos)
+    }
+
+    /// Where the file lives in `collection`:
+    /// `<collection>/<2 hex>/<2 hex>/<sha256>.webp`.
+    #[must_use]
+    pub fn relative_path_in(&self, collection: Collection) -> String {
         let h = &self.sha256_hex;
+        let dir = collection.dir();
         // `get` rather than indexing: a hash edited by hand yields a path
         // the store refuses, not a panic.
         format!(
-            "photos/{}/{}/{h}.{EXTENSION}",
+            "{dir}/{}/{}/{h}.{EXTENSION}",
             h.get(..2).unwrap_or_default(),
             h.get(2..4).unwrap_or_default()
         )
@@ -239,5 +303,16 @@ mod tests {
         let path = e.relative_path();
         assert_eq!(path, format!("photos/ab/ab/{}.webp", "ab".repeat(32)));
         assert!(MediaStore::is_valid_relative_path(&path));
+        let external = e.relative_path_in(Collection::External);
+        assert_eq!(external, format!("external/ab/ab/{}.webp", "ab".repeat(32)));
+        assert!(MediaStore::is_valid_relative_path(&external));
+        assert!(
+            !MediaStore::is_valid_relative_path(&format!("other/ab/ab/{}.webp", "ab".repeat(32))),
+            "only the two collections are under the root"
+        );
+        assert!(!MediaStore::is_valid_relative_path(&format!(
+            "external../ab/ab/{}.webp",
+            "ab".repeat(32)
+        )));
     }
 }

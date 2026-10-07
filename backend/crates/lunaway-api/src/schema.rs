@@ -164,6 +164,46 @@ impl ApiState {
         }
     }
 
+    /// Computes again the restrictions a trip's first engine call excludes,
+    /// found by routes between the capitals of the graph's countries
+    /// (`routing::public`), when the restrictions changed since the last
+    /// time: what it did, `None` when nothing changed or it failed (the
+    /// failure is logged, the lists stay as they were). Takes minutes of
+    /// one engine slot at a time, taken only while another stays free for
+    /// the clients' trips (with a single slot, between their calls).
+    pub async fn refresh_route_blockers(&self) -> Option<crate::routing::public::Refreshed> {
+        let seeds = crate::routing::public::SEEDS.map(|(_, lat, lon)| (lat, lon));
+        self.refresh_route_blockers_from(&seeds).await
+    }
+
+    /// [`Self::refresh_route_blockers`] from `seeds`, latitude and
+    /// longitude: a test's own points.
+    pub async fn refresh_route_blockers_from(
+        &self,
+        seeds: &[(f64, f64)],
+    ) -> Option<crate::routing::public::Refreshed> {
+        let seeds: Vec<lunaway_domain::Position> = seeds
+            .iter()
+            .filter_map(|&(lat, lon)| lunaway_domain::Position::new(lat, lon).ok())
+            .collect();
+        match self.routing.refresh_public(&self.pool, &seeds).await {
+            Ok(done) => done,
+            Err(error) => {
+                // The causes too (a statement out of time, an engine gone):
+                // the top error alone says only which layer failed.
+                let mut chain = error.to_string();
+                let mut cause = std::error::Error::source(&error);
+                while let Some(c) = cause {
+                    chain.push_str(": ");
+                    chain.push_str(&c.to_string());
+                    cause = c.source();
+                }
+                tracing::warn!(error = %chain, "the restrictions kept ahead could not be computed again");
+                None
+            }
+        }
+    }
+
     /// The same state with the partner's photos read from `source`
     /// instead of the network: for the tests, and for a development server
     /// that must not reach a partner.

@@ -492,6 +492,11 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
+	@override String get photoStreetView => 'Vue de la rue';
+	@override String get photoSurroundings => 'Aux alentours';
+	@override String get readMore => 'Lire la suite';
+	@override String updatedOn({required Object date}) => 'mis à jour le ${date}';
+	@override String get otherSources => 'D\'après d\'autres sources';
 }
 
 // Path: sources
@@ -2619,6 +2624,11 @@ extension on TranslationsFr {
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
+			'place.photoStreetView' => 'Vue de la rue',
+			'place.photoSurroundings' => 'Aux alentours',
+			'place.readMore' => 'Lire la suite',
+			'place.updatedOn' => ({required Object date}) => 'mis à jour le ${date}',
+			'place.otherSources' => 'D\'après d\'autres sources',
 			'sources.extcom.label' => 'Source communautaire externe',
 			'hours.open' => 'Ouvert maintenant',
 			'hours.openUntil' => ({required Object time}) => 'Ouvert, ferme à ${time}',
@@ -2892,13 +2902,13 @@ extension on TranslationsFr {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} dans ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Route fermée dans ${distance} : pas de réseau pour chercher un autre chemin',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Route fermée dans ${distance} : pas encore d\'autre chemin',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.guidance.voiceOn' => 'Activer la voix',
 			'navigation.guidance.voiceOff' => 'Couper la voix',
 			'navigation.guidance.overview' => 'Tout le trajet',
 			'navigation.guidance.recenter' => 'Revenir au véhicule',
 			'navigation.guidance.end' => 'Terminer',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.guidance.endTitle' => 'Terminer le guidage ?',
 			'navigation.guidance.endConfirm' => 'Terminer',
 			'navigation.guidance.endKeep' => 'Continuer',
@@ -3406,13 +3416,13 @@ extension on TranslationsFr {
 			'placeForm.licence' => 'Les lieux sont publiés sous licence ODbL, crédités aux contributeurs de Lunaway.',
 			'placeForm.moderated' => 'Un site web ou un téléphone passe par un modérateur avant d\'être publié.',
 			'placeForm.direct' => 'Votre niveau applique la modification tout de suite.',
+			_ => null,
+		} ?? switch (path) {
 			'placeForm.proposal' => 'Un modérateur relira votre proposition avant qu\'elle s\'applique.',
 			'placeForm.submitAdd' => 'Ajouter le lieu',
 			'placeForm.submitEdit' => 'Enregistrer la modification',
 			'placeForm.submitPropose' => 'Envoyer la proposition',
 			'placeForm.nothingChanged' => 'Rien n\'a changé',
-			_ => null,
-		} ?? switch (path) {
 			'placeForm.invalidNumber' => 'Un nombre, s\'il vous plaît',
 			'placeForm.invalidWebsite' => 'Une adresse qui commence par http:// ou https://',
 			'placeForm.added' => 'Merci : le lieu arrive sur la carte dans un instant',

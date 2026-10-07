@@ -23,7 +23,13 @@ const placeExternalJson = '''
           "largeUrl": "https://api.lunaway.net/media/demo-4/large",
           "width": 1200,
           "height": 900,
-          "thumbhash": null
+          "thumbhash": null,
+          "kind": "PLACE",
+          "publisher": null,
+          "sourceUpdatedOn": null,
+          "licence": "EXT-2026-01",
+          "licenceUrl": null,
+          "pageUrl": null
         },
         {
           "id": "0d4f6a1b-2222-4a2b-8c3d-000000000002",
@@ -34,11 +40,21 @@ const placeExternalJson = '''
           "largeUrl": "https://api.lunaway.net/external-photos/0d4f6a1b-2222-4a2b-8c3d-000000000002/large",
           "width": null,
           "height": null,
-          "thumbhash": null
+          "thumbhash": null,
+          "kind": "PLACE",
+          "publisher": null,
+          "sourceUpdatedOn": null,
+          "licence": "EXT-2026-01",
+          "licenceUrl": null,
+          "pageUrl": null
         }
       ],
       "externalRatings": [
-        { "sourceId": "extcom", "average": 3.8, "count": 1734 }
+        {
+          "sourceId": "extcom",
+          "average": 3.8,
+          "count": 1734
+        }
       ],
       "externalReviews": {
         "nodes": [
@@ -50,7 +66,10 @@ const placeExternalJson = '''
             "text": "Avis externe inventé numéro 1.",
             "lang": "fr",
             "authorVehicle": "MOTORHOME",
-            "writtenAt": "2026-09-12T18:00:00Z"
+            "writtenAt": "2026-09-12T18:00:00Z",
+            "licence": "EXT-2026-01",
+            "licenceUrl": null,
+            "pageUrl": null
           },
           {
             "id": "7a000000-0000-4000-8000-000000000002",
@@ -60,7 +79,10 @@ const placeExternalJson = '''
             "text": "Avis externe inventé numéro 2.",
             "lang": "fr",
             "authorVehicle": null,
-            "writtenAt": "2026-09-07T12:00:00Z"
+            "writtenAt": "2026-09-07T12:00:00Z",
+            "licence": "EXT-2026-01",
+            "licenceUrl": null,
+            "pageUrl": null
           },
           {
             "id": "7a000000-0000-4000-8000-000000000003",
@@ -70,14 +92,17 @@ const placeExternalJson = '''
             "text": "Invented external review number 3.",
             "lang": "en",
             "authorVehicle": "VAN",
-            "writtenAt": "2026-09-01T08:00:00Z"
+            "writtenAt": "2026-09-01T08:00:00Z",
+            "licence": "EXT-2026-01",
+            "licenceUrl": null,
+            "pageUrl": null
           }
         ],
         "endCursor": "Mw",
         "hasNextPage": true,
         "totalCount": 1734
-      }
+      },
+      "externalDescriptions": []
     }
   }
-}
-''';
+}''';

@@ -218,8 +218,17 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
     };
     let now = chrono::Utc::now();
     let fresh = Freshness::of(&sources, now);
+    // Only when asked: each route costs the engine a trace or more.
+    let limits = ctx
+        .look_ahead()
+        .field("routes")
+        .field("speedLimits")
+        .exists()
+        .then(|| speed_vehicle(&request.vehicle));
     let routed = if charged {
-        st.routing.route(pool, &graph.id, &request, &fresh).await
+        st.routing
+            .route(pool, &graph.id, &request, &fresh, limits)
+            .await
     } else {
         Routed {
             result: Ok(Outcome::NoRoute(NoRoute::OutsideCoverage(outside))),
@@ -299,7 +308,6 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         .map(|s| RoadEventSourceStatus::of(s, now))
         .collect();
     let last_stop = request.stops.len().saturating_sub(1);
-    let mut limits_spent = std::time::Duration::ZERO;
     let mut osrm_bytes = 0;
     let base = |status, recalculations: usize| RouteResult {
         status,
@@ -321,36 +329,19 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             routes,
             recalculations,
             avoided,
+            limits,
         } => RouteResult {
-            routes: {
-                // Only when asked: each route costs the engine a trace or
-                // more, and up to 3 s.
-                let wanted = ctx
-                    .look_ahead()
-                    .field("routes")
-                    .field("speedLimits")
-                    .exists();
-                let traced = std::time::Instant::now();
-                let limits = if wanted {
-                    st.routing
-                        .speed_limits(&osrm, speed_vehicle(&request.vehicle))
-                        .await
-                } else {
-                    Vec::new()
-                };
-                limits_spent = traced.elapsed();
-                routes
-                    .iter()
-                    .map(|r| RouteSummary {
-                        speed_limits: limits
-                            .get(r.index)
-                            .cloned()
-                            .flatten()
-                            .map(|spans| spans.iter().map(SpeedLimitSpan::from).collect()),
-                        ..RouteSummary::of(r, &fresh, now)
-                    })
-                    .collect()
-            },
+            routes: routes
+                .iter()
+                .map(|r| RouteSummary {
+                    speed_limits: limits
+                        .get(r.index)
+                        .cloned()
+                        .flatten()
+                        .map(|spans| spans.iter().map(SpeedLimitSpan::from).collect()),
+                    ..RouteSummary::of(r, &fresh, now)
+                })
+                .collect(),
             osrm_json: Some({
                 let text = osrm.to_string();
                 osrm_bytes = text.len();
@@ -403,7 +394,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         engine_calls = spent.engine_calls,
         corridor_ms = spent.corridor.as_millis(),
         check_ms = spent.check.as_millis(),
-        limits_ms = limits_spent.as_millis(),
+        limits_ms = spent.limits.as_millis(),
         routes = result.routes.len(),
         osrm_bytes,
         "route computed"

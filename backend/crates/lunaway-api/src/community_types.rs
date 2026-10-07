@@ -117,6 +117,10 @@ pub enum GqlReportTarget {
     Photo,
     /// A place.
     Place,
+    /// A review of an external source (`Place.externalReviews`).
+    ExternalReview,
+    /// A photo of an external source (`Place.externalPhotos`).
+    ExternalPhoto,
 }
 
 /// Why a user reports something.

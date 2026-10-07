@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT place_id FROM content_descriptions WHERE source_id = 'datatourisme' LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "place_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_descriptions",
+            "name": "place_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "73454461c3c3d70bdadb7d96c8e7c9376de0cb708811e3edeb89a1c2308be389"
+}

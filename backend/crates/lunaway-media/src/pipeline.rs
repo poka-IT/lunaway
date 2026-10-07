@@ -9,8 +9,7 @@ use image::{
 use sha2::{Digest, Sha256};
 
 use crate::{
-    EncodeFailure, Encoded, FULL_LONG_SIDE, Limits, MediaError, Processed, SourceFormat,
-    THUMB_LONG_SIDE,
+    EncodeFailure, Encoded, Limits, MediaError, Options, PanoramaView, Processed, SourceFormat,
 };
 
 /// Quality of the stored photo (libwebp scale, 0 to 100): close to the
@@ -38,6 +37,20 @@ const THUMBHASH_LONG_SIDE: u32 = 100;
 /// [`MediaError::TooMuchMemory`] for what the uploader sent;
 /// [`MediaError::Encode`] when the encoder fails.
 pub fn process(input: &[u8], limits: &Limits) -> Result<Processed, MediaError> {
+    process_with(input, limits, &Options::default())
+}
+
+/// [`process`], with the sizes of `options` and, for a 360-degree picture,
+/// only the part of it [`Options::panorama_view`] looks at.
+///
+/// # Errors
+///
+/// As [`process`].
+pub fn process_with(
+    input: &[u8],
+    limits: &Limits,
+    options: &Options,
+) -> Result<Processed, MediaError> {
     if input.len() > limits.max_bytes {
         return Err(MediaError::TooLarge {
             size: input.len(),
@@ -56,11 +69,16 @@ pub fn process(input: &[u8], limits: &Limits) -> Result<Processed, MediaError> {
         )));
     }
     let upright = decode_upright(input, source, limits)?;
-    let pixels = flatten_onto_white(upright);
+    let mut pixels = flatten_onto_white(upright);
+    if let Some(view) = options.panorama_view
+        && let Some(cropped) = panorama_crop(&pixels, view)
+    {
+        pixels = cropped;
+    }
 
     // The decoded picture is released as soon as its reduction exists: the
     // two never need to be held longer than the resize.
-    let full_pixels = match fit(&pixels, FULL_LONG_SIDE, FilterType::Lanczos3) {
+    let full_pixels = match fit(&pixels, options.full_long_side, FilterType::Lanczos3) {
         Some(reduced) => {
             drop(pixels);
             reduced
@@ -69,7 +87,7 @@ pub fn process(input: &[u8], limits: &Limits) -> Result<Processed, MediaError> {
     };
     // The thumbnail and the hash come from the already reduced picture:
     // the result is the same to the eye and the work is a fraction.
-    let thumb_pixels = fit(&full_pixels, THUMB_LONG_SIDE, FilterType::Lanczos3)
+    let thumb_pixels = fit(&full_pixels, options.thumb_long_side, FilterType::Lanczos3)
         .unwrap_or_else(|| full_pixels.clone());
     let thumbhash = thumbhash_of(&thumb_pixels);
     Ok(Processed {
@@ -195,6 +213,50 @@ fn flatten_onto_white(image: DynamicImage) -> RgbImage {
     out
 }
 
+/// The part of an equirectangular 360-degree picture (twice as wide as it
+/// is tall) that `view` looks at, the horizon in the middle; `None` for a
+/// picture of another shape, which is no panorama. The window wraps
+/// around the picture's seam.
+fn panorama_crop(image: &RgbImage, view: PanoramaView) -> Option<RgbImage> {
+    let (w, h) = image.dimensions();
+    if h == 0 || w.abs_diff(h.saturating_mul(2)) > w / 50 {
+        return None;
+    }
+    let per_degree = f64::from(w) / 360.0;
+    let to_px = |degrees: f64, max: u32| -> u32 {
+        let px = (degrees * per_degree).round().clamp(1.0, f64::from(max));
+        // Clamped to [1, max] just above: the conversion cannot truncate.
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "clamped to [1, max] first"
+        )]
+        let px = px as u32;
+        px
+    };
+    let crop_w = to_px(view.width_deg.clamp(10.0, 360.0), w);
+    let crop_h = to_px(view.height_deg.clamp(10.0, 180.0), h);
+    // The picture's centre column faces its azimuth, so the view's centre
+    // falls `offset_deg` to the right of it.
+    let column = ((view.offset_deg + 180.0).rem_euclid(360.0) * per_degree).round();
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "rem_euclid keeps it in [0, 360 * per_degree]"
+    )]
+    let centre_x = column as u32 % w;
+    let left = (centre_x + w - crop_w / 2) % w;
+    let top = (h - crop_h) / 2;
+    let mut out = RgbImage::new(crop_w, crop_h);
+    for y in 0..crop_h {
+        for x in 0..crop_w {
+            let sx = (left + x) % w;
+            out.put_pixel(x, y, *image.get_pixel(sx, top + y));
+        }
+    }
+    Some(out)
+}
+
 /// Width and height that fit `long_side` with the aspect ratio of
 /// `(width, height)`, never larger than the input.
 fn fitted(width: u32, height: u32, long_side: u32) -> (u32, u32) {
@@ -298,5 +360,48 @@ mod tests {
         assert_eq!(out.get_pixel(0, 0).0, [10, 20, 30]);
         assert_eq!(out.get_pixel(1, 0).0, [255, 255, 255]);
         assert_eq!(out.get_pixel(2, 0).0, [127, 127, 127]);
+    }
+
+    /// A 360 by 180 picture, one pixel a degree, its column at `degrees`
+    /// to the right of the centre painted red.
+    fn panorama_marked(degrees: u32) -> RgbImage {
+        let mut img = RgbImage::from_pixel(360, 180, image::Rgb([0, 0, 0]));
+        let x = (180 + degrees) % 360;
+        for y in 0..180 {
+            img.put_pixel(x, y, image::Rgb([255, 0, 0]));
+        }
+        img
+    }
+
+    #[test]
+    fn a_panorama_is_cut_where_the_view_points() {
+        let view = |offset_deg| PanoramaView {
+            offset_deg,
+            width_deg: 90.0,
+            height_deg: 60.0,
+        };
+        let crop = panorama_crop(&panorama_marked(30), view(30.0)).unwrap();
+        assert_eq!(crop.dimensions(), (90, 60));
+        assert_eq!(
+            crop.get_pixel(45, 30).0,
+            [255, 0, 0],
+            "what the view points at is in the middle of the cut"
+        );
+        let behind = panorama_crop(&panorama_marked(170), view(-170.0)).unwrap();
+        assert_eq!(
+            behind.get_pixel(45, 30).0,
+            [0, 0, 0],
+            "-170 degrees is not 170"
+        );
+        let seam = panorama_crop(&panorama_marked(180), view(180.0)).unwrap();
+        assert_eq!(
+            seam.get_pixel(45, 30).0,
+            [255, 0, 0],
+            "a view across the seam wraps around the picture"
+        );
+        assert!(
+            panorama_crop(&RgbImage::new(400, 300), view(0.0)).is_none(),
+            "a flat picture is no panorama"
+        );
     }
 }

@@ -1435,6 +1435,15 @@ pub async fn report_content(
                 None => return Ok(ReportOutcome::NoTarget),
             }
         }
+        ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
+            let found = crate::content::external_item_on(&mut tx, id).await?;
+            match found {
+                Some(item) if item.is_review == (target == ReportTarget::ExternalReview) => {
+                    (None, None)
+                }
+                _ => return Ok(ReportOutcome::NoTarget),
+            }
+        }
         ReportTarget::Place => {
             let exists = sqlx::query_scalar!(
                 r#"SELECT EXISTS (SELECT 1 FROM places WHERE id = $1 AND deleted_at IS NULL) AS "e!""#,
@@ -1504,6 +1513,18 @@ pub async fn report_content(
             .execute(&mut *tx)
             .await?
             .rows_affected(),
+            ReportTarget::ExternalReview | ReportTarget::ExternalPhoto => {
+                match crate::content::external_item_on(&mut tx, id).await? {
+                    Some(item) => crate::content::hide_item_on(
+                        &mut tx,
+                        &item.source_id,
+                        &item.external_id,
+                        crate::content::HideOrigin::Reports,
+                    )
+                    .await?,
+                    None => 0,
+                }
+            }
             ReportTarget::Place => 0,
         };
         if hidden > 0 {

@@ -95,6 +95,7 @@ Secrets live where they are used and nowhere else:
 | secret | where |
 |---|---|
 | database passwords | backend, `/etc/lunaway/{api,ingest,owner}.env` (root, 0600) |
+| the DATAtourisme key (`LUNAWAY_DATATOURISME_KEY`) | backend, `/etc/lunaway/datatourisme.env` (root, 0600), given by the maintainer (a free key, `docs/data-sources.md`) and copied without being shown: `{ printf 'LUNAWAY_DATATOURISME_KEY='; cat ~/.config/lunaway/datatourisme.key; } \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'`; loaded by `lunaway-ingest-datatourisme.service` alone; an age-encrypted copy, `datatourisme-key.env.age`, in the backup chain, made once by the `pipeline` step and never overwritten. To restore it: `age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/datatourisme-key.env.age \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'` |
 | the takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) | backend, `/etc/lunaway/takedown.env` (root, 0600), loaded only by the conflation units (`lunaway-conflate-worker`, `lunaway-conflate`) and `lunaway-admin conflate|takedowns|take-down|replay-takedowns` (the import role without outbound network), never by the imports nor the API; an age-encrypted copy, `takedown-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: the cells stored around every place taken down are keyed with it, and the step refuses to generate another while the copy exists (see "Backups and restore") |
 | the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
@@ -308,6 +309,8 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
+| `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
+| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
@@ -1980,20 +1983,30 @@ and IGN edition. Tested end to end on the prepared France graph
 never on the maintainer's Mac).
 
 A blocker the engine does not see by itself (a height barrier mapped on a
-node, a port's lane) costs a second engine call. The API remembers, in
-memory and per graph, the OpenStreetMap and IGN barriers and road limits
-that blocked routes more than 10 km from their stops; once two requests
-have met one, the first call of a later trip it may lie on (box of the
-stops widened by 1 degree, stops more than 10 km away) excludes it ahead,
-and a trip left without a safe route that way is asked again without
-them. What the list still reveals, and the options to close it, are in
-the comment of `routing::Remembered`.
+node, a port's lane) costs a second engine call. The API looks for them
+ahead from public data only (`routing::public`): a minute after it
+starts, then whenever the active graph or the restrictions outside the
+graphs (DiaLog's, the community's) changed, read every ten minutes, it
+routes the pairs of capitals of the graph's countries within the longest
+trip for a typical vehicle of each of three classes (vans up to 2.6 m,
+low motorhomes up to 3.0 m, the rest), one engine call at a time and
+only while another slot stays free, and keeps the barriers and road
+limits other than clearances that those routes meet more than 10 km from
+their ends. The first call of a trip then excludes the kept ones that lie
+in the box of its stops widened by 1 degree, more than 10 km from each
+stop, and stop its vehicle; a trip left without a safe route that way is
+asked again without them. Nothing a client asks enters the list. The
+journal says `restrictions kept ahead computed again` with the graph, the
+pairs, the calls and the seconds it took; until then, after a start or a
+new graph, trips exclude nothing ahead.
 
 Each route writes one line to the API's journal, `route computed`, with
 where its time went: `queue_ms` (waiting for a slot), `engine_ms` and
 `engine_calls`, `corridor_ms` (the corridor queries and the sampling
-around them), `check_ms` (the matching), `limits_ms` (the speed-limit
-traces, two at a time), the routes kept and `osrm_bytes`; durations and
+around them), `check_ms` (the matching), `limits_ms` (the wait for the
+speed-limit traces once the check is over: they are traced one at a time
+during the check, in pieces of 150 km, 40 at most), the routes kept and
+`osrm_bytes`; durations and
 counts only, no position. `journalctl -u lunaway-api | grep "route
 computed"` reads them. On 2026-10-07 the engine took most of the time of
 a long route: about 1 to 2.4 s a call on the backend's shared vCPU, 2.9

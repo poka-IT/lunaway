@@ -9,7 +9,7 @@ use std::{
 
 use tokio::io::AsyncWriteExt;
 
-use crate::{Encoded, MediaError};
+use crate::{Collection, Encoded, MediaError};
 
 /// Distinguishes the temporary files of concurrent writes in one process.
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -33,14 +33,17 @@ impl MediaStore {
         &self.root
     }
 
-    /// Whether `relative` has the exact shape [`Encoded::relative_path`]
-    /// produces: `photos/`, the first two and the next two hexadecimal
+    /// Whether `relative` has the exact shape [`Encoded::relative_path_in`]
+    /// produces: `photos/` or `external/`, the first two and the next two hexadecimal
     /// digits of the hash as directories, the 64-digit hash, an extension.
     /// Nothing else is ever joined to the root, so no path from a database
     /// row or a request can climb out of it.
     #[must_use]
     pub fn is_valid_relative_path(relative: &str) -> bool {
-        let Some(rest) = relative.strip_prefix("photos/") else {
+        let Some(rest) = [Collection::Photos, Collection::External]
+            .iter()
+            .find_map(|c| relative.strip_prefix(c.dir())?.strip_prefix('/'))
+        else {
             return false;
         };
         let mut parts = rest.split('/');
@@ -76,7 +79,20 @@ impl MediaStore {
     ///
     /// [`MediaError::Io`] when the directory cannot be written.
     pub async fn put(&self, image: &Encoded) -> Result<String, MediaError> {
-        let relative = image.relative_path();
+        self.put_in(Collection::Photos, image).await
+    }
+
+    /// [`MediaStore::put`] into `collection`.
+    ///
+    /// # Errors
+    ///
+    /// [`MediaError::Io`] when the directory cannot be written.
+    pub async fn put_in(
+        &self,
+        collection: Collection,
+        image: &Encoded,
+    ) -> Result<String, MediaError> {
+        let relative = image.relative_path_in(collection);
         let target = self.absolute(&relative)?;
         if tokio::fs::try_exists(&target)
             .await

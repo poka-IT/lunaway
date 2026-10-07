@@ -169,6 +169,7 @@ for t in lunaway-cameras lunaway-enforcement lunaway-cameras-osm lunaway-enforce
 done
 echo "daily timer: $(systemctl is-enabled lunaway-enforcement.timer 2>&1 | head -n 1), next $(systemctl list-timers --no-pager --no-legend lunaway-enforcement.timer | awk '{ print $1, $2, $3 }')"
 stat -c '%a %U:%G %n' /etc/lunaway/zone.env /srv/data/backups/offsite/zone-secret.env.age 2>&1
+stat -c '%a %U:%G %n' /etc/lunaway/datatourisme.env /srv/data/backups/offsite/datatourisme-key.env.age /srv/data/media/external 2>&1
 echo "zone secret: $(grep -cE '^LUNAWAY_ZONE_SECRET=[0-9a-f]{64}$' /etc/lunaway/zone.env 2>/dev/null) line of 64 hex digits (the value is not printed); loaded by: $(grep -l '^EnvironmentFile=/etc/lunaway/zone.env' /etc/systemd/system/lunaway-*.service 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
 stat -c '%a %U:%G %n' /etc/lunaway/takedown.env /srv/data/backups/offsite/takedown-secret.env.age /srv/data/place-takedowns 2>&1
 echo "takedown secret: $(grep -cE '^LUNAWAY_TAKEDOWN_SECRET=[0-9a-f]{64}$' /etc/lunaway/takedown.env 2>/dev/null) line of 64 hex digits (the value is not printed); loaded by: $(grep -l '^EnvironmentFile=/etc/lunaway/takedown.env' /etc/systemd/system/lunaway-*.service 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"

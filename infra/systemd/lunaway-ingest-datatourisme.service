@@ -1,0 +1,73 @@
+# DATAtourisme's motorhome areas, service areas and campsites (the French
+# tourist offices), as records the conflation merges (docs/data-sources.md);
+# their descriptions and photos reach the cards through
+# lunaway-content-refresh. Weekly, Sunday, by
+# lunaway-ingest-datatourisme.timer; installed by infra/server/pipeline.sh,
+# which enables the timer only when the key is installed. The key lives in
+# /etc/lunaway/datatourisme.env (root, 0600), loaded by this unit alone.
+[Unit]
+Description=Lunaway import: DATAtourisme
+After=postgresql.service network-online.target
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+ConditionPathExists=/etc/lunaway/datatourisme.env
+OnSuccess=lunaway-conflate.service
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+EnvironmentFile=/etc/lunaway/datatourisme.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway ingest datatourisme --refresh
+TimeoutStartSec=1h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), and PostgreSQL on loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# About 95 pages of 100 objects, held together before they are stored.
+MemoryHigh=768M
+MemoryMax=1G
