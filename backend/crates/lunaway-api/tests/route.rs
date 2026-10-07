@@ -790,22 +790,29 @@ fn rings(request: &Value) -> Vec<Position> {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_blocker_met_once_is_avoided_from_the_first_call_of_the_next_trip(pool: PgPool) {
+async fn a_blocker_met_by_two_trips_is_avoided_from_the_first_call_of_the_next(pool: PgPool) {
     seed(&pool).await;
     let (url, asked) = engine(
-        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+        ],
         Duration::ZERO,
     )
     .await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
-    assert_eq!(body["data"]["route"]["recalculations"], 1, "{body}");
+    for _ in 0..2 {
+        let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+        assert_eq!(body["data"]["route"]["recalculations"], 1, "{body}");
+    }
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let r = &body["data"]["route"];
     assert_eq!(r["status"], "OK", "{body}");
     assert_eq!(
         r["recalculations"], 0,
-        "the bridge found by the first trip is excluded from the start of the second"
+        "the bridge two trips met is excluded from the start of the third"
     );
     // A van under the bridge's height is not kept from it.
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(2.5)).await;
@@ -816,20 +823,25 @@ async fn a_blocker_met_once_is_avoided_from_the_first_call_of_the_next_trip(pool
     assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
 
     let asked = asked.lock().unwrap();
-    assert_eq!(asked.len(), 5, "two calls, then one for each later trip");
+    assert_eq!(
+        asked.len(),
+        7,
+        "two calls for each of two trips, then one each"
+    );
     let centre = Position::new(45.846_494, 1.285_292).unwrap();
     assert!(rings(&asked[0]).is_empty());
-    let ahead = rings(&asked[2]);
+    assert!(rings(&asked[2]).is_empty(), "one trip is not enough");
+    let ahead = rings(&asked[4]);
     assert!(
         ahead.len() == 1 && ahead[0].distance_m(centre) < 10.0,
-        "the second trip's first call excludes the bridge: {ahead:?}"
+        "the third trip's first call excludes the bridge: {ahead:?}"
     );
     assert!(
-        rings(&asked[3]).is_empty(),
+        rings(&asked[5]).is_empty(),
         "the van's call excludes nothing"
     );
     assert!(
-        rings(&asked[4]).is_empty(),
+        rings(&asked[6]).is_empty(),
         "nor the call of a trip from the bridge"
     );
 }
@@ -845,6 +857,8 @@ async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: P
         vec![
             (200, osrm(&[ROUTE_UNDER])),
             (200, osrm(&[ROUTE_AROUND])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
             no_route,
             (200, osrm(&[ROUTE_UNDER])),
             (200, osrm(&[ROUTE_AROUND])),
@@ -854,6 +868,7 @@ async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: P
     .await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
     gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
     let r = &body["data"]["route"];
     assert_eq!(
@@ -862,11 +877,45 @@ async fn a_trip_closed_by_a_remembered_blocker_is_asked_again_without_it(pool: P
     );
     assert_eq!(r["recalculations"], 1);
     let asked = asked.lock().unwrap();
-    assert_eq!(asked.len(), 5);
-    assert_eq!(rings(&asked[2]).len(), 1);
+    assert_eq!(asked.len(), 7);
+    assert_eq!(rings(&asked[4]).len(), 1);
     assert!(
-        rings(&asked[3]).is_empty(),
+        rings(&asked[5]).is_empty(),
         "asked again without the remembered blockers"
     );
-    assert_eq!(rings(&asked[4]).len(), 1, "then around the blocker it met");
+    assert_eq!(rings(&asked[6]).len(), 1, "then around the blocker it met");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_trip_left_without_a_safe_route_by_remembered_blockers_is_asked_again(pool: PgPool) {
+    seed(&pool).await;
+    let (url, asked) = engine(
+        vec![
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+            // The ring sent ahead and still the bridge: nothing new to
+            // exclude, no safe route with the remembered blockers.
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_UNDER])),
+            (200, osrm(&[ROUTE_AROUND])),
+        ],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    let (_, body) = gql(&app, ROUTE_QUERY, far_input(3.3)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(
+        r["status"], "OK",
+        "the trip ends as it did before the blocker was remembered: {body}"
+    );
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 7);
+    assert_eq!(rings(&asked[4]).len(), 1, "the remembered ring ahead");
+    assert!(rings(&asked[5]).is_empty(), "then the trip from scratch");
+    assert_eq!(rings(&asked[6]).len(), 1, "around the bridge it met");
 }
