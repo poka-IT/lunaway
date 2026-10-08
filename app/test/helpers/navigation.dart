@@ -187,9 +187,14 @@ final class FakeLocationFeed implements LocationFeed {
   /// `watchPosition` reports one now and then (Firefox).
   void error(Object error) => _fixes.addError(error);
 
+  /// How many times the position was asked for once.
+  int currentAsked = 0;
+
   @override
-  Future<Fix?> current() async =>
-      position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
+  Future<Fix?> current() async {
+    currentAsked++;
+    return position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
+  }
 
   @override
   Stream<Fix> guidance(BackgroundNotice notice) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
@@ -192,6 +193,8 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
 /// The panel is built whole, off screen too: a mark on the map can then
 /// bring any of its rows into view. Its sections are few, the long ones
 /// (the roadbook) folded.
+final _log = Logger('route_preview');
+
 const _wholePanel = 100000.0;
 
 class _BackButton extends StatelessWidget {
@@ -395,9 +398,13 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
 
 /// The danger zones the preview draws on [route], under the rule of where
 /// the device is (never of a start chosen elsewhere); none before both are
-/// known or while they load.
+/// known or while they load. With a start chosen, the position the map
+/// located this run, if any: a browser is not asked for its position for a
+/// trip planned from elsewhere.
 PreviewZones _zonesOf(WidgetRef ref, RouteOption? route) {
-  final device = ref.watch(previewDevicePositionProvider).value;
+  final device = ref.watch(chosenDepartureProvider) == null
+      ? ref.watch(previewDevicePositionProvider).value
+      : ref.watch(userLocationProvider);
   return route == null || device == null
       ? noPreviewZones
       : ref.watch(previewZonesProvider(route, device)).value ?? noPreviewZones;
@@ -976,9 +983,12 @@ class _DepartureLine extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final chosen = ref.watch(chosenDepartureProvider);
-    final device = ref.watch(previewDevicePositionProvider);
-    // No position and no start chosen: "Où êtes-vous ?" says it below.
-    if (chosen == null && device.hasValue && device.value == null) return const SizedBox.shrink();
+    // No position and no start chosen: "Où êtes-vous ?" says it below. A
+    // start chosen asks the device nothing.
+    if (chosen == null) {
+      final device = ref.watch(previewDevicePositionProvider);
+      if (device.hasValue && device.value == null) return const SizedBox.shrink();
+    }
     final format = ref.watch(settingsProvider.select((s) => s.copyFormat));
     final name = switch (chosen) {
       null => t.navigation.preview.departure.myPosition,
@@ -1214,7 +1224,13 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       } else {
         final ask = await _explainNotification(context);
         if (!mounted) return;
-        await ref.read(routeSettingsControllerProvider.notifier).notificationExplained();
+        // Not kept: said again next time, nothing worse.
+        unawaited(
+          ref
+              .read(routeSettingsControllerProvider.notifier)
+              .notificationExplained()
+              .catchError((Object e) => _log.warning('notification reason not kept: $e')),
+        );
         if (ask) await notifications.ask();
       }
       if (!mounted) return;

@@ -1293,6 +1293,40 @@ void main() {
       );
     });
 
+    testWidgets('a phone on its side with the notch on the right keeps the buttons clear of it', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      voice = RecordingVoice();
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(860, 400),
+        viewPadding: const FakeViewPadding(right: 44),
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          voice: voice,
+        ),
+      );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await settleShort(tester);
+      await drive(tester, plan, toM: 100);
+      for (final tip in ['Couper la voix', 'Tout le trajet']) {
+        expect(tester.getRect(find.byTooltip(tip)).right, 860 - 44 - Space.s, reason: tip);
+      }
+    });
+
     testWidgets('a speed the position does not give shows no unit alone', (tester) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
@@ -1301,14 +1335,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
       await settleShort(tester);
-      // Not drawn, its place kept: the arrival time beside it stays put.
-      final unit = find.text('km/h');
-      expect(
-        tester.widget<Visibility>(find.ancestor(of: unit, matching: find.byType(Visibility)).first),
-        isA<Visibility>().having((v) => v.visible, 'visible', isFalse),
-      );
-      final kept = tester.getSize(find.ancestor(of: unit, matching: find.byType(Visibility)).first);
-      expect(kept.width, greaterThan(0));
+      // Not drawn: nothing of it can be seen or touched.
+      expect(find.text('km/h').hitTestable(), findsNothing);
     });
 
     testWidgets('the voice button turns the voice off', (tester) async {

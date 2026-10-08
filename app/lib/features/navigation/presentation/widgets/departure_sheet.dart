@@ -152,6 +152,9 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                   ),
                 if (addresses != null)
                   AddressResults(
+                    // Its list stays while the next one loads, whatever
+                    // comes and goes above it.
+                    key: const ValueKey('addresses'),
                     addresses: addresses,
                     towns: towns,
                     from: user,

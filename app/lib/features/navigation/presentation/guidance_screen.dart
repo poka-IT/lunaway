@@ -311,8 +311,10 @@ class _LandscapeState extends State<_Landscape> {
               left: left + Space.s,
               right: safe.right + _buttonsColumn,
               top: Space.s,
+              // The right inset is in the position already.
               child: const SafeArea(
                 left: false,
+                right: false,
                 bottom: false,
                 child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
               ),

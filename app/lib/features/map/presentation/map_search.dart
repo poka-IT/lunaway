@@ -219,8 +219,15 @@ class _Results extends ConsumerWidget {
     final addresses = query.trim().length < 3 || !ref.watch(placesFromTilesProvider)
         ? const AsyncData(<AddressMatch>[])
         : ref.watch(addressSearchProvider(query, near: near, language: language));
-    Widget addressSection(List<Municipality> towns) =>
-        AddressResults(addresses: addresses, towns: towns, from: user, onTap: onAddress);
+    Widget addressSection(List<Municipality> towns) => AddressResults(
+      // Its list stays while the next one loads, whatever comes and
+      // goes above it.
+      key: const ValueKey('addresses'),
+      addresses: addresses,
+      towns: towns,
+      from: user,
+      onTap: onAddress,
+    );
     // The screen's own insets: the shell's Scaffold removes the keyboard from
     // the MediaQuery below it, yet the list must end above the keyboard.
     final view = MediaQueryData.fromView(View.of(context));
