@@ -538,6 +538,8 @@ void main() {
       await settleShort(tester);
       expect(find.text('Map'), findsOneWidget);
       expect(find.text('Language'), findsOneWidget);
+      // A text of the profile beside the picker, built wherever the list stands.
+      expect(find.text('Translate reviews automatically'), findsOneWidget);
       expect(app.settings.value.localeCode, 'en');
       await tester.tap(find.text('Français'));
       await settleShort(tester);

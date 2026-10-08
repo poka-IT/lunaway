@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO translations (item_kind, item_id, item_source, item_lang, target_lang,\n                                  source_lang, source_sha256, text, engine, model)\n        VALUES ('place_description', $1, 'osm', 'de', 'en', 'de', $2, 'Old.', 'opus-mt', 'm')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b4bef175824d3c89ce21f7f22541c3662b9f11bb043ab5087900098e4b447967"
+}

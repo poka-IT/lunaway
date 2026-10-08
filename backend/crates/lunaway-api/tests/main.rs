@@ -23,3 +23,4 @@ mod route_reasons;
 // server with `-E 'test(/^route_e2e::/)' --run-ignored only`.
 mod route_e2e;
 mod schema_drift;
+mod translate;

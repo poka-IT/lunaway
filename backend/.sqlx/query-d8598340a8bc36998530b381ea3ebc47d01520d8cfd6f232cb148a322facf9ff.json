@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO content_hides (source_id, scope, key) VALUES ('mangrove', 'place', $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d8598340a8bc36998530b381ea3ebc47d01520d8cfd6f232cb148a322facf9ff"
+}

@@ -272,6 +272,13 @@
     "priceFree": "Gratis",
     "priceUnknown": "Sin indicar",
     "priceServices": "Servicios",
+    "priceIncluded": "Incluido",
+    "priceIncludes": "Incluye: $items",
+    "inclusions": {
+      "services": "servicios",
+      "touristTax": "tasa turística",
+      "electricity": "electricidad"
+    },
     "maxHeight": "Altura máx.",
     "capacity": "Plazas",
     "classification": "Categoría",
@@ -1027,6 +1034,29 @@
     "es": "español",
     "it": "italiano",
     "nl": "neerlandés"
+  },
+  "translation": {
+    "translate": "Traducir",
+    "translating": "Traduciendo",
+    "showOriginal": "Ver el original",
+    "showTranslation": "Ver la traducción",
+    "from": {
+      "fr": "Traducido automáticamente del francés",
+      "en": "Traducido automáticamente del inglés",
+      "de": "Traducido automáticamente del alemán",
+      "es": "Traducido automáticamente del español",
+      "it": "Traducido automáticamente del italiano",
+      "nl": "Traducido automáticamente del neerlandés",
+      "unknown": "Traducido automáticamente (idioma original: $language)"
+    },
+    "offline": "La traducción necesita conexión.",
+    "failedOffline": "Sin conexión: no se ha podido traducir el texto.",
+    "busy": "El servicio de traducción está saturado. Vuelve a intentarlo más tarde.",
+    "unavailable": "La traducción no está disponible en este momento.",
+    "gone": "Este texto ya no está disponible.",
+    "unsupported": "No hay traducción disponible para este idioma.",
+    "autoReviews": "Traducir las reseñas automáticamente",
+    "autoReviewsHint": "Las reseñas en otro idioma las traduce el propio servidor de Lunaway, sin ningún servicio de terceros."
   },
   "locale": {
     "en": "English",

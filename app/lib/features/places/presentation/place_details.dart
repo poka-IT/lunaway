@@ -17,6 +17,8 @@ import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/presentation/place_surroundings.dart';
+import 'package:lunaway/features/translation/domain/translation.dart';
+import 'package:lunaway/features/translation/presentation/translatable_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/hours_text.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -241,7 +243,11 @@ class PlaceDetailsBody extends ConsumerWidget {
         if (externalTexts.isNotEmpty)
           _Section(
             title: ownText ? t.place.otherSources : t.place.description,
-            child: _ExternalDescription(texts: externalTexts, sources: place.sources),
+            child: _ExternalDescription(
+              placeId: place.id,
+              texts: externalTexts,
+              sources: place.sources,
+            ),
           ),
         PlaceReviewsSection(place: place),
         ...placeReviewItems(context, ref, place),
@@ -492,6 +498,11 @@ class _Facts extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final price = place.priceParkingEur;
+    final services = place.priceServicesEur;
+    final includes = [
+      for (final i in PriceInclusion.values)
+        if (place.priceParkingIncludes.contains(i)) t.priceInclusion(i),
+    ];
     final facts = [
       _Fact(
         icon: AppIcons.pricePerNight,
@@ -502,12 +513,19 @@ class _Facts extends StatelessWidget {
             ? t.place.priceFree
             : t.euros(price),
         known: price != null,
+        note: price != null && price > 0 && includes.isNotEmpty
+            ? t.place.priceIncludes(items: includes.join(', '))
+            : null,
       ),
-      if (place.priceServicesEur != null)
+      if (services != null || place.servicesIncluded)
         _Fact(
           icon: AppIcons.priceServices,
           label: t.place.priceServices,
-          value: place.priceServicesEur == 0 ? t.place.priceFree : t.euros(place.priceServicesEur!),
+          value: place.servicesIncluded
+              ? t.place.priceIncluded
+              : services == 0
+              ? t.place.priceFree
+              : t.euros(services!),
         ),
       if (place.maxHeightM != null)
         _Fact(icon: AppIcons.height, label: t.place.maxHeight, value: t.metres(place.maxHeightM!)),
@@ -541,7 +559,13 @@ class _Facts extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const new({required this.icon, required this.label, required this.value, this.known = true});
+  const new({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.known = true,
+    this.note,
+  });
 
   /// The narrowest a fact may be at the normal text size.
   static const minWidth = 112.0;
@@ -553,6 +577,10 @@ class _Fact extends StatelessWidget {
   /// False for a value the sources do not give: said quietly, not in the
   /// large figures of what is known.
   final bool known;
+
+  /// A line under the label that qualifies the value (what a price
+  /// includes).
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -582,6 +610,15 @@ class _Fact extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
+          if (note case final note?) ...[
+            const SizedBox(height: Space.hair),
+            Text(
+              note,
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
@@ -690,16 +727,17 @@ class _IconChip extends StatelessWidget {
 
 /// The description in the user's language when a source wrote one; another
 /// language otherwise, saying which, and from which source.
-class _Description extends StatelessWidget {
+class _Description extends ConsumerWidget {
   const new({required this.place});
 
   final Place place;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
-    final chosen = descriptionFor(place.descriptions, t.$meta.locale.languageCode);
+    final language = t.$meta.locale.languageCode;
+    final chosen = descriptionFor(place.descriptions, language);
     if (chosen == null) {
       // Without the texts by language, the field's provenance still says
       // where the one description came from.
@@ -715,10 +753,20 @@ class _Description extends StatelessWidget {
         ],
       );
     }
+    final item = TranslatableItem.description(
+      placeId: place.id,
+      sourceId: chosen.text.sourceId,
+      lang: chosen.text.lang,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(chosen.text.text, style: theme.textTheme.bodyLarge),
+        TranslatableText(
+          item: item,
+          text: chosen.text.text,
+          lang: chosen.text.lang,
+          style: theme.textTheme.bodyLarge,
+        ),
         const SizedBox(height: Space.s),
         Wrap(
           spacing: Space.s,
@@ -729,7 +777,7 @@ class _Description extends StatelessWidget {
               label: sourceName(t, chosen.text.sourceId, sources: place.sources),
               maxLines: 2,
             ),
-            if (!chosen.inUserLanguage)
+            if (!chosen.inUserLanguage && !showsTranslation(ref, item, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -749,7 +797,11 @@ class _Description extends StatelessWidget {
 /// the best language: two sources of a place mostly say the same thing.
 /// Read online when the card opens; never stored with the place.
 class _ExternalDescription extends ConsumerWidget {
-  const new({required this.texts, required this.sources});
+  const new({required this.placeId, required this.texts, required this.sources});
+
+  /// The place the card shows, which names its descriptions for a
+  /// translation.
+  final String placeId;
 
   final List<ExternalDescription> texts;
   final List<PlaceSource> sources;
@@ -758,15 +810,26 @@ class _ExternalDescription extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
-    final chosen = descriptionFor([for (final d in texts) d.text], t.$meta.locale.languageCode);
+    final language = t.$meta.locale.languageCode;
+    final chosen = descriptionFor([for (final d in texts) d.text], language);
     if (chosen == null) return const SizedBox.shrink();
     final item = texts.firstWhere((d) => identical(d.text, chosen.text));
     final page = item.terms.pageUrl;
     final terms = termsLine(t, item.terms);
+    final translatable = TranslatableItem.externalDescription(
+      placeId: placeId,
+      sourceId: chosen.text.sourceId,
+      lang: chosen.text.lang,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(chosen.text.text, style: theme.textTheme.bodyLarge),
+        TranslatableText(
+          item: translatable,
+          text: chosen.text.text,
+          lang: chosen.text.lang,
+          style: theme.textTheme.bodyLarge,
+        ),
         const SizedBox(height: Space.s),
         Wrap(
           spacing: Space.s,
@@ -781,7 +844,8 @@ class _ExternalDescription extends ConsumerWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            if (!chosen.inUserLanguage)
+            if (!chosen.inUserLanguage &&
+                !showsTranslation(ref, translatable, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(

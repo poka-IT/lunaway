@@ -68,6 +68,10 @@
 #                      /var/lib/lunaway-unit-result/*.result): a failed import
 #                      retried hourly reads "activating" while it runs. A
 #                      unit that never ran has failed nothing
+#   translate.ok       true when the translation server of the geocoding
+#                      server answers its health check through the API's
+#                      way to it (Caddy, 127.0.0.1:8486/translator): a short
+#                      text went through a model; pairs counts the models
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -265,6 +269,18 @@ done
 extcom_ok=false
 [ "$extcom_failed_count" -eq 0 ] && [ -z "$extcom_last_failed" ] && extcom_ok=true
 
+# The translation server (docs/deploy.md, "Translation"), as the API
+# reaches it: its health check translates a short text.
+translate_ok=false
+translate_pairs=0
+translate_body="$(curl -fsS --max-time 10 http://127.0.0.1:8486/translator/health 2>/dev/null | head -c 4096)"
+case "$translate_body" in
+	*'"pairs"'*)
+		translate_pairs="$(printf '%s' "$translate_body" | grep -oE '"[a-z]{2,3}-[a-z]{2,3}"' | wc -l | tr -dc '0-9')"
+		[ "${translate_pairs:-0}" -gt 0 ] && translate_ok=true
+		;;
+esac
+
 # The encrypted copy of the photos (lunaway-media-offsite, nightly).
 media_success="$(read_stamp "$offsite/media/last-success")"
 media_ok=false
@@ -317,7 +333,7 @@ if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" 
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"held_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s},"extcom":{"ok":%s,"failed_units":%s,"failed":"%s","last_failed":"%s"}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"held_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s},"extcom":{"ok":%s,"failed_units":%s,"failed":"%s","last_failed":"%s"},"translate":{"ok":%s,"pairs":%s}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_held" "$tiles_build" "$tiles_age" \
 	"$packs_ok" "$packs_build" "$packs_age" "${packs_count:-0}" "${packs_expected:-0}" \
@@ -332,4 +348,5 @@ printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_
 	"$layer_ok" "$layer_pending" \
 	"$cameras_ok" "$camera_lists" "$camera_oldest" \
 	"$enforcement_ok" "$enforcement_age" \
-	"$extcom_ok" "$extcom_failed_count" "$extcom_failed" "$extcom_last_failed"
+	"$extcom_ok" "$extcom_failed_count" "$extcom_failed" "$extcom_last_failed" \
+	"$translate_ok" "${translate_pairs:-0}"

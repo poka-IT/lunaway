@@ -272,6 +272,13 @@
     "priceFree": "Gratuito",
     "priceUnknown": "Non indicato",
     "priceServices": "Servizi",
+    "priceIncluded": "Incluso",
+    "priceIncludes": "Include: $items",
+    "inclusions": {
+      "services": "servizi",
+      "touristTax": "tassa di soggiorno",
+      "electricity": "corrente elettrica"
+    },
     "maxHeight": "Altezza max.",
     "capacity": "Posti",
     "classification": "Classificazione",
@@ -1027,6 +1034,29 @@
     "es": "spagnolo",
     "it": "italiano",
     "nl": "olandese"
+  },
+  "translation": {
+    "translate": "Traduci",
+    "translating": "Traduzione in corso",
+    "showOriginal": "Mostra l'originale",
+    "showTranslation": "Mostra la traduzione",
+    "from": {
+      "fr": "Tradotto automaticamente dal francese",
+      "en": "Tradotto automaticamente dall'inglese",
+      "de": "Tradotto automaticamente dal tedesco",
+      "es": "Tradotto automaticamente dallo spagnolo",
+      "it": "Tradotto automaticamente dall'italiano",
+      "nl": "Tradotto automaticamente dall'olandese",
+      "unknown": "Tradotto automaticamente (lingua originale: $language)"
+    },
+    "offline": "Per tradurre serve la rete.",
+    "failedOffline": "Nessuna rete: non è stato possibile tradurre il testo.",
+    "busy": "Il servizio di traduzione è occupato. Riprova più tardi.",
+    "unavailable": "La traduzione non è disponibile al momento.",
+    "gone": "Questo testo non è più disponibile.",
+    "unsupported": "Nessuna traduzione disponibile per questa lingua.",
+    "autoReviews": "Traduci automaticamente le recensioni",
+    "autoReviewsHint": "Le recensioni in un'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno."
   },
   "locale": {
     "en": "English",

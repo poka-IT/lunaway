@@ -272,6 +272,13 @@
     "priceFree": "Gratis",
     "priceUnknown": "Niet vermeld",
     "priceServices": "Service",
+    "priceIncluded": "Inbegrepen",
+    "priceIncludes": "Inclusief: $items",
+    "inclusions": {
+      "services": "voorzieningen",
+      "touristTax": "toeristenbelasting",
+      "electricity": "stroom"
+    },
     "maxHeight": "Max. hoogte",
     "capacity": "Plaatsen",
     "classification": "Classificatie",
@@ -1027,6 +1034,29 @@
     "es": "Spaans",
     "it": "Italiaans",
     "nl": "Nederlands"
+  },
+  "translation": {
+    "translate": "Vertalen",
+    "translating": "Wordt vertaald",
+    "showOriginal": "Origineel tonen",
+    "showTranslation": "Vertaling tonen",
+    "from": {
+      "fr": "Automatisch vertaald uit het Frans",
+      "en": "Automatisch vertaald uit het Engels",
+      "de": "Automatisch vertaald uit het Duits",
+      "es": "Automatisch vertaald uit het Spaans",
+      "it": "Automatisch vertaald uit het Italiaans",
+      "nl": "Automatisch vertaald uit het Nederlands",
+      "unknown": "Automatisch vertaald (oorspronkelijke taal: $language)"
+    },
+    "offline": "Voor vertalen is een verbinding nodig.",
+    "failedOffline": "Geen verbinding: de tekst kon niet worden vertaald.",
+    "busy": "De vertaaldienst is overbelast. Probeer het later opnieuw.",
+    "unavailable": "Vertalen is op dit moment niet beschikbaar.",
+    "gone": "Deze tekst is niet meer beschikbaar.",
+    "unsupported": "Voor deze taal is geen vertaling beschikbaar.",
+    "autoReviews": "Reviews automatisch vertalen",
+    "autoReviewsHint": "Reviews in een andere taal worden door de eigen server van Lunaway vertaald, zonder dienst van derden."
   },
   "locale": {
     "en": "English",

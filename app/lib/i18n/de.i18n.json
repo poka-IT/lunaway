@@ -272,6 +272,13 @@
     "priceFree": "Kostenlos",
     "priceUnknown": "Keine Angabe",
     "priceServices": "Ver- und Entsorgung",
+    "priceIncluded": "Inklusive",
+    "priceIncludes": "Inklusive: $items",
+    "inclusions": {
+      "services": "Ver- und Entsorgung",
+      "touristTax": "Kurtaxe",
+      "electricity": "Strom"
+    },
     "maxHeight": "Max. Höhe",
     "capacity": "Anzahl Stellplätze",
     "classification": "Klassifizierung",
@@ -1027,6 +1034,29 @@
     "es": "Spanisch",
     "it": "Italienisch",
     "nl": "Niederländisch"
+  },
+  "translation": {
+    "translate": "Übersetzen",
+    "translating": "Wird übersetzt",
+    "showOriginal": "Original anzeigen",
+    "showTranslation": "Übersetzung anzeigen",
+    "from": {
+      "fr": "Automatisch aus dem Französischen übersetzt",
+      "en": "Automatisch aus dem Englischen übersetzt",
+      "de": "Automatisch aus dem Deutschen übersetzt",
+      "es": "Automatisch aus dem Spanischen übersetzt",
+      "it": "Automatisch aus dem Italienischen übersetzt",
+      "nl": "Automatisch aus dem Niederländischen übersetzt",
+      "unknown": "Automatisch übersetzt (Originalsprache: $language)"
+    },
+    "offline": "Für die Übersetzung ist eine Verbindung nötig.",
+    "failedOffline": "Keine Verbindung: Der Text konnte nicht übersetzt werden.",
+    "busy": "Der Übersetzungsdienst ist ausgelastet. Versuchen Sie es später erneut.",
+    "unavailable": "Die Übersetzung ist gerade nicht verfügbar.",
+    "gone": "Dieser Text ist nicht mehr verfügbar.",
+    "unsupported": "Für diese Sprache gibt es keine Übersetzung.",
+    "autoReviews": "Rezensionen automatisch übersetzen",
+    "autoReviewsHint": "Rezensionen in einer anderen Sprache übersetzt der Server von Lunaway selbst, ohne Dienst eines Drittanbieters."
   },
   "locale": {
     "en": "English",

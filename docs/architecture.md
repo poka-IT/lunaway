@@ -203,6 +203,39 @@ content").
 - **API.** `Place.externalPhotos`, `Place.externalDescriptions` and
   `Place.externalReviews`, read per place for the card (each costs a
   database query in the request's budget).
+
+## Translation
+
+A review or a description in another language than the reader's is
+translated on Lunaway's own server, with open models: no third-party
+service sees a text (`docs/deploy.md`, "Translation").
+
+- **What.** `Query.translate(kind, id, sourceId, lang, targetLang)`: a
+  review of Lunaway's community, a review of another source (the external
+  community source, Mangrove), one of the place's own descriptions or a
+  description of an open source, named as the API names it. The API reads
+  the stored text under the rules of the screen that shows it (a
+  published review, a source not hidden, a live place): it translates no
+  text a client sends.
+- **Language.** The source's or the author's app's label, else guessed
+  from the words (`lunaway_domain::translation`, lingua over seven
+  languages). `ExternalReview.lang` gives the guess when the partner's
+  feed has none, so the app knows when to offer the translation.
+- **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
+  CTranslate2, one direct model per language pair towards French and
+  English, through English otherwise; on the geocoding server, reached
+  through the backend's Caddy like Photon.
+- **Kept.** `translations` keeps each translation with the SHA-256 of
+  the text it came from, the engine and the model, and serves it while the
+  text is unchanged. A review's translations go with it: triggers delete
+  them when it is deleted or its text changes, whoever does it, and the
+  daily retention removes what a race left. A per-client quota counts
+  only what the server translates.
+- **App.** A "Translate" button under each review and under the
+  description shown, when its language is not the app's; the translation
+  is marked "Translated automatically" with the original language, and
+  the original is one touch away. A setting translates the reviews by
+  themselves.
 ## Places on the map
 
 How a place reaches the screen, by platform (`docs/deploy.md`, "Places

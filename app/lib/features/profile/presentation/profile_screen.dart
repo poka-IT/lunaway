@@ -448,6 +448,7 @@ class _Language extends ConsumerWidget {
     final t = context.t;
     final code = ref.watch(settingsProvider.select((s) => s.localeCode));
     final selected = code == null ? null : AppLocaleUtils.parse(code);
+    final autoTranslate = ref.watch(settingsProvider.select((s) => s.autoTranslateReviews));
     // Each language under its own name, in the order of those names, and
     // read aloud in its language by a screen reader.
     final languages = [
@@ -461,22 +462,34 @@ class _Language extends ConsumerWidget {
     return _Section(
       title: t.profile.language,
       icon: AppIcons.language,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Space.xs),
-        child: RadioGroup<AppLocale?>(
-          groupValue: selected,
-          onChanged: (l) => ref.read(settingsProvider.notifier).setLocale(l),
-          child: Column(
-            children: [
-              RadioListTile<AppLocale?>(value: null, title: Text(t.profile.languageSystem)),
-              for (final (locale, name) in languages)
-                RadioListTile<AppLocale?>(
-                  value: locale,
-                  title: Text(name, locale: locale.flutterLocale),
-                ),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.xs),
+            child: RadioGroup<AppLocale?>(
+              groupValue: selected,
+              onChanged: (l) => ref.read(settingsProvider.notifier).setLocale(l),
+              child: Column(
+                children: [
+                  RadioListTile<AppLocale?>(value: null, title: Text(t.profile.languageSystem)),
+                  for (final (locale, name) in languages)
+                    RadioListTile<AppLocale?>(
+                      value: locale,
+                      title: Text(name, locale: locale.flutterLocale),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
+          const Divider(height: 1),
+          SwitchListTile(
+            value: autoTranslate,
+            onChanged: (on) => ref.read(settingsProvider.notifier).setAutoTranslateReviews(on: on),
+            title: Text(t.translation.autoReviews),
+            subtitle: Text(t.translation.autoReviewsHint),
+          ),
+        ],
       ),
     );
   }

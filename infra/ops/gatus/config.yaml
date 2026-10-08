@@ -16,7 +16,8 @@
 #             build and offline packs, the fuel prices, the routing graph,
 #             the OpenStreetMap imports of France and Europe, the regional
 #             packs of places, the points layer's publication, the speed
-#             camera lists and the build of their zones, the disks. Gatus does not
+#             camera lists and the build of their zones, the translation
+#             server as the API reaches it, the disks. Gatus does not
 #             check SSH host keys. A host posing as the backend gets nothing
 #             it can reuse (the key's signature is bound to that one
 #             session); it could only answer a false green, and it would
@@ -556,6 +557,27 @@ __PROBE_KEY__
       - "[CONNECTED] == true"
       - "[BODY].extcom.ok == true"
       - "[BODY].extcom.failed_units == 0"
+
+  # The translation server on the geocoding server (docs/deploy.md,
+  # "Translation"), as the API reaches it through the backend's Caddy: its
+  # health check put a short text through a model, and every pair of
+  # infra/translate/models.txt is served. A translation the app asks is
+  # kept, so a public check of Query.translate would read the kept one and
+  # say nothing of the server.
+  - name: Translation
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].translate.ok == true"
+      - "[BODY].translate.pairs >= 10"
 
   # The regional first-sync packs of places (docs/region-packs.md): no sync
   # region waited more than two days for a pack holding its changes

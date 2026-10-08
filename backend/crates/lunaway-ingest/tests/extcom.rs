@@ -277,6 +277,89 @@ async fn deletions_in_a_complete_feed_reach_records_reviews_and_photos(pool: PgP
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_place_line_that_does_not_read_keeps_its_spot_in_a_complete_feed(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    let first = run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let malformed = first.dropped.get(&Dropped::Malformed).copied().unwrap_or(0);
+    // 1002 comes back with a field of another type: its line drops, the
+    // spot stays as stored.
+    let next = variant(dir.path(), "slip.jsonl", |i, l| match i {
+        2 => {
+            let mut v: serde_json::Value = serde_json::from_str(l).unwrap();
+            v["services"] = serde_json::json!("electricity");
+            Some(v.to_string())
+        }
+        _ => Some(l.to_owned()),
+    });
+    let r = run(&pool, &cache, &next, &o).await.unwrap();
+    assert_eq!(r.dropped.get(&Dropped::Malformed), Some(&(malformed + 1)));
+    assert_eq!(r.retired, 0, "a complete feed retires no spot for a slip");
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM source_records WHERE external_id = '1002' \
+             AND deleted_at IS NULL AND name IS NOT NULL"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_deletion_holds_in_a_line_that_does_not_read(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    // A delta: 1002's deletion written as a text, 1003's beside a field of
+    // another type. Both spots go, whatever the feed.
+    let next = variant(dir.path(), "deletions.jsonl", |i, l| match i {
+        0 => Some(l.replace("\"complete\":true", "\"complete\":false")),
+        2 => Some(r#"{"type":"place","id":"1002","deleted":"true"}"#.to_owned()),
+        3 => Some(r#"{"type":"place","id":"1003","deleted":true,"services":"x"}"#.to_owned()),
+        _ => Some(l.to_owned()),
+    });
+    let r = run(&pool, &cache, &next, &o).await.unwrap();
+    assert!(!r.complete);
+    assert_eq!(r.retired, 2, "an erasure the partner passes on holds");
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM source_records WHERE external_id IN ('1002', '1003') \
+             AND deleted_at IS NOT NULL"
+        )
+        .await,
+        2
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_complete_feed_of_lines_that_do_not_read_retires_nothing_and_says_so(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let next = variant(dir.path(), "slips.jsonl", |i, l| {
+        if i == 0 {
+            return Some(l.to_owned());
+        }
+        let mut v: serde_json::Value = serde_json::from_str(l).ok()?;
+        if v.get("type").and_then(|t| t.as_str()) == Some("place") {
+            v["lat"] = serde_json::json!("north");
+        }
+        Some(v.to_string())
+    });
+    let r = run(&pool, &cache, &next, &o).await.unwrap();
+    assert!(
+        r.retire_refused,
+        "lines that do not read are no listing: the guard against a truncated feed holds"
+    );
+    assert_eq!(r.retired, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_line_without_its_reviews_or_photos_leaves_them_as_stored(pool: PgPool) {
     // The producer writes a spot's reviews and photos once it has read
     // their pages: a line without the fields says nothing of them, and an

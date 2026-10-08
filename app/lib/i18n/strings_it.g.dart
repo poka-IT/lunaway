@@ -66,6 +66,7 @@ class TranslationsIt extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$profile$it profile = _Translations$profile$it._(_root);
 	@override late final _Translations$units$it units = _Translations$units$it._(_root);
 	@override late final _Translations$languages$it languages = _Translations$languages$it._(_root);
+	@override late final _Translations$translation$it translation = _Translations$translation$it._(_root);
 	@override late final _Translations$locale$it locale = _Translations$locale$it._(_root);
 	@override late final _Translations$account$it account = _Translations$account$it._(_root);
 	@override late final _Translations$recovery$it recovery = _Translations$recovery$it._(_root);
@@ -462,6 +463,9 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get priceFree => 'Gratuito';
 	@override String get priceUnknown => 'Non indicato';
 	@override String get priceServices => 'Servizi';
+	@override String get priceIncluded => 'Incluso';
+	@override String priceIncludes({required Object items}) => 'Include: ${items}';
+	@override late final _Translations$place$inclusions$it inclusions = _Translations$place$inclusions$it._(_root);
 	@override String get maxHeight => 'Altezza max.';
 	@override String get capacity => 'Posti';
 	@override String get classification => 'Classificazione';
@@ -825,6 +829,28 @@ class _Translations$languages$it extends Translations$languages$en {
 	@override String get es => 'spagnolo';
 	@override String get it => 'italiano';
 	@override String get nl => 'olandese';
+}
+
+// Path: translation
+class _Translations$translation$it extends Translations$translation$en {
+	_Translations$translation$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get translate => 'Traduci';
+	@override String get translating => 'Traduzione in corso';
+	@override String get showOriginal => 'Mostra l\'originale';
+	@override String get showTranslation => 'Mostra la traduzione';
+	@override late final _Translations$translation$from$it from = _Translations$translation$from$it._(_root);
+	@override String get offline => 'Per tradurre serve la rete.';
+	@override String get failedOffline => 'Nessuna rete: non è stato possibile tradurre il testo.';
+	@override String get busy => 'Il servizio di traduzione è occupato. Riprova più tardi.';
+	@override String get unavailable => 'La traduzione non è disponibile al momento.';
+	@override String get gone => 'Questo testo non è più disponibile.';
+	@override String get unsupported => 'Nessuna traduzione disponibile per questa lingua.';
+	@override String get autoReviews => 'Traduci automaticamente le recensioni';
+	@override String get autoReviewsHint => 'Le recensioni in un\'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno.';
 }
 
 // Path: locale
@@ -1601,6 +1627,18 @@ class _Translations$search$addressKind$it extends Translations$search$addressKin
 	@override String get region => 'Regione';
 }
 
+// Path: place.inclusions
+class _Translations$place$inclusions$it extends Translations$place$inclusions$en {
+	_Translations$place$inclusions$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get services => 'servizi';
+	@override String get touristTax => 'tassa di soggiorno';
+	@override String get electricity => 'corrente elettrica';
+}
+
 // Path: place.reviewVehicle
 class _Translations$place$reviewVehicle$it extends Translations$place$reviewVehicle$en {
 	_Translations$place$reviewVehicle$it._(TranslationsIt root) : this._root = root, super.internal(root);
@@ -2147,6 +2185,22 @@ class _Translations$vehicle$towing$it extends Translations$vehicle$towing$en {
 	@override String get none => 'Nessuno';
 	@override String get car => 'Un\'auto';
 	@override String get trailer => 'Un rimorchio';
+}
+
+// Path: translation.from
+class _Translations$translation$from$it extends Translations$translation$from$en {
+	_Translations$translation$from$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get fr => 'Tradotto automaticamente dal francese';
+	@override String get en => 'Tradotto automaticamente dall\'inglese';
+	@override String get de => 'Tradotto automaticamente dal tedesco';
+	@override String get es => 'Tradotto automaticamente dallo spagnolo';
+	@override String get it => 'Tradotto automaticamente dall\'italiano';
+	@override String get nl => 'Tradotto automaticamente dall\'olandese';
+	@override String unknown({required Object language}) => 'Tradotto automaticamente (lingua originale: ${language})';
 }
 
 // Path: account.levelOpens
@@ -2900,6 +2954,11 @@ extension on TranslationsIt {
 			'place.priceFree' => 'Gratuito',
 			'place.priceUnknown' => 'Non indicato',
 			'place.priceServices' => 'Servizi',
+			'place.priceIncluded' => 'Incluso',
+			'place.priceIncludes' => ({required Object items}) => 'Include: ${items}',
+			'place.inclusions.services' => 'servizi',
+			'place.inclusions.touristTax' => 'tassa di soggiorno',
+			'place.inclusions.electricity' => 'corrente elettrica',
 			'place.maxHeight' => 'Altezza max.',
 			'place.capacity' => 'Posti',
 			'place.classification' => 'Classificazione',
@@ -3199,13 +3258,13 @@ extension on TranslationsIt {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Passaggio coperto ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Ponte ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barra limitatrice ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Altezza massima ${limit}',
 			'navigation.warning.unknownClearance' => 'Passaggio basso, altezza sconosciuta',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Strettoia ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Lunghezza massima ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Peso massimo ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Carico massimo per asse ${limit}',
 			'navigation.warning.motorhomeBan' => 'Vietato ai camper',
 			'navigation.warning.trailerBan' => 'Vietato ai rimorchi',
@@ -3519,6 +3578,25 @@ extension on TranslationsIt {
 			'languages.es' => 'spagnolo',
 			'languages.it' => 'italiano',
 			'languages.nl' => 'olandese',
+			'translation.translate' => 'Traduci',
+			'translation.translating' => 'Traduzione in corso',
+			'translation.showOriginal' => 'Mostra l\'originale',
+			'translation.showTranslation' => 'Mostra la traduzione',
+			'translation.from.fr' => 'Tradotto automaticamente dal francese',
+			'translation.from.en' => 'Tradotto automaticamente dall\'inglese',
+			'translation.from.de' => 'Tradotto automaticamente dal tedesco',
+			'translation.from.es' => 'Tradotto automaticamente dallo spagnolo',
+			'translation.from.it' => 'Tradotto automaticamente dall\'italiano',
+			'translation.from.nl' => 'Tradotto automaticamente dall\'olandese',
+			'translation.from.unknown' => ({required Object language}) => 'Tradotto automaticamente (lingua originale: ${language})',
+			'translation.offline' => 'Per tradurre serve la rete.',
+			'translation.failedOffline' => 'Nessuna rete: non è stato possibile tradurre il testo.',
+			'translation.busy' => 'Il servizio di traduzione è occupato. Riprova più tardi.',
+			'translation.unavailable' => 'La traduzione non è disponibile al momento.',
+			'translation.gone' => 'Questo testo non è più disponibile.',
+			'translation.unsupported' => 'Nessuna traduzione disponibile per questa lingua.',
+			'translation.autoReviews' => 'Traduci automaticamente le recensioni',
+			'translation.autoReviewsHint' => 'Le recensioni in un\'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
@@ -3694,6 +3772,8 @@ extension on TranslationsIt {
 			'mine.poiConfirmations' => 'Negozi e servizi confermati',
 			'mine.aPoi' => 'Un negozio o un servizio',
 			'outbox.kind.rate' => ({required Object stars}) => 'Valutazione di ${stars} su 5',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.kind.review' => 'Recensione',
 			'outbox.kind.deleteReview' => 'Eliminazione di una recensione',
 			'outbox.kind.confirm' => ({required Object status}) => 'Conferma: ${status}',
@@ -3718,8 +3798,6 @@ extension on TranslationsIt {
 			'outbox.sending' => 'Invio in corso',
 			'outbox.error.forbidden' => 'Rifiutato: il tuo livello non lo consente ancora.',
 			'outbox.error.notFound' => 'Rifiutato: il luogo o il contenuto non esiste più.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.invalid' => 'Rifiutato: controlla il testo (lunghezza, link, recapiti).',
 			'outbox.error.unreadablePhoto' => 'Foto rifiutata: illeggibile, o già inviata.',
 			'outbox.error.photoTooLarge' => 'Foto rifiutata: troppo pesante.',

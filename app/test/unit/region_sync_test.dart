@@ -59,6 +59,10 @@ List<Map<String, dynamic>> apiPlaces({String region = 'FR-ARA'}) {
       'address': null,
       'municipality': 'Aubenas',
       'stars': 2.5,
+      // A value of a newer server is left out, the rest of the list stays.
+      'priceParkingEur': 15,
+      'priceParkingIncludes': ['TOURIST_TAX', 'SAUNA'],
+      'priceServicesIncluded': true,
       'openingHoursParsed': false,
       'openingIntervals': [
         {'start': '2026-10-06T06:00:00Z', 'end': '2026-10-06T18:00:00Z'},
@@ -272,6 +276,47 @@ void main() {
       final camp = await places.watchPlace(campsite.id).first;
       expect(camp!.ratingForFilters, isNull, reason: 'none known yet: the feed brings it');
     });
+
+    test('a pack built before the price inclusions keeps those a place has', () async {
+      final priced = Place(
+        id: campsite.id,
+        kind: campsite.kind,
+        lat: campsite.lat,
+        lon: campsite.lon,
+        overnight: campsite.overnight,
+        updatedAt: DateTime.utc(2026, 9),
+        priceParkingEur: 14.5,
+        priceServicesIncluded: true,
+        priceParkingIncludes: const {PriceInclusion.touristTax},
+      );
+      await store.beginFullSync('FR-ARA');
+      await store.applyPage('FR-ARA', _page([priced], cursor: 'c1'));
+      final pack = '${dir.path}/fr-ara-before-inclusions.sqlite';
+      writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9', withInclusions: false);
+      expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), apiPlaces().length);
+      final camp = await places.watchPlace(campsite.id).first;
+      expect(
+        camp!.priceServicesIncluded,
+        isTrue,
+        reason: 'the feed gave it; the pack says nothing',
+      );
+      expect(camp.priceParkingIncludes, {PriceInclusion.touristTax});
+      expect(camp.name, campsite.name, reason: 'the rest comes from the pack');
+      final edge = await places.watchPlace('edge-1').first;
+      expect(edge!.priceParkingIncludes, isEmpty, reason: 'none known yet: the feed brings them');
+    });
+
+    test(
+      'a pack with the price inclusions gives them, a value of a newer server left out',
+      () async {
+        final pack = '${dir.path}/fr-ara-inclusions.sqlite';
+        writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9');
+        await store.importPack('FR-ARA', pack, cursor: 'c9');
+        final edge = await places.watchPlace('edge-1').first;
+        expect(edge!.priceParkingIncludes, {PriceInclusion.touristTax});
+        expect(edge.priceServicesIncluded, isTrue);
+      },
+    );
 
     test('a pack with the rating of the filters gives it to the filter', () async {
       final pack = '${dir.path}/fr-ara-rated.sqlite';
