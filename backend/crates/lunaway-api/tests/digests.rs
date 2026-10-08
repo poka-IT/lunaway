@@ -212,6 +212,12 @@ async fn each_place_gets_its_own_ratings_and_a_hidden_deleted_or_merged_one_none
     let app = app(&pool);
     let both = json!({"ids": [lake, alps]});
 
+    let alps_area = json!({"bbox": {"south": 47.85, "west": 12.12, "north": 47.86, "east": 12.13}});
+    let area = gql(&app, DIGESTS, alps_area.clone()).await;
+    assert!(
+        digests(&area).iter().any(|d| d["placeId"] == json!(alps)),
+        "the area holds the place before it goes"
+    );
     let body = gql(&app, DIGESTS, both.clone()).await;
     let by_place = ratings_by_place(&body);
     assert_eq!(
@@ -256,12 +262,7 @@ async fn each_place_gets_its_own_ratings_and_a_hidden_deleted_or_merged_one_none
         digests(&body).is_empty(),
         "a deleted or merged place is left out"
     );
-    let area = gql(
-        &app,
-        DIGESTS,
-        json!({"bbox": {"south": 47.85, "west": 12.12, "north": 47.86, "east": 12.13}}),
-    )
-    .await;
+    let area = gql(&app, DIGESTS, alps_area).await;
     assert!(
         digests(&area).iter().all(|d| d["placeId"] != json!(alps)),
         "nor read by area"
@@ -327,6 +328,29 @@ async fn a_client_reads_the_rows_of_its_lists_within_a_quota(pool: PgPool) {
             .as_u64()
             .unwrap()
             > 0
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_read_by_area_counts_as_the_reads_of_ids_it_replaces(pool: PgPool) {
+    let mut config = ApiConfig::default();
+    config.quotas.place_digests = lunaway_api::config::Quota {
+        count: 7,
+        period: std::time::Duration::from_secs(3_600),
+    };
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config));
+    let area = json!({"bbox": {"south": 45.85, "west": 6.10, "north": 45.9, "east": 6.15}});
+    digests(&gql(&app, DIGESTS, area.clone()).await);
+    let second = gql(&app, DIGESTS, area).await;
+    assert_eq!(
+        code(&second),
+        "RATE_LIMITED",
+        "five uses each: two areas exceed seven"
+    );
+    let ids = gql(&app, DIGESTS, json!({"ids": [Uuid::now_v7()]})).await;
+    assert!(
+        ids.get("errors").is_none(),
+        "a refused area takes nothing: the two uses left serve reads of ids"
     );
 }
 

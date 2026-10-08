@@ -678,7 +678,8 @@ impl QueryRoot {
     /// grid (about 5 km) before any use and which may then cover 1 square
     /// degree at most: the list the app reads from the map's tiles. Exactly
     /// one of the two. A deleted or merged place is left out. 300 reads per
-    /// client at once, then one every 12 seconds (`RATE_LIMITED` beyond).
+    /// client at once, then one every 12 seconds, a read of an area counting
+    /// five (`RATE_LIMITED` beyond).
     #[graphql(complexity = "crate::digest_query::digests_cost(ids.as_deref(), child_complexity)")]
     async fn place_digests(
         &self,

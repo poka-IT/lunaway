@@ -27,7 +27,8 @@ use crate::{
 /// Most places of `placeDigests(ids:)`: the longest list the app asks
 /// about at once (the nearest 200 of a view, a page of a search).
 pub(crate) const MAX_DIGEST_IDS: usize = 200;
-/// Most places of `placeDigests(bbox:)`: the view of a large screen at the
+/// Most places of `placeDigests(bbox:)`, five reads of ids
+/// ([`AREA_READ_USES`]): the view of a large screen at the
 /// zoom from which the app lists the places of its tiles holds a few
 /// hundred in the densest areas.
 pub(crate) const MAX_DIGEST_BBOX_PLACES: i64 = 1_000;
@@ -134,7 +135,7 @@ pub(crate) async fn place_digests(
             if ids.is_empty() {
                 return Ok(Vec::new());
             }
-            take(ctx, client)?;
+            take(ctx, client, 1)?;
             let (pool, _permit) = db(ctx).await?;
             digests::of_places(pool, &ids, &language).await
         }
@@ -147,7 +148,7 @@ pub(crate) async fn place_digests(
                     area.area_deg2()
                 )));
             }
-            take(ctx, client)?;
+            take(ctx, client, AREA_READ_USES)?;
             let (pool, _permit) = db(ctx).await?;
             digests::in_bbox(pool, area, &language, MAX_DIGEST_BBOX_PLACES).await
         }
@@ -157,11 +158,22 @@ pub(crate) async fn place_digests(
     Ok(rows.into_iter().map(PlaceDigest::from_row).collect())
 }
 
-fn take(ctx: &Context<'_>, client: Subject) -> Result<()> {
-    state(ctx)
-        .quotas
-        .take(Action::PlaceDigests, client)
-        .map_err(|wait| quota_spent("reads of list rows", wait))
+/// Uses of the quota an area read takes: it returns as many rows as this
+/// many reads of ids, so neither way copies the ratings faster.
+const AREA_READ_USES: usize = 5;
+
+/// Takes `uses` of the client's quota of reads, or none when it lacks one.
+fn take(ctx: &Context<'_>, client: Subject, uses: usize) -> Result<()> {
+    let quotas = &state(ctx).quotas;
+    for taken in 0..uses {
+        if let Err(wait) = quotas.take(Action::PlaceDigests, client) {
+            for _ in 0..taken {
+                quotas.give_back(Action::PlaceDigests, client);
+            }
+            return Err(quota_spent("reads of list rows", wait));
+        }
+    }
+    Ok(())
 }
 
 /// `input` widened outward to the [`COARSE_GRID_DEG`] grid, as the app
