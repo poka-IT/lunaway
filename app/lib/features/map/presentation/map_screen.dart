@@ -13,6 +13,7 @@ import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/router/popup_routes.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
@@ -380,9 +381,12 @@ class _MapState extends ConsumerState<_Map> {
   }
 
   /// The first time the map comes down to the street, one line says that a
-  /// tap there leads somewhere; never again after.
+  /// tap there leads somewhere; never again after. Never over a card or a
+  /// sheet, whose buttons it would hide: it waits for the map to rest at
+  /// the street with nothing open.
   void _hintFreeTap(MapViewport v) {
     if (v.zoom < FreeTap.freePointMinZoom) return;
+    if (ref.read(selectionProvider) != null || ref.read(openPopupsProvider) > 0) return;
     final settings = ref.read(settingsProvider);
     if (settings.mapTapHintShown) return;
     unawaited(ref.read(settingsProvider.notifier).setMapTapHintShown());
