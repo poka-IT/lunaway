@@ -20,6 +20,11 @@ RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
 # Places are rebuilt from the records as soon as an import succeeds.
 OnSuccess=lunaway-conflate.service
+# A failed run (PostgreSQL restarted under it, a source down) is tried
+# again 15 minutes later, three runs at most: docs/deploy.md, "Data
+# pipeline".
+StartLimitIntervalSec=13h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -35,6 +40,8 @@ Environment=NO_COLOR=1
 # per word (--extract germany ...).
 ExecStart=/opt/lunaway/current/lunaway ingest osm-extract $LUNAWAY_EXTRACTS_%i --refresh
 TimeoutStartSec=4h
+Restart=on-failure
+RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

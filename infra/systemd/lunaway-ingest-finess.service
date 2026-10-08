@@ -11,6 +11,11 @@ Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
+# A failed run (PostgreSQL restarted under it, a source down) is tried
+# again 15 minutes later, three runs at most: docs/deploy.md, "Data
+# pipeline".
+StartLimitIntervalSec=7h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -24,6 +29,8 @@ Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway ingest finess --refresh
 ExecStartPost=/usr/bin/find /srv/data/ingest/raw/finess -maxdepth 1 -type f -mtime +45 -delete
 TimeoutStartSec=1h
+Restart=on-failure
+RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

@@ -352,6 +352,26 @@ volume, so an interrupted download resumes.
 The nightly conflation timer of earlier versions is gone: the worker runs at
 least every 5 minutes and recomputes "today" at each run.
 
+An import whose next run is a day or more away (every `lunaway ingest ...`
+unit above except fuel, `lunaway-content-refresh`, `lunaway-road-events-dialog`,
+`lunaway-cameras`, `lunaway-cameras-osm`) is tried again 15 minutes after a
+failure, three runs at most (`Restart=on-failure`, `RestartSec=15min`,
+`StartLimitBurst=3`). On 2026-10-08 at 01:36 UTC, needrestart restarted
+PostgreSQL after an update of liblzma5 and the weekly content refresh died
+with "terminating connection due to administrator command"; its next run was
+a week away. Each unit's `StartLimitIntervalSec=` holds its three runs at
+their longest (systemd arms `TimeoutStartSec=` again for each start
+command, `ExecStartPost=` included), so the fourth start always falls
+inside it and is refused, and it ends before the unit's next timer, which
+then runs it as usual. `infra/tests/unit-restart.py` checks both on the unit
+files. Measured on the backend's systemd 257 with a transient unit: the
+unit is `activating (auto-restart)` while it waits, so the health probe
+does not count it as failed; after the third failed run systemd logs "Start
+request repeated too quickly" and the unit stays `failed` (result
+`exit-code`). A run stopped by its timeout is retried too. A run stopped
+by a reboot is not: systemd stops it, and its timer runs it at its next
+date.
+
 Every writer of the catalogue (an import, a conflation, the worker) takes
 the same transaction-level advisory lock (`pg_advisory_xact_lock`,
 `backend/crates/lunaway-db/src/lib.rs`) and waits for it up to 30 minutes,

@@ -12,6 +12,11 @@ Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
+# A failed run (PostgreSQL restarted under it, a source down) is tried
+# again 15 minutes later, three runs at most: docs/deploy.md, "Data
+# pipeline".
+StartLimitIntervalSec=3h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -24,6 +29,8 @@ Environment=RUST_LOG=info
 Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway ingest cameras --refresh
 TimeoutStartSec=30min
+Restart=on-failure
+RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
