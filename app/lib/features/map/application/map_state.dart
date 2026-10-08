@@ -95,9 +95,25 @@ class Selection extends _$Selection {
   @override
   MapSelection? build() => null;
 
-  void select(MapSelection? selection) => state = selection;
+  void select(MapSelection? selection) {
+    // The same place chosen again (from the search, the list, its pin)
+    // changes no state: [Reselections] says so to its open page.
+    if (selection != null && selection == state) ref.read(reselectionsProvider.notifier).bump();
+    state = selection;
+  }
 
   void clear() => state = null;
+}
+
+/// How many times the selection was chosen again while it showed: the page
+/// open goes back to its top, as for a place newly opened.
+// keepAlive: a count of the run, read by whichever page is open.
+@Riverpod(keepAlive: true)
+class Reselections extends _$Reselections {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
 }
 
 /// France as a whole: the first view before the user moves or is located.

@@ -23,6 +23,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
@@ -173,6 +174,18 @@ class PlaceDetailsBody extends ConsumerWidget {
         ref.watch(placeExternalProvider(place.id).select((s) => s.value?.content.descriptions)) ??
         const [];
     final ownText = place.descriptions.isNotEmpty || place.description != null;
+    // Opened again while it shows (the search, the list): from its top, as
+    // a place newly opened, not where the reader had left it.
+    ref.listen(reselectionsProvider, (_, _) {
+      final scroll = scrollController;
+      if (scroll == null || !scroll.hasClients) return;
+      final duration = Motion.of(context, Motion.medium);
+      if (duration == Duration.zero) {
+        scroll.jumpTo(0);
+      } else {
+        scroll.animateTo(0, duration: duration, curve: Motion.standard);
+      }
+    });
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),

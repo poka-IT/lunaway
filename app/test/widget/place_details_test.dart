@@ -341,6 +341,26 @@ void main() {
     expect(find.text('Enregistrer dans une liste'), findsOneWidget);
   });
 
+  testWidgets('a place opened again from the search shows from its top', (tester) async {
+    final app = await pumpLunaway(tester);
+    final selection = app.container(tester).read(selectionProvider.notifier)
+      ..select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    final details = find
+        .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+        .first;
+    // The sheet up, then the page read down to its reviews.
+    for (var i = 0; i < 4; i++) {
+      await tester.drag(details, const Offset(0, -400));
+      await settleShort(tester);
+    }
+    final position = tester.state<ScrollableState>(details).position;
+    expect(position.pixels, greaterThan(200));
+    selection.select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    expect(position.pixels, 0, reason: 'not where the reader had left it');
+  });
+
   testWidgets('the lists sheet ticks a list at once and closes on Done', (tester) async {
     final app = await openPlace(tester, campsite);
     await tester.longPress(find.text('Enregistrer'));

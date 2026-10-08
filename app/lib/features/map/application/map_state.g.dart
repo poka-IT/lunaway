@@ -41,7 +41,7 @@ final class SelectionProvider
   }
 }
 
-String _$selectionHash() => r'd145d9ce37604751d3543f555fc9c54f78e45327';
+String _$selectionHash() => r'84b804159c537e41fdfbbb05008a067eec858470';
 
 abstract class _$Selection extends $Notifier<MapSelection?> {
   MapSelection? build();
@@ -54,6 +54,71 @@ abstract class _$Selection extends $Notifier<MapSelection?> {
             as $ClassProviderElement<
               AnyNotifier<MapSelection?, MapSelection?>,
               MapSelection?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// How many times the selection was chosen again while it showed: the page
+/// open goes back to its top, as for a place newly opened.
+// keepAlive: a count of the run, read by whichever page is open.
+
+@ProviderFor(Reselections)
+final reselectionsProvider = ReselectionsProvider._();
+
+/// How many times the selection was chosen again while it showed: the page
+/// open goes back to its top, as for a place newly opened.
+// keepAlive: a count of the run, read by whichever page is open.
+final class ReselectionsProvider extends $NotifierProvider<Reselections, int> {
+  /// How many times the selection was chosen again while it showed: the page
+  /// open goes back to its top, as for a place newly opened.
+  // keepAlive: a count of the run, read by whichever page is open.
+  ReselectionsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'reselectionsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$reselectionsHash();
+
+  @$internal
+  @override
+  Reselections create() => Reselections();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$reselectionsHash() => r'56810264725188a9b290effac91a57d0deee7dab';
+
+/// How many times the selection was chosen again while it showed: the page
+/// open goes back to its top, as for a place newly opened.
+// keepAlive: a count of the run, read by whichever page is open.
+
+abstract class _$Reselections extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
               Object?,
               Object?
             >;
