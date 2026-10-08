@@ -4179,6 +4179,9 @@ class Translations$navigation$guidance$en {
 	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
 	String get positionLost => 'Position unavailable: check that the device\'s location is on for Lunaway.';
 
+	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
+	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
+
 	/// en: 'Before you set off'
 	String get firstTitle => 'Before you set off';
 
@@ -5973,6 +5976,7 @@ extension on Translations {
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
+			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
 			'navigation.guidance.firstTitle' => 'Before you set off',
 			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
@@ -6407,9 +6411,9 @@ extension on Translations {
 			'issueSheet.kind.nightBan' => 'Nights now forbidden',
 			'issueSheet.kind.serviceBroken' => 'Service out of order',
 			'issueSheet.kind.noAccess' => 'No access',
-			'issueSheet.kind.danger' => 'Danger',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
 			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',

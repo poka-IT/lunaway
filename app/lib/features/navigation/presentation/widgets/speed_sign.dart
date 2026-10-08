@@ -44,41 +44,44 @@ class SpeedAndLimit extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          label: [
-            '${t.navigation.guidance.speed} ${speed ?? ''}',
-            if (over) t.navigation.guidance.overLimit,
-          ].join(', '),
-          excludeSemantics: true,
-          child: AnimatedContainer(
-            duration: Motion.of(context, Motion.short),
-            padding: const EdgeInsets.symmetric(horizontal: Space.xs),
-            decoration: BoxDecoration(
-              color: over ? scheme.errorContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(LunaTokens.radiusM),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  speed == null ? '' : '$speed',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: over ? scheme.onErrorContainer : color,
-                    fontWeight: over ? FontWeight.w700 : null,
+        // An unknown speed shows nothing: a unit without a figure reads as
+        // a fault (a browser standing still gives none).
+        if (speed != null)
+          Semantics(
+            label: [
+              '${t.navigation.guidance.speed} $speed',
+              if (over) t.navigation.guidance.overLimit,
+            ].join(', '),
+            excludeSemantics: true,
+            child: AnimatedContainer(
+              duration: Motion.of(context, Motion.short),
+              padding: const EdgeInsets.symmetric(horizontal: Space.xs),
+              decoration: BoxDecoration(
+                color: over ? scheme.errorContainer : Colors.transparent,
+                borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$speed',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: over ? scheme.onErrorContainer : color,
+                      fontWeight: over ? FontWeight.w700 : null,
+                    ),
                   ),
-                ),
-                Text(
-                  unit,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: over ? scheme.onErrorContainer : color,
+                  Text(
+                    unit,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: over ? scheme.onErrorContainer : color,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
         if (shown != null && limit != null) ...[
-          const SizedBox(width: Space.s),
+          if (speed != null) const SizedBox(width: Space.s),
           Semantics(
             label: shown.estimated
                 ? '${t.navigation.guidance.limitEstimated} $limit'

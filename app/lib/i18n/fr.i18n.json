@@ -728,6 +728,7 @@
       "notificationChannel": "Guidage",
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
       "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
+      "positionStale": "Dernière position reçue il y a $minutes min : l'heure d'arrivée en dépend.",
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris",
       "dangerZone": "Zone de danger dans $distance",

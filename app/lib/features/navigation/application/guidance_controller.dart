@@ -227,7 +227,8 @@ final class GuidanceSession {
   final int reroutes;
 
   /// The position stopped coming: location turned off, or its permission
-  /// taken back. The next fix clears it.
+  /// taken back, and no fix for [positionLostAfter] since. The next fix
+  /// clears it.
   final bool positionLost;
 
   /// The stops still ahead, in order.
@@ -335,6 +336,11 @@ const _stopReachedM = 80.0;
 /// After the position stream fails, how long before it is asked for again.
 const _fixRetryAfter = Duration(seconds: 10);
 
+/// How long after a position error without any fix the position counts as
+/// lost: a browser reports an error now and then while its fixes keep
+/// coming (Firefox), which is no lost position.
+const positionLostAfter = Duration(seconds: 15);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
@@ -358,6 +364,12 @@ class GuidanceController extends _$GuidanceController {
   DrivingAidsEngine? _aids;
   Timer? _enforcementPoll;
   Timer? _fixRetry;
+
+  /// Says the position is lost, unless a fix comes first.
+  Timer? _lostCheck;
+
+  /// A position error came and no fix since.
+  bool _noFixSinceError = false;
   GuidanceWording? _words;
   VoiceOutput? _voice;
   ScreenWake? _wake;
@@ -617,6 +629,9 @@ class GuidanceController extends _$GuidanceController {
     _fixes = null;
     _fixRetry?.cancel();
     _fixRetry = null;
+    _lostCheck?.cancel();
+    _lostCheck = null;
+    _noFixSinceError = false;
     _poll?.cancel();
     _poll = null;
     _enforcementPoll?.cancel();
@@ -687,12 +702,17 @@ class GuidanceController extends _$GuidanceController {
 
   /// The position stream failed: location turned off, or its permission
   /// taken back. geolocator ends its updates then, so the stream is asked
-  /// for again, with the app in front, until fixes come back.
+  /// for again, with the app in front, until fixes come back. The screen
+  /// says the position is lost once none came for [positionLostAfter].
   void _onPositionError(Object e) {
     _log.warning('position stream: $e');
     final generation = _generation;
     if (!_current(generation)) return;
-    state = state!.copyWith(positionLost: true);
+    _noFixSinceError = true;
+    _lostCheck ??= Timer(positionLostAfter, () {
+      _lostCheck = null;
+      if (_current(generation) && _noFixSinceError) state = state!.copyWith(positionLost: true);
+    });
     _fixRetry?.cancel();
     // 10 s, then longer while location stays off: each try starts and
     // stops the service and its notification.
@@ -700,7 +720,7 @@ class GuidanceController extends _$GuidanceController {
     _fixRetries++;
     _fixRetry = Timer(wait, () async {
       await ref.read(appForegroundProvider).resumed();
-      if (_current(generation) && state!.positionLost) _listenFixes();
+      if (_current(generation) && _noFixSinceError) _listenFixes();
     });
   }
 
@@ -711,6 +731,9 @@ class GuidanceController extends _$GuidanceController {
     final snap = track.update(fix);
     var next = s.copyWith(snapshot: snap, lastFix: fix, positionLost: false);
     _fixRetries = 0;
+    _noFixSinceError = false;
+    _lostCheck?.cancel();
+    _lostCheck = null;
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
       // the screen stays on for the arrival card.

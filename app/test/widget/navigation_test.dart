@@ -1037,14 +1037,67 @@ void main() {
       expect(find.text(lost), findsNothing);
       feed.fail(StateError('location turned off'));
       await tester.pump(const Duration(milliseconds: 50));
-      expect(find.text(lost), findsOneWidget);
+      expect(find.text(lost), findsNothing, reason: 'an error alone is not yet a lost position');
       // The failed stream has ended; the guidance asks for a new one.
       expect(feed.listening, isFalse);
       await tester.pump(const Duration(seconds: 11));
       expect(feed.listening, isTrue);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text(lost), findsOneWidget, reason: '15 s without a position');
       feed.send(driveFixes(plan.routes.first, toM: 240).last);
       await settleShort(tester);
       expect(find.text(lost), findsNothing);
+    });
+
+    testWidgets('errors between fixes that keep coming are no lost position (Firefox)', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      final fixes = driveFixes(plan.routes.first, toM: 300);
+      for (final f in fixes) {
+        feed.send(f);
+        if (fixes.indexOf(f).isEven) feed.error(StateError('POSITION_UNAVAILABLE'));
+        await tester.pump(const Duration(seconds: 1));
+      }
+      expect(find.textContaining('Position indisponible'), findsNothing);
+    });
+
+    testWidgets('a position that stops coming leaves the arrival time with the clock, and says '
+        'how old it is', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final app = await guide(tester, plan);
+      // The last position, 5 minutes before the app's clock (08:30).
+      final first = driveFixes(plan.routes.first, toM: 0).first;
+      feed.send(
+        Fix(
+          position: first.position,
+          accuracyM: 5,
+          at: testNow.subtract(const Duration(minutes: 5)),
+          courseDeg: first.courseDeg,
+          speedMps: 10,
+        ),
+      );
+      await settleShort(tester);
+      final left = app.container(tester).read(guidanceControllerProvider)!.snapshot!;
+      final t = await AppLocale.fr.build();
+      final eta = testNow.add(Duration(seconds: left.durationRemainingS.round())).toLocal();
+      expect(find.text('Arrivée ${t.clockTime(eta)}'), findsOneWidget);
+      expect(
+        find.text("Dernière position reçue il y a 5 min : l'heure d'arrivée en dépend."),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a speed the position does not give shows no unit alone', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      for (final f in driveFixes(plan.routes.first, toM: 100)) {
+        feed.send(Fix(position: f.position, accuracyM: 5, at: f.at, courseDeg: f.courseDeg));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(find.text('km/h'), findsNothing);
     });
 
     testWidgets('the voice button turns the voice off', (tester) async {

@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
@@ -834,13 +835,22 @@ class _Notices extends ConsumerWidget {
       _ => null,
     };
     final now = ref.watch(clockProvider)().toLocal();
+    // Turns over each minute: how old the last position is.
+    final wall = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final along = session.snapshot?.distanceAlongM ?? 0;
     final notices = <Widget>[
       if (ref.watch(demoDriveProvider))
         _Notice(icon: AppIcons.inAppNavigation, text: t.navigation.guidance.demoDrive),
       if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
       if (session.positionLost)
-        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
+        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true)
+      else if (session.lastFix case final fix? when wall.difference(fix.at) >= positionStaleAfter)
+        _Notice(
+          icon: AppIcons.error,
+          text: t.navigation.guidance.positionStale(
+            minutes: '${wall.difference(fix.at).inMinutes}',
+          ),
+        ),
       if (alert != null)
         _Notice(
           icon: switch (alert) {
@@ -1195,10 +1205,12 @@ class _BottomBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final colors = _panelColors(context);
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
-    final now = ref.watch(clockProvider)();
+    // Each minute too: with no new position, the arrival time still moves
+    // on with the clock rather than slide into the past.
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final snap = session.snapshot;
     final left = snap?.durationRemainingS ?? session.route.durationS;
-    final eta = (session.lastFix?.at ?? now).add(Duration(seconds: left.round())).toLocal();
+    final eta = arrivalAt(now: now, lastFix: session.lastFix, leftS: left).toLocal();
     final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
     final speed = session.lastFix?.speedMps;
     return Material(

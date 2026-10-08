@@ -183,6 +183,10 @@ final class FakeLocationFeed implements LocationFeed {
     unawaited(failed.close());
   }
 
+  /// An error between fixes that leaves the stream open, as a browser's
+  /// `watchPosition` reports one now and then (Firefox).
+  void error(Object error) => _fixes.addError(error);
+
   @override
   Future<Fix?> current() async =>
       position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));

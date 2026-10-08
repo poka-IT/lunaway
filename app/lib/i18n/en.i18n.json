@@ -728,6 +728,7 @@
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
+      "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
       "dangerZone": "Danger zone in $distance",

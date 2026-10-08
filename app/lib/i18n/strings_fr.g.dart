@@ -1930,6 +1930,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get notificationChannel => 'Guidage';
 	@override String get unavailable => 'Le guidage n\'a pas pu démarrer sur cet appareil.';
 	@override String get positionLost => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.';
+	@override String positionStale({required Object minutes}) => 'Dernière position reçue il y a ${minutes} min : l\'heure d\'arrivée en dépend.';
 	@override String get firstTitle => 'Avant de partir';
 	@override String get firstAccept => 'J\'ai compris';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}';
@@ -3148,6 +3149,7 @@ extension on TranslationsFr {
 			'navigation.guidance.notificationChannel' => 'Guidage',
 			'navigation.guidance.unavailable' => 'Le guidage n\'a pas pu démarrer sur cet appareil.',
 			'navigation.guidance.positionLost' => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.',
+			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Dernière position reçue il y a ${minutes} min : l\'heure d\'arrivée en dépend.',
 			'navigation.guidance.firstTitle' => 'Avant de partir',
 			'navigation.guidance.firstAccept' => 'J\'ai compris',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}',
@@ -3582,9 +3584,9 @@ extension on TranslationsFr {
 			'issueSheet.kind.nightBan' => 'Nuit interdite désormais',
 			'issueSheet.kind.serviceBroken' => 'Service en panne',
 			'issueSheet.kind.noAccess' => 'Accès impossible',
-			'issueSheet.kind.danger' => 'Danger',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
