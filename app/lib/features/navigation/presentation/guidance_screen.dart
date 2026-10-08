@@ -847,36 +847,40 @@ class _Notices extends ConsumerWidget {
             ReroutedAlert() => AppIcons.sync,
             _ => AppIcons.error,
           },
-          text: switch (alert) {
-            ReroutedAlert(:final extra, :final moved, :final lastStop) => [
+          text: [
+            switch (alert) {
               // Rounded as the voice rounds them: 90 seconds are 2 minutes.
-              switch (extra == null ? 0 : (extra.inSeconds / 60).round()) {
+              ReroutedAlert(:final extra) => switch (extra == null
+                  ? 0
+                  : (extra.inSeconds / 60).round()) {
                 final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
                   minutes: '$minutes',
                 ),
                 _ => t.navigation.guidance.rerouted,
               },
-              for (final m in moved) t.movedStop(m, lastStop: lastStop, units: units),
-            ].join('\n'),
-            ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
-              distance: t.routeDistance(finding.aheadM, units),
-            ),
-            NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
-              distance: t.routeDistance(finding.aheadM, units),
-            ),
-            RerouteFailedAlert(:final failure, :final cause?) =>
-              failure?.kind == RouteFailureKind.offline
-                  ? t.navigation.guidance.closureOffline(
-                      distance: t.routeDistance(cause.aheadM, units),
-                    )
-                  : t.navigation.guidance.closureFailed(
-                      distance: t.routeDistance(cause.aheadM, units),
-                    ),
-            RerouteFailedAlert(:final failure) =>
-              failure?.kind == RouteFailureKind.offline
-                  ? t.navigation.guidance.rerouteOffline
-                  : t.navigation.guidance.rerouteFailed,
-          },
+              ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
+                distance: t.routeDistance(finding.aheadM, units),
+              ),
+              NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
+                distance: t.routeDistance(finding.aheadM, units),
+              ),
+              RerouteFailedAlert(:final failure, :final cause?) =>
+                failure?.kind == RouteFailureKind.offline
+                    ? t.navigation.guidance.closureOffline(
+                        distance: t.routeDistance(cause.aheadM, units),
+                      )
+                    : t.navigation.guidance.closureFailed(
+                        distance: t.routeDistance(cause.aheadM, units),
+                      ),
+              RerouteFailedAlert(:final failure) =>
+                failure?.kind == RouteFailureKind.offline
+                    ? t.navigation.guidance.rerouteOffline
+                    : t.navigation.guidance.rerouteFailed,
+            },
+            // The stops the route in use moved, under whichever message
+            // tells of it.
+            for (final m in alert.moved) t.movedStop(m, lastStop: alert.lastStop, units: units),
+          ].join('\n'),
           strong: alert is! ReroutedAlert,
         )
       else if (session.phase == GuidancePhase.rerouting)

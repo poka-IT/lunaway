@@ -10,7 +10,7 @@ void main() {
   const notices = ValueKey('notices');
   const buttons = ValueKey('buttons');
 
-  Future<void> pumpPanels(WidgetTester tester, String notice) async {
+  Future<void> pumpPanels(WidgetTester tester, String notice, {bool settle = true}) async {
     tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -34,7 +34,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(seconds: 1));
+    if (settle) await tester.pump(const Duration(seconds: 1));
   }
 
   testWidgets('a notice that reaches the buttons lies beside them, and the screen comes to rest', (
@@ -57,6 +57,25 @@ void main() {
       isFalse,
       reason: 'laid out once a pass, the notice does not restart its easing at every frame',
     );
+  });
+
+  testWidgets('a notice that appears while the buttons are there is never drawn under them', (
+    tester,
+  ) async {
+    await pumpPanels(tester, '');
+    await pumpPanels(
+      tester,
+      'Point d’arrivée déplacé de 120 m vers la rue accessible ' * 4,
+      settle: false,
+    );
+    final column = tester.getRect(find.byKey(buttons));
+    // The easing of the notice, frame by frame.
+    for (var frame = 0; frame < 30; frame++) {
+      expect(tester.getRect(find.byKey(notices)).overlaps(column), isFalse, reason: 'frame $frame');
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
   testWidgets('a notice that ends above the buttons keeps the whole width', (tester) async {

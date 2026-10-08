@@ -76,52 +76,76 @@ enum RerouteReason {
 /// A calm message over the guidance, for a while.
 @immutable
 sealed class GuidanceAlert {
-  const new({required this.until});
+  const new({required this.until, this.moved = const [], this.lastStop = 1});
 
   /// When it goes, in the fixes' time.
   final DateTime until;
+
+  /// The stops the route in use moved, told under this message: those the
+  /// driver had not been told of, numbered as in the route asked, 1 for the
+  /// first stop ahead, [lastStop] for the destination.
+  final List<MovedStop> moved;
+
+  final int lastStop;
+
+  /// This message with [moved] told under it.
+  GuidanceAlert withMoves(List<MovedStop> moved, int lastStop) => switch (this) {
+    ReroutedAlert(:final reason, :final extra) => ReroutedAlert(
+      reason: reason,
+      extra: extra,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    ClosureAheadAlert(:final finding) => ClosureAheadAlert(
+      finding: finding,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    NoDetourAlert(:final finding) => NoDetourAlert(
+      finding: finding,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    RerouteFailedAlert(:final failure, :final cause) => RerouteFailedAlert(
+      failure: failure,
+      cause: cause,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+  };
 }
 
 /// A new route was computed.
 final class ReroutedAlert extends GuidanceAlert {
-  const new({
-    required this.reason,
-    required super.until,
-    this.extra,
-    this.moved = const [],
-    this.lastStop = 1,
-  });
+  const new({required this.reason, required super.until, this.extra, super.moved, super.lastStop});
 
   final RerouteReason reason;
 
   /// How much longer than the remaining route before, when known.
   final Duration? extra;
-
-  /// The stops the new route moved that the driver had not been told of,
-  /// numbered as in the route asked: 1 for the first stop ahead,
-  /// [lastStop] for the destination.
-  final List<MovedStop> moved;
-
-  final int lastStop;
 }
 
 /// A road event ahead stops the vehicle; a new route is being computed.
 final class ClosureAheadAlert extends GuidanceAlert {
-  const new({required this.finding, required super.until});
+  const new({required this.finding, required super.until, super.moved, super.lastStop});
 
   final RoadEventFinding finding;
 }
 
 /// A road event ahead stops the vehicle and no other route avoids it.
 final class NoDetourAlert extends GuidanceAlert {
-  const new({required this.finding, required super.until});
+  const new({required this.finding, required super.until, super.moved, super.lastStop});
 
   final RoadEventFinding finding;
 }
 
 /// A recalculation failed; the guidance keeps the route it had.
 final class RerouteFailedAlert extends GuidanceAlert {
-  const new({required this.failure, required super.until, this.cause});
+  const new({required this.failure, required super.until, this.cause, super.moved, super.lastStop});
 
   /// Null when the server answered without a route for the vehicle.
   final RouteFailure? failure;
@@ -870,13 +894,7 @@ class GuidanceController extends _$GuidanceController {
         snapshot: snap,
         phase: _offRouteNow(snap, fix) ? GuidancePhase.offRoute : GuidancePhase.navigating,
         reroutes: state!.reroutes + 1,
-        alert: () => ReroutedAlert(
-          reason: reason,
-          extra: extra,
-          until: alertUntil,
-          moved: moved,
-          lastStop: asked.length + 1,
-        ),
+        alert: () => ReroutedAlert(reason: reason, extra: extra, until: alertUntil),
         // The zones were measured along the old route; the next fix
         // measures them along this one.
         aids: state!.aids.withZones(const []),
@@ -900,17 +918,31 @@ class GuidanceController extends _$GuidanceController {
     // The new route is checked at once, against every event known by now:
     // the server may not have known the closure, and a route back through
     // it is no detour.
-    // A closure on the new route asks for another one at once: "new route"
-    // waits for that one.
-    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) _say(words.rerouted(extra));
-    // The stops this route moved are told now, after whatever was just
-    // said ("new route", "no other way", the closure that asks for another
-    // route): this route may be the one that stays, and a next one that
-    // moves them the same way says nothing more.
+    final noDetour = _checkEvents(afterReroute: cause != null);
+    // A closure on the new route asked for another one at once: that one
+    // says "new route" and tells the stops it moves; should it fail, the
+    // route kept tells them (_failed).
+    if (_rerouting) return;
+    if (!noDetour) _say(words.rerouted(extra));
+    _tellMoves(moved, asked, (target ?? s.target).destination);
+  }
+
+  /// Tells [moved], the moves of the route in use for [stops] and
+  /// [destination], under the message on screen ("new route", "no other
+  /// way", a failure that keeps this route) and aloud after it; from then
+  /// on they count as told. Nothing on screen to show them under: left
+  /// for the next message.
+  void _tellMoves(List<MovedStop> moved, List<RouteStop> stops, LatLng destination) {
+    final s = state;
+    final alert = s?.alert;
+    final words = _words;
+    if (moved.isEmpty || s == null || alert == null || words == null) return;
+    final lastStop = stops.length + 1;
+    state = s.copyWith(alert: () => alert.withMoves(moved, lastStop));
     for (final m in moved) {
-      _say(words.moved(m, lastStop: asked.length + 1), queue: true);
+      _say(words.moved(m, lastStop: lastStop), queue: true);
     }
-    _tell(moved, asked, (target ?? s.target).destination);
+    _tell(moved, stops, destination);
   }
 
   /// The moves of [plan], asked with [stops] and [destination], that the
@@ -963,6 +995,14 @@ class GuidanceController extends _$GuidanceController {
           : RerouteFailedAlert(failure: failure, cause: cause, until: until),
     );
     if (cause != null && noRoute) _say(_words!.noDetour(cause));
+    // The route kept may have moved stops a closure kept from being told
+    // (_reroute): told now, under this message.
+    final kept = state!;
+    _tellMoves(
+      _untoldMoves(kept.plan, kept.stops, kept.target.destination),
+      kept.stops,
+      kept.target.destination,
+    );
   }
 
   /// Asks for the road events now rather than at the next poll: when the
