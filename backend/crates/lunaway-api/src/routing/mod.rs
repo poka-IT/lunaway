@@ -108,13 +108,12 @@ pub(crate) const MAX_OSRM_BYTES: usize = 11 * 1024 * 1024;
 /// How near the user's point the restriction that keeps the vehicle from a
 /// stop must lie for the stop to be looked for farther away, metres: the
 /// car park under a square, the aisle the point was snapped to, the narrow
-/// street in front of it. The three city centres still refused after the
-/// tunnel filter had theirs at 30, 48 and 172 m (Strasbourg, Marseille
-/// Saint-Charles, Montpellier; 2026-10-07); once the route was matched
-/// only on the ways it drives, Saint-Charles is named by the underground
-/// aisle of way 417106729, 221 m from the point (2026-10-08,
-/// `plan/research/65-accroche-et-desserte.md`). A limit farther away keeps
-/// a whole district from the vehicle, and moving the stop would not help.
+/// street in front of it. The three city centres refused after the tunnel
+/// filter have theirs at 30, 221 and 172 m (Strasbourg; Marseille
+/// Saint-Charles, the underground aisle of way 417106729; Montpellier;
+/// 2026-10-08, `plan/research/65-accroche-et-desserte.md`). A limit farther
+/// away keeps a whole district from the vehicle, and moving the stop would
+/// not help.
 const MOVE_WITHIN_M: f64 = 250.0;
 /// The search radii a stop the vehicle cannot reach is asked again with,
 /// metres, the next one only when the first gives no route: at 100 m,
@@ -2070,10 +2069,10 @@ mod tests {
             stops_to_move(&unreachable(aisle.clone()), &[lyon, st_charles]),
             [1]
         );
-        // Once the route counts only the ways it drives, the diagnosis names
-        // the underground aisle of way 417106729 (1.9 m high, 2.05 m wide),
+        // The diagnosis now names the underground aisle of way 417106729,
         // 221 m from the point (production, 2026-10-08): still the stop's
-        // own access, so the stop is looked for farther.
+        // own access, so the stop is looked for farther. Its geometry, read
+        // from OpenStreetMap; the limit itself is the stand-in of `bar`.
         let underground = vec![
             p(43.302_249_2, 5.383_515_9),
             p(43.302_312_1, 5.383_445_8),
@@ -2086,7 +2085,10 @@ mod tests {
             [1],
             "Saint-Charles's limit at {d:.1} m must move the destination"
         );
-        assert!((220.0..230.0).contains(&d), "{d}");
+        assert!(
+            (200.0..MOVE_WITHIN_M).contains(&d),
+            "the fixture must keep Saint-Charles between the old and the new threshold: {d}"
+        );
         // A limit 500 m away closes a district: moving the stop would not
         // reach it.
         let far = vec![p(43.3072, 5.3806), p(43.3075, 5.3806)];
