@@ -445,6 +445,62 @@ async fn an_erased_author_stays_erased_across_feeds(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_erasure_that_lands_during_an_import_holds(pool: PgPool) {
+    // The import reads the erased authors when it starts; an erasure
+    // committed after that, while the import waits for the writers' lock
+    // before its first batch, must still keep the author's review and photo
+    // out: each batch reads the erasures again under that lock.
+    let dir = tempfile::tempdir().unwrap();
+    let writer = lunaway_db::conflation::begin_writer(&pool).await.unwrap();
+    let import = {
+        let pool = pool.clone();
+        let cache = Cache::new(dir.path());
+        tokio::spawn(async move {
+            run(&pool, &cache, Path::new(FEED), &options(Limits::default())).await
+        })
+    };
+    let waiting = "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted";
+    let started = std::time::Instant::now();
+    while count(&pool, waiting).await == 0 {
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(20),
+            "the import never waited for the writers' lock"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    sqlx::query("INSERT INTO source_erasures (source_id, author_hash) VALUES ('extcom', $1)")
+        .bind(lunaway_domain::extcom::author_hash("u-42"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    writer.commit().await.unwrap();
+    let r = import.await.unwrap().unwrap();
+    assert_eq!(
+        r.erased_skipped, 2,
+        "the batch left out the review and the photo of the author erased meanwhile"
+    );
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_reviews WHERE author_id = 'u-42'"
+        )
+        .await
+            + count(
+                &pool,
+                "SELECT count(*) FROM external_photos WHERE retired_at IS NULL \
+                 AND author_id = 'u-42'"
+            )
+            .await,
+        0
+    );
+    assert_eq!(
+        count(&pool, "SELECT count(*) FROM external_reviews").await,
+        5,
+        "the other authors' reviews are stored"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_purge_empties_the_source_and_blocks_imports_until_shown(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::new(dir.path());

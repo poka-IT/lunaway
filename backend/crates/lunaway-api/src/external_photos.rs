@@ -17,6 +17,11 @@
 //! limit and a time limit. A failed download is not tried again before a
 //! delay that doubles with each failure, so a refusing host is not asked
 //! at every view.
+//!
+//! Downloads are bounded per UTC day for all clients together, and each
+//! client (an IPv4 address or an IPv6 /64, with its /48) has a quota of its
+//! own within that budget (`Quotas::external_photo`), kept in memory like
+//! every quota: no address is stored or logged.
 
 use std::{
     collections::HashMap,
@@ -42,6 +47,7 @@ use crate::{
     config::{ExternalPhotosConfig, MediaConfig},
     error::{INTERNAL, NOT_FOUND, UNAVAILABLE},
     http::{refuse, wait_response},
+    quota::{Action, QuotaLimiter, Subject},
     rate::RateLimiter,
 };
 
@@ -289,6 +295,8 @@ pub(crate) struct ExternalPhotoEndpoint {
     pub(crate) slots: Semaphore,
     pub(crate) source: PhotoSource,
     pub(crate) budget: DailyBudget,
+    /// Each client's share of the downloads (`Action::ExternalPhoto`).
+    pub(crate) quotas: Arc<QuotaLimiter>,
 }
 
 /// Downloads allowed per UTC day, all clients together: a client walking
@@ -328,10 +336,51 @@ impl DailyBudget {
     }
 }
 
+/// One download of a client's share (`Action::ExternalPhoto`), given back
+/// when dropped before the partner's host is asked: a slot that never came,
+/// the day's budget spent, or a client gone while it waited.
+struct Share<'a> {
+    quotas: &'a QuotaLimiter,
+    subject: Subject,
+    spent: bool,
+}
+
+impl<'a> Share<'a> {
+    /// Takes one download of `client`'s share, or says how long until one
+    /// is free.
+    fn take(quotas: &'a QuotaLimiter, client: ClientKey) -> Result<Self, Duration> {
+        let subject = Subject::Client(client);
+        quotas.take(Action::ExternalPhoto, subject)?;
+        Ok(Self {
+            quotas,
+            subject,
+            spent: false,
+        })
+    }
+
+    /// The download goes ahead: the share stays taken.
+    fn spend(mut self) {
+        self.spent = true;
+    }
+}
+
+impl Drop for Share<'_> {
+    fn drop(&mut self) {
+        if !self.spent {
+            self.quotas.give_back(Action::ExternalPhoto, self.subject);
+        }
+    }
+}
+
 impl ExternalPhotoEndpoint {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the endpoint's shared parts, each from the API state"
+    )]
     pub(crate) fn new(
         pool: PgPool,
         rate: Arc<RateLimiter>,
+        quotas: Arc<QuotaLimiter>,
         media: Arc<MediaStore>,
         media_config: MediaConfig,
         workers: Arc<Semaphore>,
@@ -347,6 +396,7 @@ impl ExternalPhotoEndpoint {
             slots: Semaphore::new(config.fetches_at_once),
             source,
             budget: DailyBudget::new(config.downloads_per_day),
+            quotas,
         }
     }
 }
@@ -395,7 +445,8 @@ pub(crate) async fn photo(
         .await
         .ok()
         .map(|c| c.0);
-    if let Err(wait) = ep.rate.admit(ClientKey::from_request(peer, &parts.headers)) {
+    let client = ClientKey::from_request(peer, &parts.headers);
+    if let Err(wait) = ep.rate.admit(client) {
         return wait_response(
             StatusCode::TOO_MANY_REQUESTS,
             "this client's request budget is spent; wait and try again",
@@ -437,6 +488,18 @@ pub(crate) async fn photo(
             return response;
         }
     }
+    // The client's share first, before it waits for a download slot: a
+    // client past it neither queues nor spends the budget of the others.
+    let share = match Share::take(&ep.quotas, client) {
+        Ok(share) => share,
+        Err(wait) => {
+            return wait_response(
+                StatusCode::TOO_MANY_REQUESTS,
+                "this client's downloads of the partner's photos are spent; try again later",
+                wait,
+            );
+        }
+    };
     let Ok(Ok(_slot)) = tokio::time::timeout(SLOT_WAIT, ep.slots.acquire()).await else {
         return wait_response(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -451,6 +514,8 @@ pub(crate) async fn photo(
             wait,
         );
     }
+    // From here the partner's host is asked: the share is spent.
+    share.spend();
     let max = ep.media_config.max_upload_bytes;
     let bytes = match ep.source.fetch(&photo.url, &photo.hosts, max).await {
         Ok(b) => b,

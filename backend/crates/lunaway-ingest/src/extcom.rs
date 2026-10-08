@@ -353,8 +353,13 @@ struct FeedPlace {
     phone: Option<String>,
 }
 
-/// The authors erased at the partner's request, by `author_hash`, and the
-/// count of what of theirs a feed still carried.
+/// The authors erased at the partner's request, by `author_hash`, as the
+/// import read them at its start: their reviews and photos are left out
+/// before the bounds of a place are applied, so a place keeps its 200
+/// newest reviews of authors still there. Each batch's store reads the
+/// erasures again under the writers' lock
+/// (`lunaway_db::extcom::store_extras`), which is what holds an erasure
+/// that lands while the import runs.
 #[derive(Debug, Clone, Default)]
 pub struct Erasures {
     hashes: BTreeSet<String>,
@@ -1063,11 +1068,13 @@ async fn store_batch(
     report.licences_set +=
         store::set_record_licence(pool, source, &ids, &agreement.reference).await?;
     let extras: Vec<Extras> = places.iter().map(|m| m.extras.clone()).collect();
-    let Some(stats) =
+    let Some(mut stats) =
         store::store_extras(pool, source, &agreement.reference, fetched_at, &extras).await?
     else {
         return Err(IngestError::SourceHidden(source.clone()));
     };
+    let erased = std::mem::take(&mut stats.erased_skipped);
+    report.erased_skipped += usize::try_from(erased).unwrap_or(usize::MAX);
     report.extras += stats;
     Ok(())
 }

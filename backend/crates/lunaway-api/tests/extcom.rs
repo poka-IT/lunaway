@@ -120,6 +120,108 @@ async fn the_downloads_of_a_day_are_bounded_for_all_clients(pool: PgPool) {
     );
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn one_client_cannot_spend_the_downloads_of_all(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, &dir.path().join("raw")).await;
+    let mut c = config(&dir.path().join("media"));
+    c.quotas.external_photo = lunaway_api::config::Quota {
+        count: 1,
+        period: std::time::Duration::from_secs(86_400),
+    };
+    // Through the listener, behind Caddy on the loopback: each client is
+    // the address Caddy saw.
+    let app = app_with(
+        &pool,
+        c,
+        &[
+            ("https://img.partner.example/p-1.jpg", PIXEL),
+            ("https://img.partner.example/p-2.jpg", PIXEL),
+        ],
+    )
+    .layer(axum::extract::connect_info::MockConnectInfo(
+        "127.0.0.1:40000".parse::<std::net::SocketAddr>().unwrap(),
+    ));
+    let ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM external_photos WHERE external_id IN ('p-1', 'p-2') ORDER BY external_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let from = |client: &'static str, id: Uuid, size: &'static str| {
+        let app = app.clone();
+        async move {
+            let response = app
+                .oneshot(
+                    Request::get(format!("/external-photos/{id}/{size}"))
+                        .header("x-forwarded-for", client)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            (response.status(), response.headers().clone())
+        }
+    };
+    assert_eq!(
+        from("203.0.113.9", ids[0], "thumb").await.0,
+        StatusCode::FOUND
+    );
+    let (status, headers) = from("203.0.113.9", ids[1], "thumb").await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "a client past its share waits, whatever is left of the day's budget"
+    );
+    assert!(headers.contains_key(header::RETRY_AFTER));
+    assert_eq!(
+        from("198.51.100.7", ids[1], "thumb").await.0,
+        StatusCode::FOUND,
+        "another client still gets the photo"
+    );
+    assert_eq!(
+        from("203.0.113.9", ids[1], "large").await.0,
+        StatusCode::FOUND,
+        "a photo already stored costs no download"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_download_the_day_s_budget_refuses_costs_the_client_nothing(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, &dir.path().join("raw")).await;
+    let mut c = config(&dir.path().join("media"));
+    c.external_photos.downloads_per_day = 1;
+    c.quotas.external_photo = lunaway_api::config::Quota {
+        count: 2,
+        period: std::time::Duration::from_secs(86_400),
+    };
+    let app = app_with(
+        &pool,
+        c,
+        &[
+            ("https://img.partner.example/p-1.jpg", PIXEL),
+            ("https://img.partner.example/p-2.jpg", PIXEL),
+        ],
+    );
+    let ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM external_photos WHERE external_id IN ('p-1', 'p-2') ORDER BY external_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let thumb = |id: Uuid| format!("/external-photos/{id}/thumb");
+    assert_eq!(get(&app, &thumb(ids[0])).await.0, StatusCode::FOUND);
+    for attempt in 1..=2 {
+        assert_eq!(
+            get(&app, &thumb(ids[1])).await.0,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "attempt {attempt}: the day's budget is spent, not the client's share, which \
+             gets back the download that did not happen"
+        );
+    }
+}
+
 /// The fixture feed imported and conflated; the place of spot 1001.
 async fn seeded(pool: &PgPool, cache_dir: &Path) -> Uuid {
     let options = Options {
