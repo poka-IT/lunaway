@@ -32,6 +32,10 @@ abstract interface class PageRouteMotion {
 
   /// Whether the page reports gestures, presses and rests.
   void guiding({required bool on});
+
+  /// Whether a map that is not guiding reports the user's gestures, and
+  /// nothing else.
+  void watch({required bool on});
 }
 
 /// Off the web there is no page: the app draws the frames itself.
