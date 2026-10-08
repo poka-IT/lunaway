@@ -129,7 +129,7 @@ impl From<lunaway_db::towns::TownRow> for SearchTown {
             postcode: t.postcode,
             department: t.department,
             country_code: t.country_code,
-            place_count: i32::try_from(t.places).unwrap_or(i32::MAX),
+            place_count: t.places,
             lat: t.lat,
             lon: t.lon,
         }

@@ -71,7 +71,7 @@ async fn place(
     id
 }
 
-fn summary(rows: &[TownRow]) -> Vec<(String, Option<String>, Option<String>, i64)> {
+fn summary(rows: &[TownRow]) -> Vec<(String, Option<String>, Option<String>, i32)> {
     rows.iter()
         .map(|t| {
             (
@@ -134,7 +134,7 @@ async fn one_town_per_commune_and_the_homonyms_of_two_departments_apart(pool: Pg
         .execute(&pool)
         .await
         .unwrap();
-    // The audit's "Chamonix" and "Chamonix-Mont-Blanc", one town; a hamlet
+    // "Chamonix" and "Chamonix-Mont-Blanc" written by two sources, one town; a hamlet
     // the address names stays its own.
     let chamonix = Some(("74056", "Chamonix-Mont-Blanc"));
     place(&pool, Some("Chamonix"), Some("74400"), chamonix, "fr").await;
@@ -192,7 +192,7 @@ async fn one_town_per_commune_and_the_homonyms_of_two_departments_apart(pool: Pg
 async fn a_rebuild_writes_only_what_changed(pool: PgPool) {
     commune(&pool, "07346", "Viviers").await;
     let viviers = Some(("07346", "Viviers"));
-    let a = place(&pool, Some("Viviers"), Some("07220"), viviers, "fr").await;
+    place(&pool, Some("Viviers"), Some("07220"), viviers, "fr").await;
     let b = place(&pool, Some("Lyon"), Some("69001"), None, "fr").await;
     place(&pool, Some("Heidelberg"), Some("69117"), None, "de").await;
     assert!(towns::is_empty(&pool).await.unwrap());
@@ -234,5 +234,4 @@ async fn a_rebuild_writes_only_what_changed(pool: PgPool) {
         (None, Some("DE")),
         "a department is French"
     );
-    let _ = a;
 }

@@ -599,6 +599,16 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "the importers date their reads, the pack builder reads the dates"
     );
     assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_towns").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the worker rebuilds the towns of the search, a town gone included"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_towns").await,
+        ["SELECT"],
+        "the API lists the towns and writes none"
+    );
+    assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_takedowns").await,
         ["SELECT", "INSERT"],
         "the catalogue's writer logs a takedown and never rewrites one"

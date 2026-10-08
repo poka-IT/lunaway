@@ -42,6 +42,10 @@ mod feed;
 #[path = "conflate/extcom.rs"]
 mod extcom;
 
+// The towns of the search follow the places' tiles.
+#[path = "conflate/towns.rs"]
+mod towns;
+
 /// The takedown secret of the tests.
 fn test_key() -> lunaway_domain::takedown::TakedownKey {
     lunaway_domain::takedown::TakedownKey::new(&[42; 32]).unwrap()

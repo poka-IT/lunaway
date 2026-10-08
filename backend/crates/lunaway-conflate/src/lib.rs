@@ -47,7 +47,10 @@ pub mod opening;
 pub mod pois;
 pub mod takedown;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use chrono::{DateTime, Utc};
 use lunaway_db::{
@@ -267,18 +270,32 @@ pub async fn publish_place_layer(
     }
     // The towns follow the same rhythm as the tiles: their counts move with
     // the places a new version publishes, and a rebuild reads every place.
-    if v.is_some() || lunaway_db::towns::is_empty(pool).await? {
+    // A rebuild that failed is tried again at the next call, whatever the
+    // version, and its failure is its own: the tiles are published.
+    let due = v.is_some() || TOWNS_DUE.load(Ordering::Relaxed);
+    if due || lunaway_db::towns::is_empty(pool).await? {
         let started = std::time::Instant::now();
-        let s = lunaway_db::towns::refresh(pool).await?;
-        tracing::info!(
-            written = s.written,
-            removed = s.removed,
-            ms = started.elapsed().as_millis(),
-            "towns of the search rebuilt"
-        );
+        match lunaway_db::towns::refresh(pool).await {
+            Ok(s) => {
+                TOWNS_DUE.store(false, Ordering::Relaxed);
+                tracing::info!(
+                    written = s.written,
+                    removed = s.removed,
+                    ms = started.elapsed().as_millis(),
+                    "towns of the search rebuilt"
+                );
+            }
+            Err(error) => {
+                TOWNS_DUE.store(true, Ordering::Relaxed);
+                tracing::error!(%error, "rebuilding the towns of the search failed; next attempt later");
+            }
+        }
     }
     Ok(v)
 }
+
+/// A rebuild of the towns waits for the next call: the last one failed.
+static TOWNS_DUE: AtomicBool = AtomicBool::new(false);
 
 /// The pairs worth storing among `candidate_pairs`, and how many were
 /// scored, merged and sent to review.

@@ -23,7 +23,7 @@ pub struct TownRow {
     /// ISO 3166-1 alpha-2 country code, upper case, when known.
     pub country_code: Option<String>,
     /// Live places in it.
-    pub places: i64,
+    pub places: i32,
     /// The middle of its places.
     pub lat: f64,
     /// The middle of its places.
@@ -183,7 +183,7 @@ pub async fn search(pool: &PgPool, text: &str, first: i64) -> Result<Vec<TownRow
     Ok(sqlx::query_as!(
         TownRow,
         r#"
-        SELECT name, postcode, department, country_code, places::int8 AS "places!", lat, lon
+        SELECT name, postcode, department, country_code, places, lat, lon
         FROM place_towns
         -- The folded text holds letters, digits and single spaces only: no
         -- wildcard of LIKE can come from it.

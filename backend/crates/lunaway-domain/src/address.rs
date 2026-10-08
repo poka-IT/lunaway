@@ -131,10 +131,21 @@ const MIN_SCORE: f64 = 0.35;
 /// one. Unknown on either side, the same.
 fn same_area(a: Option<&str>, b: Option<&str>) -> bool {
     match (a, b) {
-        (Some(a), Some(b)) => a.get(..2) == b.get(..2),
+        (Some(a), Some(b)) => area(a) == area(b),
         _ => true,
     }
 }
+
+/// The area of a postcode: its first two characters.
+fn area(postcode: &str) -> Option<&str> {
+    postcode.get(..2)
+}
+
+/// The farthest apart two matches of one street name in one town are still
+/// segments of that street, metres: OpenStreetMap cuts a street where its
+/// tags change, a few kilometres at most, and two towns of one name are
+/// farther apart.
+const SAME_STREET_M: f64 = 10_000.0;
 
 /// The list shown under the places, at most `max`, from `answers`, the
 /// matches of each geocoder in that geocoder's own order:
@@ -148,13 +159,14 @@ fn same_area(a: Option<&str>, b: Option<&str>) -> bool {
 ///    leads when the text names no place;
 /// 3. then ordered by what the text says ([`TextFit`]): the town it names
 ///    first, then the matches whose every word it holds, the matches of one
-///    town together (in the order the town first appears), a house number
-///    before its street.
+///    town together (a town by its name and postcode area, in the order it
+///    first appears; a match without a town is a group of its own), a
+///    house number before its street.
 ///
 /// Measured on 65 addresses of France and Europe typed with their town,
-/// the map on Viviers (`plan/research/75-fix-recherche-filtres.md`): the
-/// town typed came first 61 times instead of 43, and the exact address 49
-/// times instead of 30, against the nearest-first order this replaced.
+/// the map on Viviers, on 2026-10-08: the town typed came first 61 times
+/// instead of 43, and the exact address 49 times instead of 30, against
+/// the nearest-first order this replaced.
 #[must_use]
 pub fn rank(
     answers: Vec<Vec<AddressMatch>>,
@@ -196,46 +208,53 @@ pub fn rank(
         .into_iter()
         .map(|a| a.into_iter().filter(|m| kept(m)).collect())
         .collect();
-    let mut unique: Vec<AddressMatch> = Vec::new();
+    // Each with its folded name and town, folded once.
+    let mut unique: Vec<(AddressMatch, String, Option<String>)> = Vec::new();
     for m in merge(answers, near) {
         let key = fold(&m.name);
-        let twice = unique.iter().any(|k| {
+        let town = m.town().map(fold);
+        let twice = unique.iter().any(|(k, k_key, k_town)| {
             k.kind == m.kind
-                && fold(&k.name) == key
+                && *k_key == key
                 && (k.position.distance_m(m.position) < SAME_ADDRESS_M
-                    || (m.kind == AddressKind::Street && same_town(k, &m)))
+                    || (m.kind == AddressKind::Street
+                        && town.is_some()
+                        && *k_town == town
+                        && same_area(k.postcode.as_deref(), m.postcode.as_deref())
+                        && k.position.distance_m(m.position) < SAME_STREET_M))
         });
         if !twice {
-            unique.push(m);
+            unique.push((m, key, town));
         }
     }
     let words = TextWords::new(text);
-    let mut groups: HashMap<String, usize> = HashMap::new();
+    let mut groups: HashMap<(String, Option<String>), usize> = HashMap::new();
+    let mut next_group = 0;
     let mut keyed: Vec<(TextFit, usize, u8, usize, AddressMatch)> = unique
         .into_iter()
         .enumerate()
-        .map(|(i, m)| {
+        .map(|(i, (m, _, town))| {
             let fit = words.fit(&m);
-            // A match without a town is a group of its own.
-            let next = groups.len();
-            let group = m
-                .town()
-                .map_or(usize::MAX - i, |t| *groups.entry(fold(t)).or_insert(next));
+            let mut new_group = || {
+                next_group += 1;
+                next_group
+            };
+            // A town by its name and area: the homonyms of two departments
+            // are two groups. A match without a town is a group of its own,
+            // in the order it comes.
+            let group = match town {
+                Some(t) => {
+                    let area = m.postcode.as_deref().and_then(area).map(str::to_owned);
+                    *groups.entry((t, area)).or_insert_with(new_group)
+                }
+                None => new_group(),
+            };
             (fit, group, kind_rank(m.kind), i, m)
         })
         .collect();
     keyed.sort_by_key(|k| (k.0, k.1, k.2, k.3));
     keyed.truncate(max);
     keyed.into_iter().map(|(.., m)| m).collect()
-}
-
-/// Whether two matches lie in the same known town: the segments of one
-/// street come apart in OpenStreetMap, each its own match.
-fn same_town(a: &AddressMatch, b: &AddressMatch) -> bool {
-    match (a.city.as_deref(), b.city.as_deref()) {
-        (Some(x), Some(y)) => fold(x) == fold(y),
-        _ => false,
-    }
 }
 
 /// The answers merged into one list, each keeping its order: the answer
@@ -392,7 +411,7 @@ mod tests {
         Position::new(lat, lon).expect("a valid test position")
     }
 
-    /// Viviers, where the audit's map stood.
+    /// Viviers, the map's centre for the addresses measured.
     fn viviers() -> Position {
         at(44.5, 4.7)
     }
@@ -508,7 +527,7 @@ mod tests {
         // Photon's own order for "Via del Corso 10 Roma": Rome first. Its
         // French name ("Rome") is not the typed one, and Castiglione dei
         // Pepoli and Malalbergo are nearer Viviers: sorted by distance, as
-        // before, Rome came third (audit 8, M6).
+        // before, Rome came third.
         let out = rank(
             vec![vec![
                 house("Via del Corso 10", "Rome", at(41.90, 12.48)),
@@ -813,6 +832,69 @@ mod tests {
             5,
         );
         assert_eq!(out.len(), 1, "a street a kilometre long is one street");
+    }
+
+    #[test]
+    fn matches_without_a_town_keep_their_order() {
+        let region = |name: &str, lat: f64| AddressMatch {
+            kind: AddressKind::Region,
+            name: name.to_owned(),
+            postcode: None,
+            city: None,
+            context: None,
+            country_code: Some("BE".to_owned()),
+            position: at(lat, 5.0),
+            source: AddressSource::Osm,
+            score: None,
+        };
+        let out = rank(
+            vec![vec![
+                region("A", 49.0),
+                region("B", 10.0),
+                region("C", 20.0),
+            ]],
+            "limburg",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            out.iter().map(|m| m.name.as_str()).collect::<Vec<_>>(),
+            ["A", "B", "C"],
+            "what the text does not decide keeps the geocoder's order"
+        );
+    }
+
+    #[test]
+    fn streets_of_two_towns_of_one_name_both_stay() {
+        let gare = |postcode: &str, p: Position| AddressMatch {
+            kind: AddressKind::Street,
+            name: "Rue de la Gare".to_owned(),
+            postcode: Some(postcode.to_owned()),
+            city: Some("Viviers".to_owned()),
+            context: None,
+            country_code: Some("FR".to_owned()),
+            position: p,
+            source: AddressSource::Ban,
+            score: Some(0.8),
+        };
+        let out = rank(
+            vec![vec![
+                gare("07220", at(44.48, 4.69)),
+                gare("89700", at(47.88, 3.93)),
+            ]],
+            "rue de la gare viviers",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            out.iter()
+                .map(|m| m.postcode.as_deref().unwrap_or(""))
+                .collect::<Vec<_>>(),
+            ["07220", "89700"],
+            "Viviers in Ardèche and Viviers in Yonne each have their street"
+        );
     }
 
     #[test]
