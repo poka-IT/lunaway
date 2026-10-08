@@ -359,6 +359,95 @@ async fn cluster_tiles_count_every_point_and_caching_follows_the_version(pool: P
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+/// The counts of a cluster tile per layer, name (category or kind) and
+/// cell of the zoom's grid over the world: a cell of a tile of 4096 units
+/// is 128 units wide.
+fn cluster_counts(
+    tile: &[u8],
+    z: u32,
+    (x, y): (u32, u32),
+) -> BTreeMap<(String, String, u32, u32), u64> {
+    let mut out = BTreeMap::new();
+    for (layer, name) in [
+        ("poi_clusters", "category"),
+        ("poi_vending_clusters", "kind"),
+    ] {
+        let Some((extent, features)) = decode(tile).remove(layer) else {
+            continue;
+        };
+        assert_eq!(extent, 4096);
+        for f in features {
+            let (px, py) = f.point();
+            assert!(
+                (0..4096).contains(&px) && (0..4096).contains(&py),
+                "{z}: a cluster stands in its tile"
+            );
+            let cell = (
+                x * 32 + u32::try_from(px / 128).unwrap(),
+                y * 32 + u32::try_from(py / 128).unwrap(),
+            );
+            *out.entry((
+                layer.to_owned(),
+                f.props[name].as_str().unwrap().to_owned(),
+                cell.0,
+                cell.1,
+            ))
+            .or_default() += f.props["count"].as_u64().unwrap();
+        }
+    }
+    out
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_cluster_tile_counts_what_the_four_cells_of_the_next_zoom_count(pool: PgPool) {
+    seeded(&pool).await;
+    // Up to zoom 9 the clusters are those the version published; above,
+    // the tile counts its points. Both must agree: a cell is the four
+    // cells below it.
+    lunaway_db::pois::mark_layer_now(&pool).await.unwrap();
+    lunaway_db::pois::publish_layer(&pool, std::time::Duration::ZERO)
+        .await
+        .unwrap()
+        .expect("the sample waits for a version");
+    let app = app(&pool);
+    let v = version(&app).await;
+    for (lat, lon) in [AMBERIEU, SAUMUR] {
+        let z = u32::try_from(lunaway_db::pois::CLUSTER_TABLE_MAX_ZOOM).unwrap();
+        let (x, y) = tile_of(lat, lon, z);
+        let (status, _, body) = get(&app, &format!("/poi/{v}/{z}/{x}/{y}.mvt"), &[]).await;
+        assert_eq!(status, StatusCode::OK);
+        let parent = cluster_counts(&body, z, (x, y));
+        let mut children = BTreeMap::new();
+        for (cx, cy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            let child = (2 * x + cx, 2 * y + cy);
+            let (status, _, body) = get(
+                &app,
+                &format!("/poi/{v}/{}/{}/{}.mvt", z + 1, child.0, child.1),
+                &[],
+            )
+            .await;
+            if status == StatusCode::NO_CONTENT {
+                continue;
+            }
+            for ((layer, name, gx, gy), n) in cluster_counts(&body, z + 1, child) {
+                *children.entry((layer, name, gx / 2, gy / 2)).or_default() += n;
+            }
+        }
+        if (lat, lon) == SAUMUR {
+            assert!(
+                parent.keys().any(|k| k.0 == "poi_vending_clusters"),
+                "Saumur's machines are counted per kind"
+            );
+        }
+        assert_eq!(
+            parent,
+            children,
+            "zoom {z} over ({lat}, {lon}): the published cells and the counts of zoom {}",
+            z + 1
+        );
+    }
+}
+
 /// Saumur, where the sample's food vending machines stand.
 const SAUMUR: (f64, f64) = (47.26, -0.08);
 

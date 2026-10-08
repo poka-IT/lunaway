@@ -28,6 +28,23 @@ import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('map');
 
+/// The sources and layers the desktop map's page installs, in the GL JS
+/// style syntax: what the page sets up and what it filters.
+@visibleForTesting
+Map<String, Object?> webViewMapSpec({
+  required bool dark,
+  required String language,
+  PoiLayerView? pois,
+  PlaceTilesView? tiles,
+  String? style,
+}) => _WebViewLunaMapState._spec(
+  dark: dark,
+  language: language,
+  pois: pois,
+  tiles: tiles,
+  style: style,
+);
+
 /// The map on macOS and Windows, where maplibre_gl has no implementation:
 /// MapLibre GL JS shipped in the app's assets, in a web view, driven through
 /// a small bridge (`assets/map/lunaway_map.js`). It draws the same layers as
@@ -179,7 +196,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'placeTiles': {
         'source': PlaceTiles.source,
         'sourceLayer': PlaceTiles.pinsSourceLayer,
-        'layers': const [PlaceTiles.dotsLayer, PlaceTiles.pinDotsLayer, PlaceTiles.pinsLayer],
+        'layers': PlaceTiles.filteredLayers,
         'dotsLayer': PlaceTiles.dotsLayer,
         'pinZoom': PlaceTiles.pinZoom,
         'filter': placeTileFilter(tiles.filter),
@@ -213,7 +230,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       // The points of interest under the places, the quiet ones under the
       // basemap's labels.
       if (pois != null) ..._poiLayers(pois, style, dark: dark),
-      if (tiles != null) ...placeTileStyleLayers(tiles, dark: dark),
+      if (tiles != null)
+        ...placeTileStyleLayers(
+          tiles,
+          dark: dark,
+          labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
+        ),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -298,6 +320,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'maxzoom': PoiMapStyle.pointsMinZoom,
       'filter': PoiMapStyle.dotsFilter(view),
       'layout': _poiDotsLayout,
+      // Under the names, under the places' glow and dots added after them.
+      'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
     },
     {
       'id': PoiMapStyle.vendingDotsLayerId,
@@ -307,6 +331,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'maxzoom': PoiMapStyle.pointsMinZoom,
       'filter': PoiMapStyle.vendingDotsFilter(view),
       'layout': {..._poiDotsLayout, 'icon-image': PoiMapStyle.vendingDotImage},
+      'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
     },
     {
       'id': PoiMapStyle.quietLayerId,

@@ -483,6 +483,9 @@ class Translations$map$en {
 	/// en: 'Show my position'
 	String get locateMe => 'Show my position';
 
+	/// en: 'Show places near me'
+	String get aroundMe => 'Show places near me';
+
 	/// en: 'Zoom in'
 	String get zoomIn => 'Zoom in';
 
@@ -5714,6 +5717,7 @@ extension on Translations {
 			'map.searchHint' => 'A place, a town',
 			'map.clearSearch' => 'Clear the search',
 			'map.locateMe' => 'Show my position',
+			'map.aroundMe' => 'Show places near me',
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
@@ -6128,9 +6132,9 @@ extension on Translations {
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Bridge ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
-			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
@@ -6642,9 +6646,9 @@ extension on Translations {
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
 			'outbox.error.notFound' => 'Refused: the place or the content no longer exists.',
-			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
 			_ => null,
 		} ?? switch (path) {
+			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
 			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
 			'outbox.error.photoTooLarge' => 'Photo refused: too large.',
 			'outbox.error.placeRefused' => 'The new place of this photo was refused.',

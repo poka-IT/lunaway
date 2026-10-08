@@ -285,6 +285,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get searchHint => 'Un lieu, une commune';
 	@override String get clearSearch => 'Effacer la recherche';
 	@override String get locateMe => 'Afficher ma position';
+	@override String get aroundMe => 'Voir autour de moi';
 	@override String get zoomIn => 'Zoomer';
 	@override String get zoomOut => 'Dézoomer';
 	@override String get filters => 'Filtres';
@@ -2760,6 +2761,7 @@ extension on TranslationsFr {
 			'map.searchHint' => 'Un lieu, une commune',
 			'map.clearSearch' => 'Effacer la recherche',
 			'map.locateMe' => 'Afficher ma position',
+			'map.aroundMe' => 'Voir autour de moi',
 			'map.zoomIn' => 'Zoomer',
 			'map.zoomOut' => 'Dézoomer',
 			'map.filters' => 'Filtres',
@@ -3174,9 +3176,9 @@ extension on TranslationsFr {
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Pont ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barre de hauteur ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Hauteur limitée ${limit}',
-			'navigation.warning.unknownClearance' => 'Passage bas, hauteur inconnue',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.unknownClearance' => 'Passage bas, hauteur inconnue',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Passage étroit ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Longueur limitée ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
@@ -3688,9 +3690,9 @@ extension on TranslationsFr {
 			'outbox.sending' => 'Envoi en cours',
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
 			'outbox.error.notFound' => 'Refusé : le lieu ou le contenu n\'existe plus.',
-			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
 			_ => null,
 		} ?? switch (path) {
+			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
 			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
 			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',

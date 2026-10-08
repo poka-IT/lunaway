@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT concat_ws(',', z, tx, ty, kind, night, s, price, h, r, py, px, n) AS \"row!\"\n        FROM place_dots ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "row!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a022336d69810d4869e9d5dacb7a746e40f26227eb1b2318f33b1e6cc793e874"
+}

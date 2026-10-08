@@ -103,15 +103,17 @@ PoiLayerState poiLayerState(Ref ref) {
   final features = ref.watch(poisInViewProvider);
   if (features.isEmpty) return PoiLayerState.empty;
   final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
-  // The places of the tiles in view, or those the device holds when the
-  // map draws them.
-  final places = [
-    for (final p
-        in ref.watch(placesFromTilesProvider)
-            ? ref.watch(placesInViewProvider).places
-            : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[])
-      p.position,
-  ];
+  // The places the map draws in view: those of the tiles' report the
+  // filter keeps (the report holds them all), or those the device holds
+  // when the map draws them.
+  final List<PlaceSummary> drawn;
+  if (ref.watch(placesFromTilesProvider)) {
+    final filter = ref.watch(effectiveFilterProvider);
+    drawn = ref.watch(placesInViewProvider).places.where(filter.matches).toList();
+  } else {
+    drawn = ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
+  }
+  final places = [for (final p in drawn) p.position];
   return computePoiLayerState(features, now, places: places);
 }
 

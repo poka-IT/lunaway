@@ -253,6 +253,19 @@ void main() {
       expect(await repo.countMatching(filter), (await ids(filter)).length);
     });
 
+    test('the count of a view matches the list of that view', () async {
+      const annecy = GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25);
+      for (final filter in const [
+        PlaceFilter.none,
+        PlaceFilter(overnight: nightPossible),
+        PlaceFilter(families: {KindFamily.campsites}),
+      ]) {
+        final listed = await repo.watchInBounds(annecy, filter, center: annecy.center).first;
+        expect(await repo.countMatching(filter, bounds: annecy), listed.length, reason: '$filter');
+      }
+      expect(await repo.countMatching(PlaceFilter.none, bounds: annecy), 1, reason: 'the lake');
+    });
+
     test('the summary carries the combined rating', () async {
       final lake = (await repo.watchAll(PlaceFilter.none).first).firstWhere(
         (p) => p.id == lakeArea.id,

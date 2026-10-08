@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 /// The points of interest on maplibre_gl (Android, iOS, the web): the
@@ -25,7 +26,8 @@ final class GlPoiLayers {
 
   /// Adds the source and the layers of [view] to a freshly loaded style;
   /// [below] is the basemap's first label layer, under which the quiet
-  /// points go so street and place names keep their room.
+  /// points and the category's gathering dots go so street and place names
+  /// keep their room.
   Future<void> installBelowPlaces(
     gl.MapLibreMapController c,
     PoiLayerView view, {
@@ -47,7 +49,7 @@ final class GlPoiLayers {
     await _quietly(() => c.removeSource(PoiMapStyle.source));
     await _quietly(() => c.removeSource(PoiMapStyle.fuelSource));
     if (!current()) return;
-    await c.addSource(PoiMapStyle.source, gl.VectorSourceProperties(url: view.tileJsonUrl));
+    await c.addSource(PoiMapStyle.source, tileJsonSource(view.tileJsonUrl));
     if (!current()) return;
     await c.addSymbolLayer(
       PoiMapStyle.source,
@@ -56,6 +58,9 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.clustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.dotsFilter(view),
+      // Under the basemap's names, where the places' glow and dots go too,
+      // after them: the night spots keep the map.
+      belowLayerId: below,
       enableInteraction: false,
     );
     if (!current()) return;
@@ -66,6 +71,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.vendingClustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.vendingDotsFilter(view),
+      belowLayerId: below,
       enableInteraction: false,
     );
     if (!current()) return;

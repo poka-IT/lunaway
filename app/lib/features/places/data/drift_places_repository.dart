@@ -151,12 +151,25 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   Stream<int> watchCount() => _db.places.count().watchSingle();
 
   @override
-  Future<int> countMatching(PlaceFilter filter) async {
+  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds}) async {
     final where = _filterSql(filter);
+    // The view as watchInBounds reads it, through the R-tree of positions.
     final row = await _db
         .customSelect(
-          'SELECT COUNT(*) AS n FROM places p WHERE ${where.sql}',
-          variables: where.variables,
+          bounds == null
+              ? 'SELECT COUNT(*) AS n FROM places p WHERE ${where.sql}'
+              : 'SELECT COUNT(*) AS n FROM places p JOIN place_bounds b ON b.rid = p.rid '
+                    'WHERE b.min_lat >= ? AND b.max_lat <= ? AND b.min_lon >= ? '
+                    'AND b.max_lon <= ? AND ${where.sql}',
+          variables: [
+            if (bounds != null) ...[
+              Variable.withReal(bounds.south),
+              Variable.withReal(bounds.north),
+              Variable.withReal(bounds.west),
+              Variable.withReal(bounds.east),
+            ],
+            ...where.variables,
+          ],
         )
         .getSingle();
     return row.read<int>('n');

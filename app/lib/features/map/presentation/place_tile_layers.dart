@@ -2,10 +2,17 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 
 /// The places' layers as a style document writes them (MapLibre GL JS):
-/// the dots of the low zooms, a dot under each place from the zoom of the
-/// pins, the pins. The desktop map page and the web's first map
-/// (`web/premap.js`) draw these, as `GlPlaceTiles` does on maplibre_gl.
-List<Map<String, Object?>> placeTileStyleLayers(PlaceTilesView view, {required bool dark}) {
+/// the glow of the country's view and the dots of the low zooms, each with
+/// the basemap layer it goes under (`before`, [labels]: the first layer of
+/// names), then a dot under each place from the zoom of the pins and the
+/// pins, on top. The desktop map page and the web's first map
+/// (`web/premap.js`) draw these, as `GlPlaceTiles` does on maplibre_gl;
+/// both take `before` out of the layer and add it before that layer.
+List<Map<String, Object?>> placeTileStyleLayers(
+  PlaceTilesView view, {
+  required bool dark,
+  String? labels = PlaceTiles.basemapFirstLabel,
+}) {
   final filter = placeTileFilter(view.filter);
   final dotPaint = {
     'circle-color': placeTileDotColor(MapLook.familyColor),
@@ -13,9 +20,20 @@ List<Map<String, Object?>> placeTileStyleLayers(PlaceTilesView view, {required b
     'circle-stroke-width': MapLook.dotStrokeWidth,
     'circle-stroke-color': MapLook.dotStroke(dark: dark),
     'circle-opacity': MapLook.dotOpacity,
+    'circle-stroke-opacity': MapLook.dotStrokeOpacity,
   };
   final dotLayout = {'circle-sort-key': placeTileRank()};
   return [
+    {
+      'id': PlaceTiles.glowLayer,
+      'type': 'circle',
+      'source': PlaceTiles.source,
+      'source-layer': PlaceTiles.dotsSourceLayer,
+      'maxzoom': MapLook.glowMaxZoom,
+      'filter': filter,
+      'paint': placeTileGlowPaint(dark: dark),
+      'before': ?labels,
+    },
     {
       'id': PlaceTiles.dotsLayer,
       'type': 'circle',
@@ -25,6 +43,7 @@ List<Map<String, Object?>> placeTileStyleLayers(PlaceTilesView view, {required b
       'filter': filter,
       'layout': dotLayout,
       'paint': dotPaint,
+      'before': ?labels,
     },
     {
       'id': PlaceTiles.pinDotsLayer,
@@ -55,3 +74,11 @@ List<Map<String, Object?>> placeTileStyleLayers(PlaceTilesView view, {required b
     },
   ];
 }
+
+/// The glow's paint ([MapLook.glowColor]), as a style document writes it.
+Map<String, Object?> placeTileGlowPaint({required bool dark}) => {
+  'circle-radius': MapLook.glowRadius,
+  'circle-blur': MapLook.glowBlur,
+  'circle-color': MapLook.glowColor(dark: dark),
+  'circle-opacity': MapLook.glowOpacity(dark: dark),
+};

@@ -23,6 +23,8 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/main.dart' as app;
 
+import 'fixtures/listened.dart';
+
 /// The shops and services and the offline maps, against the real API, for
 /// screenshots: the points on the map, a point's page, "around this place",
 /// the search, a vending machine to add, and the offline maps (a small pack
@@ -125,7 +127,7 @@ void main() {
 
     // "Around this place", on a place of the town.
     layer.clear();
-    final places = await waitFor(tester, container.read(mapPlacesProvider.future));
+    final places = await waitFor(tester, listened(container, mapPlacesProvider.future));
     final place =
         (places.where((p) => p.position.distanceTo(_town) < 8000 && p.name != null).toList()
               ..sort((a, b) {

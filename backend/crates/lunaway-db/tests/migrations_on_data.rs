@@ -9,13 +9,19 @@
 )]
 
 use lunaway_db::{MIGRATOR, PgPool};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{migrate::Migrate, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 /// The last migration before reviews and photos got a source of their own.
 const BEFORE_REVIEW_SOURCES: i64 = 20_261_006_120_200;
 /// The last migration before the places' words for the search.
 const BEFORE_SEARCH_WORDS: i64 = 20_261_008_131_100;
+/// The last migration before the tiles' low zooms were kept in tables.
+const BEFORE_TILE_PYRAMIDS: i64 = 20_261_008_200_000;
+/// The filters' rating (`places.filter_rating`) and the towns of the
+/// search: applied on the production database before the tiles' tables,
+/// which are older migrations.
+const RATING_AND_TOWNS: std::ops::RangeInclusive<i64> = 20_261_008_220_000..=20_261_008_220_100;
 
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
@@ -170,4 +176,194 @@ async fn existing_places_get_their_search_words_and_keep_them_current(pool: PgPo
     .execute(&pool)
     .await
     .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn existing_places_and_points_fill_the_tiles_low_zooms_and_move_the_versions(pool: PgPool) {
+    let (db, name) = database_at(&pool, BEFORE_TILE_PYRAMIDS).await;
+    // A place and two points as the release before wrote them: a pharmacy
+    // and a pizza machine.
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash)
+         VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                 'unknown', 'h')",
+    )
+    .bind(Uuid::now_v7())
+    .execute(&db)
+    .await
+    .unwrap();
+    for (kind, category) in [("pharmacy", "health"), ("vending_pizza", "vending")] {
+        sqlx::query(
+            "INSERT INTO pois (id, source_id, external_id, category, kind, geom, data, raw,
+                               fetched_at)
+             VALUES ($1, 'osm', $2, $3, $2, ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                     '{}', '{}', now())",
+        )
+        .bind(Uuid::now_v7())
+        .bind(kind)
+        .bind(category)
+        .execute(&db)
+        .await
+        .unwrap();
+    }
+    let versions = |db: PgPool| async move {
+        sqlx::query_as::<_, (i64, i64)>(
+            "SELECT p.version, q.version FROM place_layer p, poi_layer q",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap()
+    };
+    let before = versions(db.clone()).await;
+
+    MIGRATOR.run(&db).await.unwrap();
+
+    let after = versions(db.clone()).await;
+    assert_eq!(
+        after,
+        (before.0 + 2, before.1 + 2),
+        "devices hold a year the tiles of the versions before: both move, at the dots' fill and \
+         again at the rating's"
+    );
+    let count = |db: PgPool, sql: &'static str| async move {
+        sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(sql))
+            .fetch_one(&db)
+            .await
+            .unwrap()
+    };
+    assert_eq!(
+        count(db.clone(), "SELECT count(DISTINCT z) FROM place_dots").await,
+        8,
+        "the place is a dot at each zoom from 2 to 9"
+    );
+    assert_eq!(
+        count(
+            db.clone(),
+            "SELECT (SELECT count(*) FROM (
+                         (SELECT * FROM place_dots_computed
+                          EXCEPT ALL
+                          SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
+                         UNION ALL
+                         (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
+                          EXCEPT ALL
+                          SELECT * FROM place_dots_computed)) dots)
+                  + (SELECT count(*) FROM (
+                         (SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources
+                          EXCEPT ALL
+                          SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members)
+                         UNION ALL
+                         (SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members
+                          EXCEPT ALL
+                          SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources)) m)"
+        )
+        .await,
+        0,
+        "the dots and the members are those of the places, both ways"
+    );
+    assert_eq!(
+        count(db.clone(), "SELECT count(*) FROM poi_cluster_cells").await,
+        12,
+        "zooms 6 to 9: the pharmacy, the machine in its category, the machine per kind"
+    );
+    assert_eq!(
+        count(db.clone(), "SELECT dots_seq FROM place_layer").await,
+        count(db.clone(), "SELECT max(updated_seq) FROM places").await,
+        "the dots cover the change feed up to the fill"
+    );
+    db.close().await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE {name} WITH (FORCE)"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn the_dots_carry_the_rating_whichever_migration_ran_first(pool: PgPool) {
+    // On a new database the dots' tables (20261008210100) come before the
+    // rating (20261008220000); production had the rating first, the dots'
+    // migrations arriving later with an older version.
+    for rating_first in [false, true] {
+        let (db, name) = database_at(&pool, BEFORE_TILE_PYRAMIDS).await;
+        let rated = Uuid::now_v7();
+        if rating_first {
+            let mut conn = db.acquire().await.unwrap();
+            for m in MIGRATOR
+                .iter()
+                .filter(|m| RATING_AND_TOWNS.contains(&m.version))
+            {
+                conn.apply("_sqlx_migrations", m).await.unwrap();
+            }
+            drop(conn);
+            sqlx::query(
+                "INSERT INTO places (id, kind, geom, overnight, filter_rating, content_hash)
+                 VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                         'unknown', 4.6, 'h')",
+            )
+            .bind(rated)
+            .execute(&db)
+            .await
+            .unwrap();
+        } else {
+            sqlx::query(
+                "INSERT INTO places (id, kind, geom, overnight, content_hash)
+                 VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                         'unknown', 'h')",
+            )
+            .bind(rated)
+            .execute(&db)
+            .await
+            .unwrap();
+        }
+
+        MIGRATOR.run(&db).await.unwrap();
+
+        if !rating_first {
+            // The worker rates the place, as `place_ratings` does: a new
+            // position in the change feed, then a version.
+            sqlx::query(
+                "UPDATE places SET filter_rating = 4.6, updated_seq = nextval('place_change_seq')
+                 WHERE id = $1",
+            )
+            .bind(rated)
+            .execute(&db)
+            .await
+            .unwrap();
+            lunaway_db::place_tiles::publish_layer_now(&db)
+                .await
+                .unwrap();
+        }
+        let steps: Vec<Option<i32>> =
+            sqlx::query_scalar("SELECT DISTINCT r FROM place_dots ORDER BY 1")
+                .fetch_all(&db)
+                .await
+                .unwrap();
+        assert_eq!(
+            steps,
+            [Some(45)],
+            "rating first: {rating_first}; the dots of a place rated 4.6 stand at 4.5"
+        );
+        let drift: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM (
+                 (SELECT * FROM place_dots_computed
+                  EXCEPT ALL
+                  SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
+                 UNION ALL
+                 (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
+                  EXCEPT ALL
+                  SELECT * FROM place_dots_computed)) d",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap();
+        assert_eq!(drift, 0, "rating first: {rating_first}");
+        db.close().await;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DROP DATABASE {name} WITH (FORCE)"
+        )))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
 }
