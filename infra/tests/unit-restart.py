@@ -5,13 +5,17 @@ unit files of infra/systemd (no server needed).
 
 1. Every import of the `lunaway` CLI (`ingest ...`, `content refresh`,
    `road-events dialog-permanent`) whose next run is a day or more away
-   retries after a failure (`Restart=on-failure`, `RestartSec=`), with a
-   start limit (`StartLimitBurst=`, `StartLimitIntervalSec=`). A run killed
-   by PostgreSQL's restart would otherwise wait for its next timer, a week
-   for some (2026-10-08, `lunaway-content-refresh`).
+   runs again after the database left it (`RestartForceExitStatus=75`, the
+   CLI's exit status then, and `RestartSec=`), with a start limit
+   (`StartLimitBurst=`, `StartLimitIntervalSec=`), and after no other
+   failure (no `Restart=`): a source that refused us is not asked again
+   before its next run (`.claude/rules/data-sources.md`). A run killed by
+   PostgreSQL's restart would otherwise wait for its next timer, a week for
+   some (2026-10-08, `lunaway-content-refresh`).
 2. Every one-off unit that retries stops for good: its window holds its
    whole burst of runs, each as long as its timeout allows (systemd arms
-   `TimeoutStartSec=` again for every start command), so the last retry
+   `TimeoutStartSec=` again for every start command), plus the wait for a
+   run of the units it is ordered after (`After=`), so the last retry
    always falls inside it and is refused. And the window ends before the
    next timer, so a unit that hit its limit still runs at its next date.
 """
@@ -67,6 +71,25 @@ def value(text, key):
     return found[-1].strip() if found else None
 
 
+def longest_run(text):
+    """How long one run of a unit may take: `TimeoutStartSec=` for each of
+    its start commands."""
+    commands = len(re.findall(r"^ExecStart(Pre|Post)?=", text, re.M))
+    return commands * span(value(text, "TimeoutStartSec") or "infinity")
+
+
+def ordering_wait(text):
+    """The longest run of the units of `After=` this directory holds: a
+    start waits for theirs to end."""
+    longest = 0.0
+    for line in re.findall(r"^After=(.+)$", text, re.M):
+        for unit in line.split():
+            path = UNITS / re.sub(r"@[^.]+\.service$", "@.service", unit)
+            if path.exists():
+                longest = max(longest, longest_run(path.read_text()))
+    return longest
+
+
 def unit_period(name):
     """The time between two runs of a unit: its timer's, or a day for a unit
     another one pulls in (lunaway-cameras by the daily lunaway-enforcement,
@@ -101,29 +124,35 @@ for path in sorted(UNITS.glob("*.service")):
     except ValueError as error:
         fail(f"{name}: {error}")
         continue
-    if IMPORT.search(text) and every >= DAY and restart != "on-failure":
-        fail(f"{name}: an import run every {every / DAY:g} d without Restart=on-failure")
-        continue
-    if value(text, "Type") != "oneshot" or restart in (None, "no"):
+    forced = value(text, "RestartForceExitStatus")
+    if IMPORT.search(text) and every >= DAY:
+        if forced != "75":
+            fail(f"{name}: an import run every {every / DAY:g} d without RestartForceExitStatus=75")
+            continue
+        if restart not in (None, "no"):
+            fail(f"{name}: Restart={restart} asks a source that refused us again before its next run")
+            continue
+    if value(text, "Type") != "oneshot" or (restart in (None, "no") and not forced):
         continue
     checked += 1
     try:
         retry = span(value(text, "RestartSec") or "100ms")
-        timeout = span(value(text, "TimeoutStartSec") or "infinity")
+        run = longest_run(text)
+        wait = ordering_wait(text)
         window = span(value(text, "StartLimitIntervalSec") or "0")
     except ValueError as error:
         fail(f"{name}: {error}")
         continue
     burst = int(value(text, "StartLimitBurst") or 0)
-    commands = len(re.findall(r"^ExecStart(Pre|Post)?=", text, re.M))
-    longest = burst * (commands * timeout + retry)
+    longest = burst * (run + retry + wait)
     if retry < 5 * 60:
         fail(f"{name}: RestartSec under 5 minutes retries into the same outage")
     if not 2 <= burst <= 5:
         fail(f"{name}: StartLimitBurst={burst}, wanted 2 to 5 runs")
     if window < longest:
-        fail(f"{name}: {burst} runs of up to {commands} x {timeout / 3600:g} h"
-             f" + {retry / 60:g} min outlast StartLimitIntervalSec ({window / 3600:g} h): the retries never stop")
+        fail(f"{name}: {burst} runs of up to {run / 3600:g} h, {retry / 60:g} min apart, after"
+             f" {wait / 3600:g} h of wait each, outlast StartLimitIntervalSec ({window / 3600:g} h):"
+             " the retries never stop")
     if window >= every:
         fail(f"{name}: StartLimitIntervalSec ({window / 3600:g} h) reaches the next run ({every / 3600:g} h later)")
     print(f"ok   {name}: {burst} runs within {window / 3600:g} h (longest {longest / 3600:g} h), every {every / 3600:g} h")

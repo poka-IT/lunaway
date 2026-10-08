@@ -828,8 +828,36 @@ fn default_data_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../data"))
 }
 
+/// The exit status of a run that failed because the database went away
+/// (`EX_TEMPFAIL` of sysexits.h): the import units run it again 15 minutes
+/// later (`RestartForceExitStatus=75`, docs/deploy.md, "Data pipeline"), and
+/// no other failure. A source that refused us must not be asked again
+/// before its next run (`.claude/rules/data-sources.md`).
+const EXIT_DATABASE_LOST: u8 = 75;
+
+/// How a failed run exits: [`EXIT_DATABASE_LOST`] when the database went
+/// away under it, 1 otherwise.
+fn exit_status(error: &anyhow::Error) -> u8 {
+    if error.chain().any(lunaway_db::connection_lost) {
+        EXIT_DATABASE_LOST
+    } else {
+        1
+    }
+}
+
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> std::process::ExitCode {
+    match run().await {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            // The error and each of its causes, for the journal.
+            eprintln!("Error: {error:?}");
+            std::process::ExitCode::from(exit_status(&error))
+        }
+    }
+}
+
+async fn run() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .with_writer(std::io::stderr)
@@ -2515,6 +2543,32 @@ async fn accounts(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn only_a_run_the_database_left_exits_to_be_run_again() {
+        // The server down while it restarts: nothing listens. The cause
+        // sits under the command's context.
+        let config = lunaway_db::PoolConfig {
+            acquire_timeout: Duration::from_millis(500),
+            ..lunaway_db::PoolConfig::new(1)
+        };
+        let lost = lunaway_db::connect_with("postgres://lunaway@127.0.0.1:9/lunaway", config)
+            .await
+            .map(|_| ())
+            .context("cannot reach the database (DATABASE_URL)")
+            .unwrap_err();
+        assert_eq!(exit_status(&lost), EXIT_DATABASE_LOST, "{lost:?}");
+        // A source that refused us, or anything else: not run again before
+        // its timer.
+        let refused = anyhow::anyhow!("the source asks to wait 2 h (Retry-After)")
+            .context("La Poste import failed");
+        assert_eq!(exit_status(&refused), 1);
+        let constraint = anyhow::Error::from(lunaway_db::DbError::TooLarge {
+            what: "route shape points",
+            limit: 1,
+        });
+        assert_eq!(exit_status(&constraint), 1);
+    }
 
     #[test]
     fn a_graph_name_is_checked_before_the_long_preparation() {

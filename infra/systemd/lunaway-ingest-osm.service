@@ -16,9 +16,9 @@ RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
 # Places are rebuilt from the records as soon as an import succeeds.
 OnSuccess=lunaway-conflate.service
-# A failed run (PostgreSQL restarted under it, a source down) is tried
-# again 15 minutes later, three runs at most: docs/deploy.md, "Data
-# pipeline".
+# A run the database left (PostgreSQL restarted under it: exit status
+# 75) is tried again 15 minutes later, three runs at most; no other
+# failure is: docs/deploy.md, "Data pipeline".
 StartLimitIntervalSec=13h
 StartLimitBurst=3
 
@@ -39,7 +39,7 @@ Environment=NO_COLOR=1
 # stored records seen): the unit fails, nothing is retired there.
 ExecStart=/opt/lunaway/current/lunaway ingest osm-extract --extract france --refresh
 TimeoutStartSec=4h
-Restart=on-failure
+RestartForceExitStatus=75
 RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort

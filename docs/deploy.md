@@ -353,24 +353,38 @@ The nightly conflation timer of earlier versions is gone: the worker runs at
 least every 5 minutes and recomputes "today" at each run.
 
 An import whose next run is a day or more away (every `lunaway ingest ...`
-unit above except fuel, `lunaway-content-refresh`, `lunaway-road-events-dialog`,
-`lunaway-cameras`, `lunaway-cameras-osm`) is tried again 15 minutes after a
-failure, three runs at most (`Restart=on-failure`, `RestartSec=15min`,
+unit above except fuel and the external community feed,
+`lunaway-content-refresh`, `lunaway-road-events-dialog`, `lunaway-cameras`,
+`lunaway-cameras-osm`) runs again 15 minutes after the database left it,
+three runs at most (`RestartForceExitStatus=75`, `RestartSec=15min`,
 `StartLimitBurst=3`). On 2026-10-08 at 01:36 UTC, needrestart restarted
 PostgreSQL after an update of liblzma5 and the weekly content refresh died
 with "terminating connection due to administrator command"; its next run was
-a week away. Each unit's `StartLimitIntervalSec=` holds its three runs at
-their longest (systemd arms `TimeoutStartSec=` again for each start
-command, `ExecStartPost=` included), so the fourth start always falls
-inside it and is refused, and it ends before the unit's next timer, which
-then runs it as usual. `infra/tests/unit-restart.py` checks both on the unit
-files. Measured on the backend's systemd 257 with a transient unit: the
-unit is `activating (auto-restart)` while it waits, so the health probe
-does not count it as failed; after the third failed run systemd logs "Start
-request repeated too quickly" and the unit stays `failed` (result
-`exit-code`). A run stopped by its timeout is retried too. A run stopped
-by a reboot is not: systemd stops it, and its timer runs it at its next
-date.
+a week away. The CLI exits with status 75 (`EX_TEMPFAIL`) when the cause of
+its failure is the database going away (`lunaway_db::connection_lost`: a
+shutdown or restart under a query, a connection exception, the socket
+closed or refused, no connection in time) and with 1 otherwise. No other
+failure is retried: a source that refused us, or asked to wait longer than
+an import waits, is not asked again before the next run, and a check that
+stopped an import (a truncated extract, too many places retired) would stop
+it again. A run stopped by its timeout or by a reboot is not retried either;
+its timer runs it at its next date.
+
+Each unit's `StartLimitIntervalSec=` holds its three runs at their longest
+(systemd arms `TimeoutStartSec=` again for each start command,
+`ExecStartPost=` included), the waits between them, and for each run the
+longest run of a unit it is ordered after (`After=`), so the fourth start
+always falls inside it and is refused; and it ends before the unit's next
+timer, which then runs it as usual. `infra/tests/unit-restart.py` checks
+both on the unit files (`tool/check.sh` runs it). Measured on the
+backend's systemd 257 with transient units: a unit exiting 75 runs three
+times, then systemd logs "Start request repeated too quickly" and the unit
+stays `failed` (result `exit-code`); one exiting 1 is not run again; a
+`systemctl daemon-reload` during the wait keeps the count. While it waits
+the unit is `activating (auto-restart)`, which the health probe does not
+count as failed. Any start counts, a manual one too: after running an
+import by hand, `systemctl reset-failed <unit>` empties the count so that
+its timer is not refused within the window.
 
 Every writer of the catalogue (an import, a conflation, the worker) takes
 the same transaction-level advisory lock (`pg_advisory_xact_lock`,
