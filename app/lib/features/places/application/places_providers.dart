@@ -264,8 +264,13 @@ class SyncController extends _$SyncController {
     if (!ref.mounted) return legacy;
     final kept = await ref.read(keptRegionsStoreProvider).load();
     if (kept == null || !ref.mounted) return legacy;
-    final states = await ref.read(regionStoreProvider).watchStates().first;
-    if (!ref.mounted) return legacy;
+    // One read per region kept, rather than the first value of a watch.
+    final store = ref.read(regionStoreProvider);
+    final states = <String, SyncState>{};
+    for (final code in kept) {
+      states[code] = await store.stateOf(code);
+      if (!ref.mounted) return legacy;
+    }
     final catalog =
         ref.read(regionCatalogControllerProvider).value ??
         await ref.read(regionCatalogCopyProvider).load();
@@ -294,9 +299,10 @@ class SyncController extends _$SyncController {
     if (!ref.mounted) return;
     if (!updates && await _nothingToDownload()) {
       _log.info('metered network: the regions downloaded wait for another one');
-      // Nothing failed: a failure shown and its retry go.
+      // Nothing failed: a failure shown, its retry and its count go.
       if (ref.mounted && state is SyncFailed) {
         _retry?.cancel();
+        _failures = 0;
         state = const SyncIdle();
       }
       return;
@@ -309,6 +315,7 @@ class SyncController extends _$SyncController {
       return;
     }
     _again = false;
+    _againAsked = false;
     _retry?.cancel();
     state = const SyncRunning(0);
     try {

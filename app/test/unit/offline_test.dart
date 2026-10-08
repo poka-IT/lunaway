@@ -370,6 +370,45 @@ void main() {
       },
     );
 
+    test('an answer that comes after the phone said its network went does not undo it', () async {
+      final held = Completer<void>();
+      final client = MockClient((request) async {
+        await held.future;
+        return http.Response('{}', 200);
+      });
+      final network = FakeNetworkMonitor(const NetworkState(connected: true, metered: false));
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          networkMonitorProvider.overrideWithValue(network),
+        ],
+      )..read(deviceNetworkProvider);
+      await pumpEventQueue();
+      final asking = container.read(basemapReachabilityProvider.notifier).probe();
+      await pumpEventQueue();
+      network.change(const NetworkState(connected: false, metered: true));
+      await pumpEventQueue();
+      held.complete();
+      await asking;
+      expect(container.read(basemapReachabilityProvider), isFalse);
+    });
+
+    test('a probe that answers while the system still says no network is believed', () async {
+      final client = MockClient((request) async => http.Response('{}', 200));
+      final network = FakeNetworkMonitor(const NetworkState(connected: false, metered: true));
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          networkMonitorProvider.overrideWithValue(network),
+        ],
+      )..read(basemapReachabilityProvider);
+      await pumpEventQueue();
+      expect(container.read(basemapReachabilityProvider), isFalse);
+      // The system's word of the return lost: the fallback probe finds it.
+      await container.read(basemapReachabilityProvider.notifier).probe();
+      expect(container.read(basemapReachabilityProvider), isTrue);
+    });
+
     test('is asked again when the map rests on an answer 30 s old', () async {
       var now = DateTime.utc(2026, 10, 6, 12);
       var asked = 0;

@@ -421,7 +421,7 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'e0abf2ac2610e9b35b20579383f04153a6589ae1';
+String _$syncControllerHash() => r'29d08ad8ab7e2d8e00f1699e92ac522b764a142b';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,

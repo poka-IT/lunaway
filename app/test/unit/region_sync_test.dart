@@ -579,6 +579,25 @@ void main() {
       expect(synced(), ['ES']);
     });
 
+    test('a choice the user makes while the region is looked for wins', () async {
+      final service = build(catalog);
+      final sync = PlacesSync(
+        catalog: () async => catalog,
+        kept: kept,
+        regions: service.regions,
+        store: () => store,
+        legacy: SyncService(source: _NoBox(), store: places),
+        here: (_, {required guess}) async {
+          // The picker, saved while the outlines were read.
+          kept.value = {'ES'};
+          return (code: 'FR-BRE', located: true);
+        },
+      );
+      await sync.run();
+      expect(kept.value, {'ES'});
+      expect(synced(), ['ES']);
+    });
+
     test('with no region where the user is, nothing is kept and a later run chooses', () async {
       final progress = await build(catalog).run();
       expect(kept.value, isNull);

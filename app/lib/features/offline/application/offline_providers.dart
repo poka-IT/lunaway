@@ -669,6 +669,9 @@ class BasemapReachability extends _$BasemapReachability {
     _asking = true;
     _askedAt = ref.read(clockProvider)();
     final base = ref.read(appConfigProvider).basemapBase;
+    // What the phone's system said when the request left: only a change
+    // to "no network" while it was out outweighs its answer.
+    final wasConnected = ref.read(deviceNetworkProvider)?.connected != false;
     var reachable = false;
     try {
       final response = await ref
@@ -686,19 +689,20 @@ class BasemapReachability extends _$BasemapReachability {
     }
     if (!ref.mounted) return;
     // The browser went offline while the request was out: an answer from
-    // its service worker's copy would undo what it said. The same for a
-    // phone whose system said its network went meanwhile.
-    if (ref.read(browserProvider)?.online == false ||
-        ref.read(deviceNetworkProvider)?.connected == false) {
+    // its service worker's copy would undo what it said.
+    if (ref.read(browserProvider)?.online == false) {
       state = false;
       return;
     }
-    state = reachable;
+    // The phone's system said its network went while the request was out:
+    // a late answer does not undo it.
+    final wentMeanwhile = wasConnected && ref.read(deviceNetworkProvider)?.connected == false;
+    state = reachable && !wentMeanwhile;
     // A probe that ends after the app left the screen asks nothing more
     // until it comes back.
     if (_paused) return;
     _timer = Timer(
-      reachable ? const Duration(minutes: 10) : const Duration(minutes: 1),
+      state == true ? const Duration(minutes: 10) : const Duration(minutes: 1),
       () => unawaited(probe()),
     );
   }

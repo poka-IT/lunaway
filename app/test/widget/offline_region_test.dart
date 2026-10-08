@@ -249,6 +249,28 @@ void main() {
     });
   });
 
+  testWidgets('the network back, a region kept but still on its way is not offered', (
+    tester,
+  ) async {
+    final online = FakeOnlinePlaces(samplePlaces);
+    final app = await pumpLunaway(
+      tester,
+      size: desktop,
+      places: const [],
+      reachable: false,
+      online: online,
+      tilesFollowReachability: true,
+      regions: _catalog,
+      map: _overRennes(),
+      overrides: _quietSync(_Quiet()),
+    );
+    await _keep(app, tester, {'FR-BRE', 'FR'});
+    expect(find.text('Pas de connexion'), findsWidgets, reason: 'nothing of it on the device yet');
+    app.container(tester).read(basemapReachabilityProvider.notifier).assume(reachable: true);
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(find.text("Bretagne n'est pas sur cet appareil"), findsNothing);
+  });
+
   group('the region where the user goes', () {
     testWidgets('is offered once, over the map, and downloads on a tap', (tester) async {
       final feed = _Quiet();
@@ -410,6 +432,28 @@ void main() {
       feed.offline = false;
       network.change(const NetworkState(connected: true, metered: false));
       container.read(basemapReachabilityProvider.notifier).assume(reachable: true);
+      await settleShort(tester);
+      expect(feed.asked, contains('FR-BRE'));
+    });
+
+    testWidgets('leaving mobile data for Wi-Fi updates what waited', (tester) async {
+      final feed = _Quiet();
+      final network = FakeNetworkMonitor(const NetworkState(connected: true, metered: true));
+      final app = await pumpLunaway(
+        tester,
+        regions: _catalog,
+        network: network,
+        overrides: _quietSync(feed),
+      );
+      await _keep(app, tester, {'FR-BRE', 'FR'});
+      final store = app.container(tester).read(regionStoreProvider);
+      for (final code in ['FR-BRE', 'FR']) {
+        await store.beginFullSync(code);
+        await store.completeRun(code, testNow.subtract(const Duration(hours: 13)));
+      }
+      await settleShort(tester);
+      feed.asked.clear();
+      network.change(const NetworkState(connected: true, metered: false));
       await settleShort(tester);
       expect(feed.asked, contains('FR-BRE'));
     });

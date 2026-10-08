@@ -51,3 +51,10 @@ with a provider override. Network calls never leave a unit or widget test.
 - `flutter test integration_test/...` on a device uninstalls the app when
   it ends, with the data of whoever else uses that device: on the shared
   emulator pass `--no-uninstall` (`tool/screens/capture.py` does).
+- A build of one's own beside the others on the shared emulator:
+  `fvm flutter build apk --debug --flavor store -P testIdSuffix=.name`
+  installs as `legal.p2p.lunaway.name`, with data of its own.
+- Offline on a device: airplane mode by `adb shell cmd connectivity
+  airplane-mode enable|disable` on the emulator (restore it); a simulator
+  has none, so the app goes through `app/tool/offline/relay.py`, which
+  cuts and slows the network (`integration_test/offline_tour_test.dart`).
