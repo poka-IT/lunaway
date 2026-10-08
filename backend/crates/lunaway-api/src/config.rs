@@ -576,7 +576,9 @@ pub struct Quotas {
     /// summaries, which the change feed and the packs never carry: read 200
     /// places at a time without this bound, a client would copy them all in
     /// a minute; with it, an address reads 60 000 rows at once, then 60 000
-    /// an hour.
+    /// an hour, and the /64s of one IPv6 /48 four times as many together.
+    /// A smaller count keeps the rate and cuts the burst (`60/720`), at the
+    /// cost of a user who pans through many areas quickly.
     pub place_digests: Quota,
 }
 
