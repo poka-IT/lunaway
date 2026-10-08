@@ -88,7 +88,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   /// open by itself on a map of [size] ([LegendFit]). New bounds come with
   /// new marks, so new rows in the legend: while it stands open by itself,
   /// their fit waits for the frame that lays the legend out with them, then
-  /// takes its size.
+  /// takes its size, and follows it for [legendSettle].
   RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) {
     if (camera is! FitCamera) return camera;
     final legend = size.isEmpty || !legendShown ? null : _legend;
@@ -103,17 +103,18 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
     final fit = _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
     // New bounds: the room follows the legend for a while, then holds.
     if (kept?.bounds != fit.bounds) {
-      _settle?.cancel();
-      _settle = Timer(legendSettle, _fit.settle);
+      _settleTimer?.cancel();
+      _settleTimer = Timer(legendSettle, _fit.settle);
     }
     return fit;
   }
 
-  Timer? _settle;
+  /// Ends the time the room follows the legend after new bounds.
+  Timer? _settleTimer;
 
   @override
   void dispose() {
-    _settle?.cancel();
+    _settleTimer?.cancel();
     super.dispose();
   }
 
