@@ -271,6 +271,7 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-cameras-osm.service lunaway-enforcement-full.service"
 install_file files/usr/local/share/lunaway/osm-extracts.env /usr/local/share/lunaway/osm-extracts.env 0644 || true
 install_file files/usr/local/sbin/lunaway-extcom-inbox /usr/local/sbin/lunaway-extcom-inbox 0755 || true
+install_file files/usr/local/sbin/lunaway-unit-result /usr/local/sbin/lunaway-unit-result 0755 || true
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then

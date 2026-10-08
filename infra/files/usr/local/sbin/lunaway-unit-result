@@ -1,0 +1,41 @@
+#!/bin/sh
+# How the last run of a unit ended, for the health probe
+# (/usr/local/sbin/lunaway-health): one line "<ok|failed> <UTC seconds>
+# <result>" in /var/lib/lunaway-status/<name>.result. Run by the unit's
+# ExecStopPost=-+ line, as root, with the $SERVICE_RESULT systemd gives it.
+#
+#   ExecStopPost=-+/usr/local/sbin/lunaway-unit-result extcom-import
+#
+# A unit retried hourly after a failure reads "activating" during each
+# retry, not "failed", so a probe that looks at its state alone turns green
+# for as long as the retry runs (the import of a whole feed takes minutes).
+# This file keeps the last finished run instead. A run the unit's condition
+# skipped leaves it alone. Measured on the backend's systemd 257
+# (2026-10-08): $SERVICE_RESULT is exec-condition after a skip, exit-code
+# after a failure or a condition that exits 255, success otherwise.
+set -eu
+name="${1:-}"
+case "$name" in
+  "" | *[!a-z0-9-]*)
+    echo "usage: lunaway-unit-result <name: lower-case letters, digits, dashes>" >&2
+    exit 2
+    ;;
+esac
+result="${SERVICE_RESULT:-}"
+case "$result" in
+  exec-condition) exit 0 ;;
+  success) state=ok ;;
+  "")
+    echo "lunaway-unit-result: no SERVICE_RESULT; run from a unit's ExecStopPost=" >&2
+    exit 2
+    ;;
+  *) state=failed ;;
+esac
+case "$result" in *[!a-z-]*) result=other ;; esac
+# LUNAWAY_STATUS_DIR is for infra/tests/unit-result.sh only.
+dir="${LUNAWAY_STATUS_DIR:-/var/lib/lunaway-status}"
+mkdir -p "$dir"
+file="$dir/$name.result"
+printf '%s %s %s\n' "$state" "$(date -u +%s)" "$result" > "$file.new"
+chmod 0644 "$file.new"
+mv "$file.new" "$file"
