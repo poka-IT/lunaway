@@ -28,14 +28,6 @@ import 'package:lunaway/shared/theme/motion.dart';
 
 final _log = Logger('map');
 
-/// The map on macOS and Windows, where maplibre_gl has no implementation:
-/// MapLibre GL JS shipped in the app's assets, in a web view, driven through
-/// a small bridge (`assets/map/lunaway_map.js`). It draws the same layers as
-/// the native map, from the same [MapStyle] and the same pin images.
-///
-/// The web view holds the app's bridge, so it holds nothing but the map
-/// page: every other navigation is refused, and web links (the basemap's
-/// attribution) open in the browser.
 /// The sources and layers the desktop map's page installs, in the GL JS
 /// style syntax: what the page sets up and what it filters.
 @visibleForTesting
@@ -53,6 +45,14 @@ Map<String, Object?> webViewMapSpec({
   style: style,
 );
 
+/// The map on macOS and Windows, where maplibre_gl has no implementation:
+/// MapLibre GL JS shipped in the app's assets, in a web view, driven through
+/// a small bridge (`assets/map/lunaway_map.js`). It draws the same layers as
+/// the native map, from the same [MapStyle] and the same pin images.
+///
+/// The web view holds the app's bridge, so it holds nothing but the map
+/// page: every other navigation is refused, and web links (the basemap's
+/// attribution) open in the browser.
 class WebViewLunaMap extends ConsumerStatefulWidget {
   const new(this.props, {super.key});
 

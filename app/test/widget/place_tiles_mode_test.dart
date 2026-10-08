@@ -24,13 +24,14 @@ import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
 /// What the tile under a pin says of [p]: id, kind, night, name, position.
-PlaceSummary _fromTile(Place p) => PlaceSummary(
+PlaceSummary _fromTile(Place p, {double? rating}) => PlaceSummary(
   id: p.id,
   name: p.name,
   kind: p.kind,
   lat: p.lat,
   lon: p.lon,
   overnight: p.overnight,
+  ratingForFilters: rating,
 );
 
 /// [future] once the fake clock has moved on: what it waits for (a pause
@@ -413,6 +414,29 @@ void main() {
             .setFilter(const PlaceFilter(families: {KindFamily.campsites}));
         await settleShort(tester);
         expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, campsites);
+      });
+
+      // The audit's Viviers: "Afficher 9 lieux" in the sheet, then "7 lieux
+      // ici" under the list.
+      testWidgets('a minimum rating is counted on the same places as the list', (tester) async {
+        final (app, online) = await atAnnecy(tester);
+        app.map.lastProps!.onPlacesInView!([
+          _fromTile(lakeArea, rating: 4.5),
+          _fromTile(lakeCampsite, rating: 3.5),
+          _fromTile(boxParking, rating: 4.8),
+        ], view.bounds);
+        await settleShort(tester);
+        const fourStars = PlaceFilter(minRating: 4);
+        final count = await _watched(tester, app, filterPreviewCountProvider(fourStars).future);
+        expect(
+          count,
+          1,
+          reason: 'the lake area: the campsite is rated lower, the car park is out of view',
+        );
+        await app.container(tester).read(settingsProvider.notifier).setFilter(fourStars);
+        await settleShort(tester);
+        expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, count);
+        expect(online.requests.where((r) => r.startsWith('page:')), isEmpty);
       });
     });
 

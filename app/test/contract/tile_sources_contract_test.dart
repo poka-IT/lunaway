@@ -74,8 +74,21 @@ void main() {
         PlaceTiles.services,
         PlaceTiles.price,
         PlaceTiles.height,
+        PlaceTiles.rating,
         PlaceTiles.name,
         PlaceTiles.city,
+      ]),
+    );
+    // The filters run on the device over both layers (placeTileFilter).
+    expect(
+      (dots['fields']! as Map<String, Object?>).keys,
+      containsAll(<String>[
+        PlaceTiles.kind,
+        PlaceTiles.night,
+        PlaceTiles.services,
+        PlaceTiles.price,
+        PlaceTiles.height,
+        PlaceTiles.rating,
       ]),
     );
     final nameFrom = RegExp(r'from zoom (\d+)')
