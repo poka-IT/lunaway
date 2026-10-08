@@ -190,12 +190,14 @@ http://:$API_LISTEN {
 }
 EOF
 # The geocoders' loopback site on its own port, its upstreams (the
-# Géoplateforme, Photon on the private network) replaced by a stand-in that
-# answers with the host and the URI it was asked.
+# Géoplateforme, Photon and the translation server on the private network)
+# replaced by a stand-in that answers with the host and the URI it was
+# asked.
 GEO_PORT=18486
 sed -e "s|^http://127.0.0.1:8486 {|http://127.0.0.1:$GEO_PORT {|" \
     -e "s|https://data.geopf.fr|http://127.0.0.1:18487|" \
     -e "s|10.42.0.4:2322|127.0.0.1:18487|; s|10.42.0.4:2323|127.0.0.1:18487|" \
+    -e "s|10.42.0.4:2324|127.0.0.1:18487|" \
     "$INFRA/caddy/geocoders.caddy" > "$SCRATCH/geocoders.caddy"
 grep -q '18487' "$SCRATCH/geocoders.caddy" || { echo "no upstream to replace in geocoders.caddy" >&2; exit 1; }
 cat >> "$SCRATCH/Caddyfile" <<EOF
@@ -712,6 +714,16 @@ if [ "$MODE" = native ]; then
       failures=$((failures + 1))
     fi
   done
+  # A translation: the text in the body, the path kept.
+  got="$(curl -sS -w ' %{http_code}' -X POST -H 'Content-Type: application/json' \
+    -d '{"source":"de","target":"fr","text":"Ruhig und sauber"}' \
+    "http://127.0.0.1:$GEO_PORT/translator/translate")"
+  if [ "$got" = "127.0.0.1 /translate xff= 200" ]; then
+    echo "ok   geocoders /translator/translate: $got"
+  else
+    echo "FAIL geocoders /translator/translate: $got (want 127.0.0.1 /translate xff= 200)"
+    failures=$((failures + 1))
+  fi
   got="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$GEO_PORT/geocodage/search?q=x")"
   if [ "$got" = 404 ]; then
     echo "ok   geocoders: any other path 404"
@@ -737,6 +749,8 @@ grep -q '"uri":"/places/7/12/x/y.mvt"' <<<"$access_log" || leaks="$leaks no-mask
 grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 # The text of a search sent to the geocoders.
 grep -qiE 'segur|berlin' <<<"$access_log" && leaks="$leaks geocoded-text"
+# The text of a review sent to the translation server.
+grep -qi 'ruhig' <<<"$access_log" && leaks="$leaks translated-text"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
 # A photo of the external community source asked through the proxy.
 grep -q '0199a1b2' <<<"$access_log" && leaks="$leaks external-photo"

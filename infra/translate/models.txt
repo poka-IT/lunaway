@@ -1,0 +1,22 @@
+# The translation models (docs/deploy.md, "Translation"), one language pair
+# a line: the pair, the original OPUS-MT archive of the University of
+# Helsinki (Marian, CC BY 4.0, https://github.com/Helsinki-NLP/OPUS-MT),
+# and its SHA-256, computed on 2026-10-08 from the archive downloaded.
+# lunaway-translate-models downloads each, checks it, and converts it to
+# CTranslate2 int8. A pair without its own model goes through English.
+#
+# Chosen on real reviews (plan/research/77-traduction.md): the direct
+# models towards French scored above the Firefox Translations models,
+# which go through English; the larger model (transformer-big) where it
+# helped, German to French and French to English, the two pairs most
+# reviews need.
+de-fr https://object.pouta.csc.fi/Tatoeba-MT-models/deu-fra/opusTCv20210807_transformer-big_2022-07-22.zip e0fc65b2f21c9c38c06a3ac08742ccedcb5ca0d72e89473dbba997a1ffe63829
+nl-fr https://object.pouta.csc.fi/Tatoeba-MT-models/nld-fra/opus-2021-02-18.zip 7c4bbc3ffde8c33cc9f1b4726af24fb36b12fe4c4f03c9239d80d4da51acfaed
+es-fr https://object.pouta.csc.fi/OPUS-MT-models/es-fr/opus-2020-01-08.zip b9cd74d7eec4cd6b918cedd420229842a67aa163c034ebbe1c6b8de88b06356a
+it-fr https://object.pouta.csc.fi/OPUS-MT-models/it-fr/opus-2020-01-16.zip 34b76796cec986dc64149c22b21536096e3c7dd0b28e88beaf680af7dc919142
+en-fr https://object.pouta.csc.fi/OPUS-MT-models/en-fr/opus-2020-02-26.zip fd2431cea589bf136f11a7428f6f84ba960ce42c3e3f5009deef9e10a766d395
+fr-en https://object.pouta.csc.fi/Tatoeba-MT-models/fra-eng/opusTCv20210807+bt_transformer-big_2022-03-09.zip 61f0684da189ef6cacbf4202284a390648312f13c87a37cde079f2c18829bac2
+de-en https://object.pouta.csc.fi/Tatoeba-MT-models/deu-eng/opus+bt-2021-04-30.zip 53d2ce3c9ba04eadeaf83e52733cd35ef9f919bfbe033bbd870128d03747cc4d
+nl-en https://object.pouta.csc.fi/Tatoeba-MT-models/nld-eng/opus+bt-2021-04-30.zip 730aa9d3d0f19885091daeeece37711f783afc8e9458c7de7e090aae618f8996
+es-en https://object.pouta.csc.fi/Tatoeba-MT-models/spa-eng/opus+bt-2021-04-30.zip 8afd6970e8f3c5e96e34979fa4886aa3030972f7a060203d3bebc7114d280821
+it-en https://object.pouta.csc.fi/Tatoeba-MT-models/ita-eng/opus+bt-2021-04-30.zip 79f71c3d764ee45ef53420ba24749f3362fb6a6b0c14d84c1caa1caf88b13706

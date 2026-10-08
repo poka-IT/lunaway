@@ -73,6 +73,7 @@ if command -v python3 >/dev/null 2>&1; then
   run "liveness tests" python3 tool/harness/hooks/tests/test_agent_liveness.py
   run "web server tests" python3 app/tool/web/test_serve_csp.py
   run "unit restart tests" python3 infra/tests/unit-restart.py
+  run "translation server tests" python3 infra/tests/translate-server.py
 else
   echo "==> hook tests: skipped (no python3)"
 fi

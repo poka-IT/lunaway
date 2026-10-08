@@ -1,0 +1,11 @@
+# The translation server's Python packages (infra/translate/lunaway-translate.py),
+# compiled into requirements.txt with their hashes for the geocoding server
+# (Debian 13, CPython 3.13, x86_64):
+#   uv pip compile infra/translate/requirements.in --python-version 3.13 \
+#     --python-platform x86_64-manylinux_2_28 --only-binary :all: \
+#     --generate-hashes --no-header -o infra/translate/requirements.txt
+# CTranslate2 (MIT): the models' runtime, int8 on the CPU; it also converts
+# the original OPUS-MT archives (ct2-opus-mt-converter, with numpy and pyyaml).
+ctranslate2==4.8.2
+# SentencePiece (Apache-2.0): the models' vocabularies.
+sentencepiece==0.2.2

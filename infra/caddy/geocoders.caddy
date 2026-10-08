@@ -8,9 +8,12 @@
 #   /ban/...             the Base Adresse Nationale, IGN's Géoplateforme
 #   /photon/europe/...   Photon on the geocoding server, Europe
 #   /photon/morocco/...  Photon on the geocoding server, Morocco
+#   /translator/...      the translation server on the geocoding server
+#                        (backend/crates/lunaway-api/src/translate.rs)
 #
 # No access log: a line would hold the text searched. An error is logged by
-# the default logger, whose filter drops every query string (Caddyfile).
+# the default logger, whose filter drops every query string (Caddyfile); a
+# translation's text travels in the request's body, which no log holds.
 http://127.0.0.1:8486 {
 	bind 127.0.0.1
 
@@ -48,6 +51,19 @@ http://127.0.0.1:8486 {
 			transport http {
 				dial_timeout 2s
 				response_header_timeout 5s
+			}
+		}
+	}
+	# A description of 2 000 characters takes a few seconds; the API waits
+	# 20 s at most (LUNAWAY_TRANSLATE_TIMEOUT_MS).
+	handle_path /translator/* {
+		reverse_proxy 10.42.0.4:2324 {
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Proto
+			header_up -X-Forwarded-Host
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 25s
 			}
 		}
 	}

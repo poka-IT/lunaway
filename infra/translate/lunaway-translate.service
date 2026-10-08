@@ -1,0 +1,94 @@
+# Lunaway's translation server (docs/deploy.md, "Translation"), on the
+# geocoding server: OPUS-MT models on CTranslate2, answering the backend's
+# Caddy on the private network, which forwards the API's requests
+# (infra/caddy/geocoders.caddy). Installed by infra/server/translate.sh.
+[Unit]
+Description=Lunaway translation server (OPUS-MT on CTranslate2)
+Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
+After=network-online.target
+Wants=network-online.target
+# Before the first models there is nothing to serve: skip the unit
+# instead of failing it into its start limit.
+ConditionPathExists=/srv/translate/models/fr-en/current/lunaway.json
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/opt/lunaway-translate/venv/bin/python /usr/local/lib/lunaway-translate/server.py
+Environment=LUNAWAY_TRANSLATE_LISTEN=10.42.0.4:2324
+Environment=LUNAWAY_TRANSLATE_MODELS=/srv/translate/models
+# Two texts at once, two threads each: four of the eight cores at most,
+# the others left to Photon, which also has the larger CPU weight below.
+Environment=LUNAWAY_TRANSLATE_WORKERS=2
+Environment=LUNAWAY_TRANSLATE_THREADS=2
+Environment=LUNAWAY_TRANSLATE_BEAM=4
+Environment=LUNAWAY_TRANSLATE_QUEUE=8
+# The models' own threads read this; numpy's and OpenMP's would otherwise
+# start one per core.
+Environment=OMP_NUM_THREADS=2
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=2min
+TimeoutStopSec=20s
+
+User=translate
+Group=translate
+UMask=0077
+
+# Filesystem: the whole tree read-only, the models included; nothing is
+# written anywhere.
+ProtectSystem=strict
+ProtectHome=yes
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/translate/models
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+# Network: it listens on the private address, for the backend and for the
+# checks on this host, and connects to nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost 10.42.0.2/32 10.42.0.4/32
+SocketBindDeny=any
+SocketBindAllow=tcp:2324
+
+# Resources: the ten models take 1.3 GB resident, 1.8 GB with the files'
+# pages the unit read (measured 2026-10-08 after a start); a runaway
+# process is stopped before it takes Photon's page cache.
+MemoryHigh=2560M
+MemoryMax=3G
+CPUWeight=20
+CPUQuota=400%
+TasksMax=256
+LimitNOFILE=4096
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1015,6 +1015,33 @@ mod tests {
     }
 
     #[test]
+    fn the_translation_server_is_reached_through_the_loopback_only() {
+        let on = with(&[(
+            "LUNAWAY_TRANSLATE_URL",
+            " http://127.0.0.1:8486/translator/ ",
+        )])
+        .translate;
+        assert_eq!(on.url.as_deref(), Some("http://127.0.0.1:8486/translator"));
+        for elsewhere in [
+            "http://10.42.0.4:2324",
+            "https://translate.example/x",
+            "http://127.0.0.1:8486/translator?k=v",
+            "http://user@127.0.0.1:8486/translator",
+        ] {
+            assert_eq!(
+                with(&[("LUNAWAY_TRANSLATE_URL", elsewhere)]).translate.url,
+                None,
+                "a text leaves the host through Caddy only: {elsewhere}"
+            );
+        }
+        assert_eq!(
+            with(&[]).translate,
+            TranslateConfig::default(),
+            "off unless configured"
+        );
+    }
+
+    #[test]
     fn a_geocoder_is_reached_through_the_loopback_or_over_https_only() {
         let g = with(&[
             ("LUNAWAY_GEOCODE_BAN_URL", "http://127.0.0.1:8486/ban/"),
