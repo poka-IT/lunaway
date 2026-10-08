@@ -74,42 +74,69 @@ pub async fn replace_all(
     })
 }
 
+/// Places written per statement: the statement trigger that keeps the
+/// search's words joins the old and new rows of its statement, and one
+/// statement over every place ran into the role's statement timeout on
+/// production (the filter ratings, 2026-10-08, `place_ratings::BATCH`).
+const PLACES_BATCH: usize = 1_000;
+
 /// Gives every live place the commune that covers its point, else, for a
 /// French place, the nearest within 0.015 degree (as the conflation does),
 /// moving in the change feed only the places whose commune changed. Returns
 /// how many.
 ///
+/// The communes of every place are computed in one read; those that
+/// changed are written `PLACES_BATCH` (a thousand) at a time.
+///
 /// # Errors
 ///
-/// [`DbError`] when the statement fails.
+/// [`DbError`] when a statement fails.
 pub async fn refresh_places(tx: &mut WriterTx) -> Result<u64, DbError> {
-    let done = sqlx::query!(
+    let changed = sqlx::query!(
         r#"
-        WITH computed AS (
-            SELECT p.id, m.name, m.code
-            FROM places p
-            LEFT JOIN LATERAL (
-                -- As the conflation does: the covering commune, else, for a
-                -- French place, the nearest within 0.015 degree.
-                SELECT name, code FROM municipalities mm
-                WHERE ST_DWithin(mm.geom, p.geom::geometry,
-                                 CASE WHEN upper(p.country_code) = 'FR' THEN 0.015 ELSE 0.0 END)
-                ORDER BY NOT ST_Covers(mm.geom, p.geom::geometry),
-                         ST_Distance(mm.geom, p.geom::geometry), code
-                LIMIT 1
-            ) m ON true
-            WHERE p.deleted_at IS NULL
-        )
-        UPDATE places p
-        SET municipality = c.name, municipality_code = c.code,
-            updated_at = now(), updated_seq = nextval('place_change_seq')
-        FROM computed c
-        WHERE p.id = c.id
-          AND (p.municipality IS DISTINCT FROM c.name
-               OR p.municipality_code IS DISTINCT FROM c.code)
+        SELECT p.id, m.name AS "name?", m.code AS "code?"
+        FROM places p
+        LEFT JOIN LATERAL (
+            -- As the conflation does: the covering commune, else, for a
+            -- French place, the nearest within 0.015 degree.
+            SELECT name, code FROM municipalities mm
+            WHERE ST_DWithin(mm.geom, p.geom::geometry,
+                             CASE WHEN upper(p.country_code) = 'FR' THEN 0.015 ELSE 0.0 END)
+            ORDER BY NOT ST_Covers(mm.geom, p.geom::geometry),
+                     ST_Distance(mm.geom, p.geom::geometry), code
+            LIMIT 1
+        ) m ON true
+        WHERE p.deleted_at IS NULL
+          AND (p.municipality IS DISTINCT FROM m.name
+               OR p.municipality_code IS DISTINCT FROM m.code)
+        -- In the order of the primary key: each batch touches a run of it.
+        ORDER BY p.id
         "#
     )
-    .execute(tx.conn())
+    .fetch_all(tx.conn())
     .await?;
-    Ok(done.rows_affected())
+    let mut written = 0;
+    for batch in changed.chunks(PLACES_BATCH) {
+        let ids: Vec<uuid::Uuid> = batch.iter().map(|r| r.id).collect();
+        let names: Vec<Option<&str>> = batch.iter().map(|r| r.name.as_deref()).collect();
+        let codes: Vec<Option<&str>> = batch.iter().map(|r| r.code.as_deref()).collect();
+        written += sqlx::query!(
+            r#"
+            UPDATE places p
+            SET municipality = u.name, municipality_code = u.code,
+                updated_at = now(), updated_seq = nextval('place_change_seq')
+            FROM unnest($1::uuid[], $2::text[], $3::text[]) AS u(id, name, code)
+            WHERE p.id = u.id
+              AND (p.municipality IS DISTINCT FROM u.name
+                   OR p.municipality_code IS DISTINCT FROM u.code)
+            "#,
+            &ids,
+            &names as &[Option<&str>],
+            &codes as &[Option<&str>],
+        )
+        .execute(tx.conn())
+        .await?
+        .rows_affected();
+    }
+    Ok(written)
 }

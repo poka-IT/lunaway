@@ -426,6 +426,91 @@ fn square(code: &str, name: &str, lat: f64, lon: f64, half: f64) -> Municipality
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn the_communes_of_more_places_than_a_batch_are_written_a_thousand_at_a_time(pool: PgPool) {
+    // 2 500 French places in one commune: statements of a thousand places
+    // at most, as the filter ratings, whose single statement over every
+    // place ran into the statement timeout on production (2026-10-08).
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash, country_code) \
+         SELECT gen_random_uuid(), 'parking', \
+                ST_SetSRID(ST_MakePoint(6.1 + i * 0.00001, 45.9), 4326)::geography, \
+                'allowed', 'x', 'FR' \
+         FROM generate_series(1, 2500) AS i",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    // Each statement's rows, as the trigger of the search's words sees them.
+    sqlx::raw_sql(
+        "CREATE TABLE statement_rows (n bigint NOT NULL);
+         CREATE FUNCTION count_statement_rows() RETURNS trigger LANGUAGE plpgsql AS $$
+         BEGIN INSERT INTO statement_rows SELECT count(*) FROM written; RETURN NULL; END $$;
+         CREATE TRIGGER count_statement_rows AFTER UPDATE ON places
+             REFERENCING NEW TABLE AS written
+             FOR EACH STATEMENT EXECUTE FUNCTION count_statement_rows();",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    let stats = municipalities::replace_all(
+        &mut tx,
+        &[square("74010", "Annecy", 45.9, 6.12, 0.05)],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(stats.places_changed, 2_500);
+    let statements: Vec<i64> = sqlx::query_scalar("SELECT n FROM statement_rows ORDER BY n DESC")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        statements,
+        [1_000, 1_000, 500],
+        "a thousand rows a statement: one statement of every place joins its rows quadratically"
+    );
+    let without: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM places \
+         WHERE municipality IS DISTINCT FROM 'Annecy' OR municipality_code IS DISTINCT FROM '74010'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(without, 0, "every batch wrote its places");
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    assert_eq!(
+        municipalities::refresh_places(&mut tx).await.unwrap(),
+        0,
+        "and nothing is left to write"
+    );
+    tx.commit().await.unwrap();
+
+    // The commune gone (a new year's file without it): every place loses
+    // it, a null name and code written through the same batches.
+    let before = places::last_seq(&pool).await.unwrap();
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    let stats = municipalities::replace_all(&mut tx, &[], Utc::now())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(stats.places_changed, 2_500);
+    let still: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM places WHERE municipality IS NOT NULL OR municipality_code IS NOT NULL \
+         OR updated_seq <= $1",
+    )
+    .bind(before)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        still, 0,
+        "every place lost its commune and moved in the feed, so devices drop the name"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_town_s_name_finds_its_places_before_names_that_share_letters(pool: PgPool) {
     // The places of the production report: "annecy" listed spots that only
     // share "anne", and missed the car park of Annecy whose sources give no

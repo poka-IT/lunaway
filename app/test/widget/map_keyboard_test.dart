@@ -36,9 +36,9 @@ void main() {
   // Where a mouse is at hand the map has zoom buttons, as in a browser.
   final mouse = TargetPlatformVariant.only(TargetPlatform.macOS);
   const zoom = ['Zoomer', 'Dézoomer'];
-  // The list beside the map, with its header (the count and the order).
-  final listPane = find.byWidgetPredicate((w) => w is NearbyList || w is NearbyCount);
 
+  // The list pane: its header (the count and the sort) and its rows.
+  final listPane = find.byWidgetPredicate((w) => w is NearbyCount || w is NearbyList);
   final layouts = <(String, Size, TestVariant<Object?>, List<String>, Finder)>[
     ('phone', phone, const DefaultTestVariant(), const [], find.byType(SpringSheet)),
     ('tablet', tablet, mouse, zoom, listPane),
@@ -101,7 +101,7 @@ void main() {
           _nameOf(forward[at - 1]),
         ], reason: 'Shift+Tab walks the same way back');
 
-        // On round the whole window, back to the search: no stop shows
+        // One round of the whole window, back to the search: no stop shows
         // nothing.
         final round = [...forward];
         for (var i = 0; i < 80; i++) {

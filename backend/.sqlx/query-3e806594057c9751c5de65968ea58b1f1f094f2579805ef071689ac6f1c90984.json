@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id, m.name AS \"name?\", m.code AS \"code?\"\n        FROM places p\n        LEFT JOIN LATERAL (\n            -- As the conflation does: the covering commune, else, for a\n            -- French place, the nearest within 0.015 degree.\n            SELECT name, code FROM municipalities mm\n            WHERE ST_DWithin(mm.geom, p.geom::geometry,\n                             CASE WHEN upper(p.country_code) = 'FR' THEN 0.015 ELSE 0.0 END)\n            ORDER BY NOT ST_Covers(mm.geom, p.geom::geometry),\n                     ST_Distance(mm.geom, p.geom::geometry), code\n            LIMIT 1\n        ) m ON true\n        WHERE p.deleted_at IS NULL\n          AND (p.municipality IS DISTINCT FROM m.name\n               OR p.municipality_code IS DISTINCT FROM m.code)\n        -- In the order of the primary key: each batch touches a run of it.\n        ORDER BY p.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "municipalities",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "code?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "municipalities",
+            "name": "code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3e806594057c9751c5de65968ea58b1f1f094f2579805ef071689ac6f1c90984"
+}

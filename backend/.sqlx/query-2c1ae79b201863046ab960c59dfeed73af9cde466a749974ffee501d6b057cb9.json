@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE places p\n            SET municipality = u.name, municipality_code = u.code,\n                updated_at = now(), updated_seq = nextval('place_change_seq')\n            FROM unnest($1::uuid[], $2::text[], $3::text[]) AS u(id, name, code)\n            WHERE p.id = u.id\n              AND (p.municipality IS DISTINCT FROM u.name\n                   OR p.municipality_code IS DISTINCT FROM u.code)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2c1ae79b201863046ab960c59dfeed73af9cde466a749974ffee501d6b057cb9"
+}
